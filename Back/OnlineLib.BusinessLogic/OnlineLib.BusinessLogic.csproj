@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="10.1.1" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.2" />
+    <PackageReference Include="MailKit" Version="2.10.0" />
+    <PackageReference Include="MimeKit" Version="2.10.1" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OnlineLib.Common\OnlineLib.Common.csproj" />
+    <ProjectReference Include="..\OnlineLib.DataAccess\OnlineLib.DataAccess.csproj" />
+    <ProjectReference Include="..\OnlineLib.Interfaces\OnlineLib.Interfaces.csproj" />
+  </ItemGroup>
+
+</Project>

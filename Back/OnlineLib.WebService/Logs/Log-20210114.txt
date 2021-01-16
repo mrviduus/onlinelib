@@ -1,0 +1,4 @@
+2021-01-14T18:20:40.1399433+02:00  [INF] Now listening on: "http://localhost:4000" (d826f4b8)
+2021-01-14T18:20:40.1445958+02:00  [INF] Application started. Press Ctrl+C to shut down. (dcaefe54)
+2021-01-14T18:20:40.1460412+02:00  [INF] Hosting environment: "Development" (c3307c92)
+2021-01-14T18:20:40.1474500+02:00  [INF] Content root path: "C:\MyProjects\github\onLib\onlinelib\Back\OnlineLib.WebService" (b5d60022)

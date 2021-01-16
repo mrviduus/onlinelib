@@ -1,0 +1,19 @@
+﻿<!-- REVISION 25.07.2019 -->
+<RuleSet Name="Rules for QQI Projects with StyleCop" ToolsVersion="10.0">
+  <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
+    <!--UsingDirectivesMustBePlacedCorrectly-->
+    <Rule Id="SA1200" Action="None" />
+    <!--DoNotUseRegions-->
+    <Rule Id="SA1124" Action="None" />
+    <!--UseTrailingCommasInMultiLineInitializers-->
+    <Rule Id="SA1413" Action="None" />
+    <!--Documentation rules-->
+    <Rule Id="SA0001" Action="None" />
+    <Rule Id="SA1600" Action="None" />
+    <Rule Id="SA1601" Action="None" />
+    <Rule Id="SA1602" Action="None" />
+    <Rule Id="SA1611" Action="None" />
+    <Rule Id="SA1652" Action="None" />
+    <Rule Id="SA1629" Action="None" />
+  </Rules>
+</RuleSet>

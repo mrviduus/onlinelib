@@ -1,0 +1,38 @@
+<div class="p-4">
+    <div class="container">
+<h1>Articles</h1>
+<p>All Articles</p>
+<a routerLink="add" class="btn btn-sm btn-success mb-2">Create Article</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:30%">Name</th>
+            <th style="width:30%">Description</th>
+            <th style="width:30%">Icon</th>
+            <th style="width:10%"></th>
+            
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let article of articles">
+            <td>{{article.title}}</td>
+            <td>{{article.summary}}</td>
+            <td><img style="height: 40px;" src="{{article.cover}}"></td>
+            <td style="white-space: nowrap">
+                <a routerLink="edit/{{article.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
+                <button (click)="deleteCategory(article.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="article.isDeleting">
+                    <span *ngIf="article.isDeleting" class="spinner-border spinner-border-sm"></span>
+                    <span *ngIf="!article.isDeleting">Delete</span>
+                </button>
+            </td>
+        </tr>
+        <tr *ngIf="!articles">
+            <td colspan="4" class="text-center">
+                <span class="spinner-border spinner-border-lg align-center"></span>
+            </td>
+        </tr>
+    </tbody>
+
+</table>
+</div>
+</div>

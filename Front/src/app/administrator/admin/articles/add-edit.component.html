@@ -1,0 +1,142 @@
+﻿<div class="p-4">
+    <div class="container">
+<h1 *ngIf="isAddMode">Create Artilce</h1>
+<h1 *ngIf="!isAddMode">Edit Artilce</h1>
+<form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="form-row">
+        <div class="form-group col-7">
+            <label>Artilce Title</label>
+            <input type="text" formControlName="title" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.title.errors }" />
+            <div *ngIf="submitted && f.title.errors" class="invalid-feedback">
+                <div *ngIf="f.title.errors.required">Title is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Summury</label>
+            <input type="text" formControlName="summary" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.summary.errors }" />
+            <div *ngIf="submitted && f.summary.errors" class="invalid-feedback">
+                <div *ngIf="f.summary.errors.required">Summary is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Content</label>
+            <input type="text" formControlName="htmlContent" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.htmlContent.errors }" />
+            <div *ngIf="submitted && f.htmlContent.errors" class="invalid-feedback">
+                <div *ngIf="f.htmlContent.errors.required">HtmlContent is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Markdown Content</label>
+            <input type="text" formControlName="markdownContent" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.markdownContent.errors }" />
+            <div *ngIf="submitted && f.markdownContent.errors" class="invalid-feedback">
+                <div *ngIf="f.markdownContent.errors.required">MarkdownContent is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Author</label>
+            <input type="text" formControlName="author" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.author.errors }" />
+            <div *ngIf="submitted && f.author.errors" class="invalid-feedback">
+                <div *ngIf="f.author.errors.required">Author is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Tags</label>
+            <input type="text" formControlName="tags" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.tags.errors }" />
+            <div *ngIf="submitted && f.tags.errors" class="invalid-feedback">
+                <div *ngIf="f.tags.errors.required">Tags is required</div>
+            </div>
+        </div>
+        <!--div class="form-group col-7">
+            <label>Is Published?</label>
+            <select formControlName="isPublished" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.isPublished.errors }">
+                <option value={{true}}>Yes</option>
+                <option value={{false}}>No</option>                
+            </select>
+        </div-->
+        <div class="form-group col-7">
+            <label>Creation Time</label>
+            <input type="text" formControlName="creationTime" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.creationTime.errors }" readonly/>
+            <div *ngIf="submitted && f.creationTime.errors" class="invalid-feedback">
+                <div *ngIf="f.creationTime.errors.required">Creation time is required</div>
+            </div>
+        </div>
+        <div class="form-group col-7">
+            <label>Page Name</label>
+            <input type="text" formControlName="pageName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.pageName.errors }" />
+            <div *ngIf="submitted && f.pageName.errors" class="invalid-feedback">
+                <div *ngIf="f.pageName.errors.required">Page Name is required</div>
+            </div>
+        </div>
+
+        <div class="form-group col-7">
+            <label>Content Language</label>
+            <select formControlName="contentLanguage" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.contentLanguage.errors }">
+                <option value="RU">RU</option>
+                <option value="UA">UA</option>                
+            </select>
+        </div>
+
+        <div class="form-group col-7">
+            <label>Views</label>
+            <input type="text" formControlName="views" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.views.errors }" readonly />
+            <!--div *ngIf="submitted && f.views.errors" class="invalid-feedback">
+                <div *ngIf="f.views.errors.required">Views is required</div>
+            </div-->
+        </div>
+        <div class="form-group col-7">
+            <label>Likes</label>
+            <input type="text" formControlName="likes" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.likes.errors }" readonly />
+            <!--div *ngIf="submitted && f.likes.errors" class="invalid-feedback">
+                <div *ngIf="f.likes.errors.required">likes is required</div>
+            </div-->
+        </div>
+
+        <div class="form-group col-7">
+            <label>Comments Count</label>
+            <input type="text" formControlName="commentsCount" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.commentsCount.errors }" readonly />
+            <!--div *ngIf="submitted && f.commentsCount.errors" class="invalid-feedback">
+                <div *ngIf="f.commentsCount.errors.required">commentsCount is required</div>
+            </div-->
+        </div>
+        
+
+    </div>
+    <div class="form-row">
+        <div class="form-group col-7">
+            <label>Parent Category</label>
+            <select formControlName="categoryId" class="form-control">
+                <option value=""></option>
+                <option *ngFor="let obj of categories" [ngValue]="obj.id">{{obj.name}}</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-7">
+            <label>Cover</label>
+            <br>
+            <img [src]="img" style="height: 200px;" class="img-thumbnail">
+            <br>
+            <input type='file'  (change)="onSelectFile($event)">
+            <br>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-sm-2">Is Published?</div>
+        <div class="col-sm-10">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="isPublished">
+          </div>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <button [disabled]="loading" class="btn btn-primary">
+            <span *ngIf="loading" class="spinner-border spinner-border-sm mr-1"></span>
+            Save
+        </button>
+        <a routerLink="/admin/categories" class="btn btn-link">Cancel</a>
+    </div>
+</form>
+</div>
+</div>

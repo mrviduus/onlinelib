@@ -1,0 +1,14 @@
+*.suo
+*.user
+_ReSharper.*
+bin
+obj
+packages
+Back/.vs/OnlineLib/DesignTimeBuild/.dtbcache.v2
+Back/.vs
+Back/OnlineLib.BusinessLogic/bin
+Back/OnlineLib.BusinessLogic/obj
+Back/OnlineLib.BusinessLogicTests/bin
+
+Back/.vs/OnlineLib/DesignTimeBuild/.dtbcache.v2
+Back/.vs/OnlineLib/v16/.suo
