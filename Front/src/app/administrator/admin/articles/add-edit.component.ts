@@ -7,7 +7,8 @@ import { first } from 'rxjs/operators';
 import { ArticlesService, AlertService, CategoryService } from '@app/_services';
 import { MustMatch } from '@app/_helpers';
 import { ArticleDto } from '@app/_models/admin/articleDto';
-import { DatePipe } from '@angular/common'
+import { DatePipe } from '@angular/common';
+
 
 @Component({ 
     templateUrl: 'add-edit.component.html',
@@ -27,8 +28,6 @@ export class AddEditComponent implements OnInit {
 
     newDate = Date.now();
     saveDate: any;
-
-    isPublished: boolean;
 
     constructor(
         private formBuilder: FormBuilder,
@@ -62,7 +61,7 @@ export class AddEditComponent implements OnInit {
             categoryId: ['', Validators.required],
             author: ['', Validators.required],
             tags: ['', Validators.required],
-            isPublished: [null, Validators.required],
+            isPublished: [null],
             creationTime: [''],
             pageName: ['', Validators.required],
             cover: [''],

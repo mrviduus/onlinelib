@@ -14,6 +14,8 @@ import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
 import { HomeComponent } from './administrator/admin/home';
+import { QuillModule } from 'ngx-quill';
+import { FormsModule } from '@angular/forms';
 
 
 
@@ -23,6 +25,8 @@ import { HomeComponent } from './administrator/admin/home';
         ReactiveFormsModule,
         HttpClientModule,
         AppRoutingModule,
+        QuillModule.forRoot(),
+        FormsModule
     ],
     declarations: [
         AppComponent,
@@ -38,6 +42,7 @@ import { HomeComponent } from './administrator/admin/home';
         // provider used to create fake backend
         //fakeBackendProvider
     ],
-    bootstrap: [AppComponent]
+    bootstrap: [AppComponent],
+    exports:[QuillModule]
 })
 export class AppModule { }

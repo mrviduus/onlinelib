@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ArticlesService } from '@app/_services';
 import { first } from 'rxjs/operators';
 
+
 @Component({
   selector: 'app-list-category',
   templateUrl: './list-articles.component.html',
@@ -9,6 +10,7 @@ import { first } from 'rxjs/operators';
 })
 export class ListCategoryComponent implements OnInit {
   articles: any[];
+  searchArticles = '';
   constructor(private articlesService : ArticlesService) { }
 
   ngOnInit(): void {

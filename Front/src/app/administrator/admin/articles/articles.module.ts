@@ -5,18 +5,22 @@ import { CommonModule } from '@angular/common';
 import { ArticlesRoutingModule } from './articles-routing.module';
 import { ListCategoryComponent } from './list-articles.component';
 import { AddEditComponent } from './add-edit.component';
-import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { QuillModule } from 'ngx-quill';
+import { FormsModule } from '@angular/forms';
+import { SearchArticlesPipe } from '@app/_pipes/searchArticles.pipe';
 
 @NgModule({
     imports: [
         CommonModule,
         ReactiveFormsModule,
         ArticlesRoutingModule,
-        NgbModule
+        QuillModule,
+        FormsModule
     ],
     declarations: [
         ListCategoryComponent,
-        AddEditComponent
+        AddEditComponent,
+        SearchArticlesPipe
     ]
 })
 export class ArticlesModule { }

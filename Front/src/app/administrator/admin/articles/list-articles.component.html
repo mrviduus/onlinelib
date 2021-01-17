@@ -2,20 +2,26 @@
     <div class="container">
 <h1>Articles</h1>
 <p>All Articles</p>
+
 <a routerLink="add" class="btn btn-sm btn-success mb-2">Create Article</a>
+<!--Search-->
+<div class="form-group has-search" >
+    <span class="fa fa-search form-control-feedback"></span>
+    <input type="text" class="form-control" placeholder="Search" [(ngModel)]="searchArticles">
+</div>
 <table class="table table-striped">
     <thead>
         <tr>
             <th style="width:30%">Name</th>
-            <th style="width:30%">Description</th>
-            <th style="width:30%">Icon</th>
+            <th style="width:30%">Summury</th>
+            <th style="width:30%">Cover</th>
             <th style="width:10%"></th>
             
         </tr>
     </thead>
     <tbody>
-        <tr *ngFor="let article of articles">
-            <td>{{article.title}}</td>
+        <tr *ngFor="let article of articles | searchArticles: searchArticles;">
+            <td>{{article.pageName}}</td>
             <td>{{article.summary}}</td>
             <td><img style="height: 40px;" src="{{article.cover}}"></td>
             <td style="white-space: nowrap">
