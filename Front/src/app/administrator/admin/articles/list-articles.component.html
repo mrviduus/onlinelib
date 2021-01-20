@@ -20,7 +20,10 @@
         </tr>
     </thead>
     <tbody>
-        <tr *ngFor="let article of articles | searchArticles: searchArticles;">
+        <tr *ngFor="let article of articles | searchArticles: searchArticles | paginate: { id: 'articlePagination',
+        itemsPerPage: perPage,
+        currentPage: p,
+        totalItems: totalLength }">
             <td>{{article.pageName}}</td>
             <td>{{article.summary}}</td>
             <td><img style="height: 40px;" src="{{article.cover}}"></td>
@@ -40,5 +43,9 @@
     </tbody>
 
 </table>
+<div>
+    <pagination-controls id="articlePagination" maxSize = "5" directionLinks = "true" (pageChange)="p = $event"></pagination-controls>
+
+</div>
 </div>
 </div>

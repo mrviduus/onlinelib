@@ -8,6 +8,7 @@ import { AddEditComponent } from './add-edit.component';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
 import { SearchArticlesPipe } from '@app/_pipes/searchArticles.pipe';
+import { NgxPaginationModule } from 'ngx-pagination';
 
 @NgModule({
     imports: [
@@ -15,7 +16,8 @@ import { SearchArticlesPipe } from '@app/_pipes/searchArticles.pipe';
         ReactiveFormsModule,
         ArticlesRoutingModule,
         QuillModule,
-        FormsModule
+        FormsModule,
+        NgxPaginationModule
     ],
     declarations: [
         ListCategoryComponent,

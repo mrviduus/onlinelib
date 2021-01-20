@@ -11,13 +11,22 @@ import { first } from 'rxjs/operators';
 export class ListCategoryComponent implements OnInit {
   articles: any[];
   searchArticles = '';
+  //pagination
+  p: number =1;
+  totalLength: number;
+  perPage = 5;
+
+
+
   constructor(private articlesService : ArticlesService) { }
 
   ngOnInit(): void {
     this.articlesService.getAll()
         .pipe(first())
-        .subscribe(categories => this.articles = categories);
-        //this.categories = this.categories.find(x => x.id === x.parentId).select(x => x.name);
+        .subscribe((value) => {
+          this.articles = value;
+          this.totalLength = value.length; 
+        });        
   }
 
   deleteCategory(id: string) {

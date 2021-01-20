@@ -16,6 +16,7 @@ import { AlertComponent } from './_components';
 import { HomeComponent } from './administrator/admin/home';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
+import { NgxPaginationModule } from 'ngx-pagination';
 
 
 
@@ -26,7 +27,8 @@ import { FormsModule } from '@angular/forms';
         HttpClientModule,
         AppRoutingModule,
         QuillModule.forRoot(),
-        FormsModule
+        FormsModule,
+        NgxPaginationModule
     ],
     declarations: [
         AppComponent,
