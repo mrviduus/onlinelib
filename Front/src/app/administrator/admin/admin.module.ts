@@ -9,6 +9,7 @@ import { OverviewComponent } from './overview.component';
 import { CategoryModule } from './categories/category.module'
 import { from } from 'rxjs';
 import { ArticlesModule } from './articles/articles.module';
+import { CommentsModule } from './comments/comments.module';
 import { FormsModule } from '@angular/forms';
 
 
@@ -21,8 +22,8 @@ import { FormsModule } from '@angular/forms';
         AdminRoutingModule,
         CategoryModule,
         ArticlesModule,
-        FormsModule,
-        
+        CommentsModule,
+        FormsModule,        
     ],
     declarations: [
         SubNavComponent,

@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 
 namespace OnlineLib.DataAccess.Common
 {
-    internal class GenericRepository<TEntity, TKey> : IGenericRepository<TEntity, TKey> where TEntity : class
+    internal class GenericRepository<TEntity, TKey> : IGenericRepository<TEntity, TKey>
+        where TEntity : class
     {
         public ApplicationDatabaseContext context;
         public DbSet<TEntity> dbSet;
@@ -83,6 +84,5 @@ namespace OnlineLib.DataAccess.Common
             }
             this.dbSet.Remove(entityToDelete);
         }
-
     }
 }

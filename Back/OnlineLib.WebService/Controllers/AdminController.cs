@@ -89,13 +89,12 @@ namespace OnlineLib.WebService.Controllers
         }
 
         [HttpDelete("DeleteCategory")]
-        public async Task<IActionResult> DeleteCategory(Guid id)
+        public async Task DeleteCategory(Guid id)
         {
             await this.adminManager.DeleteCategory(id);
 
             this.logger.LogInformation("Category was deleted");
 
-            return this.Ok(new { message = "Category was deleted" });
         }
 
         [HttpPost("CreateArticle")]
@@ -135,7 +134,7 @@ namespace OnlineLib.WebService.Controllers
         [HttpGet("GetArticles")]
         public async Task<IActionResult> GetArticles()
         {
-            var articles = await this.adminManager.GetArticles();
+            IEnumerable<ArticleDto> articles = await this.adminManager.GetArticles();
 
             this.logger.LogInformation("Return all article");
 
@@ -143,13 +142,11 @@ namespace OnlineLib.WebService.Controllers
         }
 
         [HttpDelete("DeleteArticle")]
-        public async Task<IActionResult> DeleteArticles(Guid id)
+        public async Task DeleteArticles(Guid id)
         {
             await this.adminManager.DeleteArticle(id);
 
             this.logger.LogInformation("Article was deleted");
-
-            return Ok(new { message = "Article was deleted" });
         }
 
         [HttpPost("CreateComment")]
@@ -173,33 +170,32 @@ namespace OnlineLib.WebService.Controllers
         }
 
         [HttpDelete("DeleteComment")]
-        public async Task<IActionResult> DeleteComment(List<Guid> ids)
+        public async Task DeleteComment(Guid id)
         {
-            await this.adminManager.DeleteComments(ids);
+            await this.adminManager.DeleteComment(id);
 
             this.logger.LogInformation("Comment was deleted");
+        }
 
-            return Ok(new { message = "Comment was deleted" });
+        [HttpGet("GetComments")]
+        public async Task<IActionResult> GetComments()
+        {
+            IEnumerable<CommentDto> comments = await this.adminManager.GetComments();
+
+            this.logger.LogInformation("Return all comments");
+
+            return Ok(comments);
         }
 
         [HttpGet("GetComment")]
         public async Task<IActionResult> GetComment(Guid id)
         {
-            var comment = this.adminManager.GetComment(id);
+            var comment = await this.adminManager.GetComment(id);
 
             this.logger.LogInformation("Return comment by id");
 
             return Ok(comment);
         }
 
-        [HttpGet("GetComments")]
-        public async Task<IActionResult> GetComments()
-        {
-            var comments = this.adminManager.GetComments();
-
-            this.logger.LogInformation("Return all comments");
-
-            return Ok(comments);
-        }
     }
 }

@@ -55,8 +55,10 @@ namespace OnlineLib.WebService.Configuration
             this.CreateMap<ArticleDto, Article>().
                 ForMember(dest => dest.ModifiedBy, o => o.MapFrom(src => src.Author));
 
-            this.CreateMap<Comment, CommentDto>();
-            this.CreateMap<CommentDto, Comment>();
+            this.CreateMap<Comment, CommentDto>().
+                ForMember(dest => dest.Author, o => o.MapFrom(src => src.ModifiedBy));
+            this.CreateMap<CommentDto, Comment>().
+                ForMember(dest => dest.ModifiedBy, o => o.MapFrom(src => src.Author));
 
         }
     }

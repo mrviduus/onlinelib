@@ -1,0 +1,51 @@
+<div class="p-4">
+    <div class="container">
+<h1>Comments</h1>
+<p>All Comments</p>
+
+<a routerLink="add" class="btn btn-sm btn-success mb-2">Create Comment</a>
+<!--Search-->
+<div class="form-group has-search" >
+    <span class="fa fa-search form-control-feedback"></span>
+    <input type="text" class="form-control" placeholder="Search" [(ngModel)]="searchComments">
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:30%">ID</th>
+            <th style="width:30%">Author</th>
+            <th style="width:30%">Content</th>
+            <th style="width:10%"></th>
+            
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let comment of comments | searchComments: searchComments | paginate: { id: 'commentsPagination',
+        itemsPerPage: perPage,
+        currentPage: p,
+        totalItems: totalLength }">
+            <td>{{comment.id}}</td>
+            <td>{{comment.author}}</td>
+            <td>{{comment.content}}</td>
+            <td style="white-space: nowrap">
+                <a routerLink="edit/{{comment.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
+                <button (click)="deletComment(comment.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="comment.isDeleting">
+                    <span *ngIf="comment.isDeleting" class="spinner-border spinner-border-sm"></span>
+                    <span *ngIf="!comment.isDeleting">Delete</span>
+                </button>
+            </td>
+        </tr>
+        <tr *ngIf="!comments">
+            <td colspan="4" class="text-center">
+                <span class="spinner-border spinner-border-lg align-center"></span>
+            </td>
+        </tr>
+    </tbody>
+
+</table>
+<div>
+    <pagination-controls id="commentsPagination" maxSize = "5" directionLinks = "true" (pageChange)="p = $event"></pagination-controls>
+
+</div>
+</div>
+</div>

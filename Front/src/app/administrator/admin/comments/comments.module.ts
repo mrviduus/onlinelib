@@ -2,27 +2,27 @@ import { NgModule } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
-import { ArticlesRoutingModule } from './articles-routing.module';
-import { ListArticlesComponent } from './list-articles.component';
+import { CommentsRoutingModule } from './comments-routing.module';
+import { ListCommentsComponent } from './list-comments.component';
 import { AddEditComponent } from './add-edit.component';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
-import { SearchArticlesPipe } from '@app/_pipes/searchArticles.pipe';
+import { SearchCommentsPipe } from '@app/_pipes/searchComments.pipe';
 import { NgxPaginationModule } from 'ngx-pagination';
 
 @NgModule({
     imports: [
         CommonModule,
         ReactiveFormsModule,
-        ArticlesRoutingModule,
+        CommentsRoutingModule,
         QuillModule,
         FormsModule,
         NgxPaginationModule
     ],
     declarations: [
-        ListArticlesComponent,
+        ListCommentsComponent,
         AddEditComponent,
-        SearchArticlesPipe
+        SearchCommentsPipe
     ]
 })
-export class ArticlesModule { }
+export class CommentsModule { }

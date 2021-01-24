@@ -235,6 +235,13 @@ namespace OnlineLib.BusinessLogic.Managers
             }
         }
 
+        public async Task DeleteComment(Guid id)
+        {
+            ThrowIf.Null(id, nameof(id));
+            this.Uow.CommentsRepository.Delete(id);
+            this.Uow.Save();
+        }
+
         public async Task<CommentDto> GetComment(Guid id)
         {
             var entity = id != null ? this.Uow.CommentsRepository.GetByID(id) : throw new ArgumentNullException();

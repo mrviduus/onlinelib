@@ -8,8 +8,7 @@ import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 
 import { AppRoutingModule } from './app-routing.module';
 import { JwtInterceptor, ErrorInterceptor, appInitializer } from './_helpers';
-import { AccountService } from './_services';
-import { CategoryService } from './_services';
+import { AccountService, CategoryService, CommentsService } from './_services';
 import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
@@ -40,7 +39,8 @@ import { NgxPaginationModule } from 'ngx-pagination';
         { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         CategoryService,
-        ArticlesService
+        ArticlesService,
+        CommentsService
         // provider used to create fake backend
         //fakeBackendProvider
     ],

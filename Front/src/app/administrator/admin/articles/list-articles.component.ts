@@ -4,11 +4,11 @@ import { first } from 'rxjs/operators';
 
 
 @Component({
-  selector: 'app-list-category',
+  selector: 'app-list-articles',
   templateUrl: './list-articles.component.html',
   styleUrls: ['./list-articles.component.less']
 })
-export class ListCategoryComponent implements OnInit {
+export class ListArticlesComponent implements OnInit {
   articles: any[];
   searchArticles = '';
   //pagination
@@ -30,8 +30,8 @@ export class ListCategoryComponent implements OnInit {
   }
 
   deleteCategory(id: string) {
-    const category = this.articles.find(x => x.id === id);
-    category.isDeleting = true;
+    const article = this.articles.find(x => x.id === id);
+    article.isDeleting = true;
     this.articlesService.delete(id)
         .pipe(first())
         .subscribe(() => {

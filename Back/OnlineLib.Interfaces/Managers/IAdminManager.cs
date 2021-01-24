@@ -50,6 +50,8 @@ namespace OnlineLib.Interfaces.Managers
 
         Task DeleteComments(List<Guid> ids);
 
+        Task DeleteComment(Guid id);
+
         #endregion Comments
 
         #region Tags Operations

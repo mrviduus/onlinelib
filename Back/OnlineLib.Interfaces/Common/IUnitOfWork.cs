@@ -1,7 +1,5 @@
 ﻿using OnlineLib.Interfaces.Repository;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace OnlineLib.Interfaces.Common
 {
