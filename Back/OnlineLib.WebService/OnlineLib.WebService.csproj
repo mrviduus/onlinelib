@@ -35,7 +35,7 @@
     <ProjectReference Include="..\OnlineLib.BusinessLogic\OnlineLib.BusinessLogic.csproj" />
     <ProjectReference Include="..\OnlineLib.Common\OnlineLib.Common.csproj" />
     <ProjectReference Include="..\OnlineLib.DataAccess\OnlineLib.DataAccess.csproj" />
-    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Models.csproj" />
+    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

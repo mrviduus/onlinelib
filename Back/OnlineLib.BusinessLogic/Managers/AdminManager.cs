@@ -2,6 +2,8 @@
 using OnlineLib.Common;
 using OnlineLib.Common.Extensions;
 using OnlineLib.DataAccess;
+using OnlineLib.Domain.DTO.Book;
+using OnlineLib.Domain.Entities.Book;
 using OnlineLib.Interfaces.Common;
 using OnlineLib.Interfaces.Managers;
 using OnlineLib.Models.Dto;
@@ -264,5 +266,64 @@ namespace OnlineLib.BusinessLogic.Managers
         }
 
         #endregion Tags Operations
+
+        #region Author Operations
+
+        public async Task CreateOrUpdateAuthor(AuthorDTO author)
+        {
+            var entity = this.mapper.Map<Author>(author);
+
+            ThrowIf.Null(entity, nameof(entity));
+
+            this.Uow.AuthorRepository.InsertOrUpdate(entity);
+            this.Uow.Save();
+        }
+
+        public async Task DeleteAuthor(Guid id)
+        {
+            ThrowIf.Null(id, nameof(id));
+
+            this.Uow.AuthorRepository.Delete(id);
+            this.Uow.Save();
+
+        }
+
+        public async Task<AuthorDTO> GetAuthor(Guid id)
+        {
+            var entity = id != null ? this.Uow.AuthorRepository.GetByID(id) : throw new ArgumentNullException();
+            return this.mapper.Map<AuthorDTO>(entity);
+        }
+
+        public async Task<IEnumerable<AuthorDTO>> GetAuthors()
+        {
+            var authors = this.Uow.AuthorRepository.Get();
+            var result = this.mapper.Map<IEnumerable<AuthorDTO>>(authors);
+            return result;
+        }
+        #endregion Author Operations
+
+        #region Book Operations
+
+        public async Task CreateOrUpdateBook(BookDTO dto)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task DeleteBook(Guid id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<BookDTO> GetBook(Guid id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<IEnumerable<BookDTO>> GetBooks()
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion Book Operations
     }
 }

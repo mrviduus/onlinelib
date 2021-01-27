@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace OnlineLib.WebService.Migrations
 {
-    public partial class Initial : Migration
+    public partial class AddAuthor : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -46,6 +46,21 @@ namespace OnlineLib.WebService.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Attachment", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Author",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    FirstName = table.Column<string>(nullable: true),
+                    LastName = table.Column<string>(nullable: true),
+                    Biography = table.Column<string>(nullable: true),
+                    BirthDate = table.Column<DateTime>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Author", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -140,6 +155,44 @@ namespace OnlineLib.WebService.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Book",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    AuthorId = table.Column<byte[]>(nullable: false),
+                    CategoryId = table.Column<byte[]>(nullable: false),
+                    Title = table.Column<string>(maxLength: 100, nullable: true),
+                    Summary = table.Column<string>(maxLength: 500, nullable: true),
+                    Content = table.Column<string>(nullable: true),
+                    Year = table.Column<DateTime>(nullable: false),
+                    Publisher = table.Column<string>(nullable: true),
+                    Pages = table.Column<int>(nullable: false),
+                    IBSN = table.Column<string>(nullable: true),
+                    IsPublished = table.Column<bool>(nullable: false),
+                    Views = table.Column<int>(nullable: false),
+                    ContentLanguage = table.Column<string>(maxLength: 10, nullable: true),
+                    Likes = table.Column<int>(nullable: false),
+                    Cover = table.Column<string>(nullable: true),
+                    PageName = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Book", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Book_Author_AuthorId",
+                        column: x => x.AuthorId,
+                        principalTable: "Author",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Book_Category_CategoryId",
+                        column: x => x.CategoryId,
+                        principalTable: "Category",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ArticleSEO",
                 columns: table => new
                 {
@@ -220,6 +273,107 @@ namespace OnlineLib.WebService.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "BookSEO",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    BookId = table.Column<byte[]>(nullable: false),
+                    PageName = table.Column<string>(nullable: true),
+                    Title = table.Column<string>(maxLength: 100, nullable: true),
+                    Description = table.Column<string>(nullable: true),
+                    Image = table.Column<string>(nullable: true),
+                    Video = table.Column<string>(nullable: true),
+                    Locale = table.Column<string>(nullable: true),
+                    Keywords = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BookSEO", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BookSEO_Book_BookId",
+                        column: x => x.BookId,
+                        principalTable: "Book",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BookTag",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    Relation = table.Column<string>(nullable: true),
+                    SourceId = table.Column<byte[]>(nullable: false),
+                    TargetId = table.Column<byte[]>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BookTag", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BookTag_Book_SourceId",
+                        column: x => x.SourceId,
+                        principalTable: "Book",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BookTag_Tag_TargetId",
+                        column: x => x.TargetId,
+                        principalTable: "Tag",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Impressions",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    BookId = table.Column<byte[]>(nullable: false),
+                    Content = table.Column<string>(nullable: true),
+                    ReplyTo = table.Column<byte[]>(nullable: true),
+                    CreatedBy = table.Column<string>(nullable: true),
+                    CreationTime = table.Column<DateTime>(nullable: false),
+                    LastModifiedTime = table.Column<DateTime>(nullable: false),
+                    ModifiedBy = table.Column<string>(nullable: true),
+                    ImpressionsId = table.Column<byte[]>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Impressions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Impressions_Book_BookId",
+                        column: x => x.BookId,
+                        principalTable: "Book",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Impressions_Impressions_ImpressionsId",
+                        column: x => x.ImpressionsId,
+                        principalTable: "Impressions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Quotes",
+                columns: table => new
+                {
+                    Id = table.Column<byte[]>(nullable: false),
+                    BookId = table.Column<byte[]>(nullable: false),
+                    Content = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Quotes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Quotes_Book_BookId",
+                        column: x => x.BookId,
+                        principalTable: "Book",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Article_CategoryId",
                 table: "Article",
@@ -241,6 +395,31 @@ namespace OnlineLib.WebService.Migrations
                 column: "TargetId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Book_AuthorId",
+                table: "Book",
+                column: "AuthorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Book_CategoryId",
+                table: "Book",
+                column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BookSEO_BookId",
+                table: "BookSEO",
+                column: "BookId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BookTag_SourceId",
+                table: "BookTag",
+                column: "SourceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BookTag_TargetId",
+                table: "BookTag",
+                column: "TargetId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Category_ParentId",
                 table: "Category",
                 column: "ParentId");
@@ -254,6 +433,21 @@ namespace OnlineLib.WebService.Migrations
                 name: "IX_Comment_ReplyTo",
                 table: "Comment",
                 column: "ReplyTo");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Impressions_BookId",
+                table: "Impressions",
+                column: "BookId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Impressions_ImpressionsId",
+                table: "Impressions",
+                column: "ImpressionsId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Quotes_BookId",
+                table: "Quotes",
+                column: "BookId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshToken_AccountId",
@@ -273,7 +467,19 @@ namespace OnlineLib.WebService.Migrations
                 name: "Attachment");
 
             migrationBuilder.DropTable(
+                name: "BookSEO");
+
+            migrationBuilder.DropTable(
+                name: "BookTag");
+
+            migrationBuilder.DropTable(
                 name: "Comment");
+
+            migrationBuilder.DropTable(
+                name: "Impressions");
+
+            migrationBuilder.DropTable(
+                name: "Quotes");
 
             migrationBuilder.DropTable(
                 name: "RefreshToken");
@@ -285,7 +491,13 @@ namespace OnlineLib.WebService.Migrations
                 name: "Article");
 
             migrationBuilder.DropTable(
+                name: "Book");
+
+            migrationBuilder.DropTable(
                 name: "Accounts");
+
+            migrationBuilder.DropTable(
+                name: "Author");
 
             migrationBuilder.DropTable(
                 name: "Category");

@@ -24,7 +24,7 @@ export class CommentsService {
     this.comment = this.commentSubject.asObservable();
    }
 
-   getAll() {
+  getAll() {
     return this.http.get<CommentDto[]>(`${baseUrl}/GetComments`);
   }
 

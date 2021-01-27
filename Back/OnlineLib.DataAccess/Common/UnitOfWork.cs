@@ -28,6 +28,14 @@ namespace OnlineLib.DataAccess.Common
 
         public ICommentsRepository CommentsRepository => new CommentsRepository(this.Context);
 
+        public IAuthorRepository AuthorRepository => new AuthorRepository(this.Context);
+
+        public IBookRepository BookRepository => new BookRepository(this.Context);
+
+        public IBookSEORepository BookSEORepository => new BookSEORepository(this.Context);
+
+        public IBookTagRepository BookTagRepository => new BookTagRepository(this.Context);
+
         public void Save()
         {
             this.Context.SaveChanges();

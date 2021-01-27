@@ -1,8 +1,7 @@
-﻿using OnlineLib.Models.Dto;
-using OnlineLib.Models.Models;
+﻿using OnlineLib.Domain.DTO.Book;
+using OnlineLib.Models.Dto;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OnlineLib.Interfaces.Managers
@@ -59,5 +58,28 @@ namespace OnlineLib.Interfaces.Managers
         Task<IEnumerable<string>> GetPublicTags();
 
         #endregion Tags Operations
+
+        #region Author Operation
+
+        Task CreateOrUpdateAuthor(AuthorDTO author);
+
+        Task DeleteAuthor(Guid id);
+
+        Task<AuthorDTO> GetAuthor(Guid id);
+
+        Task<IEnumerable<AuthorDTO>> GetAuthors();
+
+        #endregion Author Operation
+
+        #region Book Operation
+
+        Task CreateOrUpdateBook(BookDTO dto);
+
+        Task DeleteBook(Guid id);
+
+        Task<BookDTO> GetBook(Guid id);
+
+        Task<IEnumerable<BookDTO>> GetBooks();
+        #endregion Book Operation
     }
 }

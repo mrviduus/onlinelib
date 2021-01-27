@@ -3,9 +3,8 @@ using System.Collections.Generic;
 
 namespace OnlineLib.Models.Entities
 {
-    public class Account
+    public class Account : EntityBase
     {
-        public Guid Id { get; set; }
         public string Title { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }

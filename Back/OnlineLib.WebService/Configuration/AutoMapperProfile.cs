@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using OnlineLib.Domain.DTO.Book;
+using OnlineLib.Domain.Entities.Book;
 using OnlineLib.Models.Dto;
 using OnlineLib.Models.Entities;
 using OnlineLib.Models.Models;
@@ -59,6 +61,12 @@ namespace OnlineLib.WebService.Configuration
                 ForMember(dest => dest.Author, o => o.MapFrom(src => src.ModifiedBy));
             this.CreateMap<CommentDto, Comment>().
                 ForMember(dest => dest.ModifiedBy, o => o.MapFrom(src => src.Author));
+
+            this.CreateMap<Author, AuthorDTO>();
+            this.CreateMap<AuthorDTO, Author>();
+
+            this.CreateMap<Book, BookDTO>();
+            this.CreateMap<BookDTO, Book>();
 
         }
     }

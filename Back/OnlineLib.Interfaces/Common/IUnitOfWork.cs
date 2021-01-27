@@ -19,6 +19,10 @@ namespace OnlineLib.Interfaces.Common
 
         ICommentsRepository CommentsRepository { get; }
 
+        IAuthorRepository AuthorRepository { get; }
+
+        IBookRepository BookRepository { get; }
+
         void Save();
     }
 }

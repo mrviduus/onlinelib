@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OnlineLib.Interfaces\OnlineLib.Interfaces.csproj" />
-    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Models.csproj" />
+    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Domain.csproj" />
   </ItemGroup>
 
 </Project>

@@ -18,6 +18,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Configuration;
 using OnlineLib.WebService.Helpers;
+using OnlineLib.Domain.DTO.Book;
 
 namespace OnlineLib.WebService.Controllers
 {
@@ -81,6 +82,8 @@ namespace OnlineLib.WebService.Controllers
         [HttpPost("UpdateCategory")]
         public async Task<IActionResult> UpdateCategory(CategoryDto categoryDto)
         {
+            categoryDto.Icon = categoryDto.Icon.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Categories", categoryDto.Icon) : null;
+
             await this.adminManager.CreateOrUpdateCategory(categoryDto);
 
             this.logger.LogInformation("Category was updated");
@@ -197,5 +200,56 @@ namespace OnlineLib.WebService.Controllers
             return Ok(comment);
         }
 
+        [HttpGet("GetAuthors")]
+        public async Task<IActionResult> GetAuthors()
+        {
+            var authors = await this.adminManager.GetAuthors();
+
+            this.logger.LogInformation("Return authors");
+
+            return Ok(authors);
+        }
+
+        [HttpGet("GetAuthor")]
+        public async Task<IActionResult> GetAuthor(Guid id)
+        {
+            var author = await this.adminManager.GetAuthor(id);
+
+            this.logger.LogInformation("Return author by id");
+
+            return Ok(author);
+        }
+
+        [HttpPost("CreateAuthor")]
+        public async Task<IActionResult> CreateAuthor(AuthorDTO authorDTO)
+        {
+            await this.adminManager.CreateOrUpdateAuthor(authorDTO);
+
+            string logMsg = "Author was created";
+
+            this.logger.LogInformation(logMsg);
+
+            return Ok(new { message = logMsg });
+        }
+
+        [HttpPost("UpdateAuthor")]
+        public async Task<IActionResult> UpdateAuthor(AuthorDTO authorDTO)
+        {
+            await this.adminManager.CreateOrUpdateAuthor(authorDTO);
+
+            string logMsg = "Update was created";
+
+            this.logger.LogInformation(logMsg);
+
+            return Ok(new { message = logMsg });
+        }
+
+        [HttpDelete("DeleteAuthor")]
+        public async Task DeleteAuthor(Guid id)
+        {
+            await this.adminManager.DeleteAuthor(id);
+
+            this.logger.LogInformation("Author was deleted");
+        }
     }
 }

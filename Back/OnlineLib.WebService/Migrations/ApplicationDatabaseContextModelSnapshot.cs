@@ -17,6 +17,219 @@ namespace OnlineLib.WebService.Migrations
                 .HasAnnotation("ProductVersion", "3.1.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Author", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Biography")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("BirthDate")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("FirstName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastName")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Author");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Book", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("AuthorId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("CategoryId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentLanguage")
+                        .HasColumnType("varchar(10)")
+                        .HasMaxLength(10);
+
+                    b.Property<string>("Cover")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IBSN")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Likes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PageName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Pages")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Publisher")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("varchar(500)")
+                        .HasMaxLength(500);
+
+                    b.Property<string>("Title")
+                        .HasColumnType("varchar(100)")
+                        .HasMaxLength(100);
+
+                    b.Property<int>("Views")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Year")
+                        .HasColumnType("datetime");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("Book");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.BookSEO", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("BookId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Image")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Keywords")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Locale")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PageName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("varchar(100)")
+                        .HasMaxLength(100);
+
+                    b.Property<string>("Video")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.ToTable("BookSEO");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.BookTag", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Relation")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("SourceId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("TargetId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceId");
+
+                    b.HasIndex("TargetId");
+
+                    b.ToTable("BookTag");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Impressions", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("BookId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<byte[]>("ImpressionsId")
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<DateTime>("LastModifiedTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("ReplyTo")
+                        .HasColumnType("varbinary(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ImpressionsId");
+
+                    b.ToTable("Impressions");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Quotes", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("BookId")
+                        .IsRequired()
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.ToTable("Quotes");
+                });
+
             modelBuilder.Entity("OnlineLib.Models.Entities.Account", b =>
                 {
                     b.Property<byte[]>("Id")
@@ -302,6 +515,67 @@ namespace OnlineLib.WebService.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Tag");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Book", b =>
+                {
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Author", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OnlineLib.Models.Models.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.BookSEO", b =>
+                {
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.BookTag", b =>
+                {
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Book", "Source")
+                        .WithMany()
+                        .HasForeignKey("SourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OnlineLib.Models.Models.Tag", "Target")
+                        .WithMany()
+                        .HasForeignKey("TargetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Impressions", b =>
+                {
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Book", null)
+                        .WithMany("Impressions")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Impressions", null)
+                        .WithMany("Replies")
+                        .HasForeignKey("ImpressionsId");
+                });
+
+            modelBuilder.Entity("OnlineLib.Domain.Entities.Book.Quotes", b =>
+                {
+                    b.HasOne("OnlineLib.Domain.Entities.Book.Book", null)
+                        .WithMany("Quotes")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("OnlineLib.Models.Entities.Account", b =>

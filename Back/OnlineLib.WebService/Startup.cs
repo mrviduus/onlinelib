@@ -31,7 +31,7 @@ namespace OnlineLib.WebService
             this.Configuration = configuration;
 
             string connectionString = this.Configuration.GetDatabaseConnectionString();
-            //sDatabaseInitializer.InitializeDatabase(connectionString);
+            //DatabaseInitializer.InitializeDatabase(connectionString);
         }
 
         public IConfiguration Configuration { get; }
@@ -49,8 +49,6 @@ namespace OnlineLib.WebService
 
             // load general configuration from appsettings.json
             services.Configure<IpRateLimitOptions>(this.Configuration.GetSection("IpRateLimiting"));
-
-
 
             ServiceConfiguration.ConfigureServices(services, this.Configuration);
 

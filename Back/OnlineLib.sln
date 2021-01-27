@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlineLib.DataAccess", "Onl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlineLib.Interfaces", "OnlineLib.Interfaces\OnlineLib.Interfaces.csproj", "{EFE13C15-4193-4BE2-95B3-0FFD2B787EE6}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlineLib.Models", "OnlineLib.Models\OnlineLib.Models.csproj", "{74286EC3-68C1-4DA5-A07F-52881DD459FD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlineLib.Domain", "OnlineLib.Models\OnlineLib.Domain.csproj", "{74286EC3-68C1-4DA5-A07F-52881DD459FD}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlineLib.WebService", "OnlineLib.WebService\OnlineLib.WebService.csproj", "{14CBA11C-1513-49FA-9DBB-E0685441FDF0}"
 EndProject
