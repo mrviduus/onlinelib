@@ -2,7 +2,7 @@
 
 namespace OnlineLib.Models.Dto
 {
-    public class CommentDto
+    public class CommentDTO
     {
         public Guid Id { get; set; }
 

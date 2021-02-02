@@ -14,6 +14,8 @@ namespace OnlineLib.Domain.Entities.Book
 
         public string Biography { get; set; }
 
+        public string Icon { get; set; }
+
         public DateTime BirthDate { get; set; }
 
         [ForeignKey("AuthorId")]

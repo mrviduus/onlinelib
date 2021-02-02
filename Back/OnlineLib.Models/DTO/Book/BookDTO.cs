@@ -6,6 +6,8 @@ namespace OnlineLib.Domain.DTO.Book
 {
     public class BookDTO
     {
+        public Guid Id { get; set; }
+
         public Guid AuthorId { get; set; }
 
         public Guid CategoryId { get; set; }
@@ -35,6 +37,8 @@ namespace OnlineLib.Domain.DTO.Book
         public string Cover { get; set; }
 
         public string PageName { get; set; }
+
+        public string Tags { get; set; }
 
     }
 }

@@ -32,6 +32,9 @@ namespace OnlineLib.WebService.Migrations
                     b.Property<string>("FirstName")
                         .HasColumnType("text");
 
+                    b.Property<string>("Icon")
+                        .HasColumnType("text");
+
                     b.Property<string>("LastName")
                         .HasColumnType("text");
 
@@ -64,14 +67,26 @@ namespace OnlineLib.WebService.Migrations
                     b.Property<string>("Cover")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("datetime");
+
                     b.Property<string>("IBSN")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime>("LastModifiedTime")
+                        .HasColumnType("datetime");
+
                     b.Property<int>("Likes")
                         .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
 
                     b.Property<string>("PageName")
                         .HasColumnType("text");

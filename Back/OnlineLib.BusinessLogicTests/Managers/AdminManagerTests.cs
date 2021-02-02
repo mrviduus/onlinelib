@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Moq;
 using OnlineLib.BusinessLogic.Managers;
+using OnlineLib.BusinessLogic.Managers.Admin;
 using OnlineLib.Interfaces.Common;
 using OnlineLib.Interfaces.Repository;
 using OnlineLib.Models.Dto;
@@ -47,11 +48,11 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CategoryManager(mockUow.Object, mapper);
 
 
             // Act
-            var actual = manager.GetCategory(id);
+            var actual = manager.GetById(id);
 
             // Assert
             Assert.Equal(id, actual.Result.Id);
@@ -77,9 +78,9 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CategoryManager(mockUow.Object, mapper);
 
-            var categoryDTO = new CategoryDto
+            var categoryDTO = new CategoryDTO
             {
                 Id = rootId,
                 //Icon = "string",
@@ -89,7 +90,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             };
 
             // Act
-            var actual = manager.CreateOrUpdateCategory(categoryDTO);
+            var actual = manager.CreateOrUpdate(categoryDTO);
 
             // Assert
             mockCategoryRepo.Verify(x => x.InsertOrUpdate(It.IsAny<Category>()), Times.Once);
@@ -117,18 +118,19 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CategoryManager(mockUow.Object, mapper);
 
-            var ids = new List<Guid>()
-            {
-                rootId,
-            };
+            //var ids = new List<Guid>()
+            //{
+            //    rootId,
+            //};
+            var id = new Guid();
 
             // Act
-            var actual = manager.DeleteCategories(ids);
+            var actual = manager.Delete(id);
 
             // Assert
-            mockCategoryRepo.Verify(x => x.DeleteCategories(It.IsAny<List<Guid>>()));
+            mockCategoryRepo.Verify(x => x.Delete(It.IsAny<Guid>()));
             mockUow.Verify(uow => uow.Save(), Times.Once);
         }
         #endregion Category
@@ -180,11 +182,11 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new ArticleManager(mockUow.Object, mapper);
 
 
             // Act
-            var actual = manager.GetArticle(id);
+            var actual = manager.GetById(id);
 
             // Assert
             Assert.Equal(id, actual.Result.Id);
@@ -211,12 +213,12 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new ArticleManager(mockUow.Object, mapper);
 
 
             // Act
 
-            var actual = manager.DeleteArticle(id);
+            var actual = manager.Delete(id);
 
             // Assert
 
@@ -229,7 +231,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
         {
             // Arrage
             var id = new Guid("5d3e7d9f-66c2-4d3d-084e-08d8aa7ba44c");
-            var expected = new ArticleDto()
+            var expected = new ArticleDTO()
             {
                 Id = id,
                 Title = "ArticleTest",
@@ -274,11 +276,11 @@ namespace OnlineLib.BusinessLogicTests1.Managers
 
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new ArticleManager(mockUow.Object, mapper);
 
             // Act
 
-            var actual = manager.CreateOrUpdateArticle(expected);
+            var actual = manager.CreateOrUpdate(expected);
 
             // Assert
 
@@ -295,7 +297,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
         public void CreateOrUpdateCommentTest()
         {
             // Arrage
-            var commentDto = new CommentDto()
+            var commentDto = new CommentDTO()
             {
                 Id = new Guid("9accfae2-0872-49db-9356-08d8aa9d180d"),
                 ArticleId = new Guid("5d3e7d9f-66c2-4d3d-084e-08d8aa7ba44c"),
@@ -314,11 +316,11 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CommentManager(mockUow.Object, mapper);
 
             // Act
 
-            var actual = manager.CreateOrUpdateComment(commentDto);
+            var actual = manager.CreateOrUpdate(commentDto);
 
             // Assert
 
@@ -344,7 +346,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CommentManager(mockUow.Object, mapper);
 
             var ids = new List<Guid>()
             {
@@ -385,11 +387,11 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             });
             IMapper mapper = mockMapper.CreateMapper();
 
-            var manager = new AdminManager(mockUow.Object, mapper);
+            var manager = new CommentManager(mockUow.Object, mapper);
 
             // Act
 
-            var actual = manager.GetComment(id);
+            var actual = manager.GetById(id);
 
             // Assert
             Assert.Equal(id, comment.Id);

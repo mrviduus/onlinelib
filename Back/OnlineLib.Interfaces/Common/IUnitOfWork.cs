@@ -23,6 +23,10 @@ namespace OnlineLib.Interfaces.Common
 
         IBookRepository BookRepository { get; }
 
+        IBookSEORepository BookSEORepository { get; }
+
+        IBookTagRepository BookTagRepository { get; }
+
         void Save();
     }
 }

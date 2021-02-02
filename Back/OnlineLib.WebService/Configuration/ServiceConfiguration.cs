@@ -4,8 +4,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using OnlineLib.BusinessLogic.Managers;
+using OnlineLib.BusinessLogic.Managers.Admin;
 using OnlineLib.DataAccess;
 using OnlineLib.Interfaces.Managers;
+using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.Models.Models.Settings;
 using System.Collections.Generic;
 
@@ -30,7 +32,12 @@ namespace OnlineLib.WebService.Configuration
             // configure DI for application services
             services.AddScoped<IAccountManager, AccountManager>();
             services.AddScoped<IEmailManager, EmailManager>();
-            services.AddScoped<IAdminManager, AdminManager>();
+            services.AddScoped<IArticleManager, ArticleManager>();
+            services.AddScoped<IAuthorManager, AuthorManager>();
+            services.AddScoped<IBookManager, BookManager>();
+            services.AddScoped<ICategoryManager, CategoryManager>();
+            services.AddScoped<ICommentManager, CommentManager>();
+            services.AddScoped<ITagManager, TagManager>();
 
             // inject counter and rules stores
             services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();

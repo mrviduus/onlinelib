@@ -51,5 +51,13 @@ namespace OnlineLib.Domain.Entities.Book
         [ForeignKey("BookId")]
         public virtual List<Quotes> Quotes { get; set; }
 
+        public string CreatedBy { get; set; }
+
+        public DateTime CreationTime { get; set; }
+
+        public DateTime LastModifiedTime { get; set; }
+
+        public string ModifiedBy { get; set; }
+
     }
 }

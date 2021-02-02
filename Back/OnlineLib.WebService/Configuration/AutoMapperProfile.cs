@@ -49,17 +49,17 @@ namespace OnlineLib.WebService.Configuration
                     }
                 ));
 
-            this.CreateMap<Category, CategoryDto>();
-            this.CreateMap<CategoryDto, Category>();
+            this.CreateMap<Category, CategoryDTO>();
+            this.CreateMap<CategoryDTO, Category>();
 
-            this.CreateMap<Article, ArticleDto>().
+            this.CreateMap<Article, ArticleDTO>().
                 ForMember(dest => dest.Author, o => o.MapFrom(src => src.ModifiedBy));
-            this.CreateMap<ArticleDto, Article>().
+            this.CreateMap<ArticleDTO, Article>().
                 ForMember(dest => dest.ModifiedBy, o => o.MapFrom(src => src.Author));
 
-            this.CreateMap<Comment, CommentDto>().
+            this.CreateMap<Comment, CommentDTO>().
                 ForMember(dest => dest.Author, o => o.MapFrom(src => src.ModifiedBy));
-            this.CreateMap<CommentDto, Comment>().
+            this.CreateMap<CommentDTO, Comment>().
                 ForMember(dest => dest.ModifiedBy, o => o.MapFrom(src => src.Author));
 
             this.CreateMap<Author, AuthorDTO>();

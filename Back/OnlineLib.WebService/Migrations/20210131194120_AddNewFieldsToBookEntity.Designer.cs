@@ -9,8 +9,8 @@ using OnlineLib.DataAccess;
 namespace OnlineLib.WebService.Migrations
 {
     [DbContext(typeof(ApplicationDatabaseContext))]
-    [Migration("20210127210301_AddAuthor")]
-    partial class AddAuthor
+    [Migration("20210131194120_AddNewFieldsToBookEntity")]
+    partial class AddNewFieldsToBookEntity
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -32,6 +32,9 @@ namespace OnlineLib.WebService.Migrations
                         .HasColumnType("datetime");
 
                     b.Property<string>("FirstName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Icon")
                         .HasColumnType("text");
 
                     b.Property<string>("LastName")
@@ -66,14 +69,26 @@ namespace OnlineLib.WebService.Migrations
                     b.Property<string>("Cover")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("datetime");
+
                     b.Property<string>("IBSN")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime>("LastModifiedTime")
+                        .HasColumnType("datetime");
+
                     b.Property<int>("Likes")
                         .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
 
                     b.Property<string>("PageName")
                         .HasColumnType("text");

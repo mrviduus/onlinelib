@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace OnlineLib.WebService.Migrations
 {
-    public partial class AddAuthor : Migration
+    public partial class AddNewFieldsToBookEntity : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -56,6 +56,7 @@ namespace OnlineLib.WebService.Migrations
                     FirstName = table.Column<string>(nullable: true),
                     LastName = table.Column<string>(nullable: true),
                     Biography = table.Column<string>(nullable: true),
+                    Icon = table.Column<string>(nullable: true),
                     BirthDate = table.Column<DateTime>(nullable: false)
                 },
                 constraints: table =>
@@ -173,7 +174,11 @@ namespace OnlineLib.WebService.Migrations
                     ContentLanguage = table.Column<string>(maxLength: 10, nullable: true),
                     Likes = table.Column<int>(nullable: false),
                     Cover = table.Column<string>(nullable: true),
-                    PageName = table.Column<string>(nullable: true)
+                    PageName = table.Column<string>(nullable: true),
+                    CreatedBy = table.Column<string>(nullable: true),
+                    CreationTime = table.Column<DateTime>(nullable: false),
+                    LastModifiedTime = table.Column<DateTime>(nullable: false),
+                    ModifiedBy = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {
