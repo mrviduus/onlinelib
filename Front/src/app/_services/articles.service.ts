@@ -6,7 +6,7 @@ import { map, finalize } from 'rxjs/operators';
 import { environment } from '@environments/environment';
 import { ArticleDto } from '@app/_models/admin/articleDto';
 
-const baseUrl = `${environment.apiUrl}/admin`;
+const baseUrl = `${environment.apiUrl}/admin/Article`;
 
 @Injectable({
   providedIn: 'root'
@@ -28,22 +28,22 @@ export class ArticlesService {
 }
 
 getAll() {
-  return this.http.get<ArticleDto[]>(`${baseUrl}/GetArticles`);
+  return this.http.get<ArticleDto[]>(`${baseUrl}/GetAll`);
 }
 
 getById(id: string) {
-  return this.http.get<ArticleDto>(`${baseUrl}/GetArticle?id=${id}`);
+  return this.http.get<ArticleDto>(`${baseUrl}/GetById?id=${id}`);
 }
 
 create(params) {
-  return this.http.post(`${baseUrl}/CreateArticle`, params);
+  return this.http.post(`${baseUrl}/Create`, params);
 }
 
 update(params) {
-  return this.http.post(`${baseUrl}/UpdateArticle`, params);
+  return this.http.post(`${baseUrl}/Update`, params);
 }
 
 delete(id: string){
-  return this.http.delete(`${baseUrl}/DeleteArticle?id=${id}`);
+  return this.http.delete(`${baseUrl}/Delete?id=${id}`);
 }
 }

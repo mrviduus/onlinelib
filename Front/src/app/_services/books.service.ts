@@ -2,34 +2,37 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { map, finalize } from 'rxjs/operators';
 import { environment } from '@environments/environment';
-import { CommentDto } from '@app/_models/admin/commentDTO';
+import { BookDTO } from '@app/_models/admin/bookDTO';
 
-const baseUrl = `${environment.apiUrl}/admin/Comment`;
+const baseUrl = `${environment.apiUrl}/admin/Book`;
 
 @Injectable({
   providedIn: 'root'
 })
-export class CommentsService {
-  private commentSubject: BehaviorSubject<CommentDto>;
-  public comment: Observable<CommentDto>;
-
+export class BooksService {
+  private bookSubject: BehaviorSubject<BookDTO>;
+  public book: Observable<BookDTO>;
 
   constructor(
     private router: Router,
     private http: HttpClient
-  ) {
-    this.commentSubject = new BehaviorSubject<CommentDto>(null);
-    this.comment = this.commentSubject.asObservable();
-   }
+  ) 
+  {
+    this.bookSubject = new BehaviorSubject<BookDTO>(null);
+    this.book = this.bookSubject.asObservable();
+  }
+
+  public get bookValue(): BookDTO {
+    return this.bookSubject.value;
+  }
 
   getAll() {
-    return this.http.get<CommentDto[]>(`${baseUrl}/GetAll`);
+    return this.http.get<BookDTO[]>(`${baseUrl}/GetAll`);
   }
 
   getById(id: string) {
-    return this.http.get<CommentDto>(`${baseUrl}/GetById?id=${id}`);
+    return this.http.get<BookDTO>(`${baseUrl}/GetById?id=${id}`);
   }
 
   create(params) {

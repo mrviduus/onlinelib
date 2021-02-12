@@ -5,10 +5,12 @@ using Microsoft.Extensions.Logging;
 using OnlineLib.Domain.DTO.Book;
 using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.WebService.Attributes;
+using OnlineLib.WebService.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OnlineLib.Common.Extensions;
 
 namespace OnlineLib.WebService.Controllers.Admin
 {
@@ -40,6 +42,8 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Create")]
         public async Task<IActionResult> Create(AuthorDTO authorDTO)
         {
+            authorDTO.Icon = authorDTO.Icon.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Categories", authorDTO.Icon) : null;
+
             await this.authorManager.CreateOrUpdate(authorDTO);
 
             string logMsg = "Author was created";

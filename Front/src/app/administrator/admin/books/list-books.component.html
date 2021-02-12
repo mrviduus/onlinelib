@@ -1,0 +1,51 @@
+<div class="p-4">
+    <div class="container">
+<h1>Books</h1>
+<p>All Books</p>
+
+<a routerLink="add" class="btn btn-sm btn-success mb-2">Create Book</a>
+<!--Search-->
+<div class="form-group has-search" >
+    <span class="fa fa-search form-control-feedback"></span>
+    <input type="text" class="form-control" placeholder="Search" [(ngModel)]="searchBooks">
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:30%">Name</th>
+            <th style="width:30%">Summury</th>
+            <th style="width:30%">Cover</th>
+            <th style="width:10%"></th>
+            
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let book of books | searchBooks: searchBooks | paginate: { id: 'bookPagination',
+        itemsPerPage: perPage,
+        currentPage: p,
+        totalItems: totalLength }">
+            <td>{{book.title}}</td>
+            <td>{{book.summary}}</td>
+            <td><img style="height: 40px;" src="{{book.cover}}"></td>
+            <td style="white-space: nowrap">
+                <a routerLink="edit/{{book.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
+                <button (click)="deleteCategory(book.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="book.isDeleting">
+                    <span *ngIf="book.isDeleting" class="spinner-border spinner-border-sm"></span>
+                    <span *ngIf="!book.isDeleting">Delete</span>
+                </button>
+            </td>
+        </tr>
+        <tr *ngIf="!books">
+            <td colspan="4" class="text-center">
+                <span class="spinner-border spinner-border-lg align-center"></span>
+            </td>
+        </tr>
+    </tbody>
+
+</table>
+<div>
+    <pagination-controls id="bookPagination" maxSize = "5" directionLinks = "true" (pageChange)="p = $event"></pagination-controls>
+
+</div>
+</div>
+</div>

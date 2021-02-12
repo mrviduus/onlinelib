@@ -10,6 +10,8 @@ import { CategoryModule } from './categories/category.module'
 import { from } from 'rxjs';
 import { ArticlesModule } from './articles/articles.module';
 import { CommentsModule } from './comments/comments.module';
+import { AuthorModule } from './author/author.module';
+import { BooksModule } from './books/books.module';
 import { FormsModule } from '@angular/forms';
 
 
@@ -23,7 +25,9 @@ import { FormsModule } from '@angular/forms';
         CategoryModule,
         ArticlesModule,
         CommentsModule,
-        FormsModule,        
+        FormsModule,
+        AuthorModule,
+                
     ],
     declarations: [
         SubNavComponent,
