@@ -26,9 +26,12 @@ namespace OnlineLib.WebService
 {
     public class Startup
     {
+        public static IConfiguration StaticConfig { get; private set; }
+
         public Startup(IConfiguration configuration)
         {
             this.Configuration = configuration;
+            StaticConfig = configuration;
 
             string connectionString = this.Configuration.GetDatabaseConnectionString();
             //DatabaseInitializer.InitializeDatabase(connectionString);

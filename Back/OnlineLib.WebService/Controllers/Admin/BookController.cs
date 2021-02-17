@@ -23,31 +23,23 @@ namespace OnlineLib.WebService.Controllers.Admin
     public class BookController : BaseController
     {
         private readonly IBookManager bookManager;
-        private readonly IMapper mapper;
         private readonly ILogger<BookController> logger;
-        private readonly string frontPath;
-        private IConfiguration configuration;
+        private const string ImageFolderName = "Books";
 
         public BookController(
             IBookManager bookManager,
-            IMapper mapper,
-            ILogger<BookController> logger,
-            IConfiguration configuration)
+            ILogger<BookController> logger)
         {
             this.bookManager = bookManager;
-            this.mapper = mapper;
             this.logger = logger;
-            this.configuration = configuration;
-
-            this.frontPath = this.configuration.GetValue<string>(Constants.FrontPath);
         }
 
         [HttpPost("Create")]
-        public async Task<IActionResult> Create(BookDTO DTO)
+        public async Task<IActionResult> Create(BookDTO bookDTO)
         {
-            DTO.Cover = DTO.Cover.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Books", DTO.Cover) : null;
+            bookDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, bookDTO.Cover);
 
-            await this.bookManager.CreateOrUpdate(DTO);
+            await this.bookManager.CreateOrUpdate(bookDTO);
 
             this.logger.LogInformation("Book was created");
 
@@ -55,12 +47,12 @@ namespace OnlineLib.WebService.Controllers.Admin
         }
 
         [HttpPost("Update")]
-        public async Task<IActionResult> Update(BookDTO DTO)
+        public async Task<IActionResult> Update(BookDTO bookDTO)
         {
 
-            DTO.Cover = DTO.Cover.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Books", DTO.Cover) : null;
+            bookDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, bookDTO.Cover);
 
-            await this.bookManager.CreateOrUpdate(DTO);
+            await this.bookManager.CreateOrUpdate(bookDTO);
 
             this.logger.LogInformation("Book was updated");
 

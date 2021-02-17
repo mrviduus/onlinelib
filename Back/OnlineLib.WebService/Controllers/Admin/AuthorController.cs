@@ -1,16 +1,11 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OnlineLib.Domain.DTO.Book;
 using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.WebService.Attributes;
 using OnlineLib.WebService.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using OnlineLib.Common.Extensions;
 
 namespace OnlineLib.WebService.Controllers.Admin
 {
@@ -20,29 +15,21 @@ namespace OnlineLib.WebService.Controllers.Admin
     public class AuthorController : BaseController
     {
         private readonly IAuthorManager authorManager;
-        private readonly IMapper mapper;
         private readonly ILogger<AuthorController> logger;
-        private readonly string frontPath;
-        private IConfiguration configuration;
+        private const string ImageFolderName = "Authors";
 
         public AuthorController(
             IAuthorManager authorManager,
-            IMapper mapper,
-            ILogger<AuthorController> logger,
-            IConfiguration configuration)
+            ILogger<AuthorController> logger)
         {
             this.authorManager = authorManager;
-            this.mapper = mapper;
             this.logger = logger;
-            this.configuration = configuration;
-
-            this.frontPath = this.configuration.GetValue<string>(Constants.FrontPath);
         }
 
         [HttpPost("Create")]
         public async Task<IActionResult> Create(AuthorDTO authorDTO)
         {
-            authorDTO.Icon = authorDTO.Icon.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Categories", authorDTO.Icon) : null;
+            authorDTO.Icon = SaveImageToServerFolder.Save(ImageFolderName, authorDTO.Icon);
 
             await this.authorManager.CreateOrUpdate(authorDTO);
 
@@ -56,6 +43,8 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(AuthorDTO authorDTO)
         {
+            authorDTO.Icon = SaveImageToServerFolder.Save(ImageFolderName, authorDTO.Icon);
+
             await this.authorManager.CreateOrUpdate(authorDTO);
 
             string logMsg = "Update was created";

@@ -78,8 +78,7 @@ export class AddEditComponent implements OnInit {
                 .subscribe(x => this.form.patchValue(x));
 
                 setTimeout(()=>{                           //<<<---using ()=> syntax
-                    let cover = (this.form.get('cover').value);
-                    this.img = cover;
+                    this.img =  (this.form.get('cover').value);                    
                }, 300);
         }
     }
@@ -90,7 +89,7 @@ export class AddEditComponent implements OnInit {
 
     onSubmit() {
         this.submitted = true;
-
+        
         // reset alerts on submit
         this.alertService.clear();
 
@@ -105,8 +104,7 @@ export class AddEditComponent implements OnInit {
         this.loading = true;
         if (this.isAddMode) {
             this.createBook();
-        } else {
-            
+        } else {         
             this.updateBook();
         }
     }
@@ -164,4 +162,5 @@ export class AddEditComponent implements OnInit {
         }
         }
     }
+    
 }

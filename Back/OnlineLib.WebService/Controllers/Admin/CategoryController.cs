@@ -18,29 +18,21 @@ namespace OnlineLib.WebService.Controllers.Admin
     public class CategoryController : BaseController
     {
         private readonly ICategoryManager categoryManager;
-        private readonly IMapper mapper;
         private readonly ILogger<CategoryController> logger;
-        private readonly string frontPath;
-        private IConfiguration configuration;
+        private const string ImageFolderName = "Categories";
 
         public CategoryController(
             ICategoryManager categoryManager,
-            IMapper mapper,
-            ILogger<CategoryController> logger,
-            IConfiguration configuration)
+            ILogger<CategoryController> logger)
         {
             this.categoryManager = categoryManager;
-            this.mapper = mapper;
             this.logger = logger;
-            this.configuration = configuration;
-
-            this.frontPath = this.configuration.GetValue<string>(Constants.FrontPath);
         }
 
         [HttpPost("Create")]
         public async Task<IActionResult> Create(CategoryDTO categoryDto)
         {
-            categoryDto.Icon = categoryDto.Icon.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Categories", categoryDto.Icon) : null;
+            categoryDto.Icon = SaveImageToServerFolder.Save(ImageFolderName, categoryDto.Icon);
 
             await this.categoryManager.CreateOrUpdate(categoryDto);
 
@@ -52,7 +44,7 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(CategoryDTO categoryDto)
         {
-            categoryDto.Icon = categoryDto.Icon.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Categories", categoryDto.Icon) : null;
+            categoryDto.Icon = SaveImageToServerFolder.Save(ImageFolderName, categoryDto.Icon);
 
             await this.categoryManager.CreateOrUpdate(categoryDto);
 

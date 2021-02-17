@@ -16,9 +16,7 @@ namespace OnlineLib.WebService.Controllers.Admin
     public class CommentController : BaseController
     {
         private readonly ICommentManager commentManager;
-        private readonly IMapper mapper;
         private readonly ILogger<CommentController> logger;
-        private IConfiguration configuration;
 
         public CommentController(
             ICommentManager commentManager,
@@ -27,9 +25,7 @@ namespace OnlineLib.WebService.Controllers.Admin
             IConfiguration configuration)
         {
             this.commentManager = commentManager;
-            this.mapper = mapper;
             this.logger = logger;
-            this.configuration = configuration;
         }
 
         [HttpPost("Create")]

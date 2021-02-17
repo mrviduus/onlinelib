@@ -1,16 +1,11 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.Models.Dto;
 using OnlineLib.WebService.Attributes;
 using OnlineLib.WebService.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using OnlineLib.Common.Extensions;
 
 namespace OnlineLib.WebService.Controllers.Admin
 {
@@ -20,31 +15,23 @@ namespace OnlineLib.WebService.Controllers.Admin
     public class ArticleController : BaseController
     {
         private readonly IArticleManager articleManager;
-        private readonly IMapper mapper;
         private readonly ILogger<ArticleController> logger;
-        private readonly string frontPath;
-        private IConfiguration configuration;
+        private const string ImageFolderName = "Articles";
 
         public ArticleController(
             IArticleManager articleManager,
-            IMapper mapper,
-            ILogger<ArticleController> logger,
-            IConfiguration configuration)
+            ILogger<ArticleController> logger)
         {
             this.articleManager = articleManager;
-            this.mapper = mapper;
             this.logger = logger;
-            this.configuration = configuration;
-
-            this.frontPath = this.configuration.GetValue<string>(Constants.FrontPath);
         }
 
         [HttpPost("Create")]
-        public async Task<IActionResult> Create(ArticleDTO articleDto)
+        public async Task<IActionResult> Create(ArticleDTO articleDTO)
         {
-            articleDto.Cover = articleDto.Cover.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Articles", articleDto.Cover) : null;
+            articleDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, articleDTO.Cover);
 
-            await this.articleManager.CreateOrUpdate(articleDto);
+            await this.articleManager.CreateOrUpdate(articleDTO);
 
             this.logger.LogInformation("Article was created");
 
@@ -52,11 +39,11 @@ namespace OnlineLib.WebService.Controllers.Admin
         }
 
         [HttpPost("Update")]
-        public async Task<IActionResult> Update(ArticleDTO articleDto)
+        public async Task<IActionResult> Update(ArticleDTO articleDTO)
         {
-            articleDto.Cover = articleDto.Cover.IsNotNullOrEmpty() ? SaveImageToServerFolder.Save(this.frontPath, "Articles", articleDto.Cover) : null;
+            articleDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, articleDTO.Cover);
 
-            await this.articleManager.CreateOrUpdate(articleDto);
+            await this.articleManager.CreateOrUpdate(articleDTO);
 
             this.logger.LogInformation("Article was updated");
 
