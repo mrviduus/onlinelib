@@ -24,7 +24,7 @@ namespace OnlineLib.DataAccess
 
         public DbSet<Comment> Comment { get; set; }
 
-        public DbSet<Tag> Tag { get; }
+        public DbSet<Tag> Tag { get; set; }
 
         public DbSet<Author> Author { get; set; }
 

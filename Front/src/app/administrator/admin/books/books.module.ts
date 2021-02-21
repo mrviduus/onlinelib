@@ -9,6 +9,7 @@ import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
 import { SearchBooksPipe } from '@app/_pipes/searchBooks.pipe';
 import { NgxPaginationModule } from 'ngx-pagination';
+import { NgbModule} from '@ng-bootstrap/ng-bootstrap';
 
 @NgModule({
     imports: [
@@ -17,12 +18,14 @@ import { NgxPaginationModule } from 'ngx-pagination';
         BooksRoutingModule,
         QuillModule,
         FormsModule,
-        NgxPaginationModule
+        NgxPaginationModule,
+        NgbModule
     ],
     declarations: [
         ListBooksComponent,
         AddEditComponent,
         SearchBooksPipe
-    ]
+    ],
+    
 })
 export class BooksModule { }

@@ -3,9 +3,9 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { first } from 'rxjs/operators';
 import {BooksService, AuthorService, AlertService, CategoryService } from '@app/_services';
-import { MustMatch } from '@app/_helpers';
-import { ArticleDto } from '@app/_models/admin/articleDto';
 import { DatePipe } from '@angular/common';
+import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
+import { BookDTO } from '@app/_models/admin/bookDTO';
 
 
 @Component({ 
@@ -23,9 +23,8 @@ export class AddEditComponent implements OnInit {
     img: any;
     authors: any[];
     categories: any[];
-
-    newDate = Date.now();
     saveDate: any;
+    modelDataPicker : NgbDateStruct;
 
     constructor(
         private formBuilder: FormBuilder,
@@ -35,7 +34,8 @@ export class AddEditComponent implements OnInit {
         private bookService: BooksService,
         private categoryService: CategoryService,
         private alertService: AlertService,
-        private datePipe: DatePipe
+        private datePipe: DatePipe,
+        private ngbDateParserFormatter: NgbDateParserFormatter
 
     ) {}
 
@@ -58,10 +58,10 @@ export class AddEditComponent implements OnInit {
             title: ['', Validators.required],
             summary:['', Validators.required],
             content:['', Validators.required],
-            year: [Date],
+            year: [Date, Validators.required],
             publisher: ['', Validators.required],
-            pages: [0],
-            ibsn: [''],
+            pages: [0, Validators.required],
+            ibsn: ['', Validators.required],
             isPublished: [null],
             views: [0],
             contentLanguage: ['', Validators.required],
@@ -78,7 +78,10 @@ export class AddEditComponent implements OnInit {
                 .subscribe(x => this.form.patchValue(x));
 
                 setTimeout(()=>{                           //<<<---using ()=> syntax
-                    this.img =  (this.form.get('cover').value);                    
+                    this.img =  (this.form.get('cover').value);
+                    this.modelDataPicker = this.ngbDateParserFormatter.parse(this.form.get('year').value);
+
+                    console.log("Datapicker: ", this.modelDataPicker);                   
                }, 300);
         }
     }
@@ -98,7 +101,7 @@ export class AddEditComponent implements OnInit {
             return;
         }
         //corect date
-        this.saveDate = this.datePipe.transform(this.newDate, 'yyyy-MM-ddTHH:mm:ss');
+        this.saveDate = this.datePipe.transform(new Date(this.modelDataPicker.year, this.modelDataPicker.month -1, this.modelDataPicker.day), 'yyyy-MM-ddTHH:mm:ss');
         this.form.get('year').setValue(this.saveDate);
 
         this.loading = true;
@@ -125,7 +128,7 @@ export class AddEditComponent implements OnInit {
     }
 
     private updateBook() {
-        let article :  ArticleDto;
+        let article :  BookDTO;
         article = this.form.value;
         article.id = this.id;
         
@@ -162,5 +165,7 @@ export class AddEditComponent implements OnInit {
         }
         }
     }
+
+
     
 }

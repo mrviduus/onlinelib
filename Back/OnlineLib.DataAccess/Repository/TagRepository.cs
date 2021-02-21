@@ -15,7 +15,7 @@ namespace OnlineLib.DataAccess.Repository
         {
         }
 
-        public List<string> TagsWithArticleId(List<Guid> ids)
+        public List<string> TagsWithIds(List<Guid> ids)
         {
             var tags = this.context.Tag.ToList();
 

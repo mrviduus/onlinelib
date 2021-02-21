@@ -2,12 +2,13 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { NgbModule, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap'
 
 // used to create fake backend
 //import { fakeBackendProvider } from './_helpers';
 
 import { AppRoutingModule } from './app-routing.module';
-import { JwtInterceptor, ErrorInterceptor, appInitializer } from './_helpers';
+import { JwtInterceptor, ErrorInterceptor, appInitializer, NgbDateParserFormatterHelper } from './_helpers';
 import { AccountService, AuthorService, BooksService, CategoryService, CommentsService } from './_services';
 import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
@@ -27,7 +28,8 @@ import { NgxPaginationModule } from 'ngx-pagination';
         AppRoutingModule,
         QuillModule.forRoot(),
         FormsModule,
-        NgxPaginationModule
+        NgxPaginationModule,
+        NgbModule
     ],
     declarations: [
         AppComponent,
@@ -42,7 +44,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
         ArticlesService,
         CommentsService,
         AuthorService,
-        BooksService
+        BooksService,
         // provider used to create fake backend
         //fakeBackendProvider
     ],

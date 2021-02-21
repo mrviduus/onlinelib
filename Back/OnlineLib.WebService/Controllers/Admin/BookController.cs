@@ -64,6 +64,8 @@ namespace OnlineLib.WebService.Controllers.Admin
         {
             var book = await this.bookManager.GetById(id);
 
+
+
             this.logger.LogInformation("Return book by id");
 
             return Ok(book);

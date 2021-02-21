@@ -45,12 +45,27 @@
             </div>
         </div>
 
-        <div class="form-group col-7">
+        <!--div class="form-group col-7">
             <label>Year</label>
             <input type="text" formControlName="year" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.year.errors }" />
             <div *ngIf="submitted && f.year.errors" class="invalid-feedback">
                 <div *ngIf="f.year.errors.required">Year is required</div>
             </div>
+        </div-->
+
+        <!---->
+        <div class="form-group col-7">
+            <label>Year</label>
+            <div class="input-group">
+                <input class="form-control" placeholder="yyyy-MM-dd" formControlName="year" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.year.errors }"
+                       name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker">
+                       <div *ngIf="submitted && f.year.errors" class="invalid-feedback">
+                        <div *ngIf="f.year.errors.required">Year is required</div>
+                    </div>
+                <div class="input-group-append">
+                  <button class="btn btn-outline-secondary calendar" (click)="d.toggle()" type="button"></button>
+                </div>
+              </div>
         </div>
 
         <div class="form-group col-7">

@@ -13,6 +13,7 @@ import { CommentsModule } from './comments/comments.module';
 import { AuthorModule } from './author/author.module';
 import { BooksModule } from './books/books.module';
 import { FormsModule } from '@angular/forms';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap'
 
 
 
@@ -27,6 +28,7 @@ import { FormsModule } from '@angular/forms';
         CommentsModule,
         FormsModule,
         AuthorModule,
+        NgbModule
                 
     ],
     declarations: [

@@ -11,6 +11,6 @@ namespace OnlineLib.Interfaces.Repository
     {
         public Tag TagsWithNameAndType(string tag, TagType tagType);
 
-        public List<string> TagsWithArticleId(List<Guid> ids);
+        public List<string> TagsWithIds(List<Guid> ids);
     }
 }
