@@ -38,7 +38,7 @@ namespace OnlineLib.DataAccess.Common
 
         public void Save()
         {
-            this.Context.SaveChanges();
+            this.Context.SaveChangesAsync();
         }
 
         private bool disposed = false;

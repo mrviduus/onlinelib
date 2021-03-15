@@ -13,10 +13,11 @@ import { AccountService, AuthorService, BooksService, CategoryService, CommentsS
 import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
-import { HomeComponent } from './administrator/admin/home';
+import { DashBoardComponent } from './administrator/admin/dashboard';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
-import { NgxPaginationModule } from 'ngx-pagination';
+import { NgxPaginationModule } from 'ngx-pagination';;
+import { HomeComponent } from './user/home/home.component'
 
 
 
@@ -34,8 +35,8 @@ import { NgxPaginationModule } from 'ngx-pagination';
     declarations: [
         AppComponent,
         AlertComponent,
-        HomeComponent
-       ],
+        DashBoardComponent,
+        HomeComponent       ],
     providers: [
         { provide: APP_INITIALIZER, useFactory: appInitializer, multi: true, deps: [AccountService] },
         { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },

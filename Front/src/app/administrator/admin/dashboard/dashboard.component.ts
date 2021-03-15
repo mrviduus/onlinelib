@@ -2,8 +2,8 @@
 
 import { AccountService } from '@app/_services';
 
-@Component({ templateUrl: 'home.component.html' })
-export class HomeComponent {
+@Component({ templateUrl: 'dashboard.component.html' })
+export class DashBoardComponent {
     account = this.accountService.accountValue;
 
     constructor(private accountService: AccountService) { }
