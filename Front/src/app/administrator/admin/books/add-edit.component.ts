@@ -166,6 +166,26 @@ export class AddEditComponent implements OnInit {
         }
     }
 
+    onSelectBookFile(event) { // called each time file input changes
+        if (event.target.files && event.target.files[0]) {
+          const fileName = event.target.files[0].name;
+
+          var reader = new FileReader();
+
+          reader.readAsDataURL(event.target.files[0]); // read file as data url          
+          reader.onload = (event) => { // called once readAsDataURL is completed
+          let fileBase64 = event.target.result.toString();
+          //let json = {
+          //    "fileName": fileName,
+          //    "fileBase64": fileBase64
+          //};
+          console.log("FileName: ", fileBase64);
+          this.form.get('content').setValue(fileBase64);
+          
+        }
+        }
+    }
+
 
     
 }

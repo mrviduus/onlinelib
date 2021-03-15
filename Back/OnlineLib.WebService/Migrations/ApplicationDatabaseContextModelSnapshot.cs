@@ -58,7 +58,7 @@ namespace OnlineLib.WebService.Migrations
                         .HasColumnType("varbinary(16)");
 
                     b.Property<string>("Content")
-                        .HasColumnType("text");
+                        .HasColumnType("mediumtext");
 
                     b.Property<string>("ContentLanguage")
                         .HasColumnType("varchar(10)")

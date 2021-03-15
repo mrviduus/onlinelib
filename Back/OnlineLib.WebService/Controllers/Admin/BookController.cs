@@ -39,6 +39,8 @@ namespace OnlineLib.WebService.Controllers.Admin
         {
             bookDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, bookDTO.Cover);
 
+            bookDTO.Content = ConvertBase64ToText.Decode(bookDTO.Content);
+
             await this.bookManager.CreateOrUpdate(bookDTO);
 
             this.logger.LogInformation("Book was created");

@@ -9,8 +9,8 @@ using OnlineLib.DataAccess;
 namespace OnlineLib.WebService.Migrations
 {
     [DbContext(typeof(ApplicationDatabaseContext))]
-    [Migration("20210131194120_AddNewFieldsToBookEntity")]
-    partial class AddNewFieldsToBookEntity
+    [Migration("20210315184648_ChangeContentLength")]
+    partial class ChangeContentLength
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -60,7 +60,7 @@ namespace OnlineLib.WebService.Migrations
                         .HasColumnType("varbinary(16)");
 
                     b.Property<string>("Content")
-                        .HasColumnType("text");
+                        .HasColumnType("mediumtext");
 
                     b.Property<string>("ContentLanguage")
                         .HasColumnType("varchar(10)")

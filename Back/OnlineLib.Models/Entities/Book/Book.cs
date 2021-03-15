@@ -2,6 +2,7 @@
 using OnlineLib.Models.Models;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 
@@ -23,6 +24,7 @@ namespace OnlineLib.Domain.Entities.Book
 
         public string Summary { get; set; }
 
+        [Column(TypeName = "mediumtext")]
         public string Content { get; set; }
 
         public DateTime Year { get; set; }

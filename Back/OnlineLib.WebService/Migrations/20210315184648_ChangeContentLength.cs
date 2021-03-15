@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace OnlineLib.WebService.Migrations
 {
-    public partial class AddNewFieldsToBookEntity : Migration
+    public partial class ChangeContentLength : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -164,7 +164,7 @@ namespace OnlineLib.WebService.Migrations
                     CategoryId = table.Column<byte[]>(nullable: false),
                     Title = table.Column<string>(maxLength: 100, nullable: true),
                     Summary = table.Column<string>(maxLength: 500, nullable: true),
-                    Content = table.Column<string>(nullable: true),
+                    Content = table.Column<string>(type: "mediumtext", nullable: true),
                     Year = table.Column<DateTime>(nullable: false),
                     Publisher = table.Column<string>(nullable: true),
                     Pages = table.Column<int>(nullable: false),

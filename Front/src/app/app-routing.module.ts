@@ -11,9 +11,7 @@ const adminModule = () => import('./administrator/admin/admin.module').then(x =>
 const profileModule = () => import('./administrator/admin/profile/profile.module').then(x => x.ProfileModule);
 
 const routes: Routes = [
-    //user part
     { path: '', component: HomeComponent },
-    //admin part
     { path: 'admin', component: DashBoardComponent, canActivate: [AuthGuard] },
     { path: 'account', loadChildren: accountModule },
     { path: 'profile', loadChildren: profileModule, canActivate: [AuthGuard] },
