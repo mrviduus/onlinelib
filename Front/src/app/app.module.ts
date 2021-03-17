@@ -9,7 +9,7 @@ import { NgbModule, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap'
 
 import { AppRoutingModule } from './app-routing.module';
 import { JwtInterceptor, ErrorInterceptor, appInitializer, NgbDateParserFormatterHelper } from './_helpers';
-import { AccountService, AuthorService, BooksService, CategoryService, CommentsService } from './_services';
+import { AccountService, AuthorService, BooksService, CategoryService, CommentsService, AttachmentsService } from './_services';
 import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
@@ -46,6 +46,7 @@ import { HomeComponent } from './user/home/home.component'
         CommentsService,
         AuthorService,
         BooksService,
+        AttachmentsService
         // provider used to create fake backend
         //fakeBackendProvider
     ],

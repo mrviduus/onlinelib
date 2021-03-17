@@ -3,9 +3,10 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { first } from 'rxjs/operators';
 
-import { CategoryService, AlertService } from '@app/_services';
+import { CategoryService, AlertService, AttachmentsService } from '@app/_services';
 import { MustMatch } from '@app/_helpers';
 import { CategoryDto } from '@app/_models/admin/categoryDto';
+import { Base64ImgFile } from '@app/_models/base64ImgFile';
 
 @Component({ templateUrl: 'add-edit.component.html' })
 export class AddEditComponent implements OnInit {
@@ -18,12 +19,15 @@ export class AddEditComponent implements OnInit {
     img: any;
     categories: any[];
 
+    imageFolderName : string = "Categories";
+
     constructor(
         private formBuilder: FormBuilder,
         private route: ActivatedRoute,
         private router: Router,
         private categoryService: CategoryService,
-        private alertService: AlertService
+        private alertService: AlertService,
+        private attachmentsService: AttachmentsService
     ) {}
 
     ngOnInit() {
@@ -45,12 +49,10 @@ export class AddEditComponent implements OnInit {
         if (!this.isAddMode) {
             this.categoryService.getById(this.id)
                 .pipe(first())
-                .subscribe(x => this.form.patchValue(x));
-
-                setTimeout(()=>{                           //<<<---using ()=> syntax
-                    let icon = (this.form.get('icon').value);
-                    this.img = icon;
-               }, 100);
+                .subscribe((x) => {
+                    this.form.patchValue(x);
+                    this.img = x.icon;
+                });               
         }
     }
 
@@ -112,23 +114,26 @@ export class AddEditComponent implements OnInit {
             });
     }
 
-    onSelectFile(event) { // called each time file input changes
+    onSelectImgFile(event) { // called each time file input changes
         if (event.target.files && event.target.files[0]) {
-          const fileName = event.target.files[0].name;
+          let fileName = event.target.files[0].name;
 
           var reader = new FileReader();
 
           reader.readAsDataURL(event.target.files[0]); // read file as data url          
           reader.onload = (event) => { // called once readAsDataURL is completed
-          this.img = event.target.result;
-          let fileBase64 = event.target.result.toString();
-          let json = {
-              "fileName": fileName,
-              "fileBase64": fileBase64
-          }
-          //console.log(JSON.stringify(json));
-          this.form.get('icon').setValue(JSON.stringify(json));
-          
+          //this.img = event.target.result;
+          let base64ImgFile = new Base64ImgFile();
+          base64ImgFile.folderName = this.imageFolderName;
+          base64ImgFile.fileName =  fileName;
+          base64ImgFile.base64Code = event.target.result.toString();
+
+          this.attachmentsService.attachImgFile(base64ImgFile)
+          .pipe(first())
+          .subscribe((value)=>{             
+              this.form.get('icon').setValue(Object.values(value).toString());
+              this.img = Object.values(value).toString();
+          });       
         }
         }
     }

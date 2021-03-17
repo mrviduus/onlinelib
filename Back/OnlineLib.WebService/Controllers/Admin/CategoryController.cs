@@ -19,7 +19,6 @@ namespace OnlineLib.WebService.Controllers.Admin
     {
         private readonly ICategoryManager categoryManager;
         private readonly ILogger<CategoryController> logger;
-        private const string ImageFolderName = "Categories";
 
         public CategoryController(
             ICategoryManager categoryManager,
@@ -32,8 +31,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Create")]
         public async Task<IActionResult> Create(CategoryDTO categoryDto)
         {
-            categoryDto.Icon = SaveImageToServerFolder.Save(ImageFolderName, categoryDto.Icon);
-
             await this.categoryManager.CreateOrUpdate(categoryDto);
 
             this.logger.LogInformation("Category was created");
@@ -44,8 +41,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(CategoryDTO categoryDto)
         {
-            categoryDto.Icon = SaveImageToServerFolder.Save(ImageFolderName, categoryDto.Icon);
-
             await this.categoryManager.CreateOrUpdate(categoryDto);
 
             this.logger.LogInformation("Category was updated");

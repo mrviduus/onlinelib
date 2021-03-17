@@ -24,7 +24,6 @@ namespace OnlineLib.WebService.Controllers.Admin
     {
         private readonly IBookManager bookManager;
         private readonly ILogger<BookController> logger;
-        private const string ImageFolderName = "Books";
 
         public BookController(
             IBookManager bookManager,
@@ -37,8 +36,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Create")]
         public async Task<IActionResult> Create(BookDTO bookDTO)
         {
-            bookDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, bookDTO.Cover);
-
             await this.bookManager.CreateOrUpdate(bookDTO);
 
             this.logger.LogInformation("Book was created");
@@ -49,8 +46,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(BookDTO bookDTO)
         {
-            bookDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, bookDTO.Cover);
-
             await this.bookManager.CreateOrUpdate(bookDTO);
 
             this.logger.LogInformation("Book was updated");

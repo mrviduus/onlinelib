@@ -16,7 +16,6 @@ namespace OnlineLib.WebService.Controllers.Admin
     {
         private readonly IArticleManager articleManager;
         private readonly ILogger<ArticleController> logger;
-        private const string ImageFolderName = "Articles";
 
         public ArticleController(
             IArticleManager articleManager,
@@ -29,8 +28,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Create")]
         public async Task<IActionResult> Create(ArticleDTO articleDTO)
         {
-            articleDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, articleDTO.Cover);
-
             await this.articleManager.CreateOrUpdate(articleDTO);
 
             this.logger.LogInformation("Article was created");
@@ -41,8 +38,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(ArticleDTO articleDTO)
         {
-            articleDTO.Cover = SaveImageToServerFolder.Save(ImageFolderName, articleDTO.Cover);
-
             await this.articleManager.CreateOrUpdate(articleDTO);
 
             this.logger.LogInformation("Article was updated");

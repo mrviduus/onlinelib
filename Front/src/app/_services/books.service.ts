@@ -46,12 +46,4 @@ export class BooksService {
   delete(id: string){
     return this.http.delete(`${baseUrl}/Delete?id=${id}`);
   }
-
-  attachTxtFile(base64String){
-    //let httpParams = new HttpParams();
-    //let body = httpParams.set('base64String', base64String);
-    //console.log(body);
-
-    return this.http.post<string>(`${environment.apiUrl}/api/Attachments/AttachTxtFile`, base64String);
-  }
 }

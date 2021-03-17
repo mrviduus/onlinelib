@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using OnlineLib.Domain.DTO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,13 +22,13 @@ namespace OnlineLib.WebService.Helpers
         /// <param name="imgFolder">Folder name</param>
         /// <param name="fileNameAndData">Json with data.</param>
         /// <returns>String with path.</returns>
-        public static string Save(string imgFolder, string fileNameAndData)
+        public static string Save(Base64ImgFile base64ImgFile)
         {
             try
             {
-                var json = JObject.Parse(fileNameAndData);
-                var fileName = (string)json["fileName"];
-                var fileBase64 = (string)json["fileBase64"];
+                var fileName = base64ImgFile.FileName;
+                var fileBase64 = base64ImgFile.Base64Code;
+                var imgFolder = base64ImgFile.FolderName;
 
                 var matchGroups = Regex.Match(fileBase64, @"data:image/(?<type>.+?),(?<data>.+)").Groups;
                 var base64Data = matchGroups["data"].Value;
@@ -40,10 +41,6 @@ namespace OnlineLib.WebService.Helpers
                 var dbPath = Path.Combine(folderName, fileName);
 
                 return dbPath;
-            }
-            catch (JsonReaderException jex)
-            {
-                return fileNameAndData;
             }
             catch (Exception ex)
             {

@@ -16,7 +16,6 @@ namespace OnlineLib.WebService.Controllers.Admin
     {
         private readonly IAuthorManager authorManager;
         private readonly ILogger<AuthorController> logger;
-        private const string ImageFolderName = "Authors";
 
         public AuthorController(
             IAuthorManager authorManager,
@@ -29,8 +28,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Create")]
         public async Task<IActionResult> Create(AuthorDTO authorDTO)
         {
-            authorDTO.Icon = SaveImageToServerFolder.Save(ImageFolderName, authorDTO.Icon);
-
             await this.authorManager.CreateOrUpdate(authorDTO);
 
             string logMsg = "Author was created";
@@ -43,8 +40,6 @@ namespace OnlineLib.WebService.Controllers.Admin
         [HttpPost("Update")]
         public async Task<IActionResult> Update(AuthorDTO authorDTO)
         {
-            authorDTO.Icon = SaveImageToServerFolder.Save(ImageFolderName, authorDTO.Icon);
-
             await this.authorManager.CreateOrUpdate(authorDTO);
 
             string logMsg = "Update was created";

@@ -70,13 +70,7 @@
                 <div *ngIf="f.markdownContent.errors.required">MarkdownContent is required</div>
             </div>
         </div>
-        <!--div class="form-group col-7">
-            <label>Is Published?</label>
-            <select formControlName="isPublished" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.isPublished.errors }">
-                <option value={{true}}>Yes</option>
-                <option value={{false}}>No</option>                
-            </select>
-        </div-->
+
         <div class="form-group col-7">
             <label>Creation Time</label>
             <input type="text" formControlName="creationTime" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.creationTime.errors }" readonly/>
@@ -125,7 +119,7 @@
             <br>
             <img [src]="img" style="height: 200px;" class="img-thumbnail">
             <br>
-            <input type='file'  (change)="onSelectFile($event)">
+            <input type='file'  (change)="onSelectImgFile($event)">
             <br>
         </div>
     </div>
