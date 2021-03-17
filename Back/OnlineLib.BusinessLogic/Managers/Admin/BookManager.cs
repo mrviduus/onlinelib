@@ -130,17 +130,21 @@ namespace OnlineLib.BusinessLogic.Managers.Admin
 
         public async Task<BookDTO> GetById(Guid id)
         {
-            var entity = id != null ? this.Uow.BookRepository.GetByID(id) : throw new ArgumentNullException();
-            List<Guid> bookTagsId = this.Uow.BookTagRepository.Get().Select(x => x.TargetId).ToList();
+            var entity = this.Uow.BookRepository.GetByID(id);
+
+            ThrowIf.Null(entity, nameof(entity));
+
             var dto = this.mapper.Map<BookDTO>(entity);
+
+            List<Guid> bookTagsId = this.Uow.BookTagRepository.Get(entity => entity.SourceId == id).Select(x => x.TargetId).ToList();
+            var tags = this.Uow.TagRepository.Get().Where(x => bookTagsId.Contains(x.Id)).Select(x => x.Name);
+
             if (bookTagsId.IsNotNullOrEmpty())
             {
-                var tags = this.Uow.TagRepository.TagsWithIds(bookTagsId);
                 dto.Tags = string.Join(",", tags);
             }
 
             return dto;
         }
-
     }
 }

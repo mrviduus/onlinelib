@@ -39,21 +39,12 @@
 
         <div class="form-group col-7">
             <label>Content</label>
-            <input type="text" formControlName="content" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.content.errors }" />
+            <quill-editor formControlName="content" [ngClass]="{ 'is-invalid': submitted && f.content.errors }"></quill-editor>
             <div *ngIf="submitted && f.content.errors" class="invalid-feedback">
                 <div *ngIf="f.content.errors.required">Content is required</div>
             </div>
         </div>
 
-        <!--div class="form-group col-7">
-            <label>Year</label>
-            <input type="text" formControlName="year" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.year.errors }" />
-            <div *ngIf="submitted && f.year.errors" class="invalid-feedback">
-                <div *ngIf="f.year.errors.required">Year is required</div>
-            </div>
-        </div-->
-
-        <!---->
         <div class="form-group col-7">
             <label>Year</label>
             <div class="input-group">
@@ -145,9 +136,9 @@
 
     <div class="form-row">
         <div class="form-group col-7">
-            <label>Book</label>
+            <label>Attach book file</label>
             <br>
-            <input type='file'  (change)="onSelectBookFile($event)">
+            <input type='file' accept=".txt" (change)="onSelectBookFile($event)">
             <br>
         </div>
     </div>

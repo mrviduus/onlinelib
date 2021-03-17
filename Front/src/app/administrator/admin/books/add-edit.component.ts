@@ -6,6 +6,7 @@ import {BooksService, AuthorService, AlertService, CategoryService } from '@app/
 import { DatePipe } from '@angular/common';
 import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
 import { BookDTO } from '@app/_models/admin/bookDTO';
+import { Base64TxtFile } from '@app/_models/base64TxtFile'
 
 
 @Component({ 
@@ -80,8 +81,7 @@ export class AddEditComponent implements OnInit {
                 setTimeout(()=>{                           //<<<---using ()=> syntax
                     this.img =  (this.form.get('cover').value);
                     this.modelDataPicker = this.ngbDateParserFormatter.parse(this.form.get('year').value);
-
-                    console.log("Datapicker: ", this.modelDataPicker);                   
+                  
                }, 300);
         }
     }
@@ -174,14 +174,18 @@ export class AddEditComponent implements OnInit {
 
           reader.readAsDataURL(event.target.files[0]); // read file as data url          
           reader.onload = (event) => { // called once readAsDataURL is completed
-          let fileBase64 = event.target.result.toString();
-          //let json = {
-          //    "fileName": fileName,
-          //    "fileBase64": fileBase64
-          //};
-          console.log("FileName: ", fileBase64);
-          this.form.get('content').setValue(fileBase64);
-          
+            
+
+          let base64TxtFile = new Base64TxtFile();
+          base64TxtFile.base64Code = event.target.result.toString();
+
+          console.log(base64TxtFile);
+
+          this.bookService.attachTxtFile(base64TxtFile)
+          .pipe(first())
+          .subscribe((value)=>{
+              this.form.get('content').setValue(Object.values(value).toString());
+          });          
         }
         }
     }

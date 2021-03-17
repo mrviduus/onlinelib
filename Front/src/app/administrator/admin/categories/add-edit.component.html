@@ -13,7 +13,7 @@
         </div>
         <div class="form-group col-7">
             <label>Description</label>
-            <input type="text" formControlName="description" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.description.errors }" />
+            <quill-editor formControlName="description" [ngClass]="{ 'is-invalid': submitted && f.description.errors }"></quill-editor>
             <div *ngIf="submitted && f.description.errors" class="invalid-feedback">
                 <div *ngIf="f.description.errors.required">Description is required</div>
             </div>

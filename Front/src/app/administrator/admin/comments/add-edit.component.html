@@ -31,7 +31,7 @@
 
         <div class="form-group col-7">
             <label>Content</label>
-            <input type="text" formControlName="content" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.content.errors }" />
+            <quill-editor formControlName="content" [ngClass]="{ 'is-invalid': submitted && f.content.errors }"></quill-editor>
             <div *ngIf="submitted && f.content.errors" class="invalid-feedback">
                 <div *ngIf="f.content.errors.required">Content is required</div>
             </div>

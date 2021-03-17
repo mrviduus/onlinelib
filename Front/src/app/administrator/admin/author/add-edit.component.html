@@ -20,7 +20,7 @@
         </div>
         <div class="form-group col-7">
             <label>Biography</label>
-            <input type="text" formControlName="biography" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.biography.errors }" />
+            <quill-editor formControlName="biography" [ngClass]="{ 'is-invalid': submitted && f.biography.errors }"></quill-editor>
             <div *ngIf="submitted && f.biography.errors" class="invalid-feedback">
                 <div *ngIf="f.biography.errors.required">Biography is required</div>
             </div>
