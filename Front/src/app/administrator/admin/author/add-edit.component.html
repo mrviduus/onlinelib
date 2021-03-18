@@ -6,32 +6,40 @@
     <div class="form-row">
         <div class="form-group col-7">
             <label>First Name</label>
-            <input type="text" formControlName="firstName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.firstName.errors }" />
+            <input type="text" formControlName="firstName" class="form-control" required maxlength="20" [ngClass]="{ 'is-invalid': submitted && f.firstName.errors }" />
             <div *ngIf="submitted && f.firstName.errors" class="invalid-feedback">
                 <div *ngIf="f.firstName.errors.required">firstName is required</div>
             </div>
         </div>
         <div class="form-group col-7">
             <label>Last Name</label>
-            <input type="text" formControlName="lastName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.lastName.errors }" />
+            <input type="text" formControlName="lastName" class="form-control" required maxlength="20" [ngClass]="{ 'is-invalid': submitted && f.lastName.errors }" />
             <div *ngIf="submitted && f.lastName.errors" class="invalid-feedback">
                 <div *ngIf="f.lastName.errors.required">lastName is required</div>
             </div>
         </div>
         <div class="form-group col-7">
             <label>Biography</label>
-            <quill-editor formControlName="biography" [ngClass]="{ 'is-invalid': submitted && f.biography.errors }"></quill-editor>
+            <quill-editor formControlName="biography" required maxlength="1500" [ngClass]="{ 'is-invalid': submitted && f.biography.errors }"></quill-editor>
             <div *ngIf="submitted && f.biography.errors" class="invalid-feedback">
                 <div *ngIf="f.biography.errors.required">Biography is required</div>
             </div>
         </div>
-    
+
+
     <div class="form-group col-7">
         <label>Birth Date</label>
-        <input type="text" formControlName="birthDate" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.birthDate.errors }" readonly/>
-        <div *ngIf="submitted && f.birthDate.errors" class="invalid-feedback">
-            <div *ngIf="f.birthDate.errors.required">Birth Date time is required</div>
-        </div>
+        <div class="input-group">
+            <input class="form-control" placeholder="yyyy-MM-dd" formControlName="birthDate" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.birthDate.errors }"
+                   name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker" [minDate]="{year: 1850, month: 1, day: 1}"
+                   />
+                <div *ngIf="submitted && f.birthDate.errors" class="invalid-feedback">
+                    <div *ngIf="f.birthDate.errors.required">Birth Date time is required</div>
+                </div>
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary calendar" (click)="d.toggle()" type="button"></button>
+            </div>
+          </div>
     </div>
 </div>
     <div class="form-row">

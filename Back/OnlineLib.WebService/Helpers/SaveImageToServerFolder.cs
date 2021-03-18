@@ -16,12 +16,6 @@ namespace OnlineLib.WebService.Helpers
         private static string frontPath = Startup.StaticConfig.GetValue<string>(Constants.FrontPath);
         private static string imagesFolder = Startup.StaticConfig.GetValue<string>(Constants.ImagesFolder);
 
-        /// <summary>
-        /// Parse and save image in server folder.
-        /// </summary>
-        /// <param name="imgFolder">Folder name</param>
-        /// <param name="fileNameAndData">Json with data.</param>
-        /// <returns>String with path.</returns>
         public static string Save(Base64ImgFile base64ImgFile)
         {
             try
@@ -46,7 +40,6 @@ namespace OnlineLib.WebService.Helpers
             {
                 throw;
             }
-
         }
     }
 }

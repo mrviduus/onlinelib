@@ -8,17 +8,14 @@ import { NgbModule, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap'
 //import { fakeBackendProvider } from './_helpers';
 
 import { AppRoutingModule } from './app-routing.module';
-import { JwtInterceptor, ErrorInterceptor, appInitializer, NgbDateParserFormatterHelper } from './_helpers';
+import { JwtInterceptor, ErrorInterceptor, appInitializer } from './_helpers';
 import { AccountService, AuthorService, BooksService, CategoryService, CommentsService, AttachmentsService } from './_services';
 import { ArticlesService } from './_services';
 import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
-import { DashBoardComponent } from './administrator/admin/dashboard';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';;
-import { HomeComponent } from './user/home/home.component'
-
 
 
 @NgModule({
@@ -35,8 +32,7 @@ import { HomeComponent } from './user/home/home.component'
     declarations: [
         AppComponent,
         AlertComponent,
-        DashBoardComponent,
-        HomeComponent       ],
+         ],
     providers: [
         { provide: APP_INITIALIZER, useFactory: appInitializer, multi: true, deps: [AccountService] },
         { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },

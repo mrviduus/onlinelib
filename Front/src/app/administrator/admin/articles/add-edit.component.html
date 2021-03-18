@@ -7,7 +7,7 @@
 
         <div class="form-group col-7">
             <label>Artilce Title</label>
-            <input type="text" formControlName="title" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.title.errors }" />
+            <input type="text" formControlName="title" class="form-control" required maxlength="150" [ngClass]="{ 'is-invalid': submitted && f.title.errors }" />
             <div *ngIf="submitted && f.title.errors" class="invalid-feedback">
                 <div *ngIf="f.title.errors.required">Title is required</div>
             </div>
@@ -15,7 +15,7 @@
         
         <div class="form-group col-7">
             <label>Summury</label>
-            <input type="text" formControlName="summary" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.summary.errors }" />
+            <input type="text" formControlName="summary" class="form-control" required maxlength="1500" [ngClass]="{ 'is-invalid': submitted && f.summary.errors }" />
             <div *ngIf="submitted && f.summary.errors" class="invalid-feedback">
                 <div *ngIf="f.summary.errors.required">Summary is required</div>
             </div>
@@ -30,7 +30,7 @@
             </div>
             <div class="form-group col-7">
                 <label>Tags</label>
-                <input type="text" formControlName="tags" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.tags.errors }" />
+                <input type="text" formControlName="tags" class="form-control" required maxlength="150" [ngClass]="{ 'is-invalid': submitted && f.tags.errors }" />
                 <div *ngIf="submitted && f.tags.errors" class="invalid-feedback">
                     <div *ngIf="f.tags.errors.required">Tags is required</div>
                 </div>
@@ -38,7 +38,7 @@
 
         <div class="form-group col-7">
             <label>Author</label>
-            <input type="text" formControlName="author" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.author.errors }" />
+            <input type="text" formControlName="author" class="form-control" required maxlength="150" [ngClass]="{ 'is-invalid': submitted && f.author.errors }" />
             <div *ngIf="submitted && f.author.errors" class="invalid-feedback">
                 <div *ngIf="f.author.errors.required">Author is required</div>
             </div>
@@ -65,7 +65,7 @@
         <div class="form-group col-7">
             <h1>SEO</h1>
             <label>Markdown Content</label>
-            <input type="text" formControlName="markdownContent" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.markdownContent.errors }" />
+            <input type="text" formControlName="markdownContent" class="form-control" required maxlength="1500" [ngClass]="{ 'is-invalid': submitted && f.markdownContent.errors }" />
             <div *ngIf="submitted && f.markdownContent.errors" class="invalid-feedback">
                 <div *ngIf="f.markdownContent.errors.required">MarkdownContent is required</div>
             </div>
@@ -81,7 +81,7 @@
 
         <div class="form-group col-7">
             <label>Page Name</label>
-            <input type="text" formControlName="pageName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.pageName.errors }" />
+            <input type="text" formControlName="pageName" class="form-control" required maxlength="150" [ngClass]="{ 'is-invalid': submitted && f.pageName.errors }" />
             <div *ngIf="submitted && f.pageName.errors" class="invalid-feedback">
                 <div *ngIf="f.pageName.errors.required">Page Name is required</div>
             </div>

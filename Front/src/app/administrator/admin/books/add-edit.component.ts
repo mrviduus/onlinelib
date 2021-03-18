@@ -85,7 +85,6 @@ export class AddEditComponent implements OnInit {
                     this.img = x.cover;
                     this.modelDataPicker =  this.ngbDateParserFormatter.parse(x.year.toString());
                 });
-                //this.modelDataPicker = this.ngbDateParserFormatter.parse(this.form.get('year').value);
         }
     }
 

@@ -7,7 +7,7 @@
 
         <div class="form-group col-7">
             <label>Book Title</label>
-            <input type="text" formControlName="title" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.title.errors }" />
+            <input type="text" formControlName="title" required maxlength="50" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.title.errors }" />
             <div *ngIf="submitted && f.title.errors" class="invalid-feedback">
                 <div *ngIf="f.title.errors.required">Title is required</div>
             </div>
@@ -31,7 +31,7 @@
 
         <div class="form-group col-7">
             <label>Summary</label>
-            <input type="text" formControlName="summary" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.summary.errors }" />
+            <input type="text" formControlName="summary" required maxlength="400" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.summary.errors }" />
             <div *ngIf="submitted && f.summary.errors" class="invalid-feedback">
                 <div *ngIf="f.summary.errors.required">Summary is required</div>
             </div>
@@ -43,14 +43,22 @@
             <div *ngIf="submitted && f.content.errors" class="invalid-feedback">
                 <div *ngIf="f.content.errors.required">Content is required</div>
             </div>
+            <div class="form-row">
+                <div class="form-group col-7">
+                    <label>Attach book file</label>
+                    <br>
+                    <input type='file' accept=".txt" (change)="onSelectBookFile($event)">
+                    <br>
+                </div>
+            </div>
         </div>
 
         <div class="form-group col-7">
             <label>Year</label>
             <div class="input-group">
                 <input class="form-control" placeholder="yyyy-MM-dd" formControlName="year" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.year.errors }"
-                       name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker">
-                       <div *ngIf="submitted && f.year.errors" class="invalid-feedback">
+                       name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker" [minDate]="{year: 1850, month: 1, day: 1}"/>
+                    <div *ngIf="submitted && f.year.errors" class="invalid-feedback">
                         <div *ngIf="f.year.errors.required">Year is required</div>
                     </div>
                 <div class="input-group-append">
@@ -61,7 +69,7 @@
 
         <div class="form-group col-7">
             <label>Publisher</label>
-            <input type="text" formControlName="publisher" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.publisher.errors }" />
+            <input type="text" formControlName="publisher" required maxlength="150" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.publisher.errors }" />
             <div *ngIf="submitted && f.publisher.errors" class="invalid-feedback">
                 <div *ngIf="f.publisher.errors.required">Publisher is required</div>
             </div>
@@ -69,7 +77,7 @@
 
         <div class="form-group col-7">
             <label>Pages</label>
-            <input type="text" formControlName="pages" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.pages.errors }" />
+            <input type="number"  formControlName="pages" class="form-control" required maxlength="9" [ngClass]="{ 'is-invalid': submitted && f.pages.errors }" />
             <div *ngIf="submitted && f.pages.errors" class="invalid-feedback">
                 <div *ngIf="f.pages.errors.required">Pages is required</div>
             </div>
@@ -77,7 +85,7 @@
 
         <div class="form-group col-7">
             <label>IBSN</label>
-            <input type="text" formControlName="ibsn" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.ibsn.errors }" />
+            <input type="text" formControlName="ibsn" required maxlength="20" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.ibsn.errors }" />
             <div *ngIf="submitted && f.ibsn.errors" class="invalid-feedback">
                 <div *ngIf="f.ibsn.errors.required">ibsn is required</div>
             </div>
@@ -93,7 +101,7 @@
         <div class="form-group col-7">
             <h1>SEO</h1>
             <label>Page Name</label>
-            <input type="text" formControlName="pageName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.pageName.errors }" />
+            <input type="text" formControlName="pageName" class="form-control" required maxlength="200" [ngClass]="{ 'is-invalid': submitted && f.pageName.errors }" />
             <div *ngIf="submitted && f.pageName.errors" class="invalid-feedback">
                 <div *ngIf="f.pageName.errors.required">Page Name is required</div>
             </div>
@@ -115,7 +123,7 @@
         </div>
         <div class="form-group col-7">
             <label>Tags</label>
-            <input type="text" formControlName="tags" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.tags.errors }" />
+            <input type="text" formControlName="tags" class="form-control" required maxlength="50" [ngClass]="{ 'is-invalid': submitted && f.tags.errors }" />
             <div *ngIf="submitted && f.tags.errors" class="invalid-feedback">
                 <div *ngIf="f.tags.errors.required">Tags is required</div>
             </div>
@@ -129,16 +137,7 @@
             <br>
             <img [src]="img" style="height: 200px;" class="img-thumbnail">
             <br>
-            <input type='file'  (change)="onSelectImgFile($event)">
-            <br>
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group col-7">
-            <label>Attach book file</label>
-            <br>
-            <input type='file' accept=".txt" (change)="onSelectBookFile($event)">
+            <input type='file' accept=".jpeg, .jpg, .jpe, .jfif, .jif, .png"  (change)="onSelectImgFile($event)">
             <br>
         </div>
     </div>

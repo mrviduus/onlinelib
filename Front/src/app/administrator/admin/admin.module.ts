@@ -12,6 +12,7 @@ import { AuthorModule } from './author/author.module';
 import { FormsModule } from '@angular/forms';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { RouterModule } from '@angular/router';
+import { DashBoardComponent } from './dashboard';
 
 
 
@@ -30,7 +31,8 @@ import { RouterModule } from '@angular/router';
     declarations: [
         SubNavComponent,
         LayoutComponent,
-        OverviewComponent,      
+        OverviewComponent,
+        DashBoardComponent      
     ],
     exports: [RouterModule]
 })

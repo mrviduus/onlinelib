@@ -8,6 +8,7 @@ import { MustMatch } from '@app/_helpers';
 import { AuthorDTO } from '@app/_models/admin/authorDto';
 import { DatePipe } from '@angular/common';
 import { Base64ImgFile } from '@app/_models/base64ImgFile';
+import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({ 
     templateUrl: 'add-edit.component.html',
@@ -19,9 +20,9 @@ export class AddEditComponent implements OnInit {
     isAddMode: boolean;
     loading = false;
     submitted = false;
-
     img: any;
     authors: any[];
+    modelDataPicker : NgbDateStruct;
 
     imageFolderName : string = "Authors";
 
@@ -32,7 +33,8 @@ export class AddEditComponent implements OnInit {
         private authorService: AuthorService,
         private alertService: AlertService,
         private attachmentsService: AttachmentsService,
-        private datePipe: DatePipe
+        private datePipe: DatePipe,
+        private ngbDateParserFormatter: NgbDateParserFormatter
     ) {}
 
     ngOnInit() {
@@ -58,6 +60,7 @@ export class AddEditComponent implements OnInit {
                 .subscribe((x) => {
                     this.form.patchValue(x);
                     this.img = x.icon;
+                    this.modelDataPicker =  this.ngbDateParserFormatter.parse(x.birthDate.toString());
                 });
         }
     }
