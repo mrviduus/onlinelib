@@ -15,7 +15,7 @@ import { AppComponent } from './app.component';
 import { AlertComponent } from './_components';
 import { QuillModule } from 'ngx-quill';
 import { FormsModule } from '@angular/forms';
-import { NgxPaginationModule } from 'ngx-pagination';;
+import { NgxPaginationModule } from 'ngx-pagination';
 
 
 @NgModule({

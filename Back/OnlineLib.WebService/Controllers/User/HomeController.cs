@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OnlineLib.Interfaces.Managers.Admin;
+using System;
 using System.Threading.Tasks;
 
 namespace OnlineLib.WebService.Controllers.User
@@ -27,7 +28,17 @@ namespace OnlineLib.WebService.Controllers.User
 
             this.logger.LogInformation("Return books");
 
-            return Ok(books);
+            return this.Ok(books);
+        }
+
+        [HttpGet("GetBookById")]
+        public async Task<IActionResult> GetBookById(Guid id)
+        {
+            var book = await this.bookManager.GetById(id);
+
+            this.logger.LogInformation($"Return book {book.Title} with  id {book.Id}" );
+
+            return this.Ok(book);
         }
     }
 }

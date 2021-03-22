@@ -13,7 +13,7 @@ export class HomeComponent implements OnInit {
 
 
   ngOnInit(): void {
-    this.homeService.GetAllBooks()
+    this.homeService.getAllBooks()
         .pipe(first())
         .subscribe((value) => {
           this.books = value;

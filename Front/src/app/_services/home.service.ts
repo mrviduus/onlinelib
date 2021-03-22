@@ -21,8 +21,12 @@ export class HomeService {
 
    }
 
-  GetAllBooks(){
+  getAllBooks(){
     return this.http.get<BookDTO[]>(`${baseUrl}/GetAllBooks`);
+  }
+
+  getById(id: string) {
+    return this.http.get<BookDTO>(`${baseUrl}/GetBookById?id=${id}`);
   }
 
 }
