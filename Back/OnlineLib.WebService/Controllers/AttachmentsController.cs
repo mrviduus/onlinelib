@@ -3,9 +3,6 @@ using Microsoft.Extensions.Logging;
 using OnlineLib.Domain.DTO;
 using OnlineLib.WebService.Attributes;
 using OnlineLib.WebService.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace OnlineLib.WebService.Controllers

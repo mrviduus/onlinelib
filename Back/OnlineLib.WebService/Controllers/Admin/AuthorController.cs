@@ -34,7 +34,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation(logMsg);
 
-            return Ok(new { message = logMsg });
+            return this.Ok(new { message = logMsg });
         }
 
         [HttpPost("Update")]
@@ -46,7 +46,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation(logMsg);
 
-            return Ok(new { message = logMsg });
+            return this.Ok(new { message = logMsg });
         }
 
         [HttpGet("GetById")]
@@ -56,7 +56,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return author by id");
 
-            return Ok(author);
+            return this.Ok(author);
         }
 
         [HttpGet("GetAll")]

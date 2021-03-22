@@ -35,7 +35,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Comment was created");
 
-            return Ok(new { message = "Comment was created" });
+            return this.Ok(new { message = "Comment was created" });
         }
 
         [HttpPost("Update")]
@@ -45,7 +45,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Comment was updated");
 
-            return Ok(new { message = "Comment was updated" });
+            return this.Ok(new { message = "Comment was updated" });
         }
 
         [HttpGet("GetById")]
@@ -55,7 +55,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return comment by id");
 
-            return Ok(comment);
+            return this.Ok(comment);
         }
 
         [HttpGet("GetAll")]
@@ -65,7 +65,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return all comments");
 
-            return Ok(comments);
+            return this.Ok(comments);
         }
 
         [HttpDelete("Delete")]

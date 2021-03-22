@@ -37,7 +37,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("User logged in successfully.");
 
-            return Ok(response);
+            return this.Ok(response);
         }
 
         [HttpPost("refresh-token")]
@@ -49,7 +49,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("RefreshToken in successfully.");
 
-            return Ok(response);
+            return this.Ok(response);
         }
 
         [Authorize]
@@ -71,14 +71,14 @@ namespace OnlineLib.WebService.Controllers
             {
                 this.logger.LogWarning("Unauthorized");
 
-                return Unauthorized(new { message = "Unauthorized" });
+                return this.Unauthorized(new { message = "Unauthorized" });
             }
 
             this.accountService.RevokeToken(token, this.ipAddress());
 
             this.logger.LogInformation("Token revoked");
 
-            return Ok(new { message = "Token revoked" });
+            return this.Ok(new { message = "Token revoked" });
         }
 
         [HttpPost("register")]
@@ -88,7 +88,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Registration successful");
 
-            return Ok(new { message = "Registration successful, please check your email for verification instructions" });
+            return this.Ok(new { message = "Registration successful, please check your email for verification instructions" });
         }
 
         [HttpPost("verify-email")]
@@ -98,7 +98,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Verification successful");
 
-            return Ok(new { message = "Verification successful, you can now login" });
+            return this.Ok(new { message = "Verification successful, you can now login" });
         }
 
         [HttpPost("forgot-password")]
@@ -108,7 +108,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("fogot password, email was sended");
 
-            return Ok(new { message = "Please check your email for password reset instructions" });
+            return this.Ok(new { message = "Please check your email for password reset instructions" });
         }
 
         [HttpPost("validate-reset-token")]
@@ -118,7 +118,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Token is valid");
 
-            return Ok(new { message = "Token is valid" });
+            return this.Ok(new { message = "Token is valid" });
         }
 
         [HttpPost("reset-password")]
@@ -128,7 +128,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Password reset successful");
 
-            return Ok(new { message = "Password reset successful, you can now login" });
+            return this.Ok(new { message = "Password reset successful, you can now login" });
         }
 
         [Authorize(Role.Admin)]
@@ -137,7 +137,7 @@ namespace OnlineLib.WebService.Controllers
         {
             var accounts = this.accountService.GetAll();
             this.logger.LogInformation("get all users");
-            return Ok(accounts);
+            return this.Ok(accounts);
         }
 
         [Authorize]
@@ -156,7 +156,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Get user by Id is success");
 
-            return Ok(account);
+            return this.Ok(account);
         }
 
         [Authorize(Role.Admin)]
@@ -167,7 +167,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Account was created");
 
-            return Ok(account);
+            return this.Ok(account);
         }
 
         [Authorize]
@@ -191,7 +191,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Account was updated.");
 
-            return Ok(account);
+            return this.Ok(account);
         }
 
         [Authorize]
@@ -210,7 +210,7 @@ namespace OnlineLib.WebService.Controllers
 
             this.logger.LogInformation("Account deleted successfully");
 
-            return Ok(new { message = "Account deleted successfully" });
+            return this.Ok(new { message = "Account deleted successfully" });
         }
 
         //helper methods

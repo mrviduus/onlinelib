@@ -60,7 +60,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return book by id");
 
-            return Ok(book);
+            return this.Ok(book);
         }
 
         [HttpGet("GetAll")]
@@ -70,7 +70,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return books");
 
-            return Ok(books);
+            return this.Ok(books);
         }
 
         [HttpDelete("Delete")]

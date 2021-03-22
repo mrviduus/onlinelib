@@ -52,7 +52,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return article by Id");
 
-            return Ok(article);
+            return this.Ok(article);
         }
 
         [HttpGet("GetAll")]
@@ -62,7 +62,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return all article");
 
-            return Ok(articles);
+            return this.Ok(articles);
         }
 
         [HttpDelete("Delete")]
