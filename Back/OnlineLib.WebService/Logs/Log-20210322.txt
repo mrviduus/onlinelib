@@ -1,6 +1,0 @@
-2021-03-22T20:57:14.7368264+02:00  [INF] Now listening on: "http://localhost:4000" (d826f4b8)
-2021-03-22T20:57:14.7510658+02:00  [INF] Application started. Press Ctrl+C to shut down. (dcaefe54)
-2021-03-22T20:57:14.7572321+02:00  [INF] Hosting environment: "Development" (c3307c92)
-2021-03-22T20:57:14.7600315+02:00  [INF] Content root path: "C:\MyProjects\_github\onLib\onlinelib\Back\OnlineLib.WebService" (b5d60022)
-2021-03-22T20:58:45.5792230+02:00 0HM7DCI1QGAEL:00000002 [INF] RefreshToken in successfully. (05983c22)
-2021-03-22T20:58:45.8364627+02:00 0HM7DCI1QGAEK:00000004 [INF] Return books (2a1116ab)

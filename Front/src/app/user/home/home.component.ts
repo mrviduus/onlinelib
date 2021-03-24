@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { HomeService } from '@app/_services';
+import { HomeService } from '@app/_services/public';
 import { first } from 'rxjs/operators';
 
 @Component({

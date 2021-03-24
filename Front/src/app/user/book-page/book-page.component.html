@@ -1,1 +1,40 @@
-<p>{{tittle}}</p>
+<div class="p-4">
+    <div class="container">
+        <div class="row" *ngIf="author">
+          <div class="col">
+            <div>
+                <img src={{book.cover}} width="202" height="290">
+            </div>
+          </div>
+          <div class="col-6">
+             <div>
+                <h4><a>{{author.firstName}}  {{author.lastName}}</a></h4>
+                <h1>{{book.title}}</h1>
+                <br>
+                <button type="button" class="btn btn-primary">Read book</button>
+                <br>
+                <br>
+                <p>{{book.summary}}</p>                  
+            </div>
+            <div>
+                <h5>Comments</h5>
+            </div>
+
+            
+          </div>
+          <div class="col">
+              <h3>Tags </h3>
+              <h4>{{book.tags}}</h4>           
+          </div>
+        </div>
+
+        <div *ngIf="!author">
+            <div colspan="4" class="text-center">
+                <span class="spinner-border spinner-border-lg align-center"></span>
+            </div>
+          </div>
+
+      </div>
+
+    
+</div>

@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HomeService } from '@app/_services';
+import { AuthorDTO } from '@app/_models/admin/authorDTO';
+import { BookDTO } from '@app/_models/admin/bookDTO';
+import { HomeService, AuthorService } from '@app/_services/public';
 import { first } from 'rxjs/operators';
 
 @Component({
@@ -11,13 +13,14 @@ import { first } from 'rxjs/operators';
 export class BookPageComponent implements OnInit {
   
   id: string;
-  img: any;
-  tittle: string;
+  book: BookDTO;
+  author: AuthorDTO;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private homeService: HomeService
+    private homeService: HomeService,
+    private authorService: AuthorService
     ) { }
 
   ngOnInit(): void {
@@ -25,9 +28,16 @@ export class BookPageComponent implements OnInit {
     this.homeService.getById(this.id)
     .pipe(first())
     .subscribe((x) => {
-        this.img = x.cover;
-        this.tittle = x.title;
-        //this.modelDataPicker =  this.ngbDateParserFormatter.parse(x.year.toString());
+      this.book = x;
+      this.getAuthorById(x.authorId);
+    });
+  }
+
+  getAuthorById(id: string) {
+    this.authorService.getById(id)
+    .pipe(first())
+    .subscribe((x) => {
+      this.author = x;
     });
   }
 

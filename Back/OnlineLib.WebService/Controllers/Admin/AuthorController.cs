@@ -66,7 +66,7 @@ namespace OnlineLib.WebService.Controllers.Admin
 
             this.logger.LogInformation("Return authors");
 
-            return Ok(authors);
+            return this.Ok(authors);
         }
 
         [HttpDelete("Delete")]
