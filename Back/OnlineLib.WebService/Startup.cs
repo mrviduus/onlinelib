@@ -34,7 +34,7 @@ namespace OnlineLib.WebService
             StaticConfig = configuration;
 
             string connectionString = this.Configuration.GetDatabaseConnectionString();
-            //DatabaseInitializer.InitializeDatabase(connectionString);
+            DatabaseInitializer.InitializeDatabase(connectionString);
         }
 
         public IConfiguration Configuration { get; }
@@ -68,9 +68,6 @@ namespace OnlineLib.WebService
             var path = Directory.GetCurrentDirectory();
             loggerFactory.AddFile($"{path}\\Logs\\Log.txt");
 
-            // migrate database changes on startup (includes initial db creation)
-            //context.Database.Migrate();
-
             // generated swagger json and swagger ui middleware
             app.UseSwagger();
             app.UseSwaggerUI(x => x.SwaggerEndpoint("/swagger/v1/swagger.json", "ASP.NET Core OnlineLib"));
@@ -90,6 +87,7 @@ namespace OnlineLib.WebService
 
             // custom jwt auth middleware
             app.UseMiddleware<JwtMiddleware>();
+
 
             app.UseEndpoints(x => x.MapControllers());
         }

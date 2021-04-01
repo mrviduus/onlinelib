@@ -1,10 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using OnlineLib.Domain.Entities.Book;
 using OnlineLib.Models.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
 namespace OnlineLib.DataAccess
 {
     public class DatabaseInitializer
@@ -17,6 +19,11 @@ namespace OnlineLib.DataAccess
         {
             using (var context = ApplicationDatabaseContextFactory.CreateContext(connectionString))
             {
+                //check if db exist
+                if ((context.Database.GetService<IDatabaseCreator>() as RelationalDatabaseCreator).Exists())
+                {
+                    return;
+                }
 #if DEBUG
                 context.Database.EnsureDeleted();
 #endif
@@ -111,6 +118,16 @@ namespace OnlineLib.DataAccess
             context.Comment.AddRange(new[] { testComment });
 
             context.SaveChanges();
+
+            var testAuthor = new Author()
+            {
+                Id = new Guid("5dad58ce-87c8-487e-9aa8-ba557695b092"),
+                FirstName = "Victor",
+                LastName = "Pelevin",
+                Biography = "Some text",
+                BirthDate = DateTime.Now,
+                Icon = null,
+            };
         }
     }
 }
