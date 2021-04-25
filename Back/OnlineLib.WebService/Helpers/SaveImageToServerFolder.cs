@@ -8,8 +8,8 @@ namespace OnlineLib.WebService.Helpers
 {
     public static class SaveImageToServerFolder
     {
-        private static string frontPath = Startup.StaticConfig.GetValue<string>(Constants.FrontPath);
         private static string imagesFolder = Startup.StaticConfig.GetValue<string>(Constants.ImagesFolder);
+        private const string rootFolder = "wwwroot";
 
         public static string Save(Base64ImgFile base64ImgFile)
         {
@@ -23,13 +23,14 @@ namespace OnlineLib.WebService.Helpers
                 var base64Data = matchGroups["data"].Value;
                 var binData = Convert.FromBase64String(base64Data);
                 var folderName = Path.Combine(imagesFolder, imgFolder);
-                System.IO.Directory.CreateDirectory(frontPath + folderName);
-                var pathToSave = Path.Combine(frontPath, folderName, fileName);
+                System.IO.Directory.CreateDirectory(folderName);
+                var pathToSave = Path.Combine(folderName, fileName);
                 System.IO.File.WriteAllBytes(pathToSave, binData);
 
                 var dbPath = Path.Combine(folderName, fileName);
 
-                return dbPath;
+                //remove wwwroot path
+                return dbPath.Replace(rootFolder, string.Empty);
             }
             catch (Exception ex)
             {

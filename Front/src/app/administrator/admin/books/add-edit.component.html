@@ -135,7 +135,7 @@
         <div class="form-group col-7">
             <label>Cover</label>
             <br>
-            <img [src]="img" style="height: 200px;" class="img-thumbnail">
+            <img [src]="baseUrl + img" style="height: 200px;" class="img-thumbnail">
             <br>
             <input type='file' accept=".jpeg, .jpg, .jpe, .jfif, .jif, .png"  (change)="onSelectImgFile($event)">
             <br>

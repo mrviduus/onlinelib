@@ -32,7 +32,7 @@
         <div class="form-group col-7">
             <label>Icon category</label>
             <br>
-            <img [src]="img" style="height: 200px;" class="img-thumbnail">
+            <img [src]="baseUrl + img" style="height: 200px;" class="img-thumbnail">
             <br>
             <input type='file'  (change)="onSelectImgFile($event)">
             <br>

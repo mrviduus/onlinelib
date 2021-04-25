@@ -26,7 +26,7 @@
         totalItems: totalLength }">
             <td>{{article.title}}</td>
             <td>{{article.summary}}</td>
-            <td><img style="height: 40px;" src="{{article.cover}}"></td>
+            <td><img style="height: 40px;" src="{{baseUrl + article.cover}}"></td>
             <td style="white-space: nowrap">
                 <a routerLink="edit/{{article.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
                 <button (click)="deleteCategory(article.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="article.isDeleting">

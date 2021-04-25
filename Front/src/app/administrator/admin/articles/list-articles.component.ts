@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ArticlesService } from '@app/_services';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 
 @Component({
@@ -9,6 +10,7 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./list-articles.component.less']
 })
 export class ListArticlesComponent implements OnInit {
+  baseUrl =  `${environment.apiUrl}/`;
   articles: any[];
   searchArticles = '';
   //pagination

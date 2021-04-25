@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CategoryService } from '@app/_services';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 @Component({
   selector: 'app-list-category',
@@ -8,6 +9,7 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./list-category.component.less']
 })
 export class ListCategoryComponent implements OnInit {
+  baseUrl =  `${environment.apiUrl}/`;
   categories: any[];
   constructor(private categoryService : CategoryService) { }
 

@@ -7,12 +7,16 @@ import { DatePipe } from '@angular/common';
 import { Base64ImgFile } from '@app/_models/base64ImgFile';
 import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
 import { AuthorDTO } from '@app/_models/admin/authorDto';
+import { environment } from '@environments/environment';
+
+
 
 @Component({ 
     templateUrl: 'add-edit.component.html',
     providers: [DatePipe]
 })
 export class AddEditComponent implements OnInit {
+    baseUrl =  `${environment.apiUrl}/`;
     form: FormGroup;
     id: string;
     isAddMode: boolean;
@@ -23,6 +27,8 @@ export class AddEditComponent implements OnInit {
     modelDataPicker : NgbDateStruct;
 
     imageFolderName : string = "Authors";
+    
+    
 
     constructor(
         private formBuilder: FormBuilder,
@@ -39,8 +45,6 @@ export class AddEditComponent implements OnInit {
         this.authorService.getAll()
         .pipe(first())
         .subscribe(authors => this.authors = authors);
-
-
         this.id = this.route.snapshot.params['id'];
         this.isAddMode = !this.id;
 

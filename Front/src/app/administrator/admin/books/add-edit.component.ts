@@ -6,8 +6,9 @@ import {BooksService, AuthorService, AlertService, CategoryService, AttachmentsS
 import { DatePipe } from '@angular/common';
 import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
 import { BookDTO } from '@app/_models/admin/bookDto';
-import { Base64TxtFile } from '@app/_models/base64TxtFile'
-import { Base64ImgFile } from '@app/_models/base64ImgFile'
+import { Base64TxtFile } from '@app/_models/base64TxtFile';
+import { Base64ImgFile } from '@app/_models/base64ImgFile';
+import { environment } from '@environments/environment';
 
 
 @Component({ 
@@ -15,7 +16,7 @@ import { Base64ImgFile } from '@app/_models/base64ImgFile'
     providers: [DatePipe]
  })
 export class AddEditComponent implements OnInit {
-
+    baseUrl =  `${environment.apiUrl}/`;
     form: FormGroup;
     id: string;
     isAddMode: boolean;

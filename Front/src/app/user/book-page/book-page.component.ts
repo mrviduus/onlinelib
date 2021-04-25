@@ -4,6 +4,7 @@ import { AuthorDTO } from '@app/_models/admin/authorDto';
 import { BookDTO } from '@app/_models/admin/bookDto';
 import { HomeService, AuthorService } from '@app/_services/public';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 @Component({
   selector: 'app-book-page',
@@ -11,7 +12,7 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./book-page.component.less']
 })
 export class BookPageComponent implements OnInit {
-  
+  baseUrl =  `${environment.apiUrl}/`;
   id: string;
   book: BookDTO;
   author: AuthorDTO;

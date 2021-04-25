@@ -7,6 +7,8 @@ import { MustMatch } from '@app/_helpers';
 import { ArticleDto } from '@app/_models/admin/articleDto';
 import { DatePipe } from '@angular/common';
 import { Base64ImgFile } from '@app/_models/base64ImgFile';
+import { environment } from '@environments/environment';
+
 
 
 @Component({ 
@@ -14,7 +16,7 @@ import { Base64ImgFile } from '@app/_models/base64ImgFile';
     providers: [DatePipe]
  })
 export class AddEditComponent implements OnInit {
-
+    baseUrl =  `${environment.apiUrl}/`;
     form: FormGroup;
     id: string;
     isAddMode: boolean;

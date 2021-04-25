@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthorService } from '@app/_services';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 @Component({
   selector: 'app-list-author',
@@ -8,7 +9,9 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./list-author.component.less']
 })
 export class ListAuthorComponent implements OnInit {
+  baseUrl =  `${environment.apiUrl}/`;
   authors: any[];
+  
   constructor(private authorService : AuthorService) { }
 
   ngOnInit(): void {

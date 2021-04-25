@@ -17,7 +17,7 @@
         <tr *ngFor="let category of categories">
             <td>{{category.name}}</td>
             <td>{{category.description}}</td>
-            <td><img style="height: 40px;" src="{{category.icon}}"></td>
+            <td><img style="height: 40px;" src="{{baseUrl + category.icon}}"></td>
             <td style="white-space: nowrap">
                 <a routerLink="edit/{{category.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
                 <button (click)="deleteCategory(category.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="category.isDeleting">

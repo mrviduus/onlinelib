@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { HomeService } from '@app/_services/public';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 @Component({
   selector: 'app-home',
@@ -8,6 +9,7 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./home.component.less']
 })
 export class HomeComponent implements OnInit {
+  baseUrl =  `${environment.apiUrl}/`;
   books: any[]; 
   constructor(private homeService: HomeService ) { }
 

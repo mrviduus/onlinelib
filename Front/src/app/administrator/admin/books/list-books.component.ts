@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { BooksService } from '@app/_services';
 import { first } from 'rxjs/operators';
+import { environment } from '@environments/environment';
 
 
 @Component({
@@ -9,6 +10,7 @@ import { first } from 'rxjs/operators';
   styleUrls: ['./list-books.component.less']
 })
 export class ListBooksComponent implements OnInit {
+  baseUrl =  `${environment.apiUrl}/`;
   books: any[];
   searchBooks = '';
   //pagination

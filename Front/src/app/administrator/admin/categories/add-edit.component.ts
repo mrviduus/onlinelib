@@ -7,9 +7,11 @@ import { CategoryService, AlertService, AttachmentsService } from '@app/_service
 import { MustMatch } from '@app/_helpers';
 import { CategoryDto } from '@app/_models/admin/categoryDto';
 import { Base64ImgFile } from '@app/_models/base64ImgFile';
+import { environment } from '@environments/environment';
 
 @Component({ templateUrl: 'add-edit.component.html' })
 export class AddEditComponent implements OnInit {
+    baseUrl =  `${environment.apiUrl}/`;
     form: FormGroup;
     id: string;
     isAddMode: boolean;

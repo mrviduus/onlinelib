@@ -19,7 +19,7 @@
             <td>{{author.firstName}}</td>
             <td>{{author.lastName}}</td>
             <td>{{author.biography}}</td>
-            <td><img style="height: 40px;" src="{{author.icon}}"></td>
+            <td><img style="height: 40px;" src="{{baseUrl + author.icon}}"></td>
             <td style="white-space: nowrap">
                 <a routerLink="edit/{{author.id}}" class="btn btn-sm btn-primary mr-1">Edit</a>
                 <button (click)="deleteAuthor(author.id)" class="btn btn-sm btn-danger btn-delete-account" [disabled]="author.isDeleting">

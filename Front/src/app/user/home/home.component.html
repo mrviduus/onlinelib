@@ -18,7 +18,7 @@
         <tr *ngFor="let book of books">
             <td>{{book.title}}</td>
             <td>{{book.summary}}</td>
-            <td><img style="height: 40px;" src="{{book.cover}}"></td>
+            <td><img style="height: 40px;" src="{{baseUrl + book.cover}}"></td>
             <td style="white-space: nowrap">
                 <a routerLink="/book/{{book.id}}" class="btn btn-sm btn-primary mr-1">Open</a>
             </td>
