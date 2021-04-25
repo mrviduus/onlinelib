@@ -29,7 +29,7 @@ namespace OnlineLib.WebService.Helpers
 
                 var dbPath = Path.Combine(folderName, fileName);
 
-                //remove wwwroot path
+                //create path for front
                 return dbPath.Replace(rootFolder, string.Empty);
             }
             catch (Exception ex)
