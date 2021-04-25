@@ -5,7 +5,7 @@ import { first } from 'rxjs/operators';
 import {BooksService, AuthorService, AlertService, CategoryService, AttachmentsService } from '@app/_services';
 import { DatePipe } from '@angular/common';
 import { NgbDateStruct, NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
-import { BookDTO } from '@app/_models/admin/bookDTO';
+import { BookDTO } from '@app/_models/admin/bookDto';
 import { Base64TxtFile } from '@app/_models/base64TxtFile'
 import { Base64ImgFile } from '@app/_models/base64ImgFile'
 

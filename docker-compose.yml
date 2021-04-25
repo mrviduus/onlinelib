@@ -20,14 +20,21 @@ services:
 
   onlinelib:
     build: back/
+    restart:  always
+    depends_on:
+      - MySQLdb
     ports:
     - "4000:80"
     environment:
       ASPNETCORE_URLS: "http://+"
       ASPNETCORE_ENVIRONMENT: Development
+
   
   onlinelibclient:
     build: front/
+    restart:  always
+    depends_on:
+      - onlinelib
     ports:
-      - "4200:80"
+      - "80:80"
 

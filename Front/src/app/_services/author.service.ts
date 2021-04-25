@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '@environments/environment';
-import { AuthorDTO } from '@app/_models/admin/authorDTO';
+import { AuthorDTO } from '@app/_models/admin/authorDto';
 
 const baseUrl = `${environment.apiUrl}/admin/Author`;
 

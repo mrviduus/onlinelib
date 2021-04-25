@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '@environments/environment';
 import { text } from '@fortawesome/fontawesome-svg-core';
-import { BookDTO } from '@app/_models/admin/bookDTO';
+import { BookDTO } from '@app/_models/admin/bookDto';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 const baseUrl = `${environment.apiUrl}/api/Home`;
