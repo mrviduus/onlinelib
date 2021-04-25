@@ -31,7 +31,7 @@
         <label>Birth Date</label>
         <div class="input-group">
             <input class="form-control" placeholder="yyyy-MM-dd" formControlName="birthDate" class="form-control" [ngClass]="{ 'is-invalid': submitted && f.birthDate.errors }"
-                   name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker" [minDate]="{year: 1850, month: 1, day: 1}"
+                   name="dp" [(ngModel)]="modelDataPicker" ngbDatepicker #d="ngbDatepicker" [minDate]="{year: 1800, month: 1, day: 1}"
                    />
                 <div *ngIf="submitted && f.birthDate.errors" class="invalid-feedback">
                     <div *ngIf="f.birthDate.errors.required">Birth Date time is required</div>

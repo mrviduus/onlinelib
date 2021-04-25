@@ -1,26 +1,16 @@
+using AspNetCoreRateLimit;
+using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.OpenApi.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using AutoMapper;
-using OnlineLib.Models.Models.Settings;
-using OnlineLib.Interfaces.Managers;
-using OnlineLib.BusinessLogic.Managers;
-using OnlineLib.WebService.Middleware;
 using OnlineLib.DataAccess;
+using OnlineLib.Models.Models.Settings;
 using OnlineLib.WebService.Configuration;
+using OnlineLib.WebService.Middleware;
+using System;
 using System.IO;
-using AspNetCoreRateLimit;
-using Microsoft.AspNetCore.Http;
 
 namespace OnlineLib.WebService
 {
@@ -87,8 +77,6 @@ namespace OnlineLib.WebService
 
             // custom jwt auth middleware
             app.UseMiddleware<JwtMiddleware>();
-
-
             app.UseEndpoints(x => x.MapControllers());
         }
     }

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using OnlineLib.DataAccess;
 using OnlineLib.Interfaces.Common;
 using OnlineLib.Models.Models.Settings;
 using System;

@@ -154,7 +154,7 @@ namespace OnlineLib.BusinessLogic.Managers
         public void Register(RegisterRequest model, string origin)
         {
             // validate
-            if (this.Uow.AccountRepository.Get( x => x.Email == model.Email).Any())
+            if (this.Uow.AccountRepository.Get(x => x.Email == model.Email).Any())
             {
                 // send already registered error in email to prevent account enumeration
                 this.SendAlreadyRegisteredEmail(model.Email, origin);

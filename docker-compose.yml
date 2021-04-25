@@ -25,3 +25,9 @@ services:
     environment:
       ASPNETCORE_URLS: "http://+"
       ASPNETCORE_ENVIRONMENT: Development
+  
+  onlinelibclient:
+    build: front/
+    ports:
+      - "4200:80"
+
