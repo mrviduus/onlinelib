@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AuthorDTO } from '@app/_models/admin/authorDto';
+import { AuthorDTO } from '@app/_models/admin/authorDTO';
 import { BookDTO } from '@app/_models/admin/bookDto';
 import { HomeService, AuthorService } from '@app/_services/public';
 import { first } from 'rxjs/operators';

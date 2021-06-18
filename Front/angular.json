@@ -124,6 +124,10 @@
           }
         }
       }
-    }},
-  "defaultProject": "onlineLib"
+    }
+  },
+  "defaultProject": "onlineLib",
+  "cli": {
+    "analytics": false
+  }
 }

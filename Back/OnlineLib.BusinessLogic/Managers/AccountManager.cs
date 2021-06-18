@@ -29,8 +29,7 @@ namespace OnlineLib.BusinessLogic.Managers
             IUnitOfWork Uow,
             IMapper mapper,
             IOptions<AppSettings> appSettings,
-            IEmailManager emailManager
-            )
+            IEmailManager emailManager)
         {
             this.Uow = Uow;
             this.mapper = mapper;
