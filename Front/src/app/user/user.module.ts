@@ -7,12 +7,14 @@ import { UserLayoutComponent } from './shared/components/user-layout/user-layout
 import { from } from 'rxjs';
 import { BookPageComponent } from './book-page/book-page.component';
 import { HomeModule } from './home/home.module';
+import { ReaderComponent } from './reader/reader/reader.component';
 
 
 @NgModule({
   declarations: [
     UserLayoutComponent,
-    HomeComponent,   
+    HomeComponent,
+    ReaderComponent,   
   ],
   imports: [
     CommonModule,

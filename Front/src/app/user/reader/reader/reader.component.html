@@ -1,0 +1,14 @@
+<div class="p-4">
+    <div class="container">
+        <div *ngIf="book">
+            <h1>{{book.title}}</h1>
+            <div>{{book.content}}</div>
+        </div>
+        <div *ngIf="!book">
+            <div colspan="4" class="text-center">
+                <span class="spinner-border spinner-border-lg align-center"></span>
+            </div>
+          </div>
+      </div>
+</div>  
+    

@@ -12,6 +12,7 @@ import { environment } from '@environments/environment';
   styleUrls: ['./book-page.component.less']
 })
 export class BookPageComponent implements OnInit {
+  //for img
   baseUrl =  `${environment.apiUrl}/`;
   id: string;
   book: BookDTO;
@@ -19,7 +20,6 @@ export class BookPageComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private homeService: HomeService,
     private authorService: AuthorService
     ) { }

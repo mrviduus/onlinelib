@@ -11,7 +11,7 @@
                 <h4><a>{{author.firstName}}  {{author.lastName}}</a></h4>
                 <h1>{{book.title}}</h1>
                 <br>
-                <button type="button" class="btn btn-primary">Read book</button>
+                <button routerLink="/reader/{{id}}" type="button" class="btn btn-primary">Read book</button>
                 <br>
                 <br>
                 <p>{{book.summary}}</p>                  
@@ -33,8 +33,5 @@
                 <span class="spinner-border spinner-border-lg align-center"></span>
             </div>
           </div>
-
-      </div>
-
-    
+      </div>    
 </div>
