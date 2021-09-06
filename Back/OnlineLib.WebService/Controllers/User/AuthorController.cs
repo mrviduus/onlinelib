@@ -1,16 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OnlineLib.Interfaces.Managers.Admin;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace OnlineLib.WebService.Controllers.User
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthorController : BaseController
+    public class AuthorController : ControllerBase
     {
         private readonly IAuthorManager authorManager;
         private readonly ILogger<AuthorController> logger;

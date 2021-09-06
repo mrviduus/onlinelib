@@ -19,7 +19,7 @@ namespace OnlineLib.DataAccess
         {
             using (var context = ApplicationDatabaseContextFactory.CreateContext(connectionString))
             {
-                //check if db exist
+                // check if db exist
                 if ((context.Database.GetService<IDatabaseCreator>() as RelationalDatabaseCreator).Exists())
                 {
                     return;

@@ -1,4 +1,11 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using AutoMapper;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OnlineLib.Common.Exceptions;
@@ -7,13 +14,6 @@ using OnlineLib.Interfaces.Managers;
 using OnlineLib.Models.Entities;
 using OnlineLib.Models.Models.Accounts;
 using OnlineLib.Models.Models.Settings;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using BC = BCrypt.Net.BCrypt;
 
 namespace OnlineLib.BusinessLogic.Managers
@@ -50,10 +50,11 @@ namespace OnlineLib.BusinessLogic.Managers
             var jwtToken = this.GenerateJwtToken(account);
             var refreshToken = this.GenerateRefreshToken(ipAddress);
             account.RefreshTokens.Add(refreshToken);
+
             // remove oldrefresh token from account
             this.RemoveOldRefreshTokens(account);
 
-            //save changes to db
+            // save changes to db
             this.Uow.AccountRepository.Update(account);
             this.Uow.Save();
 
@@ -65,21 +66,21 @@ namespace OnlineLib.BusinessLogic.Managers
 
         public AccountResponse Create(CreateRequest model)
         {
-            //validate
+            // validate
             if (this.Uow.AccountRepository.Get(x => x.Email == model.Email).Any())
             {
                 throw new AppException($"Email '{model.Email}' is already registered");
             }
 
-            //map model to new account object
+            // map model to new account object
             var account = this.mapper.Map<Account>(model);
             account.Created = DateTime.UtcNow;
             account.Verified = DateTime.UtcNow;
 
-            //hash password
+            // hash password
             account.PasswordHash = BC.HashPassword(model.Password);
 
-            //save account
+            // save account
             this.Uow.AccountRepository.Insert(account);
             this.Uow.Save();
             return this.mapper.Map<AccountResponse>(account);
@@ -188,7 +189,7 @@ namespace OnlineLib.BusinessLogic.Managers
                 x.ResetTokenExpires > DateTime.UtcNow)
             .SingleOrDefault();
 
-            //getBytoken
+            // getBytoken
             if (account == null)
             {
                 throw new AppException("Invalid token");

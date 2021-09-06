@@ -1,14 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OnlineLib.Interfaces.Managers.Admin;
-using System;
-using System.Threading.Tasks;
 
 namespace OnlineLib.WebService.Controllers.User
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class HomeController : BaseController
+    public class HomeController : ControllerBase
     {
         private readonly IBookManager bookManager;
         private readonly ILogger<HomeController> logger;

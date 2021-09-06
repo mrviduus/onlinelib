@@ -5,10 +5,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
 
 namespace OnlineLib.DataAccess.Common
 {
+
     internal class GenericRepository<TEntity, TKey> : IGenericRepository<TEntity, TKey>
         where TEntity : class
     {
@@ -73,15 +73,16 @@ namespace OnlineLib.DataAccess.Common
         public virtual void Delete(TKey id)
         {
             TEntity entityToDelete = this.dbSet.Find(id);
-            Delete(entityToDelete);
+            this.Delete(entityToDelete);
         }
 
         public virtual void Delete(TEntity entityToDelete)
         {
-            if (context.Entry(entityToDelete).State == EntityState.Detached)
+            if (this.context.Entry(entityToDelete).State == EntityState.Detached)
             {
                 this.dbSet.Attach(entityToDelete);
             }
+
             this.dbSet.Remove(entityToDelete);
         }
     }

@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using OnlineLib.Interfaces.Common;
-using OnlineLib.Models.Models.Settings;
-using System;
+﻿using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using OnlineLib.Interfaces.Common;
+using OnlineLib.Models.Models.Settings;
 
 namespace OnlineLib.WebService.Middleware
 {
@@ -18,8 +18,7 @@ namespace OnlineLib.WebService.Middleware
 
         public JwtMiddleware(
             RequestDelegate next,
-            IOptions<AppSettings> appSettings
-            )
+            IOptions<AppSettings> appSettings)
         {
             this.next = next;
             this.appSettings = appSettings.Value;
@@ -49,6 +48,7 @@ namespace OnlineLib.WebService.Middleware
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = false,
                     ValidateAudience = false,
+
                     // set clockskew to zero so tokens expire exactly at token expiration time (instead of 5 minutes later)
                     ClockSkew = TimeSpan.Zero,
                 }, out SecurityToken validatedToken);
