@@ -77,7 +77,7 @@ namespace OnlineLib.DataAccess
             //Author
             modelBuilder.Entity<Author>().HasKey(x => x.Id);
 
-            //Book
+            // Book
             modelBuilder.Entity<Book>().HasKey(x => x.Id);
             modelBuilder.Entity<Book>().Property(x => x.Title).HasMaxLength(100);
             modelBuilder.Entity<Book>().Property(x => x.ContentLanguage).HasMaxLength(10);
