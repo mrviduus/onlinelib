@@ -1,10 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using OnlineLib.Domain.Models;
 using OnlineLib.Interfaces.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OnlineLib.DataAccess.Common
 {
@@ -84,6 +87,13 @@ namespace OnlineLib.DataAccess.Common
             }
 
             this.dbSet.Remove(entityToDelete);
+        }
+
+        public async Task<PaginatedList<TEntity>> ToPaginatedListAsync(int pageIndex, int pageSize, CancellationToken cancellationToken = default)
+        {
+            IQueryable<TEntity> query = this.dbSet;
+
+            return await PaginatedList<TEntity>.CreateAsync(query, pageIndex, pageSize);
         }
     }
 }

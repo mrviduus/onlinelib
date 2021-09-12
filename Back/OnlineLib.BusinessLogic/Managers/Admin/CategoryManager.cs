@@ -1,12 +1,12 @@
 ﻿using AutoMapper;
 using OnlineLib.Common;
+using OnlineLib.Domain.Models;
 using OnlineLib.Interfaces.Common;
 using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.Models.Dto;
 using OnlineLib.Models.Models;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OnlineLib.BusinessLogic.Managers.Admin
@@ -45,6 +45,19 @@ namespace OnlineLib.BusinessLogic.Managers.Admin
         {
             var categories = this.Uow.CategoryRepository.Get();
             return this.mapper.Map<IEnumerable<CategoryDTO>>(categories);
+        }
+
+        public async Task<PaginatedList<CategoryDTO>> PaginatedCategory(int pageIndex, int pageSize)
+        {
+            var categories = await this.Uow.CategoryRepository.ToPaginatedListAsync(pageIndex, pageSize);
+
+            return new PaginatedList<CategoryDTO>
+            {
+                PageIndex = categories.PageIndex,
+                PageSize = categories.PageSize,
+                TotalPages = categories.TotalPages,
+                Items = this.mapper.Map<IEnumerable<CategoryDTO>>(categories.Items)
+            };
         }
 
         public async Task<CategoryDTO> GetById(Guid id)

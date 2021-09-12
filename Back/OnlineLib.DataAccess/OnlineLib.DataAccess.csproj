@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\OnlineLib.Domain\OnlineLib.Domain.csproj" />
     <ProjectReference Include="..\OnlineLib.Interfaces\OnlineLib.Interfaces.csproj" />
-    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Domain.csproj" />
   </ItemGroup>
 
 </Project>

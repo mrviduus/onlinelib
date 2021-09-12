@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  
   <PropertyGroup Label="Globals">
     <SccProjectName>SAK</SccProjectName>
     <SccProvider>SAK</SccProvider>
@@ -26,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\OnlineLib.Common\OnlineLib.Common.csproj" />
     <ProjectReference Include="..\OnlineLib.DataAccess\OnlineLib.DataAccess.csproj" />
+    <ProjectReference Include="..\OnlineLib.Domain\OnlineLib.Domain.csproj" />
     <ProjectReference Include="..\OnlineLib.Interfaces\OnlineLib.Interfaces.csproj" />
   </ItemGroup>
   <ItemGroup>

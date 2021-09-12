@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OnlineLib.BusinessLogic\OnlineLib.BusinessLogic.csproj" />
+    <ProjectReference Include="..\OnlineLib.Domain\OnlineLib.Domain.csproj" />
     <ProjectReference Include="..\OnlineLib.WebService\OnlineLib.WebService.csproj" />
   </ItemGroup>
 

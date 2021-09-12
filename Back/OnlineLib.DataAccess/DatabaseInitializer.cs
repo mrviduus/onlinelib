@@ -4,9 +4,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 using OnlineLib.Domain.Entities.Book;
 using OnlineLib.Models.Models;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+
 namespace OnlineLib.DataAccess
 {
     public class DatabaseInitializer

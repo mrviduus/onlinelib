@@ -1,18 +1,15 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OnlineLib.Domain.Models;
 using OnlineLib.Interfaces.Managers.Admin;
 using OnlineLib.Models.Dto;
 using OnlineLib.WebService.Attributes;
-using System;
-using System.Threading.Tasks;
-using OnlineLib.Common.Extensions;
-using OnlineLib.WebService.Helpers;
 
 namespace OnlineLib.WebService.Controllers.Admin
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("admin/[controller]")]
     public class CategoryController : BaseController
@@ -70,6 +67,12 @@ namespace OnlineLib.WebService.Controllers.Admin
             this.logger.LogInformation("Get all categories");
 
             return this.Ok(categories);
+        }
+
+        [HttpGet]
+        public async Task<PaginatedList<CategoryDTO>> GetAll(int pageIndex, int pageSize)
+        {
+            return await this.categoryManager.PaginatedCategory(pageIndex, pageSize);
         }
 
         [HttpDelete("Delete")]

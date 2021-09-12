@@ -67,7 +67,7 @@ namespace OnlineLib.WebService.Controllers
             }
 
             // users can revoke their own tokens and admins can revoke any tokens
-            if (!this.Account.OwnsToken(token) && Account.Role != Role.Admin)
+            if (!this.Account.OwnsToken(token) && this.Account.Role != Role.Admin)
             {
                 this.logger.LogWarning("Unauthorized");
 

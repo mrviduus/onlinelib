@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OnlineLib.Common.Exceptions;
@@ -14,6 +7,13 @@ using OnlineLib.Interfaces.Managers;
 using OnlineLib.Models.Entities;
 using OnlineLib.Models.Models.Accounts;
 using OnlineLib.Models.Models.Settings;
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using BC = BCrypt.Net.BCrypt;
 
 namespace OnlineLib.BusinessLogic.Managers

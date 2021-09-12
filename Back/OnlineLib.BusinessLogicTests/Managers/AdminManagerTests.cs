@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using Moq;
-using OnlineLib.BusinessLogic.Managers;
 using OnlineLib.BusinessLogic.Managers.Admin;
 using OnlineLib.Interfaces.Common;
 using OnlineLib.Interfaces.Repository;
@@ -9,8 +8,6 @@ using OnlineLib.Models.Models;
 using OnlineLib.WebService.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Text;
 using Xunit;
 
 namespace OnlineLib.BusinessLogicTests1.Managers
@@ -39,8 +36,8 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             mockUow.Setup(repo => repo.CategoryRepository)
                 .Returns(mockCategoryRepo.Object);
 
-            
-            
+
+
 
             var mockMapper = new MapperConfiguration(cfg =>
             {
@@ -95,7 +92,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             // Assert
             mockCategoryRepo.Verify(x => x.InsertOrUpdate(It.IsAny<Category>()), Times.Once);
             mockUow.Verify(uow => uow.Save(), Times.Once);
-            
+
             //Assert.Equal(categoryDTO.Name,);
         }
 
@@ -191,7 +188,7 @@ namespace OnlineLib.BusinessLogicTests1.Managers
             // Assert
             Assert.Equal(id, actual.Result.Id);
             Assert.Equal("ArticleTest", actual.Result.Title);
-            
+
         }
 
         [Fact]

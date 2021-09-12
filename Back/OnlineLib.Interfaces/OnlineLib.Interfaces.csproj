@@ -1,4 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup Label="Globals">
+    <SccProjectName>SAK</SccProjectName>
+    <SccProvider>SAK</SccProvider>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccLocalPath>SAK</SccLocalPath>
+    <CodeAnalysisRuleSet>../stylecop.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -13,7 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Domain.csproj" />
+    <ProjectReference Include="..\OnlineLib.Domain\OnlineLib.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="../stylecop.json" />
   </ItemGroup>
 
 </Project>

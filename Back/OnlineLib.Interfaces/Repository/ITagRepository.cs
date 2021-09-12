@@ -1,9 +1,7 @@
-﻿using OnlineLib.Interfaces.Common;
-using OnlineLib.Models.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
+using OnlineLib.Interfaces.Common;
+using OnlineLib.Models.Models;
 
 namespace OnlineLib.Interfaces.Repository
 {

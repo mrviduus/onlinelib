@@ -42,7 +42,7 @@
     <ProjectReference Include="..\OnlineLib.BusinessLogic\OnlineLib.BusinessLogic.csproj" />
     <ProjectReference Include="..\OnlineLib.Common\OnlineLib.Common.csproj" />
     <ProjectReference Include="..\OnlineLib.DataAccess\OnlineLib.DataAccess.csproj" />
-    <ProjectReference Include="..\OnlineLib.Models\OnlineLib.Domain.csproj" />
+    <ProjectReference Include="..\OnlineLib.Domain\OnlineLib.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
     <AdditionalFiles Include="../stylecop.json" />

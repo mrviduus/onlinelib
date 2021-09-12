@@ -1,8 +1,6 @@
 ﻿using OnlineLib.Models.Dto;
 using System;
 using System.Collections.Generic;
-using System.Linq.Dynamic.Core;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OnlineLib.Interfaces.Managers

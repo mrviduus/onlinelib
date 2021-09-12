@@ -1,7 +1,10 @@
-﻿using System;
+﻿using OnlineLib.Domain.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OnlineLib.Interfaces.Common
 {
@@ -57,5 +60,7 @@ namespace OnlineLib.Interfaces.Common
         /// </summary>
         /// <param name="entity"> entity </param>
         void InsertOrUpdate(TEntity entity);
+
+        Task<PaginatedList<TEntity>> ToPaginatedListAsync(int pageIndex, int pageSize, CancellationToken cancellationToken = default);
     }
 }
