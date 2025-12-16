@@ -1,0 +1,43 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+.vs/
+
+# Node
+node_modules/
+.pnpm-store/
+dist/
+.next/
+.expo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+appsettings.Local.json
+
+# Storage
+storage/
+
+# Logs
+logs/
+*.log
+
+# Test
+coverage/
+TestResults/
+
+# Build
+publish/

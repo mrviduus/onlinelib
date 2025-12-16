@@ -1,0 +1,92 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first reading sync.
+
+**Stack:**
+- Backend: ASP.NET Core (API + Worker) + PostgreSQL + EF Core
+- Frontend: React (web) + React Native Expo (mobile)
+- Search: PostgreSQL FTS (tsvector + GIN)
+
+## Repository Structure (Planned)
+
+```
+repo/
+├─ backend/
+│  └─ src/
+│     ├─ Api/           # REST API, auth, SEO HTML endpoints
+│     ├─ Worker/        # Book ingestion pipeline
+│     ├─ Infrastructure/# DbContext, migrations, storage, FTS
+│     ├─ Domain/        # Entities, value objects
+│     └─ Contracts/     # DTOs
+├─ apps/
+│  ├─ web/              # React (Vite)
+│  └─ mobile/           # React Native Expo
+├─ packages/            # Shared TS code (api-client, sync, reader)
+├─ docs/                # Specs and architecture docs
+└─ docker-compose.yml
+```
+
+## Commands
+
+### Local Dev (Full Stack)
+```bash
+docker compose up --build
+```
+- API: http://localhost:8080
+- Web: http://localhost:5173
+- Postgres: localhost:5432
+
+### Backend (when implemented)
+```bash
+# Run migrations
+dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api
+dotnet ef database update --project backend/src/Infrastructure --startup-project backend/src/Api
+
+# Run API
+dotnet run --project backend/src/Api
+
+# Run Worker
+dotnet run --project backend/src/Worker
+```
+
+### Frontend (when implemented)
+```bash
+# Web
+pnpm -C apps/web dev
+
+# Mobile
+pnpm -C apps/mobile start
+```
+
+## Architecture
+
+**Model**: Modular Monolith + Background Worker (not microservices)
+
+**Backend Layers:**
+- Controllers → Application Services → Domain → Infrastructure
+- Domain has no framework dependencies
+- Infrastructure handles EF Core, migrations, storage, FTS SQL
+
+**Backend Modules:**
+- Auth: JWT + refresh tokens bound to device
+- Content: Books, Assets, Chapters, Ingestion jobs
+- Reading: Progress, Locator, Notes/Bookmarks/Highlights
+- Search: PostgreSQL FTS w/ GIN indexes
+- SEO: Server-rendered HTML pages + sitemap
+
+**Key Decisions:**
+- **Locator**: JSON string (`{"type":"text","chapterId":"<uuid>","offset":1234}`)
+- **Sync**: Version field + 409 Conflict (MVP); operation log (later)
+- **Soft delete**: Notes/highlights/bookmarks use `IsDeleted`
+- **FTS**: tsvector on ChapterContent.ContentText
+- **File storage**: Docker volume `/storage` (MVP); S3 later
+
+## Database Notes
+
+- UUIDs for PKs, `timestamptz` for timestamps
+- API runs `Database.Migrate()` on startup
+- Key unique constraints: Books.Slug, BookChapters(BookId, OrderIndex), BookChapters(BookId, Slug)
