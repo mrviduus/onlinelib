@@ -83,10 +83,20 @@ pnpm -C apps/mobile start
 - **Sync**: Version field + 409 Conflict (MVP); operation log (later)
 - **Soft delete**: Notes/highlights/bookmarks use `IsDeleted`
 - **FTS**: tsvector on ChapterContent.ContentText
-- **File storage**: Docker volume `/storage` (MVP); S3 later
+- **File storage**: Host bind mount (not Docker volume) → containers mount `/srv/books/storage:/storage`; files survive container crashes; S3/MinIO later
 
 ## Database Notes
 
 - UUIDs for PKs, `timestamptz` for timestamps
 - API runs `Database.Migrate()` on startup
 - Key unique constraints: Books.Slug, BookChapters(BookId, OrderIndex), BookChapters(BookId, Slug)
+
+## Storage Layout
+
+Files stored on host at `/srv/books/storage`:
+```
+/srv/books/storage/books/{bookId}/original/{assetId}.epub
+/srv/books/storage/books/{bookId}/derived/cover.jpg
+```
+- DB stores file paths only, not binary content
+- Containers are ephemeral; data must be permanent
