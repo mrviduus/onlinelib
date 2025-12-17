@@ -2,26 +2,23 @@
 
 Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first reading sync.
 
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| API | http://localhost:8080 |
+| API Docs | http://localhost:8080/scalar/v1 |
+| Web | http://localhost:5173 |
+| Admin | http://localhost:5174 |
+| Postgres | localhost:5432 |
+
 ## Stack
 
 - **Backend**: ASP.NET Core (API + Worker) + PostgreSQL + EF Core
 - **Frontend**: React (web), React Native Expo (mobile, later)
 - **Search**: PostgreSQL FTS (tsvector + GIN)
-
-## Quick Start
-
-```bash
-# Copy env file
-cp .env.example .env
-
-# Start everything
-docker compose up --build
-```
-
-Services:
-- API: http://localhost:8080
-- Web: http://localhost:5173
-- Postgres: localhost:5432
 
 ## Project Structure
 

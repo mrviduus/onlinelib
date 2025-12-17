@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 PROJECT="src/Infrastructure/Infrastructure.csproj"
@@ -27,9 +27,12 @@ list_applied() {
         --no-build 2>/dev/null | grep -v "(Pending)" | grep -v "^Build" | grep -v "^$" || true
 }
 
-# Build once
+# Restore and build
+echo "Restoring packages..."
+dotnet restore "$STARTUP" -v q
+
 echo "Building project..."
-dotnet build "$STARTUP" -c Release --no-restore -v q
+dotnet build "$STARTUP" -c Release -v q
 
 # Step 1: Check current state
 echo ""

@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 # Copy project files for restore
@@ -7,7 +7,7 @@ COPY src/Worker/Worker.csproj src/Worker/
 COPY src/Infrastructure/Infrastructure.csproj src/Infrastructure/
 COPY src/Domain/Domain.csproj src/Domain/
 COPY src/Contracts/Contracts.csproj src/Contracts/
-RUN dotnet restore src/Infrastructure/Infrastructure.csproj
+RUN dotnet restore src/Api/Api.csproj
 
 # Copy source and build
 COPY src/ src/

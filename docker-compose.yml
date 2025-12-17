@@ -3,16 +3,16 @@ services:
     image: postgres:16
     container_name: books_db
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-books}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-books}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
       dockerfile: Docker/Migrator.Dockerfile
     container_name: books_migrator
     environment:
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-books};Username=${POSTGRES_USER:-app};Password=${POSTGRES_PASSWORD:-changeme}"
       MIGRATE_TARGET: ${MIGRATE_TARGET:-}
     depends_on:
       db:
@@ -37,11 +37,11 @@ services:
     container_name: books_api
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-books};Username=${POSTGRES_USER:-app};Password=${POSTGRES_PASSWORD:-changeme}"
       Storage__RootPath: /storage
-      Jwt__Secret: ${JWT_SECRET}
-      Jwt__Issuer: ${JWT_ISSUER}
-      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Secret: ${JWT_SECRET:-dev-secret-key-min-32-characters-long}
+      Jwt__Issuer: ${JWT_ISSUER:-books-api}
+      Jwt__Audience: ${JWT_AUDIENCE:-books-client}
     volumes:
       - ./data/storage:/storage
     ports:
@@ -66,7 +66,7 @@ services:
     container_name: books_worker
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-books};Username=${POSTGRES_USER:-app};Password=${POSTGRES_PASSWORD:-changeme}"
       Storage__RootPath: /storage
     volumes:
       - ./data/storage:/storage
@@ -86,6 +86,19 @@ services:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     ports:
       - "5173:5173"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+    container_name: books_admin
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "5174:5174"
     restart: unless-stopped
     depends_on:
       - api
