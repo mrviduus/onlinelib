@@ -11,23 +11,32 @@ Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO p
 - Frontend: React (web) + React Native Expo (mobile)
 - Search: PostgreSQL FTS (tsvector + GIN)
 
-## Repository Structure (Planned)
+## Repository Structure
 
 ```
 repo/
-├─ backend/
-│  └─ src/
-│     ├─ Api/           # REST API, auth, SEO HTML endpoints
-│     ├─ Worker/        # Book ingestion pipeline
-│     ├─ Infrastructure/# DbContext, migrations, storage, FTS
-│     ├─ Domain/        # Entities, value objects
-│     └─ Contracts/     # DTOs
+├─ backend/src/
+│  ├─ Api/              # Minimal API, auth, SEO HTML
+│  ├─ Worker/           # Book ingestion pipeline
+│  ├─ Infrastructure/   # DbContext, migrations, storage, FTS (aka Persistence)
+│  ├─ Domain/           # Entities, value objects
+│  └─ Contracts/        # DTOs
 ├─ apps/
 │  ├─ web/              # React (Vite)
-│  └─ mobile/           # React Native Expo
+│  └─ mobile/           # React Native Expo (later)
 ├─ packages/            # Shared TS code (api-client, sync, reader)
-├─ docs/                # Specs and architecture docs
-└─ docker-compose.yml
+└─ docs/                # Specs and architecture docs
+```
+
+**Infrastructure (Persistence) Layout:**
+```
+Infrastructure/
+├─ Data/AppDbContext.cs, AppDbContextFactory.cs
+├─ Data/Entities/       # Book, Chapter, ChapterContent, IngestionJob, User, etc.
+├─ Data/Configurations/ # Fluent API configs (BookConfig.cs, etc.)
+├─ Migrations/          # EF Core generated
+├─ Storage/             # File storage service
+└─ Search/              # FTS helpers
 ```
 
 ## Commands
@@ -85,11 +94,18 @@ pnpm -C apps/mobile start
 - **FTS**: tsvector on ChapterContent.ContentText
 - **File storage**: Host bind mount (not Docker volume) → containers mount `/srv/books/storage:/storage`; files survive container crashes; S3/MinIO later
 
-## Database Notes
+## Database (EF Core Code First)
 
-- UUIDs for PKs, `timestamptz` for timestamps
+- UUIDs for PKs, `DateTimeOffset` for timestamps
 - API runs `Database.Migrate()` on startup
-- Key unique constraints: Books.Slug, BookChapters(BookId, OrderIndex), BookChapters(BookId, Slug)
+- Unique constraints: `Books.Slug`, `Chapters(BookId, Order)`, `Chapters(BookId, Slug)`
+
+**Core Entities:**
+- `Book` → `BookFile` (1:N) → `IngestionJob`
+- `Book` → `Chapter` (1:N) → `ChapterContent` (1:1)
+- `User` → `ReadingProgress`, `Bookmark`, `Note`
+
+**Migration Order:** Initial_Content → Ingestion_Jobs → User_Reading → FTS_Search
 
 ## Storage Layout
 

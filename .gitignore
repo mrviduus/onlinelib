@@ -30,6 +30,7 @@ appsettings.Local.json
 
 # Storage
 storage/
+data/
 
 # Logs
 logs/
