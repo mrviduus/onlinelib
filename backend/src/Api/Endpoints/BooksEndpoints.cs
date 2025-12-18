@@ -1,3 +1,4 @@
+using Api.Sites;
 using Infrastructure.Data;
 using Infrastructure.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -18,14 +19,17 @@ public static class BooksEndpoints
     }
 
     private static async Task<IResult> GetBooks(
+        HttpContext httpContext,
         AppDbContext db,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
         [FromQuery] string? language,
         CancellationToken ct)
     {
+        var siteId = httpContext.GetSiteId();
+
         var query = db.Editions
-            .Where(e => e.Status == EditionStatus.Published)
+            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published)
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(language))
@@ -56,11 +60,14 @@ public static class BooksEndpoints
 
     private static async Task<IResult> GetBook(
         string slug,
+        HttpContext httpContext,
         AppDbContext db,
         CancellationToken ct)
     {
+        var siteId = httpContext.GetSiteId();
+
         var book = await db.Editions
-            .Where(e => e.Slug == slug)
+            .Where(e => e.SiteId == siteId && e.Slug == slug)
             .Select(e => new
             {
                 e.Id,
@@ -95,7 +102,6 @@ public static class BooksEndpoints
         if (book is null)
             return Results.NotFound();
 
-        // Allow access to draft/hidden only for admin (TODO: add auth check)
         if (book.Status != EditionStatus.Published)
             return Results.NotFound();
 
@@ -104,11 +110,14 @@ public static class BooksEndpoints
 
     private static async Task<IResult> GetChapters(
         string slug,
+        HttpContext httpContext,
         AppDbContext db,
         CancellationToken ct)
     {
+        var siteId = httpContext.GetSiteId();
+
         var edition = await db.Editions
-            .Where(e => e.Slug == slug && e.Status == EditionStatus.Published)
+            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Status == EditionStatus.Published)
             .Select(e => new { e.Id })
             .FirstOrDefaultAsync(ct);
 
@@ -134,11 +143,14 @@ public static class BooksEndpoints
     private static async Task<IResult> GetChapter(
         string slug,
         string chapterSlug,
+        HttpContext httpContext,
         AppDbContext db,
         CancellationToken ct)
     {
+        var siteId = httpContext.GetSiteId();
+
         var chapter = await db.Chapters
-            .Where(c => c.Edition.Slug == slug && c.Slug == chapterSlug)
+            .Where(c => c.Edition.SiteId == siteId && c.Edition.Slug == slug && c.Slug == chapterSlug)
             .Select(c => new
             {
                 c.Id,

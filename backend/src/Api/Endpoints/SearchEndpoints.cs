@@ -1,3 +1,4 @@
+using Api.Sites;
 using Infrastructure.Data;
 using Infrastructure.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +16,7 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> Search(
+        HttpContext httpContext,
         AppDbContext db,
         [FromQuery] string q,
         [FromQuery] int? limit,
@@ -25,11 +27,12 @@ public static class SearchEndpoints
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
             return Results.BadRequest(new { error = "Query must be at least 2 characters" });
 
+        var siteId = httpContext.GetSiteId();
         var take = Math.Min(limit ?? 20, 100);
         var skip = offset ?? 0;
 
         var query = db.Chapters
-            .Where(c => c.Edition.Status == EditionStatus.Published)
+            .Where(c => c.Edition.SiteId == siteId && c.Edition.Status == EditionStatus.Published)
             .Where(c => c.SearchVector!.Matches(EF.Functions.PlainToTsQuery("english", q)));
 
         if (!string.IsNullOrEmpty(language))

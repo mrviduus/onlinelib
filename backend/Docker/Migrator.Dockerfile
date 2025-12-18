@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
+COPY Directory.Build.props Directory.Packages.props ./
 # Copy project files for restore
 COPY src/Api/Api.csproj src/Api/
 COPY src/Worker/Worker.csproj src/Worker/

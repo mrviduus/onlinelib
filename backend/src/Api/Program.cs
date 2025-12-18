@@ -1,4 +1,5 @@
 using Api.Endpoints;
+using Api.Sites;
 using Infrastructure.Data;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
 builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(storagePath));
 
+// Site resolution
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ISiteResolver, SiteResolver>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -48,9 +53,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
+// Health check before site resolution (for infra probes)
 app.MapGet("/health", () => Results.Ok("healthy"));
+
+// Site resolution middleware
+app.UseSiteContext();
+
 app.MapAdminEndpoints();
+app.MapAdminSitesEndpoints();
 app.MapBooksEndpoints();
 app.MapSearchEndpoints();
+app.MapSiteEndpoints();
+app.MapSeoEndpoints();
 
 app.Run();

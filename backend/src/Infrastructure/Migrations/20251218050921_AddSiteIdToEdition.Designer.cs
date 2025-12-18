@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -12,9 +13,11 @@ using NpgsqlTypes;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251218050921_AddSiteIdToEdition")]
+    partial class AddSiteIdToEdition
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -223,10 +226,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("locator");
 
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
                     b.Property<string>("Title")
                         .HasColumnType("text")
                         .HasColumnName("title");
@@ -244,11 +243,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EditionId")
                         .HasDatabaseName("ix_bookmarks_edition_id");
 
-                    b.HasIndex("SiteId")
-                        .HasDatabaseName("ix_bookmarks_site_id");
-
-                    b.HasIndex("UserId", "SiteId", "EditionId")
-                        .HasDatabaseName("ix_bookmarks_user_id_site_id_edition_id");
+                    b.HasIndex("UserId", "EditionId")
+                        .HasDatabaseName("ix_bookmarks_user_id_edition_id");
 
                     b.ToTable("bookmarks", (string)null);
                 });
@@ -515,10 +511,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("locator");
 
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasColumnType("text")
@@ -545,11 +537,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EditionId")
                         .HasDatabaseName("ix_notes_edition_id");
 
-                    b.HasIndex("SiteId")
-                        .HasDatabaseName("ix_notes_site_id");
-
-                    b.HasIndex("UserId", "SiteId", "EditionId")
-                        .HasDatabaseName("ix_notes_user_id_site_id_edition_id");
+                    b.HasIndex("UserId", "EditionId")
+                        .HasDatabaseName("ix_notes_user_id_edition_id");
 
                     b.ToTable("notes", (string)null);
                 });
@@ -578,10 +567,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("double precision")
                         .HasColumnName("percent");
 
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -599,12 +584,9 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EditionId")
                         .HasDatabaseName("ix_reading_progresses_edition_id");
 
-                    b.HasIndex("SiteId")
-                        .HasDatabaseName("ix_reading_progresses_site_id");
-
-                    b.HasIndex("UserId", "SiteId", "EditionId")
+                    b.HasIndex("UserId", "EditionId")
                         .IsUnique()
-                        .HasDatabaseName("ix_reading_progresses_user_id_site_id_edition_id");
+                        .HasDatabaseName("ix_reading_progresses_user_id_edition_id");
 
                     b.ToTable("reading_progresses", (string)null);
                 });
@@ -876,13 +858,6 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_bookmarks_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_bookmarks_sites_site_id");
-
                     b.HasOne("Infrastructure.Data.Entities.User", "User")
                         .WithMany("Bookmarks")
                         .HasForeignKey("UserId")
@@ -893,8 +868,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Chapter");
 
                     b.Navigation("Edition");
-
-                    b.Navigation("Site");
 
                     b.Navigation("User");
                 });
@@ -993,13 +966,6 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_notes_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_notes_sites_site_id");
-
                     b.HasOne("Infrastructure.Data.Entities.User", "User")
                         .WithMany("Notes")
                         .HasForeignKey("UserId")
@@ -1010,8 +976,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Chapter");
 
                     b.Navigation("Edition");
-
-                    b.Navigation("Site");
 
                     b.Navigation("User");
                 });
@@ -1032,13 +996,6 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_reading_progresses_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_reading_progresses_sites_site_id");
-
                     b.HasOne("Infrastructure.Data.Entities.User", "User")
                         .WithMany("ReadingProgresses")
                         .HasForeignKey("UserId")
@@ -1049,8 +1006,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Chapter");
 
                     b.Navigation("Edition");
-
-                    b.Navigation("Site");
 
                     b.Navigation("User");
                 });

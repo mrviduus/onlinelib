@@ -6,10 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first reading sync.
 
+**Multisite**: Single backend serves multiple branded sites (fiction, programming, etc.) with content isolation per site.
+
 **Stack:**
 - Backend: ASP.NET Core (API + Worker) + PostgreSQL + EF Core
 - Frontend: React (web) + React Native Expo (mobile)
 - Search: PostgreSQL FTS (tsvector + GIN)
+- Multisite: Host-based resolution, per-site theming
 
 ## Repository Structure
 
@@ -17,12 +20,14 @@ Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO p
 repo/
 ├─ backend/src/
 │  ├─ Api/              # Minimal API, auth, SEO HTML
+│  │  └─ Sites/         # Multisite: SiteResolver, SiteContextMiddleware
 │  ├─ Worker/           # Book ingestion pipeline
 │  ├─ Infrastructure/   # DbContext, migrations, storage, FTS (aka Persistence)
 │  ├─ Domain/           # Entities, value objects
 │  └─ Contracts/        # DTOs
 ├─ apps/
-│  ├─ web/              # React (Vite)
+│  ├─ web/              # React (Vite) - public site
+│  ├─ admin/            # React (Vite) - admin panel
 │  └─ mobile/           # React Native Expo (later)
 ├─ packages/            # Shared TS code (api-client, sync, reader)
 └─ docs/                # Specs and architecture docs
@@ -86,6 +91,7 @@ pnpm -C apps/mobile start
 - Reading: Progress, Locator, Notes/Bookmarks/Highlights
 - Search: PostgreSQL FTS w/ GIN indexes
 - SEO: Server-rendered HTML pages + sitemap
+- Multisite: Site resolution, per-site content isolation
 
 **Key Decisions:**
 - **Locator**: JSON string (`{"type":"text","chapterId":"<uuid>","offset":1234}`)
@@ -101,11 +107,20 @@ pnpm -C apps/mobile start
 - Unique constraints: `Books.Slug`, `Chapters(BookId, Order)`, `Chapters(BookId, Slug)`
 
 **Core Entities:**
-- `Book` → `BookFile` (1:N) → `IngestionJob`
-- `Book` → `Chapter` (1:N) → `ChapterContent` (1:1)
-- `User` → `ReadingProgress`, `Bookmark`, `Note`
+- `Site` → `SiteDomain` (1:N)
+- `Work` (site-scoped) → `Edition` (1:N) → `Chapter` (1:N)
+- `Edition` → `BookFile` (1:N) → `IngestionJob`
+- `User` (global) → `ReadingProgress`, `Bookmark`, `Note` (site-scoped)
 
-**Migration Order:** Initial_Content → Ingestion_Jobs → User_Reading → FTS_Search
+**Multisite Scoping:**
+| Entity | Scoping |
+|--------|---------|
+| Work | site_id (primary) |
+| Edition | site_id (denormalized) |
+| ReadingProgress, Bookmark, Note | site_id |
+| User | Global (cross-site account) |
+
+**Migration Order:** Initial_Content → Ingestion_Jobs → User_Reading → FTS_Search → AddSites → AddSiteIdToEdition → AddSiteIdToUserReading
 
 ## Storage Layout
 
@@ -116,3 +131,16 @@ Files stored on host at `/srv/books/storage`:
 ```
 - DB stores file paths only, not binary content
 - Containers are ephemeral; data must be permanent
+
+## Multisite
+
+Sites resolve via Host header → `SiteResolver` → `SiteContext` per request.
+
+**Dev testing:** Use `?site=fiction` or `?site=programming` query param to override.
+
+**Key files:**
+- `backend/src/Api/Sites/` - SiteResolver, SiteContextMiddleware, HttpContextExtensions
+- `apps/web/src/context/SiteContext.tsx` - frontend site context
+- `apps/web/src/config/sites.ts` - per-site theming (colors, logo, tagline)
+
+**Seeded sites:** fiction (ClassicReads), programming (CodeBooks)

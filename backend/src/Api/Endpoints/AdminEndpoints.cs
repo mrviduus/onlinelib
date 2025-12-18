@@ -32,6 +32,7 @@ public static class AdminEndpoints
 
     private static async Task<IResult> UploadBook(
         IFormFile file,
+        [FromForm] Guid siteId,
         [FromForm] string title,
         [FromForm] string language,
         [FromForm] string? authors,
@@ -42,6 +43,9 @@ public static class AdminEndpoints
         IFileStorageService storage,
         CancellationToken ct)
     {
+        // Validate site exists
+        if (!await db.Sites.AnyAsync(s => s.Id == siteId, ct))
+            return Results.BadRequest(new { error = "Invalid siteId" });
         // Validate file
         if (file.Length == 0)
             return Results.BadRequest(new { error = "File is empty" });
@@ -67,12 +71,16 @@ public static class AdminEndpoints
         {
             work = await db.Works.FindAsync([workId.Value], ct)
                 ?? throw new InvalidOperationException("Work not found");
+            // Ensure work belongs to same site
+            if (work.SiteId != siteId)
+                return Results.BadRequest(new { error = "Work belongs to different site" });
         }
         else
         {
             work = new Work
             {
                 Id = Guid.NewGuid(),
+                SiteId = siteId,
                 Slug = SlugGenerator.GenerateSlug(title),
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -80,11 +88,12 @@ public static class AdminEndpoints
         }
 
         // Create Edition
-        var editionSlug = await GenerateUniqueEditionSlugAsync(db, title, language, ct);
+        var editionSlug = await GenerateUniqueEditionSlugAsync(db, siteId, title, language, ct);
         var edition = new Edition
         {
             Id = Guid.NewGuid(),
             WorkId = work.Id,
+            SiteId = siteId,
             Language = language,
             Slug = editionSlug,
             Title = title,
@@ -202,28 +211,28 @@ public static class AdminEndpoints
 
     private static async Task<string> GenerateUniqueEditionSlugAsync(
         AppDbContext db,
+        Guid siteId,
         string title,
         string language,
         CancellationToken ct)
     {
         var baseSlug = SlugGenerator.GenerateSlug(title);
 
-        // Check if slug exists, if so add language suffix
+        // Check if slug exists within site+language, if so add numeric suffix
         var slug = baseSlug;
-        var exists = await db.Editions.AnyAsync(e => e.Slug == slug, ct);
+        var exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
 
         if (exists)
         {
             slug = $"{baseSlug}-{language}";
-            exists = await db.Editions.AnyAsync(e => e.Slug == slug, ct);
+            exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
         }
 
-        // If still exists, add numeric suffix
         var counter = 2;
         while (exists)
         {
             slug = $"{baseSlug}-{language}-{counter}";
-            exists = await db.Editions.AnyAsync(e => e.Slug == slug, ct);
+            exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
             counter++;
         }
 
