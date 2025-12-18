@@ -1,3 +1,4 @@
+using Domain.Utilities;
 using Infrastructure.Data;
 using Infrastructure.Data.Entities;
 using Infrastructure.Enums;
@@ -102,7 +103,7 @@ public class IngestionService
             // Create new chapters
             foreach (var ch in parsed.Chapters)
             {
-                var chapterSlug = GenerateChapterSlug(ch.Title, ch.Order);
+                var chapterSlug = SlugGenerator.GenerateChapterSlug(ch.Title, ch.Order);
                 var chapter = new Chapter
                 {
                     Id = Guid.NewGuid(),
@@ -139,34 +140,5 @@ public class IngestionService
 
             await db.SaveChangesAsync(CancellationToken.None);
         }
-    }
-
-    /// <summary>
-    /// Generate SEO-friendly chapter slug from title.
-    /// Examples: "Chapter 1" -> "chapter-1", "Letter 4" -> "letter-4",
-    /// "CONTENTS" -> "contents", "Frankenstein;" -> "introduction"
-    /// </summary>
-    private static string GenerateChapterSlug(string title, int order)
-    {
-        var normalized = title.ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("'", "")
-            .Replace("\"", "")
-            .Replace(":", "")
-            .Replace(";", "")
-            .Replace(".", "")
-            .Replace(",", "");
-
-        // Remove non-ascii and collapse multiple dashes
-        var slug = new string(normalized.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
-        while (slug.Contains("--"))
-            slug = slug.Replace("--", "-");
-        slug = slug.Trim('-');
-
-        // If slug is empty or too short, use generic name
-        if (string.IsNullOrEmpty(slug) || slug.Length < 2)
-            slug = $"section-{order + 1}";
-
-        return slug;
     }
 }

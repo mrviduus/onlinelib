@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Domain.Utilities;
 using Infrastructure.Data;
 using Infrastructure.Data.Entities;
 using Infrastructure.Enums;
@@ -72,7 +73,7 @@ public static class AdminEndpoints
             work = new Work
             {
                 Id = Guid.NewGuid(),
-                Slug = GenerateSlug(title),
+                Slug = SlugGenerator.GenerateSlug(title),
                 CreatedAt = DateTimeOffset.UtcNow
             };
             db.Works.Add(work);
@@ -199,33 +200,13 @@ public static class AdminEndpoints
         return job is null ? Results.NotFound() : Results.Ok(job);
     }
 
-    private static string GenerateSlug(string title, string? language = null)
-    {
-        var slug = title.ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("'", "")
-            .Replace("\"", "")
-            .Replace(":", "")
-            .Replace(";", "")
-            .Replace(".", "")
-            .Replace(",", "");
-
-        // Remove non-ascii and collapse multiple dashes
-        slug = new string(slug.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
-        while (slug.Contains("--"))
-            slug = slug.Replace("--", "-");
-        slug = slug.Trim('-');
-
-        return slug;
-    }
-
     private static async Task<string> GenerateUniqueEditionSlugAsync(
         AppDbContext db,
         string title,
         string language,
         CancellationToken ct)
     {
-        var baseSlug = GenerateSlug(title);
+        var baseSlug = SlugGenerator.GenerateSlug(title);
 
         // Check if slug exists, if so add language suffix
         var slug = baseSlug;
