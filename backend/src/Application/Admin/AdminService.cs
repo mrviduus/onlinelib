@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using Application.Common.Interfaces;
+using Contracts.Admin;
+using Contracts.Common;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Utilities;
@@ -25,12 +27,12 @@ public record UploadBookResult(Guid WorkId, Guid EditionId, Guid BookFileId, Gui
 public record IngestionJobDto(
     Guid Id,
     Guid EditionId,
-    JobStatus Status,
-    int AttemptCount,
-    string? Error,
+    string EditionTitle,
+    string Status,
+    string? ErrorMessage,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? FinishedAt
+    DateTimeOffset? CompletedAt
 );
 
 public record IngestionJobDetailDto(
@@ -168,14 +170,15 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
     public async Task<List<IngestionJobDto>> GetIngestionJobsAsync(int offset, int limit, CancellationToken ct)
     {
         return await db.IngestionJobs
+            .Include(j => j.Edition)
             .OrderByDescending(j => j.CreatedAt)
             .Skip(offset)
             .Take(limit)
             .Select(j => new IngestionJobDto(
                 j.Id,
                 j.EditionId,
-                j.Status,
-                j.AttemptCount,
+                j.Edition.Title,
+                j.Status.ToString(),
                 j.Error,
                 j.CreatedAt,
                 j.StartedAt,
@@ -226,5 +229,160 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
         }
 
         return slug;
+    }
+
+    // Edition CRUD
+
+    public async Task<PaginatedResult<AdminEditionListDto>> GetEditionsAsync(
+        Guid? siteId, int offset, int limit, EditionStatus? status, string? search, CancellationToken ct)
+    {
+        var query = db.Editions.AsQueryable();
+
+        if (siteId.HasValue)
+            query = query.Where(e => e.SiteId == siteId.Value);
+
+        if (status.HasValue)
+            query = query.Where(e => e.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(e => e.Title.Contains(search) || (e.AuthorsJson != null && e.AuthorsJson.Contains(search)));
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip(offset)
+            .Take(limit)
+            .Select(e => new AdminEditionListDto(
+                e.Id,
+                e.Slug,
+                e.Title,
+                e.AuthorsJson,
+                e.Status.ToString(),
+                e.Chapters.Count,
+                e.CreatedAt,
+                e.PublishedAt
+            ))
+            .ToListAsync(ct);
+
+        return new PaginatedResult<AdminEditionListDto>(total, items);
+    }
+
+    public async Task<AdminEditionDetailDto?> GetEditionDetailAsync(Guid id, CancellationToken ct)
+    {
+        return await db.Editions
+            .Where(e => e.Id == id)
+            .Select(e => new AdminEditionDetailDto(
+                e.Id,
+                e.WorkId,
+                e.SiteId,
+                e.Slug,
+                e.Title,
+                e.Language,
+                e.AuthorsJson,
+                e.Description,
+                e.CoverPath,
+                e.Status.ToString(),
+                e.IsPublicDomain,
+                e.CreatedAt,
+                e.PublishedAt,
+                e.Chapters
+                    .OrderBy(c => c.ChapterNumber)
+                    .Select(c => new AdminChapterDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
+                    .ToList()
+            ))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<(bool Success, string? Error)> UpdateEditionAsync(
+        Guid id, UpdateEditionRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+            return (false, "Title is required");
+
+        if (request.Title.Length > 500)
+            return (false, "Title must be 500 characters or less");
+
+        if (request.Description?.Length > 5000)
+            return (false, "Description must be 5000 characters or less");
+
+        var edition = await db.Editions.FindAsync([id], ct);
+        if (edition is null)
+            return (false, "Edition not found");
+
+        edition.Title = request.Title;
+        edition.AuthorsJson = request.AuthorsJson;
+        edition.Description = request.Description;
+        edition.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? Error)> DeleteEditionAsync(Guid id, CancellationToken ct)
+    {
+        var edition = await db.Editions
+            .Include(e => e.Chapters)
+            .Include(e => e.BookFiles)
+            .FirstOrDefaultAsync(e => e.Id == id, ct);
+
+        if (edition is null)
+            return (false, "Edition not found");
+
+        if (edition.Status == EditionStatus.Published)
+            return (false, "Cannot delete published edition. Unpublish first.");
+
+        // Delete related entities
+        db.Chapters.RemoveRange(edition.Chapters);
+        db.BookFiles.RemoveRange(edition.BookFiles);
+
+        // Delete ingestion jobs
+        var jobs = await db.IngestionJobs.Where(j => j.EditionId == id).ToListAsync(ct);
+        db.IngestionJobs.RemoveRange(jobs);
+
+        db.Editions.Remove(edition);
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? Error)> PublishEditionAsync(Guid id, CancellationToken ct)
+    {
+        var edition = await db.Editions
+            .Include(e => e.Chapters)
+            .FirstOrDefaultAsync(e => e.Id == id, ct);
+
+        if (edition is null)
+            return (false, "Edition not found");
+
+        if (edition.Status == EditionStatus.Published)
+            return (false, "Edition is already published");
+
+        if (edition.Chapters.Count == 0)
+            return (false, "Cannot publish edition with no chapters");
+
+        edition.Status = EditionStatus.Published;
+        edition.PublishedAt = DateTimeOffset.UtcNow;
+        edition.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? Error)> UnpublishEditionAsync(Guid id, CancellationToken ct)
+    {
+        var edition = await db.Editions.FindAsync([id], ct);
+
+        if (edition is null)
+            return (false, "Edition not found");
+
+        if (edition.Status != EditionStatus.Published)
+            return (false, "Edition is not published");
+
+        edition.Status = EditionStatus.Draft;
+        edition.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 }

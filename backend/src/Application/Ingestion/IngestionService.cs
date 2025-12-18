@@ -74,7 +74,11 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
             db.Chapters.Add(chapter);
         }
 
-        // Mark as succeeded
+        // Publish the edition
+        job.Edition.Status = EditionStatus.Published;
+        job.Edition.PublishedAt = DateTimeOffset.UtcNow;
+
+        // Mark job as succeeded
         job.Status = JobStatus.Succeeded;
         job.FinishedAt = DateTimeOffset.UtcNow;
         job.Error = null;
