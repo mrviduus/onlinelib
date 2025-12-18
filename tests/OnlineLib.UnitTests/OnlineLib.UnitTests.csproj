@@ -12,6 +12,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\backend\src\Domain\Domain.csproj" />
+    <ProjectReference Include="..\..\backend\src\Application\Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   </ItemGroup>
 
   <ItemGroup>

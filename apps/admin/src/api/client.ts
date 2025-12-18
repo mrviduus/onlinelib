@@ -28,10 +28,14 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json()
 }
 
+// Default site ID for fiction site (seeded)
+const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
+
 export const adminApi = {
-  uploadBook: async (file: File, title: string, language: string): Promise<UploadResponse> => {
+  uploadBook: async (file: File, title: string, language: string, siteId?: string): Promise<UploadResponse> => {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('siteId', siteId || DEFAULT_SITE_ID)
     formData.append('title', title)
     formData.append('language', language)
 

@@ -1,5 +1,8 @@
 using Api.Endpoints;
+using Api.Middleware;
 using Api.Sites;
+using Application;
+using Application.Common.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +24,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddOpenApi();
 
+// Application layer
+builder.Services.AddApplication();
+
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";
 
@@ -28,6 +34,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString)
         .UseSnakeCaseNamingConvention()
         .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
+
+builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
 // File storage
 var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
@@ -52,6 +60,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseExceptionMiddleware();
 
 // Health check before site resolution (for infra probes)
 app.MapGet("/health", () => Results.Ok("healthy"));

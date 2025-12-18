@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,7 @@ builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(s
 builder.Services.AddSingleton<EpubParser>();
 
 // Services
-builder.Services.AddSingleton<IngestionService>();
+builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddHostedService<IngestionWorker>();
 
 var host = builder.Build();

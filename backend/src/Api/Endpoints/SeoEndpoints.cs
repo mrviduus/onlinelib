@@ -1,7 +1,5 @@
 using Api.Sites;
-using Infrastructure.Data;
-using Infrastructure.Enums;
-using Microsoft.EntityFrameworkCore;
+using Application.Seo;
 using System.Text;
 
 namespace Api.Endpoints;
@@ -44,7 +42,7 @@ public static class SeoEndpoints
 
     private static async Task<IResult> GetSitemapIndex(
         HttpContext httpContext,
-        AppDbContext db,
+        SeoService seoService,
         CancellationToken ct)
     {
         var site = httpContext.GetSiteContext();
@@ -56,11 +54,7 @@ public static class SeoEndpoints
         var scheme = httpContext.Request.Scheme;
         var baseUrl = $"{scheme}://{host}";
 
-        // Count chapters to determine pagination
-        var chapterCount = await db.Chapters
-            .Where(c => c.Edition.SiteId == site.SiteId && c.Edition.Status == EditionStatus.Published)
-            .CountAsync(ct);
-
+        var chapterCount = await seoService.GetChapterCountAsync(site.SiteId, ct);
         var chapterPages = (int)Math.Ceiling((double)chapterCount / SitemapChunkSize);
 
         var sb = new StringBuilder();
@@ -85,7 +79,7 @@ public static class SeoEndpoints
 
     private static async Task<IResult> GetBooksSitemap(
         HttpContext httpContext,
-        AppDbContext db,
+        SeoService seoService,
         CancellationToken ct)
     {
         var site = httpContext.GetSiteContext();
@@ -97,11 +91,7 @@ public static class SeoEndpoints
         var scheme = httpContext.Request.Scheme;
         var baseUrl = $"{scheme}://{host}";
 
-        var books = await db.Editions
-            .Where(e => e.SiteId == site.SiteId && e.Status == EditionStatus.Published)
-            .OrderByDescending(e => e.UpdatedAt)
-            .Select(e => new { e.Slug, e.UpdatedAt })
-            .ToListAsync(ct);
+        var books = await seoService.GetBooksForSitemapAsync(site.SiteId, ct);
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -124,7 +114,7 @@ public static class SeoEndpoints
     private static async Task<IResult> GetChaptersSitemap(
         int page,
         HttpContext httpContext,
-        AppDbContext db,
+        SeoService seoService,
         CancellationToken ct)
     {
         var site = httpContext.GetSiteContext();
@@ -136,19 +126,7 @@ public static class SeoEndpoints
         var scheme = httpContext.Request.Scheme;
         var baseUrl = $"{scheme}://{host}";
 
-        var chapters = await db.Chapters
-            .Where(c => c.Edition.SiteId == site.SiteId && c.Edition.Status == EditionStatus.Published)
-            .OrderBy(c => c.Edition.Slug)
-            .ThenBy(c => c.ChapterNumber)
-            .Skip((page - 1) * SitemapChunkSize)
-            .Take(SitemapChunkSize)
-            .Select(c => new
-            {
-                BookSlug = c.Edition.Slug,
-                c.Slug,
-                c.Edition.UpdatedAt
-            })
-            .ToListAsync(ct);
+        var chapters = await seoService.GetChaptersForSitemapAsync(site.SiteId, page, SitemapChunkSize, ct);
 
         if (chapters.Count == 0)
             return Results.NotFound();

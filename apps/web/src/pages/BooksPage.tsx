@@ -10,7 +10,7 @@ export function BooksPage() {
 
   useEffect(() => {
     api.getBooks()
-      .then((data) => setBooks(data.books))
+      .then((data) => setBooks(data.items ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])

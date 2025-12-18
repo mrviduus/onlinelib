@@ -1,26 +1,26 @@
-using Domain.Utilities;
+using Application.Common.Interfaces;
+using Domain.Entities;
+using Domain.Enums;
 using Infrastructure.Data;
-using Infrastructure.Data.Entities;
-using Infrastructure.Enums;
-using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Worker.Parsers;
+using AppIngestion = Application.Ingestion;
 
 namespace Worker.Services;
 
-public class IngestionService
+public class IngestionWorkerService
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly IFileStorageService _storage;
     private readonly EpubParser _epubParser;
-    private readonly ILogger<IngestionService> _logger;
+    private readonly ILogger<IngestionWorkerService> _logger;
 
-    public IngestionService(
+    public IngestionWorkerService(
         IDbContextFactory<AppDbContext> dbFactory,
         IFileStorageService storage,
         EpubParser epubParser,
-        ILogger<IngestionService> logger)
+        ILogger<IngestionWorkerService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
@@ -31,21 +31,16 @@ public class IngestionService
     public async Task<IngestionJob?> GetNextJobAsync(CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-
-        return await db.IngestionJobs
-            .Where(j => j.Status == JobStatus.Queued)
-            .OrderBy(j => j.CreatedAt)
-            .FirstOrDefaultAsync(ct);
+        var service = new AppIngestion.IngestionService(db, _storage);
+        return await service.GetNextJobAsync(ct);
     }
 
     public async Task ProcessJobAsync(Guid jobId, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var service = new AppIngestion.IngestionService(db, _storage);
 
-        var job = await db.IngestionJobs
-            .Include(j => j.BookFile)
-            .Include(j => j.Edition)
-            .FirstOrDefaultAsync(j => j.Id == jobId, ct);
+        var job = await service.GetJobWithDetailsAsync(jobId, ct);
 
         if (job is null)
         {
@@ -57,25 +52,25 @@ public class IngestionService
 
         try
         {
-            // Mark as processing
-            job.Status = JobStatus.Processing;
-            job.StartedAt = DateTimeOffset.UtcNow;
-            job.AttemptCount++;
-            await db.SaveChangesAsync(ct);
+            await service.MarkJobProcessingAsync(job, ct);
 
-            // Get file path
-            var filePath = _storage.GetFullPath(job.BookFile.StoragePath);
+            var filePath = service.GetFilePath(job.BookFile.StoragePath);
 
             if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException($"Book file not found: {filePath}");
             }
 
-            // Parse based on format
-            ParsedBook parsed;
+            AppIngestion.ParsedBook parsed;
             if (job.BookFile.Format == BookFormat.Epub)
             {
-                parsed = await _epubParser.ParseAsync(filePath, ct);
+                var epubParsed = await _epubParser.ParseAsync(filePath, ct);
+                parsed = new AppIngestion.ParsedBook(
+                    epubParsed.Title,
+                    epubParsed.Authors,
+                    epubParsed.Description,
+                    epubParsed.Chapters.Select(c => new AppIngestion.ParsedChapter(c.Order, c.Title, c.Html, c.PlainText, c.WordCount)).ToList()
+                );
             }
             else
             {
@@ -85,47 +80,7 @@ public class IngestionService
             _logger.LogInformation("Parsed {ChapterCount} chapters from {Title}",
                 parsed.Chapters.Count, parsed.Title);
 
-            // Update edition metadata if empty
-            if (string.IsNullOrEmpty(job.Edition.Description) && !string.IsNullOrEmpty(parsed.Description))
-                job.Edition.Description = parsed.Description;
-
-            if (string.IsNullOrEmpty(job.Edition.AuthorsJson) && !string.IsNullOrEmpty(parsed.Authors))
-                job.Edition.AuthorsJson = parsed.Authors;
-
-            job.Edition.UpdatedAt = DateTimeOffset.UtcNow;
-
-            // Delete existing chapters (re-ingestion)
-            var existingChapters = await db.Chapters
-                .Where(c => c.EditionId == job.EditionId)
-                .ToListAsync(ct);
-            db.Chapters.RemoveRange(existingChapters);
-
-            // Create new chapters
-            foreach (var ch in parsed.Chapters)
-            {
-                var chapterSlug = SlugGenerator.GenerateChapterSlug(ch.Title, ch.Order);
-                var chapter = new Chapter
-                {
-                    Id = Guid.NewGuid(),
-                    EditionId = job.EditionId,
-                    ChapterNumber = ch.Order,
-                    Slug = chapterSlug,
-                    Title = ch.Title,
-                    Html = ch.Html,
-                    PlainText = ch.PlainText,
-                    WordCount = ch.WordCount,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                };
-                db.Chapters.Add(chapter);
-            }
-
-            // Mark as succeeded
-            job.Status = JobStatus.Succeeded;
-            job.FinishedAt = DateTimeOffset.UtcNow;
-            job.Error = null;
-
-            await db.SaveChangesAsync(ct);
+            await service.ProcessParsedBookAsync(job, parsed, ct);
 
             _logger.LogInformation("Job {JobId} completed successfully. {ChapterCount} chapters created.",
                 jobId, parsed.Chapters.Count);
@@ -133,12 +88,7 @@ public class IngestionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Job {JobId} failed", jobId);
-
-            job.Status = JobStatus.Failed;
-            job.FinishedAt = DateTimeOffset.UtcNow;
-            job.Error = ex.Message;
-
-            await db.SaveChangesAsync(CancellationToken.None);
+            await service.MarkJobFailedAsync(job, ex.Message, CancellationToken.None);
         }
     }
 }

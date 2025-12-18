@@ -1,0 +1,24 @@
+using Domain.Enums;
+
+namespace Domain.Entities;
+
+public class IngestionJob
+{
+    public Guid Id { get; set; }
+    public Guid EditionId { get; set; }
+    public Guid BookFileId { get; set; }
+    public required string TargetLanguage { get; set; }
+    public Guid? WorkId { get; set; }
+    public Guid? SourceEditionId { get; set; }
+    public JobStatus Status { get; set; }
+    public int AttemptCount { get; set; }
+    public string? Error { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? FinishedAt { get; set; }
+
+    public Edition Edition { get; set; } = null!;
+    public BookFile BookFile { get; set; } = null!;
+    public Work? Work { get; set; }
+    public Edition? SourceEdition { get; set; }
+}

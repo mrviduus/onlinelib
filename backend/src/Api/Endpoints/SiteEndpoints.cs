@@ -1,7 +1,4 @@
 using Api.Sites;
-using Infrastructure.Data;
-using Infrastructure.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Api.Endpoints;
 

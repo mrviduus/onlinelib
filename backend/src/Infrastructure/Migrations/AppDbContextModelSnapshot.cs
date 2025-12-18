@@ -23,7 +23,7 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminAuditLog", b =>
+            modelBuilder.Entity("Domain.Entities.AdminAuditLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -71,7 +71,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("admin_audit_logs", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminRefreshToken", b =>
+            modelBuilder.Entity("Domain.Entities.AdminRefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -111,7 +111,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("admin_refresh_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminUser", b =>
+            modelBuilder.Entity("Domain.Entities.AdminUser", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -154,7 +154,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("admin_users", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.BookFile", b =>
+            modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -199,7 +199,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("book_files", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Bookmark", b =>
+            modelBuilder.Entity("Domain.Entities.Bookmark", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -253,7 +253,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("bookmarks", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Chapter", b =>
+            modelBuilder.Entity("Domain.Entities.Chapter", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -283,6 +283,7 @@ namespace Infrastructure.Migrations
                         .HasColumnName("plain_text");
 
                     b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("tsvector")
                         .HasColumnName("search_vector")
@@ -324,7 +325,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("chapters", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Edition", b =>
+            modelBuilder.Entity("Domain.Entities.Edition", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -414,7 +415,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("editions", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.IngestionJob", b =>
+            modelBuilder.Entity("Domain.Entities.IngestionJob", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -491,7 +492,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("ingestion_jobs", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Note", b =>
+            modelBuilder.Entity("Domain.Entities.Note", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -554,7 +555,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("notes", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.ReadingProgress", b =>
+            modelBuilder.Entity("Domain.Entities.ReadingProgress", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -609,7 +610,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("reading_progresses", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Site", b =>
+            modelBuilder.Entity("Domain.Entities.Site", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -679,7 +680,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("sites", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.SiteDomain", b =>
+            modelBuilder.Entity("Domain.Entities.SiteDomain", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -717,7 +718,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("site_domains", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.User", b =>
+            modelBuilder.Entity("Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -759,7 +760,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.UserLibrary", b =>
+            modelBuilder.Entity("Domain.Entities.UserLibrary", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -791,7 +792,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("user_libraries", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Work", b =>
+            modelBuilder.Entity("Domain.Entities.Work", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -824,9 +825,9 @@ namespace Infrastructure.Migrations
                     b.ToTable("works", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminAuditLog", b =>
+            modelBuilder.Entity("Domain.Entities.AdminAuditLog", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.AdminUser", "AdminUser")
+                    b.HasOne("Domain.Entities.AdminUser", "AdminUser")
                         .WithMany("AuditLogs")
                         .HasForeignKey("AdminUserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -836,9 +837,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("AdminUser");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminRefreshToken", b =>
+            modelBuilder.Entity("Domain.Entities.AdminRefreshToken", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.AdminUser", "AdminUser")
+                    b.HasOne("Domain.Entities.AdminUser", "AdminUser")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("AdminUserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -848,9 +849,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("AdminUser");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.BookFile", b =>
+            modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany("BookFiles")
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -860,30 +861,30 @@ namespace Infrastructure.Migrations
                     b.Navigation("Edition");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Bookmark", b =>
+            modelBuilder.Entity("Domain.Entities.Bookmark", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Chapter", "Chapter")
+                    b.HasOne("Domain.Entities.Chapter", "Chapter")
                         .WithMany("Bookmarks")
                         .HasForeignKey("ChapterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_bookmarks_chapters_chapter_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany()
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_bookmarks_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany()
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_bookmarks_sites_site_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany("Bookmarks")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -899,9 +900,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Chapter", b =>
+            modelBuilder.Entity("Domain.Entities.Chapter", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany("Chapters")
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -911,22 +912,22 @@ namespace Infrastructure.Migrations
                     b.Navigation("Edition");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Edition", b =>
+            modelBuilder.Entity("Domain.Entities.Edition", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany()
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_editions_sites_site_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "SourceEdition")
+                    b.HasOne("Domain.Entities.Edition", "SourceEdition")
                         .WithMany("TranslatedEditions")
                         .HasForeignKey("SourceEditionId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_editions_editions_source_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Work", "Work")
+                    b.HasOne("Domain.Entities.Work", "Work")
                         .WithMany("Editions")
                         .HasForeignKey("WorkId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -940,29 +941,29 @@ namespace Infrastructure.Migrations
                     b.Navigation("Work");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.IngestionJob", b =>
+            modelBuilder.Entity("Domain.Entities.IngestionJob", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.BookFile", "BookFile")
+                    b.HasOne("Domain.Entities.BookFile", "BookFile")
                         .WithMany("IngestionJobs")
                         .HasForeignKey("BookFileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_ingestion_jobs_book_files_book_file_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany("IngestionJobs")
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_ingestion_jobs_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "SourceEdition")
+                    b.HasOne("Domain.Entities.Edition", "SourceEdition")
                         .WithMany()
                         .HasForeignKey("SourceEditionId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_ingestion_jobs_editions_source_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Work", "Work")
+                    b.HasOne("Domain.Entities.Work", "Work")
                         .WithMany()
                         .HasForeignKey("WorkId")
                         .OnDelete(DeleteBehavior.SetNull)
@@ -977,30 +978,30 @@ namespace Infrastructure.Migrations
                     b.Navigation("Work");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Note", b =>
+            modelBuilder.Entity("Domain.Entities.Note", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Chapter", "Chapter")
+                    b.HasOne("Domain.Entities.Chapter", "Chapter")
                         .WithMany("Notes")
                         .HasForeignKey("ChapterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_notes_chapters_chapter_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany()
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_notes_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany()
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_notes_sites_site_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany("Notes")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1016,30 +1017,30 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.ReadingProgress", b =>
+            modelBuilder.Entity("Domain.Entities.ReadingProgress", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Chapter", "Chapter")
+                    b.HasOne("Domain.Entities.Chapter", "Chapter")
                         .WithMany("ReadingProgresses")
                         .HasForeignKey("ChapterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reading_progresses_chapters_chapter_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany()
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reading_progresses_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany()
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_reading_progresses_sites_site_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany("ReadingProgresses")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1055,9 +1056,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.SiteDomain", b =>
+            modelBuilder.Entity("Domain.Entities.SiteDomain", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany("Domains")
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1067,16 +1068,16 @@ namespace Infrastructure.Migrations
                     b.Navigation("Site");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.UserLibrary", b =>
+            modelBuilder.Entity("Domain.Entities.UserLibrary", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Edition", "Edition")
+                    b.HasOne("Domain.Entities.Edition", "Edition")
                         .WithMany()
                         .HasForeignKey("EditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_libraries_editions_edition_id");
 
-                    b.HasOne("Infrastructure.Data.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany("UserLibraries")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1088,9 +1089,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Work", b =>
+            modelBuilder.Entity("Domain.Entities.Work", b =>
                 {
-                    b.HasOne("Infrastructure.Data.Entities.Site", "Site")
+                    b.HasOne("Domain.Entities.Site", "Site")
                         .WithMany("Works")
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1100,19 +1101,19 @@ namespace Infrastructure.Migrations
                     b.Navigation("Site");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.AdminUser", b =>
+            modelBuilder.Entity("Domain.Entities.AdminUser", b =>
                 {
                     b.Navigation("AuditLogs");
 
                     b.Navigation("RefreshTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.BookFile", b =>
+            modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
                     b.Navigation("IngestionJobs");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Chapter", b =>
+            modelBuilder.Entity("Domain.Entities.Chapter", b =>
                 {
                     b.Navigation("Bookmarks");
 
@@ -1121,7 +1122,7 @@ namespace Infrastructure.Migrations
                     b.Navigation("ReadingProgresses");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Edition", b =>
+            modelBuilder.Entity("Domain.Entities.Edition", b =>
                 {
                     b.Navigation("BookFiles");
 
@@ -1132,14 +1133,14 @@ namespace Infrastructure.Migrations
                     b.Navigation("TranslatedEditions");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Site", b =>
+            modelBuilder.Entity("Domain.Entities.Site", b =>
                 {
                     b.Navigation("Domains");
 
                     b.Navigation("Works");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.User", b =>
+            modelBuilder.Entity("Domain.Entities.User", b =>
                 {
                     b.Navigation("Bookmarks");
 
@@ -1150,7 +1151,7 @@ namespace Infrastructure.Migrations
                     b.Navigation("UserLibraries");
                 });
 
-            modelBuilder.Entity("Infrastructure.Data.Entities.Work", b =>
+            modelBuilder.Entity("Domain.Entities.Work", b =>
                 {
                     b.Navigation("Editions");
                 });

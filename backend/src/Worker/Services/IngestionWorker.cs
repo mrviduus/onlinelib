@@ -5,11 +5,11 @@ namespace Worker.Services;
 
 public class IngestionWorker : BackgroundService
 {
-    private readonly IngestionService _ingestionService;
+    private readonly IngestionWorkerService _ingestionService;
     private readonly ILogger<IngestionWorker> _logger;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
 
-    public IngestionWorker(IngestionService ingestionService, ILogger<IngestionWorker> logger)
+    public IngestionWorker(IngestionWorkerService ingestionService, ILogger<IngestionWorker> logger)
     {
         _ingestionService = ingestionService;
         _logger = logger;

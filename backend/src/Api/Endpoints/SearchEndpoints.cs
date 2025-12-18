@@ -1,8 +1,6 @@
 using Api.Sites;
-using Infrastructure.Data;
-using Infrastructure.Enums;
+using Application.Search;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Api.Endpoints;
 
@@ -17,7 +15,7 @@ public static class SearchEndpoints
 
     private static async Task<IResult> Search(
         HttpContext httpContext,
-        AppDbContext db,
+        SearchService searchService,
         [FromQuery] string q,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
@@ -31,37 +29,7 @@ public static class SearchEndpoints
         var take = Math.Min(limit ?? 20, 100);
         var skip = offset ?? 0;
 
-        var query = db.Chapters
-            .Where(c => c.Edition.SiteId == siteId && c.Edition.Status == EditionStatus.Published)
-            .Where(c => c.SearchVector!.Matches(EF.Functions.PlainToTsQuery("english", q)));
-
-        if (!string.IsNullOrEmpty(language))
-            query = query.Where(c => c.Edition.Language == language);
-
-        var total = await query.CountAsync(ct);
-
-        var results = await query
-            .OrderByDescending(c => c.SearchVector!.Rank(EF.Functions.PlainToTsQuery("english", q)))
-            .Skip(skip)
-            .Take(take)
-            .Select(c => new
-            {
-                ChapterId = c.Id,
-                ChapterSlug = c.Slug,
-                ChapterTitle = c.Title,
-                ChapterNumber = c.ChapterNumber,
-                Edition = new
-                {
-                    c.Edition.Id,
-                    c.Edition.Slug,
-                    c.Edition.Title,
-                    c.Edition.Language,
-                    c.Edition.AuthorsJson,
-                    c.Edition.CoverPath
-                }
-            })
-            .ToListAsync(ct);
-
-        return Results.Ok(new { total, results });
+        var result = await searchService.SearchAsync(siteId, q, skip, take, language, ct);
+        return Results.Ok(result);
     }
 }
