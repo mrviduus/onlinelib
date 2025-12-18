@@ -1,19 +1,26 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { ReaderPage } from './pages/ReaderPage'
+import { BooksPage } from './pages/BooksPage'
+import { BookDetailPage } from './pages/BookDetailPage'
+import './styles/reader.css'
+import './styles/books.css'
 
 function Home() {
   return (
-    <div>
+    <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
       <h1>OnlineLib</h1>
-      <p>Free online library</p>
-    </div>
-  )
-}
-
-function Books() {
-  return (
-    <div>
-      <h2>Books</h2>
-      <p>Browse our collection</p>
+      <p>Free online library with a beautiful reading experience.</p>
+      <Link to="/books" style={{
+        display: 'inline-block',
+        background: '#1a1a1a',
+        color: '#fff',
+        padding: '12px 24px',
+        borderRadius: 8,
+        textDecoration: 'none',
+        marginTop: 16
+      }}>
+        Browse Books
+      </Link>
     </div>
   )
 }
@@ -21,12 +28,11 @@ function Books() {
 function App() {
   return (
     <BrowserRouter>
-      <nav>
-        <Link to="/">Home</Link> | <Link to="/books">Books</Link>
-      </nav>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/books" element={<Books />} />
+        <Route path="/books" element={<BooksPage />} />
+        <Route path="/books/:bookSlug" element={<BookDetailPage />} />
+        <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
       </Routes>
     </BrowserRouter>
   )

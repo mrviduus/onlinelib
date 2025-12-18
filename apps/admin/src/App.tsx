@@ -1,36 +1,19 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-
-function Dashboard() {
-  return (
-    <div>
-      <h2>Dashboard</h2>
-      <p>Welcome to OnlineLib Admin</p>
-    </div>
-  )
-}
-
-function Login() {
-  return (
-    <div>
-      <h2>Login</h2>
-      <form>
-        <input type="email" placeholder="Email" />
-        <input type="password" placeholder="Password" />
-        <button type="submit">Login</button>
-      </form>
-    </div>
-  )
-}
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Layout } from './components/Layout'
+import { DashboardPage } from './pages/DashboardPage'
+import { UploadPage } from './pages/UploadPage'
+import { JobsPage } from './pages/JobsPage'
+import './styles/admin.css'
 
 function App() {
   return (
     <BrowserRouter>
-      <nav>
-        <Link to="/">Dashboard</Link> | <Link to="/login">Login</Link>
-      </nav>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="jobs" element={<JobsPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   )

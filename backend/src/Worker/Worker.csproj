@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
+    <PackageReference Include="VersOne.Epub" Version="3.*" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.*" />
   </ItemGroup>
 
   <ItemGroup>

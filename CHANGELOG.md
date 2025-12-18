@@ -3,6 +3,26 @@
 ## [Unreleased]
 
 ### Added
+- **Public API endpoints**
+  - `GET /books` - list published editions (paginated, language filter)
+  - `GET /books/{slug}` - edition detail with chapters and other editions
+  - `GET /books/{slug}/chapters` - chapter list
+  - `GET /books/{slug}/chapters/{chapterSlug}` - chapter content with prev/next nav
+  - `GET /search?q=` - full-text search using PostgreSQL tsvector
+- **Admin file upload** - `POST /admin/books/upload`
+  - Creates Work + Edition + BookFile + IngestionJob
+  - Stores files at `/storage/books/{editionId}/original/`
+- **Admin ingestion endpoints**
+  - `GET /admin/ingestion/jobs` - list jobs
+  - `GET /admin/ingestion/jobs/{id}` - job detail
+- **EPUB parser** (Worker)
+  - VersOne.Epub for parsing
+  - HtmlAgilityPack for HTML sanitization
+  - Extracts chapters from spine reading order
+- **Ingestion worker service**
+  - Background polling (5s interval)
+  - Parses EPUB → creates Chapter records
+  - Updates search_vector via DB trigger
 - **Work/Edition data model** - Refactored from Book/Translation to Work/Edition
   - `Work` - canonical work (language-agnostic)
   - `Edition` - language-specific version with `SourceEditionId` for translation links
@@ -44,3 +64,24 @@
 ### Migrations
 - `Initial_WorkEdition_Admin` - Fresh migration with new schema
 - `Add_UserLibrary_UserFields` - User fields + UserLibrary table
+
+---
+
+## Next Up
+
+### Phase G: Frontend Reader
+- Route `/books/:bookSlug/:chapterSlug`
+- Centered text column (720-840px)
+- Auto-hide top bar (scroll up/tap → show, scroll down → hide)
+- Reader settings: font size, line height, width, theme, font family
+- TOC drawer, prev/next navigation
+- Progress % indicator, localStorage persistence
+
+### Phase B: Google OAuth
+- Cookie-based auth with Google sign-in
+- Endpoints: `/auth/google`, `/auth/me`, `/auth/logout`
+
+### Phase D: User API
+- `/me/library` - saved books
+- `/me/progress` - reading position sync
+- `/me/bookmarks`, `/me/notes`

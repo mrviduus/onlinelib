@@ -1,0 +1,127 @@
+import type { ReaderSettings, Theme, FontFamily, ColumnWidth } from '../../hooks/useReaderSettings'
+
+interface Props {
+  open: boolean
+  settings: ReaderSettings
+  onUpdate: (partial: Partial<ReaderSettings>) => void
+  onClose: () => void
+}
+
+const themes: { value: Theme; label: string; bg: string }[] = [
+  { value: 'light', label: 'Light', bg: '#fff' },
+  { value: 'sepia', label: 'Sepia', bg: '#f4ecd8' },
+  { value: 'dark', label: 'Dark', bg: '#1a1a1a' },
+]
+
+const fonts: { value: FontFamily; label: string }[] = [
+  { value: 'serif', label: 'Serif' },
+  { value: 'sans', label: 'Sans' },
+]
+
+const widths: { value: ColumnWidth; label: string }[] = [
+  { value: 'narrow', label: 'Narrow' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'wide', label: 'Wide' },
+]
+
+const lineHeights = [1.5, 1.65, 1.8]
+
+export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Props) {
+  if (!open) return null
+
+  return (
+    <>
+      <div className="reader-drawer-backdrop" onClick={onClose} />
+      <div className="reader-settings-drawer">
+        <div className="reader-settings-drawer__header">
+          <h3>Reading Settings</h3>
+          <button onClick={onClose} className="reader-settings-drawer__close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Font Size</label>
+          <div className="reader-settings-drawer__font-size">
+            <button
+              onClick={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 2) })}
+              disabled={settings.fontSize <= 14}
+            >
+              A-
+            </button>
+            <span>{settings.fontSize}px</span>
+            <button
+              onClick={() => onUpdate({ fontSize: Math.min(28, settings.fontSize + 2) })}
+              disabled={settings.fontSize >= 28}
+            >
+              A+
+            </button>
+          </div>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Line Height</label>
+          <div className="reader-settings-drawer__options">
+            {lineHeights.map((lh) => (
+              <button
+                key={lh}
+                className={settings.lineHeight === lh ? 'active' : ''}
+                onClick={() => onUpdate({ lineHeight: lh })}
+              >
+                {lh}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Column Width</label>
+          <div className="reader-settings-drawer__options">
+            {widths.map((w) => (
+              <button
+                key={w.value}
+                className={settings.columnWidth === w.value ? 'active' : ''}
+                onClick={() => onUpdate({ columnWidth: w.value })}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Theme</label>
+          <div className="reader-settings-drawer__themes">
+            {themes.map((t) => (
+              <button
+                key={t.value}
+                className={`reader-settings-drawer__theme ${settings.theme === t.value ? 'active' : ''}`}
+                style={{ backgroundColor: t.bg }}
+                onClick={() => onUpdate({ theme: t.value })}
+                title={t.label}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Font</label>
+          <div className="reader-settings-drawer__options">
+            {fonts.map((f) => (
+              <button
+                key={f.value}
+                className={settings.fontFamily === f.value ? 'active' : ''}
+                onClick={() => onUpdate({ fontFamily: f.value })}
+                style={{ fontFamily: f.value === 'serif' ? 'Georgia, serif' : 'sans-serif' }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}

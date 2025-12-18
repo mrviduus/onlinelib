@@ -1,9 +1,22 @@
+using Api.Endpoints;
 using Infrastructure.Data;
+using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 builder.Services.AddOpenApi();
 
@@ -14,6 +27,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString)
         .UseSnakeCaseNamingConvention()
         .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
+
+// File storage
+var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
+builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(storagePath));
 
 var app = builder.Build();
 
@@ -29,6 +46,11 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+app.UseCors();
+
 app.MapGet("/health", () => Results.Ok("healthy"));
+app.MapAdminEndpoints();
+app.MapBooksEndpoints();
+app.MapSearchEndpoints();
 
 app.Run();
