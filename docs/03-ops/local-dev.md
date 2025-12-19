@@ -23,7 +23,7 @@ docker compose up --build
 ## Testing Sites
 
 ```
-http://localhost:5173/?site=fiction      # ClassicReads
+http://localhost:5173/?site=general      # General (default)
 http://localhost:5173/?site=programming  # CodeBooks
 ```
 

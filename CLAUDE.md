@@ -54,7 +54,7 @@ pnpm -C apps/web dev
 - site_id scopes content; User is global
 
 **Multisite**: Host header → SiteResolver → SiteContext
-- Dev override: `?site=fiction`
+- Dev override: `?site=general`
 - Files: `backend/src/Api/Sites/`
 
 **Storage**: Host bind mount at `/srv/books/storage`

@@ -26,6 +26,7 @@ public class SiteContextMiddleware
 
         // Dev mode: allow ?site= query param override
         var siteOverride = context.Request.Query["site"].FirstOrDefault();
+
         var host = !string.IsNullOrEmpty(siteOverride)
             ? $"{siteOverride}.localhost"
             : context.Request.Host.Host;

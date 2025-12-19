@@ -77,7 +77,7 @@ async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
   }
 }
 
-// Default site ID for fiction site (seeded)
+// Default site ID for general site (seeded)
 const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
 export const adminApi = {

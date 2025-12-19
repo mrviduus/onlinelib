@@ -5,11 +5,11 @@
 
 ## Context
 
-Need to run multiple branded sites (fiction, programming) from single backend.
+Need to run multiple branded sites (general, programming) from single backend.
 
 Options:
 1. Separate deployments per site
-2. Path-based routing (/fiction/...)
+2. Path-based routing (/general/...)
 3. Host-based resolution
 
 ## Decision
@@ -17,7 +17,7 @@ Options:
 Use **Host header resolution** → SiteContext per request.
 
 ```
-fiction.example.com → site_id=fiction
+general.example.com → site_id=general
 programming.example.com → site_id=programming
 ```
 
@@ -28,7 +28,7 @@ programming.example.com → site_id=programming
 - All queries filter by SiteId
 - Unknown hosts return 404
 
-Dev override: `?site=fiction` query param.
+Dev override: `?site=general` query param.
 
 ## Data Isolation
 

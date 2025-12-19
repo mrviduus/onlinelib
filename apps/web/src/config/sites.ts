@@ -12,10 +12,10 @@ export interface SiteTheme {
 }
 
 export const siteThemes: Record<string, SiteTheme> = {
-  fiction: {
-    name: 'ClassicReads',
-    logo: '/logos/fiction.svg',
-    tagline: 'Timeless literature, freely available',
+  general: {
+    name: 'General',
+    logo: '/logos/general.svg',
+    tagline: 'Free online library for everyone',
     colors: {
       primary: '#1a1a1a',
       secondary: '#333333',

@@ -2,7 +2,7 @@
 
 Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first reading sync.
 
-**Multisite**: Single backend serves multiple branded sites (fiction, programming, etc.) with shared content isolation.
+**Multisite**: Single backend serves multiple branded sites (general, programming, etc.) with shared content isolation.
 
 ## Quick Start
 
@@ -21,11 +21,11 @@ docker compose up --build
 ### Testing Sites
 
 ```
-http://localhost:5173/?site=fiction      # ClassicReads theme
+http://localhost:5173/?site=general      # General theme (default)
 http://localhost:5173/?site=programming  # CodeBooks theme
 ```
 
-In production, sites resolve via Host header (fiction.example.com, programming.example.com).
+In production, sites resolve via Host header (general.example.com, programming.example.com).
 
 ---
 

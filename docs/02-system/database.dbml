@@ -8,7 +8,7 @@
 
   Table sites {
     id uuid [pk]
-    code varchar(50) [unique, not null, note: 'e.g. fiction, programming']
+    code varchar(50) [unique, not null, note: 'e.g. general, programming']
     primary_domain varchar(255) [unique, not null]
     default_language varchar(10) [not null]
     theme varchar(50) [not null, default: 'default']

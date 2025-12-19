@@ -19,7 +19,7 @@ public static class TestDbContextFactory
     {
         var context = Create();
 
-        var site = BookTestData.CreateFictionSite();
+        var site = BookTestData.CreateGeneralSite();
         context.Sites.Add(site);
 
         var (work1, edition1, chapters1) = BookTestData.CreateBook1();

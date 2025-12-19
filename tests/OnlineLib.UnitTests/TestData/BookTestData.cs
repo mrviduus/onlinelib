@@ -5,15 +5,15 @@ namespace OnlineLib.UnitTests.TestData;
 
 public static class BookTestData
 {
-    public static readonly Guid FictionSiteId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid GeneralSiteId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid Book1EditionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid Book2EditionId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
-    public static Site CreateFictionSite() => new()
+    public static Site CreateGeneralSite() => new()
     {
-        Id = FictionSiteId,
-        Code = "fiction",
-        PrimaryDomain = "fiction.localhost",
+        Id = GeneralSiteId,
+        Code = "general",
+        PrimaryDomain = "general.localhost",
         DefaultLanguage = "en",
         Theme = "default",
         CreatedAt = DateTimeOffset.UtcNow,
@@ -26,7 +26,7 @@ public static class BookTestData
         var work = new Work
         {
             Id = workId,
-            SiteId = FictionSiteId,
+            SiteId = GeneralSiteId,
             Slug = "great-gatsby",
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -35,7 +35,7 @@ public static class BookTestData
         {
             Id = Book1EditionId,
             WorkId = workId,
-            SiteId = FictionSiteId,
+            SiteId = GeneralSiteId,
             Language = "en",
             Slug = "great-gatsby",
             Title = "The Great Gatsby",
@@ -87,7 +87,7 @@ public static class BookTestData
         var work = new Work
         {
             Id = workId,
-            SiteId = FictionSiteId,
+            SiteId = GeneralSiteId,
             Slug = "frankenstein",
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -96,7 +96,7 @@ public static class BookTestData
         {
             Id = Book2EditionId,
             WorkId = workId,
-            SiteId = FictionSiteId,
+            SiteId = GeneralSiteId,
             Language = "en",
             Slug = "frankenstein",
             Title = "Frankenstein",

@@ -51,7 +51,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("https://fiction.example.com", "https://programming.example.com")
+        policy.WithOrigins("https://general.example.com", "https://programming.example.com")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

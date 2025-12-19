@@ -1,6 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-// Dev mode: use site query param (fiction site by default)
-const DEFAULT_SITE = import.meta.env.VITE_SITE || 'fiction'
+// Dev mode: use site query param (general site by default)
+const DEFAULT_SITE = import.meta.env.VITE_SITE || 'general'
 
 function addSiteParam(query: URLSearchParams): void {
   if (!query.has('site')) query.set('site', DEFAULT_SITE)

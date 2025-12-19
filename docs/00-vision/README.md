@@ -41,8 +41,8 @@ Free book library with Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO
 ## Multisite
 
 Single backend serves multiple branded sites:
-- `fiction.example.com` — ClassicReads
-- `programming.example.com` — CodeBooks
+- `general.example.com` — General (student-first aggregator)
+- `programming.example.com` — CodeBooks (developer vertical)
 
 Each site has:
 - Own domain, theme, SEO identity

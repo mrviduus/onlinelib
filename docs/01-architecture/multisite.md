@@ -6,8 +6,8 @@ One backend serves multiple branded sites with content isolation and per-site SE
 
 | Code | Domain | Purpose |
 |------|--------|---------|
-| fiction | fiction.example.com | Classic literature |
-| programming | programming.example.com | CS/programming books |
+| general | general.example.com | Student-first aggregator (default) |
+| programming | programming.example.com | Developer-focused vertical |
 
 ## Site Resolution
 
@@ -25,7 +25,7 @@ Request → Host header → SiteResolver → SiteContext → All queries
 ### Dev Override
 
 ```
-http://localhost:5173/?site=fiction
+http://localhost:5173/?site=general
 http://localhost:5173/?site=programming
 ```
 
@@ -84,7 +84,7 @@ http://localhost:5173/?site=programming
 ```
 
 ### Per-Site Sections
-- Fiction: author-first browsing
+- General: broad, student-first browsing
 - Programming: topic-first browsing
 
 ### Theming
@@ -92,7 +92,7 @@ http://localhost:5173/?site=programming
 ```typescript
 // apps/web/src/config/sites.ts
 export const sites = {
-  fiction: { name: 'ClassicReads', color: '#3B82F6' },
+  general: { name: 'General', color: '#0066CC' },
   programming: { name: 'CodeBooks', color: '#10B981' }
 }
 ```
