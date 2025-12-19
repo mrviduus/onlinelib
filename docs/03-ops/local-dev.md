@@ -20,14 +20,37 @@ docker compose up --build
 | Admin | http://localhost:5174 |
 | Postgres | localhost:5432 |
 
-## Testing Sites
+## Nginx Gateway (Host-based Routing)
 
+For prod-like host-based routing, use nginx gateway on port 80:
+
+| Host | Target |
+|------|--------|
+| http://general.localhost | Web (general site) |
+| http://programming.localhost | Web (programming site) |
+| http://api.localhost | API |
+| http://admin.localhost | Admin |
+
+**Note:** `*.localhost` resolves to 127.0.0.1 by default on most systems.
+
+```bash
+# Test API via gateway
+curl http://api.localhost/health
+curl http://api.localhost/debug/site
+# => {"site":"general"}
+
+# Test with Host header
+curl -H "Host: programming.localhost" http://api.localhost/debug/site
+# => {"site":"programming"}
+```
+
+## Testing Sites (Legacy)
+
+Query param override still works in Development:
 ```
 http://localhost:5173/?site=general      # General (default)
 http://localhost:5173/?site=programming  # CodeBooks
 ```
-
-In production, sites resolve via Host header.
 
 ## Migrations
 

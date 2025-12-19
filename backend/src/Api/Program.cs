@@ -15,7 +15,13 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://general.localhost",
+                "http://programming.localhost",
+                "http://admin.localhost"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -45,10 +51,17 @@ builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(s
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ISiteResolver, SiteResolver>();
 
+// Host-based site resolution
+builder.Services.AddSingleton<HostSiteResolver>();
+builder.Services.AddScoped<HostSiteContext>();
+builder.Services.AddScoped<IHostSiteContext>(sp => sp.GetRequiredService<HostSiteContext>());
+
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+// Skip migrations in Test environment (uses InMemory DB)
+if (!app.Environment.IsEnvironment("Test"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
@@ -66,8 +79,10 @@ app.UseExceptionMiddleware();
 app.MapGet("/health", () => Results.Ok("healthy"));
 
 // Site resolution middleware
+app.UseHostSiteContext();
 app.UseSiteContext();
 
+app.MapDebugEndpoints(app.Environment);
 app.MapAdminEndpoints();
 app.MapAdminSitesEndpoints();
 app.MapBooksEndpoints();

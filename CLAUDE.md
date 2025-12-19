@@ -67,3 +67,13 @@ pnpm -C apps/web dev
 - [Database](docs/02-system/database.md)
 - [Local Dev](docs/03-ops/local-dev.md)
 - [ADRs](docs/01-architecture/adr/)
+## IMPORTANT — HOW TO WORK IN THIS REPO
+
+- Work strictly in **small slices**.
+- Each slice must be **independently mergeable**.
+- Follow **PDD + TDD**:
+  - tests first (RED), then code (GREEN), then refactor.
+- **Do not expand scope** beyond the given slice.
+- If extra work is discovered, list it under **Follow-ups**, do NOT implement it.
+- `dotnet test` must pass for every slice.
+- Always report results using the standard Summary / Files / Tests / Manual / Follow-ups format.

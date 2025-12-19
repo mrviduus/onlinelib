@@ -26,9 +26,26 @@ const SiteContext = createContext<SiteContextValue>({
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
+function getSiteFromHost(): string | null {
+  const host = window.location.hostname
+  const subdomain = host.split('.')[0]
+
+  // Known site subdomains
+  if (subdomain === 'programming') return 'programming'
+  if (subdomain === 'general') return 'general'
+  if (subdomain === 'fiction') return 'general' // alias
+
+  return null
+}
+
 function getSiteParam(): string | null {
+  // Query param takes precedence (dev override)
   const params = new URLSearchParams(window.location.search)
-  return params.get('site')
+  const queryParam = params.get('site')
+  if (queryParam) return queryParam
+
+  // Fall back to hostname-based resolution
+  return getSiteFromHost()
 }
 
 export function SiteProvider({ children }: { children: ReactNode }) {
