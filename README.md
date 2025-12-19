@@ -69,7 +69,7 @@ dotnet ef migrations add <Name> \
   --startup-project backend/src/Api
 ```
 
-See [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for details.
+See [docs/03-ops/local-dev.md](docs/03-ops/local-dev.md) for details.
 
 ### Local Dev (without Docker)
 
@@ -110,10 +110,11 @@ Key files:
 - `apps/web/src/context/SiteContext.tsx` - frontend site context
 - `apps/web/src/config/sites.ts` - per-site theming
 
-## Docs
+## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Database Schema](docs/db_schema.dbml)
-- [Multisite Spec](docs/onlinelib-multisite-spec/)
-- [Migrations](docs/MIGRATIONS.md)
-- [Storage & Resilience](docs/STORAGE_AND_RESILIENCE.md)
+- [Docs Index](docs/README.md)
+- [Vision & Goals](docs/00-vision/README.md)
+- [Architecture](docs/01-architecture/README.md)
+- [Database Schema](docs/02-system/database.md)
+- [API Contract](docs/02-system/api.md)
+- [Local Development](docs/03-ops/local-dev.md)
