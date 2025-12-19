@@ -4,6 +4,8 @@ Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO p
 
 **Multisite**: Single backend serves multiple branded sites (fiction, programming, etc.) with shared content isolation.
 
+## Quick Start
+
 ```bash
 docker compose up --build
 ```
@@ -24,6 +26,25 @@ http://localhost:5173/?site=programming  # CodeBooks theme
 ```
 
 In production, sites resolve via Host header (fiction.example.com, programming.example.com).
+
+---
+
+## Table of Contents
+
+1. [Stack](#stack)
+2. [Project Structure](#project-structure)
+3. [Development](#development)
+4. [Storage](#storage)
+5. [Multisite Architecture](#multisite-architecture)
+6. [Documentation](#documentation)
+   - [Vision & Goals](#00-vision--goals)
+   - [Architecture](#01-architecture)
+   - [System Specs](#02-system-specs)
+   - [Operations](#03-operations)
+   - [Development Guides](#04-development-guides)
+   - [ADRs](#architectural-decision-records-adrs)
+
+---
 
 ## Stack
 
@@ -47,10 +68,19 @@ In production, sites resolve via Host header (fiction.example.com, programming.e
 │   ├── admin/             # React (Vite) - admin panel
 │   └── mobile/            # React Native Expo (later)
 ├── packages/              # Shared TS code
+├── scripts/               # Docker clean/build scripts
 └── docs/                  # Architecture docs
 ```
 
 ## Development
+
+### Docker Scripts
+
+```bash
+./scripts/docker-clean.sh   # Stop + remove project images/volumes
+./scripts/docker-build.sh   # Fresh build + start all services
+./scripts/docker-nuke.sh    # NUCLEAR: removes ALL docker data system-wide
+```
 
 ### Migrations
 
@@ -68,8 +98,6 @@ dotnet ef migrations add <Name> \
   --project backend/src/Infrastructure \
   --startup-project backend/src/Api
 ```
-
-See [docs/03-ops/local-dev.md](docs/03-ops/local-dev.md) for details.
 
 ### Local Dev (without Docker)
 
@@ -110,11 +138,83 @@ Key files:
 - `apps/web/src/context/SiteContext.tsx` - frontend site context
 - `apps/web/src/config/sites.ts` - per-site theming
 
+---
+
 ## Documentation
 
-- [Docs Index](docs/README.md)
-- [Vision & Goals](docs/00-vision/README.md)
-- [Architecture](docs/01-architecture/README.md)
-- [Database Schema](docs/02-system/database.md)
-- [API Contract](docs/02-system/api.md)
-- [Local Development](docs/03-ops/local-dev.md)
+### Reading Order
+
+| Audience | Path |
+|----------|------|
+| New to project | Vision → Architecture → Local Dev |
+| Backend work | Database → API → Ingestion |
+| Frontend work | Architecture → Multisite → Reader |
+| Ops | Local Dev → Backup |
+
+---
+
+### 00 Vision & Goals
+
+| Document | Description |
+|----------|-------------|
+| [Vision](docs/00-vision/README.md) | Project goals, principles, target users |
+| [Roadmap](docs/00-vision/roadmap.md) | MVP phases, feature checklists |
+
+---
+
+### 01 Architecture
+
+| Document | Description |
+|----------|-------------|
+| [Architecture Overview](docs/01-architecture/README.md) | System design, layers, data flow |
+| [Frontend Architecture](docs/01-architecture/frontend.md) | React structure, state, routing |
+| [Multisite Design](docs/01-architecture/multisite.md) | Host resolution, theming, isolation |
+
+---
+
+### 02 System Specs
+
+| Document | Description |
+|----------|-------------|
+| [Database Schema](docs/02-system/database.md) | Entities, relations, indexes |
+| [API Contract](docs/02-system/api.md) | Endpoints, DTOs, auth |
+| [Ingestion Pipeline](docs/02-system/ingestion.md) | EPUB/PDF parsing, worker flow |
+| [Reader Spec](docs/02-system/reader.md) | Kindle-like reader, offline sync |
+| [Admin Panel](docs/02-system/admin.md) | Admin features, permissions |
+
+---
+
+### 03 Operations
+
+| Document | Description |
+|----------|-------------|
+| [Local Development](docs/03-ops/local-dev.md) | Docker setup, migrations, debugging |
+| [Backup & Recovery](docs/03-ops/backup.md) | DB backup, file recovery |
+
+---
+
+### 04 Development Guides
+
+| Document | Description |
+|----------|-------------|
+| [Testing](docs/04-dev/testing.md) | Unit, integration, E2E tests |
+| [Security](docs/04-dev/security.md) | Auth, OWASP, threat model |
+
+---
+
+### Architectural Decision Records (ADRs)
+
+| ADR | Decision |
+|-----|----------|
+| [001](docs/01-architecture/adr/001-storage-bind-mounts.md) | Storage via bind mounts (not S3) |
+| [002](docs/01-architecture/adr/002-google-auth-only.md) | Google OAuth only (no email/pass) |
+| [003](docs/01-architecture/adr/003-work-edition-model.md) | Work/Edition data model for multilang |
+| [004](docs/01-architecture/adr/004-postgres-fts.md) | PostgreSQL FTS over Elasticsearch |
+| [005](docs/01-architecture/adr/005-multisite-resolution.md) | Multisite via Host header |
+| [006](docs/01-architecture/adr/006-modular-monolith.md) | Modular monolith over microservices |
+
+---
+
+### Archive
+
+Historical/superseded docs in [docs/archive/](docs/archive/)
