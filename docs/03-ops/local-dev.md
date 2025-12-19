@@ -157,5 +157,4 @@ docker compose exec db psql -U app books
 
 ## See Also
 
-- [Deployment](deployment.md) — Production setup
 - [Backup](backup.md) — Backup procedures

@@ -9,25 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0F9113EE-888
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{208BA388-4CEE-2CBF-559C-5607C099C1F8}"
 	ProjectSection(SolutionItems) = preProject
-		docs\ARCHITECTURE.md = docs\ARCHITECTURE.md
-		docs\API_CONTRACT.md = docs\API_CONTRACT.md
-		docs\AUTHENTICATION_REQUIREMENTS.md = docs\AUTHENTICATION_REQUIREMENTS.md
-		docs\DATA_MODEL_REQUIREMENTS.md = docs\DATA_MODEL_REQUIREMENTS.md
-		docs\DB_SCHEMA.md = docs\DB_SCHEMA.md
-		docs\MIGRATIONS.md = docs\MIGRATIONS.md
-		docs\ONLINE_LIB_MVP_PLAN.md = docs\ONLINE_LIB_MVP_PLAN.md
-		docs\PROJECT_SUMMARY.md = docs\PROJECT_SUMMARY.md
-		docs\SECURITY_DECISIONS.md = docs\SECURITY_DECISIONS.md
-		docs\STORAGE_AND_RESILIENCE.md = docs\STORAGE_AND_RESILIENCE.md
-		docs\STORAGE_AND_RESILIENCE_DECISION.md = docs\STORAGE_AND_RESILIENCE_DECISION.md
-		docs\admin-tool.md = docs\admin-tool.md
-		docs\architecture-multilang.md = docs\architecture-multilang.md
-		docs\bookmate-like-reader-spec.md = docs\bookmate-like-reader-spec.md
-		docs\claude-code-agenda-seo-urls.md = docs\claude-code-agenda-seo-urls.md
-		docs\db-multilang.md = docs\db-multilang.md
-		docs\db.md = docs\db.md
-		docs\infrastructure.md = docs\infrastructure.md
-		docs\persistence_structure.md = docs\persistence_structure.md
+		docs\README.md = docs\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{089100B1-113F-4E66-888A-E83F3999EAFD}"
@@ -60,8 +42,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "admin", "admin", "{08363F22
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docker", "docker", "{5F3F916C-0321-8A9F-8AC0-501F442D9F72}"
 	ProjectSection(SolutionItems) = preProject
-		backend\src\Api\Dockerfile = backend\src\Api\Dockerfile
-		backend\src\Worker\Dockerfile = backend\src\Worker\Dockerfile
+		backend\Docker\Api.Dockerfile = backend\Docker\Api.Dockerfile
+		backend\Docker\Worker.Dockerfile = backend\Docker\Worker.Dockerfile
+		backend\Docker\Migrator.Dockerfile = backend\Docker\Migrator.Dockerfile
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Api", "backend\src\Api\Api.csproj", "{8423791E-B092-4766-97A6-1FAD65B23A96}"
