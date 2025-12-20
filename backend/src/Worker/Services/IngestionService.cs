@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Application.Common.Interfaces;
 using Domain.Entities;
-using Infrastructure.Data;
+using Infrastructure.Persistence;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

@@ -1,4 +1,4 @@
-using Infrastructure.Data;
+using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 

@@ -1,6 +1,6 @@
 using Application.Common.Interfaces;
 
-namespace Infrastructure.Storage;
+namespace Infrastructure.Services;
 
 public class LocalFileStorageService : IFileStorageService
 {

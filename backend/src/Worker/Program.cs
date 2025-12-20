@@ -1,6 +1,6 @@
 using Application.Common.Interfaces;
-using Infrastructure.Data;
-using Infrastructure.Storage;
+using Infrastructure.Persistence;
+using Infrastructure.Services;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

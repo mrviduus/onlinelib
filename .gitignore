@@ -28,9 +28,9 @@ dist/
 appsettings.Development.json
 appsettings.Local.json
 
-# Storage
-storage/
-data/
+# Storage (root-level runtime directories only)
+/storage/
+/data/
 
 # Logs
 logs/

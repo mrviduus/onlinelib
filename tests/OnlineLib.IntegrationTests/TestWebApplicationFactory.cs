@@ -1,5 +1,5 @@
 using Domain.Entities;
-using Infrastructure.Data;
+using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
