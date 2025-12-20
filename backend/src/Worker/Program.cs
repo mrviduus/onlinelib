@@ -1,12 +1,20 @@
 using Application.Common.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Storage;
+using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Worker.Parsers;
+using OnlineLib.Extraction.Contracts;
+using OnlineLib.Extraction.Extractors;
+using OnlineLib.Extraction.Ocr;
+using OnlineLib.Extraction.Registry;
 using Worker.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// OpenTelemetry
+builder.Services.AddOnlineLibTelemetry(builder.Configuration, "onlinelib-worker");
+builder.Logging.AddTelemetryLogging();
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -21,8 +29,31 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
 builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(storagePath));
 
-// Parsers
-builder.Services.AddSingleton<EpubParser>();
+// Extraction options (OCR disabled by default)
+var extractionOptions = new ExtractionOptions
+{
+    EnableOcrFallback = builder.Configuration.GetValue("Extraction:EnableOcrFallback", false),
+    MaxPagesForOcr = builder.Configuration.GetValue("Extraction:MaxPagesForOcr", 50),
+    OcrLanguage = builder.Configuration.GetValue("Extraction:OcrLanguage", "eng") ?? "eng"
+};
+builder.Services.AddSingleton(extractionOptions);
+
+// OCR engine (optional, only created if OCR enabled)
+IOcrEngine? ocrEngine = null;
+if (extractionOptions.EnableOcrFallback)
+{
+    var tessDataPath = builder.Configuration.GetValue("Extraction:TessDataPath", "/usr/share/tessdata") ?? "/usr/share/tessdata";
+    ocrEngine = new TesseractOcrEngine(tessDataPath);
+    builder.Services.AddSingleton(ocrEngine);
+}
+
+// Extraction
+builder.Services.AddSingleton<ITextExtractor, EpubTextExtractor>();
+builder.Services.AddSingleton<ITextExtractor, TxtTextExtractor>();
+builder.Services.AddSingleton<ITextExtractor, MdTextExtractor>();
+builder.Services.AddSingleton<ITextExtractor>(new PdfTextExtractor(extractionOptions, ocrEngine));
+builder.Services.AddSingleton<ITextExtractor>(new DjvuTextExtractor(extractionOptions, ocrEngine));
+builder.Services.AddSingleton<IExtractorRegistry, ExtractorRegistry>();
 
 // Services
 builder.Services.AddSingleton<IngestionWorkerService>();

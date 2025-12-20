@@ -1,0 +1,8 @@
+This is a sample text file.
+
+It contains multiple lines of text.
+Some lines have trailing spaces.
+
+And some blank lines too.
+
+The end.

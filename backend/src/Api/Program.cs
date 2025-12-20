@@ -5,11 +5,29 @@ using Application;
 using Application.Common.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Storage;
+using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// OpenTelemetry
+builder.Services.AddOnlineLibTelemetry(
+    builder.Configuration,
+    "onlinelib-api",
+    tracing => tracing
+        .AddAspNetCoreInstrumentation(options =>
+        {
+            options.RecordException = true;
+            options.EnrichWithHttpRequest = (activity, request) =>
+            {
+                activity.SetTag("http.client_ip", request.HttpContext.Connection.RemoteIpAddress?.ToString());
+            };
+        })
+        .AddHttpClientInstrumentation());
+builder.Logging.AddTelemetryLogging();
 
 builder.Services.AddCors(options =>
 {

@@ -19,10 +19,20 @@ public static class AdminEndpoints
 
         // Ingestion jobs
         group.MapGet("/ingestion/jobs", GetIngestionJobs)
-            .WithName("GetIngestionJobs");
+            .WithName("GetIngestionJobs")
+            .WithDescription("List ingestion jobs with optional filtering");
 
         group.MapGet("/ingestion/jobs/{id:guid}", GetIngestionJob)
-            .WithName("GetIngestionJob");
+            .WithName("GetIngestionJob")
+            .WithDescription("Get ingestion job details including diagnostics");
+
+        group.MapGet("/ingestion/jobs/{id:guid}/preview", GetIngestionJobPreview)
+            .WithName("GetIngestionJobPreview")
+            .WithDescription("Preview extracted content from a job");
+
+        group.MapPost("/ingestion/jobs/{id:guid}/retry", RetryIngestionJob)
+            .WithName("RetryIngestionJob")
+            .WithDescription("Retry a failed ingestion job (idempotent)");
 
         // Editions CRUD
         group.MapGet("/editions", GetEditions)
@@ -86,9 +96,16 @@ public static class AdminEndpoints
         AdminService adminService,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
+        [FromQuery] string? status,
+        [FromQuery] string? search,
         CancellationToken ct)
     {
-        var jobs = await adminService.GetIngestionJobsAsync(offset ?? 0, limit ?? 20, ct);
+        JobStatus? statusEnum = null;
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<JobStatus>(status, true, out var parsed))
+            statusEnum = parsed;
+
+        var query = new IngestionJobsQuery(offset ?? 0, limit ?? 20, statusEnum, search);
+        var jobs = await adminService.GetIngestionJobsAsync(query, ct);
         return Results.Ok(jobs);
     }
 
@@ -99,6 +116,30 @@ public static class AdminEndpoints
     {
         var job = await adminService.GetIngestionJobAsync(id, ct);
         return job is null ? Results.NotFound() : Results.Ok(job);
+    }
+
+    private static async Task<IResult> GetIngestionJobPreview(
+        Guid id,
+        AdminService adminService,
+        [FromQuery] int? unit,
+        [FromQuery] int? chars,
+        CancellationToken ct)
+    {
+        var preview = await adminService.GetChapterPreviewAsync(id, unit ?? 0, chars ?? 2000, ct);
+        return preview is null ? Results.NotFound() : Results.Ok(preview);
+    }
+
+    private static async Task<IResult> RetryIngestionJob(
+        Guid id,
+        AdminService adminService,
+        CancellationToken ct)
+    {
+        var (success, error, job) = await adminService.RetryJobAsync(id, ct);
+
+        if (!success)
+            return Results.BadRequest(new { error });
+
+        return Results.Ok(job);
     }
 
     // Edition endpoints

@@ -17,6 +17,13 @@ public class IngestionJob
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
 
+    // Extraction diagnostics (persisted after extraction)
+    public string? SourceFormat { get; set; }
+    public int? UnitsCount { get; set; }
+    public string? TextSource { get; set; }
+    public double? Confidence { get; set; }
+    public string? WarningsJson { get; set; }
+
     public Edition Edition { get; set; } = null!;
     public BookFile BookFile { get; set; } = null!;
     public Work? Work { get; set; }
