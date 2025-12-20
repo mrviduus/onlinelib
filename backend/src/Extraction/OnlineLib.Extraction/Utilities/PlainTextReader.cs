@@ -27,7 +27,7 @@ public static class PlainTextReader
         units.Add(new ContentUnit(
             Type: ContentUnitType.Chapter,
             Title: null,
-            Html: null,
+            Html: PlainTextToHtml(normalized),
             PlainText: normalized,
             OrderIndex: 0,
             WordCount: CountWords(normalized)
@@ -94,5 +94,18 @@ public static class PlainTextReader
             return 0;
 
         return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private static string PlainTextToHtml(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var escaped = System.Net.WebUtility.HtmlEncode(text);
+        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
+        var htmlParagraphs = paragraphs
+            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
+
+        return string.Join("\n", htmlParagraphs);
     }
 }

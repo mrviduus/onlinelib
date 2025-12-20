@@ -79,7 +79,7 @@ public record ChapterPreviewDto(int ChapterNumber, string Title, string Preview,
 
 public class AdminService(IAppDbContext db, IFileStorageService storage)
 {
-    private static readonly string[] AllowedExtensions = [".epub", ".pdf", ".fb2"];
+    private static readonly string[] AllowedExtensions = [".epub", ".pdf", ".fb2", ".djvu"];
     private const long MaxFileSize = 100 * 1024 * 1024;
 
     public async Task<(bool Valid, string? Error)> ValidateUploadAsync(
@@ -139,6 +139,7 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             ".epub" => BookFormat.Epub,
             ".pdf" => BookFormat.Pdf,
             ".fb2" => BookFormat.Fb2,
+            ".djvu" => BookFormat.Djvu,
             _ => BookFormat.Other
         };
 

@@ -206,11 +206,12 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                     imageStream, _options.OcrLanguage, ct);
 
                 var normalized = NormalizeText(ocrResult.Text);
+                var html = PlainTextToHtml(normalized);
 
                 units.Add(new ContentUnit(
                     Type: ContentUnitType.Page,
                     Title: null,
-                    Html: null,
+                    Html: html,
                     PlainText: normalized,
                     OrderIndex: i - 1,
                     WordCount: CountWords(normalized)
@@ -228,7 +229,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 units.Add(new ContentUnit(
                     Type: ContentUnitType.Page,
                     Title: null,
-                    Html: null,
+                    Html: string.Empty,
                     PlainText: string.Empty,
                     OrderIndex: i - 1,
                     WordCount: 0
@@ -350,7 +351,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 new ContentUnit(
                     Type: ContentUnitType.Page,
                     Title: null,
-                    Html: null,
+                    Html: PlainTextToHtml(normalized),
                     PlainText: normalized,
                     OrderIndex: 0,
                     WordCount: CountWords(normalized)
@@ -362,7 +363,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
             .Select((pageText, index) => new ContentUnit(
                 Type: ContentUnitType.Page,
                 Title: null,
-                Html: null,
+                Html: PlainTextToHtml(pageText.Trim()),
                 PlainText: pageText.Trim(),
                 OrderIndex: index,
                 WordCount: CountWords(pageText)
@@ -404,6 +405,19 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
             return 0;
 
         return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private static string PlainTextToHtml(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var escaped = System.Net.WebUtility.HtmlEncode(text);
+        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
+        var htmlParagraphs = paragraphs
+            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
+
+        return string.Join("\n", htmlParagraphs);
     }
 
     [GeneratedRegex(@"\n{3,}")]

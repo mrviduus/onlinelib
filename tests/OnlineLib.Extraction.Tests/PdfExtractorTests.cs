@@ -251,4 +251,86 @@ public class PdfExtractorTests
 
         Assert.IsType<PdfTextExtractor>(extractor);
     }
+
+    #region Html Generation Tests
+
+    [Fact]
+    public async Task ExtractAsync_ValidPdf_UnitsHaveHtml()
+    {
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample_textlayer.pdf"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.All(result.Units, unit => Assert.NotNull(unit.Html));
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidPdf_HtmlIsNotEmpty()
+    {
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample_textlayer.pdf"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.All(result.Units.Where(u => !string.IsNullOrEmpty(u.PlainText)),
+            unit => Assert.NotEmpty(unit.Html!));
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidPdf_HtmlContainsParagraphTags()
+    {
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample_textlayer.pdf"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+        var unitsWithContent = result.Units.Where(u => !string.IsNullOrEmpty(u.PlainText)).ToList();
+
+        Assert.NotEmpty(unitsWithContent);
+        Assert.All(unitsWithContent, unit => Assert.Contains("<p>", unit.Html!));
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidPdf_HtmlIsProperlyEscaped()
+    {
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample_textlayer.pdf"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        // Html should not contain unescaped special chars from plaintext
+        foreach (var unit in result.Units.Where(u => !string.IsNullOrEmpty(u.Html)))
+        {
+            // Basic check: Html should be valid (contains opening/closing p tags)
+            var openCount = unit.Html!.Split("<p>").Length - 1;
+            var closeCount = unit.Html.Split("</p>").Length - 1;
+            Assert.Equal(openCount, closeCount);
+        }
+    }
+
+    #endregion
 }

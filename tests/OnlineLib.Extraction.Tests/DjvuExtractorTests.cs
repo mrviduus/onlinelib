@@ -194,6 +194,32 @@ public class DjvuExtractorTests
 
     #region Integration Tests (require DjVuLibre and fixture files)
 
+    private static string FixturePath => Path.Combine(
+        AppContext.BaseDirectory, "Fixtures", "sample.djvu");
+
+    private static bool DjvuToolsAvailable()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "djvutxt",
+                Arguments = "--help",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var p = System.Diagnostics.Process.Start(psi);
+            p?.WaitForExit(1000);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     [Fact(Skip = "Requires DJVU fixture and DjVuLibre tools")]
     public async Task ExtractAsync_ValidDjvu_WithTextLayer_ReturnsNativeText()
     {
@@ -210,6 +236,124 @@ public class DjvuExtractorTests
         // 2. DjVuLibre tools (ddjvu for rendering)
         // 3. Tesseract or mock OCR engine
         await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidDjvu_ReturnsUnits()
+    {
+        if (!File.Exists(FixturePath))
+            return;
+
+        var extractor = new DjvuTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample.djvu"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.Equal(SourceFormat.Djvu, result.SourceFormat);
+        Assert.NotNull(result.Units);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidDjvu_HtmlIsNotNull()
+    {
+        if (!File.Exists(FixturePath))
+            return;
+
+        var extractor = new DjvuTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample.djvu"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        foreach (var unit in result.Units)
+        {
+            Assert.NotNull(unit.Html);
+        }
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidDjvu_WithDjvuLibre_ReturnsNonEmptyUnits()
+    {
+        if (!File.Exists(FixturePath) || !DjvuToolsAvailable())
+            return;
+
+        var extractor = new DjvuTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample.djvu"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.NotEmpty(result.Units);
+        Assert.Equal(TextSource.NativeText, result.Diagnostics.TextSource);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidDjvu_WithDjvuLibre_HtmlContainsParagraphTags()
+    {
+        if (!File.Exists(FixturePath) || !DjvuToolsAvailable())
+            return;
+
+        var extractor = new DjvuTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample.djvu"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+        var unitsWithContent = result.Units.Where(u => !string.IsNullOrEmpty(u.PlainText)).ToList();
+
+        if (unitsWithContent.Count > 0)
+        {
+            Assert.All(unitsWithContent, unit => Assert.Contains("<p>", unit.Html!));
+        }
+    }
+
+    [Fact]
+    public async Task ExtractAsync_ValidDjvu_WithDjvuLibre_HtmlMatchesPlainText()
+    {
+        if (!File.Exists(FixturePath) || !DjvuToolsAvailable())
+            return;
+
+        var extractor = new DjvuTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "sample.djvu"
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        foreach (var unit in result.Units.Where(u => !string.IsNullOrEmpty(u.PlainText)))
+        {
+            // Html should contain the same text content (escaped)
+            var plainTextWords = unit.PlainText!.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(3);
+            foreach (var word in plainTextWords)
+            {
+                var escapedWord = System.Net.WebUtility.HtmlEncode(word);
+                Assert.Contains(escapedWord, unit.Html!);
+            }
+        }
     }
 
     #endregion

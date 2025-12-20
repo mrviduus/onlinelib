@@ -78,7 +78,7 @@ public class MdExtractorTests
     }
 
     [Fact]
-    public async Task ExtractAsync_HtmlIsNull()
+    public async Task ExtractAsync_HtmlIsGenerated()
     {
         var extractor = new MdTextExtractor();
         using var stream = CreateStream("# Hello");
@@ -91,7 +91,8 @@ public class MdExtractorTests
 
         var result = await extractor.ExtractAsync(request);
 
-        Assert.Null(result.Units[0].Html);
+        Assert.NotNull(result.Units[0].Html);
+        Assert.Contains("<p>", result.Units[0].Html);
     }
 
     [Fact]

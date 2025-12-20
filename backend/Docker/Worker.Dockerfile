@@ -13,6 +13,7 @@ COPY src/ src/
 RUN dotnet publish src/Worker/Worker.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+RUN apk add --no-cache djvulibre
 WORKDIR /app
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Worker.dll"]
