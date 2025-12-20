@@ -114,11 +114,17 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             return (true, null, work);
         }
 
+        var slug = SlugGenerator.GenerateSlug(title);
+        var existingWork = await db.Works
+            .FirstOrDefaultAsync(w => w.SiteId == siteId && w.Slug == slug, ct);
+        if (existingWork is not null)
+            return (true, null, existingWork);
+
         var newWork = new Work
         {
             Id = Guid.NewGuid(),
             SiteId = siteId,
-            Slug = SlugGenerator.GenerateSlug(title),
+            Slug = slug,
             CreatedAt = DateTimeOffset.UtcNow
         };
         db.Works.Add(newWork);

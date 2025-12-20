@@ -53,11 +53,12 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                     var page = document.GetPage(i + 1);
                     var text = ExtractPageText(page);
                     var normalized = NormalizeText(text);
+                    var html = PlainTextToHtml(normalized);
 
                     units.Add(new ContentUnit(
                         Type: ContentUnitType.Page,
                         Title: null,
-                        Html: null,
+                        Html: html,
                         PlainText: normalized,
                         OrderIndex: i,
                         WordCount: CountWords(normalized)
@@ -173,11 +174,12 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                     imageStream, _options.OcrLanguage, ct);
 
                 var normalized = NormalizeText(ocrResult.Text);
+                var html = PlainTextToHtml(normalized);
 
                 units.Add(new ContentUnit(
                     Type: ContentUnitType.Page,
                     Title: null,
-                    Html: null,
+                    Html: html,
                     PlainText: normalized,
                     OrderIndex: i,
                     WordCount: CountWords(normalized)
@@ -279,6 +281,22 @@ public sealed partial class PdfTextExtractor : ITextExtractor
             return 0;
 
         return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private static string PlainTextToHtml(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        // Escape HTML entities
+        var escaped = System.Net.WebUtility.HtmlEncode(text);
+
+        // Split into paragraphs (double newlines) and wrap in <p> tags
+        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
+        var htmlParagraphs = paragraphs
+            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
+
+        return string.Join("\n", htmlParagraphs);
     }
 
     [GeneratedRegex(@"\n{3,}")]
