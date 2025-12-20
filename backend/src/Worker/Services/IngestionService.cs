@@ -48,6 +48,24 @@ public class IngestionWorkerService
         return job;
     }
 
+    public async Task<(int PendingCount, double OldestJobAgeMs)> GetQueueStatsAsync(CancellationToken ct)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var pendingJobs = await db.IngestionJobs
+            .Where(j => j.Status == Domain.Enums.JobStatus.Queued)
+            .Select(j => j.CreatedAt)
+            .ToListAsync(ct);
+
+        if (pendingJobs.Count == 0)
+            return (0, 0);
+
+        var oldestJob = pendingJobs.Min();
+        var ageMs = (DateTimeOffset.UtcNow - oldestJob).TotalMilliseconds;
+
+        return (pendingJobs.Count, ageMs);
+    }
+
     public async Task ProcessJobAsync(Guid jobId, CancellationToken ct)
     {
         using var activity = IngestionActivitySource.Source.StartActivity("ingestion.job.process");

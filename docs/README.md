@@ -20,8 +20,18 @@ docs/
 ├── 02-system/          # What: schemas, APIs
 ├── 03-ops/             # Run: setup, deploy
 ├── 04-dev/             # Build: test, security
+├── 05-features/        # Feature PDDs
 └── archive/            # Historical docs
 ```
+
+## Features (PDDs)
+
+| Feature | Title | Status |
+|---------|-------|--------|
+| [feat-0002](05-features/feat-0002-multisite-general-programming.md) | Multisite (General + Programming) | Implemented |
+| [feat-0003](05-features/feat-0003-text-extraction-core.md) | Text Extraction Core | Implemented |
+| [feat-0004](05-features/feat-0004-site-resolver-host.md) | Site Resolver (Host-based) | Implemented |
+| [feat-0005](05-features/feat-0005-observability-opentelemetry.md) | Observability (OpenTelemetry) | Implemented |
 
 ## Reading Order
 

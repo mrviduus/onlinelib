@@ -61,4 +61,32 @@ public static class IngestionMetrics
         "extraction_duration_ms",
         unit: "ms",
         description: "Extraction duration in milliseconds");
+
+    // Gauges (via ObservableGauge - values set via callbacks)
+    private static int _jobsInProgress;
+    private static int _jobsPending;
+    private static double _oldestPendingJobAgeMs;
+
+    public static void SetJobsInProgress(int count) => _jobsInProgress = count;
+    public static void SetJobsPending(int count) => _jobsPending = count;
+    public static void SetOldestPendingJobAge(double ageMs) => _oldestPendingJobAgeMs = ageMs;
+
+    static IngestionMetrics()
+    {
+        Meter.CreateObservableGauge(
+            "ingestion_jobs_in_progress",
+            () => _jobsInProgress,
+            description: "Number of jobs currently being processed");
+
+        Meter.CreateObservableGauge(
+            "ingestion_jobs_pending",
+            () => _jobsPending,
+            description: "Number of jobs waiting in queue");
+
+        Meter.CreateObservableGauge(
+            "ingestion_queue_lag_ms",
+            () => _oldestPendingJobAgeMs,
+            unit: "ms",
+            description: "Age of oldest pending job in milliseconds");
+    }
 }

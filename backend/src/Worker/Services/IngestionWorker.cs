@@ -1,3 +1,4 @@
+using Infrastructure.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -8,6 +9,7 @@ public class IngestionWorker : BackgroundService
     private readonly IngestionWorkerService _ingestionService;
     private readonly ILogger<IngestionWorker> _logger;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _metricsInterval = TimeSpan.FromSeconds(10);
 
     public IngestionWorker(IngestionWorkerService ingestionService, ILogger<IngestionWorker> logger)
     {
@@ -19,6 +21,9 @@ public class IngestionWorker : BackgroundService
     {
         _logger.LogInformation("Ingestion worker started");
 
+        // Start background task for queue metrics
+        _ = UpdateQueueMetricsAsync(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -27,8 +32,10 @@ public class IngestionWorker : BackgroundService
 
                 if (job is not null)
                 {
+                    IngestionMetrics.SetJobsInProgress(1);
                     _logger.LogInformation("Found job {JobId}, processing...", job.Id);
                     await _ingestionService.ProcessJobAsync(job.Id, stoppingToken);
+                    IngestionMetrics.SetJobsInProgress(0);
                 }
                 else
                 {
@@ -41,11 +48,35 @@ public class IngestionWorker : BackgroundService
             }
             catch (Exception ex)
             {
+                IngestionMetrics.SetJobsInProgress(0);
                 _logger.LogError(ex, "Error in ingestion worker loop");
                 await Task.Delay(_pollInterval, stoppingToken);
             }
         }
 
         _logger.LogInformation("Ingestion worker stopped");
+    }
+
+    private async Task UpdateQueueMetricsAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var (pendingCount, oldestJobAge) = await _ingestionService.GetQueueStatsAsync(ct);
+                IngestionMetrics.SetJobsPending(pendingCount);
+                IngestionMetrics.SetOldestPendingJobAge(oldestJobAge);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update queue metrics");
+            }
+
+            await Task.Delay(_metricsInterval, ct);
+        }
     }
 }

@@ -49,6 +49,7 @@ if (extractionOptions.EnableOcrFallback)
 
 // Extraction
 builder.Services.AddSingleton<ITextExtractor, EpubTextExtractor>();
+builder.Services.AddSingleton<ITextExtractor, Fb2TextExtractor>();
 builder.Services.AddSingleton<ITextExtractor, TxtTextExtractor>();
 builder.Services.AddSingleton<ITextExtractor, MdTextExtractor>();
 builder.Services.AddSingleton<ITextExtractor>(new PdfTextExtractor(extractionOptions, ocrEngine));

@@ -1,7 +1,7 @@
 # PDD: Text Extraction Core (multi-format)
 
 ## Status
-Draft
+Implemented
 
 ## Goal
 Build a core ingestion component that converts uploaded book files into searchable text + reader-friendly content.
@@ -12,6 +12,9 @@ Support incremental format coverage with safe defaults and strong test coverage.
 - DRM-protected formats
 - Full UI polish
 - Full chapter detection for all formats on day 1
+
+## Out of Scope
+- Observability (OpenTelemetry tracing/metrics/dashboards) — see [feat-0005](feat-0005-observability-opentelemetry.md)
 
 ## Principles
 - Store original file on disk (private).
@@ -28,6 +31,7 @@ Phase 1:
 
 Phase 2:
 - PDF (text layer)
+- FB2 (XML-based)
 
 Phase 3:
 - DJVU / image-only PDFs via OCR fallback
