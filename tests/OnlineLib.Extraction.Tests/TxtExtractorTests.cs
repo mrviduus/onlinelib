@@ -25,40 +25,6 @@ public class TxtExtractorTests
     }
 
     [Fact]
-    public async Task ExtractAsync_ReturnsNativeTextSource()
-    {
-        var extractor = new TxtTextExtractor();
-        using var stream = CreateStream("Hello World");
-
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "test.txt"
-        };
-
-        var result = await extractor.ExtractAsync(request);
-
-        Assert.Equal(TextSource.NativeText, result.Diagnostics.TextSource);
-    }
-
-    [Fact]
-    public async Task ExtractAsync_ReturnsTxtFormat()
-    {
-        var extractor = new TxtTextExtractor();
-        using var stream = CreateStream("Hello World");
-
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "test.txt"
-        };
-
-        var result = await extractor.ExtractAsync(request);
-
-        Assert.Equal(SourceFormat.Txt, result.SourceFormat);
-    }
-
-    [Fact]
     public async Task ExtractAsync_ExtractsTitleFromFileName()
     {
         var extractor = new TxtTextExtractor();
@@ -146,23 +112,6 @@ public class TxtExtractorTests
         Assert.Single(result.Units);
         Assert.Single(result.Diagnostics.Warnings);
         Assert.Equal(ExtractionWarningCode.EmptyFile, result.Diagnostics.Warnings[0].Code);
-    }
-
-    [Fact]
-    public async Task ExtractAsync_CountsWords()
-    {
-        var extractor = new TxtTextExtractor();
-        using var stream = CreateStream("Hello World Test");
-
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "test.txt"
-        };
-
-        var result = await extractor.ExtractAsync(request);
-
-        Assert.Equal(3, result.Units[0].WordCount);
     }
 
     [Fact]

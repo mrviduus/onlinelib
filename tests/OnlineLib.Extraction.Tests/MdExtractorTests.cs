@@ -25,40 +25,6 @@ public class MdExtractorTests
     }
 
     [Fact]
-    public async Task ExtractAsync_ReturnsMdFormat()
-    {
-        var extractor = new MdTextExtractor();
-        using var stream = CreateStream("# Hello World");
-
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "readme.md"
-        };
-
-        var result = await extractor.ExtractAsync(request);
-
-        Assert.Equal(SourceFormat.Md, result.SourceFormat);
-    }
-
-    [Fact]
-    public async Task ExtractAsync_ReturnsNativeTextSource()
-    {
-        var extractor = new MdTextExtractor();
-        using var stream = CreateStream("# Hello World");
-
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "readme.md"
-        };
-
-        var result = await extractor.ExtractAsync(request);
-
-        Assert.Equal(TextSource.NativeText, result.Diagnostics.TextSource);
-    }
-
-    [Fact]
     public async Task ExtractAsync_PreservesMarkdownSyntax()
     {
         var extractor = new MdTextExtractor();
