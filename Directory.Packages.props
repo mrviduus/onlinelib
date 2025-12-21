@@ -20,6 +20,11 @@
     <PackageVersion Include="VersOne.Epub" Version="3.3.1" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.72" />
 
+    <!-- Extraction (PDF/OCR) -->
+    <PackageVersion Include="PdfPig" Version="0.1.10" />
+    <PackageVersion Include="PdfPig.Rendering.Skia" Version="0.1.10" />
+    <PackageVersion Include="Tesseract" Version="5.2.0" />
+
     <!-- Testing -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit.v3" Version="2.0.2" />
