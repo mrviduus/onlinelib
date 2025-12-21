@@ -1,12 +1,21 @@
-import { useState, FormEvent } from 'react'
-import { adminApi } from '../api/client'
+import { useState, useEffect, FormEvent } from 'react'
+import { adminApi, Site } from '../api/client'
 
 export function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('en')
+  const [siteId, setSiteId] = useState('')
+  const [sites, setSites] = useState<Site[]>([])
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    adminApi.getSites().then(data => {
+      setSites(data)
+      if (data.length > 0) setSiteId(data[0].id)
+    })
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -16,7 +25,7 @@ export function UploadPage() {
     setResult(null)
 
     try {
-      const res = await adminApi.uploadBook(file, title || file.name.replace(/\.[^/.]+$/, ''), language)
+      const res = await adminApi.uploadBook(file, title || file.name.replace(/\.[^/.]+$/, ''), language, siteId)
       setResult({ success: true, message: `Uploaded! Job ID: ${res.jobId}` })
       setFile(null)
       setTitle('')
@@ -33,6 +42,20 @@ export function UploadPage() {
       <p className="upload-page__subtitle">Upload a book file (EPUB, FB2, PDF, TXT, DJVU) to add to the library.</p>
 
       <form onSubmit={handleSubmit} className="upload-form">
+        <div className="form-group">
+          <label htmlFor="site">Site *</label>
+          <select
+            id="site"
+            value={siteId}
+            onChange={(e) => setSiteId(e.target.value)}
+            required
+          >
+            {sites.map(site => (
+              <option key={site.id} value={site.id}>{site.name || site.code}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="form-group">
           <label htmlFor="file">Book File *</label>
           <input

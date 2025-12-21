@@ -7,6 +7,11 @@ namespace Api.Endpoints;
 
 public static class AdminEndpoints
 {
+    private static IResult ToResult((bool Success, string? Error) r)
+        => r.Success ? Results.Ok() : Results.BadRequest(new { error = r.Error });
+
+    private static IResult ToResult<T>((bool Success, string? Error, T? Data) r)
+        => r.Success ? Results.Ok(r.Data) : Results.BadRequest(new { error = r.Error });
     public static void MapAdminEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/admin").WithTags("Admin");
@@ -133,14 +138,7 @@ public static class AdminEndpoints
         Guid id,
         AdminService adminService,
         CancellationToken ct)
-    {
-        var (success, error, job) = await adminService.RetryJobAsync(id, ct);
-
-        if (!success)
-            return Results.BadRequest(new { error });
-
-        return Results.Ok(job);
-    }
+        => ToResult(await adminService.RetryJobAsync(id, ct));
 
     // Edition endpoints
 
@@ -175,35 +173,23 @@ public static class AdminEndpoints
         UpdateEditionRequest request,
         AdminService adminService,
         CancellationToken ct)
-    {
-        var (success, error) = await adminService.UpdateEditionAsync(id, request, ct);
-        return success ? Results.Ok() : Results.BadRequest(new { error });
-    }
+        => ToResult(await adminService.UpdateEditionAsync(id, request, ct));
 
     private static async Task<IResult> DeleteEdition(
         Guid id,
         AdminService adminService,
         CancellationToken ct)
-    {
-        var (success, error) = await adminService.DeleteEditionAsync(id, ct);
-        return success ? Results.Ok() : Results.BadRequest(new { error });
-    }
+        => ToResult(await adminService.DeleteEditionAsync(id, ct));
 
     private static async Task<IResult> PublishEdition(
         Guid id,
         AdminService adminService,
         CancellationToken ct)
-    {
-        var (success, error) = await adminService.PublishEditionAsync(id, ct);
-        return success ? Results.Ok() : Results.BadRequest(new { error });
-    }
+        => ToResult(await adminService.PublishEditionAsync(id, ct));
 
     private static async Task<IResult> UnpublishEdition(
         Guid id,
         AdminService adminService,
         CancellationToken ct)
-    {
-        var (success, error) = await adminService.UnpublishEditionAsync(id, ct);
-        return success ? Results.Ok() : Results.BadRequest(new { error });
-    }
+        => ToResult(await adminService.UnpublishEditionAsync(id, ct));
 }

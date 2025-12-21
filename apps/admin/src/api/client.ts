@@ -60,6 +60,12 @@ export interface PaginatedResult<T> {
   items: T[]
 }
 
+export interface Site {
+  id: string
+  code: string
+  name: string
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init)
   if (!res.ok) {
@@ -135,5 +141,9 @@ export const adminApi = {
 
   unpublishEdition: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/editions/${id}/unpublish`, { method: 'POST' })
+  },
+
+  getSites: async (): Promise<Site[]> => {
+    return fetchJson<Site[]>('/admin/sites')
   },
 }

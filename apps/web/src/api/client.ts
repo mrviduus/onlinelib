@@ -1,9 +1,16 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-// Dev mode: use site query param (general site by default)
-const DEFAULT_SITE = import.meta.env.VITE_SITE || 'general'
+
+function getSiteFromHost(): string {
+  const host = window.location.hostname
+  const subdomain = host.split('.')[0]
+  if (subdomain === 'programming') return 'programming'
+  if (subdomain === 'general') return 'general'
+  // Fallback to env or default
+  return import.meta.env.VITE_SITE || 'general'
+}
 
 function addSiteParam(query: URLSearchParams): void {
-  if (!query.has('site')) query.set('site', DEFAULT_SITE)
+  if (!query.has('site')) query.set('site', getSiteFromHost())
 }
 
 async function fetchJson<T>(path: string): Promise<T> {

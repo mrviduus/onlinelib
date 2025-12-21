@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 AI assistant context for OnlineLib codebase.
 
 ## Project
@@ -77,3 +79,19 @@ pnpm -C apps/web dev
 - If extra work is discovered, list it under **Follow-ups**, do NOT implement it.
 - `dotnet test` must pass for every slice.
 - Always report results using the standard Summary / Files / Tests / Manual / Follow-ups format.
+
+## Testing Commands
+
+```bash
+dotnet test backend/                                    # All backend tests
+dotnet test backend/tests/OnlineLib.Tests              # Specific test project
+dotnet test --filter "FullyQualifiedName~ClassName"    # Single test class
+dotnet test --filter "Name~TestMethodName"             # Single test method
+pnpm -C apps/web test                                  # Frontend tests
+```
+
+## Known Technical Debt
+
+- 3 site resolution sources (HostSiteResolver, SiteResolver, frontend SiteContext) - needs consolidation
+- User entity features (ReadingProgresses, Bookmarks, Notes) unused in API
+- AdminAuditLog entity defined but never used (requires migration to remove)

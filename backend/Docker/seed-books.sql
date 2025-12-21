@@ -105,4 +105,86 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
-SELECT 'Seed complete: 2 books with 6 chapters total' AS result;
+-- Book 3: Clean Code (Programming site)
+INSERT INTO works (id, site_id, slug, created_at)
+VALUES ('aaaaaaaa-1111-2222-3333-444444444444', '22222222-2222-2222-2222-222222222222', 'clean-code', NOW())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO editions (id, work_id, site_id, language, slug, title, description, authors_json, status, published_at, is_public_domain, created_at, updated_at)
+VALUES (
+    'bbbbbbbb-1111-2222-3333-444444444444',
+    'aaaaaaaa-1111-2222-3333-444444444444',
+    '22222222-2222-2222-2222-222222222222',
+    'en',
+    'clean-code',
+    'Clean Code: A Handbook of Agile Software Craftsmanship',
+    'A guide to writing clean, readable, and maintainable code.',
+    '["Robert C. Martin"]',
+    1, NOW(), false, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO chapters (id, edition_id, chapter_number, slug, title, html, plain_text, word_count, created_at, updated_at)
+VALUES (
+    'cccccccc-1111-2222-3333-444444444444',
+    'bbbbbbbb-1111-2222-3333-444444444444',
+    1, 'clean-code', 'Clean Code',
+    '<p>Writing clean code requires discipline. It takes effort to keep code clean. You need to practice and fail and watch yourself fail. You need to see others fail.</p>',
+    'Writing clean code requires discipline. It takes effort to keep code clean. You need to practice and fail and watch yourself fail. You need to see others fail.',
+    30, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO chapters (id, edition_id, chapter_number, slug, title, html, plain_text, word_count, created_at, updated_at)
+VALUES (
+    'dddddddd-1111-2222-3333-444444444444',
+    'bbbbbbbb-1111-2222-3333-444444444444',
+    2, 'meaningful-names', 'Meaningful Names',
+    '<p>Names are everywhere in software. We name our variables, functions, arguments, classes, and packages. Because we do so much of it, we''d better do it well.</p>',
+    'Names are everywhere in software. We name our variables, functions, arguments, classes, and packages. Because we do so much of it, we''d better do it well.',
+    30, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Book 4: The Pragmatic Programmer (Programming site)
+INSERT INTO works (id, site_id, slug, created_at)
+VALUES ('eeeeeeee-1111-2222-3333-444444444444', '22222222-2222-2222-2222-222222222222', 'pragmatic-programmer', NOW())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO editions (id, work_id, site_id, language, slug, title, description, authors_json, status, published_at, is_public_domain, created_at, updated_at)
+VALUES (
+    'ffffffff-1111-2222-3333-444444444444',
+    'eeeeeeee-1111-2222-3333-444444444444',
+    '22222222-2222-2222-2222-222222222222',
+    'en',
+    'pragmatic-programmer',
+    'The Pragmatic Programmer: Your Journey to Mastery',
+    'A guide to becoming a better programmer through pragmatic approaches.',
+    '["David Thomas", "Andrew Hunt"]',
+    1, NOW(), false, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO chapters (id, edition_id, chapter_number, slug, title, html, plain_text, word_count, created_at, updated_at)
+VALUES (
+    '11111111-aaaa-bbbb-cccc-dddddddddddd',
+    'ffffffff-1111-2222-3333-444444444444',
+    1, 'pragmatic-philosophy', 'A Pragmatic Philosophy',
+    '<p>What makes a Pragmatic Programmer? Each developer is unique, with individual strengths and weaknesses, preferences and dislikes.</p>',
+    'What makes a Pragmatic Programmer? Each developer is unique, with individual strengths and weaknesses, preferences and dislikes.',
+    20, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO chapters (id, edition_id, chapter_number, slug, title, html, plain_text, word_count, created_at, updated_at)
+VALUES (
+    '22222222-aaaa-bbbb-cccc-dddddddddddd',
+    'ffffffff-1111-2222-3333-444444444444',
+    2, 'pragmatic-approach', 'A Pragmatic Approach',
+    '<p>There are certain tips and tricks that apply at all levels of software development, processes that are virtually universal, and ideas that are almost axiomatic.</p>',
+    'There are certain tips and tricks that apply at all levels of software development, processes that are virtually universal, and ideas that are almost axiomatic.',
+    25, NOW(), NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT 'Seed complete: 4 books (2 general, 2 programming) with 10 chapters total' AS result;

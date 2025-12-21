@@ -40,6 +40,7 @@
   - FKs to users + editions
 
 ### Changed
+- **AdminEndpoints** - extracted `ToResult` helpers, simplified 5 endpoint methods
 - `Chapter` now references `Edition` instead of `Book`
   - Merged content fields: title, html, plain_text, word_count, search_vector
   - Removed `ChapterTranslation` (content now per-edition)
@@ -56,6 +57,7 @@
 - Docker compose defaults - all env vars have defaults, `.env` optional
 
 ### Removed
+- **fiction→general alias** - removed temp alias from SiteKeys + HostSiteResolver
 - `Book` entity (replaced by Work + Edition)
 - `BookTranslation` entity (merged into Edition)
 - `ChapterTranslation` entity (merged into Chapter)

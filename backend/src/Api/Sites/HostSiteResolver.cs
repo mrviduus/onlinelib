@@ -45,16 +45,11 @@ public class HostSiteResolver
     }
 
     /// <summary>
-    /// Normalizes site key, applying aliases. Returns null if invalid.
+    /// Normalizes site key. Returns null if invalid.
     /// </summary>
     private static string? NormalizeSiteKey(string key)
     {
         var lower = key.ToLowerInvariant();
-
-        // Temporary alias: fiction -> general
-        if (lower == SiteKeys.FictionAlias)
-            return SiteKeys.General;
-
         return SiteKeys.Valid.Contains(lower) ? lower : null;
     }
 }
