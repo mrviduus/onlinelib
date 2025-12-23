@@ -6,6 +6,7 @@ import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
 import { LocalizedLink } from './components/LocalizedLink'
+import { Header } from './components/Header'
 import './styles/reader.css'
 import './styles/books.css'
 
@@ -23,13 +24,7 @@ function Home() {
       maxWidth: 600,
       margin: '0 auto',
       backgroundColor: theme.colors.background,
-      minHeight: '100vh'
     }}>
-      <img
-        src={theme.logo}
-        alt={theme.name}
-        style={{ height: 50, marginBottom: 16 }}
-      />
       <h1 style={{ color: theme.colors.primary, marginTop: 0 }}>{theme.name}</h1>
       <p style={{ color: theme.colors.text }}>{theme.tagline}</p>
       <LocalizedLink to="/books" style={{
@@ -57,6 +52,7 @@ function LanguageRoutes() {
 
   return (
     <LanguageProvider>
+      <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/books" element={<BooksPage />} />
