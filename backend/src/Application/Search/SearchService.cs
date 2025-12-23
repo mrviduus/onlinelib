@@ -25,16 +25,16 @@ public record SearchEditionDto(
 public class SearchService(IAppDbContext db)
 {
     public async Task<PaginatedResult<SearchResultDto>> SearchAsync(
-        Guid siteId, string query, int offset, int limit, string? language, CancellationToken ct)
+        Guid siteId, string query, int offset, int limit, string language, CancellationToken ct)
     {
-        var tsQuery = EF.Functions.PlainToTsQuery("english", query);
+        // Use language-specific FTS config
+        var ftsConfig = GetFtsConfig(language);
+        var tsQuery = EF.Functions.PlainToTsQuery(ftsConfig, query);
 
         var baseQuery = db.Chapters
             .Where(c => c.Edition.SiteId == siteId && c.Edition.Status == EditionStatus.Published)
+            .Where(c => c.Edition.Language == language)
             .Where(c => c.SearchVector.Matches(tsQuery));
-
-        if (!string.IsNullOrEmpty(language))
-            baseQuery = baseQuery.Where(c => c.Edition.Language == language);
 
         var total = await baseQuery.CountAsync(ct);
 
@@ -60,4 +60,11 @@ public class SearchService(IAppDbContext db)
 
         return new PaginatedResult<SearchResultDto>(total, results);
     }
+
+    private static string GetFtsConfig(string language) => language switch
+    {
+        "en" => "english",
+        "uk" => "simple",  // Ukrainian uses simple config (no stemming in default PostgreSQL)
+        _ => "simple"
+    };
 }

@@ -23,7 +23,7 @@ public class BookServiceTests
         await using var db = await TestDbContextFactory.CreateWithBooksAsync();
         var service = new BookService(db);
 
-        var book = await service.GetBookAsync(BookTestData.GeneralSiteId, "great-gatsby", CancellationToken.None);
+        var book = await service.GetBookAsync(BookTestData.GeneralSiteId, "great-gatsby", "en", CancellationToken.None);
 
         Assert.NotNull(book);
         Assert.Equal("The Great Gatsby", book.Title);
@@ -36,7 +36,7 @@ public class BookServiceTests
         await using var db = await TestDbContextFactory.CreateWithBooksAsync();
         var service = new BookService(db);
 
-        var chapter = await service.GetChapterAsync(BookTestData.GeneralSiteId, "great-gatsby", "chapter-1", CancellationToken.None);
+        var chapter = await service.GetChapterAsync(BookTestData.GeneralSiteId, "great-gatsby", "chapter-1", "en", CancellationToken.None);
 
         Assert.NotNull(chapter);
         Assert.Null(chapter.Prev);

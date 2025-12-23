@@ -1,4 +1,5 @@
 using Api.Endpoints;
+using Api.Language;
 using Api.Middleware;
 using Api.Sites;
 using Application;
@@ -99,6 +100,12 @@ app.MapGet("/health", () => Results.Ok("healthy"));
 // Site resolution middleware
 app.UseHostSiteContext();
 app.UseSiteContext();
+
+// Language resolution middleware (after site context)
+app.UseLanguageContext();
+
+// Explicit routing after middleware so path rewriting works
+app.UseRouting();
 
 app.MapDebugEndpoints(app.Environment);
 app.MapAdminEndpoints();

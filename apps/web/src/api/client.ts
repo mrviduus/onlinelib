@@ -5,7 +5,6 @@ function getSiteFromHost(): string {
   const subdomain = host.split('.')[0]
   if (subdomain === 'programming') return 'programming'
   if (subdomain === 'general') return 'general'
-  // Fallback to env or default
   return import.meta.env.VITE_SITE || 'general'
 }
 
@@ -19,36 +18,43 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json()
 }
 
-export const api = {
-  getBooks: (params?: { limit?: number; offset?: number; language?: string }) => {
-    const query = new URLSearchParams()
-    addSiteParam(query)
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
-    if (params?.language) query.set('language', params.language)
-    return fetchJson<{ total: number; items: import('../types/api').Edition[] }>(
-      `/books?${query}`
-    )
-  },
+export function createApi(language: string) {
+  const langPrefix = `/${language}`
 
-  getBook: (slug: string) => {
-    const query = new URLSearchParams()
-    addSiteParam(query)
-    return fetchJson<import('../types/api').BookDetail>(`/books/${slug}?${query}`)
-  },
+  return {
+    getBooks: (params?: { limit?: number; offset?: number }) => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      if (params?.limit) query.set('limit', String(params.limit))
+      if (params?.offset) query.set('offset', String(params.offset))
+      return fetchJson<{ total: number; items: import('../types/api').Edition[] }>(
+        `${langPrefix}/books?${query}`
+      )
+    },
 
-  getChapter: (bookSlug: string, chapterSlug: string) => {
-    const query = new URLSearchParams()
-    addSiteParam(query)
-    return fetchJson<import('../types/api').Chapter>(`/books/${bookSlug}/chapters/${chapterSlug}?${query}`)
-  },
+    getBook: (slug: string) => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<import('../types/api').BookDetail>(`${langPrefix}/books/${slug}?${query}`)
+    },
 
-  search: (q: string, params?: { limit?: number; offset?: number; language?: string }) => {
-    const query = new URLSearchParams({ q })
-    addSiteParam(query)
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
-    if (params?.language) query.set('language', params.language)
-    return fetchJson<{ total: number; results: unknown[] }>(`/search?${query}`)
-  },
+    getChapter: (bookSlug: string, chapterSlug: string) => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<import('../types/api').Chapter>(
+        `${langPrefix}/books/${bookSlug}/chapters/${chapterSlug}?${query}`
+      )
+    },
+
+    search: (q: string, params?: { limit?: number; offset?: number }) => {
+      const query = new URLSearchParams({ q })
+      addSiteParam(query)
+      if (params?.limit) query.set('limit', String(params.limit))
+      if (params?.offset) query.set('offset', String(params.offset))
+      return fetchJson<{ total: number; results: unknown[] }>(`${langPrefix}/search?${query}`)
+    },
+  }
 }
+
+// Legacy API for backwards compatibility (uses default language)
+export const api = createApi('uk')

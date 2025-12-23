@@ -32,7 +32,7 @@ echo "Restoring packages..."
 dotnet restore "$STARTUP" -v q
 
 echo "Building project..."
-dotnet build "$STARTUP" -c Release -v q
+dotnet build "$STARTUP" -c Debug -v q
 
 # Step 1: Check current state
 echo ""

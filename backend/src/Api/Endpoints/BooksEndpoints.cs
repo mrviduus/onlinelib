@@ -1,3 +1,4 @@
+using Api.Language;
 using Api.Sites;
 using Application.Books;
 using Microsoft.AspNetCore.Mvc;
@@ -20,10 +21,10 @@ public static class BooksEndpoints
         BookService bookService,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
-        [FromQuery] string? language,
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
+        var language = httpContext.GetLanguage();
         var result = await bookService.GetBooksAsync(siteId, offset ?? 0, limit ?? 20, language, ct);
         return Results.Ok(result);
     }
@@ -35,7 +36,8 @@ public static class BooksEndpoints
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
-        var book = await bookService.GetBookAsync(siteId, slug, ct);
+        var language = httpContext.GetLanguage();
+        var book = await bookService.GetBookAsync(siteId, slug, language, ct);
         return book is null ? Results.NotFound() : Results.Ok(book);
     }
 
@@ -47,7 +49,8 @@ public static class BooksEndpoints
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
-        var chapter = await bookService.GetChapterAsync(siteId, slug, chapterSlug, ct);
+        var language = httpContext.GetLanguage();
+        var chapter = await bookService.GetChapterAsync(siteId, slug, chapterSlug, language, ct);
         return chapter is null ? Results.NotFound() : Results.Ok(chapter);
     }
 }

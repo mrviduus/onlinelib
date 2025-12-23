@@ -40,10 +40,10 @@ public class BookService(IAppDbContext db)
         return new PaginatedResult<BookListDto>(total, books);
     }
 
-    public async Task<BookDetailDto?> GetBookAsync(Guid siteId, string slug, CancellationToken ct)
+    public async Task<BookDetailDto?> GetBookAsync(Guid siteId, string slug, string language, CancellationToken ct)
     {
         return await db.Editions
-            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Status == EditionStatus.Published)
+            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Language == language && e.Status == EditionStatus.Published)
             .Select(e => new BookDetailDto(
                 e.Id,
                 e.Slug,
@@ -74,11 +74,12 @@ public class BookService(IAppDbContext db)
     }
 
     public async Task<ChapterDto?> GetChapterAsync(
-        Guid siteId, string bookSlug, string chapterSlug, CancellationToken ct)
+        Guid siteId, string bookSlug, string chapterSlug, string language, CancellationToken ct)
     {
         var chapter = await db.Chapters
             .Where(c => c.Edition.SiteId == siteId
                 && c.Edition.Slug == bookSlug
+                && c.Edition.Language == language
                 && c.Slug == chapterSlug
                 && c.Edition.Status == EditionStatus.Published)
             .Select(c => new

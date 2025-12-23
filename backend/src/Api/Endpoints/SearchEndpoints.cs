@@ -1,3 +1,4 @@
+using Api.Language;
 using Api.Sites;
 using Application.Search;
 using Microsoft.AspNetCore.Mvc;
@@ -19,13 +20,13 @@ public static class SearchEndpoints
         [FromQuery] string q,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
-        [FromQuery] string? language,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
             return Results.BadRequest(new { error = "Query must be at least 2 characters" });
 
         var siteId = httpContext.GetSiteId();
+        var language = httpContext.GetLanguage();
         var take = Math.Min(limit ?? 20, 100);
         var skip = offset ?? 0;
 

@@ -76,9 +76,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => new { x.EditionId, x.ChapterNumber }).IsUnique();
             e.HasIndex(x => new { x.EditionId, x.Slug });
             e.HasIndex(x => x.SearchVector).HasMethod("GIN");
-            e.Property(x => x.SearchVector)
-                .HasColumnType("tsvector")
-                .HasComputedColumnSql("to_tsvector('english', \"plain_text\")", stored: true);
+            e.Property(x => x.SearchVector).HasColumnType("tsvector");
             e.HasOne(x => x.Edition).WithMany(x => x.Chapters).HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
         });
 

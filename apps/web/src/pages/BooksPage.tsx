@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { api } from '../api/client'
+import { useApi } from '../hooks/useApi'
+import { LocalizedLink } from '../components/LocalizedLink'
 import type { Edition } from '../types/api'
 
 export function BooksPage() {
+  const api = useApi()
   const [books, setBooks] = useState<Edition[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +14,7 @@ export function BooksPage() {
       .then((data) => setBooks(data.items ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [api])
 
   if (loading) {
     return (
@@ -49,7 +50,7 @@ export function BooksPage() {
       ) : (
         <div className="books-grid">
           {books.map((book) => (
-            <Link key={book.id} to={`/books/${book.slug}`} className="book-card">
+            <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
               <div
                 className="book-card__cover"
                 style={{ backgroundColor: stringToColor(book.title) }}
@@ -61,7 +62,7 @@ export function BooksPage() {
               <h3 className="book-card__title">{book.title}</h3>
               <p className="book-card__author">{book.authorsJson || 'Unknown'}</p>
               <p className="book-card__meta">{book.chapterCount} chapters</p>
-            </Link>
+            </LocalizedLink>
           ))}
         </div>
       )}

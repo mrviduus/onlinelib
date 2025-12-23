@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
-import { api } from '../api/client'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useApi } from '../hooks/useApi'
+import { useLanguage } from '../context/LanguageContext'
 import type { Chapter, BookDetail } from '../types/api'
 import { useReaderSettings } from '../hooks/useReaderSettings'
 import { useAutoHideBar } from '../hooks/useAutoHideBar'
@@ -13,6 +14,9 @@ import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 
 export function ReaderPage() {
   const { bookSlug, chapterSlug } = useParams<{ bookSlug: string; chapterSlug: string }>()
+  const api = useApi()
+  const { getLocalizedPath } = useLanguage()
+  const navigate = useNavigate()
   const [chapter, setChapter] = useState<Chapter | null>(null)
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,21 +47,21 @@ export function ReaderPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [bookSlug, chapterSlug])
+  }, [bookSlug, chapterSlug, api])
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && chapter?.prev) {
-        window.location.href = `/books/${bookSlug}/${chapter.prev.slug}`
+        navigate(getLocalizedPath(`/books/${bookSlug}/${chapter.prev.slug}`))
       } else if (e.key === 'ArrowRight' && chapter?.next) {
-        window.location.href = `/books/${bookSlug}/${chapter.next.slug}`
+        navigate(getLocalizedPath(`/books/${bookSlug}/${chapter.next.slug}`))
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bookSlug, chapter])
+  }, [bookSlug, chapter, navigate, getLocalizedPath])
 
   if (loading) {
     return (

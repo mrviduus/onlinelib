@@ -4,7 +4,7 @@ import { adminApi, Site } from '../api/client'
 export function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState('uk')
   const [siteId, setSiteId] = useState('')
   const [sites, setSites] = useState<Site[]>([])
   const [uploading, setUploading] = useState(false)

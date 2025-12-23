@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { LocalizedLink } from '../LocalizedLink'
 import type { ChapterSummary } from '../../types/api'
 
 interface Props {
@@ -28,14 +28,14 @@ export function ReaderTocDrawer({ open, bookSlug, chapters, currentChapterSlug, 
         <ul className="reader-toc-drawer__list">
           {chapters.map((ch) => (
             <li key={ch.id}>
-              <Link
+              <LocalizedLink
                 to={`/books/${bookSlug}/${ch.slug}`}
                 className={`reader-toc-drawer__item ${ch.slug === currentChapterSlug ? 'active' : ''}`}
                 onClick={onClose}
               >
                 <span className="reader-toc-drawer__number">{ch.chapterNumber + 1}</span>
                 <span className="reader-toc-drawer__title">{ch.title}</span>
-              </Link>
+              </LocalizedLink>
             </li>
           ))}
         </ul>

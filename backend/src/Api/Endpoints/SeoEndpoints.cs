@@ -95,14 +95,23 @@ public static class SeoEndpoints
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"");
+        sb.AppendLine("        xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">");
 
         foreach (var book in books)
         {
             sb.AppendLine("  <url>");
-            sb.AppendLine($"    <loc>{baseUrl}/book/{book.Slug}</loc>");
+            sb.AppendLine($"    <loc>{baseUrl}/{book.Language}/books/{book.Slug}</loc>");
             sb.AppendLine($"    <lastmod>{book.UpdatedAt:yyyy-MM-dd}</lastmod>");
             sb.AppendLine("    <changefreq>weekly</changefreq>");
+
+            // Add hreflang for available translations
+            foreach (var lang in book.AvailableLanguages)
+            {
+                sb.AppendLine($"    <xhtml:link rel=\"alternate\" hreflang=\"{lang}\" href=\"{baseUrl}/{lang}/books/{book.Slug}\" />");
+            }
+            sb.AppendLine($"    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"{baseUrl}/{book.Language}/books/{book.Slug}\" />");
+
             sb.AppendLine("  </url>");
         }
 
@@ -138,7 +147,7 @@ public static class SeoEndpoints
         foreach (var chapter in chapters)
         {
             sb.AppendLine("  <url>");
-            sb.AppendLine($"    <loc>{baseUrl}/book/{chapter.BookSlug}/chapter/{chapter.Slug}</loc>");
+            sb.AppendLine($"    <loc>{baseUrl}/{chapter.Language}/books/{chapter.BookSlug}/{chapter.Slug}</loc>");
             sb.AppendLine($"    <lastmod>{chapter.UpdatedAt:yyyy-MM-dd}</lastmod>");
             sb.AppendLine("  </url>");
         }

@@ -1,21 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { api } from '../api/client'
+import { useApi } from '../hooks/useApi'
+import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
+import { LocalizedLink } from '../components/LocalizedLink'
+import { SeoHead } from '../components/SeoHead'
 import type { BookDetail } from '../types/api'
 
 export function BookDetailPage() {
   const { bookSlug } = useParams<{ bookSlug: string }>()
+  const api = useApi()
+  const { language } = useLanguage()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!bookSlug) return
+    setLoading(true)
     api.getBook(bookSlug)
       .then(setBook)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [bookSlug])
+  }, [bookSlug, api])
+
+  // Compute available languages for hreflang
+  const availableLanguages = useMemo<SupportedLanguage[]>(() => {
+    if (!book) return []
+    const langs = new Set<SupportedLanguage>([language])
+    book.otherEditions.forEach((ed) => {
+      if (ed.language === 'uk' || ed.language === 'en') {
+        langs.add(ed.language)
+      }
+    })
+    return Array.from(langs)
+  }, [book, language])
 
   if (loading) {
     return (
@@ -30,7 +48,7 @@ export function BookDetailPage() {
       <div className="book-detail">
         <h1>Error</h1>
         <p>{error || 'Book not found'}</p>
-        <Link to="/books">Back to Books</Link>
+        <LocalizedLink to="/books">Back to Books</LocalizedLink>
       </div>
     )
   }
@@ -39,6 +57,11 @@ export function BookDetailPage() {
 
   return (
     <div className="book-detail">
+      <SeoHead
+        title={book.title}
+        description={book.description || undefined}
+        availableLanguages={availableLanguages}
+      />
       <div className="book-detail__header">
         <div
           className="book-detail__cover"
@@ -58,12 +81,12 @@ export function BookDetailPage() {
             {book.chapters.length} chapters · {book.language.toUpperCase()}
           </p>
           {firstChapter && (
-            <Link
+            <LocalizedLink
               to={`/books/${book.slug}/${firstChapter.slug}`}
               className="book-detail__read-btn"
             >
               Start Reading
-            </Link>
+            </LocalizedLink>
           )}
         </div>
       </div>
@@ -73,13 +96,13 @@ export function BookDetailPage() {
         <ul>
           {book.chapters.map((ch) => (
             <li key={ch.id}>
-              <Link to={`/books/${book.slug}/${ch.slug}`}>
+              <LocalizedLink to={`/books/${book.slug}/${ch.slug}`}>
                 <span className="chapter-number">{ch.chapterNumber + 1}.</span>
                 <span className="chapter-title">{ch.title}</span>
                 {ch.wordCount && (
                   <span className="chapter-words">{ch.wordCount} words</span>
                 )}
-              </Link>
+              </LocalizedLink>
             </li>
           ))}
         </ul>
@@ -91,7 +114,7 @@ export function BookDetailPage() {
           <ul>
             {book.otherEditions.map((ed) => (
               <li key={ed.slug}>
-                <Link to={`/books/${ed.slug}`}>
+                <Link to={`/${ed.language}/books/${ed.slug}`}>
                   {ed.title} ({ed.language.toUpperCase()})
                 </Link>
               </li>
@@ -100,9 +123,9 @@ export function BookDetailPage() {
         </div>
       )}
 
-      <Link to="/books" className="book-detail__back">
-        ← Back to Books
-      </Link>
+      <LocalizedLink to="/books" className="book-detail__back">
+        Back to Books
+      </LocalizedLink>
     </div>
   )
 }

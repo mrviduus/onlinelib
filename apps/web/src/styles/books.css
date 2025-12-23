@@ -256,3 +256,58 @@
     width: 160px;
   }
 }
+
+/* Translation not available */
+.translation-not-available {
+  max-width: 600px;
+  margin: 80px auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.translation-not-available h1 {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.translation-not-available p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.translation-not-available__alternatives {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.translation-not-available__alternatives ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.translation-not-available__alternatives li a {
+  display: inline-block;
+  padding: 8px 16px;
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.translation-not-available__alternatives li a:hover {
+  text-decoration: underline;
+}
+
+.translation-not-available__back {
+  display: inline-block;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.translation-not-available__back:hover {
+  background: #333;
+}
