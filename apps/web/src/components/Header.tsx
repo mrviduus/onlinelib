@@ -2,6 +2,7 @@ import { useSite } from '../context/SiteContext'
 import { getSiteTheme } from '../config/sites'
 import { LocalizedLink } from './LocalizedLink'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { Search } from './Search'
 
 export function Header() {
   const { site } = useSite()
@@ -20,6 +21,7 @@ export function Header() {
           {theme.name}
         </span>
       </LocalizedLink>
+      <Search />
       <LanguageSwitcher />
     </header>
   )
