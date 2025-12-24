@@ -32,51 +32,108 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
         var ftsConfig = _textAnalyzer.GetFtsConfig(request.Language);
         var tsQuery = _queryBuilder.BuildQuery(request.Query, request.Language);
+        var normalizedQuery = _textAnalyzer.Normalize(request.Query);
 
-        if (string.IsNullOrEmpty(tsQuery))
+        // Need either valid tsQuery for FTS or normalizedQuery for LIKE
+        if (string.IsNullOrEmpty(tsQuery) && string.IsNullOrEmpty(normalizedQuery))
             return SearchResult.Empty;
 
         using var connection = _connectionFactory();
 
-        // Count query (EditionStatus.Published = 1)
+        var escapedQuery = EscapeLikePattern(normalizedQuery ?? "");
+        var titlePattern = "%" + escapedQuery + "%";
+        var authorPattern = "%" + escapedQuery + "%";
+
+        // Count: edition metadata matches + chapter FTS matches (deduplicated)
         var countSql = @"
-            SELECT COUNT(*)
-            FROM chapters c
-            INNER JOIN editions e ON c.edition_id = e.id
-            WHERE e.site_id = @SiteId
-              AND e.status = 1
-              AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)";
+            SELECT COUNT(*) FROM (
+                -- Edition title/author matches (first chapter per edition)
+                SELECT id FROM (
+                    SELECT DISTINCT ON (e.id) c.id
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
+                    ORDER BY e.id, c.chapter_number
+                ) metadata_matches
+                UNION
+                -- Chapter content FTS matches
+                SELECT c.id
+                FROM chapters c
+                INNER JOIN editions e ON c.edition_id = e.id
+                WHERE e.site_id = @SiteId
+                  AND e.status = 1
+                  AND @TsQuery != ''
+                  AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
+            ) combined";
 
         var totalCount = await connection.ExecuteScalarAsync<int>(
-            new CommandDefinition(countSql, new { request.SiteId, FtsConfig = ftsConfig, TsQuery = tsQuery }, cancellationToken: ct));
+            new CommandDefinition(countSql, new
+            {
+                request.SiteId,
+                FtsConfig = ftsConfig,
+                TsQuery = tsQuery ?? "",
+                TitlePattern = titlePattern,
+                AuthorPattern = authorPattern
+            }, cancellationToken: ct));
 
         if (totalCount == 0)
             return SearchResult.Empty;
 
-        // Search query with ranking and optional highlights
-        var highlightColumn = request.IncludeHighlights
-            ? $", ts_headline(@FtsConfig::regconfig, c.plain_text, to_tsquery(@FtsConfig::regconfig, @TsQuery), '{_highlightOptions.ToOptionsString()}') AS Headline"
-            : ", NULL AS Headline";
+        // Search: combine edition metadata matches (high score) with chapter FTS matches
+        var highlightExpr = request.IncludeHighlights && !string.IsNullOrEmpty(tsQuery)
+            ? $"ts_headline(@FtsConfig::regconfig, c.plain_text, to_tsquery(@FtsConfig::regconfig, @TsQuery), '{_highlightOptions.ToOptionsString()}')"
+            : "NULL";
 
         var searchSql = $@"
-            SELECT
-                c.id AS ChapterId,
-                c.slug AS ChapterSlug,
-                c.title AS ChapterTitle,
-                c.chapter_number AS ChapterNumber,
-                e.id AS EditionId,
-                e.slug AS EditionSlug,
-                e.title AS EditionTitle,
-                e.language AS Language,
-                e.authors_json AS AuthorsJson,
-                e.cover_path AS CoverPath,
-                ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery)) AS Score
-                {highlightColumn}
-            FROM chapters c
-            INNER JOIN editions e ON c.edition_id = e.id
-            WHERE e.site_id = @SiteId
-              AND e.status = 1
-              AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
+            SELECT * FROM (
+                -- Edition title/author matches: return first chapter, high score (10.0)
+                SELECT * FROM (
+                    SELECT DISTINCT ON (e.id)
+                        c.id AS ChapterId,
+                        c.slug AS ChapterSlug,
+                        c.title AS ChapterTitle,
+                        c.chapter_number AS ChapterNumber,
+                        e.id AS EditionId,
+                        e.slug AS EditionSlug,
+                        e.title AS EditionTitle,
+                        e.language AS Language,
+                        e.authors_json AS AuthorsJson,
+                        e.cover_path AS CoverPath,
+                        10.0::float8 AS Score,
+                        NULL::text AS Headline
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
+                    ORDER BY e.id, c.chapter_number
+                ) metadata_matches
+
+                UNION ALL
+
+                -- Chapter content FTS matches
+                SELECT
+                    c.id AS ChapterId,
+                    c.slug AS ChapterSlug,
+                    c.title AS ChapterTitle,
+                    c.chapter_number AS ChapterNumber,
+                    e.id AS EditionId,
+                    e.slug AS EditionSlug,
+                    e.title AS EditionTitle,
+                    e.language AS Language,
+                    e.authors_json AS AuthorsJson,
+                    e.cover_path AS CoverPath,
+                    ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8 AS Score,
+                    {highlightExpr}::text AS Headline
+                FROM chapters c
+                INNER JOIN editions e ON c.edition_id = e.id
+                WHERE e.site_id = @SiteId
+                  AND e.status = 1
+                  AND @TsQuery != ''
+                  AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
+            ) combined
             ORDER BY Score DESC
             OFFSET @Offset
             LIMIT @Limit";
@@ -86,7 +143,9 @@ public sealed class PostgresSearchProvider : ISearchProvider
             {
                 request.SiteId,
                 FtsConfig = ftsConfig,
-                TsQuery = tsQuery,
+                TsQuery = tsQuery ?? "",
+                TitlePattern = titlePattern,
+                AuthorPattern = authorPattern,
                 request.Offset,
                 request.Limit
             }, cancellationToken: ct));

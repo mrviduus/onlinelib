@@ -128,7 +128,7 @@ export function Search() {
       } else if (mode === 'results' && activeIndex >= 0 && results[activeIndex]) {
         // Navigate to selected result
         const result = results[activeIndex]
-        window.location.href = `/${language}/books/${result.edition.slug}/chapters/${result.chapterSlug}`
+        window.location.href = `/${language}/books/${result.edition.slug}`
       }
       return
     }
@@ -154,7 +154,14 @@ export function Search() {
     }
   }, [isOpen, mode, suggestions, results, activeIndex, language, query, executeSearch])
 
-  const handleResultClick = () => {
+  const handleResultClick = (result: SearchResult) => {
+    setQuery('')
+    setIsOpen(false)
+    setMode('suggestions')
+    window.location.href = `/${language}/books/${result.edition.slug}`
+  }
+
+  const handleViewAllClick = () => {
     setQuery('')
     setIsOpen(false)
     setMode('suggestions')
@@ -213,36 +220,45 @@ export function Search() {
 
       {/* Suggestions dropdown */}
       {isOpen && mode === 'suggestions' && suggestions.length > 0 && (
-        <ul id="search-results" className="search__results" role="listbox">
-          {suggestions.map((suggestion, index) => (
-            <li
-              key={suggestion.slug}
-              role="option"
-              aria-selected={index === activeIndex}
-              className={`search__result ${index === activeIndex ? 'search__result--active' : ''}`}
-              onClick={() => handleSuggestionClick(suggestion)}
-            >
-              <div className="search__result-link">
-                <div
-                  className="search__result-cover"
-                  style={{ backgroundColor: suggestion.coverPath ? undefined : '#e0e0e0' }}
-                >
-                  {suggestion.coverPath ? (
-                    <img src={suggestion.coverPath} alt="" />
-                  ) : (
-                    <span>{suggestion.text[0]}</span>
-                  )}
+        <div className="search__results-container">
+          <ul id="search-results" className="search__results" role="listbox">
+            {suggestions.map((suggestion, index) => (
+              <li
+                key={suggestion.slug}
+                role="option"
+                aria-selected={index === activeIndex}
+                className={`search__result ${index === activeIndex ? 'search__result--active' : ''}`}
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                <div className="search__result-link">
+                  <div
+                    className="search__result-cover"
+                    style={{ backgroundColor: suggestion.coverPath ? undefined : '#e0e0e0' }}
+                  >
+                    {suggestion.coverPath ? (
+                      <img src={suggestion.coverPath} alt="" />
+                    ) : (
+                      <span>{suggestion.text[0]}</span>
+                    )}
+                  </div>
+                  <div className="search__result-info">
+                    <span className="search__result-title">{suggestion.text}</span>
+                    {parseAuthors(suggestion.authorsJson) && (
+                      <span className="search__result-author">{parseAuthors(suggestion.authorsJson)}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="search__result-info">
-                  <span className="search__result-title">{suggestion.text}</span>
-                  {parseAuthors(suggestion.authorsJson) && (
-                    <span className="search__result-author">{parseAuthors(suggestion.authorsJson)}</span>
-                  )}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+          <LocalizedLink
+            to={`/search?q=${encodeURIComponent(query)}`}
+            onClick={handleViewAllClick}
+            className="search__view-all"
+          >
+            {language === 'uk' ? 'Переглянути всі результати' : 'View all results'}
+          </LocalizedLink>
+        </div>
       )}
 
       {/* Search results dropdown */}
@@ -255,12 +271,9 @@ export function Search() {
                 role="option"
                 aria-selected={index === activeIndex}
                 className={`search__result ${index === activeIndex ? 'search__result--active' : ''}`}
+                onClick={() => handleResultClick(result)}
               >
-                <LocalizedLink
-                  to={`/books/${result.edition.slug}/chapters/${result.chapterSlug}`}
-                  onClick={handleResultClick}
-                  className="search__result-link"
-                >
+                <div className="search__result-link">
                   <div
                     className="search__result-cover"
                     style={{ backgroundColor: result.edition.coverPath ? undefined : '#e0e0e0' }}
@@ -289,13 +302,13 @@ export function Search() {
                       </div>
                     )}
                   </div>
-                </LocalizedLink>
+                </div>
               </li>
             ))}
           </ul>
           <LocalizedLink
             to={`/search?q=${encodeURIComponent(query)}`}
-            onClick={handleResultClick}
+            onClick={handleViewAllClick}
             className="search__view-all"
           >
             {language === 'uk' ? 'Переглянути всі результати' : 'View all results'}

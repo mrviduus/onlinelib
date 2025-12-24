@@ -111,7 +111,7 @@ export function SearchPage() {
             {results.map((result) => (
               <LocalizedLink
                 key={result.chapterId}
-                to={`/books/${result.edition.slug}/chapters/${result.chapterSlug}`}
+                to={`/books/${result.edition.slug}`}
                 className="search-page__result"
               >
                 <div
