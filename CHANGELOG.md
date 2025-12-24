@@ -71,6 +71,13 @@
 
 ## Next Up
 
+### OnlineLib.Search Library (feat-0006)
+- Provider-agnostic search library (15 slices)
+- PostgreSQL FTS provider with Dapper (fix EF Core client evaluation bug)
+- Features: highlights, autocomplete, facets
+- Document chunking for future vector search
+- See [PDD](docs/05-features/feat-0006-search-library.md)
+
 ### Phase G: Frontend Reader
 - Route `/books/:bookSlug/:chapterSlug`
 - Centered text column (720-840px)

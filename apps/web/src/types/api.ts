@@ -46,3 +46,29 @@ export interface BookDetail {
   chapters: ChapterSummary[]
   otherEditions: { slug: string; language: string; title: string }[]
 }
+
+export interface SearchEdition {
+  id: string
+  slug: string
+  title: string
+  language: string
+  authorsJson: string | null
+  coverPath: string | null
+}
+
+export interface SearchResult {
+  chapterId: string
+  chapterSlug: string | null
+  chapterTitle: string | null
+  chapterNumber: number
+  edition: SearchEdition
+  highlights: string[] | null
+}
+
+export interface Suggestion {
+  text: string
+  slug: string
+  authorsJson: string | null
+  coverPath: string | null
+  score: number
+}

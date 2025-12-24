@@ -46,12 +46,22 @@ export function createApi(language: string) {
       )
     },
 
-    search: (q: string, params?: { limit?: number; offset?: number }) => {
+    search: (q: string, params?: { limit?: number; offset?: number; highlight?: boolean }) => {
       const query = new URLSearchParams({ q })
       addSiteParam(query)
       if (params?.limit) query.set('limit', String(params.limit))
       if (params?.offset) query.set('offset', String(params.offset))
-      return fetchJson<{ total: number; results: unknown[] }>(`${langPrefix}/search?${query}`)
+      if (params?.highlight) query.set('highlight', 'true')
+      return fetchJson<{ total: number; items: import('../types/api').SearchResult[] }>(
+        `${langPrefix}/search?${query}`
+      )
+    },
+
+    suggest: (q: string, params?: { limit?: number }) => {
+      const query = new URLSearchParams({ q })
+      addSiteParam(query)
+      if (params?.limit) query.set('limit', String(params.limit))
+      return fetchJson<import('../types/api').Suggestion[]>(`${langPrefix}/search/suggest?${query}`)
     },
   }
 }

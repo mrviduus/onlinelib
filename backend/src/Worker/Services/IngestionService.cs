@@ -8,6 +8,9 @@ using Microsoft.Extensions.Logging;
 using OnlineLib.Extraction.Contracts;
 using OnlineLib.Extraction.Enums;
 using OnlineLib.Extraction.Registry;
+using OnlineLib.Search.Abstractions;
+using OnlineLib.Search.Contracts;
+using OnlineLib.Search.Enums;
 using AppIngestion = Application.Ingestion;
 
 namespace Worker.Services;
@@ -17,17 +20,20 @@ public class IngestionWorkerService
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
+    private readonly ISearchIndexer _searchIndexer;
     private readonly ILogger<IngestionWorkerService> _logger;
 
     public IngestionWorkerService(
         IDbContextFactory<AppDbContext> dbFactory,
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
+        ISearchIndexer searchIndexer,
         ILogger<IngestionWorkerService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
         _extractorRegistry = extractorRegistry;
+        _searchIndexer = searchIndexer;
         _logger = logger;
     }
 
@@ -170,6 +176,13 @@ public class IngestionWorkerService
                 persistActivity?.SetTag("chapters_count", parsed.Chapters.Count);
             }
 
+            // Index chapters for search
+            using (var indexActivity = IngestionActivitySource.Source.StartActivity("search.index"))
+            {
+                await IndexChaptersForSearchAsync(db, job.EditionId, ct);
+                indexActivity?.SetTag("chapters_indexed", parsed.Chapters.Count);
+            }
+
             _logger.LogInformation("Job {JobId} completed successfully. {ChapterCount} chapters created.",
                 jobId, parsed.Chapters.Count);
 
@@ -251,5 +264,58 @@ public class IngestionWorkerService
             result.Diagnostics.Confidence,
             warnings
         );
+    }
+
+    private async Task IndexChaptersForSearchAsync(AppDbContext db, Guid editionId, CancellationToken ct)
+    {
+        var edition = await db.Editions
+            .Include(e => e.Chapters)
+            .Include(e => e.Work)
+            .FirstOrDefaultAsync(e => e.Id == editionId, ct);
+
+        if (edition is null)
+        {
+            _logger.LogWarning("Edition {EditionId} not found for search indexing", editionId);
+            return;
+        }
+
+        var language = MapLanguageToSearchLanguage(edition.Language);
+
+        var documents = edition.Chapters.Select(chapter => new IndexDocument(
+            Id: chapter.Id.ToString(),
+            Title: chapter.Title ?? $"Chapter {chapter.ChapterNumber}",
+            Content: chapter.PlainText ?? string.Empty,
+            Language: language,
+            SiteId: edition.Work.SiteId,
+            Metadata: new Dictionary<string, object>
+            {
+                ["chapterId"] = chapter.Id,
+                ["chapterSlug"] = chapter.Slug ?? string.Empty,
+                ["chapterTitle"] = chapter.Title ?? string.Empty,
+                ["chapterNumber"] = chapter.ChapterNumber,
+                ["editionId"] = edition.Id,
+                ["editionSlug"] = edition.Slug,
+                ["editionTitle"] = edition.Title,
+                ["language"] = edition.Language,
+                ["authorsJson"] = edition.AuthorsJson ?? string.Empty,
+                ["coverPath"] = edition.CoverPath ?? string.Empty
+            }
+        )).ToList();
+
+        if (documents.Count > 0)
+        {
+            await _searchIndexer.IndexBatchAsync(documents, ct);
+            _logger.LogInformation("Indexed {Count} chapters for edition {EditionId}", documents.Count, editionId);
+        }
+    }
+
+    private static SearchLanguage MapLanguageToSearchLanguage(string language)
+    {
+        return language.ToLowerInvariant() switch
+        {
+            "uk" => SearchLanguage.Uk,
+            "en" => SearchLanguage.En,
+            _ => SearchLanguage.Auto
+        };
     }
 }

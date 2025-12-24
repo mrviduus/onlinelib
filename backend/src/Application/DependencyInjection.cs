@@ -1,6 +1,5 @@
 using Application.Admin;
 using Application.Books;
-using Application.Search;
 using Application.Seo;
 using Application.Sites;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +12,6 @@ public static class DependencyInjection
     {
         services.AddScoped<BookService>();
         services.AddScoped<SeoService>();
-        services.AddScoped<SearchService>();
         services.AddScoped<AdminService>();
         services.AddScoped<SiteService>();
         services.AddScoped<Ingestion.IngestionService>();

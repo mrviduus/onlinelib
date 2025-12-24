@@ -4,10 +4,12 @@ using Infrastructure.Services;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
 using OnlineLib.Extraction.Contracts;
 using OnlineLib.Extraction.Extractors;
 using OnlineLib.Extraction.Ocr;
 using OnlineLib.Extraction.Registry;
+using OnlineLib.Search;
 using Worker.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -28,6 +30,12 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // File storage
 var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
 builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(storagePath));
+
+// Search library
+builder.Services.AddOnlineLibSearch();
+builder.Services.AddPostgresFtsProvider(
+    _ => () => new NpgsqlConnection(connectionString),
+    options => options.ConnectionString = connectionString);
 
 // Extraction options (OCR disabled by default)
 var extractionOptions = new ExtractionOptions
