@@ -5,6 +5,7 @@ import { getSiteTheme } from './config/sites'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
+import { SearchPage } from './pages/SearchPage'
 import { LocalizedLink } from './components/LocalizedLink'
 import { Header } from './components/Header'
 import './styles/reader.css'
@@ -55,6 +56,7 @@ function LanguageRoutes() {
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/books" element={<BooksPage />} />
         <Route path="/books/:bookSlug" element={<BookDetailPage />} />
         <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />

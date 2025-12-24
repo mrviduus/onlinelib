@@ -9,6 +9,8 @@ using Infrastructure.Services;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
+using OnlineLib.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 
@@ -65,6 +67,12 @@ builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbConte
 // File storage
 var storagePath = builder.Configuration["Storage:RootPath"] ?? "/storage";
 builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(storagePath));
+
+// Search library
+builder.Services.AddOnlineLibSearch();
+builder.Services.AddPostgresFtsProvider(
+    _ => () => new NpgsqlConnection(connectionString),
+    options => options.ConnectionString = connectionString);
 
 // Site resolution
 builder.Services.AddMemoryCache();
