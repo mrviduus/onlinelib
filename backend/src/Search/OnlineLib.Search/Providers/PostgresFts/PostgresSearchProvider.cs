@@ -12,17 +12,20 @@ public sealed class PostgresSearchProvider : ISearchProvider
     private readonly IQueryBuilder _queryBuilder;
     private readonly ITextAnalyzer _textAnalyzer;
     private readonly HighlightOptions _highlightOptions;
+    private readonly float _fuzzyThreshold;
 
     public PostgresSearchProvider(
         Func<IDbConnection> connectionFactory,
         IQueryBuilder queryBuilder,
         ITextAnalyzer textAnalyzer,
-        HighlightOptions? highlightOptions = null)
+        HighlightOptions? highlightOptions = null,
+        float fuzzyThreshold = 0.3f)
     {
         _connectionFactory = connectionFactory;
         _queryBuilder = queryBuilder;
         _textAnalyzer = textAnalyzer;
         _highlightOptions = highlightOptions ?? HighlightOptions.Default;
+        _fuzzyThreshold = fuzzyThreshold;
     }
 
     public async Task<SearchResult> SearchAsync(SearchRequest request, CancellationToken ct = default)
@@ -44,10 +47,10 @@ public sealed class PostgresSearchProvider : ISearchProvider
         var titlePattern = "%" + escapedQuery + "%";
         var authorPattern = "%" + escapedQuery + "%";
 
-        // Count: edition metadata matches + chapter FTS matches (deduplicated)
+        // Count: edition metadata matches + fuzzy title/author + chapter FTS matches (deduplicated)
         var countSql = @"
             SELECT COUNT(*) FROM (
-                -- Edition title/author matches (first chapter per edition)
+                -- Edition title/author LIKE matches (first chapter per edition)
                 SELECT id FROM (
                     SELECT DISTINCT ON (e.id) c.id
                     FROM editions e
@@ -57,6 +60,28 @@ public sealed class PostgresSearchProvider : ISearchProvider
                       AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
                     ORDER BY e.id, c.chapter_number
                 ) metadata_matches
+                UNION
+                -- Fuzzy title matches (similarity > @FuzzyThreshold)
+                SELECT id FROM (
+                    SELECT DISTINCT ON (e.id) c.id
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
+                    ORDER BY e.id, c.chapter_number
+                ) fuzzy_title_matches
+                UNION
+                -- Fuzzy author matches (similarity > @FuzzyThreshold)
+                SELECT id FROM (
+                    SELECT DISTINCT ON (e.id) c.id
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+                    ORDER BY e.id, c.chapter_number
+                ) fuzzy_author_matches
                 UNION
                 -- Chapter content FTS matches
                 SELECT c.id
@@ -75,7 +100,9 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 FtsConfig = ftsConfig,
                 TsQuery = tsQuery ?? "",
                 TitlePattern = titlePattern,
-                AuthorPattern = authorPattern
+                AuthorPattern = authorPattern,
+                NormalizedQuery = normalizedQuery ?? "",
+                FuzzyThreshold = _fuzzyThreshold
             }, cancellationToken: ct));
 
         if (totalCount == 0)
@@ -88,7 +115,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
         var searchSql = $@"
             SELECT * FROM (
-                -- Edition title/author matches: return first chapter, high score (10.0)
+                -- Edition title/author LIKE matches: return first chapter, high score (10.0)
                 SELECT * FROM (
                     SELECT DISTINCT ON (e.id)
                         c.id AS ChapterId,
@@ -110,6 +137,56 @@ public sealed class PostgresSearchProvider : ISearchProvider
                       AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
                     ORDER BY e.id, c.chapter_number
                 ) metadata_matches
+
+                UNION ALL
+
+                -- Fuzzy title matches: score = similarity * 8.0
+                SELECT * FROM (
+                    SELECT DISTINCT ON (e.id)
+                        c.id AS ChapterId,
+                        c.slug AS ChapterSlug,
+                        c.title AS ChapterTitle,
+                        c.chapter_number AS ChapterNumber,
+                        e.id AS EditionId,
+                        e.slug AS EditionSlug,
+                        e.title AS EditionTitle,
+                        e.language AS Language,
+                        e.authors_json AS AuthorsJson,
+                        e.cover_path AS CoverPath,
+                        (similarity(lower(e.title), @NormalizedQuery) * 8.0)::float8 AS Score,
+                        NULL::text AS Headline
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
+                    ORDER BY e.id, c.chapter_number
+                ) fuzzy_title_matches
+
+                UNION ALL
+
+                -- Fuzzy author matches: score = similarity * 6.0
+                SELECT * FROM (
+                    SELECT DISTINCT ON (e.id)
+                        c.id AS ChapterId,
+                        c.slug AS ChapterSlug,
+                        c.title AS ChapterTitle,
+                        c.chapter_number AS ChapterNumber,
+                        e.id AS EditionId,
+                        e.slug AS EditionSlug,
+                        e.title AS EditionTitle,
+                        e.language AS Language,
+                        e.authors_json AS AuthorsJson,
+                        e.cover_path AS CoverPath,
+                        (similarity(lower(e.authors_json), @NormalizedQuery) * 6.0)::float8 AS Score,
+                        NULL::text AS Headline
+                    FROM editions e
+                    INNER JOIN chapters c ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId
+                      AND e.status = 1
+                      AND similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+                    ORDER BY e.id, c.chapter_number
+                ) fuzzy_author_matches
 
                 UNION ALL
 
@@ -146,6 +223,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 TsQuery = tsQuery ?? "",
                 TitlePattern = titlePattern,
                 AuthorPattern = authorPattern,
+                NormalizedQuery = normalizedQuery ?? "",
+                FuzzyThreshold = _fuzzyThreshold,
                 request.Offset,
                 request.Limit
             }, cancellationToken: ct));
@@ -169,7 +248,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
         using var connection = _connectionFactory();
 
-        // Query edition titles matching prefix, ordered by chapter count (popularity)
+        // Query edition titles with fuzzy matching (similarity > @FuzzyThreshold)
+        // Combines exact prefix matches with fuzzy matches, ordered by similarity score
         // EditionStatus.Published = 1
         var sql = @"
             SELECT DISTINCT ON (lower(e.title))
@@ -177,14 +257,23 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 e.slug AS Slug,
                 e.authors_json AS AuthorsJson,
                 e.cover_path AS CoverPath,
-                COUNT(c.id) AS ChapterCount
+                COUNT(c.id) AS ChapterCount,
+                GREATEST(
+                    similarity(lower(e.title), @NormalizedQuery),
+                    similarity(lower(e.authors_json), @NormalizedQuery)
+                ) AS SimilarityScore
             FROM editions e
             LEFT JOIN chapters c ON c.edition_id = e.id
             WHERE e.site_id = @SiteId
               AND e.status = 1
-              AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
+              AND (
+                  lower(e.title) LIKE @TitlePattern
+                  OR lower(e.authors_json) LIKE @AuthorPattern
+                  OR similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
+                  OR similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+              )
             GROUP BY e.id, e.title, e.slug, e.authors_json, e.cover_path
-            ORDER BY lower(e.title), ChapterCount DESC
+            ORDER BY lower(e.title), SimilarityScore DESC, ChapterCount DESC
             LIMIT @Limit";
 
         var escapedPrefix = EscapeLikePattern(normalizedPrefix);
@@ -197,6 +286,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 SiteId = siteId,
                 TitlePattern = titlePattern,
                 AuthorPattern = authorPattern,
+                NormalizedQuery = normalizedPrefix,
+                FuzzyThreshold = _fuzzyThreshold,
                 Limit = limit
             }, cancellationToken: ct));
 
@@ -227,6 +318,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
         public string? AuthorsJson { get; init; }
         public string? CoverPath { get; init; }
         public int ChapterCount { get; init; }
+        public double SimilarityScore { get; init; }
     }
 
     private static SearchHit MapToSearchHit(SearchRow row, bool includeHighlights)

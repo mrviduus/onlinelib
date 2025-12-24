@@ -23,10 +23,11 @@ public sealed partial class TsQueryBuilder : IQueryBuilder
         if (tokens.Count == 0)
             return string.Empty;
 
-        // Join tokens with AND logic (&), filtering empty after escape
+        // Join tokens with AND logic (&), add prefix matching (:*) for partial words
         var escaped = tokens
             .Select(EscapeToken)
-            .Where(t => !string.IsNullOrEmpty(t));
+            .Where(t => !string.IsNullOrEmpty(t))
+            .Select(t => t + ":*");
         return string.Join(" & ", escaped);
     }
 

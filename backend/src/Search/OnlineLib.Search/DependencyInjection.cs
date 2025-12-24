@@ -77,7 +77,8 @@ public static class DependencyInjection
                 connectionFactory,
                 queryBuilder,
                 textAnalyzer,
-                options.Highlights);
+                options.Highlights,
+                options.FuzzyThreshold);
         });
 
         // Register indexer
@@ -130,7 +131,8 @@ public static class DependencyInjection
                 connectionFactory,
                 queryBuilder,
                 textAnalyzer,
-                options.Highlights);
+                options.Highlights,
+                options.FuzzyThreshold);
         });
 
         // Register indexer

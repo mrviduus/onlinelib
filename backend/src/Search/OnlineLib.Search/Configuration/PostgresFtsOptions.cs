@@ -28,4 +28,10 @@ public sealed class PostgresFtsOptions
     /// Highlight options for ts_headline.
     /// </summary>
     public HighlightOptions Highlights { get; set; } = HighlightOptions.Default;
+
+    /// <summary>
+    /// Minimum similarity threshold for fuzzy matching (0.0 to 1.0).
+    /// Lower values = more lenient matching. Default: 0.3
+    /// </summary>
+    public float FuzzyThreshold { get; set; } = 0.3f;
 }
