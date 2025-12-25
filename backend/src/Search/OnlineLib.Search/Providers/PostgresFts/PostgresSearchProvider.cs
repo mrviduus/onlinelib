@@ -1,3 +1,13 @@
+/**
+ * PostgreSQL Full-Text Search Provider - Interview Demo Version
+ *
+ * Key concepts:
+ * 1. Strategy Pattern: ISearchProvider abstraction allows swapping search backends
+ * 2. Dependency Injection: connectionFactory, queryBuilder, textAnalyzer injected
+ * 3. Hybrid search: combines FTS (content) + LIKE (title/author) + pg_trgm (fuzzy)
+ * 4. SQL injection prevention via parameterized queries
+ */
+
 using System.Data;
 using Dapper;
 using OnlineLib.Search.Abstractions;
@@ -8,11 +18,15 @@ namespace OnlineLib.Search.Providers.PostgresFts;
 
 public sealed class PostgresSearchProvider : ISearchProvider
 {
-    private readonly Func<IDbConnection> _connectionFactory;
-    private readonly IQueryBuilder _queryBuilder;
-    private readonly ITextAnalyzer _textAnalyzer;
-    private readonly HighlightOptions _highlightOptions;
-    private readonly float _fuzzyThreshold;
+    // ════════════════════════════════════════════════════════════
+    // DEPENDENCIES (injected via constructor)
+    // ════════════════════════════════════════════════════════════
+
+    private readonly Func<IDbConnection> _connectionFactory;  // DB connection factory
+    private readonly IQueryBuilder _queryBuilder;             // Builds tsquery from text
+    private readonly ITextAnalyzer _textAnalyzer;             // Normalizes/analyzes text
+    private readonly HighlightOptions _highlightOptions;      // ts_headline config
+    private readonly float _fuzzyThreshold;                   // pg_trgm similarity threshold
 
     public PostgresSearchProvider(
         Func<IDbConnection> connectionFactory,
@@ -28,29 +42,45 @@ public sealed class PostgresSearchProvider : ISearchProvider
         _fuzzyThreshold = fuzzyThreshold;
     }
 
+    // ════════════════════════════════════════════════════════════
+    // FULL-TEXT SEARCH
+    // ════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Hybrid search combining 4 strategies:
+    /// 1. LIKE match on title/author (exact substring)
+    /// 2. pg_trgm fuzzy match on title (typo-tolerant)
+    /// 3. pg_trgm fuzzy match on author (typo-tolerant)
+    /// 4. PostgreSQL FTS on chapter content (stemming, ranking)
+    /// </summary>
     public async Task<SearchResult> SearchAsync(SearchRequest request, CancellationToken ct = default)
     {
+        // ─── Guard Clauses ──────────────────────────────────────
         if (string.IsNullOrWhiteSpace(request.Query))
             return SearchResult.Empty;
 
-        var ftsConfig = _textAnalyzer.GetFtsConfig(request.Language);
-        var tsQuery = _queryBuilder.BuildQuery(request.Query, request.Language);
-        var normalizedQuery = _textAnalyzer.Normalize(request.Query);
+        // ─── Prepare Search Components ──────────────────────────
+        var ftsConfig = _textAnalyzer.GetFtsConfig(request.Language);    // 'english', 'ukrainian'
+        var tsQuery = _queryBuilder.BuildQuery(request.Query, request.Language);  // 'word1 & word2'
+        var normalizedQuery = _textAnalyzer.Normalize(request.Query);    // lowercase, trim
 
-        // Need either valid tsQuery for FTS or normalizedQuery for LIKE
+        // Need valid query for either FTS or LIKE
         if (string.IsNullOrEmpty(tsQuery) && string.IsNullOrEmpty(normalizedQuery))
             return SearchResult.Empty;
 
         using var connection = _connectionFactory();
 
+        // ─── Build LIKE Patterns ────────────────────────────────
+        // Escape special chars: % _ \
         var escapedQuery = EscapeLikePattern(normalizedQuery ?? "");
-        var titlePattern = "%" + escapedQuery + "%";
-        var authorPattern = "%" + escapedQuery + "%";
+        var titlePattern = "%" + escapedQuery + "%";   // contains
+        var authorPattern = "%" + escapedQuery + "%";  // contains
 
-        // Count: edition metadata matches + fuzzy title/author + chapter FTS matches (deduplicated)
+        // ─── Count Total Matches ────────────────────────────────
+        // Union of all 4 strategies, deduplicated
         var countSql = @"
             SELECT COUNT(*) FROM (
-                -- Edition title/author LIKE matches (first chapter per edition)
+                -- Strategy 1: LIKE match on title/author
                 SELECT id FROM (
                     SELECT DISTINCT ON (e.id) c.id
                     FROM editions e
@@ -61,7 +91,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     ORDER BY e.id, c.chapter_number
                 ) metadata_matches
                 UNION
-                -- Fuzzy title matches (similarity > @FuzzyThreshold)
+                -- Strategy 2: Fuzzy title match (pg_trgm similarity)
                 SELECT id FROM (
                     SELECT DISTINCT ON (e.id) c.id
                     FROM editions e
@@ -72,7 +102,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     ORDER BY e.id, c.chapter_number
                 ) fuzzy_title_matches
                 UNION
-                -- Fuzzy author matches (similarity > @FuzzyThreshold)
+                -- Strategy 3: Fuzzy author match
                 SELECT id FROM (
                     SELECT DISTINCT ON (e.id) c.id
                     FROM editions e
@@ -83,7 +113,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     ORDER BY e.id, c.chapter_number
                 ) fuzzy_author_matches
                 UNION
-                -- Chapter content FTS matches
+                -- Strategy 4: FTS on chapter content
                 SELECT c.id
                 FROM chapters c
                 INNER JOIN editions e ON c.edition_id = e.id
@@ -108,14 +138,20 @@ public sealed class PostgresSearchProvider : ISearchProvider
         if (totalCount == 0)
             return SearchResult.Empty;
 
-        // Search: combine edition metadata matches (high score) with chapter FTS matches
+        // ─── Fetch Results with Scoring ─────────────────────────
+        // Different strategies get different base scores:
+        // - LIKE match: 10.0 (exact match = highest)
+        // - Fuzzy title: similarity * 8.0
+        // - Fuzzy author: similarity * 6.0
+        // - FTS content: ts_rank (typically 0-1)
+
         var highlightExpr = request.IncludeHighlights && !string.IsNullOrEmpty(tsQuery)
             ? $"ts_headline(@FtsConfig::regconfig, c.plain_text, to_tsquery(@FtsConfig::regconfig, @TsQuery), '{_highlightOptions.ToOptionsString()}')"
             : "NULL";
 
         var searchSql = $@"
             SELECT * FROM (
-                -- Edition title/author LIKE matches: return first chapter, high score (10.0)
+                -- Strategy 1: LIKE match (score = 10.0)
                 SELECT * FROM (
                     SELECT DISTINCT ON (e.id)
                         c.id AS ChapterId,
@@ -140,7 +176,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
                 UNION ALL
 
-                -- Fuzzy title matches: score = similarity * 8.0
+                -- Strategy 2: Fuzzy title (score = similarity * 8.0)
                 SELECT * FROM (
                     SELECT DISTINCT ON (e.id)
                         c.id AS ChapterId,
@@ -165,7 +201,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
                 UNION ALL
 
-                -- Fuzzy author matches: score = similarity * 6.0
+                -- Strategy 3: Fuzzy author (score = similarity * 6.0)
                 SELECT * FROM (
                     SELECT DISTINCT ON (e.id)
                         c.id AS ChapterId,
@@ -190,7 +226,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
                 UNION ALL
 
-                -- Chapter content FTS matches
+                -- Strategy 4: FTS content (score = ts_rank)
                 SELECT
                     c.id AS ChapterId,
                     c.slug AS ChapterSlug,
@@ -233,12 +269,21 @@ public sealed class PostgresSearchProvider : ISearchProvider
         return SearchResult.FromHits(hits, totalCount);
     }
 
+    // ════════════════════════════════════════════════════════════
+    // AUTOCOMPLETE SUGGESTIONS
+    // ════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Autocomplete combining prefix match + fuzzy match
+    /// Used for search-as-you-type dropdown
+    /// </summary>
     public async Task<IReadOnlyList<Suggestion>> SuggestAsync(
         string prefix,
         Guid siteId,
         int limit = 10,
         CancellationToken ct = default)
     {
+        // ─── Guard Clauses ──────────────────────────────────────
         if (string.IsNullOrWhiteSpace(prefix) || prefix.Length < 2)
             return [];
 
@@ -248,9 +293,11 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
         using var connection = _connectionFactory();
 
-        // Query edition titles with fuzzy matching (similarity > @FuzzyThreshold)
-        // Combines exact prefix matches with fuzzy matches, ordered by similarity score
-        // EditionStatus.Published = 1
+        // ─── Hybrid Suggest Query ───────────────────────────────
+        // Combines:
+        // - Prefix LIKE for titles (starts with)
+        // - Contains LIKE for authors
+        // - pg_trgm similarity for typo tolerance
         var sql = @"
             SELECT DISTINCT ON (lower(e.title))
                 e.title AS Text,
@@ -267,8 +314,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
             WHERE e.site_id = @SiteId
               AND e.status = 1
               AND (
-                  lower(e.title) LIKE @TitlePattern
-                  OR lower(e.authors_json) LIKE @AuthorPattern
+                  lower(e.title) LIKE @TitlePattern              -- prefix match
+                  OR lower(e.authors_json) LIKE @AuthorPattern   -- contains match
                   OR similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
                   OR similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
               )
@@ -277,8 +324,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
             LIMIT @Limit";
 
         var escapedPrefix = EscapeLikePattern(normalizedPrefix);
-        var titlePattern = escapedPrefix + "%";       // prefix match for titles
-        var authorPattern = "%" + escapedPrefix + "%"; // contains match for authors
+        var titlePattern = escapedPrefix + "%";        // prefix match
+        var authorPattern = "%" + escapedPrefix + "%"; // contains match
 
         var rows = await connection.QueryAsync<SuggestionRow>(
             new CommandDefinition(sql, new
@@ -291,36 +338,41 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 Limit = limit
             }, cancellationToken: ct));
 
-        // Convert to suggestions with normalized scores (0-1 based on chapter count)
+        // ─── Normalize Scores ───────────────────────────────────
+        // Score = chapterCount / maxChapterCount (more chapters = more relevant)
         var suggestions = rows.ToList();
         if (suggestions.Count == 0)
             return [];
 
         var maxCount = suggestions.Max(s => s.ChapterCount);
         return suggestions
-            .Select(s => new Suggestion(s.Text, s.Slug, s.AuthorsJson, s.CoverPath, maxCount > 0 ? (double)s.ChapterCount / maxCount : 1.0))
+            .Select(s => new Suggestion(
+                s.Text,
+                s.Slug,
+                s.AuthorsJson,
+                s.CoverPath,
+                maxCount > 0 ? (double)s.ChapterCount / maxCount : 1.0))
             .ToList();
     }
 
+    // ════════════════════════════════════════════════════════════
+    // HELPERS
+    // ════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Escape SQL LIKE special characters to prevent injection
+    /// </summary>
     private static string EscapeLikePattern(string pattern)
     {
-        // Escape LIKE special characters: % _ \
         return pattern
             .Replace("\\", "\\\\")
             .Replace("%", "\\%")
             .Replace("_", "\\_");
     }
 
-    private sealed class SuggestionRow
-    {
-        public string Text { get; init; } = string.Empty;
-        public string Slug { get; init; } = string.Empty;
-        public string? AuthorsJson { get; init; }
-        public string? CoverPath { get; init; }
-        public int ChapterCount { get; init; }
-        public double SimilarityScore { get; init; }
-    }
-
+    /// <summary>
+    /// Map database row to SearchHit domain object
+    /// </summary>
     private static SearchHit MapToSearchHit(SearchRow row, bool includeHighlights)
     {
         var metadata = new Dictionary<string, object>
@@ -342,6 +394,20 @@ public sealed class PostgresSearchProvider : ISearchProvider
             : Array.Empty<Highlight>();
 
         return new SearchHit(row.ChapterId.ToString(), row.Score, highlights, metadata);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // INTERNAL DTOs (for Dapper mapping)
+    // ════════════════════════════════════════════════════════════
+
+    private sealed class SuggestionRow
+    {
+        public string Text { get; init; } = string.Empty;
+        public string Slug { get; init; } = string.Empty;
+        public string? AuthorsJson { get; init; }
+        public string? CoverPath { get; init; }
+        public int ChapterCount { get; init; }
+        public double SimilarityScore { get; init; }
     }
 
     private sealed class SearchRow
