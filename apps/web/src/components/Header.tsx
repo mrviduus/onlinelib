@@ -13,13 +13,9 @@ export function Header() {
       <LocalizedLink to="/" className="site-header__brand">
         <img
           src={theme.logo}
-          alt=""
+          alt={theme.name}
           className="site-header__logo"
-          aria-hidden="true"
         />
-        <span className="site-header__name" style={{ color: theme.colors.primary }}>
-          {theme.name}
-        </span>
       </LocalizedLink>
       <Search />
       <LanguageSwitcher />

@@ -4,7 +4,7 @@ export function DashboardPage() {
   return (
     <div className="dashboard-page">
       <h1>Admin Dashboard</h1>
-      <p className="dashboard-page__subtitle">Welcome to OnlineLib Admin Panel</p>
+      <p className="dashboard-page__subtitle">Welcome to TextStack Admin</p>
 
       <div className="dashboard-cards">
         <Link to="/upload" className="dashboard-card">

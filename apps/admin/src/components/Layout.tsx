@@ -9,7 +9,7 @@ export function Layout() {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-sidebar__header">
-          <h2>OnlineLib</h2>
+          <h2>TextStack</h2>
           <span>Admin</span>
         </div>
 

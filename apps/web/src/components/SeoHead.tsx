@@ -29,7 +29,7 @@ export function SeoHead({ title, description, availableLanguages }: SeoHeadProps
 
     // Set title
     if (title) {
-      document.title = `${title} | OnlineLib`
+      document.title = `${title} | TextStack`
     }
 
     // Set description

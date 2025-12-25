@@ -1,5 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50">
-  <rect x="5" y="10" width="30" height="30" rx="4" fill="#0066CC"/>
-  <text x="10" y="32" font-family="monospace" font-size="16" font-weight="bold" fill="#FFFFFF">&lt;/&gt;</text>
-  <text x="42" y="33" font-family="system-ui, sans-serif" font-size="20" font-weight="bold" fill="#0066CC">CodeBooks</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32">
+  <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#1a1a1a">TextStack<tspan fill="#666">.dev</tspan></text>
 </svg>

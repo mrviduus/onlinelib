@@ -13,9 +13,9 @@ export interface SiteTheme {
 
 export const siteThemes: Record<string, SiteTheme> = {
   general: {
-    name: 'General',
-    logo: '/logos/general.svg',
-    tagline: 'Free online library for everyone',
+    name: 'TextStack',
+    logo: '/logos/textstack.svg',
+    tagline: 'Read anything',
     colors: {
       primary: '#1a1a1a',
       secondary: '#333333',
@@ -25,21 +25,21 @@ export const siteThemes: Record<string, SiteTheme> = {
     },
   },
   programming: {
-    name: 'CodeBooks',
+    name: 'TextStack',
     logo: '/logos/programming.svg',
-    tagline: 'Learn to code, one chapter at a time',
+    tagline: 'Read anything',
     colors: {
-      primary: '#0066CC',    // blue
-      secondary: '#004499',  // dark blue
-      accent: '#00CC66',     // green
-      background: '#F5F7FA', // light gray
-      text: '#1A1A2E',
+      primary: '#1a1a1a',
+      secondary: '#333333',
+      accent: '#0066CC',
+      background: '#FFFFFF',
+      text: '#1a1a1a',
     },
   },
   default: {
-    name: 'OnlineLib',
-    logo: '/logos/default.svg',
-    tagline: 'Free online library',
+    name: 'TextStack',
+    logo: '/logos/textstack.svg',
+    tagline: 'Read anything',
     colors: {
       primary: '#1a1a1a',
       secondary: '#333333',

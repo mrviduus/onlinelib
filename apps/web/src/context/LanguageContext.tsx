@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, ReactNode } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 
-const SUPPORTED_LANGUAGES = ['uk', 'en'] as const
+const SUPPORTED_LANGUAGES = ['en', 'uk'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
-const DEFAULT_LANGUAGE: SupportedLanguage = 'uk'
+const DEFAULT_LANGUAGE: SupportedLanguage = 'en'
 
 interface LanguageContextValue {
   language: SupportedLanguage
