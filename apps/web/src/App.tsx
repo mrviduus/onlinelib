@@ -48,7 +48,7 @@ function LanguageRoutes() {
 
   // Validate language parameter
   if (!isValidLanguage(lang)) {
-    return <Navigate to="/uk" replace />
+    return <Navigate to="/en" replace />
   }
 
   return (
@@ -67,7 +67,7 @@ function LanguageRoutes() {
 
 function RootRedirect() {
   const { site } = useSite()
-  const defaultLang = site?.defaultLanguage || 'uk'
+  const defaultLang = site?.defaultLanguage || 'en'
   return <Navigate to={`/${defaultLang}`} replace />
 }
 
