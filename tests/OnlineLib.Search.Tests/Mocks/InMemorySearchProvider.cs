@@ -103,13 +103,13 @@ public sealed class InMemorySearchProvider : ISearchProvider
                 var slug = doc.Metadata?.TryGetValue("editionSlug", out var s) == true
                     ? s?.ToString() ?? doc.Id
                     : doc.Id;
-                var authorsJson = doc.Metadata?.TryGetValue("authorsJson", out var a) == true
+                var authors = doc.Metadata?.TryGetValue("authors", out var a) == true
                     ? a?.ToString()
                     : null;
                 var coverPath = doc.Metadata?.TryGetValue("coverPath", out var c) == true
                     ? c?.ToString()
                     : null;
-                return new Suggestion(doc.Title, slug, authorsJson, coverPath, g.Count());
+                return new Suggestion(doc.Title, slug, authors, coverPath, g.Count());
             })
             .ToList();
 
@@ -118,7 +118,7 @@ public sealed class InMemorySearchProvider : ISearchProvider
         {
             var maxScore = suggestions.Max(s => s.Score);
             suggestions = suggestions
-                .Select(s => new Suggestion(s.Text, s.Slug, s.AuthorsJson, s.CoverPath, s.Score / maxScore))
+                .Select(s => new Suggestion(s.Text, s.Slug, s.Authors, s.CoverPath, s.Score / maxScore))
                 .ToList();
         }
 

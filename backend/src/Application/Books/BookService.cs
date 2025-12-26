@@ -29,11 +29,19 @@ public class BookService(IAppDbContext db)
                 e.Slug,
                 e.Title,
                 e.Language,
-                e.AuthorsJson,
                 e.Description,
                 e.CoverPath,
                 e.PublishedAt,
-                e.Chapters.Count
+                e.Chapters.Count,
+                e.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => new BookAuthorDto(
+                        ea.Author.Id,
+                        ea.Author.Slug,
+                        ea.Author.Name,
+                        ea.Role.ToString()
+                    ))
+                    .ToList()
             ))
             .ToListAsync(ct);
 
@@ -49,7 +57,6 @@ public class BookService(IAppDbContext db)
                 e.Slug,
                 e.Title,
                 e.Language,
-                e.AuthorsJson,
                 e.Description,
                 e.CoverPath,
                 e.PublishedAt,
@@ -68,6 +75,15 @@ public class BookService(IAppDbContext db)
                 e.Work.Editions
                     .Where(oe => oe.Id != e.Id && oe.Status == EditionStatus.Published)
                     .Select(oe => new EditionSummaryDto(oe.Id, oe.Slug, oe.Language, oe.Title))
+                    .ToList(),
+                e.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => new BookAuthorDto(
+                        ea.Author.Id,
+                        ea.Author.Slug,
+                        ea.Author.Name,
+                        ea.Role.ToString()
+                    ))
                     .ToList()
             ))
             .FirstOrDefaultAsync(ct);

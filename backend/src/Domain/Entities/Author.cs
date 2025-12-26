@@ -17,5 +17,5 @@ public class Author
     public string? SeoDescription { get; set; }
 
     public Site Site { get; set; } = null!;
-    public ICollection<Edition> Editions { get; set; } = [];
+    public ICollection<EditionAuthor> EditionAuthors { get; set; } = [];
 }

@@ -117,6 +117,7 @@ app.UseRouting();
 
 app.MapDebugEndpoints(app.Environment);
 app.MapAdminEndpoints();
+app.MapAdminAuthorsEndpoints();
 app.MapAdminSitesEndpoints();
 app.MapBooksEndpoints();
 app.MapSearchEndpoints();

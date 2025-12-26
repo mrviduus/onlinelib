@@ -24,6 +24,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<AdminRefreshToken> AdminRefreshTokens => Set<AdminRefreshToken>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<Author> Authors => Set<Author>();
+    public DbSet<EditionAuthor> EditionAuthors => Set<EditionAuthor>();
     public DbSet<Genre> Genres => Set<Genre>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -199,7 +200,17 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Slug).HasMaxLength(255);
             e.Property(x => x.Name).HasMaxLength(255);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-            e.HasMany(x => x.Editions).WithMany(x => x.Authors).UsingEntity("edition_authors");
+        });
+
+        // EditionAuthor (junction table with order + role)
+        modelBuilder.Entity<EditionAuthor>(e =>
+        {
+            e.ToTable("edition_authors");
+            e.HasKey(x => new { x.EditionId, x.AuthorId });
+            e.HasIndex(x => x.AuthorId);
+            e.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            e.HasOne(x => x.Edition).WithMany(x => x.EditionAuthors).HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Author).WithMany(x => x.EditionAuthors).HasForeignKey(x => x.AuthorId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Genre

@@ -191,7 +191,7 @@ function SuggestionItem({
   isActive: boolean
   onClick: () => void
 }) {
-  const authors = parseAuthors(suggestion.authorsJson)
+  const authors = suggestion.authors
 
   return (
     <li
@@ -226,7 +226,7 @@ function ResultItem({
   isActive: boolean
   onClick: () => void
 }) {
-  const authors = parseAuthors(result.edition.authorsJson)
+  const authors = result.edition.authors
   const chapterLabel = result.chapterTitle || `Chapter ${result.chapterNumber}`
 
   return (

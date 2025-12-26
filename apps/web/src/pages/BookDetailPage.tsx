@@ -73,7 +73,11 @@ export function BookDetailPage() {
         </div>
         <div className="book-detail__info">
           <h1>{book.title}</h1>
-          <p className="book-detail__author">{book.authorsJson || 'Unknown'}</p>
+          <p className="book-detail__author">
+            {book.authors.length > 0
+              ? book.authors.map(a => a.name).join(', ')
+              : 'Unknown'}
+          </p>
           {book.description && (
             <p className="book-detail__description">{book.description}</p>
           )}

@@ -3,7 +3,7 @@ namespace OnlineLib.Search.Contracts;
 public sealed record Suggestion(
     string Text,
     string Slug,
-    string? AuthorsJson,
+    string? Authors,
     string? CoverPath,
     double Score
 );

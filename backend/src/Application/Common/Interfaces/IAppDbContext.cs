@@ -21,6 +21,7 @@ public interface IAppDbContext
     DbSet<AdminRefreshToken> AdminRefreshTokens { get; }
     DbSet<AdminAuditLog> AdminAuditLogs { get; }
     DbSet<Author> Authors { get; }
+    DbSet<EditionAuthor> EditionAuthors { get; }
     DbSet<Genre> Genres { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);

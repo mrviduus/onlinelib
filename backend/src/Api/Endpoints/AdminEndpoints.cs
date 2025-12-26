@@ -64,7 +64,6 @@ public static class AdminEndpoints
         [FromForm] Guid siteId,
         [FromForm] string title,
         [FromForm] string language,
-        [FromForm] string? authors,
         [FromForm] string? description,
         [FromForm] Guid? workId,
         [FromForm] Guid? sourceEditionId,
@@ -81,7 +80,7 @@ public static class AdminEndpoints
 
         await using var stream = file.OpenReadStream();
         var request = new UploadBookRequest(
-            siteId, title, language, authors, description, workId, sourceEditionId,
+            siteId, title, language, description, workId, sourceEditionId,
             file.FileName, file.Length, stream
         );
 

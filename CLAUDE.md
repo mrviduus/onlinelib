@@ -27,8 +27,12 @@ dotnet test                                             # All tests
 dotnet test tests/OnlineLib.UnitTests                   # Unit tests
 dotnet test tests/OnlineLib.IntegrationTests            # Integration tests
 dotnet test tests/OnlineLib.Extraction.Tests            # Extraction tests
+dotnet test tests/OnlineLib.Search.Tests                # Search tests
 dotnet test --filter "FullyQualifiedName~ClassName"     # Single class
 dotnet test --filter "Name~TestMethodName"              # Single method
+
+# Type-check frontend
+pnpm -C apps/web build   # includes tsc
 
 # Migrations
 dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api

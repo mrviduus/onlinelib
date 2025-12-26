@@ -39,7 +39,7 @@ public static class AuthorsEndpoints
                 a.Slug,
                 a.Name,
                 a.PhotoPath,
-                a.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published)
+                a.EditionAuthors.Count(ea => ea.Edition.Status == Domain.Enums.EditionStatus.Published)
             ))
             .ToListAsync(ct);
 
@@ -64,14 +64,15 @@ public static class AuthorsEndpoints
                 a.PhotoPath,
                 a.SeoTitle,
                 a.SeoDescription,
-                a.Editions
-                    .Where(e => e.Status == Domain.Enums.EditionStatus.Published)
-                    .Select(e => new AuthorEditionDto(
-                        e.Id,
-                        e.Slug,
-                        e.Title,
-                        e.Language,
-                        e.CoverPath
+                a.EditionAuthors
+                    .Where(ea => ea.Edition.Status == Domain.Enums.EditionStatus.Published)
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => new AuthorEditionDto(
+                        ea.Edition.Id,
+                        ea.Edition.Slug,
+                        ea.Edition.Title,
+                        ea.Edition.Language,
+                        ea.Edition.CoverPath
                     ))
                     .ToList()
             ))

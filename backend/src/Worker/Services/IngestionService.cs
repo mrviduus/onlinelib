@@ -271,6 +271,8 @@ public class IngestionWorkerService
         var edition = await db.Editions
             .Include(e => e.Chapters)
             .Include(e => e.Work)
+            .Include(e => e.EditionAuthors)
+                .ThenInclude(ea => ea.Author)
             .FirstOrDefaultAsync(e => e.Id == editionId, ct);
 
         if (edition is null)
@@ -280,6 +282,7 @@ public class IngestionWorkerService
         }
 
         var language = MapLanguageToSearchLanguage(edition.Language);
+        var authors = string.Join(", ", edition.EditionAuthors.OrderBy(ea => ea.Order).Select(ea => ea.Author.Name));
 
         var documents = edition.Chapters.Select(chapter => new IndexDocument(
             Id: chapter.Id.ToString(),
@@ -297,7 +300,7 @@ public class IngestionWorkerService
                 ["editionSlug"] = edition.Slug,
                 ["editionTitle"] = edition.Title,
                 ["language"] = edition.Language,
-                ["authorsJson"] = edition.AuthorsJson ?? string.Empty,
+                ["authors"] = authors,
                 ["coverPath"] = edition.CoverPath ?? string.Empty
             }
         )).ToList();

@@ -55,8 +55,7 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
         if (string.IsNullOrEmpty(job.Edition.Description) && !string.IsNullOrEmpty(parsed.Description))
             job.Edition.Description = parsed.Description;
 
-        if (string.IsNullOrEmpty(job.Edition.AuthorsJson) && !string.IsNullOrEmpty(parsed.Authors))
-            job.Edition.AuthorsJson = parsed.Authors;
+        // Note: parsed.Authors could be used to auto-create Author records in the future
 
         job.Edition.UpdatedAt = DateTimeOffset.UtcNow;
 

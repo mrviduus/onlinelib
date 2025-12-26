@@ -69,7 +69,11 @@ export function BooksPage() {
                 )}
               </div>
               <h3 className="book-card__title">{book.title}</h3>
-              <p className="book-card__author">{book.authorsJson || 'Unknown'}</p>
+              <p className="book-card__author">
+                {book.authors.length > 0
+                  ? book.authors.map(a => a.name).join(', ')
+                  : 'Unknown'}
+              </p>
               <p className="book-card__meta">{book.chapterCount} chapters</p>
             </LocalizedLink>
           ))}

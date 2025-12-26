@@ -5,14 +5,14 @@ public record BookDetailDto(
     string Slug,
     string Title,
     string Language,
-    string? AuthorsJson,
     string? Description,
     string? CoverPath,
     DateTimeOffset? PublishedAt,
     bool IsPublicDomain,
     WorkDto Work,
     IReadOnlyList<ChapterSummaryDto> Chapters,
-    IReadOnlyList<EditionSummaryDto> OtherEditions
+    IReadOnlyList<EditionSummaryDto> OtherEditions,
+    IReadOnlyList<BookAuthorDto> Authors
 );
 
 public record WorkDto(Guid Id, string Slug);

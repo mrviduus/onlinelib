@@ -5,9 +5,16 @@ public record BookListDto(
     string Slug,
     string Title,
     string Language,
-    string? AuthorsJson,
     string? Description,
     string? CoverPath,
     DateTimeOffset? PublishedAt,
-    int ChapterCount
+    int ChapterCount,
+    IReadOnlyList<BookAuthorDto> Authors
+);
+
+public record BookAuthorDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string Role
 );

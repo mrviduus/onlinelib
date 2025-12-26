@@ -162,7 +162,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                         e.slug AS EditionSlug,
                         e.title AS EditionTitle,
                         e.language AS Language,
-                        e.authors_json AS AuthorsJson,
+                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
                         e.cover_path AS CoverPath,
                         10.0::float8 AS Score,
                         NULL::text AS Headline
@@ -170,7 +170,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     INNER JOIN chapters c ON c.edition_id = e.id
                     WHERE e.site_id = @SiteId
                       AND e.status = 1
-                      AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
+                      AND (lower(e.title) LIKE @TitlePattern OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern))
                     ORDER BY e.id, c.chapter_number
                 ) metadata_matches
 
@@ -187,7 +187,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                         e.slug AS EditionSlug,
                         e.title AS EditionTitle,
                         e.language AS Language,
-                        e.authors_json AS AuthorsJson,
+                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
                         e.cover_path AS CoverPath,
                         (similarity(lower(e.title), @NormalizedQuery) * 8.0)::float8 AS Score,
                         NULL::text AS Headline
@@ -201,7 +201,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
                 UNION ALL
 
-                -- Strategy 3: Fuzzy author (score = similarity * 6.0)
+                -- Strategy 3: Fuzzy author (score = max similarity * 6.0)
                 SELECT * FROM (
                     SELECT DISTINCT ON (e.id)
                         c.id AS ChapterId,
@@ -212,15 +212,15 @@ public sealed class PostgresSearchProvider : ISearchProvider
                         e.slug AS EditionSlug,
                         e.title AS EditionTitle,
                         e.language AS Language,
-                        e.authors_json AS AuthorsJson,
+                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
                         e.cover_path AS CoverPath,
-                        (similarity(lower(e.authors_json), @NormalizedQuery) * 6.0)::float8 AS Score,
+                        (COALESCE((SELECT MAX(similarity(lower(a.name), @NormalizedQuery)) FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id), 0) * 6.0)::float8 AS Score,
                         NULL::text AS Headline
                     FROM editions e
                     INNER JOIN chapters c ON c.edition_id = e.id
                     WHERE e.site_id = @SiteId
                       AND e.status = 1
-                      AND similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+                      AND EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
                     ORDER BY e.id, c.chapter_number
                 ) fuzzy_author_matches
 
@@ -236,7 +236,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     e.slug AS EditionSlug,
                     e.title AS EditionTitle,
                     e.language AS Language,
-                    e.authors_json AS AuthorsJson,
+                    (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
                     e.cover_path AS CoverPath,
                     ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8 AS Score,
                     {highlightExpr}::text AS Headline
@@ -302,12 +302,12 @@ public sealed class PostgresSearchProvider : ISearchProvider
             SELECT DISTINCT ON (lower(e.title))
                 e.title AS Text,
                 e.slug AS Slug,
-                e.authors_json AS AuthorsJson,
+                (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
                 e.cover_path AS CoverPath,
                 COUNT(c.id) AS ChapterCount,
                 GREATEST(
                     similarity(lower(e.title), @NormalizedQuery),
-                    similarity(lower(e.authors_json), @NormalizedQuery)
+                    COALESCE((SELECT MAX(similarity(lower(a.name), @NormalizedQuery)) FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id), 0)
                 ) AS SimilarityScore
             FROM editions e
             LEFT JOIN chapters c ON c.edition_id = e.id
@@ -315,11 +315,11 @@ public sealed class PostgresSearchProvider : ISearchProvider
               AND e.status = 1
               AND (
                   lower(e.title) LIKE @TitlePattern              -- prefix match
-                  OR lower(e.authors_json) LIKE @AuthorPattern   -- contains match
+                  OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern)   -- contains match
                   OR similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
-                  OR similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+                  OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
               )
-            GROUP BY e.id, e.title, e.slug, e.authors_json, e.cover_path
+            GROUP BY e.id, e.title, e.slug, e.cover_path
             ORDER BY lower(e.title), SimilarityScore DESC, ChapterCount DESC
             LIMIT @Limit";
 
@@ -349,7 +349,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
             .Select(s => new Suggestion(
                 s.Text,
                 s.Slug,
-                s.AuthorsJson,
+                s.Authors,
                 s.CoverPath,
                 maxCount > 0 ? (double)s.ChapterCount / maxCount : 1.0))
             .ToList();
@@ -385,7 +385,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
             ["editionSlug"] = row.EditionSlug ?? string.Empty,
             ["editionTitle"] = row.EditionTitle ?? string.Empty,
             ["language"] = row.Language ?? string.Empty,
-            ["authorsJson"] = row.AuthorsJson ?? string.Empty,
+            ["authors"] = row.Authors ?? string.Empty,
             ["coverPath"] = row.CoverPath ?? string.Empty
         };
 
@@ -404,7 +404,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
     {
         public string Text { get; init; } = string.Empty;
         public string Slug { get; init; } = string.Empty;
-        public string? AuthorsJson { get; init; }
+        public string? Authors { get; init; }
         public string? CoverPath { get; init; }
         public int ChapterCount { get; init; }
         public double SimilarityScore { get; init; }
@@ -420,7 +420,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
         public string? EditionSlug { get; init; }
         public string? EditionTitle { get; init; }
         public string? Language { get; init; }
-        public string? AuthorsJson { get; init; }
+        public string? Authors { get; init; }
         public string? CoverPath { get; init; }
         public double Score { get; init; }
         public string? Headline { get; init; }

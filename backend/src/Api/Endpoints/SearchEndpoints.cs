@@ -106,7 +106,7 @@ public static class SearchEndpoints
 
         // ─── Map to Response ────────────────────────────────────
         var items = suggestions
-            .Select(s => new SuggestionDto(s.Text, s.Slug, s.AuthorsJson, s.CoverPath, s.Score))
+            .Select(s => new SuggestionDto(s.Text, s.Slug, s.Authors, s.CoverPath, s.Score))
             .ToList();
 
         return Results.Ok(items);
@@ -134,7 +134,7 @@ public static class SearchEndpoints
                 GetString(meta, "editionSlug"),
                 GetString(meta, "editionTitle"),
                 GetString(meta, "language"),
-                GetString(meta, "authorsJson"),
+                GetString(meta, "authors"),
                 GetString(meta, "coverPath")
             ),
             // Flatten highlights: [[frag1, frag2], [frag3]] → [frag1, frag2, frag3]
@@ -178,7 +178,7 @@ public record SearchEditionDto(
     string Slug,
     string Title,
     string Language,
-    string? AuthorsJson,
+    string? Authors,
     string? CoverPath
 );
 
@@ -188,7 +188,7 @@ public record SearchEditionDto(
 public record SuggestionDto(
     string Text,
     string Slug,
-    string? AuthorsJson,
+    string? Authors,
     string? CoverPath,
     double Score
 );

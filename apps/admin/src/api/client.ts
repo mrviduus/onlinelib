@@ -23,11 +23,11 @@ export interface Edition {
   id: string
   slug: string
   title: string
-  authorsJson: string | null
   status: 'Draft' | 'Published' | 'Deleted'
   chapterCount: number
   createdAt: string
   publishedAt: string | null
+  authors: string
 }
 
 export interface EditionDetail {
@@ -37,7 +37,6 @@ export interface EditionDetail {
   slug: string
   title: string
   language: string
-  authorsJson: string | null
   description: string | null
   coverPath: string | null
   status: string
@@ -45,11 +44,25 @@ export interface EditionDetail {
   createdAt: string
   publishedAt: string | null
   chapters: Chapter[]
+  authors: EditionAuthor[]
   // SEO fields
   indexable: boolean
   seoTitle: string | null
   seoDescription: string | null
   canonicalOverride: string | null
+}
+
+export interface EditionAuthor {
+  id: string
+  slug: string
+  name: string
+  order: number
+  role: string
+}
+
+export interface UpdateEditionAuthor {
+  authorId: string
+  role: string
 }
 
 export interface Chapter {
@@ -69,6 +82,20 @@ export interface Site {
   id: string
   code: string
   name: string
+}
+
+export interface AuthorSearchResult {
+  id: string
+  slug: string
+  name: string
+  bookCount: number
+}
+
+export interface CreateAuthorResponse {
+  id: string
+  slug: string
+  name: string
+  isNew: boolean
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -130,12 +157,12 @@ export const adminApi = {
 
   updateEdition: async (id: string, data: {
     title: string
-    authorsJson?: string | null
     description?: string | null
     indexable?: boolean
     seoTitle?: string | null
     seoDescription?: string | null
     canonicalOverride?: string | null
+    authors?: UpdateEditionAuthor[] | null
   }): Promise<void> => {
     await fetchVoid(`/admin/editions/${id}`, {
       method: 'PUT',
@@ -158,5 +185,21 @@ export const adminApi = {
 
   getSites: async (): Promise<Site[]> => {
     return fetchJson<Site[]>('/admin/sites')
+  },
+
+  // Authors
+  searchAuthors: async (siteId: string, query?: string, limit?: number): Promise<AuthorSearchResult[]> => {
+    const params = new URLSearchParams({ siteId })
+    if (query) params.set('q', query)
+    if (limit) params.set('limit', String(limit))
+    return fetchJson<AuthorSearchResult[]>(`/admin/authors/search?${params}`)
+  },
+
+  createAuthor: async (siteId: string, name: string): Promise<CreateAuthorResponse> => {
+    return fetchJson<CreateAuthorResponse>('/admin/authors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId, name }),
+    })
   },
 }

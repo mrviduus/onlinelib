@@ -134,9 +134,9 @@ export function SearchPage() {
                   <p className="search-page__result-chapter">
                     {result.chapterTitle || `Chapter ${result.chapterNumber}`}
                   </p>
-                  {parseAuthors(result.edition.authorsJson) && (
+                  {result.edition.authors && (
                     <p className="search-page__result-author">
-                      {parseAuthors(result.edition.authorsJson)}
+                      {result.edition.authors}
                     </p>
                   )}
                   {result.highlights && result.highlights.length > 0 && (

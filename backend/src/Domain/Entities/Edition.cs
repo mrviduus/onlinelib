@@ -11,7 +11,6 @@ public class Edition
     public required string Slug { get; set; }
     public required string Title { get; set; }
     public string? Description { get; set; }
-    public string? AuthorsJson { get; set; }
     public EditionStatus Status { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }
     public Guid? SourceEditionId { get; set; }
@@ -33,6 +32,6 @@ public class Edition
     public ICollection<Chapter> Chapters { get; set; } = [];
     public ICollection<BookFile> BookFiles { get; set; } = [];
     public ICollection<IngestionJob> IngestionJobs { get; set; } = [];
-    public ICollection<Author> Authors { get; set; } = [];
+    public ICollection<EditionAuthor> EditionAuthors { get; set; } = [];
     public ICollection<Genre> Genres { get; set; } = [];
 }

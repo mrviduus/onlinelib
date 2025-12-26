@@ -14,7 +14,6 @@ public record UploadBookRequest(
     Guid SiteId,
     string Title,
     string Language,
-    string? Authors,
     string? Description,
     Guid? WorkId,
     Guid? SourceEditionId,
@@ -153,7 +152,6 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             Slug = editionSlug,
             Title = req.Title,
             Description = req.Description,
-            AuthorsJson = req.Authors,
             Status = EditionStatus.Draft,
             SourceEditionId = req.SourceEditionId,
             IsPublicDomain = false,
@@ -391,7 +389,7 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             query = query.Where(e => e.Status == status.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(e => e.Title.Contains(search) || (e.AuthorsJson != null && e.AuthorsJson.Contains(search)));
+            query = query.Where(e => e.Title.Contains(search) || e.EditionAuthors.Any(ea => ea.Author.Name.Contains(search)));
 
         var total = await query.CountAsync(ct);
 
@@ -403,11 +401,11 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                 e.Id,
                 e.Slug,
                 e.Title,
-                e.AuthorsJson,
                 e.Status.ToString(),
                 e.Chapters.Count,
                 e.CreatedAt,
-                e.PublishedAt
+                e.PublishedAt,
+                string.Join(", ", e.EditionAuthors.OrderBy(ea => ea.Order).Select(ea => ea.Author.Name))
             ))
             .ToListAsync(ct);
 
@@ -425,7 +423,6 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                 e.Slug,
                 e.Title,
                 e.Language,
-                e.AuthorsJson,
                 e.Description,
                 e.CoverPath,
                 e.Status.ToString(),
@@ -435,6 +432,10 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                 e.Chapters
                     .OrderBy(c => c.ChapterNumber)
                     .Select(c => new AdminChapterDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
+                    .ToList(),
+                e.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => new AdminEditionAuthorDto(ea.AuthorId, ea.Author.Slug, ea.Author.Name, ea.Order, ea.Role.ToString()))
                     .ToList(),
                 e.Indexable,
                 e.SeoTitle,
@@ -461,7 +462,6 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             return (false, "Edition not found");
 
         edition.Title = request.Title;
-        edition.AuthorsJson = request.AuthorsJson;
         edition.Description = request.Description;
         edition.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -471,6 +471,33 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
         edition.SeoTitle = request.SeoTitle;
         edition.SeoDescription = request.SeoDescription;
         edition.CanonicalOverride = request.CanonicalOverride;
+
+        // Handle author assignment
+        if (request.Authors is not null)
+        {
+            // Remove existing author associations
+            var existingAuthors = await db.EditionAuthors
+                .Where(ea => ea.EditionId == id)
+                .ToListAsync(ct);
+            db.EditionAuthors.RemoveRange(existingAuthors);
+
+            // Add new author associations with order
+            for (var i = 0; i < request.Authors.Count; i++)
+            {
+                var authorDto = request.Authors[i];
+                var role = Enum.TryParse<AuthorRole>(authorDto.Role, true, out var parsedRole)
+                    ? parsedRole
+                    : AuthorRole.Author;
+
+                db.EditionAuthors.Add(new EditionAuthor
+                {
+                    EditionId = id,
+                    AuthorId = authorDto.AuthorId,
+                    Order = i,
+                    Role = role
+                });
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         return (true, null);

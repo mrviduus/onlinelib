@@ -1,13 +1,20 @@
+export interface BookAuthor {
+  id: string
+  slug: string
+  name: string
+  role: string
+}
+
 export interface Edition {
   id: string
   slug: string
   title: string
   language: string
-  authorsJson: string | null
   description: string | null
   coverPath: string | null
   publishedAt: string | null
   chapterCount: number
+  authors: BookAuthor[]
 }
 
 export interface ChapterSummary {
@@ -39,12 +46,12 @@ export interface BookDetail {
   slug: string
   title: string
   language: string
-  authorsJson: string | null
   description: string | null
   coverPath: string | null
   publishedAt: string | null
   chapters: ChapterSummary[]
   otherEditions: { slug: string; language: string; title: string }[]
+  authors: BookAuthor[]
 }
 
 export interface SearchEdition {
@@ -52,7 +59,7 @@ export interface SearchEdition {
   slug: string
   title: string
   language: string
-  authorsJson: string | null
+  authors: string | null
   coverPath: string | null
 }
 
@@ -68,7 +75,7 @@ export interface SearchResult {
 export interface Suggestion {
   text: string
   slug: string
-  authorsJson: string | null
+  authors: string | null
   coverPath: string | null
   score: number
 }

@@ -1,6 +1,9 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminApi, EditionDetail } from '../api/client'
+import { AuthorAutocomplete } from '../components/AuthorAutocomplete'
+import { AuthorList, AuthorItem } from '../components/AuthorList'
+import { CreateAuthorModal } from '../components/CreateAuthorModal'
 
 export function EditEditionPage() {
   const { id } = useParams<{ id: string }>()
@@ -11,8 +14,11 @@ export function EditEditionPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
-  const [authorsJson, setAuthorsJson] = useState('')
+  const [authors, setAuthors] = useState<AuthorItem[]>([])
   const [description, setDescription] = useState('')
+  // Author modal state
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [newAuthorName, setNewAuthorName] = useState('')
   // SEO fields
   const [indexable, setIndexable] = useState(true)
   const [seoTitle, setSeoTitle] = useState('')
@@ -25,7 +31,11 @@ export function EditEditionPage() {
       .then((data) => {
         setEdition(data)
         setTitle(data.title)
-        setAuthorsJson(data.authorsJson || '')
+        setAuthors(
+          (data.authors || [])
+            .sort((a, b) => a.order - b.order)
+            .map(a => ({ id: a.id, name: a.name, role: a.role }))
+        )
         setDescription(data.description || '')
         setIndexable(data.indexable ?? true)
         setSeoTitle(data.seoTitle || '')
@@ -45,12 +55,12 @@ export function EditEditionPage() {
     try {
       await adminApi.updateEdition(id, {
         title,
-        authorsJson: authorsJson || null,
         description: description || null,
         indexable,
         seoTitle: seoTitle || null,
         seoDescription: seoDescription || null,
         canonicalOverride: canonicalOverride || null,
+        authors: authors.map(a => ({ authorId: a.id, role: a.role })),
       })
       navigate('/editions')
     } catch (err) {
@@ -58,6 +68,21 @@ export function EditEditionPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSelectAuthor = (author: { id: string; name: string }) => {
+    setAuthors(prev => [...prev, { id: author.id, name: author.name, role: 'Author' }])
+  }
+
+  const handleCreateNew = (name: string) => {
+    setNewAuthorName(name)
+    setShowCreateModal(true)
+  }
+
+  const handleAuthorCreated = (author: { id: string; name: string }) => {
+    setAuthors(prev => [...prev, { id: author.id, name: author.name, role: 'Author' }])
+    setShowCreateModal(false)
+    setNewAuthorName('')
   }
 
   const handlePublish = async () => {
@@ -132,14 +157,17 @@ export function EditEditionPage() {
         </div>
 
         <div className="form-group">
-          <label htmlFor="authors">Authors (JSON)</label>
-          <input
-            type="text"
-            id="authors"
-            value={authorsJson}
-            onChange={(e) => setAuthorsJson(e.target.value)}
-            placeholder='["Author Name"]'
+          <label>Authors</label>
+          <AuthorAutocomplete
+            siteId={edition.siteId}
+            onSelect={handleSelectAuthor}
+            onCreateNew={handleCreateNew}
+            excludeIds={authors.map(a => a.id)}
+            placeholder="Search or create authors..."
           />
+          <div style={{ marginTop: '12px' }}>
+            <AuthorList authors={authors} onChange={setAuthors} />
+          </div>
         </div>
 
         <div className="form-group">
@@ -279,6 +307,15 @@ export function EditEditionPage() {
           )}
         </div>
       </div>
+
+      {showCreateModal && (
+        <CreateAuthorModal
+          siteId={edition.siteId}
+          initialName={newAuthorName}
+          onCreated={handleAuthorCreated}
+          onCancel={() => { setShowCreateModal(false); setNewAuthorName('') }}
+        />
+      )}
     </div>
   )
 }

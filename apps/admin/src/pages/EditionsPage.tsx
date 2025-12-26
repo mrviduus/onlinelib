@@ -131,7 +131,7 @@ export function EditionsPage() {
                 <td>
                   <Link to={`/editions/${edition.id}`}>{edition.title}</Link>
                 </td>
-                <td>{edition.authorsJson || '-'}</td>
+                <td>{edition.authors || '-'}</td>
                 <td>{getStatusBadge(edition.status)}</td>
                 <td>{edition.chapterCount}</td>
                 <td>{formatDate(edition.createdAt)}</td>
