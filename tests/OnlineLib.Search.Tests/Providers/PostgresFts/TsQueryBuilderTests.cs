@@ -14,7 +14,7 @@ public class TsQueryBuilderTests
     {
         var result = _builder.BuildQuery("hello", SearchLanguage.En);
 
-        Assert.Equal("hello", result);
+        Assert.Equal("hello:*", result);
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public class TsQueryBuilderTests
     {
         var result = _builder.BuildQuery("hello world", SearchLanguage.En);
 
-        Assert.Equal("hello & world", result);
+        Assert.Equal("hello:* & world:*", result);
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class TsQueryBuilderTests
     {
         var result = _builder.BuildQuery("  hello    world  ", SearchLanguage.En);
 
-        Assert.Equal("hello & world", result);
+        Assert.Equal("hello:* & world:*", result);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class TsQueryBuilderTests
     {
         var result = _builder.BuildQuery("HELLO World", SearchLanguage.En);
 
-        Assert.Equal("hello & world", result);
+        Assert.Equal("hello:* & world:*", result);
     }
 
     [Fact]
@@ -66,12 +66,12 @@ public class TsQueryBuilderTests
     }
 
     [Theory]
-    [InlineData("hello&world", "helloworld")]
-    [InlineData("test|query", "testquery")]
-    [InlineData("search!term", "searchterm")]
-    [InlineData("(grouped)", "grouped")]
-    [InlineData("prefix:*", "prefix")]
-    [InlineData("test<>value", "testvalue")]
+    [InlineData("hello&world", "helloworld:*")]
+    [InlineData("test|query", "testquery:*")]
+    [InlineData("search!term", "searchterm:*")]
+    [InlineData("(grouped)", "grouped:*")]
+    [InlineData("prefix:*", "prefix:*")]
+    [InlineData("test<>value", "testvalue:*")]
     public void BuildQuery_SpecialCharacters_AreRemoved(string input, string expected)
     {
         var result = _builder.BuildQuery(input, SearchLanguage.En);
@@ -84,7 +84,7 @@ public class TsQueryBuilderTests
     {
         var result = _builder.BuildQuery("hello & world | test", SearchLanguage.En);
 
-        Assert.Equal("hello & world & test", result);
+        Assert.Equal("hello:* & world:* & test:*", result);
     }
 
     #endregion
