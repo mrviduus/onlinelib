@@ -23,6 +23,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminRefreshToken> AdminRefreshTokens => Set<AdminRefreshToken>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<Author> Authors => Set<Author>();
+    public DbSet<Genre> Genres => Set<Genre>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -187,6 +189,28 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.ActionType);
             e.HasIndex(x => x.CreatedAt);
             e.HasOne(x => x.AdminUser).WithMany(x => x.AuditLogs).HasForeignKey(x => x.AdminUserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Author
+        modelBuilder.Entity<Author>(e =>
+        {
+            e.HasIndex(x => x.SiteId);
+            e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
+            e.Property(x => x.Slug).HasMaxLength(255);
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Editions).WithMany(x => x.Authors).UsingEntity("edition_authors");
+        });
+
+        // Genre
+        modelBuilder.Entity<Genre>(e =>
+        {
+            e.HasIndex(x => x.SiteId);
+            e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
+            e.Property(x => x.Slug).HasMaxLength(100);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Editions).WithMany(x => x.Genres).UsingEntity("edition_genres");
         });
     }
 

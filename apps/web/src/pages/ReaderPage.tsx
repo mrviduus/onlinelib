@@ -6,6 +6,7 @@ import type { Chapter, BookDetail } from '../types/api'
 import { useReaderSettings } from '../hooks/useReaderSettings'
 import { useAutoHideBar } from '../hooks/useAutoHideBar'
 import { useReadingProgress } from '../hooks/useReadingProgress'
+import { SeoHead } from '../components/SeoHead'
 import { ReaderTopBar } from '../components/reader/ReaderTopBar'
 import { ReaderContent } from '../components/reader/ReaderContent'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
@@ -82,8 +83,12 @@ export function ReaderPage() {
     )
   }
 
+  const seoTitle = `${chapter.title} — ${book.title}`
+  const seoDescription = `Read ${chapter.title} from ${book.title} online | TextStack`
+
   return (
     <div className="reader-page">
+      <SeoHead title={seoTitle} description={seoDescription} />
       <ReaderTopBar
         visible={visible}
         bookSlug={bookSlug!}

@@ -21,6 +21,8 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<AdminRefreshToken> AdminRefreshTokens => Set<AdminRefreshToken>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<Author> Authors => Set<Author>();
+    public DbSet<Genre> Genres => Set<Genre>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,5 +64,13 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
         // Admin
         modelBuilder.Entity<AdminUser>().HasMany(a => a.RefreshTokens).WithOne(r => r.AdminUser).HasForeignKey(r => r.AdminUserId);
         modelBuilder.Entity<AdminUser>().HasMany(a => a.AuditLogs).WithOne(l => l.AdminUser).HasForeignKey(l => l.AdminUserId);
+
+        // Author
+        modelBuilder.Entity<Author>().HasOne(a => a.Site).WithMany().HasForeignKey(a => a.SiteId);
+        modelBuilder.Entity<Author>().HasMany(a => a.Editions).WithMany(e => e.Authors);
+
+        // Genre
+        modelBuilder.Entity<Genre>().HasOne(g => g.Site).WithMany().HasForeignKey(g => g.SiteId);
+        modelBuilder.Entity<Genre>().HasMany(g => g.Editions).WithMany(e => e.Genres);
     }
 }

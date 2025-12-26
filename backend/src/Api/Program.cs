@@ -120,6 +120,8 @@ app.MapAdminEndpoints();
 app.MapAdminSitesEndpoints();
 app.MapBooksEndpoints();
 app.MapSearchEndpoints();
+app.MapAuthorsEndpoints();
+app.MapGenresEndpoints();
 app.MapSiteEndpoints();
 app.MapSeoEndpoints();
 

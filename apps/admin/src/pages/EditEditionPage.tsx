@@ -13,6 +13,11 @@ export function EditEditionPage() {
   const [title, setTitle] = useState('')
   const [authorsJson, setAuthorsJson] = useState('')
   const [description, setDescription] = useState('')
+  // SEO fields
+  const [indexable, setIndexable] = useState(true)
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
+  const [canonicalOverride, setCanonicalOverride] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -22,6 +27,10 @@ export function EditEditionPage() {
         setTitle(data.title)
         setAuthorsJson(data.authorsJson || '')
         setDescription(data.description || '')
+        setIndexable(data.indexable ?? true)
+        setSeoTitle(data.seoTitle || '')
+        setSeoDescription(data.seoDescription || '')
+        setCanonicalOverride(data.canonicalOverride || '')
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -38,6 +47,10 @@ export function EditEditionPage() {
         title,
         authorsJson: authorsJson || null,
         description: description || null,
+        indexable,
+        seoTitle: seoTitle || null,
+        seoDescription: seoDescription || null,
+        canonicalOverride: canonicalOverride || null,
       })
       navigate('/editions')
     } catch (err) {
@@ -139,6 +152,58 @@ export function EditEditionPage() {
             maxLength={5000}
           />
         </div>
+
+        <fieldset className="form-fieldset">
+          <legend>SEO Settings</legend>
+
+          <div className="form-group form-group--checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={indexable}
+                onChange={(e) => setIndexable(e.target.checked)}
+              />
+              Indexable by search engines
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="seoTitle">SEO Title (overrides default)</label>
+            <input
+              type="text"
+              id="seoTitle"
+              value={seoTitle}
+              onChange={(e) => setSeoTitle(e.target.value)}
+              placeholder={title ? `${title} — read online | TextStack` : 'Auto-generated from title'}
+              maxLength={160}
+            />
+            <small>{seoTitle.length}/160</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="seoDescription">SEO Description</label>
+            <textarea
+              id="seoDescription"
+              value={seoDescription}
+              onChange={(e) => setSeoDescription(e.target.value)}
+              rows={3}
+              placeholder="Auto-generated from book description"
+              maxLength={320}
+            />
+            <small>{seoDescription.length}/320</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="canonicalOverride">Canonical URL Override</label>
+            <input
+              type="url"
+              id="canonicalOverride"
+              value={canonicalOverride}
+              onChange={(e) => setCanonicalOverride(e.target.value)}
+              placeholder="Leave empty for default"
+            />
+          </div>
+        </fieldset>
 
         <div className="form-actions">
           <button type="submit" disabled={saving} className="btn btn--primary">

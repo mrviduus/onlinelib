@@ -1,0 +1,97 @@
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import { useApi } from '../hooks/useApi'
+import { LocalizedLink } from '../components/LocalizedLink'
+import { SeoHead } from '../components/SeoHead'
+import { useLanguage } from '../context/LanguageContext'
+import type { AuthorDetail } from '../types/api'
+
+export function AuthorDetailPage() {
+  const { slug } = useParams<{ slug: string }>()
+  const { language } = useLanguage()
+  const api = useApi()
+  const [author, setAuthor] = useState<AuthorDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!slug) return
+    api.getAuthor(slug)
+      .then((data) => setAuthor(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [api, slug])
+
+  if (loading) {
+    return (
+      <div className="author-detail">
+        <div className="author-detail__header author-detail__header--skeleton">
+          <div className="author-detail__photo" />
+          <div className="author-detail__info">
+            <div className="author-detail__name" />
+            <div className="author-detail__bio" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !author) {
+    return (
+      <div className="author-detail">
+        <h1>{language === 'uk' ? 'Автор не знайдений' : 'Author not found'}</h1>
+        <p className="error">{error || 'Not found'}</p>
+      </div>
+    )
+  }
+
+  const seoTitle = language === 'uk'
+    ? `${author.name} — книги автора`
+    : `${author.name} — books by author`
+  const seoDescription = author.bio || (language === 'uk'
+    ? `Читайте книги автора ${author.name} онлайн`
+    : `Read books by ${author.name} online`)
+
+  return (
+    <div className="author-detail">
+      <SeoHead title={seoTitle} description={seoDescription} />
+
+      <div className="author-detail__header">
+        <div className="author-detail__photo">
+          {author.photoPath ? (
+            <img src={author.photoPath} alt={author.name} />
+          ) : (
+            <span className="author-detail__initials">{author.name[0]}</span>
+          )}
+        </div>
+        <div className="author-detail__info">
+          <h1 className="author-detail__name">{author.name}</h1>
+          {author.bio && <p className="author-detail__bio">{author.bio}</p>}
+          <p className="author-detail__count">
+            {author.bookCount} {language === 'uk' ? 'книг' : 'books'}
+          </p>
+        </div>
+      </div>
+
+      <h2>{language === 'uk' ? 'Книги' : 'Books'}</h2>
+      {author.editions.length === 0 ? (
+        <p>{language === 'uk' ? 'Книг поки немає.' : 'No books available.'}</p>
+      ) : (
+        <div className="books-grid">
+          {author.editions.map((book) => (
+            <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
+              <div className="book-card__cover" style={{ backgroundColor: '#e0e0e0' }}>
+                {book.coverPath ? (
+                  <img src={book.coverPath} alt="" />
+                ) : (
+                  <span className="book-card__cover-text">{book.title[0]}</span>
+                )}
+              </div>
+              <h3 className="book-card__title">{book.title}</h3>
+            </LocalizedLink>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

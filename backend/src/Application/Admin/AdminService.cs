@@ -435,7 +435,11 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                 e.Chapters
                     .OrderBy(c => c.ChapterNumber)
                     .Select(c => new AdminChapterDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
-                    .ToList()
+                    .ToList(),
+                e.Indexable,
+                e.SeoTitle,
+                e.SeoDescription,
+                e.CanonicalOverride
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -460,6 +464,13 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
         edition.AuthorsJson = request.AuthorsJson;
         edition.Description = request.Description;
         edition.UpdatedAt = DateTimeOffset.UtcNow;
+
+        // SEO fields
+        if (request.Indexable.HasValue)
+            edition.Indexable = request.Indexable.Value;
+        edition.SeoTitle = request.SeoTitle;
+        edition.SeoDescription = request.SeoDescription;
+        edition.CanonicalOverride = request.CanonicalOverride;
 
         await db.SaveChangesAsync(ct);
         return (true, null);

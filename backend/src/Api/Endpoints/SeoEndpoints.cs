@@ -1,5 +1,7 @@
 using Api.Sites;
+using Application.Common.Interfaces;
 using Application.Seo;
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 
 namespace Api.Endpoints;
@@ -14,6 +16,8 @@ public static class SeoEndpoints
         app.MapGet("/sitemap.xml", GetSitemapIndex).WithName("GetSitemapIndex").WithTags("SEO");
         app.MapGet("/sitemaps/books.xml", GetBooksSitemap).WithName("GetBooksSitemap").WithTags("SEO");
         app.MapGet("/sitemaps/chapters-{page:int}.xml", GetChaptersSitemap).WithName("GetChaptersSitemap").WithTags("SEO");
+        app.MapGet("/sitemaps/authors.xml", GetAuthorsSitemap).WithName("GetAuthorsSitemap").WithTags("SEO");
+        app.MapGet("/sitemaps/genres.xml", GetGenresSitemap).WithName("GetGenresSitemap").WithTags("SEO");
     }
 
     private static IResult GetRobots(HttpContext httpContext)
@@ -63,6 +67,14 @@ public static class SeoEndpoints
 
         sb.AppendLine("  <sitemap>");
         sb.AppendLine($"    <loc>{baseUrl}/sitemaps/books.xml</loc>");
+        sb.AppendLine("  </sitemap>");
+
+        sb.AppendLine("  <sitemap>");
+        sb.AppendLine($"    <loc>{baseUrl}/sitemaps/authors.xml</loc>");
+        sb.AppendLine("  </sitemap>");
+
+        sb.AppendLine("  <sitemap>");
+        sb.AppendLine($"    <loc>{baseUrl}/sitemaps/genres.xml</loc>");
         sb.AppendLine("  </sitemap>");
 
         for (int i = 1; i <= Math.Max(1, chapterPages); i++)
@@ -149,6 +161,82 @@ public static class SeoEndpoints
             sb.AppendLine("  <url>");
             sb.AppendLine($"    <loc>{baseUrl}/{chapter.Language}/books/{chapter.BookSlug}/{chapter.Slug}</loc>");
             sb.AppendLine($"    <lastmod>{chapter.UpdatedAt:yyyy-MM-dd}</lastmod>");
+            sb.AppendLine("  </url>");
+        }
+
+        sb.AppendLine("</urlset>");
+
+        return Results.Content(sb.ToString(), "application/xml");
+    }
+
+    private static async Task<IResult> GetAuthorsSitemap(
+        HttpContext httpContext,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var site = httpContext.GetSiteContext();
+
+        if (!site.SitemapEnabled)
+            return Results.NotFound();
+
+        var host = httpContext.Request.Host.Value;
+        var scheme = httpContext.Request.Scheme;
+        var baseUrl = $"{scheme}://{host}";
+
+        var authors = await db.Authors
+            .Where(a => a.SiteId == site.SiteId && a.Indexable)
+            .OrderBy(a => a.Name)
+            .Select(a => new { a.Slug, a.UpdatedAt })
+            .ToListAsync(ct);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+
+        foreach (var author in authors)
+        {
+            sb.AppendLine("  <url>");
+            sb.AppendLine($"    <loc>{baseUrl}/authors/{author.Slug}</loc>");
+            sb.AppendLine($"    <lastmod>{author.UpdatedAt:yyyy-MM-dd}</lastmod>");
+            sb.AppendLine("    <changefreq>monthly</changefreq>");
+            sb.AppendLine("  </url>");
+        }
+
+        sb.AppendLine("</urlset>");
+
+        return Results.Content(sb.ToString(), "application/xml");
+    }
+
+    private static async Task<IResult> GetGenresSitemap(
+        HttpContext httpContext,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var site = httpContext.GetSiteContext();
+
+        if (!site.SitemapEnabled)
+            return Results.NotFound();
+
+        var host = httpContext.Request.Host.Value;
+        var scheme = httpContext.Request.Scheme;
+        var baseUrl = $"{scheme}://{host}";
+
+        var genres = await db.Genres
+            .Where(g => g.SiteId == site.SiteId && g.Indexable)
+            .OrderBy(g => g.Name)
+            .Select(g => new { g.Slug, g.UpdatedAt })
+            .ToListAsync(ct);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+
+        foreach (var genre in genres)
+        {
+            sb.AppendLine("  <url>");
+            sb.AppendLine($"    <loc>{baseUrl}/genres/{genre.Slug}</loc>");
+            sb.AppendLine($"    <lastmod>{genre.UpdatedAt:yyyy-MM-dd}</lastmod>");
+            sb.AppendLine("    <changefreq>monthly</changefreq>");
             sb.AppendLine("  </url>");
         }
 

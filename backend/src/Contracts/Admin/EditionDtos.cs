@@ -25,7 +25,12 @@ public record AdminEditionDetailDto(
     bool IsPublicDomain,
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt,
-    List<AdminChapterDto> Chapters
+    List<AdminChapterDto> Chapters,
+    // SEO fields
+    bool Indexable,
+    string? SeoTitle,
+    string? SeoDescription,
+    string? CanonicalOverride
 );
 
 public record AdminChapterDto(
@@ -39,5 +44,9 @@ public record AdminChapterDto(
 public record UpdateEditionRequest(
     string Title,
     string? AuthorsJson,
-    string? Description
+    string? Description,
+    bool? Indexable,
+    string? SeoTitle,
+    string? SeoDescription,
+    string? CanonicalOverride
 );

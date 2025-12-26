@@ -810,3 +810,287 @@
   color: #666;
   font-size: 14px;
 }
+
+/* Authors page */
+.authors-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.authors-page h1 {
+  margin-bottom: 24px;
+}
+
+.authors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.author-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.author-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.author-card__photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.author-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.author-card__initials {
+  font-size: 28px;
+  font-weight: 600;
+  color: #666;
+}
+
+.author-card__name {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.author-card__count {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+.author-card--skeleton .author-card__photo,
+.author-card--skeleton .author-card__name {
+  background: #e0e0e0;
+  animation: pulse 1.5s infinite;
+}
+
+.author-card--skeleton .author-card__name {
+  height: 20px;
+  width: 120px;
+  border-radius: 4px;
+}
+
+/* Author detail page */
+.author-detail {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.author-detail__header {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 32px;
+  align-items: flex-start;
+}
+
+.author-detail__photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.author-detail__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.author-detail__initials {
+  font-size: 40px;
+  font-weight: 600;
+  color: #666;
+}
+
+.author-detail__info {
+  flex: 1;
+}
+
+.author-detail__name {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+
+.author-detail__bio {
+  color: #555;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.author-detail__count {
+  color: #888;
+  font-size: 14px;
+  margin: 0;
+}
+
+.author-detail__header--skeleton .author-detail__photo,
+.author-detail__header--skeleton .author-detail__name,
+.author-detail__header--skeleton .author-detail__bio {
+  background: #e0e0e0;
+  animation: pulse 1.5s infinite;
+}
+
+.author-detail h2 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+
+/* Genres page */
+.genres-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.genres-page h1 {
+  margin-bottom: 24px;
+}
+
+.genres-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.genre-card {
+  display: block;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.genre-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.genre-card__name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.genre-card__count {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 8px;
+}
+
+.genre-card__description {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.genre-card--skeleton .genre-card__name {
+  height: 24px;
+  width: 140px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+/* Genre detail page */
+.genre-detail {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.genre-detail__header {
+  margin-bottom: 32px;
+}
+
+.genre-detail__name {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+
+.genre-detail__description {
+  color: #555;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.genre-detail__count {
+  color: #888;
+  font-size: 14px;
+  margin: 0;
+}
+
+.genre-detail h2 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+
+/* Mobile responsiveness for authors/genres */
+@media (max-width: 600px) {
+  .author-detail__header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .author-detail__photo {
+    width: 100px;
+    height: 100px;
+  }
+
+  .authors-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .author-card {
+    padding: 16px;
+  }
+
+  .author-card__photo {
+    width: 60px;
+    height: 60px;
+  }
+
+  .genres-grid {
+    grid-template-columns: 1fr;
+  }
+}

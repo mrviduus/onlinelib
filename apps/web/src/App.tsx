@@ -6,6 +6,10 @@ import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
 import { SearchPage } from './pages/SearchPage'
+import { AuthorsPage } from './pages/AuthorsPage'
+import { AuthorDetailPage } from './pages/AuthorDetailPage'
+import { GenresPage } from './pages/GenresPage'
+import { GenreDetailPage } from './pages/GenreDetailPage'
 import { LocalizedLink } from './components/LocalizedLink'
 import { Header } from './components/Header'
 import './styles/reader.css'
@@ -60,6 +64,10 @@ function LanguageRoutes() {
         <Route path="/books" element={<BooksPage />} />
         <Route path="/books/:bookSlug" element={<BookDetailPage />} />
         <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
+        <Route path="/authors" element={<AuthorsPage />} />
+        <Route path="/authors/:slug" element={<AuthorDetailPage />} />
+        <Route path="/genres" element={<GenresPage />} />
+        <Route path="/genres/:slug" element={<GenreDetailPage />} />
       </Routes>
     </LanguageProvider>
   )

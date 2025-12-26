@@ -6,11 +6,12 @@ interface SeoHeadProps {
   title?: string
   description?: string
   availableLanguages?: SupportedLanguage[]
+  noindex?: boolean
 }
 
 const HREFLANG_DATA_ATTR = 'data-hreflang-managed'
 
-export function SeoHead({ title, description, availableLanguages }: SeoHeadProps) {
+export function SeoHead({ title, description, availableLanguages, noindex }: SeoHeadProps) {
   const location = useLocation()
   const { language } = useLanguage()
 
@@ -43,6 +44,19 @@ export function SeoHead({ title, description, availableLanguages }: SeoHeadProps
       meta.content = description
     }
 
+    // Set robots meta
+    let robotsMeta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null
+    if (noindex) {
+      if (!robotsMeta) {
+        robotsMeta = document.createElement('meta')
+        robotsMeta.name = 'robots'
+        document.head.appendChild(robotsMeta)
+      }
+      robotsMeta.content = 'noindex,follow'
+    } else if (robotsMeta) {
+      robotsMeta.remove()
+    }
+
     // Set hreflang tags
     // Remove existing managed hreflang links
     document.querySelectorAll(`link[${HREFLANG_DATA_ATTR}]`).forEach((el) => el.remove())
@@ -72,7 +86,7 @@ export function SeoHead({ title, description, availableLanguages }: SeoHeadProps
       // Cleanup hreflang on unmount
       document.querySelectorAll(`link[${HREFLANG_DATA_ATTR}]`).forEach((el) => el.remove())
     }
-  }, [location.pathname, title, description, availableLanguages, language])
+  }, [location.pathname, title, description, availableLanguages, language, noindex])
 
   return null
 }

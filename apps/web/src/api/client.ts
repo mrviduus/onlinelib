@@ -63,6 +63,30 @@ export function createApi(language: string) {
       if (params?.limit) query.set('limit', String(params.limit))
       return fetchJson<import('../types/api').Suggestion[]>(`${langPrefix}/search/suggest?${query}`)
     },
+
+    getAuthors: () => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<{ total: number; items: import('../types/api').Author[] }>(`/authors?${query}`)
+    },
+
+    getAuthor: (slug: string) => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<import('../types/api').AuthorDetail>(`/authors/${slug}?${query}`)
+    },
+
+    getGenres: () => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<{ total: number; items: import('../types/api').Genre[] }>(`/genres?${query}`)
+    },
+
+    getGenre: (slug: string) => {
+      const query = new URLSearchParams()
+      addSiteParam(query)
+      return fetchJson<import('../types/api').GenreDetail>(`/genres/${slug}?${query}`)
+    },
   }
 }
 

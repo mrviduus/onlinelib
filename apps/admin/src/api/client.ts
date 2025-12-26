@@ -45,6 +45,11 @@ export interface EditionDetail {
   createdAt: string
   publishedAt: string | null
   chapters: Chapter[]
+  // SEO fields
+  indexable: boolean
+  seoTitle: string | null
+  seoDescription: string | null
+  canonicalOverride: string | null
 }
 
 export interface Chapter {
@@ -123,7 +128,15 @@ export const adminApi = {
     return fetchJson<EditionDetail>(`/admin/editions/${id}`)
   },
 
-  updateEdition: async (id: string, data: { title: string; authorsJson?: string | null; description?: string | null }): Promise<void> => {
+  updateEdition: async (id: string, data: {
+    title: string
+    authorsJson?: string | null
+    description?: string | null
+    indexable?: boolean
+    seoTitle?: string | null
+    seoDescription?: string | null
+    canonicalOverride?: string | null
+  }): Promise<void> => {
     await fetchVoid(`/admin/editions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

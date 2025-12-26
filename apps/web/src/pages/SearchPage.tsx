@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from '../components/LocalizedLink'
+import { SeoHead } from '../components/SeoHead'
 import type { SearchResult } from '../types/api'
 
 const RESULTS_PER_PAGE = 20
@@ -66,10 +67,13 @@ export function SearchPage() {
     return <span dangerouslySetInnerHTML={{ __html: html }} />
   }
 
+  const title = language === 'uk' ? 'Пошук' : 'Search'
+
   if (!query) {
     return (
       <div className="search-page">
-        <h1>{language === 'uk' ? 'Пошук' : 'Search'}</h1>
+        <SeoHead title={title} noindex />
+        <h1>{title}</h1>
         <p className="search-page__empty">
           {language === 'uk' ? 'Введіть запит для пошуку' : 'Enter a search query'}
         </p>
@@ -79,7 +83,8 @@ export function SearchPage() {
 
   return (
     <div className="search-page">
-      <h1>{language === 'uk' ? 'Пошук' : 'Search'}: "{query}"</h1>
+      <SeoHead title={`${title}: ${query}`} noindex />
+      <h1>{title}: "{query}"</h1>
 
       {loading ? (
         <div className="search-page__results">

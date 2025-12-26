@@ -20,6 +20,8 @@ public interface IAppDbContext
     DbSet<AdminUser> AdminUsers { get; }
     DbSet<AdminRefreshToken> AdminRefreshTokens { get; }
     DbSet<AdminAuditLog> AdminAuditLogs { get; }
+    DbSet<Author> Authors { get; }
+    DbSet<Genre> Genres { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

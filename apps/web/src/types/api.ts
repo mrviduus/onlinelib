@@ -72,3 +72,28 @@ export interface Suggestion {
   coverPath: string | null
   score: number
 }
+
+export interface Author {
+  id: string
+  slug: string
+  name: string
+  bio: string | null
+  photoPath: string | null
+  bookCount: number
+}
+
+export interface AuthorDetail extends Author {
+  editions: Edition[]
+}
+
+export interface Genre {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  bookCount: number
+}
+
+export interface GenreDetail extends Genre {
+  editions: Edition[]
+}

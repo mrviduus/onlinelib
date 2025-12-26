@@ -1,0 +1,112 @@
+using Api.Sites;
+using Application.Common.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Api.Endpoints;
+
+public static class AuthorsEndpoints
+{
+    public static void MapAuthorsEndpoints(this WebApplication app)
+    {
+        var group = app.MapGroup("/authors").WithTags("Authors");
+
+        group.MapGet("", GetAuthors).WithName("GetAuthors");
+        group.MapGet("/{slug}", GetAuthor).WithName("GetAuthor");
+    }
+
+    private static async Task<IResult> GetAuthors(
+        HttpContext httpContext,
+        IAppDbContext db,
+        [FromQuery] int? limit,
+        [FromQuery] int? offset,
+        CancellationToken ct)
+    {
+        var siteId = httpContext.GetSiteId();
+        var take = Math.Min(limit ?? 50, 100);
+        var skip = offset ?? 0;
+
+        var query = db.Authors
+            .Where(a => a.SiteId == siteId && a.Indexable)
+            .OrderBy(a => a.Name);
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .Skip(skip)
+            .Take(take)
+            .Select(a => new AuthorListDto(
+                a.Id,
+                a.Slug,
+                a.Name,
+                a.PhotoPath,
+                a.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published)
+            ))
+            .ToListAsync(ct);
+
+        return Results.Ok(new { total, items });
+    }
+
+    private static async Task<IResult> GetAuthor(
+        HttpContext httpContext,
+        IAppDbContext db,
+        string slug,
+        CancellationToken ct)
+    {
+        var siteId = httpContext.GetSiteId();
+
+        var author = await db.Authors
+            .Where(a => a.SiteId == siteId && a.Slug == slug)
+            .Select(a => new AuthorDetailDto(
+                a.Id,
+                a.Slug,
+                a.Name,
+                a.Bio,
+                a.PhotoPath,
+                a.SeoTitle,
+                a.SeoDescription,
+                a.Editions
+                    .Where(e => e.Status == Domain.Enums.EditionStatus.Published)
+                    .Select(e => new AuthorEditionDto(
+                        e.Id,
+                        e.Slug,
+                        e.Title,
+                        e.Language,
+                        e.CoverPath
+                    ))
+                    .ToList()
+            ))
+            .FirstOrDefaultAsync(ct);
+
+        if (author is null)
+            return Results.NotFound();
+
+        return Results.Ok(author);
+    }
+}
+
+public record AuthorListDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string? PhotoPath,
+    int BookCount
+);
+
+public record AuthorDetailDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string? Bio,
+    string? PhotoPath,
+    string? SeoTitle,
+    string? SeoDescription,
+    List<AuthorEditionDto> Books
+);
+
+public record AuthorEditionDto(
+    Guid Id,
+    string Slug,
+    string Title,
+    string Language,
+    string? CoverPath
+);

@@ -20,6 +20,12 @@ public class Edition
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    // SEO fields
+    public bool Indexable { get; set; } = true;
+    public string? SeoTitle { get; set; }
+    public string? SeoDescription { get; set; }
+    public string? CanonicalOverride { get; set; }
+
     public Work Work { get; set; } = null!;
     public Site Site { get; set; } = null!;
     public Edition? SourceEdition { get; set; }
@@ -27,4 +33,6 @@ public class Edition
     public ICollection<Chapter> Chapters { get; set; } = [];
     public ICollection<BookFile> BookFiles { get; set; } = [];
     public ICollection<IngestionJob> IngestionJobs { get; set; } = [];
+    public ICollection<Author> Authors { get; set; } = [];
+    public ICollection<Genre> Genres { get; set; } = [];
 }

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { LocalizedLink } from '../components/LocalizedLink'
+import { SeoHead } from '../components/SeoHead'
+import { useLanguage } from '../context/LanguageContext'
 import type { Edition } from '../types/api'
 
 export function BooksPage() {
+  const { language } = useLanguage()
   const api = useApi()
   const [books, setBooks] = useState<Edition[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,9 +45,15 @@ export function BooksPage() {
     )
   }
 
+  const title = language === 'uk' ? 'Книги' : 'Books'
+  const description = language === 'uk'
+    ? 'Читайте книги онлайн безкоштовно | TextStack'
+    : 'Read books online for free | TextStack'
+
   return (
     <div className="books-page">
-      <h1>Books</h1>
+      <SeoHead title={title} description={description} />
+      <h1>{title}</h1>
       {books.length === 0 ? (
         <p>No books available yet.</p>
       ) : (
