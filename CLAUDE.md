@@ -48,16 +48,57 @@ dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-p
 
 ## Key Concepts
 
-**Entities**: Site → Work → Edition → Chapter
-- Work = canonical book, Edition = per language (EN, UK)
+**Entity Hierarchy**: Site → Work → Edition → Chapter
+- Work = canonical book (just slug), Edition = per-language version with metadata
+- Edition contains: title, description, authors_json, cover_path, SEO fields
+- Chapter contains: html (rendered), plain_text (search), search_vector (FTS)
 - site_id scopes content; User is global
+
+**Book Upload Flow**:
+```
+Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
+     → Worker polls → Extraction → Chapters created → search_vector indexed
+```
 
 **Multisite**: Host header → SiteResolver → SiteContext
 - Dev override: `?site=general`
 - Files: `backend/src/Api/Sites/`
 
-**Storage**: Host bind mount at `./data/storage`
-- DB stores paths only, not binaries
+**Storage**:
+- Files: `./data/storage/books/{editionId}/original/` (bind mount)
+- DB: `book_files.storage_path` = relative path only
+- Content: `chapters.html` + `chapters.plain_text` after parsing
+
+**Search**: PostgreSQL FTS + pg_trgm
+- `chapters.search_vector` (tsvector) for full-text
+- GIN indexes for fast queries
+- Fuzzy search via trigrams
+
+## API Endpoints
+
+**Public**:
+- `GET /books` — list editions (paginated, ?language=)
+- `GET /books/{slug}` — edition detail + chapters + other editions
+- `GET /books/{slug}/chapters/{chapterSlug}` — chapter HTML + prev/next
+- `GET /search?q=` — full-text search
+- `GET /seo/sitemap.xml` — dynamic sitemap
+
+**Admin**:
+- `POST /admin/books/upload` — create Work + Edition + BookFile + IngestionJob
+- `GET /admin/ingestion/jobs` — list jobs
+- `GET /admin/ingestion/jobs/{id}` — job detail
+
+## Key Files
+
+| Area | Path |
+|------|------|
+| Domain | `backend/src/Domain/Entities/{Work,Edition,Chapter,BookFile}.cs` |
+| API | `backend/src/Api/Endpoints/{Books,Seo,Search}Endpoints.cs` |
+| Services | `backend/src/Application/{Books,Ingestion,Seo}/` |
+| Worker | `backend/src/Worker/Services/IngestionWorkerService.cs` |
+| Search | `backend/src/Search/` |
+| Frontend | `apps/web/src/pages/{BooksPage,BookDetailPage}.tsx` |
+| Extraction | `backend/src/Extraction/OnlineLib.Extraction/` |
 
 ## IMPORTANT — HOW TO WORK IN THIS REPO
 

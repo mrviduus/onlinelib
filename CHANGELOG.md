@@ -3,12 +3,21 @@
 ## [Unreleased]
 
 ### Added
+- **SEO module MVP** (slice 1)
+  - `GET /seo/sitemap.xml` - dynamic sitemap generation
+  - `SeoService` for sitemap building
+  - `SeoHead` React component for meta tags
+- **Full-text search with PostgreSQL FTS**
+  - `GET /search?q=` - search books/chapters
+  - pg_trgm extension for fuzzy/typo-tolerant search
+  - GIN indexes on search_vector
+- **Language switcher** - UA/EN toggle in header
+- **Search component** - integrated into header
+- **Example books seeder** - migration seeds sample data
 - **Public API endpoints**
   - `GET /books` - list published editions (paginated, language filter)
   - `GET /books/{slug}` - edition detail with chapters and other editions
-  - `GET /books/{slug}/chapters` - chapter list
   - `GET /books/{slug}/chapters/{chapterSlug}` - chapter content with prev/next nav
-  - `GET /search?q=` - full-text search using PostgreSQL tsvector
 - **Admin file upload** - `POST /admin/books/upload`
   - Creates Work + Edition + BookFile + IngestionJob
   - Stores files at `/storage/books/{editionId}/original/`
@@ -40,6 +49,8 @@
   - FKs to users + editions
 
 ### Changed
+- **Rebrand to TextStack** - updated branding throughout
+- **Default language to English** - `/en` is now the default redirect
 - **AdminEndpoints** - extracted `ToResult` helpers, simplified 5 endpoint methods
 - `Chapter` now references `Edition` instead of `Book`
   - Merged content fields: title, html, plain_text, word_count, search_vector
