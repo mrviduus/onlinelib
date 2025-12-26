@@ -5,6 +5,8 @@ import { UploadPage } from './pages/UploadPage'
 import { JobsPage } from './pages/JobsPage'
 import { EditionsPage } from './pages/EditionsPage'
 import { EditEditionPage } from './pages/EditEditionPage'
+import { AuthorsPage } from './pages/AuthorsPage'
+import { EditAuthorPage } from './pages/EditAuthorPage'
 import './styles/admin.css'
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
           <Route path="jobs" element={<JobsPage />} />
           <Route path="editions" element={<EditionsPage />} />
           <Route path="editions/:id" element={<EditEditionPage />} />
+          <Route path="authors" element={<AuthorsPage />} />
+          <Route path="authors/:id" element={<EditAuthorPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

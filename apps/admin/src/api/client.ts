@@ -91,6 +91,38 @@ export interface AuthorSearchResult {
   bookCount: number
 }
 
+export interface AuthorListItem {
+  id: string
+  slug: string
+  name: string
+  photoPath: string | null
+  bookCount: number
+  createdAt: string
+}
+
+export interface AuthorDetail {
+  id: string
+  siteId: string
+  slug: string
+  name: string
+  bio: string | null
+  photoPath: string | null
+  indexable: boolean
+  seoTitle: string | null
+  seoDescription: string | null
+  bookCount: number
+  createdAt: string
+  books: AuthorBook[]
+}
+
+export interface AuthorBook {
+  editionId: string
+  slug: string
+  title: string
+  role: string
+  status: string
+}
+
 export interface CreateAuthorResponse {
   id: string
   slug: string
@@ -200,6 +232,45 @@ export const adminApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ siteId, name }),
+    })
+  },
+
+  getAuthors: async (params: { siteId: string; search?: string; offset?: number; limit?: number }): Promise<PaginatedResult<AuthorListItem>> => {
+    const query = new URLSearchParams({ siteId: params.siteId })
+    if (params.search) query.set('search', params.search)
+    if (params.offset) query.set('offset', String(params.offset))
+    if (params.limit) query.set('limit', String(params.limit))
+    return fetchJson<PaginatedResult<AuthorListItem>>(`/admin/authors?${query}`)
+  },
+
+  getAuthor: async (id: string): Promise<AuthorDetail> => {
+    return fetchJson<AuthorDetail>(`/admin/authors/${id}`)
+  },
+
+  updateAuthor: async (id: string, data: {
+    name: string
+    bio?: string | null
+    indexable?: boolean
+    seoTitle?: string | null
+    seoDescription?: string | null
+  }): Promise<void> => {
+    await fetchVoid(`/admin/authors/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteAuthor: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/authors/${id}`, { method: 'DELETE' })
+  },
+
+  uploadAuthorPhoto: async (id: string, file: File): Promise<{ photoPath: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetchJson<{ photoPath: string }>(`/admin/authors/${id}/photo`, {
+      method: 'POST',
+      body: formData,
     })
   },
 }
