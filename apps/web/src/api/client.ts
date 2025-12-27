@@ -67,6 +67,7 @@ export function createApi(language: string) {
     getAuthors: () => {
       const query = new URLSearchParams()
       addSiteParam(query)
+      query.set('language', language)
       return fetchJson<{ total: number; items: import('../types/api').Author[] }>(`/authors?${query}`)
     },
 

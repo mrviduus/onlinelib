@@ -32,7 +32,8 @@ dotnet test --filter "FullyQualifiedName~ClassName"     # Single class
 dotnet test --filter "Name~TestMethodName"              # Single method
 
 # Type-check frontend
-pnpm -C apps/web build   # includes tsc
+pnpm -C apps/web build    # includes tsc
+pnpm -C apps/admin build  # includes tsc
 
 # Migrations
 dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api
@@ -49,13 +50,16 @@ dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-p
 | Web | http://localhost:5173 |
 | Admin | http://localhost:5174 |
 | Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
 
 ## Key Concepts
 
 **Entity Hierarchy**: Site → Work → Edition → Chapter
 - Work = canonical book (just slug), Edition = per-language version with metadata
-- Edition contains: title, description, authors_json, cover_path, SEO fields
+- Edition contains: title, description, cover_path, SEO fields
+- Edition ↔ Author via EditionAuthor (M2M), Edition → Genre (FK)
 - Chapter contains: html (rendered), plain_text (search), search_vector (FTS)
+- Author/Genre are site-scoped with SEO fields
 - site_id scopes content; User is global
 
 **Book Upload Flow**:
@@ -84,25 +88,28 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - `GET /books` — list editions (paginated, ?language=)
 - `GET /books/{slug}` — edition detail + chapters + other editions
 - `GET /books/{slug}/chapters/{chapterSlug}` — chapter HTML + prev/next
+- `GET /authors`, `GET /authors/{slug}` — author listing + detail
+- `GET /genres`, `GET /genres/{slug}` — genre listing + detail
 - `GET /search?q=` — full-text search
 - `GET /seo/sitemap.xml` — dynamic sitemap
 
 **Admin**:
 - `POST /admin/books/upload` — create Work + Edition + BookFile + IngestionJob
 - `GET /admin/ingestion/jobs` — list jobs
-- `GET /admin/ingestion/jobs/{id}` — job detail
+- CRUD: `/admin/authors`, `/admin/sites`
 
 ## Key Files
 
 | Area | Path |
 |------|------|
-| Domain | `backend/src/Domain/Entities/{Work,Edition,Chapter,BookFile}.cs` |
-| API | `backend/src/Api/Endpoints/{Books,Seo,Search}Endpoints.cs` |
+| Domain | `backend/src/Domain/Entities/{Work,Edition,Chapter,Author,Genre}.cs` |
+| API | `backend/src/Api/Endpoints/{Books,Authors,Genres,Search,Seo}Endpoints.cs` |
 | Services | `backend/src/Application/{Books,Ingestion,Seo}/` |
 | Worker | `backend/src/Worker/Services/IngestionWorkerService.cs` |
 | Search | `backend/src/Search/` |
-| Frontend | `apps/web/src/pages/{BooksPage,BookDetailPage}.tsx` |
 | Extraction | `backend/src/Extraction/OnlineLib.Extraction/` |
+| Web | `apps/web/src/pages/` |
+| Admin | `apps/admin/src/pages/` |
 
 ## IMPORTANT — HOW TO WORK IN THIS REPO
 

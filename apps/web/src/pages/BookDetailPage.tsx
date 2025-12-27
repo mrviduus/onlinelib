@@ -75,7 +75,14 @@ export function BookDetailPage() {
           <h1>{book.title}</h1>
           <p className="book-detail__author">
             {book.authors.length > 0
-              ? book.authors.map(a => a.name).join(', ')
+              ? book.authors.map((a, i) => (
+                  <span key={a.id}>
+                    {i > 0 && ', '}
+                    <LocalizedLink to={`/authors/${a.slug}`} className="book-detail__author-link">
+                      {a.name}
+                    </LocalizedLink>
+                  </span>
+                ))
               : 'Unknown'}
           </p>
           {book.description && (

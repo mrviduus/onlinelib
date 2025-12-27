@@ -18,6 +18,7 @@ public static class AuthorsEndpoints
     private static async Task<IResult> GetAuthors(
         HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] string? language,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
         CancellationToken ct)
@@ -27,8 +28,17 @@ public static class AuthorsEndpoints
         var skip = offset ?? 0;
 
         var query = db.Authors
-            .Where(a => a.SiteId == siteId && a.Indexable)
-            .OrderBy(a => a.Name);
+            .Where(a => a.SiteId == siteId && a.Indexable);
+
+        // Filter authors who have at least one published edition in the requested language
+        if (!string.IsNullOrEmpty(language))
+        {
+            query = query.Where(a => a.EditionAuthors.Any(ea =>
+                ea.Edition.Language == language &&
+                ea.Edition.Status == Domain.Enums.EditionStatus.Published));
+        }
+
+        query = query.OrderBy(a => a.Name);
 
         var total = await query.CountAsync(ct);
         var items = await query
@@ -39,7 +49,9 @@ public static class AuthorsEndpoints
                 a.Slug,
                 a.Name,
                 a.PhotoPath,
-                a.EditionAuthors.Count(ea => ea.Edition.Status == Domain.Enums.EditionStatus.Published)
+                string.IsNullOrEmpty(language)
+                    ? a.EditionAuthors.Count(ea => ea.Edition.Status == Domain.Enums.EditionStatus.Published)
+                    : a.EditionAuthors.Count(ea => ea.Edition.Language == language && ea.Edition.Status == Domain.Enums.EditionStatus.Published)
             ))
             .ToListAsync(ct);
 
@@ -101,7 +113,7 @@ public record AuthorDetailDto(
     string? PhotoPath,
     string? SeoTitle,
     string? SeoDescription,
-    List<AuthorEditionDto> Books
+    List<AuthorEditionDto> Editions
 );
 
 public record AuthorEditionDto(

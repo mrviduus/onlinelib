@@ -68,7 +68,7 @@ export function AuthorDetailPage() {
           <h1 className="author-detail__name">{author.name}</h1>
           {author.bio && <p className="author-detail__bio">{author.bio}</p>}
           <p className="author-detail__count">
-            {author.bookCount} {language === 'uk' ? 'книг' : 'books'}
+            {author.editions.length} {language === 'uk' ? 'книг' : 'books'}
           </p>
         </div>
       </div>
