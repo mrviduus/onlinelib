@@ -12,6 +12,68 @@ All services: API :8080 | Web :5173 | Admin :5174 | DB :5432
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
+│                             MULTISITE DOMAIN                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌──────────┐         ┌─────────────┐                                      │
+│   │   Site   │ 1────N  │ SiteDomain  │                                      │
+│   │──────────│         │─────────────│                                      │
+│   │ id       │         │ id          │                                      │
+│   │ code   ● │         │ site_id   → │                                      │
+│   │ primary  │         │ domain    ● │                                      │
+│   │ default  │         │ is_primary  │                                      │
+│   │ _domain  │         │ created_at  │                                      │
+│   │ _language│         └─────────────┘                                      │
+│   │ theme    │                                                              │
+│   │ ads_on   │                                                              │
+│   │ index_on │                                                              │
+│   │ sitemap  │                                                              │
+│   │ features │                                                              │
+│   └────┬─────┘                                                              │
+│        │                                                                    │
+│        ├────────────────┬────────────────┬────────────────┐                 │
+│        ▼                ▼                ▼                ▼                 │
+│   ┌────────┐      ┌──────────┐      ┌────────┐      ┌─────────┐            │
+│   │  Work  │      │  Author  │      │  Genre │      │ Edition │            │
+│   └────────┘      └──────────┘      └────────┘      └─────────┘            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              METADATA DOMAIN                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌────────────┐                              ┌────────────┐               │
+│   │   Author   │                              │   Genre    │               │
+│   │────────────│                              │────────────│               │
+│   │ id         │                              │ id         │               │
+│   │ site_id  → │                              │ site_id  → │               │
+│   │ slug     ● │                              │ slug     ● │               │
+│   │ name       │                              │ name       │               │
+│   │ bio        │                              │ description│               │
+│   │ photo_path │                              │ indexable  │               │
+│   │ indexable  │                              │ seo_title  │               │
+│   │ seo_title  │                              │ seo_desc   │               │
+│   │ seo_desc   │                              │ created_at │               │
+│   │ created_at │                              │ updated_at │               │
+│   │ updated_at │                              └─────┬──────┘               │
+│   └─────┬──────┘                                    │                      │
+│         │                                           │                      │
+│         │              ┌────────────────┐           │                      │
+│         └──────────────┤ EditionAuthor  ├───────────┘                      │
+│                        │────────────────│           │                      │
+│         ┌──────────────┤ edition_id PK→ │           │                      │
+│         │              │ author_id  PK→ │───────────┘                      │
+│         │              │ order          │                                  │
+│         │              │ role           │ ← Author/Translator/etc          │
+│         ▼              └────────────────┘                                  │
+│   ┌─────────────┐                                                          │
+│   │   Edition   │ ←──── M:N via EditionAuthor + M:N via EditionGenres      │
+│   └─────────────┘                                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
 │                              CONTENT DOMAIN                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
@@ -19,16 +81,20 @@ All services: API :8080 | Web :5173 | Admin :5174 | DB :5432
 │   │   Work   │ 1────N  │   Edition   │ 1────N  │  Chapter  │               │
 │   │──────────│         │─────────────│         │───────────│               │
 │   │ id       │         │ id          │         │ id        │               │
-│   │ slug  ●  │         │ work_id  →  │         │ edition_id→│               │
-│   │ created  │         │ language    │         │ number    │               │
-│   └──────────┘         │ slug     ●  │         │ slug      │               │
-│                        │ title       │         │ title     │               │
-│                        │ authors_json│         │ html      │               │
+│   │ site_id→ │         │ work_id  →  │         │ edition_id→│               │
+│   │ slug  ●  │         │ site_id  →  │         │ number    │               │
+│   │ created  │         │ language    │         │ slug      │               │
+│   └──────────┘         │ slug     ●  │         │ title     │               │
+│                        │ title       │         │ html      │               │
 │                        │ description │         │ plain_text│               │
 │                        │ status      │         │ word_count│               │
 │                        │ source_id →○│         │ search_vec│ ← FTS GIN    │
 │                        │ cover_path  │         └───────────┘               │
 │                        │ is_public   │                                      │
+│                        │ indexable   │ ← SEO                               │
+│                        │ seo_title   │                                      │
+│                        │ seo_desc    │                                      │
+│                        │ canonical   │                                      │
 │                        └──────┬──────┘                                      │
 │                               │                                             │
 │                    ┌──────────┴──────────┐                                  │
@@ -103,6 +169,7 @@ Legend:
   ●   Unique Index
   ○   Nullable FK (self-ref for translations)
   N   One-to-Many relationship
+  M:N Many-to-Many (via join table)
 ```
 
 ---
@@ -111,8 +178,13 @@ Legend:
 
 | Table | Purpose | Key Relationships |
 |-------|---------|-------------------|
-| `works` | Canonical book identity | → editions |
-| `editions` | Language-specific version | → work, → chapters, → book_files |
+| `sites` | Multisite config | → works, editions, authors, genres, domains |
+| `site_domains` | Domain aliases | → site |
+| `authors` | Book authors | → site, → edition_authors |
+| `genres` | Book categories | → site, → editions (M:N) |
+| `edition_authors` | M:N Edition↔Author | → edition, → author |
+| `works` | Canonical book identity | → site, → editions |
+| `editions` | Language-specific version | → work, → site, → chapters, → book_files, → genres |
 | `chapters` | Book content + FTS | → edition |
 | `book_files` | Original uploaded files | → edition |
 | `ingestion_jobs` | Processing queue | → edition, → book_file |
@@ -129,31 +201,123 @@ Legend:
 
 ## Detailed Schema
 
+### Multisite Tables
+
+#### `sites`
+```sql
+id               UUID PRIMARY KEY
+code             VARCHAR NOT NULL UNIQUE  -- "general", "ua", etc
+primary_domain   VARCHAR NOT NULL
+default_language VARCHAR NOT NULL         -- "en", "uk"
+theme            VARCHAR NOT NULL DEFAULT 'default'
+ads_enabled      BOOLEAN NOT NULL DEFAULT false
+indexing_enabled BOOLEAN NOT NULL DEFAULT false
+sitemap_enabled  BOOLEAN NOT NULL DEFAULT true
+features_json    TEXT NOT NULL DEFAULT '{}'
+created_at       TIMESTAMPTZ NOT NULL
+updated_at       TIMESTAMPTZ NOT NULL
+```
+
+#### `site_domains`
+```sql
+id         UUID PRIMARY KEY
+site_id    UUID NOT NULL → sites(id)
+domain     VARCHAR NOT NULL UNIQUE
+is_primary BOOLEAN NOT NULL DEFAULT false
+created_at TIMESTAMPTZ NOT NULL
+```
+
+---
+
+### Metadata Tables
+
+#### `authors`
+```sql
+id              UUID PRIMARY KEY
+site_id         UUID NOT NULL → sites(id)
+slug            VARCHAR NOT NULL
+name            VARCHAR NOT NULL
+bio             TEXT
+photo_path      VARCHAR
+indexable       BOOLEAN NOT NULL DEFAULT true
+seo_title       VARCHAR
+seo_description VARCHAR
+created_at      TIMESTAMPTZ NOT NULL
+updated_at      TIMESTAMPTZ NOT NULL
+
+UNIQUE(site_id, slug)
+```
+
+#### `genres`
+```sql
+id              UUID PRIMARY KEY
+site_id         UUID NOT NULL → sites(id)
+slug            VARCHAR NOT NULL
+name            VARCHAR NOT NULL
+description     TEXT
+indexable       BOOLEAN NOT NULL DEFAULT true
+seo_title       VARCHAR
+seo_description VARCHAR
+created_at      TIMESTAMPTZ NOT NULL
+updated_at      TIMESTAMPTZ NOT NULL
+
+UNIQUE(site_id, slug)
+```
+
+#### `edition_authors` (Join Table)
+```sql
+edition_id UUID NOT NULL → editions(id) CASCADE
+author_id  UUID NOT NULL → authors(id) CASCADE
+order      INT NOT NULL DEFAULT 0
+role       INT NOT NULL DEFAULT 0  -- 0=Author, 1=Translator, 2=Editor, 3=Illustrator
+
+PRIMARY KEY(edition_id, author_id)
+```
+
+#### `edition_genres` (Join Table)
+```sql
+edition_id UUID NOT NULL → editions(id) CASCADE
+genre_id   UUID NOT NULL → genres(id) CASCADE
+
+PRIMARY KEY(edition_id, genre_id)
+```
+
+---
+
 ### Content Tables
 
 #### `works`
 ```sql
-id          UUID PRIMARY KEY
-slug        VARCHAR UNIQUE NOT NULL
-created_at  TIMESTAMPTZ NOT NULL
+id         UUID PRIMARY KEY
+site_id    UUID NOT NULL → sites(id)
+slug       VARCHAR NOT NULL
+created_at TIMESTAMPTZ NOT NULL
+
+UNIQUE(site_id, slug)
 ```
 
 #### `editions`
 ```sql
-id                UUID PRIMARY KEY
-work_id           UUID NOT NULL → works(id)
-language          VARCHAR NOT NULL  -- "en", "uk"
-slug              VARCHAR NOT NULL
-title             VARCHAR NOT NULL
-description       TEXT
-authors_json      TEXT              -- JSON array
-status            INT NOT NULL      -- 0=Draft, 1=Published, 2=Hidden
-published_at      TIMESTAMPTZ
-source_edition_id UUID → editions(id)  -- for translations
-cover_path        VARCHAR
-is_public_domain  BOOLEAN NOT NULL
-created_at        TIMESTAMPTZ NOT NULL
-updated_at        TIMESTAMPTZ NOT NULL
+id                 UUID PRIMARY KEY
+work_id            UUID NOT NULL → works(id)
+site_id            UUID NOT NULL → sites(id)
+language           VARCHAR NOT NULL  -- "en", "uk"
+slug               VARCHAR NOT NULL
+title              VARCHAR NOT NULL
+description        TEXT
+status             INT NOT NULL      -- 0=Draft, 1=Published, 2=Hidden
+published_at       TIMESTAMPTZ
+source_edition_id  UUID → editions(id)  -- for translations
+cover_path         VARCHAR
+is_public_domain   BOOLEAN NOT NULL
+created_at         TIMESTAMPTZ NOT NULL
+updated_at         TIMESTAMPTZ NOT NULL
+
+-- SEO fields
+indexable          BOOLEAN NOT NULL DEFAULT true
+seo_title          VARCHAR
+seo_description    VARCHAR
+canonical_override VARCHAR
 
 UNIQUE(work_id, language)
 UNIQUE(slug)
@@ -313,40 +477,20 @@ EditionStatus { Draft=0, Published=1, Hidden=2 }
 BookFormat    { Epub=0, Pdf=1, Fb2=2 }
 JobStatus     { Queued=0, Processing=1, Completed=2, Failed=3 }
 AdminRole     { Admin=0, Editor=1, Moderator=2 }
+AuthorRole    { Author=0, Translator=1, Editor=2, Illustrator=3 }
 ```
-
----
-
-## Implementation Status
-
-| Feature | Schema | API | UI |
-|---------|--------|-----|-----|
-| Work/Edition model | ✅ | ❌ | ❌ |
-| Chapters + FTS | ✅ | ❌ | ❌ |
-| File upload | ✅ | ❌ | ❌ |
-| Ingestion queue | ✅ | ❌ | ❌ |
-| User (Google OAuth) | ✅ | ❌ | ❌ |
-| User Library | ✅ | ❌ | ❌ |
-| Reading Progress | ✅ | ❌ | ❌ |
-| Bookmarks | ✅ | ❌ | ❌ |
-| Notes | ✅ | ❌ | ❌ |
-| Admin Auth | ✅ | ❌ | ❌ |
-| Admin Audit | ✅ | ❌ | ❌ |
-
----
-
-## Migrations
-
-1. `Initial_WorkEdition_Admin` - Full schema
-2. `Add_UserLibrary_UserFields` - User.Email, User.Name, User.GoogleSubject, UserLibrary table
 
 ---
 
 ## Key Design Decisions
 
-1. **Work/Edition split** - Enables multilingual support (same book, different languages)
-2. **Edition.SourceEditionId** - Links translations to original
-3. **Soft delete on Notes** - Preserves user data, enables sync
-4. **FTS in Chapter** - PostgreSQL tsvector + GIN for search
-5. **Separate Admin auth** - AdminUser != User (different auth flows)
-6. **UserLibrary** - Many-to-many User↔Edition for "My Library"
+1. **Multisite architecture** - Site scopes all content (works, editions, authors, genres)
+2. **Work/Edition split** - Enables multilingual support (same book, different languages)
+3. **Edition.SourceEditionId** - Links translations to original
+4. **EditionAuthor join** - M:N with role (author/translator/editor/illustrator) + order
+5. **EditionGenres join** - M:N Edition↔Genre
+6. **Soft delete on Notes** - Preserves user data, enables sync
+7. **FTS in Chapter** - PostgreSQL tsvector + GIN for search
+8. **Separate Admin auth** - AdminUser != User (different auth flows)
+9. **UserLibrary** - Many-to-many User↔Edition for "My Library"
+10. **SEO fields** - indexable, seo_title, seo_description on Author, Genre, Edition
