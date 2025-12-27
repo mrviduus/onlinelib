@@ -87,7 +87,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     INNER JOIN chapters c ON c.edition_id = e.id
                     WHERE e.site_id = @SiteId
                       AND e.status = 1
-                      AND (lower(e.title) LIKE @TitlePattern OR lower(e.authors_json) LIKE @AuthorPattern)
+                      AND (lower(e.title) LIKE @TitlePattern OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern))
                     ORDER BY e.id, c.chapter_number
                 ) metadata_matches
                 UNION
@@ -109,7 +109,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
                     INNER JOIN chapters c ON c.edition_id = e.id
                     WHERE e.site_id = @SiteId
                       AND e.status = 1
-                      AND similarity(lower(e.authors_json), @NormalizedQuery) > @FuzzyThreshold
+                      AND EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
                     ORDER BY e.id, c.chapter_number
                 ) fuzzy_author_matches
                 UNION

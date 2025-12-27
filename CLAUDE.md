@@ -121,6 +121,24 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - `dotnet test` must pass for every slice.
 - Report results: Summary / Files / Tests / Manual / Follow-ups format.
 
+## Critical: Search Reliability
+
+Search is a **key feature** - must always work. React immediately to any search issues.
+
+**Rules**:
+1. **Schema changes** → update `PostgresSearchProvider.cs` SQL (both `countSql` AND `searchSql`)
+2. Run `dotnet test tests/OnlineLib.IntegrationTests --filter SearchEndpoint` after any DB schema change
+3. Test in browser: `http://general.localhost/en/search?q=test`
+4. API 500 on search = **P0 bug**, fix immediately
+
+**Common issues**:
+- `column X does not exist` → SQL references old column, update to match current schema
+- Search uses raw SQL (Dapper), not EF - schema changes don't auto-update
+
+**Key files**:
+- `backend/src/Search/OnlineLib.Search/Providers/PostgresFts/PostgresSearchProvider.cs` - raw SQL queries
+- `tests/OnlineLib.IntegrationTests/SearchEndpointTests.cs` - catches schema mismatches
+
 ## Known Technical Debt
 
 - 3 site resolution sources (HostSiteResolver, SiteResolver, frontend SiteContext) - needs consolidation
