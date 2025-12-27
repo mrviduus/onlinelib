@@ -89,25 +89,6 @@ function useKeyboardShortcut(key: string, callback: () => void) {
 // ============================================
 
 /**
- * Parse authors from JSON string
- * Why: API returns authors as JSON, we need display string
- */
-function parseAuthors(json: string | null): string {
-  if (!json) return ''
-
-  try {
-    const authors = JSON.parse(json)
-    if (!Array.isArray(authors)) return ''
-
-    return authors
-      .map(a => (typeof a === 'string' ? a : a.name || a.Name))
-      .join(', ')
-  } catch {
-    return ''
-  }
-}
-
-/**
  * Build book URL for navigation
  */
 function buildBookUrl(language: string, slug: string): string {

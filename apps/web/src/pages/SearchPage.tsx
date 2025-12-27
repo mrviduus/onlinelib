@@ -50,19 +50,6 @@ export function SearchPage() {
 
   const totalPages = Math.ceil(total / RESULTS_PER_PAGE)
 
-  const parseAuthors = (json: string | null): string => {
-    if (!json) return ''
-    try {
-      const authors = JSON.parse(json)
-      if (Array.isArray(authors)) {
-        return authors.map(a => typeof a === 'string' ? a : a.name || a.Name).join(', ')
-      }
-      return ''
-    } catch {
-      return ''
-    }
-  }
-
   const renderHighlight = (html: string) => {
     return <span dangerouslySetInnerHTML={{ __html: html }} />
   }
