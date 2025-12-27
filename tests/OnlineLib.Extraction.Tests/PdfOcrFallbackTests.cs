@@ -8,9 +8,6 @@ namespace OnlineLib.Extraction.Tests;
 
 public class PdfOcrFallbackTests
 {
-    private static string ScannedPdfPath => Path.Combine(
-        AppContext.BaseDirectory, "Fixtures", "pdf_scanned_notextlayer.pdf");
-
     #region OCR Disabled Behavior
 
     [Fact]
@@ -232,59 +229,6 @@ public class PdfOcrFallbackTests
         // Assert - should have parse error warning
         Assert.Contains(result.Diagnostics.Warnings,
             w => w.Code == ExtractionWarningCode.ParseError);
-    }
-
-    #endregion
-
-    #region Integration Tests (require fixture files)
-
-    [Fact(Skip = "Requires scanned PDF fixture")]
-    public async Task ExtractAsync_ScannedPdf_OcrEnabled_ReturnsOcrTextSource()
-    {
-        // Arrange
-        var mockOcr = new MockOcrEngine("OCR extracted text", 0.85);
-        var options = new ExtractionOptions
-        {
-            EnableOcrFallback = true,
-            MaxPagesForOcr = 50,
-            OcrLanguage = "eng"
-        };
-        var extractor = new PdfTextExtractor(options, mockOcr);
-
-        await using var stream = File.OpenRead(ScannedPdfPath);
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "pdf_scanned_notextlayer.pdf"
-        };
-
-        // Act
-        var result = await extractor.ExtractAsync(request);
-
-        // Assert
-        Assert.Equal(TextSource.Ocr, result.Diagnostics.TextSource);
-        Assert.NotEmpty(result.Units);
-    }
-
-    [Fact(Skip = "Requires scanned PDF fixture")]
-    public async Task ExtractAsync_ScannedPdf_OcrDisabled_ReturnsTextSourceNone()
-    {
-        // Arrange
-        var options = new ExtractionOptions { EnableOcrFallback = false };
-        var extractor = new PdfTextExtractor(options, null);
-
-        await using var stream = File.OpenRead(ScannedPdfPath);
-        var request = new ExtractionRequest
-        {
-            Content = stream,
-            FileName = "pdf_scanned_notextlayer.pdf"
-        };
-
-        // Act
-        var result = await extractor.ExtractAsync(request);
-
-        // Assert
-        Assert.Equal(TextSource.None, result.Diagnostics.TextSource);
     }
 
     #endregion

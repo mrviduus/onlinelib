@@ -220,24 +220,6 @@ public class DjvuExtractorTests
         }
     }
 
-    [Fact(Skip = "Requires DJVU fixture and DjVuLibre tools")]
-    public async Task ExtractAsync_ValidDjvu_WithTextLayer_ReturnsNativeText()
-    {
-        // This test would require a real DJVU file with embedded text
-        // and DjVuLibre tools (djvutxt) installed on the system
-        await Task.CompletedTask;
-    }
-
-    [Fact(Skip = "Requires DJVU fixture and DjVuLibre tools")]
-    public async Task ExtractAsync_ScannedDjvu_OcrEnabled_ReturnsOcrTextSource()
-    {
-        // This test would require:
-        // 1. A scanned DJVU file without text layer
-        // 2. DjVuLibre tools (ddjvu for rendering)
-        // 3. Tesseract or mock OCR engine
-        await Task.CompletedTask;
-    }
-
     [Fact]
     public async Task ExtractAsync_ValidDjvu_ReturnsUnits()
     {
