@@ -296,6 +296,203 @@ function NoResults({ language }: { language: string }) {
 }
 
 // ============================================
+// MOBILE SEARCH OVERLAY
+// ============================================
+
+export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
+  const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [mode, setMode] = useState<SearchMode>('suggestions')
+  const [isLoading, setIsLoading] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const api = useApi()
+  const { language } = useLanguage()
+  const debouncedQuery = useDebounce(query.trim(), 150)
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  // Prevent body scroll when overlay open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  // Fetch suggestions
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.length < 2) {
+      setSuggestions([])
+      return
+    }
+    if (mode !== 'suggestions') return
+
+    let cancelled = false
+    setIsLoading(true)
+
+    api.suggest(debouncedQuery, { limit: 8 })
+      .then((data) => {
+        if (cancelled) return
+        setSuggestions(data)
+        setActiveIndex(-1)
+      })
+      .catch(() => { if (!cancelled) setSuggestions([]) })
+      .finally(() => { if (!cancelled) setIsLoading(false) })
+
+    return () => { cancelled = true }
+  }, [debouncedQuery, api, mode])
+
+  const executeSearch = useCallback((searchQuery: string) => {
+    if (!searchQuery || searchQuery.length < 2) return
+    setIsLoading(true)
+    setMode('results')
+
+    api.search(searchQuery, { limit: 10, highlight: true })
+      .then((data) => {
+        setResults(data.items)
+        setActiveIndex(-1)
+      })
+      .catch(() => setResults([]))
+      .finally(() => setIsLoading(false))
+  }, [api])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose()
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const items = mode === 'suggestions' ? suggestions : results
+      if (activeIndex >= 0 && items[activeIndex]) {
+        const slug = mode === 'suggestions'
+          ? (items[activeIndex] as Suggestion).slug
+          : (items[activeIndex] as SearchResult).edition.slug
+        window.location.href = buildBookUrl(language, slug)
+      } else {
+        executeSearch(query)
+      }
+      return
+    }
+    const items = mode === 'suggestions' ? suggestions : results
+    if (items.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex(i => (i < items.length - 1 ? i + 1 : 0))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex(i => (i > 0 ? i - 1 : items.length - 1))
+    }
+  }
+
+  const handleInputChange = (value: string) => {
+    setQuery(value)
+    setMode('suggestions')
+  }
+
+  const navigateAndClose = (slug: string) => {
+    window.location.href = buildBookUrl(language, slug)
+  }
+
+  const placeholder = language === 'uk' ? 'Пошук книг...' : 'Search books...'
+  const closeLabel = language === 'uk' ? 'Закрити' : 'Close'
+  const noResultsText = language === 'uk' ? 'Нічого не знайдено' : 'No results found'
+  const viewAllText = language === 'uk' ? 'Переглянути всі результати' : 'View all results'
+
+  const showSuggestions = mode === 'suggestions' && suggestions.length > 0
+  const showResults = mode === 'results' && results.length > 0
+  const showNoResults = debouncedQuery.length >= 2 && !isLoading &&
+    ((mode === 'suggestions' && suggestions.length === 0) ||
+     (mode === 'results' && results.length === 0))
+
+  return (
+    <div className="mobile-search-overlay">
+      <div className="mobile-search-overlay__header">
+        <div className="mobile-search-overlay__input-wrapper">
+          <svg className="mobile-search-overlay__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="search"
+            className="mobile-search-overlay__input"
+            placeholder={placeholder}
+            value={query}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          {isLoading && <span className="mobile-search-overlay__spinner" />}
+        </div>
+        <button className="mobile-search-overlay__close" onClick={onClose} aria-label={closeLabel}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mobile-search-overlay__content">
+        {showSuggestions && (
+          <ul className="mobile-search-overlay__list">
+            {suggestions.map((s, i) => (
+              <li
+                key={s.slug}
+                className={`mobile-search-overlay__item ${i === activeIndex ? 'mobile-search-overlay__item--active' : ''}`}
+                onClick={() => navigateAndClose(s.slug)}
+              >
+                <div className="mobile-search-overlay__item-cover" style={{ backgroundColor: s.coverPath ? undefined : '#e0e0e0' }}>
+                  {s.coverPath ? <img src={s.coverPath} alt="" /> : <span>{s.text[0]}</span>}
+                </div>
+                <div className="mobile-search-overlay__item-info">
+                  <span className="mobile-search-overlay__item-title">{s.text}</span>
+                  {s.authors && <span className="mobile-search-overlay__item-author">{s.authors}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {showResults && (
+          <ul className="mobile-search-overlay__list">
+            {results.map((r, i) => (
+              <li
+                key={r.chapterId}
+                className={`mobile-search-overlay__item ${i === activeIndex ? 'mobile-search-overlay__item--active' : ''}`}
+                onClick={() => navigateAndClose(r.edition.slug)}
+              >
+                <div className="mobile-search-overlay__item-cover" style={{ backgroundColor: r.edition.coverPath ? undefined : '#e0e0e0' }}>
+                  {r.edition.coverPath ? <img src={r.edition.coverPath} alt="" /> : <span>{r.edition.title[0]}</span>}
+                </div>
+                <div className="mobile-search-overlay__item-info">
+                  <span className="mobile-search-overlay__item-title">{r.edition.title}</span>
+                  <span className="mobile-search-overlay__item-chapter">{r.chapterTitle || `Chapter ${r.chapterNumber}`}</span>
+                  {r.edition.authors && <span className="mobile-search-overlay__item-author">{r.edition.authors}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {showNoResults && <div className="mobile-search-overlay__empty">{noResultsText}</div>}
+
+        {(showSuggestions || showResults) && (
+          <LocalizedLink
+            to={`/search?q=${encodeURIComponent(query)}`}
+            className="mobile-search-overlay__view-all"
+          >
+            {viewAllText}
+          </LocalizedLink>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
