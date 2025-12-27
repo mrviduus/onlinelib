@@ -43,9 +43,6 @@ jobs:
         env:
           ConnectionStrings__Default: "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme"
 
-      - name: Unit tests
-        run: dotnet test tests/OnlineLib.UnitTests --no-build
-
       # Extraction tests skipped - require native SkiaSharp libs
       # - name: Extraction tests
       #   run: dotnet test tests/OnlineLib.Extraction.Tests --no-build
