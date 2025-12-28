@@ -42,3 +42,6 @@ TestResults/
 
 # Build
 publish/
+
+# Backups (keep .gitkeep)
+backups/*.sql.gz

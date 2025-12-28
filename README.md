@@ -82,6 +82,18 @@ In production, sites resolve via Host header (general.example.com, programming.e
 ./scripts/docker-nuke.sh    # NUCLEAR: removes ALL docker data system-wide
 ```
 
+### Database Backup & Restore
+
+```bash
+make backup                 # Create compressed backup
+make backup-list            # List available backups
+make restore FILE=backups/db_2024-01-15_143022.sql.gz  # Restore from backup
+```
+
+Config via env vars: `POSTGRES_CONTAINER`, `POSTGRES_USER`, `POSTGRES_DB`, `BACKUP_KEEP` (default: 7).
+
+See [scripts/restore_postgres.md](scripts/restore_postgres.md) for full restore docs.
+
 ### Migrations
 
 Migrations run automatically via dedicated Docker service before api/worker start.
