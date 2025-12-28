@@ -10,9 +10,10 @@ interface GenreSelectProps {
   siteId: string
   selected: SelectedGenre[]
   onChange: (genres: SelectedGenre[]) => void
+  maxSelections?: number
 }
 
-export function GenreSelect({ siteId, selected, onChange }: GenreSelectProps) {
+export function GenreSelect({ siteId, selected, onChange, maxSelections }: GenreSelectProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GenreSearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,6 +58,7 @@ export function GenreSelect({ siteId, selected, onChange }: GenreSelectProps) {
   }
 
   const showWarning = selected.length > 3
+  const atMaxSelections = maxSelections !== undefined && selected.length >= maxSelections
 
   return (
     <div className="genre-select" ref={containerRef}>
@@ -71,37 +73,39 @@ export function GenreSelect({ siteId, selected, onChange }: GenreSelectProps) {
         ))}
       </div>
 
-      <div className="genre-select__input-container">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setIsOpen(true) }}
-          onFocus={() => setIsOpen(true)}
-          placeholder="Search genres..."
-          className="genre-select__input"
-        />
-        {isOpen && (
-          <div className="genre-select__dropdown">
-            {loading ? (
-              <div className="genre-select__loading">Loading...</div>
-            ) : results.length === 0 ? (
-              <div className="genre-select__empty">No genres found</div>
-            ) : (
-              results.map(genre => (
-                <button
-                  key={genre.id}
-                  type="button"
-                  className="genre-select__option"
-                  onClick={() => handleSelect(genre)}
-                >
-                  <span className="genre-select__option-name">{genre.name}</span>
-                  <span className="genre-select__option-count">{genre.editionCount} editions</span>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
+      {!atMaxSelections && (
+        <div className="genre-select__input-container">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setIsOpen(true) }}
+            onFocus={() => setIsOpen(true)}
+            placeholder="Search genres..."
+            className="genre-select__input"
+          />
+          {isOpen && (
+            <div className="genre-select__dropdown">
+              {loading ? (
+                <div className="genre-select__loading">Loading...</div>
+              ) : results.length === 0 ? (
+                <div className="genre-select__empty">No genres found</div>
+              ) : (
+                results.map(genre => (
+                  <button
+                    key={genre.id}
+                    type="button"
+                    className="genre-select__option"
+                    onClick={() => handleSelect(genre)}
+                  >
+                    <span className="genre-select__option-name">{genre.name}</span>
+                    <span className="genre-select__option-count">{genre.editionCount} editions</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <small className="genre-select__hint">
         Optional. Used for search/SEO/recommendations. Suggested: up to 3.

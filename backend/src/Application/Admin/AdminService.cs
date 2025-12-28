@@ -19,7 +19,9 @@ public record UploadBookRequest(
     Guid? SourceEditionId,
     string FileName,
     long FileSize,
-    Stream FileStream
+    Stream FileStream,
+    List<Guid>? AuthorIds = null,
+    Guid? GenreId = null
 );
 
 public record UploadBookResult(Guid WorkId, Guid EditionId, Guid BookFileId, Guid JobId);
@@ -159,6 +161,32 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
             UpdatedAt = DateTimeOffset.UtcNow
         };
         db.Editions.Add(edition);
+
+        // Add authors if provided
+        if (req.AuthorIds is { Count: > 0 })
+        {
+            var order = 0;
+            foreach (var authorId in req.AuthorIds)
+            {
+                db.EditionAuthors.Add(new EditionAuthor
+                {
+                    EditionId = edition.Id,
+                    AuthorId = authorId,
+                    Order = order++,
+                    Role = AuthorRole.Author
+                });
+            }
+        }
+
+        // Add genre if provided (M2M via edition_genres)
+        if (req.GenreId.HasValue)
+        {
+            var genre = await db.Genres.FindAsync([req.GenreId.Value], ct);
+            if (genre is not null)
+            {
+                edition.Genres.Add(genre);
+            }
+        }
 
         var storagePath = await storage.SaveFileAsync(edition.Id, req.FileName, req.FileStream, ct);
 

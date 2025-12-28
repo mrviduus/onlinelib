@@ -67,9 +67,18 @@ public static class AdminEndpoints
         [FromForm] string? description,
         [FromForm] Guid? workId,
         [FromForm] Guid? sourceEditionId,
+        [FromForm] string? authorIds,
+        [FromForm] Guid? genreId,
         AdminService adminService,
         CancellationToken ct)
     {
+        // Validate required fields for SEO
+        if (string.IsNullOrWhiteSpace(authorIds))
+            return Results.BadRequest(new { error = "At least one author is required" });
+
+        if (!genreId.HasValue)
+            return Results.BadRequest(new { error = "Genre is required" });
+
         var (valid, error) = await adminService.ValidateUploadAsync(siteId, file.FileName, file.Length, ct);
         if (!valid)
             return Results.BadRequest(new { error });
@@ -78,10 +87,25 @@ public static class AdminEndpoints
         if (!workValid)
             return Results.BadRequest(new { error = workError });
 
+        // Parse comma-separated author IDs
+        List<Guid>? parsedAuthorIds = null;
+        if (!string.IsNullOrWhiteSpace(authorIds))
+        {
+            parsedAuthorIds = authorIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(id => Guid.TryParse(id, out var guid) ? guid : (Guid?)null)
+                .Where(g => g.HasValue)
+                .Select(g => g!.Value)
+                .ToList();
+        }
+
+        if (parsedAuthorIds is null || parsedAuthorIds.Count == 0)
+            return Results.BadRequest(new { error = "At least one valid author ID is required" });
+
         await using var stream = file.OpenReadStream();
         var request = new UploadBookRequest(
             siteId, title, language, description, workId, sourceEditionId,
-            file.FileName, file.Length, stream
+            file.FileName, file.Length, stream, parsedAuthorIds, genreId
         );
 
         var result = await adminService.UploadBookAsync(request, work!, ct);

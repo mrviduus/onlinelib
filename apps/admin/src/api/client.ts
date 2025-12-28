@@ -205,12 +205,23 @@ async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
 const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
 export const adminApi = {
-  uploadBook: async (file: File, title: string, language: string, siteId?: string): Promise<UploadResponse> => {
+  uploadBook: async (params: {
+    file: File
+    title: string
+    language: string
+    siteId?: string
+    description?: string
+    authorIds?: string[]
+    genreId?: string
+  }): Promise<UploadResponse> => {
     const formData = new FormData()
-    formData.append('file', file)
-    formData.append('siteId', siteId || DEFAULT_SITE_ID)
-    formData.append('title', title)
-    formData.append('language', language)
+    formData.append('file', params.file)
+    formData.append('siteId', params.siteId || DEFAULT_SITE_ID)
+    formData.append('title', params.title)
+    formData.append('language', params.language)
+    if (params.description) formData.append('description', params.description)
+    if (params.authorIds?.length) formData.append('authorIds', params.authorIds.join(','))
+    if (params.genreId) formData.append('genreId', params.genreId)
 
     return fetchJson<UploadResponse>('/admin/books/upload', {
       method: 'POST',
