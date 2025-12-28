@@ -41,8 +41,46 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    private static void CleanupOldTestData(AppDbContext db)
+    {
+        try
+        {
+            // Find test editions by title pattern
+            var testEditions = db.Editions
+                .Where(e => e.Title.StartsWith("Test ") || e.Title.StartsWith("Duplicate Test Book"))
+                .Select(e => e.Id)
+                .ToList();
+
+            if (testEditions.Count == 0) return;
+
+            // Delete in order respecting FK constraints
+            var jobs = db.IngestionJobs.Where(j => testEditions.Contains(j.EditionId)).ToList();
+            var bookFiles = db.BookFiles.Where(bf => testEditions.Contains(bf.EditionId)).ToList();
+            var chapters = db.Chapters.Where(c => testEditions.Contains(c.EditionId)).ToList();
+            var editions = db.Editions.Where(e => testEditions.Contains(e.Id)).ToList();
+            var workIds = editions.Select(e => e.WorkId).Distinct().ToList();
+
+            db.IngestionJobs.RemoveRange(jobs);
+            db.BookFiles.RemoveRange(bookFiles);
+            db.Chapters.RemoveRange(chapters);
+            db.Editions.RemoveRange(editions);
+            db.SaveChanges();
+
+            // Clean orphan works
+            var orphanWorks = db.Works
+                .Where(w => workIds.Contains(w.Id) && !db.Editions.Any(e => e.WorkId == w.Id))
+                .ToList();
+            db.Works.RemoveRange(orphanWorks);
+            db.SaveChanges();
+        }
+        catch { /* Ignore cleanup errors */ }
+    }
+
     private static void SeedTestData(AppDbContext db)
     {
+        // Clean up leftover test data from previous runs
+        CleanupOldTestData(db);
+
         // Use try-catch to handle parallel test execution race conditions
         try
         {
