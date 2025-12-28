@@ -45,6 +45,7 @@ export interface EditionDetail {
   publishedAt: string | null
   chapters: Chapter[]
   authors: EditionAuthor[]
+  genres: EditionGenre[]
   // SEO fields
   indexable: boolean
   seoTitle: string | null
@@ -130,6 +131,59 @@ export interface CreateAuthorResponse {
   isNew: boolean
 }
 
+// Genres
+export interface GenreSearchResult {
+  id: string
+  slug: string
+  name: string
+  editionCount: number
+}
+
+export interface GenreListItem {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  indexable: boolean
+  editionCount: number
+  updatedAt: string
+}
+
+export interface GenreDetail {
+  id: string
+  siteId: string
+  slug: string
+  name: string
+  description: string | null
+  indexable: boolean
+  seoTitle: string | null
+  seoDescription: string | null
+  editionCount: number
+  createdAt: string
+  updatedAt: string
+  editions: GenreEdition[]
+}
+
+export interface GenreEdition {
+  editionId: string
+  slug: string
+  title: string
+  status: string
+}
+
+export interface CreateGenreResponse {
+  id: string
+  slug: string
+  name: string
+  isNew: boolean
+}
+
+export interface EditionGenre {
+  id: string
+  slug: string
+  name: string
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init)
   if (!res.ok) {
@@ -195,6 +249,7 @@ export const adminApi = {
     seoDescription?: string | null
     canonicalOverride?: string | null
     authors?: UpdateEditionAuthor[] | null
+    genreIds?: string[] | null
   }): Promise<void> => {
     await fetchVoid(`/admin/editions/${id}`, {
       method: 'PUT',
@@ -272,5 +327,52 @@ export const adminApi = {
       method: 'POST',
       body: formData,
     })
+  },
+
+  // Genres
+  searchGenres: async (siteId: string, query?: string, limit?: number): Promise<GenreSearchResult[]> => {
+    const params = new URLSearchParams({ siteId })
+    if (query) params.set('q', query)
+    if (limit) params.set('limit', String(limit))
+    return fetchJson<GenreSearchResult[]>(`/admin/genres/search?${params}`)
+  },
+
+  createGenre: async (siteId: string, name: string): Promise<CreateGenreResponse> => {
+    return fetchJson<CreateGenreResponse>('/admin/genres', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId, name }),
+    })
+  },
+
+  getGenres: async (params: { siteId: string; search?: string; indexable?: boolean; offset?: number; limit?: number }): Promise<PaginatedResult<GenreListItem>> => {
+    const query = new URLSearchParams({ siteId: params.siteId })
+    if (params.search) query.set('search', params.search)
+    if (params.indexable !== undefined) query.set('indexable', String(params.indexable))
+    if (params.offset) query.set('offset', String(params.offset))
+    if (params.limit) query.set('limit', String(params.limit))
+    return fetchJson<PaginatedResult<GenreListItem>>(`/admin/genres?${query}`)
+  },
+
+  getGenre: async (id: string): Promise<GenreDetail> => {
+    return fetchJson<GenreDetail>(`/admin/genres/${id}`)
+  },
+
+  updateGenre: async (id: string, data: {
+    name: string
+    description?: string | null
+    indexable?: boolean
+    seoTitle?: string | null
+    seoDescription?: string | null
+  }): Promise<void> => {
+    await fetchVoid(`/admin/genres/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteGenre: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/genres/${id}`, { method: 'DELETE' })
   },
 }

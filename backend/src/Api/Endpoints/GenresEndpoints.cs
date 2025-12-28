@@ -62,6 +62,7 @@ public static class GenresEndpoints
                 g.Description,
                 g.SeoTitle,
                 g.SeoDescription,
+                g.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published),
                 g.Editions
                     .Where(e => e.Status == Domain.Enums.EditionStatus.Published)
                     .Select(e => new GenreEditionDto(
@@ -96,7 +97,8 @@ public record GenreDetailDto(
     string? Description,
     string? SeoTitle,
     string? SeoDescription,
-    List<GenreEditionDto> Books
+    int BookCount,
+    List<GenreEditionDto> Editions
 );
 
 public record GenreEditionDto(

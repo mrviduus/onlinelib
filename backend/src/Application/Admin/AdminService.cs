@@ -437,6 +437,10 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                     .OrderBy(ea => ea.Order)
                     .Select(ea => new AdminEditionAuthorDto(ea.AuthorId, ea.Author.Slug, ea.Author.Name, ea.Order, ea.Role.ToString()))
                     .ToList(),
+                e.Genres
+                    .OrderBy(g => g.Name)
+                    .Select(g => new AdminEditionGenreDto(g.Id, g.Slug, g.Name))
+                    .ToList(),
                 e.Indexable,
                 e.SeoTitle,
                 e.SeoDescription,
@@ -496,6 +500,31 @@ public class AdminService(IAppDbContext db, IFileStorageService storage)
                     Order = i,
                     Role = role
                 });
+            }
+        }
+
+        // Handle genre assignment
+        if (request.GenreIds is not null)
+        {
+            // Load edition with genres for M2M update
+            var editionWithGenres = await db.Editions
+                .Include(e => e.Genres)
+                .FirstAsync(e => e.Id == id, ct);
+
+            // Clear existing genres
+            editionWithGenres.Genres.Clear();
+
+            // Add new genres
+            if (request.GenreIds.Count > 0)
+            {
+                var genres = await db.Genres
+                    .Where(g => request.GenreIds.Contains(g.Id) && g.SiteId == edition.SiteId)
+                    .ToListAsync(ct);
+
+                foreach (var genre in genres)
+                {
+                    editionWithGenres.Genres.Add(genre);
+                }
             }
         }
 

@@ -4,6 +4,12 @@ import { adminApi, EditionDetail } from '../api/client'
 import { AuthorAutocomplete } from '../components/AuthorAutocomplete'
 import { AuthorList, AuthorItem } from '../components/AuthorList'
 import { CreateAuthorModal } from '../components/CreateAuthorModal'
+import { GenreSelect } from '../components/GenreSelect'
+
+interface SelectedGenre {
+  id: string
+  name: string
+}
 
 export function EditEditionPage() {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +21,7 @@ export function EditEditionPage() {
 
   const [title, setTitle] = useState('')
   const [authors, setAuthors] = useState<AuthorItem[]>([])
+  const [genres, setGenres] = useState<SelectedGenre[]>([])
   const [description, setDescription] = useState('')
   // Author modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -35,6 +42,9 @@ export function EditEditionPage() {
           (data.authors || [])
             .sort((a, b) => a.order - b.order)
             .map(a => ({ id: a.id, name: a.name, role: a.role }))
+        )
+        setGenres(
+          (data.genres || []).map(g => ({ id: g.id, name: g.name }))
         )
         setDescription(data.description || '')
         setIndexable(data.indexable ?? true)
@@ -61,6 +71,7 @@ export function EditEditionPage() {
         seoDescription: seoDescription || null,
         canonicalOverride: canonicalOverride || null,
         authors: authors.map(a => ({ authorId: a.id, role: a.role })),
+        genreIds: genres.map(g => g.id),
       })
       navigate('/editions')
     } catch (err) {
@@ -168,6 +179,15 @@ export function EditEditionPage() {
           <div style={{ marginTop: '12px' }}>
             <AuthorList authors={authors} onChange={setAuthors} />
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Genres</label>
+          <GenreSelect
+            siteId={edition.siteId}
+            selected={genres}
+            onChange={setGenres}
+          />
         </div>
 
         <div className="form-group">

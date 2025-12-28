@@ -40,8 +40,11 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "http://localhost:5174",
                 "http://general.localhost",
+                "http://general.localhost:5173",
                 "http://programming.localhost",
-                "http://admin.localhost"
+                "http://programming.localhost:5173",
+                "http://admin.localhost",
+                "http://admin.localhost:5174"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -118,6 +121,7 @@ app.UseRouting();
 app.MapDebugEndpoints(app.Environment);
 app.MapAdminEndpoints();
 app.MapAdminAuthorsEndpoints();
+app.MapAdminGenresEndpoints();
 app.MapAdminSitesEndpoints();
 app.MapBooksEndpoints();
 app.MapSearchEndpoints();

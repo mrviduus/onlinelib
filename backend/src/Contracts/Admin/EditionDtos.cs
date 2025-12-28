@@ -26,6 +26,7 @@ public record AdminEditionDetailDto(
     DateTimeOffset? PublishedAt,
     List<AdminChapterDto> Chapters,
     List<AdminEditionAuthorDto> Authors,
+    List<AdminEditionGenreDto> Genres,
     // SEO fields
     bool Indexable,
     string? SeoTitle,
@@ -39,6 +40,12 @@ public record AdminEditionAuthorDto(
     string Name,
     int Order,
     string Role
+);
+
+public record AdminEditionGenreDto(
+    Guid Id,
+    string Slug,
+    string Name
 );
 
 public record AdminChapterDto(
@@ -56,7 +63,8 @@ public record UpdateEditionRequest(
     string? SeoTitle,
     string? SeoDescription,
     string? CanonicalOverride,
-    List<UpdateEditionAuthorDto>? Authors
+    List<UpdateEditionAuthorDto>? Authors,
+    List<Guid>? GenreIds
 );
 
 public record UpdateEditionAuthorDto(
