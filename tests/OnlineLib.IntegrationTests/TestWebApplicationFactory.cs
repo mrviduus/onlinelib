@@ -12,6 +12,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
     private readonly List<Guid> _createdJobIds = [];
 
     public static readonly Guid GeneralSiteId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid TestAuthorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid TestGenreId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     public TestWebApplicationFactory()
     {
@@ -49,6 +51,36 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
                 Code = "general",
                 PrimaryDomain = "general.localhost",
                 DefaultLanguage = "en",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+            db.SaveChanges();
+        }
+
+        // Seed test author
+        if (!db.Authors.Any(a => a.Id == TestAuthorId))
+        {
+            db.Authors.Add(new Author
+            {
+                Id = TestAuthorId,
+                SiteId = GeneralSiteId,
+                Slug = "test-author",
+                Name = "Test Author",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+            db.SaveChanges();
+        }
+
+        // Seed test genre
+        if (!db.Genres.Any(g => g.Id == TestGenreId))
+        {
+            db.Genres.Add(new Genre
+            {
+                Id = TestGenreId,
+                SiteId = GeneralSiteId,
+                Slug = "test-genre",
+                Name = "Test Genre",
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             });
