@@ -39,7 +39,7 @@ public sealed class PostgresIndexer : ISearchIndexer
         var sql = $@"
             INSERT INTO {_tableName} (id, title, content, language, site_id, search_vector, metadata, updated_at)
             VALUES (@Id, @Title, @Content, @Language, @SiteId,
-                    to_tsvector(@FtsConfig, @Title || ' ' || @Content),
+                    to_tsvector(@FtsConfig::regconfig, @Title || ' ' || @Content),
                     @MetadataJson::jsonb,
                     NOW())
             ON CONFLICT (id) DO UPDATE SET

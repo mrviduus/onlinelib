@@ -75,9 +75,9 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
                 EditionId = job.EditionId,
                 ChapterNumber = ch.Order,
                 Slug = chapterSlug,
-                Title = ch.Title,
-                Html = ch.Html,
-                PlainText = ch.PlainText,
+                Title = SanitizeText(ch.Title),
+                Html = SanitizeText(ch.Html),
+                PlainText = SanitizeText(ch.PlainText),
                 WordCount = ch.WordCount,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -146,4 +146,8 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
 
         await db.SaveChangesAsync(ct);
     }
+
+    // Remove NULL bytes that PostgreSQL rejects (common in PDF extraction)
+    private static string SanitizeText(string? text)
+        => text?.Replace("\0", "") ?? "";
 }
