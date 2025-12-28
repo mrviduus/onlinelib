@@ -41,6 +41,10 @@ dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-p
 # Docker helpers
 ./scripts/docker-clean.sh    # Stop + remove project images/volumes
 ./scripts/docker-build.sh    # Fresh build + start
+
+# Database backup/restore
+make backup                 # Create compressed backup
+make restore FILE=backups/db_xxx.sql.gz  # Restore
 ```
 
 | Service | URL |
@@ -69,7 +73,8 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 ```
 
 **Multisite**: Host header → SiteResolver → SiteContext
-- Dev override: `?site=general`
+- Dev override: `?site=general` or `?site=programming`
+- Test: `http://localhost:5173/?site=general`
 - Files: `backend/src/Api/Sites/`
 
 **Storage**:
