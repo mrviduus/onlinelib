@@ -43,49 +43,60 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
     private static void SeedTestData(AppDbContext db)
     {
-        if (!db.Sites.Any(s => s.Id == GeneralSiteId))
+        // Use try-catch to handle parallel test execution race conditions
+        try
         {
-            db.Sites.Add(new Site
+            if (!db.Sites.Any(s => s.Id == GeneralSiteId))
             {
-                Id = GeneralSiteId,
-                Code = "general",
-                PrimaryDomain = "general.localhost",
-                DefaultLanguage = "en",
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            });
-            db.SaveChanges();
+                db.Sites.Add(new Site
+                {
+                    Id = GeneralSiteId,
+                    Code = "general",
+                    PrimaryDomain = "general.localhost",
+                    DefaultLanguage = "en",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+                db.SaveChanges();
+            }
         }
+        catch { db.ChangeTracker.Clear(); }
 
-        // Seed test author
-        if (!db.Authors.Any(a => a.Id == TestAuthorId))
+        try
         {
-            db.Authors.Add(new Author
+            if (!db.Authors.Any(a => a.Id == TestAuthorId))
             {
-                Id = TestAuthorId,
-                SiteId = GeneralSiteId,
-                Slug = "test-author",
-                Name = "Test Author",
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            });
-            db.SaveChanges();
+                db.Authors.Add(new Author
+                {
+                    Id = TestAuthorId,
+                    SiteId = GeneralSiteId,
+                    Slug = "test-author",
+                    Name = "Test Author",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+                db.SaveChanges();
+            }
         }
+        catch { db.ChangeTracker.Clear(); }
 
-        // Seed test genre
-        if (!db.Genres.Any(g => g.Id == TestGenreId))
+        try
         {
-            db.Genres.Add(new Genre
+            if (!db.Genres.Any(g => g.Id == TestGenreId))
             {
-                Id = TestGenreId,
-                SiteId = GeneralSiteId,
-                Slug = "test-genre",
-                Name = "Test Genre",
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            });
-            db.SaveChanges();
+                db.Genres.Add(new Genre
+                {
+                    Id = TestGenreId,
+                    SiteId = GeneralSiteId,
+                    Slug = "test-genre",
+                    Name = "Test Genre",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+                db.SaveChanges();
+            }
         }
+        catch { db.ChangeTracker.Clear(); }
     }
 
     protected override void Dispose(bool disposing)
