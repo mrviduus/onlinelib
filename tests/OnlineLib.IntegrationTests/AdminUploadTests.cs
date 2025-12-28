@@ -10,10 +10,12 @@ namespace OnlineLib.IntegrationTests;
 public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private readonly TestWebApplicationFactory _factory;
     private static readonly Guid SiteId = TestWebApplicationFactory.GeneralSiteId;
 
     public AdminUploadTests(TestWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -49,6 +51,7 @@ public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotEqual(Guid.Empty, result.EditionId);
         Assert.NotEqual(Guid.Empty, result.WorkId);
         Assert.Equal("Queued", result.Status);
+        _factory.TrackJob(result.JobId);
     }
 
     [Fact]
@@ -75,6 +78,7 @@ public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.JobId);
         Assert.Equal("Queued", result.Status);
+        _factory.TrackJob(result.JobId);
     }
 
     [Fact]
@@ -107,6 +111,7 @@ public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
         var result = await response.Content.ReadFromJsonAsync<UploadResponse>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.JobId);
+        _factory.TrackJob(result.JobId);
     }
 
     [Fact]
@@ -134,6 +139,7 @@ public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotEqual(Guid.Empty, result.JobId);
         Assert.NotEqual(Guid.Empty, result.EditionId);
         Assert.Equal("Queued", result.Status);
+        _factory.TrackJob(result.JobId);
     }
 
     [Fact]
@@ -226,6 +232,9 @@ public class AdminUploadTests : IClassFixture<TestWebApplicationFactory>
             Assert.NotNull(result2);
             Assert.Equal(result1.WorkId, result2.WorkId); // Same work
             Assert.NotEqual(result1.EditionId, result2.EditionId); // Different edition
+
+            _factory.TrackJob(result1.JobId);
+            _factory.TrackJob(result2.JobId);
         }
     }
 
