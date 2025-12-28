@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { adminApi, AuthorListItem } from '../api/client'
+import { CreateAuthorModal } from '../components/CreateAuthorModal'
 
 const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
@@ -11,6 +12,7 @@ export function AuthorsPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [offset, setOffset] = useState(0)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const limit = 20
 
   const fetchAuthors = async () => {
@@ -57,11 +59,22 @@ export function AuthorsPage() {
   const totalPages = Math.ceil(total / limit)
   const currentPage = Math.floor(offset / limit) + 1
 
+  const handleAuthorCreated = () => {
+    setShowCreateModal(false)
+    fetchAuthors()
+  }
+
   return (
     <div className="authors-page">
       <div className="authors-page__header">
         <h1>Authors</h1>
         <span className="authors-page__count">{total} total</span>
+        <button
+          className="btn btn--primary"
+          onClick={() => setShowCreateModal(true)}
+        >
+          New Author
+        </button>
       </div>
 
       <div className="authors-page__filters">
@@ -153,6 +166,15 @@ export function AuthorsPage() {
             </div>
           )}
         </>
+      )}
+
+      {showCreateModal && (
+        <CreateAuthorModal
+          siteId={DEFAULT_SITE_ID}
+          initialName=""
+          onCreated={handleAuthorCreated}
+          onCancel={() => setShowCreateModal(false)}
+        />
       )}
     </div>
   )

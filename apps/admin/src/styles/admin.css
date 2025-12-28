@@ -429,6 +429,7 @@ body {
 .actions-cell {
   display: flex;
   gap: 8px;
+  white-space: nowrap;
 }
 
 /* Buttons */
