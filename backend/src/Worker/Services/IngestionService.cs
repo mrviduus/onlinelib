@@ -169,6 +169,43 @@ public class IngestionWorkerService
             _logger.LogInformation("Parsed {ChapterCount} chapters from {Title}",
                 parsed.Chapters.Count, parsed.Title);
 
+            // Save cover image if extracted
+            if (extractionResult.Metadata.CoverImage is { Length: > 0 })
+            {
+                using var coverActivity = IngestionActivitySource.Source.StartActivity("persist.cover");
+                try
+                {
+                    var ext = extractionResult.Metadata.CoverMimeType switch
+                    {
+                        "image/png" => ".png",
+                        "image/gif" => ".gif",
+                        "image/webp" => ".webp",
+                        _ => ".jpg"
+                    };
+
+                    using var coverStream = new MemoryStream(extractionResult.Metadata.CoverImage);
+                    var coverPath = await _storage.SaveFileAsync(job.EditionId, $"cover{ext}", coverStream, ct);
+
+                    // Update edition with cover path
+                    var edition = await db.Editions.FindAsync([job.EditionId], ct);
+                    if (edition is not null)
+                    {
+                        edition.CoverPath = coverPath;
+                        edition.UpdatedAt = DateTimeOffset.UtcNow;
+                        await db.SaveChangesAsync(ct);
+                    }
+
+                    coverActivity?.SetTag("cover.saved", true);
+                    coverActivity?.SetTag("cover.size", extractionResult.Metadata.CoverImage.Length);
+                    _logger.LogInformation("Saved cover for edition {EditionId}: {CoverPath}", job.EditionId, coverPath);
+                }
+                catch (Exception ex)
+                {
+                    coverActivity?.SetTag("cover.saved", false);
+                    _logger.LogWarning(ex, "Failed to save cover for edition {EditionId}", job.EditionId);
+                }
+            }
+
             // Persist result span
             using (var persistActivity = IngestionActivitySource.Source.StartActivity("persist.result"))
             {

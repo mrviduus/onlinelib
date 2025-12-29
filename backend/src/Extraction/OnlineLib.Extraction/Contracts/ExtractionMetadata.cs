@@ -4,5 +4,7 @@ public sealed record ExtractionMetadata(
     string? Title,
     string? Authors,
     string? Language,
-    string? Description
+    string? Description,
+    byte[]? CoverImage = null,
+    string? CoverMimeType = null
 );

@@ -117,8 +117,25 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 "PDF contains no extractable text layer"));
         }
 
+        // Extract cover (first page as image)
+        byte[]? coverImage = null;
+        string? coverMimeType = null;
+        try
+        {
+            request.Content.Position = 0;
+            using var coverDoc = PdfDocument.Open(request.Content, SkiaRenderingParsingOptions.Instance);
+            coverDoc.AddSkiaPageFactory();
+            using var pngStream = coverDoc.GetPageAsPng(1, scale: 1.0f);
+            coverImage = pngStream.ToArray();
+            coverMimeType = "image/png";
+        }
+        catch
+        {
+            // Cover extraction is optional, don't fail on error
+        }
+
         title ??= ExtractTitleFromFileName(request.FileName);
-        var metadata = new ExtractionMetadata(title, authors, null, null);
+        var metadata = new ExtractionMetadata(title, authors, null, null, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(textSource, null, warnings);
 
         return new ExtractionResult(SourceFormat.Pdf, metadata, units, diagnostics);
@@ -216,8 +233,22 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 "OCR could not extract any text from the PDF"));
         }
 
+        // Extract cover (first page as image)
+        byte[]? coverImage = null;
+        string? coverMimeType = null;
+        try
+        {
+            using var pngStream = document.GetPageAsPng(1, scale: 1.0f);
+            coverImage = pngStream.ToArray();
+            coverMimeType = "image/png";
+        }
+        catch
+        {
+            // Cover extraction is optional
+        }
+
         title ??= ExtractTitleFromFileName(request.FileName);
-        var metadata = new ExtractionMetadata(title, authors, null, null);
+        var metadata = new ExtractionMetadata(title, authors, null, null, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(textSource, avgConfidence, warnings);
 
         return new ExtractionResult(SourceFormat.Pdf, metadata, units, diagnostics);

@@ -69,6 +69,8 @@ public sealed class Fb2TextExtractor : ITextExtractor
         string? authors = null;
         string? language = null;
         string? annotation = null;
+        byte[]? coverImage = null;
+        string? coverMimeType = null;
 
         if (titleInfo != null)
         {
@@ -97,9 +99,49 @@ public sealed class Fb2TextExtractor : ITextExtractor
             {
                 annotation = ExtractPlainTextFromElement(annotationEl);
             }
+
+            // Cover image
+            try
+            {
+                var coverpage = titleInfo.Element(ns + "coverpage");
+                var imageEl = coverpage?.Element(ns + "image");
+                if (imageEl != null)
+                {
+                    // Get href attribute (can be l:href or xlink:href)
+                    var xlinkNs = XNamespace.Get("http://www.w3.org/1999/xlink");
+                    var href = imageEl.Attribute(xlinkNs + "href")?.Value
+                            ?? imageEl.Attribute("href")?.Value;
+
+                    if (!string.IsNullOrEmpty(href))
+                    {
+                        // Remove leading # if present
+                        var binaryId = href.TrimStart('#');
+
+                        // Find the binary element
+                        var binaryEl = root.Elements(ns + "binary")
+                            .FirstOrDefault(b => b.Attribute("id")?.Value == binaryId);
+
+                        if (binaryEl != null)
+                        {
+                            var contentType = binaryEl.Attribute("content-type")?.Value;
+                            var base64 = binaryEl.Value;
+
+                            if (!string.IsNullOrWhiteSpace(base64))
+                            {
+                                coverImage = Convert.FromBase64String(base64.Trim());
+                                coverMimeType = contentType ?? "image/jpeg";
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Cover extraction is optional, don't fail on error
+            }
         }
 
-        return new ExtractionMetadata(title, authors, language, annotation);
+        return new ExtractionMetadata(title, authors, language, annotation, coverImage, coverMimeType);
     }
 
     private static string? ExtractAuthorName(XElement author, XNamespace ns)
