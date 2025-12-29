@@ -430,6 +430,8 @@ body {
   display: flex;
   gap: 8px;
   white-space: nowrap;
+  width: 140px;
+  min-width: 140px;
 }
 
 /* Buttons */
