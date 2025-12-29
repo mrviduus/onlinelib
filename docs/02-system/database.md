@@ -183,6 +183,8 @@ Legend:
 | `authors` | Book authors | → site, → edition_authors |
 | `genres` | Book categories | → site, → editions (M:N) |
 | `edition_authors` | M:N Edition↔Author | → edition, → author |
+| `edition_genres` | M:N Edition↔Genre | → edition, → genre |
+| `search_documents` | FTS search index | → site (denormalized) |
 | `works` | Canonical book identity | → site, → editions |
 | `editions` | Language-specific version | → work, → site, → chapters, → book_files, → genres |
 | `chapters` | Book content + FTS | → edition |
@@ -276,10 +278,11 @@ PRIMARY KEY(edition_id, author_id)
 
 #### `edition_genres` (Join Table)
 ```sql
-edition_id UUID NOT NULL → editions(id) CASCADE
-genre_id   UUID NOT NULL → genres(id) CASCADE
+editions_id UUID NOT NULL → editions(id) CASCADE
+genres_id   UUID NOT NULL → genres(id) CASCADE
 
-PRIMARY KEY(edition_id, genre_id)
+PRIMARY KEY(editions_id, genres_id)
+INDEX(genres_id)
 ```
 
 ---
@@ -320,7 +323,8 @@ seo_description    VARCHAR
 canonical_override VARCHAR
 
 UNIQUE(work_id, language)
-UNIQUE(slug)
+UNIQUE(site_id, language, slug)
+INDEX GIST(lower(title) gist_trgm_ops)  -- trigram search
 ```
 
 #### `chapters`
@@ -338,6 +342,25 @@ created_at     TIMESTAMPTZ NOT NULL
 updated_at     TIMESTAMPTZ NOT NULL
 
 UNIQUE(edition_id, chapter_number)
+INDEX(edition_id, slug)
+INDEX GIN(search_vector)
+TRIGGER chapters_search_vector_update  -- auto-updates search_vector
+```
+
+#### `search_documents` (Denormalized FTS)
+```sql
+id            TEXT PRIMARY KEY        -- composite key as string
+title         TEXT NOT NULL
+content       TEXT NOT NULL
+language      TEXT NOT NULL
+site_id       UUID NOT NULL
+search_vector TSVECTOR NOT NULL
+metadata      JSONB DEFAULT '{}'
+created_at    TIMESTAMPTZ DEFAULT now()
+updated_at    TIMESTAMPTZ DEFAULT now()
+
+INDEX(site_id)
+INDEX(language)
 INDEX GIN(search_vector)
 ```
 
@@ -490,7 +513,9 @@ AuthorRole    { Author=0, Translator=1, Editor=2, Illustrator=3 }
 4. **EditionAuthor join** - M:N with role (author/translator/editor/illustrator) + order
 5. **EditionGenres join** - M:N Edition↔Genre
 6. **Soft delete on Notes** - Preserves user data, enables sync
-7. **FTS in Chapter** - PostgreSQL tsvector + GIN for search
-8. **Separate Admin auth** - AdminUser != User (different auth flows)
-9. **UserLibrary** - Many-to-many User↔Edition for "My Library"
-10. **SEO fields** - indexable, seo_title, seo_description on Author, Genre, Edition
+7. **FTS in Chapter** - PostgreSQL tsvector + GIN for search (with auto-update trigger)
+8. **search_documents** - Denormalized FTS table for cross-entity search
+9. **Separate Admin auth** - AdminUser != User (different auth flows)
+10. **UserLibrary** - Many-to-many User↔Edition for "My Library"
+11. **SEO fields** - indexable, seo_title, seo_description on Author, Genre, Edition
+12. **Trigram search** - GIST index on edition title for fuzzy matching
