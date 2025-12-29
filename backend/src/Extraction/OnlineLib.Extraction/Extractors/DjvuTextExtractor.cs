@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
 using OnlineLib.Extraction.Contracts;
 using OnlineLib.Extraction.Enums;
 using OnlineLib.Extraction.Ocr;
+using OnlineLib.Extraction.Utilities;
 using SkiaSharp;
 
 namespace OnlineLib.Extraction.Extractors;
@@ -13,7 +13,7 @@ namespace OnlineLib.Extraction.Extractors;
 /// Falls back to OCR if djvutxt is unavailable and OCR is enabled.
 /// Requires DjVuLibre to be installed on the system.
 /// </summary>
-public sealed partial class DjvuTextExtractor : ITextExtractor
+public sealed class DjvuTextExtractor : ITextExtractor
 {
     private readonly ExtractionOptions _options;
     private readonly IOcrEngine? _ocrEngine;
@@ -59,7 +59,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 var (cover, mime) = await TryExtractCoverAsync(tempFile, warnings, ct);
 
                 var metadata = new ExtractionMetadata(
-                    ExtractTitleFromFileName(request.FileName), null, null, null, cover, mime);
+                    TextProcessingUtils.ExtractTitleFromFileName(request.FileName), null, null, null, cover, mime);
                 var diagnostics = new ExtractionDiagnostics(TextSource.NativeText, null, warnings);
 
                 return new ExtractionResult(SourceFormat.Djvu, metadata, units, diagnostics);
@@ -80,7 +80,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
 
             return new ExtractionResult(
                 SourceFormat.Djvu,
-                new ExtractionMetadata(ExtractTitleFromFileName(request.FileName), null, null, null, coverImage, coverMimeType),
+                new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(request.FileName), null, null, null, coverImage, coverMimeType),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -92,7 +92,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
 
             return new ExtractionResult(
                 SourceFormat.Djvu,
-                new ExtractionMetadata(ExtractTitleFromFileName(request.FileName), null, null, null),
+                new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(request.FileName), null, null, null),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -147,7 +147,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 return (string.Empty, false);
             }
 
-            return (NormalizeText(output), true);
+            return (TextProcessingUtils.NormalizeText(output), true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -308,7 +308,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
 
             return new ExtractionResult(
                 SourceFormat.Djvu,
-                new ExtractionMetadata(ExtractTitleFromFileName(fileName), null, null, null),
+                new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(fileName), null, null, null),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -325,7 +325,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
 
             return new ExtractionResult(
                 SourceFormat.Djvu,
-                new ExtractionMetadata(ExtractTitleFromFileName(fileName), null, null, null),
+                new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(fileName), null, null, null),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -342,8 +342,8 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 var ocrResult = await _ocrEngine!.RecognizeAsync(
                     imageStream, _options.OcrLanguage, ct);
 
-                var normalized = NormalizeText(ocrResult.Text);
-                var html = PlainTextToHtml(normalized);
+                var normalized = TextProcessingUtils.NormalizeText(ocrResult.Text);
+                var html = TextProcessingUtils.PlainTextToHtml(normalized);
 
                 units.Add(new ContentUnit(
                     Type: ContentUnitType.Page,
@@ -351,7 +351,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                     Html: html,
                     PlainText: normalized,
                     OrderIndex: i - 1,
-                    WordCount: CountWords(normalized)
+                    WordCount: TextProcessingUtils.CountWords(normalized)
                 ));
 
                 if (ocrResult.Confidence.HasValue)
@@ -385,7 +385,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 "OCR could not extract any text from the DJVU"));
         }
 
-        var metadata = new ExtractionMetadata(ExtractTitleFromFileName(fileName), null, null, null);
+        var metadata = new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(fileName), null, null, null);
         var diagnostics = new ExtractionDiagnostics(textSource, avgConfidence, warnings);
 
         return new ExtractionResult(SourceFormat.Djvu, metadata, units, diagnostics);
@@ -473,7 +473,7 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
     {
         // DJVU native text doesn't have clear page boundaries from djvutxt
         // Return as single unit if we can't detect page breaks
-        var normalized = NormalizeText(text);
+        var normalized = TextProcessingUtils.NormalizeText(text);
 
         if (string.IsNullOrWhiteSpace(normalized))
             return [];
@@ -488,10 +488,10 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 new ContentUnit(
                     Type: ContentUnitType.Page,
                     Title: null,
-                    Html: PlainTextToHtml(normalized),
+                    Html: TextProcessingUtils.PlainTextToHtml(normalized),
                     PlainText: normalized,
                     OrderIndex: 0,
-                    WordCount: CountWords(normalized)
+                    WordCount: TextProcessingUtils.CountWords(normalized)
                 )
             ];
         }
@@ -500,63 +500,12 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
             .Select((pageText, index) => new ContentUnit(
                 Type: ContentUnitType.Page,
                 Title: null,
-                Html: PlainTextToHtml(pageText.Trim()),
+                Html: TextProcessingUtils.PlainTextToHtml(pageText.Trim()),
                 PlainText: pageText.Trim(),
                 OrderIndex: index,
-                WordCount: CountWords(pageText)
+                WordCount: TextProcessingUtils.CountWords(pageText)
             ))
             .ToList();
     }
 
-    private static string NormalizeText(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return string.Empty;
-
-        text = text.Replace("\r\n", "\n").Replace("\r", "\n");
-
-        var lines = text.Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            lines[i] = lines[i].TrimEnd();
-        }
-
-        text = string.Join("\n", lines);
-        text = MultipleNewlinesRegex().Replace(text, "\n\n");
-
-        return text.Trim();
-    }
-
-    private static string? ExtractTitleFromFileName(string fileName)
-    {
-        if (string.IsNullOrWhiteSpace(fileName))
-            return null;
-
-        var name = Path.GetFileNameWithoutExtension(fileName);
-        return string.IsNullOrWhiteSpace(name) ? null : name;
-    }
-
-    private static int CountWords(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return 0;
-
-        return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
-    }
-
-    private static string PlainTextToHtml(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var escaped = System.Net.WebUtility.HtmlEncode(text);
-        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
-        var htmlParagraphs = paragraphs
-            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
-
-        return string.Join("\n", htmlParagraphs);
-    }
-
-    [GeneratedRegex(@"\n{3,}")]
-    private static partial Regex MultipleNewlinesRegex();
 }

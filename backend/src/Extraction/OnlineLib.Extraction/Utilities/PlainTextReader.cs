@@ -13,9 +13,9 @@ public static class PlainTextReader
     {
         var warnings = new List<ExtractionWarning>();
         var text = await ReadTextAsync(request.Content, warnings, ct);
-        var normalized = NormalizeText(text);
+        var normalized = TextProcessingUtils.NormalizeText(text);
 
-        var title = ExtractTitleFromFileName(request.FileName);
+        var title = TextProcessingUtils.ExtractTitleFromFileName(request.FileName);
         var metadata = new ExtractionMetadata(title, null, null, null);
 
         var units = new List<ContentUnit>();
@@ -27,10 +27,10 @@ public static class PlainTextReader
         units.Add(new ContentUnit(
             Type: ContentUnitType.Chapter,
             Title: null,
-            Html: PlainTextToHtml(normalized),
+            Html: TextProcessingUtils.PlainTextToHtml(normalized),
             PlainText: normalized,
             OrderIndex: 0,
-            WordCount: CountWords(normalized)
+            WordCount: TextProcessingUtils.CountWords(normalized)
         ));
 
         var diagnostics = new ExtractionDiagnostics(TextSource.NativeText, null, warnings);
@@ -59,53 +59,5 @@ public static class PlainTextReader
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false));
             return await fallbackReader.ReadToEndAsync(ct);
         }
-    }
-
-    private static string NormalizeText(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return string.Empty;
-
-        // Normalize line endings to LF
-        text = text.Replace("\r\n", "\n").Replace("\r", "\n");
-
-        // Trim trailing whitespace per line
-        var lines = text.Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            lines[i] = lines[i].TrimEnd();
-        }
-
-        return string.Join("\n", lines).Trim();
-    }
-
-    private static string? ExtractTitleFromFileName(string fileName)
-    {
-        if (string.IsNullOrWhiteSpace(fileName))
-            return null;
-
-        var name = Path.GetFileNameWithoutExtension(fileName);
-        return string.IsNullOrWhiteSpace(name) ? null : name;
-    }
-
-    private static int CountWords(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return 0;
-
-        return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
-    }
-
-    private static string PlainTextToHtml(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var escaped = System.Net.WebUtility.HtmlEncode(text);
-        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
-        var htmlParagraphs = paragraphs
-            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
-
-        return string.Join("\n", htmlParagraphs);
     }
 }

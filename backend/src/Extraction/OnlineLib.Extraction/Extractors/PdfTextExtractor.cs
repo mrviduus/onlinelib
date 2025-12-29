@@ -1,7 +1,7 @@
-using System.Text.RegularExpressions;
 using OnlineLib.Extraction.Contracts;
 using OnlineLib.Extraction.Enums;
 using OnlineLib.Extraction.Ocr;
+using OnlineLib.Extraction.Utilities;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Rendering.Skia;
@@ -9,7 +9,7 @@ using UglyToad.PdfPig.Graphics.Colors;
 
 namespace OnlineLib.Extraction.Extractors;
 
-public sealed partial class PdfTextExtractor : ITextExtractor
+public sealed class PdfTextExtractor : ITextExtractor
 {
     private readonly ExtractionOptions _options;
     private readonly IOcrEngine? _ocrEngine;
@@ -52,8 +52,8 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 {
                     var page = document.GetPage(i + 1);
                     var text = ExtractPageText(page);
-                    var normalized = NormalizeText(text);
-                    var html = PlainTextToHtml(normalized);
+                    var normalized = TextProcessingUtils.NormalizeText(text);
+                    var html = TextProcessingUtils.PlainTextToHtml(normalized);
 
                     units.Add(new ContentUnit(
                         Type: ContentUnitType.Page,
@@ -61,7 +61,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                         Html: html,
                         PlainText: normalized,
                         OrderIndex: i,
-                        WordCount: CountWords(normalized)
+                        WordCount: TextProcessingUtils.CountWords(normalized)
                     ));
                 }
                 catch (Exception ex)
@@ -89,7 +89,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
 
             return new ExtractionResult(
                 SourceFormat.Pdf,
-                new ExtractionMetadata(ExtractTitleFromFileName(request.FileName), null, null, null),
+                new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(request.FileName), null, null, null),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -141,7 +141,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 $"Failed to extract cover: {innerEx.GetType().Name}: {innerEx.Message}"));
         }
 
-        title ??= ExtractTitleFromFileName(request.FileName);
+        title ??= TextProcessingUtils.ExtractTitleFromFileName(request.FileName);
         var metadata = new ExtractionMetadata(title, authors, null, null, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(textSource, null, warnings);
 
@@ -166,7 +166,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 ExtractionWarningCode.NoTextLayer,
                 "PDF contains no extractable text layer"));
 
-            title ??= ExtractTitleFromFileName(request.FileName);
+            title ??= TextProcessingUtils.ExtractTitleFromFileName(request.FileName);
             return new ExtractionResult(
                 SourceFormat.Pdf,
                 new ExtractionMetadata(title, authors, null, null),
@@ -197,8 +197,8 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 var ocrResult = await _ocrEngine!.RecognizeAsync(
                     imageStream, _options.OcrLanguage, ct);
 
-                var normalized = NormalizeText(ocrResult.Text);
-                var html = PlainTextToHtml(normalized);
+                var normalized = TextProcessingUtils.NormalizeText(ocrResult.Text);
+                var html = TextProcessingUtils.PlainTextToHtml(normalized);
 
                 units.Add(new ContentUnit(
                     Type: ContentUnitType.Page,
@@ -206,7 +206,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                     Html: html,
                     PlainText: normalized,
                     OrderIndex: i,
-                    WordCount: CountWords(normalized)
+                    WordCount: TextProcessingUtils.CountWords(normalized)
                 ));
 
                 if (ocrResult.Confidence.HasValue)
@@ -258,7 +258,7 @@ public sealed partial class PdfTextExtractor : ITextExtractor
                 $"Failed to extract cover: {innerMsg}"));
         }
 
-        title ??= ExtractTitleFromFileName(request.FileName);
+        title ??= TextProcessingUtils.ExtractTitleFromFileName(request.FileName);
         var metadata = new ExtractionMetadata(title, authors, null, null, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(textSource, avgConfidence, warnings);
 
@@ -282,65 +282,10 @@ public sealed partial class PdfTextExtractor : ITextExtractor
         return page.Text;
     }
 
-    private static string NormalizeText(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return string.Empty;
-
-        text = text.Replace("\r\n", "\n").Replace("\r", "\n");
-
-        var lines = text.Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            lines[i] = lines[i].TrimEnd();
-        }
-
-        text = string.Join("\n", lines);
-        text = MultipleNewlinesRegex().Replace(text, "\n\n");
-
-        return text.Trim();
-    }
-
     private static string? GetMetadataValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
             return null;
         return value.Trim();
     }
-
-    private static string? ExtractTitleFromFileName(string fileName)
-    {
-        if (string.IsNullOrWhiteSpace(fileName))
-            return null;
-
-        var name = Path.GetFileNameWithoutExtension(fileName);
-        return string.IsNullOrWhiteSpace(name) ? null : name;
-    }
-
-    private static int CountWords(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return 0;
-
-        return text.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries).Length;
-    }
-
-    private static string PlainTextToHtml(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        // Escape HTML entities
-        var escaped = System.Net.WebUtility.HtmlEncode(text);
-
-        // Split into paragraphs (double newlines) and wrap in <p> tags
-        var paragraphs = escaped.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries);
-        var htmlParagraphs = paragraphs
-            .Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>");
-
-        return string.Join("\n", htmlParagraphs);
-    }
-
-    [GeneratedRegex(@"\n{3,}")]
-    private static partial Regex MultipleNewlinesRegex();
 }
