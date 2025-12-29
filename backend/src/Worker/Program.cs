@@ -41,6 +41,7 @@ builder.Services.AddPostgresFtsProvider(
 var extractionOptions = new ExtractionOptions
 {
     EnableOcrFallback = builder.Configuration.GetValue("Extraction:EnableOcrFallback", false),
+    PreferOcrOverNativeText = builder.Configuration.GetValue("Extraction:PreferOcrOverNativeText", false),
     MaxPagesForOcr = builder.Configuration.GetValue("Extraction:MaxPagesForOcr", 50),
     OcrLanguage = builder.Configuration.GetValue("Extraction:OcrLanguage", "eng") ?? "eng"
 };
