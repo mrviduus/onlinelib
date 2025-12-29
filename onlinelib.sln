@@ -40,6 +40,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "02-system", "02-system", "{
 	ProjectSection(SolutionItems) = preProject
 		docs\02-system\admin.md = docs\02-system\admin.md
 		docs\02-system\api.md = docs\02-system\api.md
+		docs\02-system\database.dbml = docs\02-system\database.dbml
 		docs\02-system\database.md = docs\02-system\database.md
 		docs\02-system\ingestion.md = docs\02-system\ingestion.md
 		docs\02-system\reader.md = docs\02-system\reader.md
