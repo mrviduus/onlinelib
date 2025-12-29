@@ -437,9 +437,6 @@ td:last-child {
   width: 140px;
   min-width: 140px;
   text-align: right;
-}
-
-td:last-child {
   padding-right: 24px;
 }
 
