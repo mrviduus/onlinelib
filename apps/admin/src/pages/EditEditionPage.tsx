@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminApi, EditionDetail } from '../api/client'
 import { AuthorAutocomplete } from '../components/AuthorAutocomplete'
@@ -14,9 +14,11 @@ interface SelectedGenre {
 export function EditEditionPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const coverInputRef = useRef<HTMLInputElement>(null)
   const [edition, setEdition] = useState<EditionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
@@ -129,6 +131,27 @@ export function EditEditionPage() {
     }
   }
 
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File too large. Max 5MB allowed')
+      return
+    }
+
+    setUploadingCover(true)
+    try {
+      await adminApi.uploadEditionCover(id, file)
+      const updated = await adminApi.getEdition(id)
+      setEdition(updated)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to upload cover')
+    } finally {
+      setUploadingCover(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="edit-edition-page">
@@ -155,16 +178,50 @@ export function EditEditionPage() {
       {error && <div className="error-banner">{error}</div>}
 
       <form onSubmit={handleSubmit} className="edit-form">
-        <div className="form-group">
-          <label htmlFor="title">Title *</label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            maxLength={500}
-          />
+        <div className="form-row">
+          <div className="form-group form-group--cover">
+            <label>Cover</label>
+            <div className="cover-upload">
+              {edition.coverPath ? (
+                <img
+                  src={`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/storage/${edition.coverPath}`}
+                  alt={edition.title}
+                  className="cover-preview"
+                />
+              ) : (
+                <div className="cover-placeholder">No cover</div>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                ref={coverInputRef}
+                onChange={handleCoverUpload}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                className="btn btn--small"
+                disabled={uploadingCover}
+              >
+                {uploadingCover ? 'Uploading...' : 'Upload Cover'}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group form-group--flex">
+            <div className="form-group">
+              <label htmlFor="title">Title *</label>
+              <input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                maxLength={500}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="form-group">
