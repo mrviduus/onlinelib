@@ -86,12 +86,12 @@ Table edition_authors {
 }
 
 Table edition_genres {
-  edition_id uuid [not null, ref: > editions.id]
-  genre_id uuid [not null, ref: > genres.id]
+  editions_id uuid [not null, ref: > editions.id, note: 'EF naming convention']
+  genres_id uuid [not null, ref: > genres.id, note: 'EF naming convention']
 
   indexes {
-    (edition_id, genre_id) [pk]
-    genre_id
+    (editions_id, genres_id) [pk]
+    genres_id
   }
 }
 
@@ -137,7 +137,11 @@ Table editions {
     (work_id, language) [unique]
     (site_id, language, slug) [unique]
     site_id
+    status
+    source_edition_id
   }
+
+  Note: 'Also has GIST index on lower(title) for trigram search'
 }
 
 Table chapters {
@@ -155,8 +159,11 @@ Table chapters {
 
   indexes {
     (edition_id, chapter_number) [unique]
+    (edition_id, slug)
     search_vector [type: gin]
   }
+
+  Note: 'Has trigger chapters_search_vector_update for auto FTS indexing'
 }
 
 Table book_files {
@@ -182,6 +189,26 @@ Table ingestion_jobs {
   created_at timestamptz [not null]
   started_at timestamptz
   finished_at timestamptz
+}
+
+Table search_documents {
+  id text [pk, note: 'Composite key as string']
+  title text [not null]
+  content text [not null]
+  language text [not null]
+  site_id uuid [not null, note: 'Denormalized, no FK']
+  search_vector tsvector [not null]
+  metadata jsonb [default: '{}']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    site_id
+    language
+    search_vector [type: gin]
+  }
+
+  Note: 'Denormalized FTS table for cross-entity search'
 }
 
 // ============================================
@@ -247,14 +274,15 @@ Table notes {
   chapter_id uuid [not null, ref: > chapters.id]
   locator text [not null]
   text text [not null]
-  version int [not null, default: 1]
-  is_deleted boolean [not null, default: false, note: 'soft delete']
+  version int [not null]
   created_at timestamptz [not null]
   updated_at timestamptz [not null]
 
   indexes {
     (user_id, site_id, edition_id)
     site_id
+    edition_id
+    chapter_id
   }
 }
 
@@ -318,6 +346,7 @@ TableGroup content {
   chapters
   book_files
   ingestion_jobs
+  search_documents
 }
 
 TableGroup user_data {
