@@ -48,6 +48,12 @@ public sealed class DjvuTextExtractor : ITextExtractor
 
             ct.ThrowIfCancellationRequested();
 
+            // If PreferOcrOverNativeText is enabled, skip native extraction and go directly to OCR
+            if (_options.PreferOcrOverNativeText && _options.EnableOcrFallback && _ocrEngine is not null)
+            {
+                return await ExtractWithOcrAsync(tempFile, request.FileName, warnings, ct);
+            }
+
             // Try native text extraction with djvutxt
             var (text, nativeSuccess) = await TryExtractNativeTextAsync(tempFile, warnings, ct);
 
@@ -385,7 +391,11 @@ public sealed class DjvuTextExtractor : ITextExtractor
                 "OCR could not extract any text from the DJVU"));
         }
 
-        var metadata = new ExtractionMetadata(TextProcessingUtils.ExtractTitleFromFileName(fileName), null, null, null);
+        // Extract cover (first page as image)
+        var (coverImage, coverMimeType) = await TryExtractCoverAsync(filePath, warnings, ct);
+
+        var metadata = new ExtractionMetadata(
+            TextProcessingUtils.ExtractTitleFromFileName(fileName), null, null, null, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(textSource, avgConfidence, warnings);
 
         return new ExtractionResult(SourceFormat.Djvu, metadata, units, diagnostics);
