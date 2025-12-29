@@ -1,4 +1,5 @@
 using Application.Admin;
+using Application.Common.Interfaces;
 using Contracts.Admin;
 using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -57,6 +58,11 @@ public static class AdminEndpoints
 
         group.MapPost("/editions/{id:guid}/unpublish", UnpublishEdition)
             .WithName("UnpublishEdition");
+
+        group.MapPost("/editions/{id:guid}/cover", UploadEditionCover)
+            .WithName("UploadEditionCover")
+            .WithDescription("Upload edition cover (max 5MB, JPG/PNG/WebP)")
+            .DisableAntiforgery();
     }
 
     private static async Task<IResult> UploadBook(
@@ -215,4 +221,46 @@ public static class AdminEndpoints
         AdminService adminService,
         CancellationToken ct)
         => ToResult(await adminService.UnpublishEditionAsync(id, ct));
+
+    private static readonly string[] AllowedCoverExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+    private const long MaxCoverSize = 5 * 1024 * 1024; // 5MB
+
+    private static async Task<IResult> UploadEditionCover(
+        Guid id,
+        IFormFile file,
+        IAppDbContext db,
+        IFileStorageService storage,
+        CancellationToken ct)
+    {
+        var edition = await db.Editions.FindAsync([id], ct);
+        if (edition is null)
+            return Results.NotFound(new { error = "Edition not found" });
+
+        if (file.Length == 0)
+            return Results.BadRequest(new { error = "File is empty" });
+
+        if (file.Length > MaxCoverSize)
+            return Results.BadRequest(new { error = "File too large. Max 5MB allowed" });
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedCoverExtensions.Contains(ext))
+            return Results.BadRequest(new { error = "Invalid file type. Only JPG, PNG, and WebP allowed" });
+
+        // Delete old cover if exists
+        if (!string.IsNullOrEmpty(edition.CoverPath))
+        {
+            await storage.DeleteFileAsync(edition.CoverPath, ct);
+        }
+
+        // Save new cover
+        await using var stream = file.OpenReadStream();
+        var fileName = $"cover{ext}";
+        var relativePath = await storage.SaveFileAsync(id, fileName, stream, ct);
+
+        edition.CoverPath = relativePath;
+        edition.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { coverPath = relativePath });
+    }
 }

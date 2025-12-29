@@ -281,6 +281,15 @@ export const adminApi = {
     await fetchVoid(`/admin/editions/${id}/unpublish`, { method: 'POST' })
   },
 
+  uploadEditionCover: async (id: string, file: File): Promise<{ coverPath: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetchJson<{ coverPath: string }>(`/admin/editions/${id}/cover`, {
+      method: 'POST',
+      body: formData,
+    })
+  },
+
   getSites: async (): Promise<Site[]> => {
     return fetchJson<Site[]>('/admin/sites')
   },
