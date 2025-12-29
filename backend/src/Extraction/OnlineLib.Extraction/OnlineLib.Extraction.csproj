@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -8,6 +9,8 @@
     <PackageReference Include="HtmlAgilityPack" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="PdfPig.Rendering.Skia" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <PackageReference Include="Tesseract" />
   </ItemGroup>
 </Project>

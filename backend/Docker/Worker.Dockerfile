@@ -12,8 +12,14 @@ RUN dotnet restore src/Worker/Worker.csproj
 COPY src/ src/
 RUN dotnet publish src/Worker/Worker.csproj -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
-RUN apk add --no-cache djvulibre
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    djvulibre-bin \
+    fontconfig \
+    libfreetype6 \
+    fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -fv
 WORKDIR /app
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Worker.dll"]

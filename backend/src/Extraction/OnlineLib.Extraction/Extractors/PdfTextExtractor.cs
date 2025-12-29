@@ -129,9 +129,16 @@ public sealed partial class PdfTextExtractor : ITextExtractor
             coverImage = pngStream.ToArray();
             coverMimeType = "image/png";
         }
-        catch
+        catch (Exception ex)
         {
             // Cover extraction is optional, don't fail on error
+            // Get deepest inner exception message
+            var innerEx = ex;
+            while (innerEx.InnerException != null)
+                innerEx = innerEx.InnerException;
+            warnings.Add(new ExtractionWarning(
+                ExtractionWarningCode.CoverExtractionFailed,
+                $"Failed to extract cover: {innerEx.GetType().Name}: {innerEx.Message}"));
         }
 
         title ??= ExtractTitleFromFileName(request.FileName);
@@ -242,9 +249,13 @@ public sealed partial class PdfTextExtractor : ITextExtractor
             coverImage = pngStream.ToArray();
             coverMimeType = "image/png";
         }
-        catch
+        catch (Exception ex)
         {
             // Cover extraction is optional
+            var innerMsg = ex.InnerException?.Message ?? ex.Message;
+            warnings.Add(new ExtractionWarning(
+                ExtractionWarningCode.CoverExtractionFailed,
+                $"Failed to extract cover: {innerMsg}"));
         }
 
         title ??= ExtractTitleFromFileName(request.FileName);

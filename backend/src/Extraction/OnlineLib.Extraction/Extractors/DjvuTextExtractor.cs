@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using OnlineLib.Extraction.Contracts;
 using OnlineLib.Extraction.Enums;
 using OnlineLib.Extraction.Ocr;
+using SkiaSharp;
 
 namespace OnlineLib.Extraction.Extractors;
 
@@ -53,8 +54,12 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
             if (nativeSuccess && !string.IsNullOrWhiteSpace(text))
             {
                 var units = SplitIntoPages(text);
+
+                // Extract cover (first page as image)
+                var (cover, mime) = await TryExtractCoverAsync(tempFile, warnings, ct);
+
                 var metadata = new ExtractionMetadata(
-                    ExtractTitleFromFileName(request.FileName), null, null, null);
+                    ExtractTitleFromFileName(request.FileName), null, null, null, cover, mime);
                 var diagnostics = new ExtractionDiagnostics(TextSource.NativeText, null, warnings);
 
                 return new ExtractionResult(SourceFormat.Djvu, metadata, units, diagnostics);
@@ -66,14 +71,16 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 return await ExtractWithOcrAsync(tempFile, request.FileName, warnings, ct);
             }
 
-            // No text and no OCR fallback
+            // No text and no OCR fallback - still try to extract cover
             warnings.Add(new ExtractionWarning(
                 ExtractionWarningCode.NoTextLayer,
                 "DJVU contains no extractable text layer"));
 
+            var (coverImage, coverMimeType) = await TryExtractCoverAsync(tempFile, warnings, ct);
+
             return new ExtractionResult(
                 SourceFormat.Djvu,
-                new ExtractionMetadata(ExtractTitleFromFileName(request.FileName), null, null, null),
+                new ExtractionMetadata(ExtractTitleFromFileName(request.FileName), null, null, null, coverImage, coverMimeType),
                 [],
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
@@ -149,6 +156,136 @@ public sealed partial class DjvuTextExtractor : ITextExtractor
                 $"djvutxt not available: {ex.Message}"));
             return (string.Empty, false);
         }
+    }
+
+    private static async Task<(byte[]? coverImage, string? coverMimeType)> TryExtractCoverAsync(
+        string filePath,
+        List<ExtractionWarning> warnings,
+        CancellationToken ct)
+    {
+        string? tempPpm = null;
+        try
+        {
+            tempPpm = Path.GetTempFileName() + ".ppm";
+
+            // Use ddjvu to render first page as PPM
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ddjvu",
+                    Arguments = $"-format=ppm -page=1 -size=800x1200 \"{filePath}\" \"{tempPpm}\"",
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            await process.WaitForExitAsync(ct);
+
+            if (process.ExitCode != 0 || !File.Exists(tempPpm))
+            {
+                return (null, null);
+            }
+
+            // Convert PPM to PNG using SkiaSharp
+            var ppmBytes = await File.ReadAllBytesAsync(tempPpm, ct);
+            using var bitmap = LoadPpmImage(ppmBytes);
+            if (bitmap == null)
+            {
+                return (null, null);
+            }
+
+            using var pngStream = new MemoryStream();
+            bitmap.Encode(pngStream, SKEncodedImageFormat.Png, 100);
+            return (pngStream.ToArray(), "image/png");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            warnings.Add(new ExtractionWarning(
+                ExtractionWarningCode.CoverExtractionFailed,
+                $"Failed to extract cover: {ex.Message}"));
+            return (null, null);
+        }
+        finally
+        {
+            if (tempPpm != null && File.Exists(tempPpm))
+            {
+                try { File.Delete(tempPpm); }
+                catch { /* ignore */ }
+            }
+        }
+    }
+
+    private static SKBitmap? LoadPpmImage(byte[] ppmData)
+    {
+        // PPM format: P6 (binary RGB)
+        // Header: P6\n<width> <height>\n<maxval>\n<binary data>
+        var headerEnd = 0;
+        var headerLines = 0;
+        var width = 0;
+        var height = 0;
+
+        // Parse header
+        for (var i = 0; i < ppmData.Length - 1 && headerLines < 3; i++)
+        {
+            if (ppmData[i] == '\n')
+            {
+                var line = Encoding.ASCII.GetString(ppmData, headerEnd, i - headerEnd).Trim();
+                headerEnd = i + 1;
+
+                // Skip comments
+                if (line.StartsWith('#'))
+                    continue;
+
+                headerLines++;
+                if (headerLines == 1)
+                {
+                    if (line != "P6")
+                        return null;
+                }
+                else if (headerLines == 2)
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        width = int.Parse(parts[0]);
+                        height = int.Parse(parts[1]);
+                    }
+                }
+            }
+        }
+
+        if (width == 0 || height == 0)
+            return null;
+
+        // Create bitmap from RGB data
+        var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Opaque);
+        var pixels = bitmap.GetPixels();
+
+        unsafe
+        {
+            var pixelPtr = (byte*)pixels.ToPointer();
+            var dataIndex = headerEnd;
+            for (var y = 0; y < height && dataIndex < ppmData.Length - 2; y++)
+            {
+                for (var x = 0; x < width && dataIndex < ppmData.Length - 2; x++)
+                {
+                    var r = ppmData[dataIndex++];
+                    var g = ppmData[dataIndex++];
+                    var b = ppmData[dataIndex++];
+
+                    var pixelIndex = (y * width + x) * 4;
+                    pixelPtr[pixelIndex] = r;
+                    pixelPtr[pixelIndex + 1] = g;
+                    pixelPtr[pixelIndex + 2] = b;
+                    pixelPtr[pixelIndex + 3] = 255; // Alpha
+                }
+            }
+        }
+
+        return bitmap;
     }
 
     private async Task<ExtractionResult> ExtractWithOcrAsync(
