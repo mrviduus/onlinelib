@@ -4,14 +4,14 @@ import './CreateAuthorModal.css'
 
 interface CreateAuthorModalProps {
   siteId: string
-  initialName: string
+  initialName?: string
   onCreated: (author: { id: string; name: string }) => void
   onCancel: () => void
 }
 
 export function CreateAuthorModal({
   siteId,
-  initialName,
+  initialName = '',
   onCreated,
   onCancel
 }: CreateAuthorModalProps) {

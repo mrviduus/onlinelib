@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { adminApi, GenreListItem } from '../api/client'
-import { CreateGenreModal } from '../components/CreateGenreModal'
 
 const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
@@ -12,7 +11,6 @@ export function GenresPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [offset, setOffset] = useState(0)
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const limit = 20
 
   const fetchGenres = async () => {
@@ -59,22 +57,14 @@ export function GenresPage() {
   const totalPages = Math.ceil(total / limit)
   const currentPage = Math.floor(offset / limit) + 1
 
-  const handleGenreCreated = () => {
-    setShowCreateModal(false)
-    fetchGenres()
-  }
-
   return (
     <div className="genres-page">
       <div className="genres-page__header">
         <h1>Genres</h1>
         <span className="genres-page__count">{total} total</span>
-        <button
-          className="btn btn--primary"
-          onClick={() => setShowCreateModal(true)}
-        >
+        <Link to="/genres/new" className="btn btn--primary">
           New Genre
-        </button>
+        </Link>
       </div>
 
       <div className="genres-page__filters">
@@ -158,14 +148,6 @@ export function GenresPage() {
             </div>
           )}
         </>
-      )}
-
-      {showCreateModal && (
-        <CreateGenreModal
-          siteId={DEFAULT_SITE_ID}
-          onCreated={handleGenreCreated}
-          onCancel={() => setShowCreateModal(false)}
-        />
       )}
     </div>
   )

@@ -432,12 +432,13 @@ body {
   white-space: nowrap;
 }
 
-th:last-child,
-td:last-child {
+.authors-table th:last-child,
+.authors-table td:last-child,
+.genres-table th:last-child,
+.genres-table td:last-child {
   width: 140px;
   min-width: 140px;
   text-align: right;
-  padding-right: 24px;
 }
 
 .actions-cell {

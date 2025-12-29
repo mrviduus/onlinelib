@@ -6,8 +6,10 @@ import { JobsPage } from './pages/JobsPage'
 import { EditionsPage } from './pages/EditionsPage'
 import { EditEditionPage } from './pages/EditEditionPage'
 import { AuthorsPage } from './pages/AuthorsPage'
+import { CreateAuthorPage } from './pages/CreateAuthorPage'
 import { EditAuthorPage } from './pages/EditAuthorPage'
 import { GenresPage } from './pages/GenresPage'
+import { CreateGenrePage } from './pages/CreateGenrePage'
 import { EditGenrePage } from './pages/EditGenrePage'
 import './styles/admin.css'
 
@@ -22,8 +24,10 @@ function App() {
           <Route path="editions" element={<EditionsPage />} />
           <Route path="editions/:id" element={<EditEditionPage />} />
           <Route path="authors" element={<AuthorsPage />} />
+          <Route path="authors/new" element={<CreateAuthorPage />} />
           <Route path="authors/:id" element={<EditAuthorPage />} />
           <Route path="genres" element={<GenresPage />} />
+          <Route path="genres/new" element={<CreateGenrePage />} />
           <Route path="genres/:id" element={<EditGenrePage />} />
         </Route>
       </Routes>
