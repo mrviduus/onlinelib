@@ -9,6 +9,7 @@ using Infrastructure.Services;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.FileProviders;
 using Npgsql;
 using OnlineLib.Search;
 using OpenTelemetry.Trace;
@@ -104,6 +105,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.UseExceptionMiddleware();
+
+// Static files for uploaded content (author photos, book covers)
+if (!Directory.Exists(storagePath))
+{
+    Directory.CreateDirectory(storagePath);
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(storagePath),
+    RequestPath = "/storage"
+});
 
 // Health check before site resolution (for infra probes)
 app.MapGet("/health", () => Results.Ok("healthy"));
