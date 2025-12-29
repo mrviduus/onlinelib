@@ -103,6 +103,13 @@
   margin-bottom: 12px;
   transition: transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.book-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .book-card__cover-text {
@@ -175,6 +182,13 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.book-detail__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .book-detail__cover-text {

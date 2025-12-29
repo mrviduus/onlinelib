@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
@@ -65,9 +66,11 @@ export function BookDetailPage() {
       <div className="book-detail__header">
         <div
           className="book-detail__cover"
-          style={{ backgroundColor: stringToColor(book.title) }}
+          style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
         >
-          {!book.coverPath && (
+          {book.coverPath ? (
+            <img src={getStorageUrl(book.coverPath)} alt={book.title} />
+          ) : (
             <span className="book-detail__cover-text">{book.title[0]}</span>
           )}
         </div>

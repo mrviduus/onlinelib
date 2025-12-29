@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { useLanguage } from '../context/LanguageContext'
@@ -62,9 +63,11 @@ export function BooksPage() {
             <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
               <div
                 className="book-card__cover"
-                style={{ backgroundColor: stringToColor(book.title) }}
+                style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
               >
-                {!book.coverPath && (
+                {book.coverPath ? (
+                  <img src={getStorageUrl(book.coverPath)} alt={book.title} />
+                ) : (
                   <span className="book-card__cover-text">{book.title[0]}</span>
                 )}
               </div>

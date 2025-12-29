@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { useLanguage } from '../context/LanguageContext'
@@ -68,9 +69,9 @@ export function GenreDetailPage() {
         <div className="books-grid">
           {genre.editions.map((book) => (
             <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
-              <div className="book-card__cover" style={{ backgroundColor: '#e0e0e0' }}>
+              <div className="book-card__cover" style={{ backgroundColor: book.coverPath ? undefined : '#e0e0e0' }}>
                 {book.coverPath ? (
-                  <img src={book.coverPath} alt="" />
+                  <img src={getStorageUrl(book.coverPath)} alt={book.title} />
                 ) : (
                   <span className="book-card__cover-text">{book.title[0]}</span>
                 )}

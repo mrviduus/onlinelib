@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from './LocalizedLink'
 import type { SearchResult, Suggestion } from '../types/api'
@@ -155,7 +156,7 @@ function SearchInput({
 /** Book cover with fallback to first letter */
 function BookCover({ coverPath, title }: { coverPath?: string | null; title: string }) {
   if (coverPath) {
-    return <img src={coverPath} alt="" />
+    return <img src={getStorageUrl(coverPath)} alt={title} />
   }
 
   // Fallback: show first letter of title
@@ -426,7 +427,7 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
                 onClick={() => navigateAndClose(s.slug)}
               >
                 <div className="mobile-search-overlay__item-cover" style={{ backgroundColor: s.coverPath ? undefined : '#e0e0e0' }}>
-                  {s.coverPath ? <img src={s.coverPath} alt="" /> : <span>{s.text[0]}</span>}
+                  {s.coverPath ? <img src={getStorageUrl(s.coverPath)} alt={s.text} /> : <span>{s.text[0]}</span>}
                 </div>
                 <div className="mobile-search-overlay__item-info">
                   <span className="mobile-search-overlay__item-title">{s.text}</span>
@@ -446,7 +447,7 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
                 onClick={() => navigateAndClose(r.edition.slug)}
               >
                 <div className="mobile-search-overlay__item-cover" style={{ backgroundColor: r.edition.coverPath ? undefined : '#e0e0e0' }}>
-                  {r.edition.coverPath ? <img src={r.edition.coverPath} alt="" /> : <span>{r.edition.title[0]}</span>}
+                  {r.edition.coverPath ? <img src={getStorageUrl(r.edition.coverPath)} alt={r.edition.title} /> : <span>{r.edition.title[0]}</span>}
                 </div>
                 <div className="mobile-search-overlay__item-info">
                   <span className="mobile-search-overlay__item-title">{r.edition.title}</span>

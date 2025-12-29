@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
@@ -111,7 +112,7 @@ export function SearchPage() {
                   style={{ backgroundColor: result.edition.coverPath ? undefined : '#e0e0e0' }}
                 >
                   {result.edition.coverPath ? (
-                    <img src={result.edition.coverPath} alt="" />
+                    <img src={getStorageUrl(result.edition.coverPath)} alt={result.edition.title} />
                   ) : (
                     <span>{result.edition.title[0]}</span>
                   )}

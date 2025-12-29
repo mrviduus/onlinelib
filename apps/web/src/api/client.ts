@@ -1,5 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
+/** Build full URL for storage files (covers, photos) */
+export function getStorageUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined
+  return `${API_BASE}/storage/${path}`
+}
+
 function getSiteFromHost(): string {
   const host = window.location.hostname
   const subdomain = host.split('.')[0]
