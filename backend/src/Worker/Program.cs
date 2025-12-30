@@ -51,8 +51,9 @@ builder.Services.AddSingleton(extractionOptions);
 IOcrEngine? ocrEngine = null;
 if (extractionOptions.EnableOcrFallback)
 {
-    var tessDataPath = builder.Configuration.GetValue("Extraction:TessDataPath", "/usr/share/tessdata") ?? "/usr/share/tessdata";
-    ocrEngine = new TesseractOcrEngine(tessDataPath);
+    var tessDataPath = builder.Configuration.GetValue("Extraction:TessDataPath", "/usr/share/tesseract-ocr/5/tessdata") ?? "/usr/share/tesseract-ocr/5/tessdata";
+    // Use CLI-based Tesseract (works on Linux/ARM64)
+    ocrEngine = new TesseractCliOcrEngine(tessDataPath);
     builder.Services.AddSingleton(ocrEngine);
 }
 
