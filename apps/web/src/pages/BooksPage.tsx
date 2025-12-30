@@ -6,19 +6,32 @@ import { SeoHead } from '../components/SeoHead'
 import { useLanguage } from '../context/LanguageContext'
 import type { Edition } from '../types/api'
 
+const BOOKS_PER_PAGE = 12
+
 export function BooksPage() {
   const { language } = useLanguage()
   const api = useApi()
   const [books, setBooks] = useState<Edition[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.getBooks()
-      .then((data) => setBooks(data.items ?? []))
+    setLoading(true)
+    api.getBooks({
+      limit: BOOKS_PER_PAGE,
+      offset: (page - 1) * BOOKS_PER_PAGE
+    })
+      .then((data) => {
+        setBooks(data.items ?? [])
+        setTotal(data.total)
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [api])
+  }, [api, page])
+
+  const totalPages = Math.ceil(total / BOOKS_PER_PAGE)
 
   if (loading) {
     return (
@@ -58,29 +71,55 @@ export function BooksPage() {
       {books.length === 0 ? (
         <p>No books available yet.</p>
       ) : (
-        <div className="books-grid">
-          {books.map((book) => (
-            <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
-              <div
-                className="book-card__cover"
-                style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
+        <>
+          <div className="books-grid">
+            {books.map((book) => (
+              <LocalizedLink key={book.id} to={`/books/${book.slug}`} className="book-card">
+                <div
+                  className="book-card__cover"
+                  style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
+                >
+                  {book.coverPath ? (
+                    <img src={getStorageUrl(book.coverPath)} alt={book.title} />
+                  ) : (
+                    <span className="book-card__cover-text">{book.title[0]}</span>
+                  )}
+                </div>
+                <h3 className="book-card__title">{book.title}</h3>
+                <p className="book-card__author">
+                  {book.authors.length > 0
+                    ? book.authors.map(a => a.name).join(', ')
+                    : 'Unknown'}
+                </p>
+                <p className="book-card__meta">{book.chapterCount} chapters</p>
+              </LocalizedLink>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="search-page__pagination">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="search-page__pagination-btn"
               >
-                {book.coverPath ? (
-                  <img src={getStorageUrl(book.coverPath)} alt={book.title} />
-                ) : (
-                  <span className="book-card__cover-text">{book.title[0]}</span>
-                )}
-              </div>
-              <h3 className="book-card__title">{book.title}</h3>
-              <p className="book-card__author">
-                {book.authors.length > 0
-                  ? book.authors.map(a => a.name).join(', ')
-                  : 'Unknown'}
-              </p>
-              <p className="book-card__meta">{book.chapterCount} chapters</p>
-            </LocalizedLink>
-          ))}
-        </div>
+                {language === 'uk' ? '← Назад' : '← Previous'}
+              </button>
+              <span className="search-page__pagination-info">
+                {language === 'uk'
+                  ? `Сторінка ${page} з ${totalPages}`
+                  : `Page ${page} of ${totalPages}`}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="search-page__pagination-btn"
+              >
+                {language === 'uk' ? 'Далі →' : 'Next →'}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

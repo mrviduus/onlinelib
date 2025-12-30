@@ -148,6 +148,11 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-books};Username=${POSTGRES_USER:-app};Password=${POSTGRES_PASSWORD:-changeme}"
       Storage__RootPath: /storage
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # Extraction options
+      Extraction__EnableOcrFallback: ${EXTRACTION_ENABLE_OCR:-false}
+      Extraction__PreferOcrOverNativeText: ${EXTRACTION_PREFER_OCR:-false}
+      Extraction__OcrLanguage: ${EXTRACTION_OCR_LANGUAGE:-eng}
+      Extraction__MaxPagesForOcr: ${EXTRACTION_MAX_PAGES:-50}
     volumes:
       - ./data/storage:/storage
     restart: unless-stopped

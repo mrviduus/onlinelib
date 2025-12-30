@@ -41,6 +41,7 @@ builder.Services.AddPostgresFtsProvider(
 var extractionOptions = new ExtractionOptions
 {
     EnableOcrFallback = builder.Configuration.GetValue("Extraction:EnableOcrFallback", false),
+    PreferOcrOverNativeText = builder.Configuration.GetValue("Extraction:PreferOcrOverNativeText", false),
     MaxPagesForOcr = builder.Configuration.GetValue("Extraction:MaxPagesForOcr", 50),
     OcrLanguage = builder.Configuration.GetValue("Extraction:OcrLanguage", "eng") ?? "eng"
 };
@@ -50,8 +51,9 @@ builder.Services.AddSingleton(extractionOptions);
 IOcrEngine? ocrEngine = null;
 if (extractionOptions.EnableOcrFallback)
 {
-    var tessDataPath = builder.Configuration.GetValue("Extraction:TessDataPath", "/usr/share/tessdata") ?? "/usr/share/tessdata";
-    ocrEngine = new TesseractOcrEngine(tessDataPath);
+    var tessDataPath = builder.Configuration.GetValue("Extraction:TessDataPath", "/usr/share/tesseract-ocr/5/tessdata") ?? "/usr/share/tesseract-ocr/5/tessdata";
+    // Use CLI-based Tesseract (works on Linux/ARM64)
+    ocrEngine = new TesseractCliOcrEngine(tessDataPath);
     builder.Services.AddSingleton(ocrEngine);
 }
 

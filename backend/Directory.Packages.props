@@ -31,6 +31,8 @@
     <!-- PDF Extraction -->
     <PackageVersion Include="PdfPig" Version="0.1.12" />
     <PackageVersion Include="PdfPig.Rendering.Skia" Version="0.1.12.2" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="7.3.0.3" />
 
     <!-- OCR -->
     <PackageVersion Include="Tesseract" Version="5.2.0" />

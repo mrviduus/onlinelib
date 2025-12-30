@@ -12,5 +12,6 @@ public enum ExtractionWarningCode
     NoTextLayer = 7,
     PageParseError = 8,
     OcrPageLimitExceeded = 9,
-    OcrFailed = 10
+    OcrFailed = 10,
+    CoverExtractionFailed = 11
 }

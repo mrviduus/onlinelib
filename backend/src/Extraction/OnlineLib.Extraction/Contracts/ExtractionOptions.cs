@@ -12,6 +12,14 @@ public sealed class ExtractionOptions
     public bool EnableOcrFallback { get; init; }
 
     /// <summary>
+    /// Whether to prefer OCR over embedded text layers (e.g., for DJVU files).
+    /// When true, OCR is used as primary extraction method, ignoring potentially
+    /// low-quality embedded text. Requires EnableOcrFallback to be true.
+    /// Default: false.
+    /// </summary>
+    public bool PreferOcrOverNativeText { get; init; }
+
+    /// <summary>
     /// Maximum number of pages to OCR. Documents exceeding this limit
     /// will not be OCR'd and will return TextSource.None with a warning.
     /// Default: 50 pages.
