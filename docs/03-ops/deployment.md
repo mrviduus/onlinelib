@@ -117,7 +117,7 @@ JWT_SECRET=<generated_32+_chars>
 JWT_ISSUER=textstack-api
 JWT_AUDIENCE=textstack-client
 
-VITE_API_BASE_URL=/api
+VITE_API_URL=/api
 ```
 
 ### 6. Build Frontend
@@ -125,7 +125,7 @@ VITE_API_BASE_URL=/api
 ```bash
 cd apps/web
 pnpm install
-VITE_API_BASE_URL=/api pnpm build
+VITE_API_URL=/api pnpm build
 ```
 
 ### 7. Start Services

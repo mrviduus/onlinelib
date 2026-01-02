@@ -194,7 +194,7 @@ jobs:
       - name: Build web
         run: pnpm -C apps/web build
         env:
-          VITE_API_BASE_URL: /api
+          VITE_API_URL: /api
 
       - name: Install dependencies (admin)
         run: pnpm -C apps/admin install
@@ -261,7 +261,7 @@ jobs:
         run: |
           cd $PROJECT_DIR/apps/web
           pnpm install
-          VITE_API_BASE_URL=/api pnpm build
+          VITE_API_URL=/api pnpm build
 
       - name: Deploy containers
         run: |
