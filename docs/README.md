@@ -10,6 +10,8 @@
 | [Database](02-system/database.md) | Schema, entities |
 | [API](02-system/api.md) | Endpoints |
 | [Local Dev](03-ops/local-dev.md) | Docker, migrations |
+| [Production Deployment](03-ops/deployment.md) | Cloudflare tunnel, nginx, Docker |
+| [CI/CD Plan](03-ops/cicd-plan.md) | GitHub Actions, automation (TODO) |
 
 ## Structure
 
@@ -38,7 +40,7 @@ docs/
 1. **New to project**: [Vision](00-vision/README.md) → [Architecture](01-architecture/README.md) → [Local Dev](03-ops/local-dev.md)
 2. **Backend work**: [Database](02-system/database.md) → [API](02-system/api.md) → [Ingestion](02-system/ingestion.md)
 3. **Frontend work**: [Architecture](01-architecture/README.md) → [Multisite](01-architecture/multisite.md) → [Reader](02-system/reader.md)
-4. **Ops**: [Local Dev](03-ops/local-dev.md) → [Backup](03-ops/backup.md)
+4. **Ops**: [Local Dev](03-ops/local-dev.md) → [Production Deployment](03-ops/deployment.md) → [Backup](03-ops/backup.md)
 
 ## ADRs (Architectural Decisions)
 
