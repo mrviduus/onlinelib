@@ -1,6 +1,6 @@
 # CI/CD Implementation Plan
 
-> **Status:** TODO
+> **Status:** Partially Implemented (workflows created, runner setup pending)
 > **Priority:** High
 > **Estimated effort:** 2-3 days
 
@@ -461,14 +461,14 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 
 ## TODO Checklist
 
-- [ ] Create `.github/workflows/ci.yml`
-- [ ] Create `.github/workflows/deploy.yml`
-- [ ] Create `.github/workflows/backup.yml`
+- [x] Create `.github/workflows/ci.yml`
+- [x] Create `.github/workflows/deploy.yml`
+- [x] Create `.github/workflows/backup.yml`
 - [ ] Install self-hosted runner on server
 - [ ] Configure runner as systemd service
 - [ ] Test CI pipeline on PR
 - [ ] Test deploy pipeline on main
-- [ ] Set up backup retention policy
+- [x] Set up backup retention policy (7-day daily retention)
 - [ ] Add health check monitoring
 - [ ] Add failure notifications (Slack/Discord/Email)
 - [ ] Document runbook for on-call

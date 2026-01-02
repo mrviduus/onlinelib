@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback_commit:
+        description: 'Commit SHA to rollback to (optional)'
+        required: false
+
+env:
+  PROJECT_DIR: /home/vasyl/projects/onlinelib/onlinelib
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: self-hosted
+
+    steps:
+      - name: Pre-deploy backup
+        run: |
+          mkdir -p ~/backups
+          DATE=$(date +%F-%H%M)
+          docker exec textstack_db_prod pg_dump -U textstack_prod textstack_prod | gzip > ~/backups/pre-deploy-$DATE.sql.gz
+          echo "Backup created: pre-deploy-$DATE.sql.gz"
+
+      - name: Pull latest code
+        run: |
+          cd $PROJECT_DIR
+          git fetch origin
+          if [ -n "${{ github.event.inputs.rollback_commit }}" ]; then
+            git checkout ${{ github.event.inputs.rollback_commit }}
+          else
+            git checkout main
+            git pull origin main
+          fi
+
+      - name: Build frontend
+        run: |
+          cd $PROJECT_DIR/apps/web
+          pnpm install
+          VITE_API_URL=/api pnpm build
+
+      - name: Deploy containers
+        run: |
+          cd $PROJECT_DIR
+          docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+
+      - name: Wait for services
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          curl -sf http://localhost:8080/health || exit 1
+          curl -sf http://localhost:80 || exit 1
+          echo "Health checks passed"
+
+      - name: Cleanup old images
+        run: docker image prune -f

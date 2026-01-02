@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:  # Allow deploy.yml to reuse this workflow
 
 jobs:
   backend:

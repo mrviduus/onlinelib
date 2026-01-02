@@ -1,0 +1,42 @@
+name: Scheduled Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+  workflow_dispatch:
+
+env:
+  PROJECT_DIR: /home/vasyl/projects/onlinelib/onlinelib
+  BACKUP_DIR: /home/vasyl/backups
+
+jobs:
+  backup:
+    runs-on: self-hosted
+
+    steps:
+      - name: Create backup directory
+        run: mkdir -p $BACKUP_DIR
+
+      - name: Backup database
+        run: |
+          DATE=$(date +%F)
+          docker exec textstack_db_prod pg_dump -U textstack_prod textstack_prod | gzip > $BACKUP_DIR/db-$DATE.sql.gz
+          echo "Database backup: db-$DATE.sql.gz"
+
+      - name: Backup storage
+        run: |
+          DATE=$(date +%F)
+          tar czf $BACKUP_DIR/storage-$DATE.tar.gz -C $PROJECT_DIR/data storage
+          echo "Storage backup: storage-$DATE.tar.gz"
+
+      - name: Cleanup old backups (7-day retention)
+        run: |
+          find $BACKUP_DIR -name "db-*.sql.gz" -mtime +7 -delete
+          find $BACKUP_DIR -name "storage-*.tar.gz" -mtime +7 -delete
+          find $BACKUP_DIR -name "pre-deploy-*.sql.gz" -mtime +3 -delete
+
+      - name: Verify backup
+        run: |
+          ls -lh $BACKUP_DIR/*.gz | tail -5
+          gunzip -t $BACKUP_DIR/db-$(date +%F).sql.gz
+          echo "Backup verification passed"

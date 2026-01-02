@@ -46,3 +46,22 @@ publish/
 
 # Backups (keep .gitkeep)
 backups/*.sql.gz
+
+# GitHub Actions Runner (if installed in project dir)
+.credentials
+.credentials_rsaparams
+.path
+.runner
+.service
+.env.runner
+actions-runner-*.tar.gz
+externals/
+_work/
+_diag/
+config.sh
+env.sh
+run.sh
+run-helper.*
+runsvc.sh
+safe_sleep.sh
+svc.sh
