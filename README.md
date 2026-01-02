@@ -201,6 +201,8 @@ Key files:
 | Document | Description |
 |----------|-------------|
 | [Local Development](docs/03-ops/local-dev.md) | Docker setup, migrations, debugging |
+| [Production Deployment](docs/03-ops/deployment.md) | Server setup, Cloudflare Tunnel, nginx |
+| [CI/CD Pipeline](docs/03-ops/cicd-plan.md) | GitHub Actions, auto-deploy, backups |
 | [Backup & Recovery](docs/03-ops/backup.md) | DB backup, file recovery |
 
 ---
