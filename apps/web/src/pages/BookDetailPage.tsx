@@ -6,6 +6,7 @@ import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
+import { stringToColor } from '../utils/colors'
 import type { BookDetail } from '../types/api'
 
 export function BookDetailPage() {
@@ -18,11 +19,13 @@ export function BookDetailPage() {
 
   useEffect(() => {
     if (!bookSlug) return
+    let cancelled = false
     setLoading(true)
     api.getBook(bookSlug)
-      .then(setBook)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+      .then((data) => { if (!cancelled) setBook(data) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [bookSlug, api])
 
   // Compute available languages for hreflang
@@ -90,7 +93,7 @@ export function BookDetailPage() {
           {book.coverPath ? (
             <img src={getStorageUrl(book.coverPath)} alt={book.title} />
           ) : (
-            <span className="book-detail__cover-text">{book.title[0]}</span>
+            <span className="book-detail__cover-text">{book.title?.[0] || '?'}</span>
           )}
         </div>
         <div className="book-detail__info">
@@ -161,13 +164,4 @@ export function BookDetailPage() {
       </LocalizedLink>
     </div>
   )
-}
-
-function stringToColor(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = hash % 360
-  return `hsl(${hue}, 40%, 80%)`
 }

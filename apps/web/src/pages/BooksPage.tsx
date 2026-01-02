@@ -4,6 +4,7 @@ import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { useLanguage } from '../context/LanguageContext'
+import { stringToColor } from '../utils/colors'
 import type { Edition } from '../types/api'
 
 const BOOKS_PER_PAGE = 12
@@ -82,7 +83,7 @@ export function BooksPage() {
                   {book.coverPath ? (
                     <img src={getStorageUrl(book.coverPath)} alt={book.title} />
                   ) : (
-                    <span className="book-card__cover-text">{book.title[0]}</span>
+                    <span className="book-card__cover-text">{book.title?.[0] || '?'}</span>
                   )}
                 </div>
                 <h3 className="book-card__title">{book.title}</h3>
@@ -123,13 +124,4 @@ export function BooksPage() {
       )}
     </div>
   )
-}
-
-function stringToColor(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = hash % 360
-  return `hsl(${hue}, 40%, 80%)`
 }

@@ -58,12 +58,13 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const controller = new AbortController()
     const siteParam = getSiteParam()
     const url = siteParam
       ? `${API_BASE}/api/site/context?site=${siteParam}`
       : `${API_BASE}/api/site/context`
 
-    fetch(url)
+    fetch(url, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error('Site not found')
         return res.json()
@@ -73,9 +74,12 @@ export function SiteProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       })
       .catch(err => {
+        if (err.name === 'AbortError') return
         setError(err.message)
         setLoading(false)
       })
+
+    return () => controller.abort()
   }, [])
 
   return (

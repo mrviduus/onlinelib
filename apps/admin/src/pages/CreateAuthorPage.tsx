@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { adminApi } from '../api/client'
 
@@ -19,6 +19,13 @@ export function CreateAuthorPage() {
   const [seoTitle, setSeoTitle] = useState('')
   const [seoDescription, setSeoDescription] = useState('')
 
+  // Cleanup blob URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview)
+    }
+  }, [photoPreview])
+
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -27,6 +34,9 @@ export function CreateAuthorPage() {
       alert('File too large. Max 2MB allowed')
       return
     }
+
+    // Revoke old URL before creating new one
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
 
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))

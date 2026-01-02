@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useCallback, ReactNode } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 
 const SUPPORTED_LANGUAGES = ['en', 'uk'] as const
@@ -34,26 +34,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = language
   }, [language])
 
-  const switchLanguage = (newLang: SupportedLanguage) => {
+  const switchLanguage = useCallback((newLang: SupportedLanguage) => {
     const pathWithoutLang = location.pathname.replace(/^\/(uk|en)/, '')
     navigate(`/${newLang}${pathWithoutLang || '/'}`)
-  }
+  }, [location.pathname, navigate])
 
-  const getLocalizedPath = (path: string) => {
+  const getLocalizedPath = useCallback((path: string) => {
     if (path.startsWith(`/${language}`)) return path
     const cleanPath = path.startsWith('/') ? path : `/${path}`
     return `/${language}${cleanPath}`
-  }
+  }, [language])
+
+  const value = useMemo(() => ({
+    language,
+    supportedLanguages: SUPPORTED_LANGUAGES,
+    switchLanguage,
+    getLocalizedPath,
+  }), [language, switchLanguage, getLocalizedPath])
 
   return (
-    <LanguageContext.Provider
-      value={{
-        language,
-        supportedLanguages: SUPPORTED_LANGUAGES,
-        switchLanguage,
-        getLocalizedPath,
-      }}
-    >
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   )

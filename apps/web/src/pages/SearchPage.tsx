@@ -114,7 +114,7 @@ export function SearchPage() {
                   {result.edition.coverPath ? (
                     <img src={getStorageUrl(result.edition.coverPath)} alt={result.edition.title} />
                   ) : (
-                    <span>{result.edition.title[0]}</span>
+                    <span>{result.edition.title?.[0] || '?'}</span>
                   )}
                 </div>
                 <div className="search-page__result-info">

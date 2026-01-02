@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { SiteProvider, useSite } from './context/SiteContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { getSiteTheme } from './config/sites'
@@ -50,15 +50,19 @@ function Home() {
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
+  const location = useLocation()
 
   // Validate language parameter
   if (!isValidLanguage(lang)) {
     return <Navigate to="/en" replace />
   }
 
+  // Hide header on reader page (has its own top bar)
+  const isReaderPage = /^\/[a-z]{2}\/books\/[^/]+\/[^/]+$/.test(location.pathname)
+
   return (
     <LanguageProvider>
-      <Header />
+      {!isReaderPage && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<SearchPage />} />

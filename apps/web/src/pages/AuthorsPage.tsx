@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
+import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { useLanguage } from '../context/LanguageContext'
@@ -63,9 +64,9 @@ export function AuthorsPage() {
             <LocalizedLink key={author.id} to={`/authors/${author.slug}`} className="author-card">
               <div className="author-card__photo">
                 {author.photoPath ? (
-                  <img src={author.photoPath} alt={author.name} />
+                  <img src={getStorageUrl(author.photoPath)} alt={author.name} />
                 ) : (
-                  <span className="author-card__initials">{author.name[0]}</span>
+                  <span className="author-card__initials">{author.name?.[0] || '?'}</span>
                 )}
               </div>
               <h3 className="author-card__name">{author.name}</h3>

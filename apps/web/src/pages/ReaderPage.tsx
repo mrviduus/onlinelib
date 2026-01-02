@@ -33,6 +33,7 @@ export function ReaderPage() {
   // Fetch chapter and book data
   useEffect(() => {
     if (!bookSlug || !chapterSlug) return
+    let cancelled = false
 
     setLoading(true)
     setError(null)
@@ -42,12 +43,15 @@ export function ReaderPage() {
       api.getBook(bookSlug),
     ])
       .then(([ch, bk]) => {
+        if (cancelled) return
         setChapter(ch)
         setBook(bk)
         window.scrollTo(0, 0)
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+
+    return () => { cancelled = true }
   }, [bookSlug, chapterSlug, api])
 
   // Keyboard navigation
@@ -103,7 +107,13 @@ export function ReaderPage() {
         <ReaderContent html={chapter.html} settings={settings} onTap={toggle} />
       </main>
 
-      <ReaderFooterNav bookSlug={bookSlug!} prev={chapter.prev} next={chapter.next} />
+      <ReaderFooterNav
+        bookSlug={bookSlug!}
+        prev={chapter.prev}
+        next={chapter.next}
+        currentChapter={chapter.chapterNumber}
+        totalChapters={book.chapters.length}
+      />
 
       <ReaderTocDrawer
         open={tocOpen}

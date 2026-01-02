@@ -10,43 +10,49 @@ export function GenresPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('') // Applied search
   const [offset, setOffset] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
   const limit = 20
 
-  const fetchGenres = async () => {
-    setLoading(true)
-    try {
-      const data = await adminApi.getGenres({
-        siteId: DEFAULT_SITE_ID,
-        search: search || undefined,
-        offset,
-        limit,
-      })
-      setGenres(data.items)
-      setTotal(data.total)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load genres')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    fetchGenres()
-  }, [offset])
+    let cancelled = false
+    setLoading(true)
+
+    adminApi.getGenres({
+      siteId: DEFAULT_SITE_ID,
+      search: searchQuery || undefined,
+      offset,
+      limit,
+    })
+      .then((data) => {
+        if (cancelled) return
+        setGenres(data.items)
+        setTotal(data.total)
+        setError(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Failed to load genres')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [offset, searchQuery, refreshKey])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setOffset(0)
-    fetchGenres()
+    setSearchQuery(search)
   }
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return
     try {
       await adminApi.deleteGenre(id)
-      fetchGenres()
+      setRefreshKey((k) => k + 1)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete')
     }

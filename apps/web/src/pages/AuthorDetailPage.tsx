@@ -18,10 +18,12 @@ export function AuthorDetailPage() {
 
   useEffect(() => {
     if (!slug) return
+    let cancelled = false
     api.getAuthor(slug)
-      .then((data) => setAuthor(data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+      .then((data) => { if (!cancelled) setAuthor(data) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [api, slug])
 
   if (loading) {
@@ -78,7 +80,7 @@ export function AuthorDetailPage() {
           {author.photoPath ? (
             <img src={getStorageUrl(author.photoPath)} alt={author.name} />
           ) : (
-            <span className="author-detail__initials">{author.name[0]}</span>
+            <span className="author-detail__initials">{author.name?.[0] || '?'}</span>
           )}
         </div>
         <div className="author-detail__info">
@@ -101,7 +103,7 @@ export function AuthorDetailPage() {
                 {book.coverPath ? (
                   <img src={getStorageUrl(book.coverPath)} alt={book.title} />
                 ) : (
-                  <span className="book-card__cover-text">{book.title[0]}</span>
+                  <span className="book-card__cover-text">{book.title?.[0] || '?'}</span>
                 )}
               </div>
               <h3 className="book-card__title">{book.title}</h3>
