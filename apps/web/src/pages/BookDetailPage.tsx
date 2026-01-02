@@ -5,6 +5,7 @@ import { getStorageUrl } from '../api/client'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { JsonLd } from '../components/JsonLd'
 import type { BookDetail } from '../types/api'
 
 export function BookDetailPage() {
@@ -61,7 +62,25 @@ export function BookDetailPage() {
       <SeoHead
         title={book.title}
         description={book.description || undefined}
+        image={book.coverPath ? getStorageUrl(book.coverPath) : undefined}
+        type="book"
         availableLanguages={availableLanguages}
+      />
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Book',
+          name: book.title,
+          description: book.description || undefined,
+          inLanguage: book.language,
+          image: book.coverPath ? getStorageUrl(book.coverPath) : undefined,
+          author: book.authors.map((a) => ({
+            '@type': 'Person',
+            name: a.name,
+            url: `${window.location.origin}/${language}/authors/${a.slug}`,
+          })),
+          url: window.location.href,
+        }}
       />
       <div className="book-detail__header">
         <div

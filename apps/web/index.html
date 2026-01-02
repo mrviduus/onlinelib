@@ -7,6 +7,23 @@
     <!-- Search Engine Verification - replace content values in production -->
     <meta name="google-site-verification" content="" />
     <meta name="msvalidate.01" content="" />
+    <!-- Structured Data - WebSite with SearchAction -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "TextStack",
+      "url": "https://textstack.app",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://textstack.app/en/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

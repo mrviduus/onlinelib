@@ -10,6 +10,7 @@ import { AuthorsPage } from './pages/AuthorsPage'
 import { AuthorDetailPage } from './pages/AuthorDetailPage'
 import { GenresPage } from './pages/GenresPage'
 import { GenreDetailPage } from './pages/GenreDetailPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { LocalizedLink } from './components/LocalizedLink'
 import { Header } from './components/Header'
 import './styles/reader.css'
@@ -68,6 +69,7 @@ function LanguageRoutes() {
         <Route path="/authors/:slug" element={<AuthorDetailPage />} />
         <Route path="/genres" element={<GenresPage />} />
         <Route path="/genres/:slug" element={<GenreDetailPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </LanguageProvider>
   )

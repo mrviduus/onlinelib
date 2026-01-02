@@ -1089,3 +1089,38 @@ body {
 .editions-table a:hover {
   text-decoration: underline;
 }
+
+/* 404 Page */
+.not-found {
+  text-align: center;
+  padding: 80px 24px;
+}
+
+.not-found h1 {
+  font-size: 100px;
+  font-weight: 700;
+  margin: 0;
+  color: #e0e0e0;
+  line-height: 1;
+}
+
+.not-found p {
+  font-size: 18px;
+  color: #666;
+  margin: 16px 0 32px;
+}
+
+.not-found__link {
+  display: inline-block;
+  background: #4f46e5;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.not-found__link:hover {
+  background: #4338ca;
+}

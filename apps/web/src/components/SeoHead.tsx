@@ -5,21 +5,44 @@ import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 interface SeoHeadProps {
   title?: string
   description?: string
+  image?: string
+  type?: 'website' | 'book' | 'profile'
   availableLanguages?: SupportedLanguage[]
   noindex?: boolean
 }
 
 const HREFLANG_DATA_ATTR = 'data-hreflang-managed'
+const OG_DATA_ATTR = 'data-og-managed'
 
-export function SeoHead({ title, description, availableLanguages, noindex }: SeoHeadProps) {
+function setMeta(property: string, content: string, attr: string) {
+  const selector = `meta[${attr}="${property}"]`
+  let meta = document.querySelector(selector) as HTMLMetaElement | null
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.setAttribute(attr, property)
+    meta.setAttribute(OG_DATA_ATTR, 'true')
+    document.head.appendChild(meta)
+  }
+  meta.content = content
+}
+
+export function SeoHead({
+  title,
+  description,
+  image,
+  type = 'website',
+  availableLanguages,
+  noindex,
+}: SeoHeadProps) {
   const location = useLocation()
   const { language } = useLanguage()
 
   useEffect(() => {
     const origin = window.location.origin
+    const canonicalUrl = `${origin}${location.pathname}`
+    const fullTitle = title ? `${title} | TextStack` : 'TextStack'
 
     // Set canonical URL
-    const canonicalUrl = `${origin}${location.pathname}`
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
     if (!link) {
       link = document.createElement('link')
@@ -30,7 +53,7 @@ export function SeoHead({ title, description, availableLanguages, noindex }: Seo
 
     // Set title
     if (title) {
-      document.title = `${title} | TextStack`
+      document.title = fullTitle
     }
 
     // Set description
@@ -57,8 +80,31 @@ export function SeoHead({ title, description, availableLanguages, noindex }: Seo
       robotsMeta.remove()
     }
 
+    // Open Graph tags
+    setMeta('og:title', fullTitle, 'property')
+    setMeta('og:url', canonicalUrl, 'property')
+    setMeta('og:type', type, 'property')
+    setMeta('og:site_name', 'TextStack', 'property')
+    if (description) {
+      setMeta('og:description', description, 'property')
+    }
+    if (image) {
+      const imageUrl = image.startsWith('http') ? image : `${origin}${image}`
+      setMeta('og:image', imageUrl, 'property')
+    }
+
+    // Twitter Card tags
+    setMeta('twitter:card', image ? 'summary_large_image' : 'summary', 'name')
+    setMeta('twitter:title', fullTitle, 'name')
+    if (description) {
+      setMeta('twitter:description', description, 'name')
+    }
+    if (image) {
+      const imageUrl = image.startsWith('http') ? image : `${origin}${image}`
+      setMeta('twitter:image', imageUrl, 'name')
+    }
+
     // Set hreflang tags
-    // Remove existing managed hreflang links
     document.querySelectorAll(`link[${HREFLANG_DATA_ATTR}]`).forEach((el) => el.remove())
 
     if (availableLanguages && availableLanguages.length > 0) {
@@ -73,7 +119,6 @@ export function SeoHead({ title, description, availableLanguages, noindex }: Seo
         document.head.appendChild(hreflangLink)
       })
 
-      // Add x-default pointing to current language
       const xDefaultLink = document.createElement('link')
       xDefaultLink.rel = 'alternate'
       xDefaultLink.hreflang = 'x-default'
@@ -83,10 +128,9 @@ export function SeoHead({ title, description, availableLanguages, noindex }: Seo
     }
 
     return () => {
-      // Cleanup hreflang on unmount
       document.querySelectorAll(`link[${HREFLANG_DATA_ATTR}]`).forEach((el) => el.remove())
     }
-  }, [location.pathname, title, description, availableLanguages, language, noindex])
+  }, [location.pathname, title, description, image, type, availableLanguages, language, noindex])
 
   return null
 }

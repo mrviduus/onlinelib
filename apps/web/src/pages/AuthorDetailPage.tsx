@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi'
 import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { JsonLd } from '../components/JsonLd'
 import { useLanguage } from '../context/LanguageContext'
 import type { AuthorDetail } from '../types/api'
 
@@ -55,7 +56,22 @@ export function AuthorDetailPage() {
 
   return (
     <div className="author-detail">
-      <SeoHead title={seoTitle} description={seoDescription} />
+      <SeoHead
+        title={seoTitle}
+        description={seoDescription}
+        image={author.photoPath ? getStorageUrl(author.photoPath) : undefined}
+        type="profile"
+      />
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Person',
+          name: author.name,
+          description: author.bio || undefined,
+          image: author.photoPath ? getStorageUrl(author.photoPath) : undefined,
+          url: window.location.href,
+        }}
+      />
 
       <div className="author-detail__header">
         <div className="author-detail__photo">

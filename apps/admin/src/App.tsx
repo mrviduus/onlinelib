@@ -11,6 +11,7 @@ import { EditAuthorPage } from './pages/EditAuthorPage'
 import { GenresPage } from './pages/GenresPage'
 import { CreateGenrePage } from './pages/CreateGenrePage'
 import { EditGenrePage } from './pages/EditGenrePage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
           <Route path="genres" element={<GenresPage />} />
           <Route path="genres/new" element={<CreateGenrePage />} />
           <Route path="genres/:id" element={<EditGenrePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
