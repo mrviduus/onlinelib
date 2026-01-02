@@ -1,8 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # CI runs on PRs and when called by deploy.yml
+  # Push to main triggers deploy.yml which calls this workflow
   pull_request:
     branches: [main]
   workflow_call:  # Allow deploy.yml to reuse this workflow
