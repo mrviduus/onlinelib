@@ -1,3 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 32">
-  <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#1a1a1a">TextStack</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 32" fill="none">
+  <!-- Favicon icon scaled to 32px -->
+  <g transform="translate(4, 0) scale(0.5)">
+    <rect x="16" y="14" width="38" height="10" rx="2" fill="#F97316"/>
+    <rect x="14" y="26" width="36" height="8" rx="2" fill="#FDBA74"/>
+    <rect x="10" y="38" width="36" height="8" rx="2" fill="#F97316"/>
+  </g>
+  <!-- Text -->
+  <text x="38" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#1a1a1a">TextStack</text>
 </svg>
