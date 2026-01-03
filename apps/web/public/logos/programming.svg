@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 32" fill="none">
   <!-- Favicon icon scaled to 32px (blue theme) -->
-  <g transform="translate(4, 0) scale(0.5)">
+  <g transform="translate(4, 1) scale(0.5)">
     <rect x="16" y="14" width="38" height="10" rx="2" fill="#2563EB"/>
     <rect x="14" y="26" width="36" height="8" rx="2" fill="#60A5FA"/>
     <rect x="10" y="38" width="36" height="8" rx="2" fill="#2563EB"/>
