@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from '
 import { SiteProvider, useSite } from './context/SiteContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { getSiteTheme } from './config/sites'
+import { useFavicon } from './hooks/useFavicon'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
@@ -86,6 +87,8 @@ function RootRedirect() {
 }
 
 function AppRoutes() {
+  useFavicon()
+
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
