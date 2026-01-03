@@ -77,10 +77,13 @@ export function createApi(language: string) {
       return fetchJson<import('../types/api').Suggestion[]>(`${langPrefix}/search/suggest?${query}`)
     },
 
-    getAuthors: () => {
+    getAuthors: (params?: { limit?: number; offset?: number; sort?: 'name' | 'recent' }) => {
       const query = new URLSearchParams()
       addSiteParam(query)
       query.set('language', language)
+      if (params?.limit) query.set('limit', String(params.limit))
+      if (params?.offset) query.set('offset', String(params.offset))
+      if (params?.sort) query.set('sort', params.sort)
       return fetchJson<{ total: number; items: import('../types/api').Author[] }>(`/authors?${query}`)
     },
 

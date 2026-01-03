@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { SiteProvider, useSite } from './context/SiteContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
-import { getSiteTheme } from './config/sites'
 import { useFavicon } from './hooks/useFavicon'
+import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
@@ -12,42 +12,9 @@ import { AuthorDetailPage } from './pages/AuthorDetailPage'
 import { GenresPage } from './pages/GenresPage'
 import { GenreDetailPage } from './pages/GenreDetailPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { LocalizedLink } from './components/LocalizedLink'
 import { Header } from './components/Header'
 import './styles/reader.css'
 import './styles/books.css'
-
-function Home() {
-  const { site, loading } = useSite()
-  const theme = getSiteTheme(site?.siteCode || 'default')
-
-  if (loading) {
-    return <div style={{ padding: 24, textAlign: 'center' }}>Loading...</div>
-  }
-
-  return (
-    <div style={{
-      padding: 24,
-      maxWidth: 600,
-      margin: '0 auto',
-      backgroundColor: theme.colors.background,
-    }}>
-      <h1 style={{ color: theme.colors.primary, marginTop: 0 }}>{theme.name}</h1>
-      <p style={{ color: theme.colors.text }}>{theme.tagline}</p>
-      <LocalizedLink to="/books" style={{
-        display: 'inline-block',
-        background: theme.colors.primary,
-        color: '#fff',
-        padding: '12px 24px',
-        borderRadius: 8,
-        textDecoration: 'none',
-        marginTop: 16
-      }}>
-        Browse Books
-      </LocalizedLink>
-    </div>
-  )
-}
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
@@ -65,7 +32,7 @@ function LanguageRoutes() {
     <LanguageProvider>
       {!isReaderPage && <Header />}
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/books" element={<BooksPage />} />
         <Route path="/books/:bookSlug" element={<BookDetailPage />} />

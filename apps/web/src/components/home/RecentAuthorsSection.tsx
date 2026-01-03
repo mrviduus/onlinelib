@@ -1,0 +1,70 @@
+import { useState, useEffect } from 'react'
+import { useTranslation } from '../../hooks/useTranslation'
+import { useApi } from '../../hooks/useApi'
+import { getStorageUrl } from '../../api/client'
+import { LocalizedLink } from '../LocalizedLink'
+import type { Author } from '../../types/api'
+
+const AUTHOR_LIMIT = 8
+
+export function RecentAuthorsSection() {
+  const { t } = useTranslation()
+  const api = useApi()
+  const [authors, setAuthors] = useState<Author[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.getAuthors({ limit: AUTHOR_LIMIT, sort: 'recent' })
+      .then((data) => setAuthors(data.items))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [api])
+
+  if (loading) {
+    return (
+      <section className="home-authors">
+        <h2 className="home-authors__title">{t('home.recentAuthors.title')}</h2>
+        <div className="home-authors__grid">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="home-author-card home-author-card--skeleton">
+              <div className="home-author-card__photo" />
+              <div className="home-author-card__name" />
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (authors.length === 0) {
+    return (
+      <section className="home-authors">
+        <h2 className="home-authors__title">{t('home.recentAuthors.title')}</h2>
+        <p className="home-authors__empty">{t('common.noAuthorsYet')}</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="home-authors">
+      <h2 className="home-authors__title">{t('home.recentAuthors.title')}</h2>
+      <div className="home-authors__grid">
+        {authors.map((author) => (
+          <LocalizedLink key={author.id} to={`/authors/${author.slug}`} className="home-author-card">
+            <div className="home-author-card__photo">
+              {author.photoPath ? (
+                <img src={getStorageUrl(author.photoPath)} alt={author.name} />
+              ) : (
+                <span className="home-author-card__initials">{author.name?.[0] || '?'}</span>
+              )}
+            </div>
+            <span className="home-author-card__name">{author.name}</span>
+          </LocalizedLink>
+        ))}
+      </div>
+      <LocalizedLink to="/authors" className="home-authors__view-all">
+        {t('home.recentAuthors.viewAll')}
+      </LocalizedLink>
+    </section>
+  )
+}

@@ -1,0 +1,26 @@
+{
+  "home": {
+    "hero": {
+      "title": "Textstack — Online Reading Platform",
+      "subtitle": "Discover and read books in a clean, focused environment",
+      "cta": "Browse Catalog"
+    },
+    "recentAuthors": {
+      "title": "Recently Added Authors",
+      "viewAll": "View all authors"
+    },
+    "recentBooks": {
+      "title": "Recently Added Books",
+      "viewAll": "View all books",
+      "read": "Read"
+    },
+    "seo": {
+      "content": "Textstack is an online platform designed for comfortable reading. The current catalog features classic literature and public-domain works by authors from different eras and traditions. Each book is organized into chapters for easy navigation. The platform is built for readers who prefer a distraction-free reading experience."
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "noBooksYet": "No books available yet.",
+    "noAuthorsYet": "No authors available yet."
+  }
+}

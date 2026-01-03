@@ -21,6 +21,7 @@ public static class AuthorsEndpoints
         [FromQuery] string? language,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
+        [FromQuery] string? sort,
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
@@ -38,7 +39,9 @@ public static class AuthorsEndpoints
                 ea.Edition.Status == Domain.Enums.EditionStatus.Published));
         }
 
-        query = query.OrderBy(a => a.Name);
+        query = sort == "recent"
+            ? query.OrderByDescending(a => a.CreatedAt)
+            : query.OrderBy(a => a.Name);
 
         var total = await query.CountAsync(ct);
         var items = await query
