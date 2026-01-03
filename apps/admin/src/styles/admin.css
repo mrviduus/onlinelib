@@ -1124,3 +1124,68 @@ body {
 .not-found__link:hover {
   background: #4338ca;
 }
+
+/* Edit Chapter Page */
+.edit-chapter-page h1 {
+  margin: 0;
+}
+
+.edit-chapter-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.edit-chapter-page .edit-form {
+  max-width: 900px;
+}
+
+.code-textarea {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.chapter-info,
+.chapter-actions {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  max-width: 900px;
+}
+
+.chapter-info h2,
+.chapter-actions h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.chapter-info dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.chapter-info dt {
+  font-weight: 500;
+  color: #666;
+}
+
+.chapter-info dd {
+  margin: 0;
+}
+
+.chapter-actions {
+  border: 1px solid #fecaca;
+}
+
+.chapter-actions .hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #666;
+}

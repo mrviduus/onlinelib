@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, FormEvent } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { adminApi, EditionDetail } from '../api/client'
 import { AuthorAutocomplete } from '../components/AuthorAutocomplete'
 import { AuthorList, AuthorItem } from '../components/AuthorList'
@@ -349,6 +349,7 @@ export function EditEditionPage() {
                 <th>#</th>
                 <th>Title</th>
                 <th>Words</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -357,6 +358,11 @@ export function EditEditionPage() {
                   <td>{ch.chapterNumber}</td>
                   <td>{ch.title}</td>
                   <td>{ch.wordCount ?? '-'}</td>
+                  <td>
+                    <Link to={`/chapters/${ch.id}`} className="btn btn--small">
+                      Edit
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

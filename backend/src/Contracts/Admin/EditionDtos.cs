@@ -71,3 +71,25 @@ public record UpdateEditionAuthorDto(
     Guid AuthorId,
     string Role
 );
+
+// Chapter management
+public record AdminChapterDetailDto(
+    Guid Id,
+    Guid EditionId,
+    int ChapterNumber,
+    string? Slug,
+    string Title,
+    string Html,
+    int? WordCount,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt
+);
+
+public record UpdateChapterRequest(
+    string Title,
+    string Html
+);
+
+public record ReorderChaptersRequest(
+    List<Guid> ChapterIds
+);

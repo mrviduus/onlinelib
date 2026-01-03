@@ -74,6 +74,18 @@ export interface Chapter {
   wordCount: number | null
 }
 
+export interface ChapterDetail {
+  id: string
+  editionId: string
+  chapterNumber: number
+  slug: string | null
+  title: string
+  html: string
+  wordCount: number | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PaginatedResult<T> {
   total: number
   items: T[]
@@ -394,5 +406,22 @@ export const adminApi = {
 
   deleteGenre: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/genres/${id}`, { method: 'DELETE' })
+  },
+
+  // Chapters
+  getChapter: async (id: string): Promise<ChapterDetail> => {
+    return fetchJson<ChapterDetail>(`/admin/chapters/${id}`)
+  },
+
+  updateChapter: async (id: string, data: { title: string; html: string }): Promise<void> => {
+    await fetchVoid(`/admin/chapters/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteChapter: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/chapters/${id}`, { method: 'DELETE' })
   },
 }

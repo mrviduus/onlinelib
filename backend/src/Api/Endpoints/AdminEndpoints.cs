@@ -63,6 +63,16 @@ public static class AdminEndpoints
             .WithName("UploadEditionCover")
             .WithDescription("Upload edition cover (max 5MB, JPG/PNG/WebP)")
             .DisableAntiforgery();
+
+        // Chapter management
+        group.MapGet("/chapters/{id:guid}", GetChapter)
+            .WithName("AdminGetChapter");
+
+        group.MapPut("/chapters/{id:guid}", UpdateChapter)
+            .WithName("AdminUpdateChapter");
+
+        group.MapDelete("/chapters/{id:guid}", DeleteChapter)
+            .WithName("AdminDeleteChapter");
     }
 
     private static async Task<IResult> UploadBook(
@@ -221,6 +231,30 @@ public static class AdminEndpoints
         AdminService adminService,
         CancellationToken ct)
         => ToResult(await adminService.UnpublishEditionAsync(id, ct));
+
+    // Chapter endpoints
+
+    private static async Task<IResult> GetChapter(
+        Guid id,
+        AdminService adminService,
+        CancellationToken ct)
+    {
+        var chapter = await adminService.GetChapterDetailAsync(id, ct);
+        return chapter is null ? Results.NotFound() : Results.Ok(chapter);
+    }
+
+    private static async Task<IResult> UpdateChapter(
+        Guid id,
+        UpdateChapterRequest request,
+        AdminService adminService,
+        CancellationToken ct)
+        => ToResult(await adminService.UpdateChapterAsync(id, request, ct));
+
+    private static async Task<IResult> DeleteChapter(
+        Guid id,
+        AdminService adminService,
+        CancellationToken ct)
+        => ToResult(await adminService.DeleteChapterAsync(id, ct));
 
     private static readonly string[] AllowedCoverExtensions = [".jpg", ".jpeg", ".png", ".webp"];
     private const long MaxCoverSize = 5 * 1024 * 1024; // 5MB
