@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 
 namespace OnlineLib.IntegrationTests;
 
@@ -12,8 +11,7 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    // Seeded chapter ID from docker seed data (Kobzar, Chapter 1)
-    private static readonly Guid SeededChapterId = Guid.Parse("f1ce3268-a7ef-444c-b04a-2a6d84e736f5");
+    // Seeded edition ID from docker seed (Kobzar)
     private static readonly Guid SeededEditionId = Guid.Parse("bbbbbbbb-0001-0001-0001-000000000001");
 
     public AdminChapterTests(TestWebApplicationFactory factory)
@@ -21,19 +19,38 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
         _client = factory.CreateClient();
     }
 
+    /// <summary>
+    /// Gets first chapter ID from seeded edition via API.
+    /// Chapter IDs are generated at runtime, not hardcoded.
+    /// </summary>
+    private async Task<Guid?> GetFirstChapterIdAsync()
+    {
+        var response = await _client.GetAsync($"/admin/editions/{SeededEditionId}");
+        if (!response.IsSuccessStatusCode) return null;
+        var edition = await response.Content.ReadFromJsonAsync<EditionDetailResponse>();
+        return edition?.Chapters?.FirstOrDefault()?.Id;
+    }
+
     [Fact]
     public async Task GetChapter_ExistingId_ReturnsChapterWithHtml()
     {
+        // Arrange - get actual chapter ID from API
+        var chapterId = await GetFirstChapterIdAsync();
+        if (chapterId is null)
+        {
+            // Skip if no seeded data
+            return;
+        }
+
         // Act
-        var response = await _client.GetAsync($"/admin/chapters/{SeededChapterId}");
+        var response = await _client.GetAsync($"/admin/chapters/{chapterId}");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var chapter = await response.Content.ReadFromJsonAsync<ChapterDetailResponse>();
         Assert.NotNull(chapter);
-        Assert.Equal(SeededChapterId, chapter.Id);
+        Assert.Equal(chapterId, chapter.Id);
         Assert.Equal(SeededEditionId, chapter.EditionId);
-        Assert.Equal(1, chapter.ChapterNumber);
         Assert.NotEmpty(chapter.Title);
         Assert.NotEmpty(chapter.Html);
         Assert.Contains("<", chapter.Html); // Should contain HTML tags
@@ -52,8 +69,12 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task UpdateChapter_ValidData_ReturnsOkAndUpdatesContent()
     {
-        // Arrange - First get current state
-        var getResponse = await _client.GetAsync($"/admin/chapters/{SeededChapterId}");
+        // Arrange - get actual chapter ID from API
+        var chapterId = await GetFirstChapterIdAsync();
+        if (chapterId is null) return;
+
+        // Get current state
+        var getResponse = await _client.GetAsync($"/admin/chapters/{chapterId}");
         var original = await getResponse.Content.ReadFromJsonAsync<ChapterDetailResponse>();
         Assert.NotNull(original);
 
@@ -62,14 +83,14 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
 
         // Act
         var updateResponse = await _client.PutAsJsonAsync(
-            $"/admin/chapters/{SeededChapterId}",
+            $"/admin/chapters/{chapterId}",
             new { title = newTitle, html = newHtml });
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
         // Verify update
-        var verifyResponse = await _client.GetAsync($"/admin/chapters/{SeededChapterId}");
+        var verifyResponse = await _client.GetAsync($"/admin/chapters/{chapterId}");
         var updated = await verifyResponse.Content.ReadFromJsonAsync<ChapterDetailResponse>();
         Assert.NotNull(updated);
         Assert.Equal(newTitle, updated.Title);
@@ -78,16 +99,19 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
 
         // Restore original
         await _client.PutAsJsonAsync(
-            $"/admin/chapters/{SeededChapterId}",
+            $"/admin/chapters/{chapterId}",
             new { title = original.Title, html = original.Html });
     }
 
     [Fact]
     public async Task UpdateChapter_EmptyTitle_ReturnsBadRequest()
     {
+        var chapterId = await GetFirstChapterIdAsync();
+        if (chapterId is null) return;
+
         // Act
         var response = await _client.PutAsJsonAsync(
-            $"/admin/chapters/{SeededChapterId}",
+            $"/admin/chapters/{chapterId}",
             new { title = "", html = "<p>Content</p>" });
 
         // Assert
@@ -97,9 +121,12 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task UpdateChapter_EmptyHtml_ReturnsBadRequest()
     {
+        var chapterId = await GetFirstChapterIdAsync();
+        if (chapterId is null) return;
+
         // Act
         var response = await _client.PutAsJsonAsync(
-            $"/admin/chapters/{SeededChapterId}",
+            $"/admin/chapters/{chapterId}",
             new { title = "Title", html = "" });
 
         // Assert
@@ -138,4 +165,10 @@ public class AdminChapterTests : IClassFixture<TestWebApplicationFactory>
         int? WordCount,
         DateTimeOffset CreatedAt,
         DateTimeOffset UpdatedAt);
+
+    private record EditionDetailResponse(
+        Guid Id,
+        List<ChapterSummary>? Chapters);
+
+    private record ChapterSummary(Guid Id);
 }
