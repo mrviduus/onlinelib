@@ -1,0 +1,15 @@
+{
+  "name": "TextStack Programming",
+  "short_name": "TextStack",
+  "icons": [
+    {
+      "src": "/favicon/programming/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#2563EB",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}
