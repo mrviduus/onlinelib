@@ -2,14 +2,18 @@ import { useState } from 'react'
 import { LocalizedLink } from './LocalizedLink'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { Search, MobileSearchOverlay } from './Search'
+import { useSite } from '../context/SiteContext'
+import { siteThemes, defaultTheme } from '../config/sites'
 
 export function Header() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const { site } = useSite()
+  const theme = site?.siteCode ? siteThemes[site.siteCode] ?? defaultTheme : defaultTheme
 
   return (
     <header className="site-header">
       <LocalizedLink to="/" className="site-header__brand">
-        <img src="/logo.svg" alt="TextStack" className="site-header__logo" />
+        <img src={theme.logo} alt={theme.name} className="site-header__logo" />
       </LocalizedLink>
       <Search />
       <button
