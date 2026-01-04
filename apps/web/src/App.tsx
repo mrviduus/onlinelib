@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { SiteProvider, useSite } from './context/SiteContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
-import { useFavicon } from './hooks/useFavicon'
 import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
@@ -13,6 +12,7 @@ import { GenresPage } from './pages/GenresPage'
 import { GenreDetailPage } from './pages/GenreDetailPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
+import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
 
@@ -54,8 +54,6 @@ function RootRedirect() {
 }
 
 function AppRoutes() {
-  useFavicon()
-
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />

@@ -1,0 +1,15 @@
+:root {
+  /* Brand colors */
+  --color-brand: #D97706;
+  --color-brand-hover: #B45309;
+  --color-graphite: #2B2F36;
+
+  /* Text */
+  --color-text: #111111;
+  --color-text-secondary: #666666;
+
+  /* Borders & Surfaces */
+  --color-border: #E5E7EB;
+  --color-bg: #FFFFFF;
+  --color-bg-secondary: #F9FAFB;
+}
