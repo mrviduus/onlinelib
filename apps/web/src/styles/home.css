@@ -74,6 +74,24 @@
   box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.3);
 }
 
+/* Programming Hero Variant */
+.home-hero--programming {
+  background-image: url('/images/programming-hero-bg.webp');
+  background-position: center center;
+}
+
+.home-hero--programming::before {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.home-hero--programming .home-hero__title {
+  color: #fff;
+}
+
+.home-hero--programming .home-hero__subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* About Section */
 .home-about {
   padding: 32px 16px;

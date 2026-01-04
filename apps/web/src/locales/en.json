@@ -1,9 +1,13 @@
 {
   "home": {
     "hero": {
-      "title": "Textstack — Online Reading Platform",
-      "subtitle": "Discover and read books in a clean, focused environment",
-      "cta": "Browse Catalog"
+      "title": "A calm place to read books online",
+      "subtitle": "Clean reading experience. Thousands of books. No distractions.",
+      "cta": "Browse catalog",
+      "programming": {
+        "title": "A quiet place to read great programming books",
+        "subtitle": "Classic and modern programming books. No noise. No distractions."
+      }
     },
     "recentAuthors": {
       "title": "Recently Added Authors",
