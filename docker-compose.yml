@@ -165,7 +165,7 @@ services:
       dockerfile: Dockerfile
     container_name: books_web
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://api.localhost}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     ports:
       - "5173:5173"
     restart: unless-stopped
@@ -178,7 +178,7 @@ services:
       dockerfile: Dockerfile
     container_name: books_admin
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://api.localhost}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     ports:
       - "5174:5174"
     restart: unless-stopped
