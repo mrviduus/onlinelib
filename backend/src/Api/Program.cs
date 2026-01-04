@@ -7,6 +7,7 @@ using Application.Common.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Infrastructure.Telemetry;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.FileProviders;
@@ -102,6 +103,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+// Forward headers from reverse proxy (nginx/cloudflare)
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+// Trust all proxies in production (behind nginx/cloudflare)
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseCors();
 app.UseExceptionMiddleware();
