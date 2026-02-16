@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Content: OpenBook2 Ukrainian Library Import
+- **220 EPUB books** imported from [OpenBook2](https://sites.google.com/view/openbook2) (public domain Ukrainian classics)
+- **~50 Ukrainian authors** created — Франко, Шевченко, Леся Українка, Коцюбинський, Шекспір, Діккенс, etc.
+- **Categories**: українська література, світова література, суспільне оцифрування
+- **Scraper**: Node.js script crawled Google Sites pages, extracted Google Drive EPUB links, downloaded 311 MB
+- **Upload**: batch upload via admin API with auto author/genre creation
+- **Source**: OpenBook2 — електронна бібліотека класики української та світової літератури
+
 ### Rebrand: OnlineLib → TextStack
 - **Solution & projects renamed** - `onlinelib.sln` → `textstack.sln`, `OnlineLib.*` → `TextStack.*`
 - **C# namespaces updated** - 70+ files migrated to `TextStack.*` namespaces
