@@ -91,9 +91,9 @@ API → Application → Domain ← Infrastructure
 - **Infrastructure**: EF Core (snake_case naming), storage implementations
 - **API/Worker**: Orchestration, DI
 
-**Middleware pipeline** (order matters): `ForwardedHeaders` → `Cors` → `ExceptionMiddleware` → `SiteContext` → `LanguageContext` → `AdminAuth`
+**Middleware pipeline** (order matters): `ForwardedHeaders` → `Cors` → `RateLimiter` → `ExceptionMiddleware` → `StaticFiles(/storage)` → `/health` → `SiteContext` → `LanguageContext` → `Routing` → `AdminAuth` (conditional on `/admin/*`)
 
-**Multisite**: Every request → `SiteContextMiddleware` → Host → SiteId. Unknown host → 404. All queries scoped to SiteId. Dev mode: `?site=` query param override.
+**Site resolution**: Single-site now (ADR-007). `SiteContextMiddleware` still resolves host → SiteId. Dev mode: `?site=` query param override.
 
 **Patterns**:
 - Endpoints: `Map{Domain}Endpoints()` in `Api/Endpoints/`
@@ -103,12 +103,16 @@ API → Application → Domain ← Infrastructure
 
 **No Redux/Zustand** — React Context only. Provider hierarchy in `App.tsx`:
 ```
-SiteProvider → AuthProvider → DownloadProvider → LanguageProvider → {children}
+BrowserRouter → SiteProvider → AuthProvider → DownloadProvider → AppRoutes
+  └─ /:lang/* → LanguageProvider → Header + page routes
 ```
 
 - **SiteProvider**: Fetches `/api/site/context`, provides `site` to all children
-- **LanguageProvider**: Extracts `lang` from URL params, provides `switchLanguage()`, `getLocalizedPath()`
 - **AuthProvider**: Google Sign-In, auto-refresh token, skips Google for bots
+- **DownloadProvider**: Offline reading — IndexedDB cache, download progress, resume
+- **LanguageProvider**: Inside language routes only. Extracts `lang` from URL params, provides `switchLanguage()`, `getLocalizedPath()`
+
+Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 
 **i18n**: JSON files in `apps/web/src/locales/{en,uk}.json`. Hook: `useTranslation()`. Languages: `['en', 'uk']`.
 
@@ -125,6 +129,11 @@ SiteProvider → AuthProvider → DownloadProvider → LanguageProvider → {chi
 - Edition contains: title, description, cover_path, SEO fields
 - Edition ↔ Author via EditionAuthor (M2M), Edition → Genre (FK)
 - Chapter contains: html (rendered), plain_text (search), search_vector (FTS)
+
+**User Books**: Users can upload their own books (separate from admin library).
+- UserBook → UserChapter (parallel to Work/Edition/Chapter but per-user)
+- Upload flow: UserBookFile → UserIngestionJob → Worker extracts chapters
+- Pages: `/:lang/library/my/:id` (detail), `/:lang/library/my/:id/read/:chapterSlug` (reader with `mode="userbook"`)
 
 **Book Upload Flow**:
 ```
@@ -144,26 +153,35 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 ## API Endpoints
 
-**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`
+**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`
 
 **Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`
 
-**User**: `GET/POST /me/library`, `/me/progress`, `/me/bookmarks`
+**User**: `GET/POST /me/library`, `/me/progress`, `/me/bookmarks`, `/me/highlights`, `/me/reading-tracking`
 
-**Admin**: `POST /admin/books/upload`, `GET /admin/ingestion/jobs`
+**User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/{id}/chapters`
+
+**Admin**: `POST /admin/books/upload`, `GET /admin/ingestion/jobs`, `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`
 
 ## Key Files
 
 | Area | Path |
 |------|------|
 | Domain | `backend/src/Domain/Entities/` |
-| API | `backend/src/Api/Endpoints/` |
+| Application | `backend/src/Application/` (services, interfaces) |
+| API Endpoints | `backend/src/Api/Endpoints/` |
+| API Middleware | `backend/src/Api/Middleware/` |
+| API Entry | `backend/src/Api/Program.cs` |
 | Worker | `backend/src/Worker/Services/IngestionWorkerService.cs` |
 | Extraction | `backend/src/Extraction/` (EPUB/PDF/FB2 parsers) |
-| Search | `backend/src/Search/` |
+| Search | `backend/src/Search/TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs` |
+| DB Context | `backend/src/Infrastructure/Persistence/AppDbContext.cs` |
+| Web Contexts | `apps/web/src/context/` |
 | Web Pages | `apps/web/src/pages/` |
 | Reader | `apps/web/src/pages/ReaderPage.tsx` |
 | Library | `apps/web/src/pages/LibraryPage.tsx` |
+| API Hook | `apps/web/src/hooks/useApi.ts` |
+| i18n | `apps/web/src/locales/{en,uk}.json` |
 | Admin | `apps/admin/src/pages/` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
@@ -171,7 +189,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 ## Search
 
 Search uses raw SQL (Dapper). After schema changes:
-1. Update `PostgresSearchProvider.cs` SQL
+1. Update `backend/src/Search/TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs`
 2. Run `dotnet test tests/TextStack.IntegrationTests --filter SearchEndpoint`
 3. Test: `https://textstack.app/en/search?q=test`
 
