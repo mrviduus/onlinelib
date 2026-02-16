@@ -5,21 +5,36 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
+import { useTranslation } from '../hooks/useTranslation'
 import type { Author } from '../types/api'
+
+const AUTHORS_PER_PAGE = 12
 
 export function AuthorsPage() {
   const { language } = useLanguage()
+  const { t } = useTranslation()
   const api = useApi()
   const [authors, setAuthors] = useState<Author[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.getAuthors()
-      .then((data) => setAuthors(data.items))
+    setLoading(true)
+    api.getAuthors({
+      limit: AUTHORS_PER_PAGE,
+      offset: (page - 1) * AUTHORS_PER_PAGE
+    })
+      .then((data) => {
+        setAuthors(data.items)
+        setTotal(data.total)
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [api])
+  }, [api, page])
+
+  const totalPages = Math.ceil(total / AUTHORS_PER_PAGE)
 
   const title = language === 'uk' ? 'Автори' : 'Authors'
   const description = language === 'uk'
@@ -61,23 +76,47 @@ export function AuthorsPage() {
       {authors.length === 0 ? (
         <p>{language === 'uk' ? 'Авторів поки немає.' : 'No authors available yet.'}</p>
       ) : (
-        <div className="authors-grid">
-          {authors.map((author) => (
-            <LocalizedLink key={author.id} to={`/authors/${author.slug}`} className="author-card" title={`${author.name} - View biography`}>
-              <div className="author-card__photo">
-                {author.photoPath ? (
-                  <img src={getStorageUrl(author.photoPath)} alt={author.name} title={`${author.name} - Biography and books`} />
-                ) : (
-                  <span className="author-card__initials">{author.name?.[0] || '?'}</span>
-                )}
-              </div>
-              <h3 className="author-card__name">{author.name}</h3>
-              <p className="author-card__count">
-                {author.bookCount} {language === 'uk' ? 'книг' : 'books'}
-              </p>
-            </LocalizedLink>
-          ))}
-        </div>
+        <>
+          <div className="authors-grid">
+            {authors.map((author) => (
+              <LocalizedLink key={author.id} to={`/authors/${author.slug}`} className="author-card" title={`${author.name} - View biography`}>
+                <div className="author-card__photo">
+                  {author.photoPath ? (
+                    <img src={getStorageUrl(author.photoPath)} alt={author.name} title={`${author.name} - Biography and books`} />
+                  ) : (
+                    <span className="author-card__initials">{author.name?.[0] || '?'}</span>
+                  )}
+                </div>
+                <h3 className="author-card__name">{author.name}</h3>
+                <p className="author-card__count">
+                  {author.bookCount} {language === 'uk' ? 'книг' : 'books'}
+                </p>
+              </LocalizedLink>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="search-page__pagination">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="search-page__pagination-btn"
+              >
+                {t('books.previous')}
+              </button>
+              <span className="search-page__pagination-info">
+                {t('books.page').replace('{page}', String(page)).replace('{total}', String(totalPages))}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="search-page__pagination-btn"
+              >
+                {t('books.next')}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
     <Footer />
