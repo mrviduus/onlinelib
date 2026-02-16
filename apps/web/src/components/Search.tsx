@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { getStorageUrl } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
@@ -290,6 +291,7 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
   const [activeIndex, setActiveIndex] = useState(-1)
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
   const api = useApi()
   const { language } = useLanguage()
   const debouncedQuery = useDebounce(query.trim(), 150)
@@ -335,9 +337,11 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
     if (e.key === 'Enter') {
       e.preventDefault()
       if (activeIndex >= 0 && suggestions[activeIndex]) {
-        window.location.href = buildBookUrl(language, suggestions[activeIndex].slug)
+        onClose()
+        navigate(buildBookUrl(language, suggestions[activeIndex].slug))
       } else if (query.trim().length >= 2) {
-        window.location.href = `/${language}/search?q=${encodeURIComponent(query.trim())}`
+        onClose()
+        navigate(`/${language}/search?q=${encodeURIComponent(query.trim())}`)
       }
       return
     }
@@ -356,7 +360,8 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
   }
 
   const navigateAndClose = (slug: string) => {
-    window.location.href = buildBookUrl(language, slug)
+    onClose()
+    navigate(buildBookUrl(language, slug))
   }
 
   const placeholder = language === 'uk' ? 'Пошук книг...' : 'Search books...'
@@ -449,6 +454,7 @@ export function Search() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ----- Hooks -----
+  const navigate = useNavigate()
   const api = useApi()
   const { language } = useLanguage()
 
@@ -531,14 +537,16 @@ export function Search() {
       if (mode === 'suggestions') {
         if (activeIndex >= 0 && suggestions[activeIndex]) {
           // Navigate to selected suggestion
-          window.location.href = buildBookUrl(language, suggestions[activeIndex].slug)
+          navigate(buildBookUrl(language, suggestions[activeIndex].slug))
+          setIsOpen(false)
         } else {
           // Execute full search
           executeSearch(query)
         }
       } else if (activeIndex >= 0 && results[activeIndex]) {
         // Navigate to selected result
-        window.location.href = buildBookUrl(language, results[activeIndex].edition.slug)
+        navigate(buildBookUrl(language, results[activeIndex].edition.slug))
+        setIsOpen(false)
       }
       return
     }
@@ -561,7 +569,7 @@ export function Search() {
         inputRef.current?.blur()
         break
     }
-  }, [isOpen, mode, suggestions, results, activeIndex, language, query, executeSearch])
+  }, [isOpen, mode, suggestions, results, activeIndex, language, query, executeSearch, navigate])
 
   /** Handle input change - always switch to suggestions mode */
   const handleInputChange = (value: string) => {
@@ -627,7 +635,7 @@ export function Search() {
                         isActive={index === activeIndex}
                         onClick={() => {
                           resetSearch()
-                          window.location.href = buildBookUrl(language, suggestion.slug)
+                          navigate(buildBookUrl(language, suggestion.slug))
                         }}
                       />
                     ))
@@ -638,7 +646,7 @@ export function Search() {
                         isActive={index === activeIndex}
                         onClick={() => {
                           resetSearch()
-                          window.location.href = buildBookUrl(language, result.edition.slug)
+                          navigate(buildBookUrl(language, result.edition.slug))
                         }}
                       />
                     ))}
