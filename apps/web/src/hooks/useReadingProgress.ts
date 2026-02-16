@@ -109,16 +109,17 @@ export function useReadingProgress(
     }
 
     const { editionId, chapterId, locator, percent } = pendingSyncRef.current
-    // Use sendBeacon for reliability during page unload
     const payload = JSON.stringify({ chapterId, locator, percent })
     const url = `/api/me/progress/${editionId}`
 
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }))
-    } else {
-      // Fallback to fetch (may not complete during unload)
-      upsertProgress(editionId, { chapterId, locator, percent }).catch(() => {})
-    }
+    // Use fetch with keepalive (survives page unload like sendBeacon, but supports PUT)
+    fetch(url, {
+      method: 'PUT',
+      body: payload,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {})
 
     pendingSyncRef.current = null
   }, [isAuthenticated])
@@ -141,6 +142,7 @@ export function useReadingProgress(
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      flushSave()
       if (serverSyncRef.current) clearTimeout(serverSyncRef.current)
     }
   }, [flushSave])

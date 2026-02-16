@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLibrary } from '../hooks/useLibrary'
-import { useApi } from '../hooks/useApi'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { LocalizedLink } from '../components/LocalizedLink'
@@ -13,7 +12,7 @@ import { BookCardMenu } from '../components/library/BookCardMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
-import { getStorageUrl } from '../api/client'
+import { createApi, getStorageUrl } from '../api/client'
 import { getUserBooks, getUserBookCoverUrl, getUserBookProgress, type UserBook, type UserBookProgress } from '../api/userBooks'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
@@ -25,7 +24,6 @@ type SidebarTab = 'saved' | 'uploads'
 export function LibraryPage() {
   const { isAuthenticated, user } = useAuth()
   const { items, loading, remove } = useLibrary()
-  const api = useApi()
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
@@ -88,9 +86,10 @@ export function LibraryPage() {
   }, [userBooks, fetchUserBooks])
 
   // Mark book as read
-  const handleMarkRead = useCallback(async (editionId: string, slug: string) => {
+  const handleMarkRead = useCallback(async (editionId: string, slug: string, bookLanguage: string) => {
     try {
-      const book = await api.getBook(slug)
+      const bookApi = createApi(bookLanguage)
+      const book = await bookApi.getBook(slug)
       if (book.chapters.length === 0) return
       const lastChapter = book.chapters[book.chapters.length - 1]
       const result = await markAsRead(editionId, lastChapter.id)
@@ -98,12 +97,13 @@ export function LibraryPage() {
     } catch (err) {
       console.error('Failed to mark as read:', err)
     }
-  }, [api])
+  }, [])
 
   // Mark book as unread
-  const handleMarkUnread = useCallback(async (editionId: string, slug: string) => {
+  const handleMarkUnread = useCallback(async (editionId: string, slug: string, bookLanguage: string) => {
     try {
-      const book = await api.getBook(slug)
+      const bookApi = createApi(bookLanguage)
+      const book = await bookApi.getBook(slug)
       if (book.chapters.length === 0) return
       const firstChapter = book.chapters[0]
       const result = await markAsUnread(editionId, firstChapter.id)
@@ -111,7 +111,7 @@ export function LibraryPage() {
     } catch (err) {
       console.error('Failed to mark as unread:', err)
     }
-  }, [api])
+  }, [])
 
   // Fetch all reading progress
   useEffect(() => {
@@ -270,8 +270,8 @@ export function LibraryPage() {
                   const progress = progressMap[item.editionId]
                   const percent = progress?.percent ?? 0
                   const destination = progress?.chapterSlug
-                    ? `/${language}/books/${item.slug}/${progress.chapterSlug}`
-                    : `/${language}/books/${item.slug}`
+                    ? `/${item.language}/books/${item.slug}/${progress.chapterSlug}`
+                    : `/${item.language}/books/${item.slug}`
                   return (
                     <article key={item.editionId} className="library-list-item">
                       <Link to={destination} className="library-list-item__cover">
@@ -320,8 +320,8 @@ export function LibraryPage() {
                           book={item}
                           isRead={percent >= 1}
                           onRemove={() => remove(item.editionId)}
-                          onMarkRead={() => handleMarkRead(item.editionId, item.slug)}
-                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug)}
+                          onMarkRead={() => handleMarkRead(item.editionId, item.slug, item.language)}
+                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug, item.language)}
                         />
                       </div>
                     </article>
@@ -334,8 +334,8 @@ export function LibraryPage() {
                   const progress = progressMap[item.editionId]
                   const percent = progress?.percent ?? 0
                   const destination = progress?.chapterSlug
-                    ? `/${language}/books/${item.slug}/${progress.chapterSlug}`
-                    : `/${language}/books/${item.slug}`
+                    ? `/${item.language}/books/${item.slug}/${progress.chapterSlug}`
+                    : `/${item.language}/books/${item.slug}`
                   return (
                     <div key={item.editionId} className="library-card">
                       <Link to={destination} className="library-card__cover" title={`Read ${item.title} online`}>
@@ -376,8 +376,8 @@ export function LibraryPage() {
                           book={item}
                           isRead={percent >= 1}
                           onRemove={() => remove(item.editionId)}
-                          onMarkRead={() => handleMarkRead(item.editionId, item.slug)}
-                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug)}
+                          onMarkRead={() => handleMarkRead(item.editionId, item.slug, item.language)}
+                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug, item.language)}
                         />
                       </div>
                     </div>
