@@ -88,17 +88,16 @@ public partial class HtmlCleaner
     }
 
     /// <summary>
-    /// Fixes self-closing title tag that breaks HAP parsing.
-    /// HAP incorrectly parses &lt;title/&gt; as unclosed, swallowing subsequent content.
+    /// Fixes self-closing non-void tags that break HAP parsing.
+    /// HAP incorrectly parses &lt;script/&gt; and &lt;title/&gt; as unclosed, swallowing subsequent content.
     /// </summary>
     private static string FixSelfClosingTitle(string html)
     {
-        // Simple string replacement for the most common case
-        // This avoids regex which can cause issues in some environments
-        return html
-            .Replace("<title/>", "<title></title>")
-            .Replace("<title />", "<title></title>");
+        return SelfClosingNonVoidRegex().Replace(html, "<$1$2></$1>");
     }
+
+    [GeneratedRegex(@"<(script|title)(\s[^>]*)?\s*/>", RegexOptions.IgnoreCase)]
+    private static partial Regex SelfClosingNonVoidRegex();
 
     private static void RemoveDangerousAttributes(HtmlNode node)
     {
