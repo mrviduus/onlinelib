@@ -47,15 +47,17 @@ export function extractThemes(description: string | null, count = 4): string[] {
 /**
  * Reading time estimate (250 wpm avg)
  */
-export function estimateReadingTime(chapters: ChapterSummary[]): string {
+export function estimateReadingTime(chapters: ChapterSummary[], t: (key: string) => string): string {
   const totalWords = chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
-  if (totalWords === 0) return 'Unknown'
+  if (totalWords === 0) return t('bookDetail.readingTimeUnknown')
 
   const minutes = Math.round(totalWords / 250)
-  if (minutes < 60) return `${minutes} minutes`
+  if (minutes < 60) return t('bookDetail.readingTimeMinutes').replace('{minutes}', String(minutes))
 
   const hours = Math.round(minutes / 60)
-  return hours === 1 ? '1 hour' : `${hours} hours`
+  return hours === 1
+    ? t('bookDetail.readingTimeHour')
+    : t('bookDetail.readingTimeHours').replace('{hours}', String(hours))
 }
 
 /**
@@ -70,45 +72,45 @@ export function extractYear(publishedAt: string | null): number | null {
 /**
  * Generate FAQ items from book metadata
  */
-export function generateFAQs(book: BookDetail): FAQItem[] {
+export function generateFAQs(book: BookDetail, t: (key: string) => string): FAQItem[] {
   const faqs: FAQItem[] = []
-  const authorName = book.authors[0]?.name || 'Unknown'
+  const authorName = book.authors[0]?.name || t('books.unknown')
   const year = extractYear(book.publishedAt)
-  const readingTime = estimateReadingTime(book.chapters)
+  const readingTime = estimateReadingTime(book.chapters, t)
 
   faqs.push({
-    question: `Who wrote ${book.title}?`,
-    answer: `${book.title} was written by ${authorName}.`,
+    question: t('bookDetail.faqWhoWrote').replace('{title}', book.title),
+    answer: t('bookDetail.faqWhoWroteAnswer').replace('{title}', book.title).replace('{author}', authorName),
   })
 
   faqs.push({
-    question: `How many chapters are in ${book.title}?`,
-    answer: `${book.title} contains ${book.chapters.length} chapters.`,
+    question: t('bookDetail.faqChapters').replace('{title}', book.title),
+    answer: t('bookDetail.faqChaptersAnswer').replace('{title}', book.title).replace('{count}', String(book.chapters.length)),
   })
 
   faqs.push({
-    question: `How long does it take to read ${book.title}?`,
-    answer: `The estimated reading time for ${book.title} is ${readingTime}.`,
+    question: t('bookDetail.faqReadingTime').replace('{title}', book.title),
+    answer: t('bookDetail.faqReadingTimeAnswer').replace('{title}', book.title).replace('{time}', readingTime),
   })
 
   if (year) {
     faqs.push({
-      question: `When was ${book.title} published?`,
-      answer: `${book.title} was first published in ${year}.`,
+      question: t('bookDetail.faqPublished').replace('{title}', book.title),
+      answer: t('bookDetail.faqPublishedAnswer').replace('{title}', book.title).replace('{year}', String(year)),
     })
   }
 
   faqs.push({
-    question: `Can I read ${book.title} for free?`,
-    answer: `Yes, ${book.title} is available to read for free on TextStack.`,
+    question: t('bookDetail.faqFree').replace('{title}', book.title),
+    answer: t('bookDetail.faqFreeAnswer').replace('{title}', book.title),
   })
 
   faqs.push({
-    question: `Is ${book.title} available in other languages?`,
+    question: t('bookDetail.faqLanguages').replace('{title}', book.title),
     answer:
       book.otherEditions.length > 0
-        ? `Yes, ${book.title} is available in ${book.otherEditions.length + 1} language(s) on TextStack.`
-        : `Currently ${book.title} is only available in ${book.language.toUpperCase()} on TextStack.`,
+        ? t('bookDetail.faqLanguagesYes').replace('{title}', book.title).replace('{count}', String(book.otherEditions.length + 1))
+        : t('bookDetail.faqLanguagesNo').replace('{title}', book.title).replace('{lang}', book.language.toUpperCase()),
   })
 
   return faqs
@@ -117,30 +119,33 @@ export function generateFAQs(book: BookDetail): FAQItem[] {
 /**
  * Generate "About" section text from description or template
  */
-export function generateAboutText(book: BookDetail): string {
+export function generateAboutText(book: BookDetail, t: (key: string) => string): string {
   if (book.description) {
     return book.description.replace(/<[^>]*>/g, '')
   }
 
-  const authorName = book.authors[0]?.name || 'an acclaimed author'
-  return `${book.title} is a renowned work by ${authorName}. This literary classic continues to captivate readers with its compelling narrative and timeless themes.`
+  const authorName = book.authors[0]?.name || t('books.unknown')
+  return t('bookDetail.aboutFallback').replace('{title}', book.title).replace('{author}', authorName)
 }
 
 /**
  * Generate "Why relevant" section text
  * Uses custom seoRelevanceText if set, otherwise auto-generates
  */
-export function generateRelevanceText(book: BookDetail): string {
+export function generateRelevanceText(book: BookDetail, t: (key: string) => string): string {
   // Use custom if set
   if (book.seoRelevanceText) {
     return book.seoRelevanceText
   }
 
-  const authorName = book.authors[0]?.name || 'the author'
+  const authorName = book.authors[0]?.name || t('books.unknown')
   const themes = extractThemes(book.description, 2)
   const themeText = themes.length > 0 ? themes.join(' and ').toLowerCase() : 'universal human experiences'
 
-  return `${book.title} by ${authorName} remains relevant today because it explores ${themeText} that transcend time and culture. Its insights into human nature continue to resonate with modern readers.`
+  return t('bookDetail.relevanceText')
+    .replace('{title}', book.title)
+    .replace('{author}', authorName)
+    .replace('{themes}', themeText)
 }
 
 /**
@@ -162,7 +167,7 @@ export function getThemes(book: BookDetail, count = 4): string[] {
 /**
  * Get FAQs from custom JSON or auto-generate
  */
-export function getFAQs(book: BookDetail): FAQItem[] {
+export function getFAQs(book: BookDetail, t: (key: string) => string): FAQItem[] {
   // Use custom if set
   if (book.seoFaqsJson) {
     try {
@@ -177,7 +182,7 @@ export function getFAQs(book: BookDetail): FAQItem[] {
       // Fall through to auto-generate
     }
   }
-  return generateFAQs(book)
+  return generateFAQs(book, t)
 }
 
 /**

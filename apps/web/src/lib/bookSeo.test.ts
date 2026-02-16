@@ -7,6 +7,31 @@ import {
 } from './bookSeo'
 import type { BookDetail, ChapterSummary } from '../types/api'
 
+// Simple identity t() for testing — returns the key's English value
+const mockT = (key: string): string => {
+  const translations: Record<string, string> = {
+    'bookDetail.readingTimeMinutes': '{minutes} minutes',
+    'bookDetail.readingTimeHour': '1 hour',
+    'bookDetail.readingTimeHours': '{hours} hours',
+    'bookDetail.readingTimeUnknown': 'Unknown',
+    'bookDetail.faqWhoWrote': 'Who wrote {title}?',
+    'bookDetail.faqWhoWroteAnswer': '{title} was written by {author}.',
+    'bookDetail.faqChapters': 'How many chapters are in {title}?',
+    'bookDetail.faqChaptersAnswer': '{title} contains {count} chapters.',
+    'bookDetail.faqReadingTime': 'How long does it take to read {title}?',
+    'bookDetail.faqReadingTimeAnswer': 'The estimated reading time for {title} is {time}.',
+    'bookDetail.faqPublished': 'When was {title} published?',
+    'bookDetail.faqPublishedAnswer': '{title} was first published in {year}.',
+    'bookDetail.faqFree': 'Can I read {title} for free?',
+    'bookDetail.faqFreeAnswer': 'Yes, {title} is available to read for free on TextStack.',
+    'bookDetail.faqLanguages': 'Is {title} available in other languages?',
+    'bookDetail.faqLanguagesYes': 'Yes, {title} is available in {count} language(s) on TextStack.',
+    'bookDetail.faqLanguagesNo': 'Currently {title} is only available in {lang} on TextStack.',
+    'books.unknown': 'Unknown',
+  }
+  return translations[key] || key
+}
+
 describe('extractThemes', () => {
   it('extracts keywords by frequency', () => {
     const desc = 'Crime and punishment. The crime was severe. Punishment followed crime.'
@@ -40,21 +65,21 @@ describe('estimateReadingTime', () => {
       { id: '1', chapterNumber: 1, slug: 'ch1', title: 'Ch1', wordCount: 50000 },
       { id: '2', chapterNumber: 2, slug: 'ch2', title: 'Ch2', wordCount: 50000 },
     ]
-    expect(estimateReadingTime(chapters)).toBe('7 hours')
+    expect(estimateReadingTime(chapters, mockT)).toBe('7 hours')
   })
 
   it('returns minutes for short chapters', () => {
     const chapters: ChapterSummary[] = [
       { id: '1', chapterNumber: 1, slug: 'ch1', title: 'Ch1', wordCount: 2500 },
     ]
-    expect(estimateReadingTime(chapters)).toBe('10 minutes')
+    expect(estimateReadingTime(chapters, mockT)).toBe('10 minutes')
   })
 
   it('handles missing wordCount', () => {
     const chapters: ChapterSummary[] = [
       { id: '1', chapterNumber: 1, slug: 'ch1', title: 'Ch1', wordCount: null },
     ]
-    expect(estimateReadingTime(chapters)).toBe('Unknown')
+    expect(estimateReadingTime(chapters, mockT)).toBe('Unknown')
   })
 })
 
@@ -96,26 +121,26 @@ describe('generateFAQs', () => {
   }
 
   it('returns 6 FAQs when year available', () => {
-    const faqs = generateFAQs(mockBook)
+    const faqs = generateFAQs(mockBook, mockT)
     expect(faqs.length).toBe(6)
     expect(faqs.some((f) => f.question.includes('published'))).toBe(true)
   })
 
   it('returns 5 FAQs when no year', () => {
     const bookNoYear = { ...mockBook, publishedAt: null }
-    const faqs = generateFAQs(bookNoYear)
+    const faqs = generateFAQs(bookNoYear, mockT)
     expect(faqs.length).toBe(5)
     expect(faqs.some((f) => f.question.includes('published'))).toBe(false)
   })
 
   it('includes author name', () => {
-    const faqs = generateFAQs(mockBook)
+    const faqs = generateFAQs(mockBook, mockT)
     const authorFaq = faqs.find((f) => f.question.includes('wrote'))
     expect(authorFaq?.answer).toContain('Test Author')
   })
 
   it('includes chapter count', () => {
-    const faqs = generateFAQs(mockBook)
+    const faqs = generateFAQs(mockBook, mockT)
     const chapterFaq = faqs.find((f) => f.question.includes('chapters'))
     expect(chapterFaq?.answer).toContain('2 chapters')
   })

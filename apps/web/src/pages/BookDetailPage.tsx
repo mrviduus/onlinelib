@@ -3,6 +3,7 @@ import { useParams, Link, useLocation } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { getStorageUrl } from '../api/client'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
+import { useTranslation } from '../hooks/useTranslation'
 import { useDownload } from '../context/DownloadContext'
 import { useLibrary } from '../hooks/useLibrary'
 import { useSite } from '../context/SiteContext'
@@ -37,6 +38,7 @@ export function BookDetailPage() {
   const location = useLocation()
   const api = useApi()
   const { language } = useLanguage()
+  const { t } = useTranslation()
   const { isDownloading, getProgress, startDownload } = useDownload()
   const { isInLibrary } = useLibrary()
   const { site } = useSite()
@@ -94,15 +96,15 @@ export function BookDetailPage() {
     return (
       <div className="book-detail--stitch">
         <SeoHead
-          title="Book Not Found"
-          description="This book doesn't exist or is not available."
+          title={t('bookDetail.notFound')}
+          description={t('bookDetail.notFoundDesc')}
           noindex
           statusCode={404}
         />
-        <h1>{language === 'uk' ? 'Книгу не знайдено' : 'Book not found'}</h1>
-        <p className="error">{error || (language === 'uk' ? 'Не знайдено' : 'Not found')}</p>
+        <h1>{t('bookDetail.notFoundHeading')}</h1>
+        <p className="error">{error || t('bookDetail.notFoundError')}</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          {t('bookDetail.backToHome')}
         </LocalizedLink>
       </div>
     )
@@ -151,7 +153,7 @@ export function BookDetailPage() {
             style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
           >
             {book.coverPath ? (
-              <img src={getStorageUrl(book.coverPath)} alt={book.title} title={`${book.title} - Read online free`} />
+              <img src={getStorageUrl(book.coverPath)} alt={book.title} title={t('bookDetail.readOnlineFree').replace('{title}', book.title)} />
             ) : (
               <span className="book-hero__cover-text">{book.title?.[0] || '?'}</span>
             )}
@@ -168,18 +170,18 @@ export function BookDetailPage() {
               ? book.authors.map((a, i) => (
                   <span key={a.id}>
                     {i > 0 && ', '}
-                    <LocalizedLink to={`/authors/${a.slug}`} className="book-hero__author-link" title={`${a.name} - View biography`}>
+                    <LocalizedLink to={`/authors/${a.slug}`} className="book-hero__author-link" title={t('bookDetail.viewBiography').replace('{name}', a.name)}>
                       {a.name}
                     </LocalizedLink>
                   </span>
                 ))
-              : 'Unknown'}
+              : t('books.unknown')}
           </p>
 
           {book.description && (
             <div className="book-hero__about">
               <h2 className="book-hero__about-title">
-                {language === 'uk' ? `Про що «${book.title}»?` : `What is ${book.title} about?`}
+                {t('bookDetail.whatIsAbout').replace('{title}', book.title)}
               </h2>
               <p className="book-hero__about-text">{stripHtml(book.description)}</p>
             </div>
@@ -188,7 +190,7 @@ export function BookDetailPage() {
           <div className="book-hero__meta">
             <span className="book-hero__meta-item">
               <span className="material-icons-outlined">auto_stories</span>
-              {book.chapters.length} {language === 'uk' ? 'розділів' : 'chapters'}
+              {book.chapters.length} {t('books.chapters')}
             </span>
             <span className="book-hero__meta-dot" />
             <span className="book-hero__meta-item book-hero__meta-item--lang">
@@ -201,15 +203,15 @@ export function BookDetailPage() {
               <LocalizedLink
                 to={`/books/${book.slug}/${firstChapter.slug}?direct=1`}
                 className="book-hero__read-btn"
-                title={`Start reading ${book.title}`}
+                title={t('bookDetail.startReadingTitle').replace('{title}', book.title)}
               >
-                Start Reading
+                {t('bookDetail.startReading')}
               </LocalizedLink>
             )}
 
             {book.id && isDownloading(book.id) && (
               <span className="book-detail__download-status book-detail__download-status--downloading">
-                Downloading {getProgress(book.id)}%...
+                {t('bookDetail.downloading').replace('{progress}', String(getProgress(book.id)))}
               </span>
             )}
             {book.id && !isDownloading(book.id) && isOffline && (
@@ -217,7 +219,7 @@ export function BookDetailPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                Available offline
+                {t('bookDetail.availableOffline')}
               </span>
             )}
             {book.id && !isDownloading(book.id) && !isOffline && isInLibrary(book.id) && (
@@ -230,7 +232,7 @@ export function BookDetailPage() {
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Download for offline
+                {t('bookDetail.downloadForOffline')}
               </button>
             )}
           </div>
@@ -240,7 +242,7 @@ export function BookDetailPage() {
       {/* Chapters Section */}
       <section className="book-chapters">
         <h2 className="book-chapters__heading">
-          Chapters
+          {t('bookDetail.chaptersHeading')}
           <span className="book-chapters__heading-line" />
         </h2>
 
@@ -250,7 +252,7 @@ export function BookDetailPage() {
               key={ch.id}
               to={`/books/${book.slug}/${ch.slug}?direct=1`}
               className="book-chapters__item"
-              title={`Read ${ch.title}`}
+              title={t('bookDetail.readChapter').replace('{title}', ch.title)}
             >
               <div className="book-chapters__item-left">
                 <span className="book-chapters__number">{formatChapterNumber(ch.chapterNumber)}.</span>
@@ -258,7 +260,7 @@ export function BookDetailPage() {
               </div>
               <div className="book-chapters__item-right">
                 {ch.wordCount && (
-                  <span className="book-chapters__words">{ch.wordCount} words</span>
+                  <span className="book-chapters__words">{ch.wordCount} {t('bookDetail.words')}</span>
                 )}
                 <span className="book-chapters__arrow material-icons-outlined">arrow_forward_ios</span>
               </div>
@@ -271,7 +273,7 @@ export function BookDetailPage() {
             className="book-chapters__view-all"
             onClick={() => setShowAllChapters(true)}
           >
-            View all {book.chapters.length} chapters
+            {t('bookDetail.viewAllChapters').replace('{count}', String(book.chapters.length))}
             <span className="material-icons-outlined">expand_more</span>
           </button>
         )}
@@ -280,7 +282,7 @@ export function BookDetailPage() {
       {/* Themes */}
       {getThemes(book).length > 0 && (
         <section className="book-themes">
-          <h2>Main themes in {book.title}</h2>
+          <h2>{t('bookDetail.mainThemes').replace('{title}', book.title)}</h2>
           <div className="book-themes__grid">
             {getThemes(book).map((theme) => (
               <div key={theme} className="book-themes__item">
@@ -294,14 +296,14 @@ export function BookDetailPage() {
 
       {/* Relevance */}
       <section className="book-relevance">
-        <h2>Why {book.title} is still relevant today</h2>
-        <p>{generateRelevanceText(book)}</p>
+        <h2>{t('bookDetail.whyRelevant').replace('{title}', book.title)}</h2>
+        <p>{generateRelevanceText(book, t)}</p>
       </section>
 
       {/* Author */}
       {book.authors.length > 0 && (
         <section className="book-author-section">
-          <h2>About the author</h2>
+          <h2>{t('bookDetail.aboutAuthor')}</h2>
           <LocalizedLink to={`/authors/${book.authors[0].slug}`}>
             {book.authors[0].name}
           </LocalizedLink>
@@ -310,8 +312,8 @@ export function BookDetailPage() {
 
       {/* FAQ */}
       <section className="book-faq">
-        <h2>Frequently Asked Questions</h2>
-        {getFAQs(book).map((faq, i) => (
+        <h2>{t('bookDetail.faq')}</h2>
+        {getFAQs(book, t).map((faq, i) => (
           <details key={i}>
             <summary>{faq.question}</summary>
             <p>{faq.answer}</p>
@@ -323,7 +325,7 @@ export function BookDetailPage() {
         data={{
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
-          mainEntity: getFAQs(book).map((faq) => ({
+          mainEntity: getFAQs(book, t).map((faq) => ({
             '@type': 'Question',
             name: faq.question,
             acceptedAnswer: {
@@ -337,11 +339,11 @@ export function BookDetailPage() {
       {/* Other Editions */}
       {book.otherEditions.length > 0 && (
         <div className="book-detail__editions">
-          <h2>Other Editions</h2>
+          <h2>{t('bookDetail.otherEditions')}</h2>
           <ul>
             {book.otherEditions.map((ed) => (
               <li key={ed.slug}>
-                <Link to={`/${ed.language}/books/${ed.slug}`} title={`Read ${ed.title} in ${ed.language.toUpperCase()}`}>
+                <Link to={`/${ed.language}/books/${ed.slug}`} title={t('bookDetail.readInLang').replace('{title}', ed.title).replace('{lang}', ed.language.toUpperCase())}>
                   {ed.title} ({ed.language.toUpperCase()})
                 </Link>
               </li>
@@ -350,8 +352,8 @@ export function BookDetailPage() {
         </div>
       )}
 
-      <LocalizedLink to="/books" className="book-detail__back" title="Browse all books">
-        Back to Books
+      <LocalizedLink to="/books" className="book-detail__back" title={t('bookDetail.browseAll')}>
+        {t('bookDetail.backToBooks')}
       </LocalizedLink>
     </div>
     <Footer />
