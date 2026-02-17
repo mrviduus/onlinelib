@@ -6,16 +6,16 @@
 |--------|-------|
 | **Total Authors** | 644 |
 | Authors Indexable | 617 |
-| Authors w/ Full SEO (bio + relevance + themes + FAQs) | 78 |
+| Authors w/ Full SEO (bio + relevance + themes + FAQs) | 126 |
 | Authors w/ SEO Title | 617 |
 | **Total Published Editions** | 1,349 |
-| Editions w/ Full SEO (relevance + themes + FAQs) | 381 |
+| Editions w/ Full SEO (relevance + themes + FAQs) | 646 |
 | Editions w/ SEO Title | 1,349 |
 | **Total Genres** | 56 (52 indexable) |
 | Genres w/ Description | 52 |
 | Genres w/ SEO Title | 52 |
 
-*Last updated: 2026-02-13*
+*Last updated: 2026-02-17*
 
 ## How to Add SEO Content
 
@@ -155,6 +155,54 @@ All authors below have: bio, seo_relevance_text, seo_themes_json, seo_faqs_json,
 | John Vlissides (UK) | 2026-02-13 | 1 |
 | Robert Martin (UK) | 2026-02-03 | 1 |
 | Taras Shevchenko (UK) | 2026-02-13 | 0 |
+| Іван Франко (UK) | 2026-02-17 | 16 |
+| Вільям Шекспір (UK) | 2026-02-17 | 11 |
+| Марко Кропивницький (UK) | 2026-02-17 | 13 |
+| Василь Стефаник (UK) | 2026-02-17 | 9 |
+| Артур Конан Дойл (UK) | 2026-02-17 | 9 |
+| Ольга Кобилянська (UK) | 2026-02-17 | 8 |
+| Михайло Старицький (UK) | 2026-02-17 | 8 |
+| Пантелеймон Куліш (UK) | 2026-02-17 | 8 |
+| Степан Васильченко (UK) | 2026-02-17 | 8 |
+| Антуан де Сент-Екзюпері (UK) | 2026-02-17 | 4 |
+| Євген Гребінка (UK) | 2026-02-17 | 7 |
+| Степан Руданський (UK) | 2026-02-17 | 6 |
+| Джордж Байрон (UK) | 2026-02-17 | 6 |
+| Олександр Олесь (UK) | 2026-02-17 | 6 |
+| Марко Черемшина (UK) | 2026-02-17 | 5 |
+| Чарльз Діккенс (UK) | 2026-02-17 | 5 |
+| Маркіян Шашкевич (UK) | 2026-02-17 | 5 |
+| Юрій Федькович (UK) | 2026-02-17 | 5 |
+| Микола Хвильовий (UK) | 2026-02-17 | 4 |
+| Михайло Коцюбинський (UK) | 2026-02-17 | 4 |
+| Віктор Гюго (UK) | 2026-02-17 | 4 |
+| Анатоль Свидницький (UK) | 2026-02-17 | 4 |
+| Григорій Сковорода (UK) | 2026-02-17 | 3 |
+| Гі де Мопассан (UK) | 2026-02-17 | 3 |
+| Карел Чапек (UK) | 2026-02-17 | 3 |
+| Ред'ярд Кіплінг (UK) | 2026-02-17 | 2 |
+| Павло Грабовський (UK) | 2026-02-17 | 2 |
+| Іван Нечуй-Левицький (UK) | 2026-02-17 | 2 |
+| Льюїс Керрол (UK) | 2026-02-17 | 2 |
+| Вільям Теккерей (UK) | 2026-02-17 | 2 |
+| Григорій Квітка-Основ'яненко (UK) | 2026-02-17 | 2 |
+| Панас Мирний (UK) | 2026-02-17 | 2 |
+| Петро Гулак-Артемовський (UK) | 2026-02-17 | 2 |
+| Едгар Аллан По (UK) | 2026-02-17 | 1 |
+| Оноре де Бальзак (UK) | 2026-02-17 | 1 |
+| Альфонс Доде (UK) | 2026-02-17 | 1 |
+| Даніель Дефо (UK) | 2026-02-17 | 1 |
+| Джек Лондон (UK) | 2026-02-17 | 1 |
+| Іван Карпенко-Карий (UK) | 2026-02-17 | 1 |
+| Марко Вовчок (UK) | 2026-02-17 | 1 |
+| Народна творчість (UK) | 2026-02-17 | 1 |
+| П'єр Бомарше (UK) | 2026-02-17 | 1 |
+| Шарль Перро (UK) | 2026-02-17 | 1 |
+| Anthony Trollope | 2026-02-17 | 22 |
+| Edgar Wallace | 2026-02-17 | 19 |
+| Maurice Leblanc | 2026-02-17 | 12 |
+| Baroness Orczy | 2026-02-17 | 12 |
+| Andre Norton | 2026-02-17 | 10 |
 
 ### Added 2026-02-13 (Priority Queue)
 
@@ -165,6 +213,54 @@ All authors below have: bio, seo_relevance_text, seo_themes_json, seo_faqs_json,
 | Honore de Balzac | 2026-02-13 | 17 |
 | George Bernard Shaw | 2026-02-13 | 16 |
 | G. K. Chesterton | 2026-02-13 | 12 |
+
+### Added 2026-02-17 (Ukrainian SEO Queue)
+
+| # | Author | Books | Status |
+|---|--------|-------|--------|
+| 1 | Іван Франко (UK) | 16 | done |
+| 2 | Вільям Шекспір (UK) | 11 | done |
+| 3 | Марко Кропивницький (UK) | 13 | done |
+| 4 | Василь Стефаник (UK) | 9 | done |
+| 5 | Артур Конан Дойл (UK) | 9 | done |
+| 6 | Ольга Кобилянська (UK) | 8 | done |
+| 7 | Михайло Старицький (UK) | 8 | done |
+| 8 | Пантелеймон Куліш (UK) | 8 | done |
+| 9 | Степан Васильченко (UK) | 8 | done |
+| 10 | Антуан де Сент-Екзюпері (UK) | 4 | done |
+| 11 | Євген Гребінка (UK) | 7 | done |
+| 12 | Степан Руданський (UK) | 6 | done |
+| 13 | Джордж Байрон (UK) | 6 | done |
+| 14 | Олександр Олесь (UK) | 6 | done |
+| 15 | Марко Черемшина (UK) | 5 | done |
+| 16 | Чарльз Діккенс (UK) | 5 | done |
+| 17 | Маркіян Шашкевич (UK) | 5 | done |
+| 18 | Юрій Федькович (UK) | 5 | done |
+| 19 | Микола Хвильовий (UK) | 4 | done |
+| 20 | Михайло Коцюбинський (UK) | 4 | done |
+| 21 | Віктор Гюго (UK) | 4 | done |
+| 22 | Анатоль Свидницький (UK) | 4 | done |
+| 23 | Григорій Сковорода (UK) | 3 | done |
+| 24 | Гі де Мопассан (UK) | 3 | done |
+| 25 | Карел Чапек (UK) | 3 | done |
+| 26 | Ред'ярд Кіплінг (UK) | 2 | done |
+| 27 | Павло Грабовський (UK) | 2 | done |
+| 28 | Іван Нечуй-Левицький (UK) | 2 | done |
+| 29 | Льюїс Керрол (UK) | 2 | done |
+| 30 | Вільям Теккерей (UK) | 2 | done |
+| 31 | Григорій Квітка-Основ'яненко (UK) | 2 | done |
+| 32 | Панас Мирний (UK) | 2 | done |
+| 33 | Петро Гулак-Артемовський (UK) | 2 | done |
+| 34 | Едгар Аллан По (UK) | 1 | done |
+| 35 | Оноре де Бальзак (UK) | 1 | done |
+| 36 | Альфонс Доде (UK) | 1 | done |
+| 37 | Даніель Дефо (UK) | 1 | done |
+| 38 | Джек Лондон (UK) | 1 | done |
+| 39 | Іван Карпенко-Карий (UK) | 1 | done |
+| 40 | Марко Вовчок (UK) | 1 | done |
+| 41 | Народна творчість (UK) | 1 | done |
+| 42 | П'єр Бомарше (UK) | 1 | done |
+| 43 | Шарль Перро (UK) | 1 | done |
 
 ## Needs Attention
 
@@ -243,9 +339,9 @@ Tech genres also have extended descriptions: Algorithms & Data Structures, Clean
 
 | Category | Complete | Partial | Missing |
 |----------|----------|---------|---------|
-| Author bios | 78 | 0 | 539 |
-| Author SEO (full) | 78 | 0 | 539 |
-| Edition SEO (full) | 381 | 0 | 968 |
+| Author bios | 126 | 0 | 491 |
+| Author SEO (full) | 126 | 0 | 491 |
+| Edition SEO (full) | 646 | 0 | 703 |
 | Genre descriptions | 52 | 0 | 0 |
 
 **Priority for next batch**: Authors with 5+ published books and no SEO content.
@@ -315,3 +411,12 @@ FROM authors;
 - 2026-02-03: Bulk SEO update for 42 authors and 41 published books
 - 2026-02-13: Major SEO audit + completion. Added bios for 14 authors, SEO for 5 priority queue authors (95 books). Published 1,197 editions. Genre descriptions for 37 genres. Bulk seo_title/desc for 617 authors, 1,349 editions, 52 genres. SSG rebuild triggered.
 - "Bratya_Karamazovy" edition unpublished as duplicate of "The Brothers Karamazov"
+- 2026-02-17: Ukrainian SEO batch 1 — 10 authors (Франко, Шекспір, Кропивницький, Стефаник, Конан Дойл, Кобилянська, Старицький, Куліш, Васильченко, Сент-Екзюпері) + 94 editions.
+- 2026-02-17: Ukrainian SEO batch 2 — 5 authors (Гребінка, Руданський, Байрон, Олесь, Черемшина) + 30 editions.
+- 2026-02-17: Ukrainian SEO batch 3 — 5 authors (Діккенс UK, Шашкевич, Федькович, Хвильовий, Коцюбинський) + 23 editions.
+- 2026-02-17: Ukrainian SEO batch 4 — 5 authors (Гюго UK, Свидницький, Сковорода, Мопассан UK, Чапек UK) + 17 editions.
+- 2026-02-17: Ukrainian SEO batch 5 — 5 authors (Кіплінг UK, Грабовський, Нечуй-Левицький, Керрол UK, Теккерей UK) + 10 editions.
+- 2026-02-17: Ukrainian SEO batch 6 — 5 authors (Квітка-Основ'яненко, Панас Мирний, Гулак-Артемовський, По UK, Бальзак UK) + 8 editions.
+- 2026-02-17: Ukrainian SEO batch 7 — 5 authors (Доде UK, Дефо UK, Лондон UK, Карпенко-Карий, Марко Вовчок) + 5 editions.
+- 2026-02-17: Ukrainian SEO batch 8 (FINAL) — 3 authors (Народна творчість, Бомарше UK, Перро UK) + 3 editions. All UK authors except Винниченко now have SEO.
+- 2026-02-17: English SEO batch 9 — 5 authors (Trollope 22, Wallace 19, Leblanc 12, Orczy 12, Norton 10) + 75 editions. High-priority EN authors from Needs Attention list.
