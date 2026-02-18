@@ -6,16 +6,16 @@
 |--------|-------|
 | **Total Authors** | 644 |
 | Authors Indexable | 617 |
-| Authors w/ Full SEO (bio + relevance + themes + FAQs) | 126 |
+| Authors w/ Full SEO (bio + relevance + themes + FAQs) | ~439 |
 | Authors w/ SEO Title | 617 |
 | **Total Published Editions** | 1,349 |
-| Editions w/ Full SEO (relevance + themes + FAQs) | 646 |
+| Editions w/ Full SEO (relevance + themes + FAQs) | ~1,171 |
 | Editions w/ SEO Title | 1,349 |
 | **Total Genres** | 56 (52 indexable) |
 | Genres w/ Description | 52 |
 | Genres w/ SEO Title | 52 |
 
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-18*
 
 ## How to Add SEO Content
 
@@ -203,6 +203,7 @@ All authors below have: bio, seo_relevance_text, seo_themes_json, seo_faqs_json,
 | Maurice Leblanc | 2026-02-17 | 12 |
 | Baroness Orczy | 2026-02-17 | 12 |
 | Andre Norton | 2026-02-17 | 10 |
+| 1-book EN authors (A-J, ~260 authors) | 2026-02-18 | ~260 |
 
 ### Added 2026-02-13 (Priority Queue)
 
@@ -339,9 +340,9 @@ Tech genres also have extended descriptions: Algorithms & Data Structures, Clean
 
 | Category | Complete | Partial | Missing |
 |----------|----------|---------|---------|
-| Author bios | 126 | 0 | 491 |
-| Author SEO (full) | 126 | 0 | 491 |
-| Edition SEO (full) | 646 | 0 | 703 |
+| Author bios | ~439 | 0 | ~178 |
+| Author SEO (full) | ~439 | 0 | ~178 |
+| Edition SEO (full) | ~1,171 | 0 | ~178 |
 | Genre descriptions | 52 | 0 | 0 |
 
 **Priority for next batch**: Authors with 5+ published books and no SEO content.
@@ -420,3 +421,4 @@ FROM authors;
 - 2026-02-17: Ukrainian SEO batch 7 — 5 authors (Доде UK, Дефо UK, Лондон UK, Карпенко-Карий, Марко Вовчок) + 5 editions.
 - 2026-02-17: Ukrainian SEO batch 8 (FINAL) — 3 authors (Народна творчість, Бомарше UK, Перро UK) + 3 editions. All UK authors except Винниченко now have SEO.
 - 2026-02-17: English SEO batch 9 — 5 authors (Trollope 22, Wallace 19, Leblanc 12, Orczy 12, Norton 10) + 75 editions. High-priority EN authors from Needs Attention list.
+- 2026-02-18: English SEO 1-book authors A-J — ~260 authors + editions alphabetically (Abu al-ʻAlaʼ al-Maʻarri through John Steinbeck). 178 remaining.
