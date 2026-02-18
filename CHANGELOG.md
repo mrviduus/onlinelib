@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### SEO Content — Full Coverage
+- **654 authors** with full SEO (bio, relevance, themes, FAQs) — 100% of indexable authors
+- **1,567 editions** with full SEO (description, relevance, themes, FAQs) — 100% of published editions
+- **52 Ukrainian authors** — all with Ukrainian-language bios, themes, FAQs
+- **~412 one-book English authors** — A–X alphabetical bulk generation
+- **Priority authors**: Trollope (22), Wallace (19), Leblanc (12), Orczy (12), Norton (10)
+- **73 two-book authors** + all 3+ book authors completed in earlier batches
+- FAQ schema markup for rich snippets in search results
+
+### Features
+- **Authors pagination** — paginated author listing page
+- **Header search fix** — query preserved on navigation
+- **Reading progress** — cross-language library links, session reliability
+- **i18n book detail** — all hardcoded English strings translated
+- **EPUB fix** — handle self-closing `<script/>` in XHTML
+
 ### Content: OpenBook2 Ukrainian Library Import
 - **220 EPUB books** imported from [OpenBook2](https://sites.google.com/view/openbook2) (public domain Ukrainian classics)
 - **~50 Ukrainian authors** created — Франко, Шевченко, Леся Українка, Коцюбинський, Шекспір, Діккенс, etc.
