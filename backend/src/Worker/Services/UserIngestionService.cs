@@ -18,17 +18,20 @@ public class UserIngestionService
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
+    private readonly IImageOptimizer _imageOptimizer;
     private readonly ILogger<UserIngestionService> _logger;
 
     public UserIngestionService(
         IDbContextFactory<AppDbContext> dbFactory,
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
+        IImageOptimizer imageOptimizer,
         ILogger<UserIngestionService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
         _extractorRegistry = extractorRegistry;
+        _imageOptimizer = imageOptimizer;
         _logger = logger;
     }
 
@@ -140,15 +143,12 @@ public class UserIngestionService
             // Save cover
             if (result.Metadata.CoverImage is { Length: > 0 })
             {
-                var ext = result.Metadata.CoverMimeType switch
-                {
-                    "image/png" => ".png",
-                    "image/gif" => ".gif",
-                    "image/webp" => ".webp",
-                    _ => ".jpg"
-                };
+                var coverMime = result.Metadata.CoverMimeType ?? "image/jpeg";
+                var optimizedCover = await _imageOptimizer.OptimizeAsync(
+                    result.Metadata.CoverImage, coverMime, ct: ct);
+                var ext = optimizedCover.Extension;
 
-                using var coverStream = new MemoryStream(result.Metadata.CoverImage);
+                using var coverStream = new MemoryStream(optimizedCover.Data);
                 var coverPath = await _storage.SaveUserFileAsync(
                     job.UserBook.UserId, job.UserBookId, $"cover{ext}", coverStream, ct);
                 job.UserBook.CoverPath = coverPath;
@@ -161,8 +161,9 @@ public class UserIngestionService
                 try
                 {
                     var assetId = Guid.NewGuid();
-                    var ext = GetExtensionFromMimeType(image.MimeType);
-                    using var imageStream = new MemoryStream(image.Data);
+                    var optimized = await _imageOptimizer.OptimizeAsync(image.Data, image.MimeType, ct: ct);
+                    var ext = optimized.Extension;
+                    using var imageStream = new MemoryStream(optimized.Data);
                     var storagePath = await _storage.SaveUserFileAsync(
                         job.UserBook.UserId, job.UserBookId, $"assets/{assetId}{ext}", imageStream, ct);
                     imageMap[image.OriginalPath] = $"/api/me/books/{job.UserBookId}/assets/{assetId}";

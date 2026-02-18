@@ -337,6 +337,7 @@ public static class AdminEndpoints
         IFormFile file,
         IAppDbContext db,
         IFileStorageService storage,
+        IImageOptimizer imageOptimizer,
         CancellationToken ct)
     {
         var edition = await db.Editions.FindAsync([id], ct);
@@ -359,10 +360,16 @@ public static class AdminEndpoints
             await storage.DeleteFileAsync(edition.CoverPath, ct);
         }
 
-        // Save new cover with timestamp for cache busting
-        await using var stream = file.OpenReadStream();
-        var fileName = $"cover-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{ext}";
-        var relativePath = await storage.SaveFileAsync(id, fileName, stream, ct);
+        // Read and optimize
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms, ct);
+        var mimeType = file.ContentType ?? "image/jpeg";
+        var optimized = await imageOptimizer.OptimizeAsync(ms.ToArray(), mimeType, ct: ct);
+
+        // Save optimized cover with timestamp for cache busting
+        using var optimizedStream = new MemoryStream(optimized.Data);
+        var fileName = $"cover-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{optimized.Extension}";
+        var relativePath = await storage.SaveFileAsync(id, fileName, optimizedStream, ct);
 
         edition.CoverPath = relativePath;
         edition.UpdatedAt = DateTimeOffset.UtcNow;

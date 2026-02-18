@@ -342,6 +342,7 @@ public static class AdminAuthorsEndpoints
     private static async Task<IResult> UploadAuthorPhoto(
         IAppDbContext db,
         IFileStorageService storage,
+        IImageOptimizer imageOptimizer,
         Guid id,
         IFormFile file,
         CancellationToken ct)
@@ -366,10 +367,16 @@ public static class AdminAuthorsEndpoints
             await storage.DeleteFileAsync(author.PhotoPath, ct);
         }
 
-        // Save new photo - use authors/{id}/photo.ext pattern
-        await using var stream = file.OpenReadStream();
-        var fileName = $"photo{ext}";
-        var relativePath = await storage.SaveFileAsync(id, fileName, stream, ct);
+        // Read and optimize
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms, ct);
+        var mimeType = file.ContentType ?? "image/jpeg";
+        var optimized = await imageOptimizer.OptimizeAsync(ms.ToArray(), mimeType, ct: ct);
+
+        // Save optimized photo
+        using var optimizedStream = new MemoryStream(optimized.Data);
+        var fileName = $"photo{optimized.Extension}";
+        var relativePath = await storage.SaveFileAsync(id, fileName, optimizedStream, ct);
 
         author.PhotoPath = relativePath;
         author.UpdatedAt = DateTimeOffset.UtcNow;

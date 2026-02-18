@@ -25,6 +25,7 @@ public class IngestionWorkerService
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly ISearchIndexer _searchIndexer;
+    private readonly IImageOptimizer _imageOptimizer;
     private readonly ILogger<IngestionWorkerService> _logger;
 
     public IngestionWorkerService(
@@ -32,12 +33,14 @@ public class IngestionWorkerService
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
         ISearchIndexer searchIndexer,
+        IImageOptimizer imageOptimizer,
         ILogger<IngestionWorkerService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
         _extractorRegistry = extractorRegistry;
         _searchIndexer = searchIndexer;
+        _imageOptimizer = imageOptimizer;
         _logger = logger;
     }
 
@@ -182,8 +185,9 @@ public class IngestionWorkerService
                     try
                     {
                         var assetId = Guid.NewGuid();
-                        var ext = GetExtensionFromMimeType(image.MimeType);
-                        using var imageStream = new MemoryStream(image.Data);
+                        var optimized = await _imageOptimizer.OptimizeAsync(image.Data, image.MimeType, ct: ct);
+                        var ext = optimized.Extension;
+                        using var imageStream = new MemoryStream(optimized.Data);
                         var storagePath = await _storage.SaveFileAsync(
                             job.EditionId,
                             $"assets/{assetId}{ext}",
@@ -197,8 +201,8 @@ public class IngestionWorkerService
                             Kind = AssetKind.InlineImage,
                             OriginalPath = image.OriginalPath,
                             StoragePath = storagePath,
-                            ContentType = image.MimeType,
-                            ByteSize = image.Data.Length,
+                            ContentType = optimized.MimeType,
+                            ByteSize = optimized.Data.Length,
                             CreatedAt = DateTimeOffset.UtcNow
                         };
                         db.BookAssets.Add(asset);
@@ -242,15 +246,12 @@ public class IngestionWorkerService
                 using var coverActivity = IngestionActivitySource.Source.StartActivity("persist.cover");
                 try
                 {
-                    var ext = extractionResult.Metadata.CoverMimeType switch
-                    {
-                        "image/png" => ".png",
-                        "image/gif" => ".gif",
-                        "image/webp" => ".webp",
-                        _ => ".jpg"
-                    };
+                    var coverMime = extractionResult.Metadata.CoverMimeType ?? "image/jpeg";
+                    var optimizedCover = await _imageOptimizer.OptimizeAsync(
+                        extractionResult.Metadata.CoverImage, coverMime, ct: ct);
+                    var ext = optimizedCover.Extension;
 
-                    using var coverStream = new MemoryStream(extractionResult.Metadata.CoverImage);
+                    using var coverStream = new MemoryStream(optimizedCover.Data);
                     var coverPath = await _storage.SaveFileAsync(job.EditionId, $"cover{ext}", coverStream, ct);
 
                     // Update edition with cover path

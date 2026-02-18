@@ -90,6 +90,9 @@ builder.Services.AddPostgresFtsProvider(
     _ => () => new NpgsqlConnection(connectionString),
     options => options.ConnectionString = connectionString);
 
+// Image optimization
+builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();
+
 // Site resolution
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ISiteResolver, SiteResolver>();
@@ -240,6 +243,130 @@ if (args.Length > 0 && args[0] == "import-textstack")
     else
         Console.WriteLine($"Success! Edition: {result.EditionId}, Chapters: {result.ChapterCount}");
 
+    return;
+}
+
+// CLI: optimize-images command
+if (args.Length > 0 && args[0] == "optimize-images")
+{
+    var dryRun = args.Contains("--dry-run");
+    if (dryRun) Console.WriteLine("DRY RUN — no changes will be made\n");
+
+    using var cliScope = app.Services.CreateScope();
+    var db = cliScope.ServiceProvider.GetRequiredService<IAppDbContext>();
+    var storage = cliScope.ServiceProvider.GetRequiredService<IFileStorageService>();
+    var optimizer = cliScope.ServiceProvider.GetRequiredService<IImageOptimizer>();
+
+    int processed = 0, optimized = 0, skipped = 0, failed = 0;
+    long savedBytes = 0;
+
+    async Task OptimizeFile(string label, string filePath, string mimeType,
+        Func<string, string, Task> updateDb)
+    {
+        processed++;
+        try
+        {
+            var fullPath = storage.GetFullPath(filePath);
+            if (!File.Exists(fullPath))
+            {
+                Console.WriteLine($"[MISSING] {filePath}");
+                failed++;
+                return;
+            }
+
+            var data = await File.ReadAllBytesAsync(fullPath);
+            if (data.Length <= 200 * 1024)
+            {
+                Console.WriteLine($"[SKIP]      {filePath} ({data.Length / 1024}KB)");
+                skipped++;
+                return;
+            }
+
+            var result = await optimizer.OptimizeAsync(data, mimeType);
+
+            if (!dryRun)
+            {
+                // Save new file
+                var dir = Path.GetDirectoryName(filePath)!;
+                var newFileName = Path.GetFileNameWithoutExtension(filePath) + result.Extension;
+                var newRelPath = Path.Combine(dir, newFileName).Replace('\\', '/');
+
+                var newFullPath = storage.GetFullPath(newRelPath);
+                var newDir = Path.GetDirectoryName(newFullPath);
+                if (newDir != null && !Directory.Exists(newDir))
+                    Directory.CreateDirectory(newDir);
+
+                await File.WriteAllBytesAsync(newFullPath, result.Data);
+                await updateDb(newRelPath, result.MimeType);
+
+                // Delete old file if path changed
+                if (newRelPath != filePath && File.Exists(fullPath))
+                    File.Delete(fullPath);
+            }
+
+            savedBytes += data.Length - result.Data.Length;
+            Console.WriteLine($"[OPTIMIZED] {filePath} {data.Length / 1024}KB → {Path.GetFileNameWithoutExtension(filePath)}{result.Extension} {result.Data.Length / 1024}KB");
+            optimized++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FAILED]    {filePath} — {ex.Message}");
+            failed++;
+        }
+    }
+
+    // 1. Edition covers
+    Console.WriteLine("=== Edition Covers ===");
+    var editions = await db.Editions
+        .Where(e => e.CoverPath != null)
+        .ToListAsync();
+
+    foreach (var edition in editions)
+    {
+        var mime = edition.CoverPath!.EndsWith(".png") ? "image/png" : "image/jpeg";
+        await OptimizeFile("cover", edition.CoverPath!, mime, async (newPath, newMime) =>
+        {
+            edition.CoverPath = newPath;
+            edition.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+    }
+
+    // 2. Inline images (BookAssets)
+    Console.WriteLine("\n=== Inline Images ===");
+    var assets = await db.BookAssets
+        .Where(a => a.Kind == AssetKind.InlineImage)
+        .ToListAsync();
+
+    foreach (var asset in assets)
+    {
+        await OptimizeFile("asset", asset.StoragePath, asset.ContentType, async (newPath, newMime) =>
+        {
+            asset.StoragePath = newPath;
+            asset.ContentType = newMime;
+            asset.ByteSize = new FileInfo(storage.GetFullPath(newPath)).Length;
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+    }
+
+    // 3. Author photos
+    Console.WriteLine("\n=== Author Photos ===");
+    var authors = await db.Authors
+        .Where(a => a.PhotoPath != null)
+        .ToListAsync();
+
+    foreach (var author in authors)
+    {
+        var mime = author.PhotoPath!.EndsWith(".png") ? "image/png" : "image/jpeg";
+        await OptimizeFile("photo", author.PhotoPath!, mime, async (newPath, newMime) =>
+        {
+            author.PhotoPath = newPath;
+            author.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+    }
+
+    Console.WriteLine($"\nSummary: processed={processed}, optimized={optimized}, skipped={skipped}, failed={failed}, saved={savedBytes / 1024}KB");
     return;
 }
 

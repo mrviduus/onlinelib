@@ -45,6 +45,9 @@ builder.Services.AddSingleton<ITextExtractor, EpubTextExtractor>();
 builder.Services.AddSingleton<ITextExtractor, PdfTextExtractor>();
 builder.Services.AddSingleton<IExtractorRegistry, ExtractorRegistry>();
 
+// Image optimization
+builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();
+
 // Application services (for ISsgRouteProvider, etc.)
 builder.Services.AddApplication();
 
