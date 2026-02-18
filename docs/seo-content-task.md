@@ -6,10 +6,10 @@
 |--------|-------|
 | **Total Authors** | 644 |
 | Authors Indexable | 617 |
-| Authors w/ Full SEO (bio + relevance + themes + FAQs) | ~439 |
+| Authors w/ Full SEO (bio + relevance + themes + FAQs) | ~499 |
 | Authors w/ SEO Title | 617 |
 | **Total Published Editions** | 1,349 |
-| Editions w/ Full SEO (relevance + themes + FAQs) | ~1,171 |
+| Editions w/ Full SEO (relevance + themes + FAQs) | ~1,231 |
 | Editions w/ SEO Title | 1,349 |
 | **Total Genres** | 56 (52 indexable) |
 | Genres w/ Description | 52 |
@@ -204,6 +204,7 @@ All authors below have: bio, seo_relevance_text, seo_themes_json, seo_faqs_json,
 | Baroness Orczy | 2026-02-17 | 12 |
 | Andre Norton | 2026-02-17 | 10 |
 | 1-book EN authors (A-J, ~260 authors) | 2026-02-18 | ~260 |
+| 1-book EN authors (K-R, ~60 authors) | 2026-02-18 | ~60 |
 
 ### Added 2026-02-13 (Priority Queue)
 
@@ -265,7 +266,7 @@ All authors below have: bio, seo_relevance_text, seo_themes_json, seo_faqs_json,
 
 ## Needs Attention
 
-### Authors with Published Books but No Full SEO (~539 authors)
+### Authors with Published Books but No Full SEO (~78 authors)
 
 These authors have published editions and seo_title but lack bio/relevance/themes/faQs. Run the SEO content generation process for them.
 
@@ -310,8 +311,8 @@ Tech genres also have extended descriptions: Algorithms & Data Structures, Clean
 
 3. **"[Author] books list / bibliography"** — author pages
    - 617 indexable author pages
-   - 78 with full bio + SEO content (rich pages)
-   - 539 with basic seo_title only (thin pages, need SEO)
+   - ~499 with full bio + SEO content (rich pages)
+   - ~78 with basic seo_title only (thin pages, need SEO)
 
 4. **"[Book] summary / themes / analysis"** — edition FAQs + descriptions
    - 381 editions with full SEO (themes, FAQs, relevance)
@@ -340,9 +341,9 @@ Tech genres also have extended descriptions: Algorithms & Data Structures, Clean
 
 | Category | Complete | Partial | Missing |
 |----------|----------|---------|---------|
-| Author bios | ~439 | 0 | ~178 |
-| Author SEO (full) | ~439 | 0 | ~178 |
-| Edition SEO (full) | ~1,171 | 0 | ~178 |
+| Author bios | ~499 | 0 | ~78 |
+| Author SEO (full) | ~499 | 0 | ~78 |
+| Edition SEO (full) | ~1,231 | 0 | ~78 |
 | Genre descriptions | 52 | 0 | 0 |
 
 **Priority for next batch**: Authors with 5+ published books and no SEO content.
