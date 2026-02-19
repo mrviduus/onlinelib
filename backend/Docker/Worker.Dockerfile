@@ -62,6 +62,7 @@ ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 RUN userdel -r app 2>/dev/null; userdel -r ubuntu 2>/dev/null; \
     groupadd -g 1000 app && useradd -u 1000 -g app -m app
 
+RUN mkdir -p /storage && chown app:app /storage
 WORKDIR /app
 COPY --from=build /app/publish .
 
