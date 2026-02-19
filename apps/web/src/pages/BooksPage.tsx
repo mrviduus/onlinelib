@@ -1,29 +1,85 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { useDebounce } from '../hooks/useDebounce'
 import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
 import { stringToColor } from '../utils/colors'
-import type { Edition } from '../types/api'
+import type { Edition, Genre } from '../types/api'
 
 const BOOKS_PER_PAGE = 12
 
 export function BooksPage() {
   const { t } = useTranslation()
   const api = useApi()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const q = searchParams.get('q') || ''
+  const genre = searchParams.get('genre') || ''
+  const sort = searchParams.get('sort') || ''
+  const pageParam = parseInt(searchParams.get('page') || '1', 10)
+  const page = isNaN(pageParam) || pageParam < 1 ? 1 : pageParam
+
+  const [searchInput, setSearchInput] = useState(q)
+  const debouncedSearch = useDebounce(searchInput, 300)
+
   const [books, setBooks] = useState<Edition[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
+  const [genres, setGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Fetch genres once
+  useEffect(() => {
+    api.getGenres().then(data => setGenres(data.items)).catch(() => {})
+  }, [api])
+
+  // Update URL when debounced search changes
+  useEffect(() => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (debouncedSearch) next.set('q', debouncedSearch)
+      else next.delete('q')
+      next.set('page', '1')
+      return next
+    }, { replace: true })
+  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setFilter = useCallback((key: string, value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      next.set('page', '1')
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const setPage = useCallback((p: number) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('page', String(p))
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const clearFilters = useCallback(() => {
+    setSearchInput('')
+    setSearchParams({}, { replace: true })
+  }, [setSearchParams])
+
+  // Fetch books
   useEffect(() => {
     setLoading(true)
     api.getBooks({
       limit: BOOKS_PER_PAGE,
-      offset: (page - 1) * BOOKS_PER_PAGE
+      offset: (page - 1) * BOOKS_PER_PAGE,
+      search: q || undefined,
+      genre: genre || undefined,
+      sort: sort || undefined,
     })
       .then((data) => {
         setBooks(data.items ?? [])
@@ -31,14 +87,65 @@ export function BooksPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [api, page])
+  }, [api, page, q, genre, sort])
 
   const totalPages = Math.ceil(total / BOOKS_PER_PAGE)
+  const hasFilters = !!(q || genre || sort)
 
-  if (loading) {
-    return (
-      <div className="books-page">
-        <h1>{t('books.title')}</h1>
+  return (
+    <>
+    <div className="books-page">
+      <SeoHead title={t('books.title')} description={t('books.seoDesc')} />
+      <h1>{t('books.title')}</h1>
+
+      {/* Filters */}
+      <div className="catalogue-filters">
+        <div className="catalogue-filters__search">
+          <svg className="catalogue-filters__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            className="catalogue-filters__input"
+            placeholder={t('books.searchPlaceholder')}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <select
+          className="catalogue-filters__sort"
+          value={sort}
+          onChange={(e) => setFilter('sort', e.target.value)}
+        >
+          <option value="">{t('books.sortRecent')}</option>
+          <option value="title">{t('books.sortTitle')}</option>
+          <option value="oldest">{t('books.sortOldest')}</option>
+        </select>
+      </div>
+
+      {/* Genre chips */}
+      {genres.length > 0 && (
+        <div className="catalogue-genres">
+          <button
+            className={`catalogue-genres__chip ${!genre ? 'catalogue-genres__chip--active' : ''}`}
+            onClick={() => setFilter('genre', '')}
+          >
+            {t('books.allCategories')}
+          </button>
+          {genres.map((g) => (
+            <button
+              key={g.id}
+              className={`catalogue-genres__chip ${genre === g.slug ? 'catalogue-genres__chip--active' : ''}`}
+              onClick={() => setFilter('genre', genre === g.slug ? '' : g.slug)}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
         <div className="books-grid">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="book-card book-card--skeleton">
@@ -48,26 +155,17 @@ export function BooksPage() {
             </div>
           ))}
         </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="books-page">
-        <h1>{t('books.title')}</h1>
+      ) : error ? (
         <p className="error">Error: {error}</p>
-      </div>
-    )
-  }
-
-  return (
-    <>
-    <div className="books-page">
-      <SeoHead title={t('books.title')} description={t('books.seoDesc')} />
-      <h1>{t('books.title')}</h1>
-      {books.length === 0 ? (
-        <p>{t('books.noBooksYet')}</p>
+      ) : books.length === 0 ? (
+        <div className="catalogue-empty">
+          <p>{hasFilters ? t('books.noResults') : t('books.noBooksYet')}</p>
+          {hasFilters && (
+            <button className="catalogue-empty__clear" onClick={clearFilters}>
+              {t('books.clearFilters')}
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <div className="books-grid">
@@ -97,7 +195,7 @@ export function BooksPage() {
           {totalPages > 1 && (
             <div className="search-page__pagination">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
                 className="search-page__pagination-btn"
               >
@@ -107,7 +205,7 @@ export function BooksPage() {
                 {t('books.page').replace('{page}', String(page)).replace('{total}', String(totalPages))}
               </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
                 className="search-page__pagination-btn"
               >

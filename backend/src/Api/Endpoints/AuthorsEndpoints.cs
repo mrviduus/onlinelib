@@ -21,13 +21,14 @@ public static class AuthorsEndpoints
         [FromQuery] int? limit,
         [FromQuery] int? offset,
         [FromQuery] string? sort,
+        [FromQuery] string? search,
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
         var take = Math.Min(limit ?? 50, 100);
         var skip = offset ?? 0;
 
-        var result = await authorsService.GetAuthorsAsync(siteId, skip, take, language, sort, ct);
+        var result = await authorsService.GetAuthorsAsync(siteId, skip, take, language, sort, search, ct);
         return Results.Ok(new { total = result.Total, items = result.Items });
     }
 

@@ -353,6 +353,115 @@
   background: var(--color-bg-warm, #FAF8F5);
 }
 
+/* Catalogue filters (shared between books & authors) */
+.catalogue-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.catalogue-filters__search {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.catalogue-filters__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted, #999);
+  pointer-events: none;
+}
+
+.catalogue-filters__input {
+  width: 100%;
+  padding: 10px 12px 10px 38px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #1a1a1a);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.catalogue-filters__input::placeholder {
+  color: var(--color-text-muted, #999);
+}
+
+.catalogue-filters__input:focus {
+  border-color: var(--color-brand, #4a90d9);
+}
+
+.catalogue-filters__sort {
+  padding: 10px 14px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  font-size: 15px;
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #1a1a1a);
+  cursor: pointer;
+  outline: none;
+}
+
+.catalogue-filters__sort:focus {
+  border-color: var(--color-brand, #4a90d9);
+}
+
+/* Genre chips */
+.catalogue-genres {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.catalogue-genres__chip {
+  padding: 6px 16px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--color-text, #1a1a1a);
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.catalogue-genres__chip:hover {
+  border-color: var(--color-brand, #4a90d9);
+}
+
+.catalogue-genres__chip--active {
+  background: var(--color-brand, #4a90d9);
+  color: #fff;
+  border-color: var(--color-brand, #4a90d9);
+}
+
+/* Empty state */
+.catalogue-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--color-text-muted, #999);
+}
+
+.catalogue-empty p {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.catalogue-empty__clear {
+  background: none;
+  border: none;
+  color: var(--color-brand, #4a90d9);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* Books page */
 .books-page {
   max-width: 1200px;
@@ -2097,6 +2206,27 @@ html.dark .search-page__sub-result-highlight b {
 
   .genres-grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalogue-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalogue-filters__search {
+    max-width: none;
+  }
+
+  .catalogue-genres {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .catalogue-genres::-webkit-scrollbar {
+    display: none;
   }
 }
 

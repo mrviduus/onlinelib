@@ -9,7 +9,7 @@ namespace Application.Authors;
 public class AuthorsService(IAppDbContext db)
 {
     public async Task<PaginatedResult<AuthorListDto>> GetAuthorsAsync(
-        Guid siteId, int offset, int limit, string? language, string? sort, CancellationToken ct)
+        Guid siteId, int offset, int limit, string? language, string? sort, string? search, CancellationToken ct)
     {
         var query = db.Authors
             .Where(a => a.SiteId == siteId && a.Indexable)
@@ -20,6 +20,12 @@ public class AuthorsService(IAppDbContext db)
             query = query.Where(a => a.EditionAuthors.Any(ea =>
                 ea.Edition.Language == language &&
                 ea.Edition.Status == EditionStatus.Published));
+        }
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            var term = search.ToLower();
+            query = query.Where(a => a.Name.ToLower().Contains(term));
         }
 
         query = sort == "recent"

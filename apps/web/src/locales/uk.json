@@ -108,7 +108,26 @@
     "readOnlineFree": "{title} - Читати онлайн безкоштовно",
     "previous": "← Назад",
     "next": "Далі →",
-    "page": "Сторінка {page} з {total}"
+    "page": "Сторінка {page} з {total}",
+    "searchPlaceholder": "Шукати книги чи авторів...",
+    "sortRecent": "Нові",
+    "sortTitle": "Назва",
+    "sortOldest": "Старі",
+    "allCategories": "Усі",
+    "noResults": "Книг не знайдено.",
+    "clearFilters": "Очистити фільтри"
+  },
+  "authors": {
+    "title": "Автори",
+    "seoDesc": "Перегляньте список авторів | TextStack",
+    "searchPlaceholder": "Шукати авторів...",
+    "sortName": "Ім'я",
+    "sortRecent": "Нові",
+    "noResults": "Авторів не знайдено.",
+    "noAuthorsYet": "Авторів поки немає.",
+    "books": "книг",
+    "viewBio": "{name} - Переглянути біографію",
+    "bioAndBooks": "{name} - Біографія та книги"
   },
   "bookDetail": {
     "notFound": "Книгу не знайдено",

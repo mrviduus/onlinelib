@@ -49,10 +49,13 @@ export function createApi(language: string) {
   const langPrefix = `/${language}`
 
   return {
-    getBooks: (params?: { limit?: number; offset?: number }) => {
+    getBooks: (params?: { limit?: number; offset?: number; search?: string; genre?: string; sort?: string }) => {
       const query = new URLSearchParams()
       if (params?.limit) query.set('limit', String(params.limit))
       if (params?.offset) query.set('offset', String(params.offset))
+      if (params?.search) query.set('search', params.search)
+      if (params?.genre) query.set('genre', params.genre)
+      if (params?.sort) query.set('sort', params.sort)
       const qs = query.toString()
       return fetchJson<{ total: number; items: import('../types/api').Edition[] }>(
         `${langPrefix}/books${qs ? `?${qs}` : ''}`
@@ -89,12 +92,13 @@ export function createApi(language: string) {
       )
     },
 
-    getAuthors: (params?: { limit?: number; offset?: number; sort?: 'name' | 'recent' }) => {
+    getAuthors: (params?: { limit?: number; offset?: number; sort?: 'name' | 'recent'; search?: string }) => {
       const query = new URLSearchParams()
       query.set('language', language)
       if (params?.limit) query.set('limit', String(params.limit))
       if (params?.offset) query.set('offset', String(params.offset))
       if (params?.sort) query.set('sort', params.sort)
+      if (params?.search) query.set('search', params.search)
       return fetchJson<{ total: number; items: import('../types/api').Author[] }>(`/authors?${query}`)
     },
 

@@ -24,11 +24,14 @@ public static class BooksEndpoints
         BookService bookService,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
+        [FromQuery] string? search,
+        [FromQuery] string? genre,
+        [FromQuery] string? sort,
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
         var language = httpContext.GetLanguage();
-        var result = await bookService.GetBooksAsync(siteId, offset ?? 0, limit ?? 20, language, ct);
+        var result = await bookService.GetBooksAsync(siteId, offset ?? 0, limit ?? 20, language, search, genre, sort, ct);
         return Results.Ok(result);
     }
 

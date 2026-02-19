@@ -10,7 +10,8 @@ namespace Application.Books;
 public class BookService(IAppDbContext db)
 {
     public async Task<PaginatedResult<BookListDto>> GetBooksAsync(
-        Guid siteId, int offset, int limit, string? language, CancellationToken ct)
+        Guid siteId, int offset, int limit, string? language,
+        string? search, string? genreSlug, string? sort, CancellationToken ct)
     {
         var query = db.Editions
             .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published)
@@ -21,10 +22,27 @@ public class BookService(IAppDbContext db)
         if (!string.IsNullOrEmpty(language))
             query = query.Where(e => e.Language == language);
 
+        if (!string.IsNullOrEmpty(search))
+        {
+            var term = search.ToLower();
+            query = query.Where(e =>
+                e.Title.ToLower().Contains(term) ||
+                e.EditionAuthors.Any(ea => ea.Author.Name.ToLower().Contains(term)));
+        }
+
+        if (!string.IsNullOrEmpty(genreSlug))
+            query = query.Where(e => e.Genres.Any(g => g.Slug == genreSlug));
+
         var total = await query.CountAsync(ct);
 
+        query = sort switch
+        {
+            "title" => query.OrderBy(e => e.Title),
+            "oldest" => query.OrderBy(e => e.PublishedAt ?? e.CreatedAt),
+            _ => query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+        };
+
         var books = await query
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(limit)
             .Select(e => new BookListDto(

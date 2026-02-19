@@ -108,7 +108,26 @@
     "readOnlineFree": "{title} - Read online free",
     "previous": "← Previous",
     "next": "Next →",
-    "page": "Page {page} of {total}"
+    "page": "Page {page} of {total}",
+    "searchPlaceholder": "Search books or authors...",
+    "sortRecent": "Recent",
+    "sortTitle": "Title",
+    "sortOldest": "Oldest",
+    "allCategories": "All",
+    "noResults": "No books found.",
+    "clearFilters": "Clear filters"
+  },
+  "authors": {
+    "title": "Authors",
+    "seoDesc": "Browse our list of authors | TextStack",
+    "searchPlaceholder": "Search authors...",
+    "sortName": "Name",
+    "sortRecent": "Recent",
+    "noResults": "No authors found.",
+    "noAuthorsYet": "No authors available yet.",
+    "books": "books",
+    "viewBio": "{name} - View biography",
+    "bioAndBooks": "{name} - Biography and books"
   },
   "bookDetail": {
     "notFound": "Book Not Found",
