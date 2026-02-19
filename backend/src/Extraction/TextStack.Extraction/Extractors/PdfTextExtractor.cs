@@ -386,10 +386,10 @@ public sealed class PdfTextExtractor : ITextExtractor
         {
             using var pdfStream = new MemoryStream(pdfBytes);
             using var imageStream = new MemoryStream();
-            #pragma warning disable CA1416 // Platform compatibility — worker runs on Linux
+#pragma warning disable CA1416 // Platform compatibility — worker runs on Linux
             Conversion.SaveJpeg(imageStream, pdfStream, Index.FromStart(0),
                 options: new RenderOptions(Dpi: 150));
-            #pragma warning restore CA1416
+#pragma warning restore CA1416
             var result = imageStream.ToArray();
             return result.Length > 0 ? result : null;
         }

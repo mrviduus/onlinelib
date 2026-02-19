@@ -22,7 +22,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     public async Task LookupWord_ValidEnglishWord_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/en/hello");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // External API might be unavailable
         if (response.StatusCode == HttpStatusCode.BadGateway ||
@@ -34,7 +34,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>();
+        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.Equal("hello", result.Word.ToLower());
         Assert.NotEmpty(result.Definitions);
@@ -44,7 +44,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     public async Task LookupWord_NonExistentWord_Returns404()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/en/asdfghjklzxcv");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // External API might be unavailable
         if (response.StatusCode == HttpStatusCode.BadGateway ||
@@ -61,7 +61,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     public async Task LookupWord_EmptyWord_Returns400()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/en/");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Empty path segment might result in 404 from routing
         Assert.True(
@@ -75,7 +75,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     {
         var longWord = new string('a', 150);
         var request = _fixture.CreateRequest(HttpMethod.Get, $"/api/dictionary/en/{longWord}");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -84,14 +84,14 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     public async Task LookupWord_ReturnsPhonetic()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/en/book");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode != HttpStatusCode.OK)
         {
             return; // Skip
         }
 
-        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>();
+        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         // Phonetic might or might not be available depending on word
         // Just verify the structure is valid
@@ -102,14 +102,14 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     public async Task LookupWord_ReturnsPartOfSpeech()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/en/run");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode != HttpStatusCode.OK)
         {
             return; // Skip
         }
 
-        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>();
+        var result = await response.Content.ReadFromJsonAsync<DictionaryResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.NotEmpty(result.Definitions);
         Assert.All(result.Definitions, d => Assert.NotNull(d.PartOfSpeech));
@@ -120,7 +120,7 @@ public class DictionaryEndpointTests : IClassFixture<LiveApiFixture>
     {
         // German word
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/dictionary/de/hallo");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // External API might not support all languages or be unavailable
         if (response.StatusCode == HttpStatusCode.BadGateway ||

@@ -59,6 +59,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Puppeteer cache location (scripts mounted via docker-compose volume)
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 
+RUN userdel -r app 2>/dev/null; userdel -r ubuntu 2>/dev/null; \
+    groupadd -g 1000 app && useradd -u 1000 -g app -m app
+
+RUN mkdir -p /storage && chown app:app /storage
 WORKDIR /app
 COPY --from=build /app/publish .
 
@@ -66,6 +70,8 @@ COPY --from=build /app/publish .
 RUN mkdir -p /app/apps/web && \
     cd /app/apps/web && \
     npm init -y --silent && \
-    npm install --silent puppeteer
+    npm install --silent puppeteer && \
+    chown -R app:app /app
 
+USER app
 ENTRYPOINT ["dotnet", "Worker.dll"]

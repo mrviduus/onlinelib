@@ -162,12 +162,12 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         {
             try
             {
-                toc = JsonSerializer.Deserialize<List<TocEntryDto>>(book.TocJson, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                toc = JsonSerializer.Deserialize<List<TocEntryDto>>(book.TocJson, Common.JsonDefaults.Options);
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Malformed ToC JSON — return null toc
+            }
         }
 
         return new UserBookDetailDto(

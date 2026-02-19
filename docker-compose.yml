@@ -186,7 +186,7 @@ services:
   # ===========================================
 
   libretranslate:
-    image: libretranslate/libretranslate:latest
+    image: libretranslate/libretranslate:v1.6.4
     container_name: textstack_libretranslate
     environment:
       - LT_LOAD_ONLY=en,uk,ru,de,fr,es,pl

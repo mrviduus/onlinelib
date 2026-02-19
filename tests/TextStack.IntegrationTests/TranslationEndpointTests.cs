@@ -29,7 +29,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             targetLang = "uk"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // LibreTranslate might not be running, so accept 502/503
         if (response.StatusCode == HttpStatusCode.BadGateway ||
@@ -40,7 +40,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var result = await response.Content.ReadFromJsonAsync<TranslateResponse>();
+        var result = await response.Content.ReadFromJsonAsync<TranslateResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.NotNull(result.TranslatedText);
         Assert.Equal("en", result.SourceLang);
@@ -58,7 +58,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             targetLang = "uk"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -74,7 +74,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             targetLang = "uk"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -90,7 +90,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             targetLang = ""
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -107,7 +107,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             targetLang = "uk"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -120,7 +120,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetLanguages_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/translate/languages");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // LibreTranslate might not be running, so accept 502/503
         if (response.StatusCode == HttpStatusCode.BadGateway ||
@@ -131,7 +131,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var languages = await response.Content.ReadFromJsonAsync<LanguageInfo[]>();
+        var languages = await response.Content.ReadFromJsonAsync<LanguageInfo[]>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(languages);
         Assert.True(languages.Length > 0);
     }
@@ -140,7 +140,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetLanguages_ContainsEnglishAndUkrainian()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/translate/languages");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // LibreTranslate might not be running
         if (response.StatusCode != HttpStatusCode.OK)
@@ -148,7 +148,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
             return;
         }
 
-        var languages = await response.Content.ReadFromJsonAsync<LanguageInfo[]>();
+        var languages = await response.Content.ReadFromJsonAsync<LanguageInfo[]>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(languages);
         Assert.Contains(languages, l => l.Code == "en");
         Assert.Contains(languages, l => l.Code == "uk");

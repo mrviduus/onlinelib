@@ -26,7 +26,7 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthors_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -36,7 +36,7 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthors_WithPagination_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors?limit=10&offset=0");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -46,7 +46,7 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthors_WithLanguageFilter_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors?language=en");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -56,7 +56,7 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthors_WithSortRecent_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors?sort=recent");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -66,11 +66,11 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthors_ReturnsValidPaginatedResult()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var result = await response.Content.ReadFromJsonAsync<AuthorsResponse>();
+        var result = await response.Content.ReadFromJsonAsync<AuthorsResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.True(result.Total >= 0);
         Assert.NotNull(result.Items);
@@ -84,7 +84,7 @@ public class AuthorsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GetAuthor_NonExistent_Returns404()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/authors/non-existent-author-slug-12345");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // 404 expected, also accept if site not configured
         Assert.True(response.StatusCode == HttpStatusCode.NotFound ||

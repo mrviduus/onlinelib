@@ -3,7 +3,6 @@ using System.Text.Json;
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
-using HtmlAgilityPack;
 using Infrastructure.Persistence;
 using Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore;
@@ -354,7 +353,9 @@ public class IngestionWorkerService
             .Select(u => new AppIngestion.ParsedChapter(
                 u.OrderIndex,
                 u.Title ?? $"Chapter {u.OrderIndex + 1}",
-                RewriteImageSrcs(u.Html ?? string.Empty, imageMap, editionId),
+                Application.Common.ImageProcessingHelper.RewriteImageSrcs(
+                    u.Html ?? string.Empty,
+                    imageMap.ToDictionary(kv => kv.Key, kv => $"/books/{editionId}/assets/{kv.Value}")),
                 u.PlainText,
                 u.WordCount ?? 0,
                 u.OriginalChapterNumber,
@@ -369,68 +370,6 @@ public class IngestionWorkerService
             chapters);
     }
 
-    private static string RewriteImageSrcs(string html, Dictionary<string, Guid> imageMap, Guid editionId)
-    {
-        if (string.IsNullOrEmpty(html) || imageMap.Count == 0)
-            return html;
-
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-
-        var imgNodes = doc.DocumentNode.SelectNodes("//img[@src]");
-        if (imgNodes == null)
-            return html;
-
-        foreach (var img in imgNodes)
-        {
-            var src = img.GetAttributeValue("src", "");
-            if (string.IsNullOrEmpty(src))
-                continue;
-
-            // Try to match the src to an image in our map
-            // Need to handle various path formats
-            var normalizedSrc = NormalizeImagePath(src);
-
-            foreach (var (originalPath, assetId) in imageMap)
-            {
-                var normalizedOriginal = NormalizeImagePath(originalPath);
-                if (normalizedSrc.Equals(normalizedOriginal, StringComparison.OrdinalIgnoreCase) ||
-                    normalizedSrc.EndsWith(normalizedOriginal, StringComparison.OrdinalIgnoreCase) ||
-                    normalizedOriginal.EndsWith(normalizedSrc, StringComparison.OrdinalIgnoreCase))
-                {
-                    img.SetAttributeValue("src", $"/books/{editionId}/assets/{assetId}");
-                    break;
-                }
-            }
-        }
-
-        return doc.DocumentNode.InnerHtml;
-    }
-
-    private static string NormalizeImagePath(string path)
-    {
-        // Remove leading ../ or ./
-        var result = path;
-        while (result.StartsWith("../"))
-            result = result[3..];
-        while (result.StartsWith("./"))
-            result = result[2..];
-        // Remove leading /
-        result = result.TrimStart('/');
-        return result;
-    }
-
-    private static string GetExtensionFromMimeType(string mimeType)
-    {
-        return mimeType switch
-        {
-            "image/png" => ".png",
-            "image/gif" => ".gif",
-            "image/webp" => ".webp",
-            "image/svg+xml" => ".svg",
-            _ => ".jpg"
-        };
-    }
 
     private static AppIngestion.ExtractionSummary MapToExtractionSummary(ExtractionResult result)
     {

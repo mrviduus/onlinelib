@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -31,13 +32,6 @@ public static class UserDataEndpoints
         group.MapDelete("/library/{editionId:guid}", RemoveFromLibrary).WithName("RemoveFromLibrary");
     }
 
-    private static Guid? GetUserId(HttpContext httpContext, AuthService authService)
-    {
-        var accessToken = httpContext.Request.Cookies["access_token"];
-        if (string.IsNullOrEmpty(accessToken)) return null;
-        return authService.ValidateAccessToken(accessToken);
-    }
-
     // Reading Progress Endpoints
 
     private static async Task<IResult> GetAllProgress(
@@ -48,7 +42,7 @@ public static class UserDataEndpoints
         [FromQuery] int? offset,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -82,7 +76,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -111,7 +105,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -192,7 +186,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -219,7 +213,7 @@ public static class UserDataEndpoints
         [FromQuery] int? offset,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -252,7 +246,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -280,7 +274,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -331,7 +325,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var bookmark = await db.Bookmarks
@@ -356,7 +350,7 @@ public static class UserDataEndpoints
         [FromQuery] int? offset,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var query = db.UserLibraries
@@ -388,7 +382,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         // Check if edition exists
@@ -437,7 +431,7 @@ public static class UserDataEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var libraryItem = await db.UserLibraries
