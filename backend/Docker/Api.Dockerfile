@@ -16,7 +16,9 @@ COPY backend/src/ backend/src/
 RUN dotnet publish backend/src/Api/Api.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
-RUN apk add --no-cache git
+RUN apk add --no-cache git \
+    && deluser app 2>/dev/null; delgroup app 2>/dev/null; \
+       addgroup -g 1000 app && adduser -D -u 1000 -G app app
 WORKDIR /app
 COPY --from=build /app/publish .
 USER app
