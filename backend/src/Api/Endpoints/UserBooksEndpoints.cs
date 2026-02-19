@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Application.Auth;
 using Application.Common.Interfaces;
 using Application.UserBooks;
@@ -31,13 +32,6 @@ public static class UserBooksEndpoints
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
     }
 
-    private static Guid? GetUserId(HttpContext httpContext, AuthService authService)
-    {
-        var accessToken = httpContext.Request.Cookies["access_token"];
-        if (string.IsNullOrEmpty(accessToken)) return null;
-        return authService.ValidateAccessToken(accessToken);
-    }
-
     private static async Task<IResult> UploadBook(
         HttpContext httpContext,
         AuthService authService,
@@ -47,7 +41,7 @@ public static class UserBooksEndpoints
         [FromForm] string? language,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         if (file == null || file.Length == 0)
@@ -69,7 +63,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var books = await userBookService.GetBooksAsync(userId.Value, ct);
@@ -82,7 +76,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var quota = await userBookService.GetStorageQuotaAsync(userId.Value, ct);
@@ -96,7 +90,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var book = await userBookService.GetBookAsync(userId.Value, id, ct);
@@ -113,7 +107,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var chapter = await userBookService.GetChapterBySlugAsync(userId.Value, id, slug, ct);
@@ -129,7 +123,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var progress = await userBookService.GetProgressAsync(userId.Value, id, ct);
@@ -146,7 +140,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (success, error) = await userBookService.UpsertProgressAsync(userId.Value, id, request, ct);
@@ -163,7 +157,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var bookmarks = await userBookService.GetBookmarksAsync(userId.Value, id, ct);
@@ -178,7 +172,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (bookmark, error) = await userBookService.CreateBookmarkAsync(userId.Value, id, request, ct);
@@ -196,7 +190,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (success, error) = await userBookService.DeleteBookmarkAsync(userId.Value, id, bookmarkId, ct);
@@ -215,7 +209,7 @@ public static class UserBooksEndpoints
         IFileStorageService storage,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         // Build expected path pattern
@@ -258,7 +252,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (success, error) = await userBookService.RetryAsync(userId.Value, id, ct);
@@ -275,7 +269,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (success, error) = await userBookService.CancelAsync(userId.Value, id, ct);
@@ -292,7 +286,7 @@ public static class UserBooksEndpoints
         UserBookService userBookService,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var (success, error) = await userBookService.DeleteAsync(userId.Value, id, ct);

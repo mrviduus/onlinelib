@@ -25,6 +25,9 @@ make up                       # Start services
 
 # Docker
 make up / down / restart / logs / status
+make build                    # docker compose up -d --build
+make rebuild                  # full rebuild --no-cache
+make clean-ssg                # remove dist/ssg*
 
 # Deploy
 make deploy                   # Full deploy (pull, build, restart, SSG)
@@ -50,8 +53,13 @@ pnpm -C apps/web test:e2e                   # Playwright E2E (headless)
 pnpm -C apps/web test:e2e:ui                # Playwright E2E (UI mode)
 
 # Lint
-dotnet format backend/TextStack.sln         # Backend
+dotnet format textstack.sln                  # Backend
 pnpm -C apps/web lint                       # Frontend
+
+# CLI commands (via dotnet run --project backend/src/Api --)
+# create-admin <email> <password> [role]
+# optimize-images [--dry-run]
+# import-textstack <book-path>
 
 # Local dev (no Docker)
 dotnet run --project backend/src/Api
@@ -120,7 +128,11 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 
 **API client**: `useApi()` hook → `createApi(language)` → methods like `getBooks()`, `getBook(slug)`. Uses `fetchJsonWithRetry()`.
 
-**Admin panel**: Separate React app (English-only, no i18n). JWT auth, sidebar layout.
+**API client layer**: `apps/web/src/api/` — separate modules per domain: `client.ts` (base), `auth.ts`, `readingTracking.ts`, `userData.ts`, `userBooks.ts`, `dictionary.ts`, `translation.ts`. `useApi()` hook wraps these.
+
+**Reader hooks** (`apps/web/src/hooks/`): Reading session tracking (`useReadingSession`), progress sync (`useReadingProgress`), fullscreen (`useFullscreen`, `useImmersiveMode`), keyboard nav (`useReaderKeyboard`), in-book search (`useInBookSearch`), text selection (`useTextSelection`, `useDictionary`, `useTextTranslation`), dark mode (`useReaderSettings`, `useDarkMode`).
+
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Chapter editor, SSG rebuild, SEO crawl, Tools, Settings.
 
 ## Key Concepts
 
@@ -141,9 +153,22 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
      → Worker polls → Extraction → Chapters created → search_vector indexed
 ```
 
+**Reading Stats**: Full reading analytics system.
+- ReadingSession — tracks duration, words read, start/end percent per reading session
+- ReadingGoal — daily_minutes or books_per_year targets with streak tracking
+- UserAchievement — 20 achievements across milestone/streak/time/special categories
+- AchievementChecker (`Application/ReadingTracking/AchievementChecker.cs`) runs after each session
+- Frontend: StatsPage with heatmap calendar, weekly chart, goals, achievements grid
+- Session tracking: 30s heartbeat, 3min idle threshold, 5min auto-end, localStorage queue, sendBeacon submit
+
+**Dictionary**: `GET /dictionary/{lang}/{word}` — proxies Free Dictionary API.
+
+**Translation**: `POST /translate` via LibreTranslate container. Config: `LibreTranslate:BaseUrl`, `LibreTranslate:TimeoutSeconds`, `LibreTranslate:MaxTextLength`.
+
 **SSG**: Puppeteer prerenders SEO pages to static HTML
 - nginx serves SSG first, falls back to SPA
 - Run `make rebuild-ssg` after content changes
+- SSG worker: separate always-running container polling DB every 5s. Supports IndexNow (Bing/Yandex) via `INDEXNOW_KEY`
 
 **When to rebuild SSG**:
 - After adding/publishing new books
@@ -153,15 +178,17 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 ## API Endpoints
 
-**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`
+**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`
 
 **Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`
 
-**User**: `GET/POST /me/library`, `/me/progress`, `/me/bookmarks`, `/me/highlights`, `/me/reading-tracking`
+**User**: `GET/POST /me/library`, `/me/progress/{editionId}` (GET/PUT/DELETE), `/me/bookmarks`, `/me/highlights/{editionId}`
 
-**User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/{id}/chapters`
+**Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
-**Admin**: `POST /admin/books/upload`, `GET /admin/ingestion/jobs`, `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`
+**User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
+
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`
 
 ## Key Files
 
@@ -183,6 +210,9 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | API Hook | `apps/web/src/hooks/useApi.ts` |
 | i18n | `apps/web/src/locales/{en,uk}.json` |
 | Admin | `apps/admin/src/pages/` |
+| Stats | `apps/web/src/pages/StatsPage.tsx` |
+| Reading Hooks | `apps/web/src/hooks/useReadingSession.ts` |
+| Achievements | `backend/src/Application/ReadingTracking/AchievementChecker.cs` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
 
@@ -198,7 +228,7 @@ Search uses raw SQL (Dapper). After schema changes:
 ```
 tests/
 ├── TextStack.UnitTests/           # Pure logic, no DB
-├── TextStack.IntegrationTests/    # API + DB (Testcontainers)
+├── TextStack.IntegrationTests/    # API tests against running server (LiveApiFixture → localhost:8080, override via API_URL env)
 ├── TextStack.Extraction.Tests/    # Book parsing (EPUB/PDF/FB2)
 ├── TextStack.Search.Tests/        # Search logic
 apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin projects)
@@ -207,6 +237,11 @@ apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin pro
 Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 
 **E2E setup**: Global setup authenticates test user + admin, discovers books from API → `.test-data.json`. Auth state stored in `apps/web/e2e/.auth/`. Page object helpers in `apps/web/e2e/helpers/`.
+
+**Test env vars**:
+- `ENABLE_TEST_AUTH=true` — enables test auth endpoints (needed for integration + E2E)
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — needed for admin E2E
+- Integration tests set `Host` header: `general.localhost` (public), `textstack.dev` (admin)
 
 ## Deployment
 
@@ -217,6 +252,18 @@ Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
 ```
 
 Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard`, `libretranslate`. All localhost-only, no public ports except 80 via tunnel.
+
+## Extraction Pipeline
+
+Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
+
+## Telemetry
+
+OpenTelemetry → Aspire Dashboard (`localhost:18888`). OTLP: `:18889`. Services: `textstack-api`, `textstack-worker`.
+
+## Package Management
+
+Central versioning via `Directory.Packages.props` — don't add `<Version>` in individual csproj files. Target: `net10.0` (set in `Directory.Build.props`).
 
 ## Verifying SSG
 

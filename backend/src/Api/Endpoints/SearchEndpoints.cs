@@ -52,6 +52,9 @@ public static class SearchEndpoints
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
             return Results.BadRequest(new { error = "Query must be at least 2 characters" });
 
+        if (q.Length > 200)
+            return Results.BadRequest(new { error = "Query too long (max 200 characters)" });
+
         // ─── Extract Context ────────────────────────────────────
         // Site and language from request context (multitenancy)
         var siteId = httpContext.GetSiteId();

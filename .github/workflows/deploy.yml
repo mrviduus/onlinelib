@@ -87,6 +87,14 @@ jobs:
           mv dist/ssg-new dist/ssg
           rm -rf dist/ssg-old
 
+          # Validate SSG output
+          SSG_COUNT=$(find dist/ssg -name '*.html' | wc -l)
+          echo "SSG pages: $SSG_COUNT"
+          if [ "$SSG_COUNT" -lt 10 ]; then
+            echo "ERROR: SSG produced too few pages ($SSG_COUNT). Aborting."
+            exit 1
+          fi
+
           echo "SSG atomic swap completed"
 
       # nginx config update requires sudo - run manually via `make deploy` when config changes

@@ -1,12 +1,44 @@
+import { refreshToken } from './auth'
 import { fetchJsonWithRetry, type FetchOptions } from '../lib/fetchWithRetry'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const STORAGE_BASE = import.meta.env.VITE_STORAGE_URL || API_BASE
 
 /** Build full URL for storage files (covers, photos) */
 export function getStorageUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined
   return `${STORAGE_BASE}/storage/${path}`
+}
+
+/** Authenticated fetch w/ auto token refresh on 401, error message parsing */
+export async function authFetch<T>(path: string, options?: RequestInit, retry = true): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    if (res.status === 401 && retry) {
+      try {
+        await refreshToken()
+        return authFetch<T>(path, options, false)
+      } catch {
+        throw new Error('Unauthorized')
+      }
+    }
+    if (res.status === 401) throw new Error('Unauthorized')
+    const text = await res.text()
+    let error = `API error: ${res.status}`
+    try {
+      const json = JSON.parse(text)
+      if (json.error) error = json.error
+    } catch {}
+    throw new Error(error)
+  }
+
+  const text = await res.text()
+  if (!text) return {} as T
+  return JSON.parse(text)
 }
 
 async function fetchJson<T>(path: string, options?: FetchOptions): Promise<T> {

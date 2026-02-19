@@ -107,10 +107,7 @@ public class BookService(IAppDbContext db)
         {
             try
             {
-                toc = JsonSerializer.Deserialize<List<TocEntryDto>>(result.TocJson, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                toc = JsonSerializer.Deserialize<List<TocEntryDto>>(result.TocJson, Common.JsonDefaults.Options);
             }
             catch
             {

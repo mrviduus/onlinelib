@@ -38,6 +38,9 @@ jobs:
       - name: Build
         run: dotnet build --no-restore
 
+      - name: Lint (format check)
+        run: dotnet format --no-restore --verify-no-changes
+
       - name: Install EF Core tools
         run: dotnet tool install --global dotnet-ef
 

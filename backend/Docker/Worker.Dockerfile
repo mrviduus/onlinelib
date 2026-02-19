@@ -66,6 +66,8 @@ COPY --from=build /app/publish .
 RUN mkdir -p /app/apps/web && \
     cd /app/apps/web && \
     npm init -y --silent && \
-    npm install --silent puppeteer
+    npm install --silent puppeteer && \
+    chown -R app:app /app
 
+USER app
 ENTRYPOINT ["dotnet", "Worker.dll"]

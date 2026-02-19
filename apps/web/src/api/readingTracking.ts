@@ -1,24 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-
-async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  })
-
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('Unauthorized')
-    throw new Error(`API error: ${res.status}`)
-  }
-
-  const text = await res.text()
-  if (!text) return {} as T
-  return JSON.parse(text)
-}
+import { authFetch } from './client'
 
 // --- Types ---
 
@@ -98,6 +78,7 @@ export interface AchievementDto {
 export async function submitSession(data: SubmitSessionRequest): Promise<SubmitSessionResponse> {
   return authFetch<SubmitSessionResponse>('/me/reading/sessions', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
 }
@@ -131,6 +112,7 @@ export async function getGoals(): Promise<GoalDto[]> {
 export async function createGoal(data: CreateGoalRequest): Promise<GoalDto> {
   return authFetch<GoalDto>('/me/reading/goals', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
 }

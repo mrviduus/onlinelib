@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -19,13 +20,6 @@ public static class HighlightsEndpoints
         group.MapDelete("/{id:guid}", DeleteHighlight).WithName("DeleteHighlight");
     }
 
-    private static Guid? GetUserId(HttpContext httpContext, AuthService authService)
-    {
-        var accessToken = httpContext.Request.Cookies["access_token"];
-        if (string.IsNullOrEmpty(accessToken)) return null;
-        return authService.ValidateAccessToken(accessToken);
-    }
-
     private static async Task<IResult> GetHighlights(
         Guid editionId,
         HttpContext httpContext,
@@ -33,7 +27,7 @@ public static class HighlightsEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -65,7 +59,7 @@ public static class HighlightsEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var siteId = httpContext.GetSiteId();
@@ -126,7 +120,7 @@ public static class HighlightsEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var highlight = await db.Highlights
@@ -187,7 +181,7 @@ public static class HighlightsEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var highlight = await db.Highlights

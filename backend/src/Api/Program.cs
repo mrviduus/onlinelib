@@ -40,24 +40,17 @@ builder.Services.AddTextStackTelemetry(
         .AddHttpClientInstrumentation());
 builder.Logging.AddTelemetryLogging(builder.Configuration, "textstack-api");
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? [
+        "http://localhost:5173", "http://general.localhost", "http://general.localhost:5173",
+        "http://localhost:81", "http://admin.localhost", "http://admin.localhost:81",
+        "https://textstack.app", "https://textstack.dev"
+    ];
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(
-                // Dev: public site
-                "http://localhost:5173",
-                "http://general.localhost",
-                "http://general.localhost:5173",
-                // Dev: admin panel
-                "http://localhost:81",
-                "http://admin.localhost",
-                "http://admin.localhost:81",
-                // Prod: public site
-                "https://textstack.app",
-                // Prod: admin panel
-                "https://textstack.dev"
-            )
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -71,7 +64,7 @@ builder.Services.AddApplication();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";
+    ?? throw new InvalidOperationException("ConnectionStrings:Default is required");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString)
@@ -123,6 +116,18 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
+// Validate required config at startup
+if (!builder.Environment.IsEnvironment("Test"))
+{
+    var jwtSecret = builder.Configuration["Jwt:SecretKey"];
+    if (string.IsNullOrEmpty(jwtSecret))
+        throw new InvalidOperationException("Jwt:SecretKey is required. Set JWT_SECRET env var.");
+
+    var googleClientId = builder.Configuration["Google:ClientId"];
+    if (string.IsNullOrEmpty(googleClientId))
+        throw new InvalidOperationException("Google:ClientId is required. Set GOOGLE_CLIENT_ID env var.");
+}
+
 var app = builder.Build();
 
 // Skip migrations in Test environment (uses InMemory DB)
@@ -165,7 +170,18 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 // Health check before site resolution (for infra probes)
-app.MapGet("/health", () => Results.Ok("healthy"));
+app.MapGet("/health", async (AppDbContext db) =>
+{
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("SELECT 1");
+        return Results.Ok("healthy");
+    }
+    catch
+    {
+        return Results.StatusCode(503);
+    }
+});
 
 // Site resolution middleware
 app.UseSiteContext();

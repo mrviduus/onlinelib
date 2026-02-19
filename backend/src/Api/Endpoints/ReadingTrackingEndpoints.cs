@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -24,13 +25,6 @@ public static class ReadingTrackingEndpoints
         group.MapGet("/achievements", GetAchievements).WithName("GetAchievements");
     }
 
-    private static Guid? GetUserId(HttpContext httpContext, AuthService authService)
-    {
-        var accessToken = httpContext.Request.Cookies["access_token"];
-        if (string.IsNullOrEmpty(accessToken)) return null;
-        return authService.ValidateAccessToken(accessToken);
-    }
-
     // --- Sessions ---
 
     private static async Task<IResult> SubmitSession(
@@ -40,7 +34,7 @@ public static class ReadingTrackingEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -104,7 +98,7 @@ public static class ReadingTrackingEndpoints
         [FromQuery] int? limit,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -135,7 +129,7 @@ public static class ReadingTrackingEndpoints
         [FromQuery] string? tz,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -236,7 +230,7 @@ public static class ReadingTrackingEndpoints
         [FromQuery] string? tz,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -274,7 +268,7 @@ public static class ReadingTrackingEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -293,7 +287,7 @@ public static class ReadingTrackingEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
@@ -346,7 +340,7 @@ public static class ReadingTrackingEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
         var goal = await db.ReadingGoals
@@ -367,7 +361,7 @@ public static class ReadingTrackingEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = GetUserId(httpContext, authService);
+        var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
