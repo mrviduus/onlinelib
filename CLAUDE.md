@@ -54,7 +54,6 @@ pnpm -C apps/web test:e2e:ui                # Playwright E2E (UI mode)
 
 # Lint
 dotnet format textstack.sln                  # Backend
-pnpm -C apps/web lint                       # Frontend
 
 # CLI commands (via dotnet run --project backend/src/Api --)
 # create-admin <email> <password> [role]
@@ -96,6 +95,7 @@ API → Application → Domain ← Infrastructure
 
 - **Domain**: Pure C#, no framework deps
 - **Application**: Business logic, interfaces (`IAppDbContext`, `IFileStorageService`)
+- **Contracts**: Shared DTOs (request/response models) used by API and Application
 - **Infrastructure**: EF Core (snake_case naming), storage implementations
 - **API/Worker**: Orchestration, DI
 
@@ -255,7 +255,7 @@ Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-
 
 ## Extraction Pipeline
 
-Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
+Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
 
 ## Telemetry
 

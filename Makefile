@@ -19,6 +19,7 @@ build:
 rebuild:
 	docker compose build --no-cache
 	docker compose up -d
+	docker image prune -f
 
 logs:
 	docker compose logs -f --tail 100
@@ -59,6 +60,7 @@ deploy: fix-permissions
 	sed "s|/home/vasyl/projects/onlinelib/textstack|$$PROJECT_DIR|g" \
 		infra/nginx/textstack.conf | sudo tee /etc/nginx/sites-available/textstack > /dev/null
 	sudo nginx -t && sudo systemctl reload nginx
+	docker image prune -f
 	@echo "=== Done ==="
 
 rebuild-ssg:
