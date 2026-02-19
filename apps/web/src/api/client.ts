@@ -75,14 +75,18 @@ export function createApi(language: string) {
       if (params?.offset) query.set('offset', String(params.offset))
       if (params?.highlight) query.set('highlight', 'true')
       return fetchJson<{ total: number; items: import('../types/api').SearchResult[] }>(
-        `${langPrefix}/search?${query}`
+        `${langPrefix}/search?${query}`,
+        { timeout: 15000 }
       )
     },
 
     suggest: (q: string, params?: { limit?: number }) => {
       const query = new URLSearchParams({ q })
       if (params?.limit) query.set('limit', String(params.limit))
-      return fetchJson<import('../types/api').Suggestion[]>(`${langPrefix}/search/suggest?${query}`)
+      return fetchJson<import('../types/api').Suggestion[]>(
+        `${langPrefix}/search/suggest?${query}`,
+        { timeout: 15000 }
+      )
     },
 
     getAuthors: (params?: { limit?: number; offset?: number; sort?: 'name' | 'recent' }) => {

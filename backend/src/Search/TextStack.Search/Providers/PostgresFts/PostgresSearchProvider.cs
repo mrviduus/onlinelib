@@ -1,13 +1,3 @@
-/**
- * PostgreSQL Full-Text Search Provider - Interview Demo Version
- *
- * Key concepts:
- * 1. Strategy Pattern: ISearchProvider abstraction allows swapping search backends
- * 2. Dependency Injection: connectionFactory, queryBuilder, textAnalyzer injected
- * 3. Hybrid search: combines FTS (content) + LIKE (title/author) + pg_trgm (fuzzy)
- * 4. SQL injection prevention via parameterized queries
- */
-
 using System.Data;
 using Dapper;
 using TextStack.Search.Abstractions;
@@ -18,15 +8,13 @@ namespace TextStack.Search.Providers.PostgresFts;
 
 public sealed class PostgresSearchProvider : ISearchProvider
 {
-    // ════════════════════════════════════════════════════════════
-    // DEPENDENCIES (injected via constructor)
-    // ════════════════════════════════════════════════════════════
+    private const int QueryTimeoutSeconds = 5;
 
-    private readonly Func<IDbConnection> _connectionFactory;  // DB connection factory
-    private readonly IQueryBuilder _queryBuilder;             // Builds tsquery from text
-    private readonly ITextAnalyzer _textAnalyzer;             // Normalizes/analyzes text
-    private readonly HighlightOptions _highlightOptions;      // ts_headline config
-    private readonly float _fuzzyThreshold;                   // pg_trgm similarity threshold
+    private readonly Func<IDbConnection> _connectionFactory;
+    private readonly IQueryBuilder _queryBuilder;
+    private readonly ITextAnalyzer _textAnalyzer;
+    private readonly HighlightOptions _highlightOptions;
+    private readonly float _fuzzyThreshold;
 
     public PostgresSearchProvider(
         Func<IDbConnection> connectionFactory,
@@ -42,217 +30,125 @@ public sealed class PostgresSearchProvider : ISearchProvider
         _fuzzyThreshold = fuzzyThreshold;
     }
 
-    // ════════════════════════════════════════════════════════════
-    // FULL-TEXT SEARCH
-    // ════════════════════════════════════════════════════════════
-
     /// <summary>
-    /// Hybrid search combining 4 strategies:
-    /// 1. LIKE match on title/author (exact substring)
-    /// 2. pg_trgm fuzzy match on title (typo-tolerant)
-    /// 3. pg_trgm fuzzy match on author (typo-tolerant)
-    /// 4. PostgreSQL FTS on chapter content (stemming, ranking)
+    /// Single-pass CTE search: count via COUNT(*) OVER(), edition-level dedup,
+    /// ts_headline + string_agg only on final paginated rows.
     /// </summary>
     public async Task<SearchResult> SearchAsync(SearchRequest request, CancellationToken ct = default)
     {
-        // ─── Guard Clauses ──────────────────────────────────────
         if (string.IsNullOrWhiteSpace(request.Query))
             return SearchResult.Empty;
 
-        // ─── Prepare Search Components ──────────────────────────
-        var ftsConfig = _textAnalyzer.GetFtsConfig(request.Language);    // 'english', 'ukrainian'
-        var tsQuery = _queryBuilder.BuildQuery(request.Query, request.Language);  // 'word1 & word2'
-        var normalizedQuery = _textAnalyzer.Normalize(request.Query);    // lowercase, trim
+        var ftsConfig = _textAnalyzer.GetFtsConfig(request.Language);
+        var tsQuery = _queryBuilder.BuildQuery(request.Query, request.Language);
+        var normalizedQuery = _textAnalyzer.Normalize(request.Query);
 
-        // Need valid query for either FTS or LIKE
         if (string.IsNullOrEmpty(tsQuery) && string.IsNullOrEmpty(normalizedQuery))
             return SearchResult.Empty;
 
         using var connection = _connectionFactory();
 
-        // ─── Build LIKE Patterns ────────────────────────────────
-        // Escape special chars: % _ \
         var escapedQuery = EscapeLikePattern(normalizedQuery ?? "");
-        var titlePattern = "%" + escapedQuery + "%";   // contains
-        var authorPattern = "%" + escapedQuery + "%";  // contains
-
-        // ─── Count Total Matches ────────────────────────────────
-        // Union of all 4 strategies, deduplicated
-        var countSql = @"
-            SELECT COUNT(*) FROM (
-                -- Strategy 1: LIKE match on title/author
-                SELECT id FROM (
-                    SELECT DISTINCT ON (e.id) c.id
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND (lower(e.title) LIKE @TitlePattern OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern))
-                    ORDER BY e.id, c.chapter_number
-                ) metadata_matches
-                UNION
-                -- Strategy 2: Fuzzy title match (pg_trgm similarity)
-                SELECT id FROM (
-                    SELECT DISTINCT ON (e.id) c.id
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
-                    ORDER BY e.id, c.chapter_number
-                ) fuzzy_title_matches
-                UNION
-                -- Strategy 3: Fuzzy author match
-                SELECT id FROM (
-                    SELECT DISTINCT ON (e.id) c.id
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
-                    ORDER BY e.id, c.chapter_number
-                ) fuzzy_author_matches
-                UNION
-                -- Strategy 4: FTS on chapter content
-                SELECT c.id
-                FROM chapters c
-                INNER JOIN editions e ON c.edition_id = e.id
-                WHERE e.site_id = @SiteId
-                  AND e.status = 1
-                  AND @TsQuery != ''
-                  AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
-            ) combined";
-
-        var totalCount = await connection.ExecuteScalarAsync<int>(
-            new CommandDefinition(countSql, new
-            {
-                request.SiteId,
-                FtsConfig = ftsConfig,
-                TsQuery = tsQuery ?? "",
-                TitlePattern = titlePattern,
-                AuthorPattern = authorPattern,
-                NormalizedQuery = normalizedQuery ?? "",
-                FuzzyThreshold = _fuzzyThreshold
-            }, cancellationToken: ct));
-
-        if (totalCount == 0)
-            return SearchResult.Empty;
-
-        // ─── Fetch Results with Scoring ─────────────────────────
-        // Different strategies get different base scores:
-        // - LIKE match: 10.0 (exact match = highest)
-        // - Fuzzy title: similarity * 8.0
-        // - Fuzzy author: similarity * 6.0
-        // - FTS content: ts_rank (typically 0-1)
+        var titlePattern = "%" + escapedQuery + "%";
+        var authorPattern = "%" + escapedQuery + "%";
 
         var highlightExpr = request.IncludeHighlights && !string.IsNullOrEmpty(tsQuery)
             ? $"ts_headline(@FtsConfig::regconfig, c.plain_text, to_tsquery(@FtsConfig::regconfig, @TsQuery), '{_highlightOptions.ToOptionsString()}')"
             : "NULL";
 
-        var searchSql = $@"
-            SELECT * FROM (
-                -- Strategy 1: LIKE match (score = 10.0)
-                SELECT * FROM (
-                    SELECT DISTINCT ON (e.id)
-                        c.id AS ChapterId,
-                        c.slug AS ChapterSlug,
-                        c.title AS ChapterTitle,
-                        c.chapter_number AS ChapterNumber,
-                        e.id AS EditionId,
-                        e.slug AS EditionSlug,
-                        e.title AS EditionTitle,
-                        e.language AS Language,
-                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
-                        e.cover_path AS CoverPath,
-                        10.0::float8 AS Score,
-                        NULL::text AS Headline
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND (lower(e.title) LIKE @TitlePattern OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern))
-                    ORDER BY e.id, c.chapter_number
-                ) metadata_matches
+        // Single query: CTE finds matching edition IDs + best score,
+        // then joins chapters/authors only for the paginated page.
+        var sql = $@"
+            WITH matched_editions AS (
+                -- Strategy 1: LIKE match on title/author (score = 10.0)
+                SELECT e.id AS edition_id, 10.0::float8 AS score, NULL::uuid AS fts_chapter_id
+                FROM editions e
+                WHERE e.site_id = @SiteId AND e.status = 1
+                  AND (lower(e.title) LIKE @TitlePattern
+                       OR EXISTS (
+                           SELECT 1 FROM edition_authors ea
+                           JOIN authors a ON a.id = ea.author_id
+                           WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern))
 
                 UNION ALL
 
-                -- Strategy 2: Fuzzy title (score = similarity * 8.0)
-                SELECT * FROM (
-                    SELECT DISTINCT ON (e.id)
-                        c.id AS ChapterId,
-                        c.slug AS ChapterSlug,
-                        c.title AS ChapterTitle,
-                        c.chapter_number AS ChapterNumber,
-                        e.id AS EditionId,
-                        e.slug AS EditionSlug,
-                        e.title AS EditionTitle,
-                        e.language AS Language,
-                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
-                        e.cover_path AS CoverPath,
-                        (similarity(lower(e.title), @NormalizedQuery) * 8.0)::float8 AS Score,
-                        NULL::text AS Headline
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
-                    ORDER BY e.id, c.chapter_number
-                ) fuzzy_title_matches
+                -- Strategy 2: Fuzzy title match (score = similarity * 8.0)
+                SELECT e.id, (similarity(lower(e.title), @NormalizedQuery) * 8.0)::float8, NULL::uuid
+                FROM editions e
+                WHERE e.site_id = @SiteId AND e.status = 1
+                  AND similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
 
                 UNION ALL
 
-                -- Strategy 3: Fuzzy author (score = max similarity * 6.0)
-                SELECT * FROM (
-                    SELECT DISTINCT ON (e.id)
-                        c.id AS ChapterId,
-                        c.slug AS ChapterSlug,
-                        c.title AS ChapterTitle,
-                        c.chapter_number AS ChapterNumber,
-                        e.id AS EditionId,
-                        e.slug AS EditionSlug,
-                        e.title AS EditionTitle,
-                        e.language AS Language,
-                        (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
-                        e.cover_path AS CoverPath,
-                        (COALESCE((SELECT MAX(similarity(lower(a.name), @NormalizedQuery)) FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id), 0) * 6.0)::float8 AS Score,
-                        NULL::text AS Headline
-                    FROM editions e
-                    INNER JOIN chapters c ON c.edition_id = e.id
-                    WHERE e.site_id = @SiteId
-                      AND e.status = 1
-                      AND EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
-                    ORDER BY e.id, c.chapter_number
-                ) fuzzy_author_matches
+                -- Strategy 3: Fuzzy author match (score = max similarity * 6.0)
+                SELECT e.id,
+                       (MAX(similarity(lower(a.name), @NormalizedQuery)) * 6.0)::float8,
+                       NULL::uuid
+                FROM editions e
+                JOIN edition_authors ea ON ea.edition_id = e.id
+                JOIN authors a ON a.id = ea.author_id
+                WHERE e.site_id = @SiteId AND e.status = 1
+                  AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold
+                GROUP BY e.id
 
                 UNION ALL
 
-                -- Strategy 4: FTS content (score = ts_rank)
-                SELECT
-                    c.id AS ChapterId,
-                    c.slug AS ChapterSlug,
-                    c.title AS ChapterTitle,
-                    c.chapter_number AS ChapterNumber,
-                    e.id AS EditionId,
-                    e.slug AS EditionSlug,
-                    e.title AS EditionTitle,
-                    e.language AS Language,
-                    (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"") FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id) AS Authors,
-                    e.cover_path AS CoverPath,
-                    ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8 AS Score,
-                    {highlightExpr}::text AS Headline
+                -- Strategy 4: FTS on chapter content (score = ts_rank)
+                SELECT e.id,
+                       ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8,
+                       c.id
                 FROM chapters c
-                INNER JOIN editions e ON c.edition_id = e.id
-                WHERE e.site_id = @SiteId
-                  AND e.status = 1
+                JOIN editions e ON c.edition_id = e.id
+                WHERE e.site_id = @SiteId AND e.status = 1
                   AND @TsQuery != ''
                   AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
-            ) combined
-            ORDER BY Score DESC
-            OFFSET @Offset
-            LIMIT @Limit";
+            ),
+            deduped AS (
+                SELECT edition_id,
+                       MAX(score) AS score,
+                       -- pick the best FTS chapter if any
+                       (array_agg(fts_chapter_id ORDER BY score DESC) FILTER (WHERE fts_chapter_id IS NOT NULL))[1] AS best_chapter_id,
+                       COUNT(*) OVER() AS total_count
+                FROM matched_editions
+                GROUP BY edition_id
+                ORDER BY MAX(score) DESC
+                OFFSET @Offset
+                LIMIT @Limit
+            )
+            SELECT
+                d.total_count AS TotalCount,
+                COALESCE(bc.id, fc.id) AS ChapterId,
+                COALESCE(bc.slug, fc.slug) AS ChapterSlug,
+                COALESCE(bc.title, fc.title) AS ChapterTitle,
+                COALESCE(bc.chapter_number, fc.chapter_number) AS ChapterNumber,
+                e.id AS EditionId,
+                e.slug AS EditionSlug,
+                e.title AS EditionTitle,
+                e.language AS Language,
+                (SELECT string_agg(a.name, ', ' ORDER BY ea.""order"")
+                 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id
+                 WHERE ea.edition_id = e.id) AS Authors,
+                e.cover_path AS CoverPath,
+                d.score AS Score,
+                {highlightExpr}::text AS Headline
+            FROM deduped d
+            JOIN editions e ON e.id = d.edition_id
+            -- best FTS chapter (may be null)
+            LEFT JOIN chapters fc ON fc.id = d.best_chapter_id
+            -- fallback: first chapter of edition
+            LEFT JOIN LATERAL (
+                SELECT c2.id, c2.slug, c2.title, c2.chapter_number
+                FROM chapters c2
+                WHERE c2.edition_id = d.edition_id
+                ORDER BY c2.chapter_number
+                LIMIT 1
+            ) bc ON d.best_chapter_id IS NULL
+            -- for ts_headline: need the chapter with content
+            LEFT JOIN chapters c ON c.id = COALESCE(fc.id, bc.id)
+            ORDER BY d.score DESC";
 
-        var rows = await connection.QueryAsync<SearchRow>(
-            new CommandDefinition(searchSql, new
+        var rows = (await connection.QueryAsync<SearchRowWithCount>(
+            new CommandDefinition(sql, new
             {
                 request.SiteId,
                 FtsConfig = ftsConfig,
@@ -263,27 +159,22 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 FuzzyThreshold = _fuzzyThreshold,
                 request.Offset,
                 request.Limit
-            }, cancellationToken: ct));
+            }, cancellationToken: ct, commandTimeout: QueryTimeoutSeconds))).ToList();
 
+        if (rows.Count == 0)
+            return SearchResult.Empty;
+
+        var totalCount = rows[0].TotalCount;
         var hits = rows.Select(r => MapToSearchHit(r, request.IncludeHighlights)).ToList();
         return SearchResult.FromHits(hits, totalCount);
     }
 
-    // ════════════════════════════════════════════════════════════
-    // AUTOCOMPLETE SUGGESTIONS
-    // ════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Autocomplete combining prefix match + fuzzy match
-    /// Used for search-as-you-type dropdown
-    /// </summary>
     public async Task<IReadOnlyList<Suggestion>> SuggestAsync(
         string prefix,
         Guid siteId,
         int limit = 10,
         CancellationToken ct = default)
     {
-        // ─── Guard Clauses ──────────────────────────────────────
         if (string.IsNullOrWhiteSpace(prefix) || prefix.Length < 2)
             return [];
 
@@ -293,11 +184,6 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
         using var connection = _connectionFactory();
 
-        // ─── Hybrid Suggest Query ───────────────────────────────
-        // Combines:
-        // - Prefix LIKE for titles (starts with)
-        // - Contains LIKE for authors
-        // - pg_trgm similarity for typo tolerance
         var sql = @"
             SELECT DISTINCT ON (lower(e.title))
                 e.title AS Text,
@@ -314,8 +200,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
             WHERE e.site_id = @SiteId
               AND e.status = 1
               AND (
-                  lower(e.title) LIKE @TitlePattern              -- prefix match
-                  OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern)   -- contains match
+                  lower(e.title) LIKE @TitlePattern
+                  OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND lower(a.name) LIKE @AuthorPattern)
                   OR similarity(lower(e.title), @NormalizedQuery) > @FuzzyThreshold
                   OR EXISTS (SELECT 1 FROM edition_authors ea JOIN authors a ON a.id = ea.author_id WHERE ea.edition_id = e.id AND similarity(lower(a.name), @NormalizedQuery) > @FuzzyThreshold)
               )
@@ -324,8 +210,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
             LIMIT @Limit";
 
         var escapedPrefix = EscapeLikePattern(normalizedPrefix);
-        var titlePattern = escapedPrefix + "%";        // prefix match
-        var authorPattern = "%" + escapedPrefix + "%"; // contains match
+        var titlePattern = escapedPrefix + "%";
+        var authorPattern = "%" + escapedPrefix + "%";
 
         var rows = await connection.QueryAsync<SuggestionRow>(
             new CommandDefinition(sql, new
@@ -336,10 +222,8 @@ public sealed class PostgresSearchProvider : ISearchProvider
                 NormalizedQuery = normalizedPrefix,
                 FuzzyThreshold = _fuzzyThreshold,
                 Limit = limit
-            }, cancellationToken: ct));
+            }, cancellationToken: ct, commandTimeout: QueryTimeoutSeconds));
 
-        // ─── Normalize Scores ───────────────────────────────────
-        // Score = chapterCount / maxChapterCount (more chapters = more relevant)
         var suggestions = rows.ToList();
         if (suggestions.Count == 0)
             return [];
@@ -355,13 +239,6 @@ public sealed class PostgresSearchProvider : ISearchProvider
             .ToList();
     }
 
-    // ════════════════════════════════════════════════════════════
-    // HELPERS
-    // ════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Escape SQL LIKE special characters to prevent injection
-    /// </summary>
     private static string EscapeLikePattern(string pattern)
     {
         return pattern
@@ -370,10 +247,7 @@ public sealed class PostgresSearchProvider : ISearchProvider
             .Replace("_", "\\_");
     }
 
-    /// <summary>
-    /// Map database row to SearchHit domain object
-    /// </summary>
-    private static SearchHit MapToSearchHit(SearchRow row, bool includeHighlights)
+    private static SearchHit MapToSearchHit(SearchRowWithCount row, bool includeHighlights)
     {
         var metadata = new Dictionary<string, object>
         {
@@ -396,10 +270,6 @@ public sealed class PostgresSearchProvider : ISearchProvider
         return new SearchHit(row.ChapterId.ToString(), row.Score, highlights, metadata);
     }
 
-    // ════════════════════════════════════════════════════════════
-    // INTERNAL DTOs (for Dapper mapping)
-    // ════════════════════════════════════════════════════════════
-
     private sealed class SuggestionRow
     {
         public string Text { get; init; } = string.Empty;
@@ -410,8 +280,9 @@ public sealed class PostgresSearchProvider : ISearchProvider
         public double SimilarityScore { get; init; }
     }
 
-    private sealed class SearchRow
+    private sealed class SearchRowWithCount
     {
+        public int TotalCount { get; init; }
         public Guid ChapterId { get; init; }
         public string? ChapterSlug { get; init; }
         public string? ChapterTitle { get; init; }
