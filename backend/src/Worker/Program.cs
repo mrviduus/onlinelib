@@ -9,6 +9,7 @@ using Npgsql;
 using TextStack.Extraction.Extractors;
 using TextStack.Extraction.Registry;
 using TextStack.Search;
+using TextStack.Search.Meilisearch;
 using Worker.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -36,9 +37,14 @@ builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(s
 
 // Search library
 builder.Services.AddTextStackSearch();
-builder.Services.AddPostgresFtsProvider(
-    _ => () => new NpgsqlConnection(connectionString),
-    options => options.ConnectionString = connectionString);
+var searchProvider = builder.Configuration["Search:Provider"] ?? "postgres";
+if (searchProvider == "meilisearch")
+    builder.Services.AddMeilisearchProvider(options =>
+        builder.Configuration.GetSection("Search:Meilisearch").Bind(options));
+else
+    builder.Services.AddPostgresFtsProvider(
+        _ => () => new NpgsqlConnection(connectionString),
+        options => options.ConnectionString = connectionString);
 
 // Extraction
 builder.Services.AddSingleton<ITextExtractor, EpubTextExtractor>();

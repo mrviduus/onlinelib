@@ -19,6 +19,8 @@ using Microsoft.Extensions.FileProviders;
 using Npgsql;
 using TextStack.Search;
 using TextStack.Search.Abstractions;
+using TextStack.Search.Meilisearch;
+using Application.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 
@@ -79,9 +81,17 @@ builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(s
 
 // Search library
 builder.Services.AddTextStackSearch();
-builder.Services.AddPostgresFtsProvider(
-    _ => () => new NpgsqlConnection(connectionString),
-    options => options.ConnectionString = connectionString);
+var searchProvider = builder.Configuration["Search:Provider"] ?? "postgres";
+if (searchProvider == "meilisearch")
+    builder.Services.AddMeilisearchProvider(options =>
+        builder.Configuration.GetSection("Search:Meilisearch").Bind(options));
+else
+    builder.Services.AddPostgresFtsProvider(
+        _ => () => new NpgsqlConnection(connectionString),
+        options => options.ConnectionString = connectionString);
+
+// Reindex service (used by CLI)
+builder.Services.AddScoped<SearchReindexService>();
 
 // Image optimization
 builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();
@@ -416,6 +426,18 @@ if (args.Length > 0 && args[0] == "create-admin")
         Console.WriteLine($"Error: {ex.Message}");
     }
 
+    return;
+}
+
+// CLI: reindex-search command
+if (args.Length > 0 && args[0] == "reindex-search")
+{
+    using var cliScope = app.Services.CreateScope();
+    var reindexService = cliScope.ServiceProvider.GetRequiredService<SearchReindexService>();
+
+    Console.WriteLine("Starting search reindex...");
+    var (editions, chapters) = await reindexService.ReindexAllAsync(CancellationToken.None);
+    Console.WriteLine($"Done: {editions} editions, {chapters} chapters indexed");
     return;
 }
 

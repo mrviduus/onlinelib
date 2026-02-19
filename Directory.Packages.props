@@ -28,6 +28,10 @@
 
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.35" />
+    <PackageVersion Include="Meilisearch" Version="0.16.0" />
+
+    <!-- Hosting -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
 
     <!-- Image Optimization -->
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.8" />
