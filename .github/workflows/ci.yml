@@ -96,6 +96,11 @@ jobs:
           ASPNETCORE_ENVIRONMENT=Development
           EOF
 
+      - name: Create volume dirs for non-root containers
+        run: |
+          mkdir -p data/storage data/textstack data/postgres-prod
+          chmod 777 data/storage data/textstack
+
       - name: Build containers
         run: docker compose build
 
@@ -139,6 +144,11 @@ jobs:
           ADMIN_EMAIL=admin@textstack.app
           ADMIN_PASSWORD=admin
           EOF
+
+      - name: Create volume dirs for non-root containers
+        run: |
+          mkdir -p data/storage data/textstack data/postgres-prod
+          chmod 777 data/storage data/textstack
 
       - name: Build & start services
         run: docker compose up -d --build
