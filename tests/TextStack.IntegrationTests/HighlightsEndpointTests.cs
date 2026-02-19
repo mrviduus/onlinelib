@@ -24,7 +24,7 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>
     {
         var editionId = Guid.NewGuid();
         var request = _fixture.CreateRequest(HttpMethod.Get, $"/me/highlights/{editionId}");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -46,7 +46,7 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>
             selectedText = "text"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -65,7 +65,7 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>
             selectedText = "text"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Without auth, should still be 401
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -86,7 +86,7 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>
             noteText = "Test note"
         });
 
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -100,7 +100,7 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>
     {
         var highlightId = Guid.NewGuid();
         var request = _fixture.CreateRequest(HttpMethod.Delete, $"/me/highlights/{highlightId}");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

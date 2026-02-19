@@ -26,7 +26,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_TitleQuery_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -36,7 +36,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_AuthorQuery_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=author");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -46,7 +46,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_ShortQuery_ReturnsBadRequest()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=a");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -56,7 +56,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_EmptyQuery_ReturnsBadRequest()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -66,7 +66,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_WithHighlight_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test&highlight=true");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -76,7 +76,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_WithPagination_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test&limit=10&offset=0");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -90,7 +90,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Suggest_ValidPrefix_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search/suggest?q=the");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -100,11 +100,11 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Suggest_ShortPrefix_ReturnsEmptyArray()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search/suggest?q=a");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Equal("[]", content);
     }
 
@@ -116,11 +116,11 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Search_ReturnsValidPaginatedResult()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=book");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var result = await response.Content.ReadFromJsonAsync<SearchResponse>();
+        var result = await response.Content.ReadFromJsonAsync<SearchResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.True(result.Total >= 0);
         Assert.NotNull(result.Items);

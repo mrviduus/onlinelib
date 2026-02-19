@@ -33,7 +33,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task SitemapIndex_Returns200WithXmlContentType()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemap.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return; // CI: no site configured
 
@@ -45,11 +45,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task SitemapIndex_StartsWithXmlDeclaration()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemap.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.StartsWith("<?xml", content.TrimStart());
     }
 
@@ -57,11 +57,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task SitemapIndex_HasCorrectNamespace()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemap.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         Assert.NotNull(doc.Root);
@@ -73,11 +73,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task SitemapIndex_DoesNotContainChapters()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemap.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("chapters", content, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -85,11 +85,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task SitemapIndex_ContainsRequiredSitemaps()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemap.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -107,7 +107,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_Returns200WithXmlContentType()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
@@ -119,11 +119,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_HasCorrectUrlsetNamespace()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         Assert.NotNull(doc.Root);
@@ -135,11 +135,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_AllLocsAreValidAbsoluteUrls()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -157,11 +157,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_LastmodFormatIsValid()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var lastmods = doc.Descendants(SitemapNs + "lastmod").Select(e => e.Value).ToList();
@@ -177,11 +177,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_UrlsMatchBookPattern()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -197,11 +197,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_NoChapterUrls()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -226,7 +226,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task AuthorsSitemap_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/authors.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
@@ -237,11 +237,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task AuthorsSitemap_UrlsMatchAuthorPattern()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/authors.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -261,7 +261,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GenresSitemap_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/genres.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
@@ -272,11 +272,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GenresSitemap_UrlsMatchGenrePattern()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/genres.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
 
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
@@ -296,7 +296,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task ChaptersSitemap_Returns404()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/chapters-1.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // 404 expected, but also accept if site not configured
         Assert.True(response.StatusCode == HttpStatusCode.NotFound ||
@@ -311,7 +311,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task RobotsTxt_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/robots.txt");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
@@ -323,11 +323,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task RobotsTxt_ContainsSitemapReference()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/robots.txt");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         if (IsIndexingDisabled(content)) return; // Site has indexing disabled
 
         Assert.Contains("Sitemap:", content);
@@ -338,11 +338,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task RobotsTxt_DisallowsAdminAndApi()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/robots.txt");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         if (IsIndexingDisabled(content)) return; // Site has indexing disabled
 
         Assert.Contains("Disallow: /admin", content);
@@ -361,11 +361,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Sitemaps_AreValidXml(string path)
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, path);
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
         Assert.NotNull(doc.Root);
     }
@@ -378,11 +378,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task BooksSitemap_FirstUrlReturns200()
     {
         var sitemapRequest = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/books.xml");
-        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest);
+        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(sitemapResponse)) return;
 
-        var content = await sitemapResponse.Content.ReadAsStringAsync();
+        var content = await sitemapResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
         var firstLoc = doc.Descendants(SitemapNs + "loc").FirstOrDefault()?.Value;
 
@@ -390,7 +390,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
 
         var uri = new Uri(firstLoc);
         var pageRequest = _fixture.CreateRequest(HttpMethod.Get, uri.AbsolutePath);
-        var pageResponse = await _fixture.Client.SendAsync(pageRequest);
+        var pageResponse = await _fixture.Client.SendAsync(pageRequest, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, pageResponse.StatusCode);
     }
@@ -399,11 +399,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task AuthorsSitemap_FirstUrlReturns200()
     {
         var sitemapRequest = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/authors.xml");
-        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest);
+        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(sitemapResponse)) return;
 
-        var content = await sitemapResponse.Content.ReadAsStringAsync();
+        var content = await sitemapResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
         var firstLoc = doc.Descendants(SitemapNs + "loc").FirstOrDefault()?.Value;
 
@@ -411,7 +411,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
 
         var uri = new Uri(firstLoc);
         var pageRequest = _fixture.CreateRequest(HttpMethod.Get, uri.AbsolutePath);
-        var pageResponse = await _fixture.Client.SendAsync(pageRequest);
+        var pageResponse = await _fixture.Client.SendAsync(pageRequest, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, pageResponse.StatusCode);
     }
@@ -420,11 +420,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task GenresSitemap_FirstUrlReturns200()
     {
         var sitemapRequest = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/genres.xml");
-        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest);
+        var sitemapResponse = await _fixture.Client.SendAsync(sitemapRequest, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(sitemapResponse)) return;
 
-        var content = await sitemapResponse.Content.ReadAsStringAsync();
+        var content = await sitemapResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
         var firstLoc = doc.Descendants(SitemapNs + "loc").FirstOrDefault()?.Value;
 
@@ -432,7 +432,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
 
         var uri = new Uri(firstLoc);
         var pageRequest = _fixture.CreateRequest(HttpMethod.Get, uri.AbsolutePath);
-        var pageResponse = await _fixture.Client.SendAsync(pageRequest);
+        var pageResponse = await _fixture.Client.SendAsync(pageRequest, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, pageResponse.StatusCode);
     }
@@ -441,7 +441,7 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task PagesSitemap_Returns200()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/pages.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
@@ -452,11 +452,11 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
     public async Task PagesSitemap_ContainsHomepages()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/sitemaps/pages.xml");
-        var response = await _fixture.Client.SendAsync(request);
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
 
-        var content = await response.Content.ReadAsStringAsync();
+        var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var doc = XDocument.Parse(content);
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
 
