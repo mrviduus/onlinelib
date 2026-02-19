@@ -106,8 +106,11 @@ export function createApi(language: string) {
       return fetchJson<import('../types/api').AuthorDetail>(`/authors/${slug}`)
     },
 
-    getGenres: () => {
-      return fetchJson<{ total: number; items: import('../types/api').Genre[] }>(`/genres`)
+    getGenres: (params?: { language?: string }) => {
+      const query = new URLSearchParams()
+      if (params?.language) query.set('language', params.language)
+      const qs = query.toString()
+      return fetchJson<{ total: number; items: import('../types/api').Genre[] }>(`/genres${qs ? `?${qs}` : ''}`)
     },
 
     getGenre: (slug: string) => {

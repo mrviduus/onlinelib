@@ -21,6 +21,7 @@ public static class GenresEndpoints
         IAppDbContext db,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
+        [FromQuery] string? language,
         CancellationToken ct)
     {
         var siteId = httpContext.GetSiteId();
@@ -29,19 +30,26 @@ public static class GenresEndpoints
 
         var query = db.Genres
             .Where(g => g.SiteId == siteId && g.Indexable)
-            // Only show genres with at least one published edition
-            .Where(g => g.Editions.Any(e => e.Status == Domain.Enums.EditionStatus.Published))
-            .OrderBy(g => g.Name);
+            .AsQueryable();
 
-        var total = await query.CountAsync(ct);
-        var items = await query
+        // Filter to genres with published editions (optionally in a specific language)
+        query = !string.IsNullOrEmpty(language)
+            ? query.Where(g => g.Editions.Any(e => e.Status == Domain.Enums.EditionStatus.Published && e.Language == language))
+            : query.Where(g => g.Editions.Any(e => e.Status == Domain.Enums.EditionStatus.Published));
+
+        var ordered = query.OrderBy(g => g.Name);
+
+        var total = await ordered.CountAsync(ct);
+        var items = await ordered
             .Skip(skip)
             .Take(take)
             .Select(g => new GenreListDto(
                 g.Id,
                 g.Slug,
                 g.Name,
-                g.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published)
+                !string.IsNullOrEmpty(language)
+                    ? g.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published && e.Language == language)
+                    : g.Editions.Count(e => e.Status == Domain.Enums.EditionStatus.Published)
             ))
             .ToListAsync(ct);
 

@@ -7,6 +7,7 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
+import { useLanguage } from '../context/LanguageContext'
 import { stringToColor } from '../utils/colors'
 import type { Edition, Genre } from '../types/api'
 
@@ -14,6 +15,7 @@ const BOOKS_PER_PAGE = 12
 
 export function BooksPage() {
   const { t } = useTranslation()
+  const { language } = useLanguage()
   const api = useApi()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -32,10 +34,10 @@ export function BooksPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch genres once
+  // Fetch genres for current language
   useEffect(() => {
-    api.getGenres().then(data => setGenres(data.items)).catch(() => {})
-  }, [api])
+    api.getGenres({ language }).then(data => setGenres(data.items)).catch(() => {})
+  }, [api, language])
 
   // Update URL when debounced search changes
   useEffect(() => {

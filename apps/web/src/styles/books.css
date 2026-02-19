@@ -364,7 +364,6 @@
 .catalogue-filters__search {
   position: relative;
   flex: 1;
-  max-width: 400px;
 }
 
 .catalogue-filters__search-icon {
