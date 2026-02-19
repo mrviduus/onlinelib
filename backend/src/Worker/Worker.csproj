@@ -16,5 +16,6 @@
     <ProjectReference Include="..\Domain\Domain.csproj" />
     <ProjectReference Include="..\Extraction\TextStack.Extraction\TextStack.Extraction.csproj" />
     <ProjectReference Include="..\Search\TextStack.Search\TextStack.Search.csproj" />
+    <ProjectReference Include="..\Search\TextStack.Search.Meilisearch\TextStack.Search.Meilisearch.csproj" />
   </ItemGroup>
 </Project>

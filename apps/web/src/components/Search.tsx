@@ -11,11 +11,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { useDebounce } from '../hooks/useDebounce'
 import { getStorageUrl } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 import { LocalizedLink } from './LocalizedLink'
 import type { SearchResult, Suggestion } from '../types/api'
 import { sanitizeHtml } from '../utils/sanitize'
+import {
+  getRecentSearches,
+  addRecentSearch,
+  removeRecentSearch,
+  clearRecentSearches,
+} from '../utils/searchUtils'
 
 // ============================================
 // TYPES
@@ -26,25 +33,6 @@ type SearchMode = 'suggestions' | 'results'
 // ============================================
 // CUSTOM HOOKS (Separation of Concerns)
 // ============================================
-
-/**
- * Hook: useDebounce
- * Why: Prevents API spam while user types
- * How: Delays value update until user stops typing
- */
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
-  useEffect(() => {
-    // Set timer to update debounced value after delay
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-
-    // Cleanup: cancel timer if value changes before delay
-    return () => clearTimeout(timer)
-  }, [value, delay])
-
-  return debouncedValue
-}
 
 /**
  * Hook: useClickOutside
@@ -96,6 +84,11 @@ function useKeyboardShortcut(key: string, callback: () => void) {
  */
 function buildBookUrl(language: string, slug: string): string {
   return `/${language}/books/${slug}`
+}
+
+function buildChapterUrl(language: string, slug: string, result: SearchResult): string {
+  const chapterPart = result.chapterSlug || String(result.chapterNumber)
+  return `/${language}/books/${slug}/${chapterPart}`
 }
 
 // ============================================
@@ -280,6 +273,59 @@ function NoResults({ language }: { language: string }) {
   return <div className="search__no-results">{text}</div>
 }
 
+/** Recent searches list for dropdown */
+function RecentSearchesList({
+  items,
+  language,
+  activeIndex,
+  onSelect,
+  onRemove,
+  onClear,
+}: {
+  items: string[]
+  language: string
+  activeIndex: number
+  onSelect: (q: string) => void
+  onRemove: (q: string) => void
+  onClear: () => void
+}) {
+  const recentLabel = language === 'uk' ? 'Нещодавні пошуки' : 'Recent searches'
+  const clearLabel = language === 'uk' ? 'Очистити' : 'Clear all'
+
+  return (
+    <div className="search__recent">
+      <div className="search__recent-header">
+        <span className="search__recent-label">{recentLabel}</span>
+        <button className="search__recent-clear" onClick={onClear}>{clearLabel}</button>
+      </div>
+      <ul className="search__recent-list" role="listbox">
+        {items.map((q, i) => (
+          <li
+            key={q}
+            role="option"
+            aria-selected={i === activeIndex}
+            className={`search__recent-item ${i === activeIndex ? 'search__recent-item--active' : ''}`}
+            onClick={() => onSelect(q)}
+          >
+            <svg className="search__recent-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>{q}</span>
+            <button
+              className="search__recent-remove"
+              onClick={(e) => { e.stopPropagation(); onRemove(q) }}
+              aria-label="Remove"
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 // ============================================
 // MOBILE SEARCH OVERLAY
 // ============================================
@@ -289,6 +335,7 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
@@ -329,17 +376,36 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
     return () => { cancelled = true }
   }, [debouncedQuery, api])
 
+  const showRecent = !query && recentSearches.length > 0
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose()
       return
     }
+
+    if (showRecent) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex(i => (i < recentSearches.length - 1 ? i + 1 : 0))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex(i => (i > 0 ? i - 1 : recentSearches.length - 1))
+      } else if (e.key === 'Enter' && activeIndex >= 0 && recentSearches[activeIndex]) {
+        e.preventDefault()
+        setQuery(recentSearches[activeIndex])
+      }
+      return
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault()
       if (activeIndex >= 0 && suggestions[activeIndex]) {
+        addRecentSearch(query.trim())
         onClose()
         navigate(buildBookUrl(language, suggestions[activeIndex].slug))
       } else if (query.trim().length >= 2) {
+        addRecentSearch(query.trim())
         onClose()
         navigate(`/${language}/search?q=${encodeURIComponent(query.trim())}`)
       }
@@ -357,17 +423,36 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
 
   const handleInputChange = (value: string) => {
     setQuery(value)
+    setActiveIndex(-1)
   }
 
   const navigateAndClose = (slug: string) => {
+    addRecentSearch(query.trim())
     onClose()
     navigate(buildBookUrl(language, slug))
+  }
+
+  const handleRecentSelect = (q: string) => {
+    setQuery(q)
+    setActiveIndex(-1)
+  }
+
+  const handleRecentRemove = (q: string) => {
+    removeRecentSearch(q)
+    setRecentSearches(getRecentSearches())
+  }
+
+  const handleRecentClear = () => {
+    clearRecentSearches()
+    setRecentSearches([])
   }
 
   const placeholder = language === 'uk' ? 'Пошук книг...' : 'Search books...'
   const closeLabel = language === 'uk' ? 'Закрити' : 'Close'
   const noResultsText = language === 'uk' ? 'Нічого не знайдено' : 'No results found'
   const viewAllText = language === 'uk' ? 'Переглянути всі результати' : 'View all results'
+  const recentLabel = language === 'uk' ? 'Нещодавні пошуки' : 'Recent searches'
+  const clearLabel = language === 'uk' ? 'Очистити' : 'Clear all'
 
   const showSuggestions = suggestions.length > 0
   const showNoResults = debouncedQuery.length >= 2 && !isLoading && suggestions.length === 0
@@ -399,6 +484,37 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="mobile-search-overlay__content">
+        {showRecent && (
+          <div className="mobile-search-overlay__recent">
+            <div className="mobile-search-overlay__recent-header">
+              <span>{recentLabel}</span>
+              <button className="mobile-search-overlay__recent-clear" onClick={handleRecentClear}>{clearLabel}</button>
+            </div>
+            <ul className="mobile-search-overlay__recent-list">
+              {recentSearches.map((q, i) => (
+                <li
+                  key={q}
+                  className={`mobile-search-overlay__recent-item ${i === activeIndex ? 'mobile-search-overlay__recent-item--active' : ''}`}
+                  onClick={() => handleRecentSelect(q)}
+                >
+                  <svg className="mobile-search-overlay__recent-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>{q}</span>
+                  <button
+                    className="mobile-search-overlay__recent-remove"
+                    onClick={(e) => { e.stopPropagation(); handleRecentRemove(q) }}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {showNoResults && <div className="mobile-search-overlay__empty">{noResultsText}</div>}
 
         {showSuggestions && (
@@ -448,6 +564,7 @@ export function Search() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1) // -1 = nothing selected
+  const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches)
 
   // ----- Refs -----
   const containerRef = useRef<HTMLDivElement>(null)
@@ -521,13 +638,36 @@ export function Search() {
         setResults(data.items)
         setIsOpen(true)
         setActiveIndex(-1)
+        addRecentSearch(searchQuery)
+        setRecentSearches(getRecentSearches())
       })
       .catch(() => setResults([]))
       .finally(() => setIsLoading(false))
   }, [api])
 
+  const showRecent = isOpen && !query && recentSearches.length > 0
+
   /** Handle keyboard navigation */
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Recent searches navigation
+    if (showRecent) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex(i => (i < recentSearches.length - 1 ? i + 1 : 0))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex(i => (i > 0 ? i - 1 : recentSearches.length - 1))
+      } else if (e.key === 'Enter' && activeIndex >= 0 && recentSearches[activeIndex]) {
+        e.preventDefault()
+        setQuery(recentSearches[activeIndex])
+        setMode('suggestions')
+      } else if (e.key === 'Escape') {
+        setIsOpen(false)
+        inputRef.current?.blur()
+      }
+      return
+    }
+
     const items = mode === 'suggestions' ? suggestions : results
 
     // Enter: select item or execute search
@@ -537,6 +677,7 @@ export function Search() {
       if (mode === 'suggestions') {
         if (activeIndex >= 0 && suggestions[activeIndex]) {
           // Navigate to selected suggestion
+          addRecentSearch(query)
           navigate(buildBookUrl(language, suggestions[activeIndex].slug))
           setIsOpen(false)
         } else {
@@ -544,8 +685,9 @@ export function Search() {
           executeSearch(query)
         }
       } else if (activeIndex >= 0 && results[activeIndex]) {
-        // Navigate to selected result
-        navigate(buildBookUrl(language, results[activeIndex].edition.slug))
+        // Navigate to selected result — direct to chapter
+        addRecentSearch(query)
+        navigate(buildChapterUrl(language, results[activeIndex].edition.slug, results[activeIndex]))
         setIsOpen(false)
       }
       return
@@ -569,16 +711,22 @@ export function Search() {
         inputRef.current?.blur()
         break
     }
-  }, [isOpen, mode, suggestions, results, activeIndex, language, query, executeSearch, navigate])
+  }, [isOpen, mode, suggestions, results, activeIndex, language, query, executeSearch, navigate, showRecent, recentSearches])
 
   /** Handle input change - always switch to suggestions mode */
   const handleInputChange = (value: string) => {
     setQuery(value)
     setMode('suggestions')
+    setActiveIndex(-1)
   }
 
   /** Handle focus - reopen dropdown if we have data */
   const handleFocus = () => {
+    if (!query && recentSearches.length > 0) {
+      setIsOpen(true)
+      setActiveIndex(-1)
+      return
+    }
     if (mode === 'suggestions' && suggestions.length > 0) setIsOpen(true)
     if (mode === 'results' && results.length > 0) setIsOpen(true)
   }
@@ -595,10 +743,28 @@ export function Search() {
     setIsOpen(false)
   }
 
+  const handleRecentSelect = (q: string) => {
+    setQuery(q)
+    setMode('suggestions')
+    setActiveIndex(-1)
+  }
+
+  const handleRecentRemove = (q: string) => {
+    removeRecentSearch(q)
+    setRecentSearches(getRecentSearches())
+  }
+
+  const handleRecentClear = () => {
+    clearRecentSearches()
+    setRecentSearches([])
+    setIsOpen(false)
+  }
+
   // ----- Derived state -----
   const showSuggestions = isOpen && mode === 'suggestions' && suggestions.length > 0
   const showResults = isOpen && mode === 'results' && results.length > 0
   const showNoResults = isOpen &&
+    query.length > 0 &&
     debouncedQuery.length >= 2 &&
     !isLoading &&
     ((mode === 'suggestions' && suggestions.length === 0) ||
@@ -620,9 +786,18 @@ export function Search() {
       />
 
       {/* Dropdown container - single element to prevent remount scroll jump */}
-      {(showSuggestions || showResults || showNoResults) && (
+      {(showRecent || showSuggestions || showResults || showNoResults) && (
         <div className="search__results-container">
-          {showNoResults ? (
+          {showRecent ? (
+            <RecentSearchesList
+              items={recentSearches}
+              language={language}
+              activeIndex={activeIndex}
+              onSelect={handleRecentSelect}
+              onRemove={handleRecentRemove}
+              onClear={handleRecentClear}
+            />
+          ) : showNoResults ? (
             <NoResults language={language} />
           ) : (
             <>
@@ -634,6 +809,7 @@ export function Search() {
                         suggestion={suggestion}
                         isActive={index === activeIndex}
                         onClick={() => {
+                          addRecentSearch(query)
                           resetSearch()
                           navigate(buildBookUrl(language, suggestion.slug))
                         }}
@@ -645,8 +821,9 @@ export function Search() {
                         result={result}
                         isActive={index === activeIndex}
                         onClick={() => {
+                          addRecentSearch(query)
                           resetSearch()
-                          navigate(buildBookUrl(language, result.edition.slug))
+                          navigate(buildChapterUrl(language, result.edition.slug, result))
                         }}
                       />
                     ))}

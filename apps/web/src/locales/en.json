@@ -166,7 +166,13 @@
     "readOnlineFree": "{title} - Read online free",
     "previous": "← Previous",
     "next": "Next →",
-    "page": "Page {page} of {total}"
+    "page": "Page {page} of {total}",
+    "moreChapters": "+{count} more chapters",
+    "hideChapters": "Hide chapters",
+    "recentSearches": "Recent searches",
+    "clearAll": "Clear all",
+    "searchPlaceholder": "Search books...",
+    "foundEditions": "Found {total} books"
   },
   "privacy": {
     "seoTitle": "Privacy Policy - TextStack",

@@ -166,7 +166,13 @@
     "readOnlineFree": "{title} - Читати онлайн безкоштовно",
     "previous": "← Назад",
     "next": "Далі →",
-    "page": "Сторінка {page} з {total}"
+    "page": "Сторінка {page} з {total}",
+    "moreChapters": "ще {count} розділів",
+    "hideChapters": "Сховати розділи",
+    "recentSearches": "Нещодавні пошуки",
+    "clearAll": "Очистити",
+    "searchPlaceholder": "Пошук книг...",
+    "foundEditions": "Знайдено {total} книг"
   },
   "privacy": {
     "seoTitle": "Політика конфіденційності - TextStack",
