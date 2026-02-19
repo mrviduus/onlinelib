@@ -118,6 +118,15 @@ export function SearchPage() {
     setRecentSearches([])
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const trimmed = inputValue.trim()
+      if (trimmed) {
+        setSearchParams({ q: trimmed }, { replace: true })
+      }
+    }
+  }
+
   const renderEditionCard = (group: GroupedEdition) => {
     const { edition, bestMatch, otherMatches } = group
     const isExpanded = expandedEditions.has(edition.id)
@@ -200,6 +209,7 @@ export function SearchPage() {
     <>
       <div className="search-page">
         <SeoHead title={query ? `${t('search.title')}: ${query}` : t('search.title')} noindex />
+        <h1>{query ? `${t('search.title')}: "${query}"` : t('search.title')}</h1>
 
         <div className="search-page__input-wrapper">
           <svg className="search-page__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -213,6 +223,7 @@ export function SearchPage() {
             placeholder={t('search.searchPlaceholder')}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
           {loading && <span className="search-page__spinner" />}
         </div>
