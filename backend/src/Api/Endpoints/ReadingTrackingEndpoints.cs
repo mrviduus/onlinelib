@@ -420,7 +420,8 @@ public static class ReadingTrackingEndpoints
             .Where(e => editionIds.Contains(e.Id))
             .Select(e => new
             {
-                e.Id, e.Language,
+                e.Id,
+                e.Language,
                 WordCount = e.Chapters.Sum(c => (int?)c.WordCount) ?? 0,
                 Genres = e.Genres.Select(g => new { g.Name, g.Slug }).ToList(),
                 Authors = e.EditionAuthors
