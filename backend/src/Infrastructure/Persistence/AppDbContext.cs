@@ -43,6 +43,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ReadingSession> ReadingSessions => Set<ReadingSession>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+    public DbSet<UserRating> UserRatings => Set<UserRating>();
+    public DbSet<Mood> Moods => Set<Mood>();
+    public DbSet<UserMoodTag> UserMoodTags => Set<UserMoodTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -441,6 +444,37 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => new { x.UserId, x.SiteId, x.AchievementCode }).IsUnique();
             e.Property(x => x.AchievementCode).HasMaxLength(50);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // UserRating
+        modelBuilder.Entity<UserRating>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique();
+            e.HasIndex(x => x.EditionId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Mood
+        modelBuilder.Entity<Mood>(e =>
+        {
+            e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
+            e.Property(x => x.Slug).HasMaxLength(50);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.Emoji).HasMaxLength(10);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // UserMoodTag
+        modelBuilder.Entity<UserMoodTag>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.EditionId });
+            e.HasIndex(x => new { x.UserId, x.EditionId, x.MoodId }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Mood).WithMany().HasForeignKey(x => x.MoodId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
     }

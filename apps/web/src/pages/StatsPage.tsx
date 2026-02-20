@@ -4,9 +4,22 @@ import { useTranslation } from '../hooks/useTranslation'
 import { useReadingStats } from '../hooks/useReadingStats'
 import { useReadingGoals } from '../hooks/useReadingGoals'
 import { useAchievements } from '../hooks/useAchievements'
+import { useBookStats } from '../hooks/useBookStats'
 import { AchievementDefinitions } from '../lib/achievementDefinitions'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { TimePeriodFilter } from '../components/stats/TimePeriodFilter'
+import { SectionNavigator } from '../components/stats/SectionNavigator'
+import { GenreChart } from '../components/stats/GenreChart'
+import { AuthorChart } from '../components/stats/AuthorChart'
+import { ReadingTimeByGenreChart } from '../components/stats/ReadingTimeByGenreChart'
+import { ReadingTimeByAuthorChart } from '../components/stats/ReadingTimeByAuthorChart'
+import { MoodChart } from '../components/stats/MoodChart'
+import { PaceChart } from '../components/stats/PaceChart'
+import { RatingChart } from '../components/stats/RatingChart'
+import { LanguageChart } from '../components/stats/LanguageChart'
+import { BooksOverTimeChart } from '../components/stats/BooksOverTimeChart'
+import { BookLengthChart } from '../components/stats/BookLengthChart'
 import type { DailyStatDto } from '../api/readingTracking'
 
 function formatTime(seconds: number): string {
@@ -120,6 +133,7 @@ export function StatsPage() {
   const { stats, dailyStats, loading } = useReadingStats()
   const { goals, upsert: upsertGoal } = useReadingGoals()
   const { achievements } = useAchievements()
+  const { bookStats, loading: bookStatsLoading, year, setYear } = useBookStats()
 
   const [goalInput, setGoalInput] = useState('')
   const [streakInput, setStreakInput] = useState('')
@@ -173,25 +187,53 @@ export function StatsPage() {
       <div className="stats-page">
         <h1>{t('stats.title')}</h1>
 
-        {/* Summary cards */}
-        <div className="stats-cards">
-          <div className="stats-card">
-            <div className="stats-card__value">{formatTime(stats?.totalSeconds || 0)}</div>
-            <div className="stats-card__label">{t('stats.totalTime')}</div>
-          </div>
-          <div className="stats-card">
-            <div className="stats-card__value">{stats?.booksFinished || 0}</div>
-            <div className="stats-card__label">{t('stats.booksFinished')}</div>
-          </div>
-          <div className="stats-card">
-            <div className="stats-card__value">{stats?.currentStreak || 0}</div>
-            <div className="stats-card__label">{t('stats.currentStreak')}</div>
-          </div>
-          <div className="stats-card">
-            <div className="stats-card__value">{stats?.avgDailyMinutes || 0}m</div>
-            <div className="stats-card__label">{t('stats.avgDaily')}</div>
-          </div>
+        {/* Filters */}
+        <div className="stats-filters">
+          <TimePeriodFilter
+            year={year}
+            setYear={setYear}
+            availableYears={bookStats?.availableYears || []}
+          />
+          <SectionNavigator />
         </div>
+
+        {/* Book summary */}
+        <section id="summary" className="stats-section">
+          <div className="stats-cards">
+            <div className="stats-card">
+              <div className="stats-card__value">{bookStats?.booksFinished || stats?.booksFinished || 0}</div>
+              <div className="stats-card__label">{t('stats.booksFinished')}</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-card__value">{(bookStats?.totalPages || 0).toLocaleString()}</div>
+              <div className="stats-card__label">{t('stats.totalPages')}</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-card__value">{bookStats?.avgDaysToFinish || 0}</div>
+              <div className="stats-card__label">{t('stats.avgTimeToFinish')}</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-card__value">{formatTime(stats?.totalSeconds || 0)}</div>
+              <div className="stats-card__label">{t('stats.totalTime')}</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Streaks */}
+        <section id="streaks" className="stats-section">
+          <h2>{t('stats.streaks')}</h2>
+          <div className="stats-streak-row">
+            <div className="stats-card">
+              <div className="stats-card__value">{stats?.currentStreak || 0}</div>
+              <div className="stats-card__label">{t('stats.currentStreak')}</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-card__value">{stats?.longestStreak || 0}</div>
+              <div className="stats-card__label">{t('stats.longestStreak')}</div>
+            </div>
+          </div>
+          <StreakCalendar dailyStats={dailyStats} />
+        </section>
 
         {/* Daily goal ring */}
         {stats?.dailyGoal && (
@@ -207,20 +249,30 @@ export function StatsPage() {
           </section>
         )}
 
-        {/* Streak calendar */}
-        <section className="stats-section">
-          <h2>{t('stats.streakCalendar')}</h2>
-          <StreakCalendar dailyStats={dailyStats} />
-        </section>
-
         {/* Weekly chart */}
         <section className="stats-section">
           <h2>{t('stats.weeklyChart')}</h2>
           <WeeklyChart dailyStats={dailyStats} />
         </section>
 
+        {/* Book stats charts */}
+        {bookStats && !bookStatsLoading && (
+          <>
+            <MoodChart data={bookStats.moodStats} />
+            <PaceChart data={bookStats.paceStats} />
+            <GenreChart data={bookStats.genreStats} />
+            <ReadingTimeByGenreChart data={bookStats.readingTimeByGenre} />
+            <AuthorChart data={bookStats.authorStats} />
+            <ReadingTimeByAuthorChart data={bookStats.readingTimeByAuthor} />
+            <LanguageChart data={bookStats.languageStats} />
+            <BooksOverTimeChart data={bookStats.booksOverTime} />
+            <BookLengthChart data={bookStats.bookLengthDistribution} />
+            <RatingChart data={bookStats.ratingDistribution} avgRating={bookStats.avgRating} />
+          </>
+        )}
+
         {/* Achievements */}
-        <section className="stats-section">
+        <section id="achievements" className="stats-section">
           <h2>{t('stats.achievements')}</h2>
           <div className="stats-achievements">
             {Object.entries(AchievementDefinitions).map(([code, def]) => {
@@ -278,10 +330,6 @@ export function StatsPage() {
         <section className="stats-section">
           <h2>{t('stats.details')}</h2>
           <div className="stats-details">
-            <div className="stats-detail-row">
-              <span>{t('stats.longestStreak')}</span>
-              <span>{stats?.longestStreak || 0} {t('stats.days')}</span>
-            </div>
             <div className="stats-detail-row">
               <span>{t('stats.avgWpm')}</span>
               <span>{stats?.avgWordsPerMinute || 0}</span>

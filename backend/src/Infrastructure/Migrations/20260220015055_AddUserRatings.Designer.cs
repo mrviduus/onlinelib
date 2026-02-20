@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -12,9 +13,11 @@ using NpgsqlTypes;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260220015055_AddUserRatings")]
+    partial class AddUserRatings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -875,52 +878,6 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_lint_results_edition_id");
 
                     b.ToTable("lint_results", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.Mood", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Emoji")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("emoji");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("slug");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_moods");
-
-                    b.HasIndex("SiteId", "Slug")
-                        .IsUnique()
-                        .HasDatabaseName("ix_moods_site_id_slug");
-
-                    b.ToTable("moods", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Note", b =>
@@ -2079,55 +2036,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("user_libraries", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Entities.UserMoodTag", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("EditionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("edition_id");
-
-                    b.Property<Guid>("MoodId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("mood_id");
-
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_mood_tags");
-
-                    b.HasIndex("EditionId")
-                        .HasDatabaseName("ix_user_mood_tags_edition_id");
-
-                    b.HasIndex("MoodId")
-                        .HasDatabaseName("ix_user_mood_tags_mood_id");
-
-                    b.HasIndex("SiteId")
-                        .HasDatabaseName("ix_user_mood_tags_site_id");
-
-                    b.HasIndex("UserId", "EditionId")
-                        .HasDatabaseName("ix_user_mood_tags_user_id_edition_id");
-
-                    b.HasIndex("UserId", "EditionId", "MoodId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_mood_tags_user_id_edition_id_mood_id");
-
-                    b.ToTable("user_mood_tags", (string)null);
-                });
-
             modelBuilder.Entity("Domain.Entities.UserRating", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2520,18 +2428,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Edition");
                 });
 
-            modelBuilder.Entity("Domain.Entities.Mood", b =>
-                {
-                    b.HasOne("Domain.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_moods_sites_site_id");
-
-                    b.Navigation("Site");
-                });
-
             modelBuilder.Entity("Domain.Entities.Note", b =>
                 {
                     b.HasOne("Domain.Entities.Chapter", "Chapter")
@@ -2873,45 +2769,6 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("fk_user_libraries_users_user_id");
 
                     b.Navigation("Edition");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Domain.Entities.UserMoodTag", b =>
-                {
-                    b.HasOne("Domain.Entities.Edition", "Edition")
-                        .WithMany()
-                        .HasForeignKey("EditionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_mood_tags_editions_edition_id");
-
-                    b.HasOne("Domain.Entities.Mood", "Mood")
-                        .WithMany()
-                        .HasForeignKey("MoodId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_mood_tags_moods_mood_id");
-
-                    b.HasOne("Domain.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_mood_tags_sites_site_id");
-
-                    b.HasOne("Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_mood_tags_users_user_id");
-
-                    b.Navigation("Edition");
-
-                    b.Navigation("Mood");
-
-                    b.Navigation("Site");
 
                     b.Navigation("User");
                 });

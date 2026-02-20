@@ -124,3 +124,40 @@ export async function deleteGoal(id: string): Promise<void> {
 export async function getAchievements(): Promise<AchievementDto[]> {
   return authFetch<AchievementDto[]>('/me/reading/achievements')
 }
+
+// --- Book Stats ---
+
+export interface GenreStatDto { name: string; slug: string; count: number }
+export interface AuthorStatDto { name: string; slug: string; count: number }
+export interface LanguageStatDto { language: string; count: number }
+export interface BooksOverTimeDto { period: string; books: number; pages: number }
+export interface BookLengthBucketDto { bucket: string; count: number }
+export interface MoodStatDto { name: string; emoji: string | null; count: number }
+export interface RatingBucketDto { rating: number; count: number }
+export interface PaceStatDto { pace: string; count: number }
+export interface ReadingTimeStatDto { name: string; slug: string; seconds: number }
+
+export interface BookStatsResponse {
+  booksFinished: number
+  totalPages: number
+  avgDaysToFinish: number
+  genreStats: GenreStatDto[]
+  authorStats: AuthorStatDto[]
+  languageStats: LanguageStatDto[]
+  booksOverTime: BooksOverTimeDto[]
+  bookLengthDistribution: BookLengthBucketDto[]
+  moodStats: MoodStatDto[]
+  ratingDistribution: RatingBucketDto[]
+  avgRating: number | null
+  paceStats: PaceStatDto[]
+  readingTimeByGenre: ReadingTimeStatDto[]
+  readingTimeByAuthor: ReadingTimeStatDto[]
+  availableYears: number[]
+}
+
+export async function getBookStats(year?: number): Promise<BookStatsResponse> {
+  const params = new URLSearchParams()
+  if (year) params.set('year', String(year))
+  const qs = params.toString()
+  return authFetch<BookStatsResponse>(`/me/reading/book-stats${qs ? `?${qs}` : ''}`)
+}
