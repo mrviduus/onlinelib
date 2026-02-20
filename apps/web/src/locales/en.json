@@ -261,7 +261,8 @@
     "medium": "Medium",
     "fast": "Fast",
     "short": "Short",
-    "long": "Long"
+    "long": "Long",
+    "noData": "No data yet"
   },
   "terms": {
     "seoTitle": "Terms of Service - TextStack",

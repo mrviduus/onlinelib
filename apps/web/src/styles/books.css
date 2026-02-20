@@ -4641,30 +4641,45 @@ html.dark .book-hero__read-btn {
   color: var(--color-text-secondary);
 }
 
-/* Star Rating */
+/* Star Rating (half-star) */
 .star-rating {
   display: flex;
   gap: 2px;
   margin: 8px 0;
 }
-.star-rating__star {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
+.star-rating__star-wrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
   color: var(--color-text-tertiary);
-  transition: color 0.15s, transform 0.15s;
-  line-height: 1;
 }
-.star-rating__star:hover {
+.star-rating__star-wrapper:hover {
   transform: scale(1.15);
 }
-.star-rating__star--active {
-  color: var(--color-brand, #C4704B);
+.star-rating__star-half {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  z-index: 1;
 }
-.star-rating__star:disabled {
-  opacity: 0.5;
-  cursor: default;
+.star-rating__star-half--left { left: 0; }
+.star-rating__star-half--right { right: 0; }
+.star-rating__star-half:disabled { cursor: default; }
+.star-rating__star-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--color-text-tertiary);
+  transition: color 0.15s;
+}
+.star-rating__star-svg--full,
+.star-rating__star-svg--half {
+  color: var(--color-brand, #C4704B);
 }
 
 /* Mood Selector */

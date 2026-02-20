@@ -245,26 +245,63 @@
   flex: 1;
 }
 
+/* Card groups (TSG-style panes) */
+.stats-card-group {
+  background: var(--color-bg, #fff);
+  border: 1px solid #ebebeb;
+  border-radius: 6px;
+  padding: 24px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.stats-card-group--spaced {
+  margin-bottom: 32px;
+}
+
+.stats-chart-divider {
+  border: none;
+  border-top: 1px solid #ebebeb;
+  margin: 24px 0;
+}
+
 /* Chart sections */
 .stats-chart-section {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .stats-chart-section__title {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
+  text-align: center;
 }
 
 .stats-chart-section__subtitle {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.stats-chart-section__hint {
+  font-style: italic;
+  text-align: center;
+  color: var(--color-text-tertiary, #9ca3af);
+  font-size: 0.85rem;
 }
 
 .stats-chart-container {
   width: 100%;
   overflow-x: auto;
+}
+
+.stats-chart-empty-pie {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 180px;
 }
 
 /* Mobile */

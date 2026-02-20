@@ -39,7 +39,7 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
     public async Task UpsertRating_WithoutAuth_Returns401()
     {
         var request = _anon.CreateRequest(HttpMethod.Put, $"/me/ratings/{Guid.NewGuid()}");
-        request.Content = JsonContent.Create(new { rating = 4 });
+        request.Content = JsonContent.Create(new { rating = 4.0 });
         var response = await _anon.Client.SendAsync(request, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -61,7 +61,7 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
     {
         var editionId = Guid.NewGuid();
         var request = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
-        request.Content = JsonContent.Create(new { rating = 4, reviewText = "Great book" });
+        request.Content = JsonContent.Create(new { rating = 4.5, reviewText = "Great book" });
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
@@ -69,8 +69,24 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
         var dto = await response.Content.ReadFromJsonAsync<RatingDto>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(dto);
-        Assert.Equal(4, dto.Rating);
+        Assert.Equal(4.5, dto.Rating);
         Assert.Equal("Great book", dto.ReviewText);
+    }
+
+    [Fact]
+    public async Task UpsertRating_HalfStar_Returns200()
+    {
+        var editionId = Guid.NewGuid();
+        var request = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
+        request.Content = JsonContent.Create(new { rating = 3.5 });
+        var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        if (ShouldSkip(response)) return;
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var dto = await response.Content.ReadFromJsonAsync<RatingDto>(cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(dto);
+        Assert.Equal(3.5, dto.Rating);
     }
 
     [Fact]
@@ -85,10 +101,21 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
     }
 
     [Fact]
-    public async Task UpsertRating_InvalidRating6_Returns400()
+    public async Task UpsertRating_InvalidRating5_5_Returns400()
     {
         var request = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{Guid.NewGuid()}");
-        request.Content = JsonContent.Create(new { rating = 6 });
+        request.Content = JsonContent.Create(new { rating = 5.5 });
+        var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        if (ShouldSkip(response)) return;
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpsertRating_InvalidRating0_3_Returns400()
+    {
+        var request = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{Guid.NewGuid()}");
+        request.Content = JsonContent.Create(new { rating = 0.3 });
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (ShouldSkip(response)) return;
@@ -102,20 +129,20 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
         // Create
         var req1 = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
-        req1.Content = JsonContent.Create(new { rating = 3 });
+        req1.Content = JsonContent.Create(new { rating = 3.0 });
         var resp1 = await _auth.Client.SendAsync(req1, TestContext.Current.CancellationToken);
         if (ShouldSkip(resp1)) return;
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode);
 
         // Update
         var req2 = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
-        req2.Content = JsonContent.Create(new { rating = 5, reviewText = "Changed my mind" });
+        req2.Content = JsonContent.Create(new { rating = 4.5, reviewText = "Changed my mind" });
         var resp2 = await _auth.Client.SendAsync(req2, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode);
 
         var dto = await resp2.Content.ReadFromJsonAsync<RatingDto>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(dto);
-        Assert.Equal(5, dto.Rating);
+        Assert.Equal(4.5, dto.Rating);
         Assert.Equal("Changed my mind", dto.ReviewText);
     }
 
@@ -126,7 +153,7 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
         // Upsert
         var put = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
-        put.Content = JsonContent.Create(new { rating = 2 });
+        put.Content = JsonContent.Create(new { rating = 2.5 });
         var putResp = await _auth.Client.SendAsync(put, TestContext.Current.CancellationToken);
         if (ShouldSkip(putResp)) return;
 
@@ -137,7 +164,7 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
         var dto = await getResp.Content.ReadFromJsonAsync<RatingDto>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(dto);
-        Assert.Equal(2, dto.Rating);
+        Assert.Equal(2.5, dto.Rating);
     }
 
     [Fact]
@@ -157,7 +184,7 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
         // Create
         var put = _auth.CreateRequest(HttpMethod.Put, $"/me/ratings/{editionId}");
-        put.Content = JsonContent.Create(new { rating = 3 });
+        put.Content = JsonContent.Create(new { rating = 3.5 });
         var putResp = await _auth.Client.SendAsync(put, TestContext.Current.CancellationToken);
         if (ShouldSkip(putResp)) return;
 
@@ -197,5 +224,5 @@ public class UserRatingEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
 
     #endregion
 
-    private record RatingDto(Guid EditionId, int Rating, string? ReviewText, DateTimeOffset UpdatedAt);
+    private record RatingDto(Guid EditionId, double Rating, string? ReviewText, DateTimeOffset UpdatedAt);
 }

@@ -522,8 +522,9 @@ public static class ReadingTrackingEndpoints
             .OrderByDescending(m => m.Count)
             .ToList();
 
-        // Rating distribution
-        var ratingDistribution = Enumerable.Range(1, 5)
+        // Rating distribution (half-star buckets: 0.5, 1, 1.5, ..., 5)
+        var halfStarBuckets = Enumerable.Range(1, 10).Select(i => i * 0.5).ToList();
+        var ratingDistribution = halfStarBuckets
             .Select(r => new RatingBucketDto(r, ratings.Count(x => x == r)))
             .Where(r => r.Count > 0)
             .ToList();
@@ -735,6 +736,6 @@ public record LanguageStatDto(string Language, int Count);
 public record BooksOverTimeDto(string Period, int Books, int Pages);
 public record BookLengthBucketDto(string Bucket, int Count);
 public record MoodStatDto(string Name, string? Emoji, int Count);
-public record RatingBucketDto(int Rating, int Count);
+public record RatingBucketDto(double Rating, int Count);
 public record PaceStatDto(string Pace, int Count);
 public record ReadingTimeStatDto(string Name, string Slug, long Seconds);
