@@ -20,6 +20,8 @@ import {
   generateRelevanceText,
   generateThemeDescription,
 } from '../lib/bookSeo'
+import { StarRating } from '../components/StarRating'
+import { MoodSelector } from '../components/MoodSelector'
 import type { BookDetail } from '../types/api'
 
 // Strip HTML tags from description text
@@ -186,6 +188,9 @@ export function BookDetailPage() {
               <p className="book-hero__about-text">{stripHtml(book.description)}</p>
             </div>
           )}
+
+          <StarRating editionId={book.id} />
+          <MoodSelector editionId={book.id} />
 
           <div className="book-hero__meta">
             <span className="book-hero__meta-item">

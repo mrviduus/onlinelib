@@ -40,6 +40,9 @@ public interface IAppDbContext
     DbSet<ReadingSession> ReadingSessions { get; }
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }
+    DbSet<UserRating> UserRatings { get; }
+    DbSet<Mood> Moods { get; }
+    DbSet<UserMoodTag> UserMoodTags { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

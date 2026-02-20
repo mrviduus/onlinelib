@@ -23,6 +23,7 @@ public static class ReadingTrackingEndpoints
         group.MapPost("/goals", CreateOrUpdateGoal).WithName("CreateOrUpdateReadingGoal");
         group.MapDelete("/goals/{id:guid}", DeleteGoal).WithName("DeleteReadingGoal");
         group.MapGet("/achievements", GetAchievements).WithName("GetAchievements");
+        group.MapGet("/book-stats", GetBookStats).WithName("GetBookStats");
     }
 
     // --- Sessions ---
@@ -373,6 +374,210 @@ public static class ReadingTrackingEndpoints
         return Results.Ok(unlocked);
     }
 
+    // --- Book Stats ---
+
+    private static async Task<IResult> GetBookStats(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        [FromQuery] int? year,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        // 1. Find finished editions: first session where EndPercent >= 0.99 per edition
+        var finishEvents = await db.ReadingSessions
+            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && s.EndPercent >= 0.99)
+            .GroupBy(s => s.EditionId!.Value)
+            .Select(g => new { EditionId = g.Key, FinishedAt = g.Min(s => s.EndedAt) })
+            .ToListAsync(ct);
+
+        // Also count UserBook completions for total
+        var userBookFinished = await db.ReadingSessions
+            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.UserBookId != null && s.EndPercent >= 0.99)
+            .Select(s => s.UserBookId!.Value)
+            .Distinct()
+            .CountAsync(ct);
+
+        // Available years
+        var availableYears = finishEvents
+            .Select(f => f.FinishedAt.Year)
+            .Distinct()
+            .OrderDescending()
+            .ToList();
+
+        // 2. Year filter
+        if (year.HasValue && year.Value > 0)
+            finishEvents = finishEvents.Where(f => f.FinishedAt.Year == year.Value).ToList();
+
+        var editionIds = finishEvents.Select(f => f.EditionId).ToList();
+        var finishMap = finishEvents.ToDictionary(f => f.EditionId, f => f.FinishedAt);
+
+        // 3. Load edition metadata
+        var editions = await db.Editions
+            .Where(e => editionIds.Contains(e.Id))
+            .Select(e => new
+            {
+                e.Id, e.Language,
+                WordCount = e.Chapters.Sum(c => (int?)c.WordCount) ?? 0,
+                Genres = e.Genres.Select(g => new { g.Name, g.Slug }).ToList(),
+                Authors = e.EditionAuthors
+                    .Where(ea => ea.Role == Domain.Enums.AuthorRole.Author)
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => new { ea.Author.Name, ea.Author.Slug })
+                    .ToList(),
+            })
+            .ToListAsync(ct);
+
+        // 4. First session per edition (for avg days to finish)
+        var firstSessions = await db.ReadingSessions
+            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
+            .GroupBy(s => s.EditionId!.Value)
+            .Select(g => new { EditionId = g.Key, FirstStarted = g.Min(s => s.StartedAt) })
+            .ToListAsync(ct);
+        var firstSessionMap = firstSessions.ToDictionary(f => f.EditionId, f => f.FirstStarted);
+
+        // 5. Reading time per edition (for pace + time-by-genre/author)
+        var sessionsByEdition = await db.ReadingSessions
+            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
+            .GroupBy(s => s.EditionId!.Value)
+            .Select(g => new { EditionId = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds), TotalWords = g.Sum(s => s.WordsRead) })
+            .ToListAsync(ct);
+        var sessionMap = sessionsByEdition.ToDictionary(s => s.EditionId);
+
+        // 6. User mood tags for finished editions
+        var moodTags = await db.UserMoodTags
+            .Where(t => t.UserId == userId.Value && t.SiteId == siteId && editionIds.Contains(t.EditionId))
+            .Join(db.Moods, t => t.MoodId, m => m.Id, (t, m) => new { m.Name, m.Emoji })
+            .ToListAsync(ct);
+
+        // 7. User ratings for finished editions
+        var ratings = await db.UserRatings
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && editionIds.Contains(r.EditionId))
+            .Select(r => r.Rating)
+            .ToListAsync(ct);
+
+        // --- Aggregations ---
+        var totalPages = editions.Sum(e => e.WordCount) / 250;
+
+        // Avg days to finish
+        var daysToFinish = editions
+            .Where(e => finishMap.ContainsKey(e.Id) && firstSessionMap.ContainsKey(e.Id))
+            .Select(e => (finishMap[e.Id] - firstSessionMap[e.Id]).TotalDays)
+            .ToList();
+        var avgDaysToFinish = daysToFinish.Count > 0 ? Math.Round(daysToFinish.Average(), 1) : 0;
+
+        // Genre stats
+        var genreStats = editions
+            .SelectMany(e => e.Genres)
+            .GroupBy(g => g.Slug)
+            .Select(g => new GenreStatDto(g.First().Name, g.Key, g.Count()))
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        // Author stats (top 10)
+        var authorStats = editions
+            .SelectMany(e => e.Authors)
+            .GroupBy(a => a.Slug)
+            .Select(g => new AuthorStatDto(g.First().Name, g.Key, g.Count()))
+            .OrderByDescending(a => a.Count)
+            .Take(10)
+            .ToList();
+
+        // Language stats
+        var languageStats = editions
+            .GroupBy(e => e.Language)
+            .Select(g => new LanguageStatDto(g.Key, g.Count()))
+            .OrderByDescending(l => l.Count)
+            .ToList();
+
+        // Books over time
+        var booksOverTime = finishEvents
+            .GroupBy(f => year.HasValue && year.Value > 0
+                ? f.FinishedAt.ToString("yyyy-MM")
+                : f.FinishedAt.Year.ToString())
+            .Select(g =>
+            {
+                var eIds = g.Select(f => f.EditionId).ToHashSet();
+                var pages = editions.Where(e => eIds.Contains(e.Id)).Sum(e => e.WordCount) / 250;
+                return new BooksOverTimeDto(g.Key, g.Count(), pages);
+            })
+            .OrderBy(b => b.Period)
+            .ToList();
+
+        // Book length distribution
+        var lengthBuckets = editions
+            .Select(e => e.WordCount / 250) // pages
+            .GroupBy(p => p < 150 ? "short" : p < 400 ? "medium" : "long")
+            .Select(g => new BookLengthBucketDto(g.Key, g.Count()))
+            .ToList();
+
+        // Mood stats
+        var moodStats = moodTags
+            .GroupBy(m => m.Name)
+            .Select(g => new MoodStatDto(g.Key, g.First().Emoji, g.Count()))
+            .OrderByDescending(m => m.Count)
+            .ToList();
+
+        // Rating distribution
+        var ratingDistribution = Enumerable.Range(1, 5)
+            .Select(r => new RatingBucketDto(r, ratings.Count(x => x == r)))
+            .Where(r => r.Count > 0)
+            .ToList();
+        var avgRating = ratings.Count > 0 ? Math.Round(ratings.Average(), 2) : (double?)null;
+
+        // Pace stats (auto-calc: seconds per word → slow/medium/fast)
+        var paceList = editions
+            .Where(e => sessionMap.ContainsKey(e.Id) && e.WordCount > 0)
+            .Select(e =>
+            {
+                var wpm = sessionMap[e.Id].TotalWords / Math.Max(1.0, sessionMap[e.Id].TotalSeconds / 60.0);
+                return wpm < 150 ? "slow" : wpm < 300 ? "medium" : "fast";
+            })
+            .GroupBy(p => p)
+            .Select(g => new PaceStatDto(g.Key, g.Count()))
+            .ToList();
+
+        // Reading time by genre
+        var timeByGenre = editions
+            .Where(e => sessionMap.ContainsKey(e.Id))
+            .SelectMany(e => e.Genres.Select(g => new { g.Name, g.Slug, sessionMap[e.Id].TotalSeconds }))
+            .GroupBy(x => x.Slug)
+            .Select(g => new ReadingTimeStatDto(g.First().Name, g.Key, g.Sum(x => x.TotalSeconds)))
+            .OrderByDescending(x => x.Seconds)
+            .ToList();
+
+        // Reading time by author
+        var timeByAuthor = editions
+            .Where(e => sessionMap.ContainsKey(e.Id))
+            .SelectMany(e => e.Authors.Select(a => new { a.Name, a.Slug, sessionMap[e.Id].TotalSeconds }))
+            .GroupBy(x => x.Slug)
+            .Select(g => new ReadingTimeStatDto(g.First().Name, g.Key, g.Sum(x => x.TotalSeconds)))
+            .OrderByDescending(x => x.Seconds)
+            .Take(10)
+            .ToList();
+
+        return Results.Ok(new BookStatsResponse(
+            BooksFinished: editionIds.Count + userBookFinished,
+            TotalPages: totalPages,
+            AvgDaysToFinish: avgDaysToFinish,
+            GenreStats: genreStats,
+            AuthorStats: authorStats,
+            LanguageStats: languageStats,
+            BooksOverTime: booksOverTime,
+            BookLengthDistribution: lengthBuckets,
+            MoodStats: moodStats,
+            RatingDistribution: ratingDistribution,
+            AvgRating: avgRating,
+            PaceStats: paceList,
+            ReadingTimeByGenre: timeByGenre,
+            ReadingTimeByAuthor: timeByAuthor,
+            AvailableYears: availableYears
+        ));
+    }
+
     // --- Helpers ---
 
     private static TimeSpan ParseTzOffset(string? tz)
@@ -503,3 +708,32 @@ public record GoalDto(Guid Id, string GoalType, int TargetValue, int Year, int S
 public record CreateGoalRequest(string GoalType, int TargetValue, int Year, int? StreakMinMinutes);
 
 public record AchievementDto(string Code, DateTimeOffset UnlockedAt);
+
+// Book Stats DTOs
+public record BookStatsResponse(
+    int BooksFinished,
+    int TotalPages,
+    double AvgDaysToFinish,
+    List<GenreStatDto> GenreStats,
+    List<AuthorStatDto> AuthorStats,
+    List<LanguageStatDto> LanguageStats,
+    List<BooksOverTimeDto> BooksOverTime,
+    List<BookLengthBucketDto> BookLengthDistribution,
+    List<MoodStatDto> MoodStats,
+    List<RatingBucketDto> RatingDistribution,
+    double? AvgRating,
+    List<PaceStatDto> PaceStats,
+    List<ReadingTimeStatDto> ReadingTimeByGenre,
+    List<ReadingTimeStatDto> ReadingTimeByAuthor,
+    List<int> AvailableYears
+);
+
+public record GenreStatDto(string Name, string Slug, int Count);
+public record AuthorStatDto(string Name, string Slug, int Count);
+public record LanguageStatDto(string Language, int Count);
+public record BooksOverTimeDto(string Period, int Books, int Pages);
+public record BookLengthBucketDto(string Bucket, int Count);
+public record MoodStatDto(string Name, string? Emoji, int Count);
+public record RatingBucketDto(int Rating, int Count);
+public record PaceStatDto(string Pace, int Count);
+public record ReadingTimeStatDto(string Name, string Slug, long Seconds);
