@@ -38,6 +38,16 @@ public class AuthenticatedApiFixture : IAsyncLifetime
         if (resp.StatusCode == HttpStatusCode.NotFound)
             return; // test-login not enabled
 
+        // Retry once — handles race condition when parallel fixtures create the same test user
+        if (!resp.IsSuccessStatusCode)
+        {
+            await Task.Delay(500);
+            loginRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/test-login");
+            loginRequest.Headers.Host = TestHost;
+            loginRequest.Content = JsonContent.Create(new { email = TestEmail });
+            resp = await Client.SendAsync(loginRequest);
+        }
+
         resp.EnsureSuccessStatusCode();
         _loginAvailable = true;
 
