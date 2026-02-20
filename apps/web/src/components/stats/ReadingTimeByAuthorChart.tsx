@@ -8,13 +8,14 @@ interface Props {
 
 export function ReadingTimeByAuthorChart({ data }: Props) {
   const { t } = useTranslation()
-  if (data.length === 0) return null
-
   const chartData = data.map(d => ({ ...d, hours: Math.round(d.seconds / 3600 * 10) / 10 }))
 
   return (
     <section className="stats-chart-section">
       <h3 className="stats-chart-section__title">{t('stats.readingTimeByAuthor')}</h3>
+      {data.length === 0 ? (
+        <p className="stats-chart-section__hint">{t('stats.noData')}</p>
+      ) : (
       <div className="stats-chart-container" style={{ height: Math.max(200, data.length * 32) }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
@@ -25,6 +26,7 @@ export function ReadingTimeByAuthorChart({ data }: Props) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      )}
     </section>
   )
 }

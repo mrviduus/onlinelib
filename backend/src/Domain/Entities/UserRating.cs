@@ -6,7 +6,7 @@ public class UserRating
     public Guid UserId { get; set; }
     public Guid SiteId { get; set; }
     public Guid EditionId { get; set; }
-    public int Rating { get; set; } // 1-5
+    public double Rating { get; set; } // 0.5-5 (half-star increments)
     public string? ReviewText { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

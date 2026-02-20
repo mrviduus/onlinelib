@@ -71,8 +71,8 @@ public static class UserRatingEndpoints
         if (userId == null) return Results.Unauthorized();
         var siteId = httpContext.GetSiteId();
 
-        if (request.Rating < 1 || request.Rating > 5)
-            return Results.BadRequest("Rating must be 1-5");
+        if (request.Rating < 0.5 || request.Rating > 5 || request.Rating % 0.5 != 0)
+            return Results.BadRequest("Rating must be 0.5-5 in half-star increments");
 
         var existing = await db.UserRatings
             .FirstOrDefaultAsync(r => r.UserId == userId.Value && r.SiteId == siteId && r.EditionId == editionId, ct);
@@ -127,5 +127,5 @@ public static class UserRatingEndpoints
     }
 }
 
-public record UpsertRatingRequest(int Rating, string? ReviewText);
-public record UserRatingDto(Guid EditionId, int Rating, string? ReviewText, DateTimeOffset UpdatedAt);
+public record UpsertRatingRequest(double Rating, string? ReviewText);
+public record UserRatingDto(Guid EditionId, double Rating, string? ReviewText, DateTimeOffset UpdatedAt);

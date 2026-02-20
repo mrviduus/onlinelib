@@ -255,19 +255,34 @@ export function StatsPage() {
           <WeeklyChart dailyStats={dailyStats} />
         </section>
 
-        {/* Book stats charts */}
+        {/* Book stats charts — TSG-style layout (always show, even empty) */}
         {bookStats && !bookStatsLoading && (
           <>
-            <MoodChart data={bookStats.moodStats} />
-            <PaceChart data={bookStats.paceStats} />
-            <GenreChart data={bookStats.genreStats} />
-            <ReadingTimeByGenreChart data={bookStats.readingTimeByGenre} />
-            <AuthorChart data={bookStats.authorStats} />
-            <ReadingTimeByAuthorChart data={bookStats.readingTimeByAuthor} />
-            <LanguageChart data={bookStats.languageStats} />
-            <BooksOverTimeChart data={bookStats.booksOverTime} />
-            <BookLengthChart data={bookStats.bookLengthDistribution} />
-            <RatingChart data={bookStats.ratingDistribution} avgRating={bookStats.avgRating} />
+            <div className="stats-card-group">
+              <MoodChart data={bookStats.moodStats} />
+              <hr className="stats-chart-divider" />
+              <PaceChart data={bookStats.paceStats} />
+              <hr className="stats-chart-divider" />
+              <BookLengthChart data={bookStats.bookLengthDistribution} />
+              <hr className="stats-chart-divider" />
+              <GenreChart data={bookStats.genreStats} />
+              <hr className="stats-chart-divider" />
+              <ReadingTimeByGenreChart data={bookStats.readingTimeByGenre} />
+              <hr className="stats-chart-divider" />
+              <AuthorChart data={bookStats.authorStats} />
+              <hr className="stats-chart-divider" />
+              <ReadingTimeByAuthorChart data={bookStats.readingTimeByAuthor} />
+              <hr className="stats-chart-divider" />
+              <LanguageChart data={bookStats.languageStats} />
+            </div>
+
+            <div className="stats-card-group stats-card-group--spaced">
+              <BooksOverTimeChart data={bookStats.booksOverTime} />
+            </div>
+
+            <div className="stats-card-group stats-card-group--spaced">
+              <RatingChart data={bookStats.ratingDistribution} avgRating={bookStats.avgRating} />
+            </div>
           </>
         )}
 
