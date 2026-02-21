@@ -233,6 +233,7 @@ app.MapReadingTrackingEndpoints();
 app.MapUserRatingEndpoints();
 app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
+app.MapVocabularyEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")

@@ -10,13 +10,14 @@ export function useLibrary() {
   const { startDownload, cancelDownload } = useDownload()
   const { language } = useLanguage()
   const [items, setItems] = useState<LibraryItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Fetch library on mount (if authenticated)
   useEffect(() => {
     if (!isAuthenticated) {
       setItems([])
+      setLoading(false)
       return
     }
 

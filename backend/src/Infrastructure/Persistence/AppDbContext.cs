@@ -46,6 +46,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserRating> UserRatings => Set<UserRating>();
     public DbSet<Mood> Moods => Set<Mood>();
     public DbSet<UserMoodTag> UserMoodTags => Set<UserMoodTag>();
+    public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
+    public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -475,6 +477,37 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Mood).WithMany().HasForeignKey(x => x.MoodId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // VocabularyWord
+        modelBuilder.Entity<VocabularyWord>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.SiteId });
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.NextReviewAt });
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.Word, x.Language }).IsUnique();
+            e.HasIndex(x => x.EditionId);
+            e.Property(x => x.Word).HasMaxLength(200);
+            e.Property(x => x.Language).HasMaxLength(8);
+            e.Property(x => x.Translation).HasMaxLength(500);
+            e.Property(x => x.Definition).HasMaxLength(2000);
+            e.Property(x => x.Sentence).HasMaxLength(1000);
+            e.Property(x => x.BookTitle).HasMaxLength(500);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // VocabularyReview
+        modelBuilder.Entity<VocabularyReview>(e =>
+        {
+            e.HasIndex(x => x.VocabularyWordId);
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.CreatedAt });
+            e.Property(x => x.ReviewMode).HasMaxLength(30);
+            e.HasOne(x => x.VocabularyWord).WithMany(x => x.Reviews).HasForeignKey(x => x.VocabularyWordId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
     }

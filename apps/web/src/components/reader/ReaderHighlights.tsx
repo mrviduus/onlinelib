@@ -4,6 +4,8 @@ import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useDictionary } from '../../hooks/useDictionary'
 import { createTextAnchor } from '../../lib/textAnchor'
+import { extractSentence } from '../../lib/sentenceExtractor'
+import { saveWord as saveWordApi } from '../../api/vocabulary'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
@@ -17,6 +19,8 @@ interface ReaderHighlightsProps {
   containerRef: React.RefObject<HTMLElement | null>
   isAuthenticated?: boolean
   bookLanguage?: string
+  bookTitle?: string
+  userBookId?: string
   children: React.ReactNode
 }
 
@@ -26,6 +30,8 @@ export function ReaderHighlights({
   containerRef,
   isAuthenticated,
   bookLanguage = 'en',
+  bookTitle,
+  userBookId,
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -37,6 +43,8 @@ export function ReaderHighlights({
   const [dictionaryRect, setDictionaryRect] = useState<DOMRect | null>(null)
   const [editingHighlight, setEditingHighlight] = useState<StoredHighlight | null>(null)
   const [editingHighlightRect, setEditingHighlightRect] = useState<DOMRect | null>(null)
+  const [vocabSaved, setVocabSaved] = useState(false)
+  const [vocabToast, setVocabToast] = useState<string | null>(null)
 
   // Use the container ref for selection detection
   const { selection, clearSelection, hasSelection } = useTextSelection(containerRef)
@@ -136,6 +144,7 @@ export function ReaderHighlights({
     setDictionaryWord(word)
     setDictionaryRect(selection.rect)
     setShowDictionary(true)
+    setVocabSaved(false)
     lookupWord(word, bookLanguage)
   }, [selection, lookupWord, bookLanguage])
 
@@ -181,6 +190,63 @@ export function ReaderHighlights({
     setEditingHighlightRect(null)
   }, [editingHighlight, removeHighlight])
 
+  // Save word to vocabulary from selection toolbar
+  const handleSaveWord = useCallback(async () => {
+    if (!selection.text || !selection.range || !containerRef.current || !isAuthenticated) return
+    const word = selection.text.trim()
+    if (!word || word.length > 200) return
+
+    try {
+      const sentence = extractSentence(selection.range, containerRef.current)
+      // Grab translation/definition if already looked up
+      const def = dictionaryEntry?.definitions?.[0]?.definitions?.[0]?.definition || undefined
+      const trans = translatedText || undefined
+
+      await saveWordApi({
+        word,
+        language: bookLanguage,
+        translation: trans,
+        definition: def,
+        editionId: userBookId ? undefined : editionId || undefined,
+        chapterId: userBookId ? undefined : chapterId || undefined,
+        userBookId: userBookId || undefined,
+        sentence: sentence || undefined,
+        bookTitle: bookTitle || undefined,
+      })
+      setVocabToast('Word saved')
+      setTimeout(() => setVocabToast(null), 2000)
+      clearSelection()
+    } catch {
+      setVocabToast('Failed to save')
+      setTimeout(() => setVocabToast(null), 2000)
+    }
+  }, [selection, containerRef, isAuthenticated, bookLanguage, editionId, chapterId, userBookId, bookTitle, dictionaryEntry, translatedText, clearSelection])
+
+  // Save word from dictionary popup
+  const handleSaveWordFromDict = useCallback(async (w: string, definition: string) => {
+    if (!isAuthenticated) return
+    setVocabSaved(false)
+    try {
+      const sentence = selection.range && containerRef.current
+        ? extractSentence(selection.range, containerRef.current)
+        : undefined
+      await saveWordApi({
+        word: w,
+        language: bookLanguage,
+        definition,
+        translation: translatedText || undefined,
+        editionId: userBookId ? undefined : editionId || undefined,
+        chapterId: userBookId ? undefined : chapterId || undefined,
+        userBookId: userBookId || undefined,
+        sentence: sentence || undefined,
+        bookTitle: bookTitle || undefined,
+      })
+      setVocabSaved(true)
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated, selection.range, containerRef, bookLanguage, translatedText, editionId, chapterId, userBookId, bookTitle])
+
   return (
     <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
       {children}
@@ -199,6 +265,7 @@ export function ReaderHighlights({
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
           onDictionary={handleDictionary}
+          onSaveWord={isAuthenticated ? handleSaveWord : undefined}
           onCopy={handleCopy}
         />
       )}
@@ -229,6 +296,8 @@ export function ReaderHighlights({
           rect={dictionaryRect}
           containerRef={containerRef}
           onClose={handleCloseDictionary}
+          onSaveWord={isAuthenticated ? handleSaveWordFromDict : undefined}
+          wordSaved={vocabSaved}
         />
       )}
 
@@ -241,6 +310,10 @@ export function ReaderHighlights({
           onDelete={handleHighlightDelete}
           onClose={handleNoteEditorClose}
         />
+      )}
+
+      {vocabToast && (
+        <div className="vocab-toast">{vocabToast}</div>
       )}
     </div>
   )

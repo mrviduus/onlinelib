@@ -9,6 +9,8 @@ interface DictionaryPopupProps {
   rect: DOMRect | null
   containerRef: React.RefObject<HTMLElement | null>
   onClose: () => void
+  onSaveWord?: (word: string, definition: string) => void
+  wordSaved?: boolean
 }
 
 export function DictionaryPopup({
@@ -19,6 +21,8 @@ export function DictionaryPopup({
   rect,
   containerRef,
   onClose,
+  onSaveWord,
+  wordSaved,
 }: DictionaryPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -119,27 +123,41 @@ export function DictionaryPopup({
         )}
 
         {entry && !isLoading && !error && (
-          <div className="dictionary-popup__definitions">
-            {entry.definitions.map((meaning, idx) => (
-              <div key={idx} className="dictionary-popup__meaning">
-                <div className="dictionary-popup__pos">{meaning.partOfSpeech}</div>
-                <ol className="dictionary-popup__def-list">
-                  {meaning.definitions.map((def, defIdx) => (
-                    <li key={defIdx} className="dictionary-popup__def-item">
-                      <span className="dictionary-popup__def-text">
-                        {def.definition}
-                      </span>
-                      {def.example && (
-                        <span className="dictionary-popup__example">
-                          "{def.example}"
+          <>
+            <div className="dictionary-popup__definitions">
+              {entry.definitions.map((meaning, idx) => (
+                <div key={idx} className="dictionary-popup__meaning">
+                  <div className="dictionary-popup__pos">{meaning.partOfSpeech}</div>
+                  <ol className="dictionary-popup__def-list">
+                    {meaning.definitions.map((def, defIdx) => (
+                      <li key={defIdx} className="dictionary-popup__def-item">
+                        <span className="dictionary-popup__def-text">
+                          {def.definition}
                         </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
-          </div>
+                        {def.example && (
+                          <span className="dictionary-popup__example">
+                            "{def.example}"
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+            {onSaveWord && (
+              <button
+                className="dictionary-popup__save-word"
+                onClick={() => {
+                  const def = entry.definitions[0]?.definitions[0]?.definition || ''
+                  onSaveWord(word, def)
+                }}
+                disabled={wordSaved}
+              >
+                {wordSaved ? 'Saved' : '+ Save to vocabulary'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

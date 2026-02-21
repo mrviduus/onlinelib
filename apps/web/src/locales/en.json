@@ -28,6 +28,7 @@
     "catalog": "Catalog",
     "library": "My Library",
     "stats": "Stats",
+    "vocabulary": "Vocabulary",
     "about": "About",
     "brandTitle": "TextStack - Free online library",
     "browseBooks": "Browse all books",
@@ -291,5 +292,68 @@
     "changesBody": "We may update these terms from time to time. Significant changes will be communicated through the website. Your continued use of TextStack after changes constitutes acceptance of the new terms.",
     "contactHeading": "Contact",
     "contactBody": "Questions about these terms? Reach out at"
+  },
+  "vocabulary": {
+    "title": "Vocabulary",
+    "signInPrompt": "Sign in to build your personal vocabulary list.",
+    "empty": "No words saved yet. Select words while reading to add them.",
+    "saveWord": "Save word",
+    "wordSaved": "Word saved",
+    "alreadySaved": "Already saved",
+    "startReview": "Start Review",
+    "dueToday": "Due today",
+    "totalWords": "Total words",
+    "mastered": "Mastered",
+    "learning": "Learning",
+    "word": "Word",
+    "translation": "Translation",
+    "definition": "Definition",
+    "stage": "Stage",
+    "source": "Source",
+    "dueDate": "Due",
+    "noReviewDue": "No words due for review!",
+    "deleteConfirm": "Remove this word?",
+    "editTranslation": "Edit translation",
+    "stages": {
+      "0": "New",
+      "1": "Recognition",
+      "2": "Recall",
+      "3": "Context",
+      "4": "Mastered"
+    },
+    "filters": {
+      "all": "All",
+      "new": "New",
+      "learning": "Learning",
+      "mastered": "Mastered",
+      "search": "Search words..."
+    },
+    "sort": {
+      "recent": "Recent",
+      "alphabetical": "A-Z",
+      "due": "Due date",
+      "stage": "Stage"
+    },
+    "review": {
+      "title": "Vocabulary Review",
+      "chooseTranslation": "Choose the correct translation",
+      "typeWord": "Type the word",
+      "fillBlank": "What word fills the blank?",
+      "correct": "Correct!",
+      "closeEnough": "Close enough!",
+      "wrong": "Not quite",
+      "correctAnswer": "Correct answer",
+      "next": "Next",
+      "sessionComplete": "Session complete!",
+      "reviewed": "Reviewed",
+      "correctRate": "Correct rate",
+      "promoted": "Level up!",
+      "backToVocab": "Back to Vocabulary"
+    },
+    "stats": {
+      "reviewedToday": "Reviewed today",
+      "correctRate": "Correct rate",
+      "streak": "Review streak"
+    }
   }
 }
