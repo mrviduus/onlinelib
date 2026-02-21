@@ -18,18 +18,21 @@ Modular monolith: single API + Worker, layered architecture, PostgreSQL.
 │  port 5173    │   │  port 8080    │   │  port 81    │
 └───────────────┘   └───────────────┘   └───────────────┘
                             │
-                    ┌───────┴───────┐
-                    ▼               ▼
-            ┌───────────────┐ ┌───────────────┐
-            │    Worker     │ │   PostgreSQL  │
-            │ (ingestion)   │ │   port 5432   │
-            └───────────────┘ └───────────────┘
+                    ┌───────┴───────┬───────────────┐
+                    ▼               ▼               ▼
+            ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+            │    Worker     │ │   PostgreSQL  │ │  Meilisearch  │
+            │ (ingestion)   │ │   port 5432   │ │   (FTS)       │
+            └───────────────┘ └───────────────┘ └───────────────┘
                     │               │
                     ▼               │
-            ┌───────────────┐       │
-            │   Storage     │◄──────┘
-            │ (bind mount)  │
-            └───────────────┘
+            ┌───────────────┐       │     ┌───────────────┐
+            │   Storage     │◄──────┘     │    Ollama     │
+            │ (bind mount)  │             │  gemma3:4b    │
+            └───────────────┘             └───────────────┘
+                                          ┌───────────────┐
+                                          │LibreTranslate │
+                                          └───────────────┘
 ```
 
 ## Backend Layers
@@ -80,6 +83,8 @@ Endpoints grouped by domain:
 - `MapBooksEndpoints()` — public book/chapter routes
 - `MapAdminEndpoints()` — admin CRUD
 - `MapSearchEndpoints()` — FTS search
+- `MapVocabularyEndpoints()` — vocabulary SRS + review
+- `MapReadingTrackingEndpoints()` — sessions, goals, achievements
 
 ### Background Jobs
 Worker polls database for queued jobs:

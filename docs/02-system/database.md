@@ -162,6 +162,45 @@ All services: API :8080 | Web :5173 | Admin :81 | DB :5432
 │ │ created     │                                                            │
 │ │ updated     │                                                            │
 │ └─────────────┘                                                            │
+│                                                                            │
+│ ┌─────────────────┐    ┌───────────────┐    ┌──────────────────┐           │
+│ │ ReadingSession  │    │  ReadingGoal  │    │ UserAchievement  │           │
+│ │─────────────────│    │───────────────│    │──────────────────│           │
+│ │ id              │    │ id            │    │ id               │           │
+│ │ user_id       → │    │ user_id     → │    │ user_id        → │           │
+│ │ site_id       → │    │ site_id     → │    │ site_id        → │           │
+│ │ edition_id    → │    │ goal_type     │    │ achievement_code │           │
+│ │ duration_secs   │    │ target_value  │    │ unlocked_at      │           │
+│ │ words_read      │    │ year          │    └──────────────────┘           │
+│ │ start/end_%     │    └───────────────┘                                   │
+│ └─────────────────┘                                                        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           VOCABULARY DOMAIN                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌──────────────────┐ 1────N ┌──────────────────┐                         │
+│   │ VocabularyWord   │        │ VocabularyReview  │                         │
+│   │──────────────────│        │──────────────────│                         │
+│   │ id               │        │ id               │                         │
+│   │ user_id        → │        │ vocab_word_id  → │                         │
+│   │ site_id        → │        │ user_id        → │                         │
+│   │ word             │        │ review_mode      │                         │
+│   │ language         │        │ is_correct       │                         │
+│   │ translation      │        │ response_time_ms │                         │
+│   │ definition       │        │ stage_before     │                         │
+│   │ sentence         │        │ stage_after      │                         │
+│   │ distractors (J)  │ ← LLM │ created_at       │                         │
+│   │ stage            │        └──────────────────┘                         │
+│   │ interval_days    │                                                      │
+│   │ next_review_at   │                                                      │
+│   │ edition_id     →○│ ← source book                                       │
+│   └──────────────────┘                                                      │
+│                                                                             │
+│   SRS: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4)     │
+│   Modes: multiple_choice | typed_recall | context                           │
+│   Distractors: Ollama gemma3:4b generates 5 plausible wrong answers        │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -262,6 +301,11 @@ Legend:
 | `admin_audit_logs` | Action history | → admin_user |
 | `seo_crawl_jobs` | Sitemap crawler jobs | → site, → results |
 | `seo_crawl_results` | Crawler results per URL | → job |
+| `reading_sessions` | Reading time tracking | → user, → site, → edition |
+| `reading_goals` | Daily/yearly reading goals | → user, → site |
+| `user_achievements` | Unlocked achievements | → user, → site |
+| `vocabulary_words` | Saved vocabulary + SRS state | → user, → site, → edition, → chapter |
+| `vocabulary_reviews` | Review answer history | → vocabulary_word, → user, → site |
 | `textstack_imports` | Migration tracking | → site, → edition |
 
 ---
@@ -651,6 +695,108 @@ UNIQUE(site_id, identifier)
 
 ---
 
+### Reading Tracking Tables
+
+#### `reading_sessions`
+```sql
+id               UUID PRIMARY KEY
+user_id          UUID NOT NULL → users(id) CASCADE
+site_id          UUID NOT NULL → sites(id)
+edition_id       UUID → editions(id)
+user_book_id     UUID → user_books(id)
+started_at       TIMESTAMPTZ NOT NULL
+ended_at         TIMESTAMPTZ
+duration_seconds INT NOT NULL
+words_read       INT NOT NULL DEFAULT 0
+start_percent    FLOAT NOT NULL DEFAULT 0
+end_percent      FLOAT NOT NULL DEFAULT 0
+created_at       TIMESTAMPTZ NOT NULL
+
+INDEX(user_id, site_id, started_at)
+```
+
+#### `reading_goals`
+```sql
+id                  UUID PRIMARY KEY
+user_id             UUID NOT NULL → users(id) CASCADE
+site_id             UUID NOT NULL → sites(id)
+goal_type           VARCHAR NOT NULL  -- "daily_minutes" | "books_per_year"
+target_value        INT NOT NULL
+year                INT NOT NULL DEFAULT 0  -- 0 = recurring
+is_active           BOOLEAN NOT NULL DEFAULT true
+streak_min_minutes  INT NOT NULL DEFAULT 5
+created_at          TIMESTAMPTZ NOT NULL
+updated_at          TIMESTAMPTZ NOT NULL
+
+INDEX(user_id, site_id, goal_type)
+```
+
+#### `user_achievements`
+```sql
+id               UUID PRIMARY KEY
+user_id          UUID NOT NULL → users(id) CASCADE
+site_id          UUID NOT NULL → sites(id)
+achievement_code VARCHAR NOT NULL
+unlocked_at      TIMESTAMPTZ NOT NULL
+
+UNIQUE(user_id, site_id, achievement_code)
+```
+
+---
+
+### Vocabulary Tables
+
+#### `vocabulary_words`
+```sql
+id                  UUID PRIMARY KEY
+user_id             UUID NOT NULL → users(id) CASCADE
+site_id             UUID NOT NULL → sites(id)
+word                VARCHAR NOT NULL
+language            VARCHAR NOT NULL
+translation         VARCHAR
+definition          VARCHAR
+edition_id          UUID → editions(id)
+chapter_id          UUID → chapters(id)
+user_book_id        UUID → user_books(id)
+sentence            VARCHAR           -- original context sentence
+book_title          VARCHAR           -- denormalized for display
+distractors         TEXT              -- JSON array: ["word1","word2",...] from Ollama LLM
+
+-- SRS fields
+stage               INT NOT NULL DEFAULT 0       -- 0=New,1=Recognition,2=Recall,3=Context,4=Mastered
+interval_days       FLOAT NOT NULL DEFAULT 0
+consecutive_correct INT NOT NULL DEFAULT 0
+next_review_at      TIMESTAMPTZ NOT NULL
+last_reviewed_at    TIMESTAMPTZ
+total_reviews       INT NOT NULL DEFAULT 0
+correct_reviews     INT NOT NULL DEFAULT 0
+created_at          TIMESTAMPTZ NOT NULL
+updated_at          TIMESTAMPTZ NOT NULL
+
+UNIQUE(user_id, site_id, word, language)
+INDEX(user_id, site_id, next_review_at)  -- review queue query
+INDEX(user_id, site_id, stage)
+```
+
+#### `vocabulary_reviews`
+```sql
+id                 UUID PRIMARY KEY
+vocabulary_word_id UUID NOT NULL → vocabulary_words(id) CASCADE
+user_id            UUID NOT NULL → users(id) CASCADE
+site_id            UUID NOT NULL → sites(id)
+review_mode        VARCHAR NOT NULL  -- "multiple_choice" | "typed_recall" | "context"
+is_correct         BOOLEAN NOT NULL
+response_time_ms   INT NOT NULL
+stage_before       INT NOT NULL
+stage_after        INT NOT NULL
+created_at         TIMESTAMPTZ NOT NULL
+
+INDEX(user_id, site_id, created_at)  -- stats queries
+INDEX(vocabulary_word_id)
+```
+
+---
+
 ## Enums
 
 ```csharp
@@ -687,3 +833,10 @@ SeoCrawlJobStatus  { Queued=0, Running=1, Completed=2, Failed=3, Cancelled=4 }
 18. **TextStack migration** - TextStackImport tracks migrated content
 19. **Highlights** - Text anchoring with prefix/exact/suffix for reliable text location
 20. **Note-Highlight link** - Notes can optionally link to highlights via HighlightId
+21. **Reading sessions** - 30s heartbeat, 3min idle, 5min auto-end; localStorage queue + sendBeacon
+22. **Reading goals** - Daily minutes or books/year with streak tracking (min minutes threshold)
+23. **Achievements** - 20 codes across milestone/streak/time/special; AchievementChecker runs after sessions
+24. **Vocabulary SRS** - 5-stage spaced repetition (New→Recognition→Recall→Context→Mastered)
+25. **LLM distractors** - Ollama gemma3:4b generates MC wrong answers at word save time; stored as JSON
+26. **Fire-and-forget distractors** - IServiceScopeFactory creates scoped DbContext for background generation
+27. **Vocabulary word uniqueness** - unique(user_id, site_id, word, language) prevents duplicates

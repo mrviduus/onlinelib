@@ -27,6 +27,7 @@ Free book library with Kindle-like reader. EPUB/PDF/FB2 upload, parsing, SEO pag
 | Offline | IndexedDB caching, download manager | [offline-reading.md](05-features/offline-reading.md) |
 | Auth | Google OAuth, JWT, user features | [user-auth.md](05-features/user-auth.md) |
 | Search | PostgreSQL FTS, fuzzy search | [feat-0006](05-features/feat-0006-search-library.md) |
+| Vocabulary | SRS vocab builder + Ollama LLM | [vocabulary-srs.md](05-features/vocabulary-srs.md) |
 | Ingestion | EPUB parsing, chapter extraction | [ingestion.md](02-system/ingestion.md) |
 
 ## Structure
@@ -55,6 +56,8 @@ docs/
 | i18n (EN/UK) | Full Ukrainian translation for all pages |
 | E2E Testing | Playwright e2e tests with CI pipeline |
 | Text Selection | Highlights, translate, dictionary in reader |
+| Vocabulary SRS | Spaced repetition vocab builder with Ollama LLM distractors |
+| Reading Stats | Heatmap, streaks, goals, achievements |
 
 ## Reading Order
 
