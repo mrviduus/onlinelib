@@ -991,6 +991,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             containerRef={scrollContainerRef}
             isAuthenticated={isAuthenticated}
             bookLanguage={publicBook?.language}
+            bookTitle={book?.title}
+            userBookId={mode === 'userbook' ? id : undefined}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1011,6 +1013,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             containerRef={containerRef}
             isAuthenticated={isAuthenticated}
             bookLanguage={publicBook?.language}
+            bookTitle={book.title}
+            userBookId={mode === 'userbook' ? id : undefined}
           >
             <ReaderContent
               ref={contentRef}

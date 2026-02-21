@@ -165,6 +165,17 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Translation**: `POST /translate` via LibreTranslate container. Config: `LibreTranslate:BaseUrl`, `LibreTranslate:TimeoutSeconds`, `LibreTranslate:MaxTextLength`.
 
+**Vocabulary SRS**: Spaced repetition vocabulary builder integrated into the reader.
+- **Entity**: `VocabularyWord` — word, translation, definition, sentence, bookTitle, distractors (JSON), SRS fields (stage, interval, consecutiveCorrect, nextReviewAt)
+- **Review entity**: `VocabularyReview` — tracks each answer (isCorrect, responseTimeMs, reviewMode)
+- **5 SRS stages**: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4). Logic in `Application/Vocabulary/SrsEngine.cs`
+- **3 review modes**: `multiple_choice` (stages 0-1), `typed_recall` (stage 2+), `context` (fill-in-the-blank, stage 3-4 when sentence exists)
+- **MC distractors**: Ollama LLM (`gemma3:4b`) generates 5 semantically plausible wrong answers per word at save time. Stored in `Distractors` JSON column. Fallback: random words from user's vocab pool + hardcoded list. Generator: `Api/Endpoints/DistractorGenerator.cs`
+- **Ollama**: Docker service (`ollama/ollama`), config: `Ollama:BaseUrl`, `Ollama:Model`, `Ollama:TimeoutSeconds`. Fire-and-forget generation via `IServiceScopeFactory` after word save
+- **MC fallback cascade**: definition → translation → blank sentence (if LLM distractors exist) → downgrade to context/typed_recall
+- **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
+- **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
+
 **SSG**: Puppeteer prerenders SEO pages to static HTML
 - nginx serves SSG first, falls back to SPA
 - Run `make rebuild-ssg` after content changes
@@ -187,6 +198,8 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 **Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
+
+**Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
 **Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`
 
@@ -213,6 +226,14 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Stats | `apps/web/src/pages/StatsPage.tsx` |
 | Reading Hooks | `apps/web/src/hooks/useReadingSession.ts` |
 | Achievements | `backend/src/Application/ReadingTracking/AchievementChecker.cs` |
+| Vocabulary API | `backend/src/Api/Endpoints/VocabularyEndpoints.cs` |
+| Vocabulary SRS | `backend/src/Application/Vocabulary/SrsEngine.cs` |
+| Distractor Gen | `backend/src/Api/Endpoints/DistractorGenerator.cs` |
+| Vocabulary Page | `apps/web/src/pages/VocabularyPage.tsx` |
+| Vocab Review | `apps/web/src/pages/VocabularyReviewPage.tsx` |
+| Vocab Components | `apps/web/src/components/vocabulary/` |
+| Vocab Hooks | `apps/web/src/hooks/useVocabulary.ts`, `useVocabularyReview.ts` |
+| Vocab E2E | `apps/web/e2e/tests/vocabulary.spec.ts` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
 
@@ -242,6 +263,19 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 - `ENABLE_TEST_AUTH=true` — enables test auth endpoints (needed for integration + E2E)
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` — needed for admin E2E
 - Integration tests set `Host` header: `general.localhost` (public), `textstack.dev` (admin)
+
+**Vocabulary E2E tests** (`apps/web/e2e/tests/vocabulary.spec.ts`): Serial test suite covering main SRS flows:
+- `page loads empty for new user` — clean slate, verify empty state renders
+- `save words via API, page shows them` — save 5 test words, verify they appear in word list
+- `filter tabs work` — New/Learning/Mastered tabs filter correctly
+- `search filters words` — typing in search box filters word list
+- `start review → MC card renders` — starts review session, verifies MC card with 4 options
+- `correct MC answer → green feedback` — answer MC card, verify feedback renders
+- `complete session → summary screen` — answer all cards, verify summary with stats
+- `back to vocabulary from summary` — navigate back from summary
+- `expand word shows details` — click word row, verify detail panel
+- `delete word removes it` — expand word, delete, verify count decreases
+- Helper: `apps/web/e2e/helpers/vocabulary.ts` — `saveTestWords()`, `deleteAllTestWords()`, `TEST_WORDS[]`
 
 ## Deployment
 

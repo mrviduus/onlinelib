@@ -65,6 +65,8 @@ services:
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
       Search__Meilisearch__Url: http://meilisearch:7700
       Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-changeme}
+      Ollama__BaseUrl: http://ollama:11434
+      Ollama__Model: gemma3:4b
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
@@ -222,6 +224,29 @@ services:
           memory: 1G
         reservations:
           memory: 256M
+
+  # ===========================================
+  # Ollama - Local LLM for vocabulary distractors
+  # ===========================================
+
+  ollama:
+    image: ollama/ollama
+    container_name: textstack_ollama
+    volumes:
+      - ./data/ollama:/root/.ollama
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
 
   # ===========================================
   # LibreTranslate - Self-hosted translation API

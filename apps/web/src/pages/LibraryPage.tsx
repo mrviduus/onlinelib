@@ -22,7 +22,7 @@ type SortOption = 'recent' | 'title' | 'progress'
 type SidebarTab = 'saved' | 'uploads'
 
 export function LibraryPage() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   const { items, loading, remove } = useLibrary()
   const { language } = useLanguage()
   const { t } = useTranslation()
@@ -155,6 +155,18 @@ export function LibraryPage() {
     recent: t('library.sortRecent'),
     title: t('library.sortTitle'),
     progress: t('library.sortProgress')
+  }
+
+  if (authLoading) {
+    return (
+      <>
+      <div className="library-page">
+        <SeoHead title={t('library.title')} noindex />
+        <div className="library-page__loading">{t('library.loading')}</div>
+      </div>
+      <Footer />
+      </>
+    )
   }
 
   if (!isAuthenticated) {

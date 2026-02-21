@@ -19,6 +19,8 @@ import { ContactPage } from './pages/ContactPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { UserBookDetailPage } from './pages/UserBookDetailPage'
 import { StatsPage } from './pages/StatsPage'
+import { VocabularyPage } from './pages/VocabularyPage'
+import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
@@ -26,6 +28,7 @@ import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
 import './styles/stats.css'
+import './styles/vocabulary.css'
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
@@ -59,6 +62,8 @@ function LanguageRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/vocabulary" element={<VocabularyPage />} />
+        <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="*" element={<NotFoundPage />} />
@@ -96,6 +101,8 @@ function AppRoutes() {
       <Route path="/contact" element={<LegacyRedirect />} />
       <Route path="/library" element={<LegacyRedirect />} />
       <Route path="/stats" element={<LegacyRedirect />} />
+      <Route path="/vocabulary" element={<LegacyRedirect />} />
+      <Route path="/vocabulary/review" element={<LegacyRedirect />} />
       <Route path="/:lang/*" element={<LanguageRoutes />} />
     </Routes>
   )
