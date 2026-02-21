@@ -1,20 +1,23 @@
 import { test, expect } from '../fixtures/auth.fixture'
 import { saveTestWords, deleteAllTestWords, TEST_WORDS } from '../helpers/vocabulary'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-const API_URL = process.env.API_URL ?? 'http://localhost:8080'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const AUTH_FILE = path.resolve(__dirname, '../.auth/user.json')
 
 test.describe('Vocabulary', () => {
   test.describe.configure({ mode: 'serial' })
 
   test.afterAll(async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: 'apps/web/e2e/.auth/user.json' })
+    const ctx = await browser.newContext({ storageState: AUTH_FILE })
     await deleteAllTestWords(ctx.request)
     await ctx.close()
   })
 
   test('page loads empty for new user', async ({ authedPage: page, browser }) => {
     // Clean first
-    const ctx = await browser.newContext({ storageState: 'apps/web/e2e/.auth/user.json' })
+    const ctx = await browser.newContext({ storageState: AUTH_FILE })
     await deleteAllTestWords(ctx.request)
     await ctx.close()
 
@@ -24,7 +27,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('save words via API, page shows them', async ({ authedPage: page, browser }) => {
-    const ctx = await browser.newContext({ storageState: 'apps/web/e2e/.auth/user.json' })
+    const ctx = await browser.newContext({ storageState: AUTH_FILE })
     await saveTestWords(ctx.request)
     await ctx.close()
 

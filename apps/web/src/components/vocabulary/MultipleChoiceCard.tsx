@@ -4,9 +4,10 @@ import type { ReviewCardDto } from '../../api/vocabulary'
 interface Props {
   card: ReviewCardDto
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
+  t: (key: string) => string
 }
 
-export function MultipleChoiceCard({ card, onAnswer }: Props) {
+export function MultipleChoiceCard({ card, onAnswer, t }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const [startTime] = useState(Date.now())
 
@@ -25,7 +26,7 @@ export function MultipleChoiceCard({ card, onAnswer }: Props) {
     <div className="review-mc">
       <div className="review-mc__prompt">{prompt}</div>
       {card.bookTitle && (
-        <div className="review-mc__book">from "{card.bookTitle}"</div>
+        <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle!)}</div>
       )}
       <div className="review-mc__options">
         {card.options.map((option, idx) => {

@@ -8,9 +8,8 @@ interface Props {
   onNext: () => void
 }
 
-const STAGE_NAMES = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
-
 export function ReviewFeedback({ card, result, isCorrect, t, onNext }: Props) {
+  const stageName = (stage: number) => t(`vocabulary.stages.${stage}`) || `Stage ${stage}`
 
   return (
     <div className={`review-feedback ${isCorrect ? 'review-feedback--correct' : 'review-feedback--wrong'}`}>
@@ -40,7 +39,7 @@ export function ReviewFeedback({ card, result, isCorrect, t, onNext }: Props) {
 
       {result.stageChanged && (
         <div className="review-feedback__stage">
-          {STAGE_NAMES[result.previousStage]} → {STAGE_NAMES[result.newStage]}
+          {stageName(result.previousStage)} → {stageName(result.newStage)}
         </div>
       )}
 

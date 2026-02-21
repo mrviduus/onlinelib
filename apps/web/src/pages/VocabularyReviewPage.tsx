@@ -48,7 +48,7 @@ export function VocabularyReviewPage() {
   if (loading) {
     return (
       <div className="vocab-page">
-        <p className="vocab-loading">Loading...</p>
+        <p className="vocab-loading">{t('common.loading')}</p>
       </div>
     )
   }
@@ -108,7 +108,7 @@ export function VocabularyReviewPage() {
       {currentCard && !answerRevealed && (
         <>
           {currentCard.reviewMode === 'multiple_choice' && (
-            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} />
+            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} t={t} />
           )}
           {currentCard.reviewMode === 'typed_recall' && (
             <TypedRecallCard card={currentCard} onAnswer={submitAnswer} t={t} />

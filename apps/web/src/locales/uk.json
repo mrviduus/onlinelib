@@ -348,6 +348,8 @@
       "reviewed": "Повторено",
       "correctRate": "Правильних",
       "promoted": "Новий рівень!",
+      "check": "Перевірити",
+      "fromBook": "з \"{title}\"",
       "backToVocab": "До словника"
     },
     "stats": {

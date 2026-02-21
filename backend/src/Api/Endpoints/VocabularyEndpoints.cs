@@ -13,6 +13,7 @@ namespace Api.Endpoints;
 public static class VocabularyEndpoints
 {
     private const int MaxWordsPerUser = 5000;
+    private const int MaxDistractorPoolSize = 200;
 
     public static void MapVocabularyEndpoints(this WebApplication app)
     {
@@ -35,6 +36,7 @@ public static class VocabularyEndpoints
         AuthService authService,
         IAppDbContext db,
         IServiceScopeFactory scopeFactory,
+        ILogger<IAppDbContext> logger,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -48,7 +50,6 @@ public static class VocabularyEndpoints
 
         var word = request.Word.Trim().ToLowerInvariant();
 
-        // Check duplicate
         var existing = await db.VocabularyWords
             .FirstOrDefaultAsync(w => w.UserId == userId.Value && w.SiteId == siteId
                 && w.Word == word && w.Language == request.Language, ct);
@@ -56,7 +57,6 @@ public static class VocabularyEndpoints
         if (existing != null)
             return Results.Ok(ToDto(existing));
 
-        // Check cap
         var count = await db.VocabularyWords
             .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (count >= MaxWordsPerUser)
@@ -90,7 +90,7 @@ public static class VocabularyEndpoints
         db.VocabularyWords.Add(entry);
         await db.SaveChangesAsync(ct);
 
-        // Fire-and-forget: generate distractors in background (own scope)
+        // Fire-and-forget: generate distractors in background (own DI scope)
         var wordId = entry.Id;
         var wordText = word;
         var lang = request.Language;
@@ -118,7 +118,18 @@ public static class VocabularyEndpoints
                     }
                 }
             }
-            catch { /* Ollama unavailable */ }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Ollama unavailable for word {Word}", wordText);
+            }
+            catch (TaskCanceledException)
+            {
+                logger.LogWarning("Ollama timeout for word {WordText}", wordText);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to generate distractors for word {Word}", wordText);
+            }
         });
 
         return Results.Ok(ToDto(entry));
@@ -146,7 +157,6 @@ public static class VocabularyEndpoints
         var query = db.VocabularyWords
             .Where(w => w.UserId == userId.Value && w.SiteId == siteId);
 
-        // Filter by stage(s): "0,1" or "4"
         if (!string.IsNullOrEmpty(stage))
         {
             var stages = stage.Split(',')
@@ -176,7 +186,7 @@ public static class VocabularyEndpoints
             "alphabetical" => query.OrderBy(w => w.Word),
             "due" => query.OrderBy(w => w.NextReviewAt),
             "stage" => query.OrderByDescending(w => w.Stage).ThenByDescending(w => w.UpdatedAt),
-            _ => query.OrderByDescending(w => w.CreatedAt), // "recent" default
+            _ => query.OrderByDescending(w => w.CreatedAt),
         };
 
         var items = await query
@@ -206,9 +216,10 @@ public static class VocabularyEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
 
         var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value, ct);
+            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (word == null) return Results.NotFound();
 
         db.VocabularyWords.Remove(word);
@@ -229,9 +240,10 @@ public static class VocabularyEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
 
         var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value, ct);
+            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (word == null) return Results.NotFound();
 
         if (request.Translation != null) word.Translation = request.Translation.Trim();
@@ -271,7 +283,7 @@ public static class VocabularyEndpoints
         if (dueWords.Count == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue));
 
-        // Get user's other words for distractors (same language, different word)
+        // Distractor pool: other user words (capped to prevent OOM)
         var languages = dueWords.Select(w => w.Language).Distinct().ToList();
         var dueWordIds = dueWords.Select(w => w.Id).ToHashSet();
 
@@ -279,7 +291,9 @@ public static class VocabularyEndpoints
             .Where(w => w.UserId == userId.Value && w.SiteId == siteId
                 && !dueWordIds.Contains(w.Id)
                 && languages.Contains(w.Language))
-            .Select(w => new { w.Id, w.Word, w.Language })
+            .OrderBy(_ => EF.Functions.Random())
+            .Take(MaxDistractorPoolSize)
+            .Select(w => new { w.Word, w.Language })
             .ToListAsync(ct);
 
         var distractorsByLang = distractorPool
@@ -296,25 +310,16 @@ public static class VocabularyEndpoints
 
             if (mode == "multiple_choice")
             {
-                // Parse LLM distractors if available
-                List<string>? llmDistractors = null;
-                if (!string.IsNullOrEmpty(w.Distractors))
-                {
-                    try { llmDistractors = JsonSerializer.Deserialize<List<string>>(w.Distractors); }
-                    catch { /* corrupted JSON */ }
-                }
-
+                var llmDistractors = ParseDistractors(w.Distractors);
                 var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition) || !string.IsNullOrWhiteSpace(w.Translation);
                 var hasDistractorsAndSentence = llmDistractors?.Count >= 3 && w.Sentence != null;
 
                 if (!hasPrompt && !hasDistractorsAndSentence)
                 {
-                    // No way to build MC: no definition/translation, no distractors+sentence
                     mode = w.Sentence != null ? "context" : "typed_recall";
                 }
                 else
                 {
-                    // If no definition/translation but has distractors+sentence → use blank sentence as prompt
                     if (!hasPrompt && hasDistractorsAndSentence)
                         blankSentence = ReplaceWordInSentence(w.Sentence!, w.Word);
 
@@ -340,7 +345,6 @@ public static class VocabularyEndpoints
                             .ToList();
                     }
 
-                    // Pad with fallback words if still short
                     if (distractors.Count < 3)
                     {
                         foreach (var fb in DistractorWords.English.OrderBy(_ => Random.Shared.Next()))
@@ -357,10 +361,7 @@ public static class VocabularyEndpoints
             }
 
             if (mode == "context" && w.Sentence != null)
-            {
-                // Replace word in sentence with ___
                 blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
-            }
 
             cards.Add(new ReviewCardDto(
                 w.Id, w.Word, w.Translation, w.Definition,
@@ -385,7 +386,7 @@ public static class VocabularyEndpoints
         var siteId = httpContext.GetSiteId();
 
         var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == request.WordId && w.UserId == userId.Value, ct);
+            .FirstOrDefaultAsync(w => w.Id == request.WordId && w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (word == null) return Results.NotFound();
 
         var prevStage = word.Stage;
@@ -449,30 +450,28 @@ public static class VocabularyEndpoints
             .Select(g => new { Stage = g.Key, Count = g.Count() })
             .ToListAsync(ct);
 
-        var stageCounts = new { @new = 0, recognition = 0, recall = 0, context = 0, mastered = 0 };
         var stageDict = byStage.ToDictionary(s => s.Stage, s => s.Count);
-
         var dueNow = await words.CountAsync(w => w.NextReviewAt <= now, ct);
 
-        var reviewedToday = await db.VocabularyReviews
-            .CountAsync(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart, ct);
+        // Combine today's review stats into one query
+        var todayReviews = db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart);
+        var reviewedToday = await todayReviews.CountAsync(ct);
+        var correctToday = await todayReviews.CountAsync(r => r.IsCorrect, ct);
 
-        var correctToday = await db.VocabularyReviews
-            .CountAsync(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart && r.IsCorrect, ct);
+        var allReviews = db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId);
+        var totalReviews = await allReviews.CountAsync(ct);
+        var totalCorrect = await allReviews.CountAsync(r => r.IsCorrect, ct);
 
-        var totalReviews = await db.VocabularyReviews
-            .CountAsync(r => r.UserId == userId.Value && r.SiteId == siteId, ct);
-        var totalCorrect = await db.VocabularyReviews
-            .CountAsync(r => r.UserId == userId.Value && r.SiteId == siteId && r.IsCorrect, ct);
-
-        // Review streak: consecutive days with at least 1 review
-        var reviewDays = await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
+        // Streak: consecutive days with reviews (HashSet for O(1) lookup)
+        var reviewDays = (await allReviews
             .Select(r => r.CreatedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)
             .Take(365)
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .ToHashSet();
 
         var streak = 0;
         var checkDate = now.Date;
@@ -484,7 +483,6 @@ public static class VocabularyEndpoints
             checkDate = checkDate.AddDays(-1);
         }
 
-        // Words by book
         var wordsByBook = await words
             .Where(w => w.BookTitle != null)
             .GroupBy(w => new { w.EditionId, w.UserBookId, w.BookTitle })
@@ -516,6 +514,13 @@ public static class VocabularyEndpoints
 
     // --- Helpers ---
 
+    private static List<string>? ParseDistractors(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<List<string>>(json); }
+        catch { return null; }
+    }
+
     private static string ReplaceWordInSentence(string sentence, string word)
     {
         var idx = sentence.IndexOf(word, StringComparison.OrdinalIgnoreCase);
@@ -537,16 +542,10 @@ public static class VocabularyEndpoints
 // --- DTOs ---
 
 public record SaveWordRequest(
-    string Word,
-    string Language,
-    string? Translation,
-    string? Definition,
-    Guid? EditionId,
-    Guid? ChapterId,
-    Guid? UserBookId,
-    string? Sentence,
-    string? BookTitle
-);
+    string Word, string Language,
+    string? Translation, string? Definition,
+    Guid? EditionId, Guid? ChapterId, Guid? UserBookId,
+    string? Sentence, string? BookTitle);
 
 public record UpdateWordRequest(string? Translation, string? Definition);
 
@@ -557,8 +556,7 @@ public record VocabWordDto(
     int Stage, double IntervalDays, int ConsecutiveCorrect,
     DateTimeOffset NextReviewAt, DateTimeOffset? LastReviewedAt,
     int TotalReviews, int CorrectReviews,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt
-);
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
 public record ReviewQueueResponse(List<ReviewCardDto> Cards, int TotalDue);
 
@@ -566,13 +564,11 @@ public record ReviewCardDto(
     Guid WordId, string Word, string? Translation, string? Definition,
     string ReviewMode,
     string? BlankSentence, string? OriginalSentence, string? BookTitle,
-    List<string>? Options, int? CorrectOptionIndex
-);
+    List<string>? Options, int? CorrectOptionIndex);
 
 public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs);
 
 public record SubmitReviewResponse(
     Guid WordId, int PreviousStage, int NewStage, bool StageChanged,
     double NextIntervalDays, DateTimeOffset NextReviewAt,
-    int TotalReviews, int CorrectReviews
-);
+    int TotalReviews, int CorrectReviews);

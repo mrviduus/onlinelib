@@ -51,7 +51,7 @@ export function TypedRecallCard({ card, onAnswer, t }: Props) {
           onClick={handleSubmit}
           disabled={submitted || !input.trim()}
         >
-          Check
+          {t('vocabulary.review.check')}
         </button>
       </div>
     </div>

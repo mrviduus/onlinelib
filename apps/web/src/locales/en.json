@@ -348,6 +348,8 @@
       "reviewed": "Reviewed",
       "correctRate": "Correct rate",
       "promoted": "Level up!",
+      "check": "Check",
+      "fromBook": "from \"{title}\"",
       "backToVocab": "Back to Vocabulary"
     },
     "stats": {
