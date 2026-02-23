@@ -312,16 +312,15 @@ public static class VocabularyEndpoints
             {
                 var llmDistractors = ParseDistractors(w.Distractors);
                 var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition) || !string.IsNullOrWhiteSpace(w.Translation);
-                var hasDistractorsAndSentence = llmDistractors?.Count >= 3 && w.Sentence != null;
 
-                if (!hasPrompt && !hasDistractorsAndSentence)
+                if (!hasPrompt && w.Sentence == null)
                 {
-                    mode = w.Sentence != null ? "context" : "typed_recall";
+                    mode = "typed_recall";
                 }
                 else
                 {
-                    if (!hasPrompt && hasDistractorsAndSentence)
-                        blankSentence = ReplaceWordInSentence(w.Sentence!, w.Word);
+                    if (!hasPrompt && w.Sentence != null)
+                        blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
 
                     var correct = w.Word;
                     List<string> distractors;
