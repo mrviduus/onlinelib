@@ -32,6 +32,9 @@ export function TypedRecallCard({ card, onAnswer, t }: Props) {
           <div className="review-typed__word-prompt">{card.word}</div>
         )}
       </div>
+      {card.hint && (
+        <div className="review-card__hint">{card.hint}</div>
+      )}
       <div className="review-typed__label">{t('vocabulary.review.typeWord')}</div>
       <div className="review-typed__input-row">
         <input

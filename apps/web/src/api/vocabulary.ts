@@ -50,6 +50,7 @@ export interface ReviewCardDto {
   blankSentence: string | null
   originalSentence: string | null
   bookTitle: string | null
+  hint: string | null
   options: string[] | null
   correctOptionIndex: number | null
 }

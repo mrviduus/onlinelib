@@ -105,15 +105,18 @@ public static class VocabularyEndpoints
                 var bgHttp = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                 var bgConfig = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-                var distractors = await DistractorGenerator.GenerateAsync(
+                var (distractors, hint) = await DistractorGenerator.GenerateAsync(
                     wordText, lang, def, sent, bgHttp, bgConfig, CancellationToken.None);
-                if (distractors?.Count > 0)
+                if (distractors?.Count > 0 || hint != null)
                 {
                     var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
                         x => x.Id == wordId, CancellationToken.None);
                     if (w != null)
                     {
-                        w.Distractors = JsonSerializer.Serialize(distractors);
+                        if (distractors?.Count > 0)
+                            w.Distractors = JsonSerializer.Serialize(distractors);
+                        if (hint != null)
+                            w.Hint = hint;
                         await bgDb.SaveChangesAsync(CancellationToken.None);
                     }
                 }
@@ -365,7 +368,7 @@ public static class VocabularyEndpoints
             cards.Add(new ReviewCardDto(
                 w.Id, w.Word, w.Translation, w.Definition,
                 mode, blankSentence, w.Sentence, w.BookTitle,
-                options, correctIndex));
+                w.Hint, options, correctIndex));
         }
 
         return Results.Ok(new ReviewQueueResponse(cards, totalDue));
@@ -563,6 +566,7 @@ public record ReviewCardDto(
     Guid WordId, string Word, string? Translation, string? Definition,
     string ReviewMode,
     string? BlankSentence, string? OriginalSentence, string? BookTitle,
+    string? Hint,
     List<string>? Options, int? CorrectOptionIndex);
 
 public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs);

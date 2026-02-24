@@ -416,6 +416,20 @@
   color: #dc2626;
 }
 
+/* Review hint (shared across all card types) */
+.review-card__hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-hover, rgba(0,0,0,0.03));
+  border-radius: 6px;
+  max-width: 450px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* Typed recall card */
 .review-typed {
   text-align: center;

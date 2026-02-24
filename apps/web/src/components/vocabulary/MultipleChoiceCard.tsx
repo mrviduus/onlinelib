@@ -25,6 +25,9 @@ export function MultipleChoiceCard({ card, onAnswer, t }: Props) {
   return (
     <div className="review-mc">
       <div className="review-mc__prompt">{prompt}</div>
+      {card.hint && (
+        <div className="review-card__hint">{card.hint}</div>
+      )}
       {card.bookTitle && (
         <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle!)}</div>
       )}

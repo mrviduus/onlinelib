@@ -22,6 +22,9 @@ public class VocabularyWord
     // LLM-generated distractors (JSON array: ["word1","word2",...])
     public string? Distractors { get; set; }
 
+    // LLM-generated hint — describes the word without saying it
+    public string? Hint { get; set; }
+
     // SRS fields
     public int Stage { get; set; }
     public double IntervalDays { get; set; }

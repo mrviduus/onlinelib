@@ -28,6 +28,9 @@ export function ContextCard({ card, onAnswer, t }: Props) {
       {card.bookTitle && (
         <div className="review-context__book">— {card.bookTitle}</div>
       )}
+      {card.hint && (
+        <div className="review-card__hint">{card.hint}</div>
+      )}
       <div className="review-context__label">{t('vocabulary.review.fillBlank')}</div>
       <div className="review-context__input-row">
         <input
