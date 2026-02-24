@@ -6,36 +6,29 @@
     <!-- ASP.NET Core -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.0.36" />
-
     <!-- Entity Framework -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
     <PackageVersion Include="Npgsql" Version="9.0.3" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.0-rc.2" />
-
     <!-- Application Layer -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
-
     <!-- Authentication -->
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
-
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.35" />
     <PackageVersion Include="Meilisearch" Version="0.16.0" />
-
     <!-- Hosting -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
-
     <!-- Image Optimization -->
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.8" />
-
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <!-- Worker -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
@@ -43,7 +36,6 @@
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.72" />
     <PackageVersion Include="PdfPig" Version="0.1.13" />
     <PackageVersion Include="PDFtoImage" Version="4.1.1" />
-
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry.Api" Version="1.11.2" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
@@ -53,7 +45,6 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
-
     <!-- Testing -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit.v3" Version="2.0.2" />
