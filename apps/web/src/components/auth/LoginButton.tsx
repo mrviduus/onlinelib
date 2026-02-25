@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
 export function LoginButton() {
-  const { isLoading } = useAuth()
+  const { isLoading, googleReady } = useAuth()
   const buttonRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function LoginButton() {
         shape: 'circle',
       })
     }
-  }, [])
+  }, [googleReady])
 
   if (isLoading) {
     return null

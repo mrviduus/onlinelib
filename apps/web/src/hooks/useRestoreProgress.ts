@@ -37,6 +37,13 @@ export function useRestoreProgress(
   })
   const fetchedRef = useRef(false)
 
+  // Reset shouldNavigate once navigation completes (currentChapterSlug matches target)
+  useEffect(() => {
+    if (state.shouldNavigate && state.targetChapterSlug === currentChapterSlug) {
+      setState(s => ({ ...s, shouldNavigate: false, targetChapterSlug: null }))
+    }
+  }, [currentChapterSlug, state.shouldNavigate, state.targetChapterSlug])
+
   useEffect(() => {
     // Wait for auth check and editionId
     if (authLoading || !editionId) return
@@ -69,15 +76,18 @@ export function useRestoreProgress(
         // localStorage might be unavailable
       }
 
-      // If authenticated, also try server (may have newer data)
-      if (isAuthenticated && !progress) {
+      // If authenticated, check server (may have newer data from another device)
+      if (isAuthenticated) {
         try {
           const serverProgress = await getProgress(editionId!)
           if (serverProgress) {
-            progress = {
+            const serverData: SavedProgress = {
               chapterSlug: serverProgress.chapterSlug,
               locator: serverProgress.locator,
               percent: serverProgress.percent ?? undefined,
+            }
+            if (!progress || (serverData.percent ?? 0) > (progress.percent ?? 0)) {
+              progress = serverData
             }
           }
         } catch {

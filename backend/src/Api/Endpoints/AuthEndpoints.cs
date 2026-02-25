@@ -127,7 +127,7 @@ public static class AuthEndpoints
             HttpOnly = true,
             Secure = isProduction,
             SameSite = SameSiteMode.Lax,
-            MaxAge = TimeSpan.FromMinutes(15),
+            MaxAge = TimeSpan.FromDays(30),
             Path = "/"
         });
 
