@@ -1,0 +1,14 @@
+{
+  "name": "@textstack/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/index.ts",
+    "./types": "./src/types/api.ts",
+    "./i18n": "./src/i18n/index.ts"
+  }
+}

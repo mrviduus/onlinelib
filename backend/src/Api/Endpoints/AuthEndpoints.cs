@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Application.Auth;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,7 +14,9 @@ public static class AuthEndpoints
         var group = app.MapGroup("/auth").WithTags("Auth");
 
         group.MapPost("/google", LoginWithGoogle).WithName("LoginWithGoogle");
+        group.MapPost("/apple", LoginWithApple).WithName("LoginWithApple");
         group.MapPost("/refresh", RefreshToken).WithName("RefreshToken");
+        group.MapPost("/refresh-mobile", RefreshTokenMobile).WithName("RefreshTokenMobile");
         group.MapPost("/logout", Logout).WithName("Logout");
         group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
 
@@ -47,10 +50,35 @@ public static class AuthEndpoints
             return Results.Unauthorized();
 
         var (user, accessToken, refreshToken) = result.Value;
+        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
+
+        if (IsMobileClient(httpContext))
+            return Results.Ok(new MobileAuthResponse(userDto, accessToken, refreshToken));
 
         SetAuthCookies(httpContext, accessToken, refreshToken);
+        return Results.Ok(new AuthResponse(userDto));
+    }
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+    private static async Task<IResult> LoginWithApple(
+        [FromBody] AppleLoginRequest request,
+        AuthService authService,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        var result = await authService.LoginWithAppleAsync(
+            request.IdentityToken, request.FullName, request.Email, ct);
+
+        if (result == null)
+            return Results.Unauthorized();
+
+        var (user, accessToken, refreshToken) = result.Value;
+        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
+
+        if (IsMobileClient(httpContext))
+            return Results.Ok(new MobileAuthResponse(userDto, accessToken, refreshToken));
+
+        SetAuthCookies(httpContext, accessToken, refreshToken);
+        return Results.Ok(new AuthResponse(userDto));
     }
 
     private static async Task<IResult> RefreshToken(
@@ -78,6 +106,22 @@ public static class AuthEndpoints
         return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
     }
 
+    private static async Task<IResult> RefreshTokenMobile(
+        [FromBody] MobileRefreshRequest request,
+        AuthService authService,
+        CancellationToken ct)
+    {
+        var result = await authService.RefreshTokenAsync(request.RefreshToken, ct);
+
+        if (result == null)
+            return Results.Unauthorized();
+
+        var (user, newAccessToken, newRefreshToken) = result.Value;
+        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
+
+        return Results.Ok(new MobileAuthResponse(userDto, newAccessToken, newRefreshToken));
+    }
+
     private static async Task<IResult> Logout(
         AuthService authService,
         HttpContext httpContext,
@@ -98,12 +142,7 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        var accessToken = httpContext.Request.Cookies[AccessTokenCookie];
-
-        if (string.IsNullOrEmpty(accessToken))
-            return Results.Unauthorized();
-
-        var userId = authService.ValidateAccessToken(accessToken);
+        var userId = httpContext.GetUserId(authService);
 
         if (userId == null)
             return Results.Unauthorized();
@@ -145,5 +184,11 @@ public static class AuthEndpoints
     {
         httpContext.Response.Cookies.Delete(AccessTokenCookie);
         httpContext.Response.Cookies.Delete(RefreshTokenCookie);
+    }
+
+    private static bool IsMobileClient(HttpContext httpContext)
+    {
+        return httpContext.Request.Headers["X-Client"].FirstOrDefault()
+            ?.Equals("mobile", StringComparison.OrdinalIgnoreCase) == true;
     }
 }

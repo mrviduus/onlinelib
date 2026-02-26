@@ -8,7 +8,7 @@ Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO p
 
 **Live**: [textstack.app](https://textstack.app/) (public) · [textstack.dev](https://textstack.dev/) (admin)
 
-**Stack**: ASP.NET Core (API + Worker) + PostgreSQL + React
+**Stack**: ASP.NET Core (API + Worker) + PostgreSQL + React + React Native (Expo)
 
 **Prerequisites**: Docker, .NET 10 SDK, Node.js 18+, pnpm
 
@@ -73,6 +73,17 @@ pnpm -C apps/admin build
 # Migrations
 dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api
 MIGRATE_TARGET=0 docker compose up migrator   # Rollback all migrations
+
+# Mobile app (apps/mobile)
+cd apps/mobile
+npx expo start                    # Dev server (Expo Go — limited native modules)
+npx expo run:ios                  # Local iOS build (requires Xcode)
+npx expo run:android              # Local Android build (requires Android Studio)
+npx tsc --noEmit                  # TypeScript check
+npm run build:dev:ios             # EAS dev build (cloud, requires eas login)
+npm run build:prod                # EAS production build
+npm run submit:ios                # Submit to App Store
+npm run submit:android            # Submit to Google Play
 ```
 
 | Service | Local | Prod |
@@ -166,12 +177,12 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 **Translation**: `POST /translate` via LibreTranslate container. Config: `LibreTranslate:BaseUrl`, `LibreTranslate:TimeoutSeconds`, `LibreTranslate:MaxTextLength`.
 
 **Vocabulary SRS**: Spaced repetition vocabulary builder integrated into the reader.
-- **Entity**: `VocabularyWord` — word, translation, definition, sentence, bookTitle, distractors (JSON), SRS fields (stage, interval, consecutiveCorrect, nextReviewAt)
+- **Entity**: `VocabularyWord` — word, translation, definition, sentence, bookTitle, distractors (JSON), hint (LLM-generated), SRS fields (stage, interval, consecutiveCorrect, nextReviewAt)
 - **Review entity**: `VocabularyReview` — tracks each answer (isCorrect, responseTimeMs, reviewMode)
 - **5 SRS stages**: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4). Logic in `Application/Vocabulary/SrsEngine.cs`
 - **3 review modes**: `multiple_choice` (stages 0-1), `typed_recall` (stage 2+), `context` (fill-in-the-blank, stage 3-4 when sentence exists)
-- **MC distractors**: Ollama LLM (`gemma3:4b`) generates 5 semantically plausible wrong answers per word at save time. Stored in `Distractors` JSON column. Fallback: random words from user's vocab pool + hardcoded list. Generator: `Api/Endpoints/DistractorGenerator.cs`
-- **Ollama**: Docker service (`ollama/ollama`), config: `Ollama:BaseUrl`, `Ollama:Model`, `Ollama:TimeoutSeconds`. Fire-and-forget generation via `IServiceScopeFactory` after word save
+- **MC distractors + hint**: Ollama LLM (`gemma3:4b`) generates 5 distractors + 1-sentence hint per word in a single call at save time. Stored in `Distractors` (JSON) and `Hint` (varchar 500) columns. Fallback: random words from user's vocab pool + hardcoded list. Generator: `Api/Endpoints/DistractorGenerator.cs`
+- **Ollama**: Docker service (`ollama/ollama`), config: `Ollama:BaseUrl`, `Ollama:Model`, `Ollama:TimeoutSeconds` (default 30s). Fire-and-forget generation via `IServiceScopeFactory` after word save
 - **MC fallback cascade**: definition → translation → blank sentence (if LLM distractors exist) → downgrade to context/typed_recall
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`

@@ -40,6 +40,7 @@ public static class DependencyInjection
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.Configure<GoogleSettings>(configuration.GetSection(GoogleSettings.SectionName));
+        services.Configure<AppleSettings>(configuration.GetSection(AppleSettings.SectionName));
         return services;
     }
 }

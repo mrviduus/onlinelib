@@ -16,15 +16,18 @@ public class AuthService
     private readonly IAppDbContext _db;
     private readonly JwtSettings _jwtSettings;
     private readonly GoogleSettings _googleSettings;
+    private readonly AppleSettings? _appleSettings;
 
     public AuthService(
         IAppDbContext db,
         IOptions<JwtSettings> jwtSettings,
-        IOptions<GoogleSettings> googleSettings)
+        IOptions<GoogleSettings> googleSettings,
+        IOptions<AppleSettings>? appleSettings = null)
     {
         _db = db;
         _jwtSettings = jwtSettings.Value;
         _googleSettings = googleSettings.Value;
+        _appleSettings = appleSettings?.Value;
     }
 
     public async Task<(User user, string accessToken, string refreshToken)> TestLoginAsync(
@@ -69,6 +72,24 @@ public class AuthService
         }
 
         var user = await GetOrCreateUserAsync(payload, ct);
+        var accessToken = GenerateAccessToken(user);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+
+        return (user, accessToken, refreshToken);
+    }
+
+    public async Task<(User user, string accessToken, string refreshToken)?> LoginWithAppleAsync(
+        string identityToken,
+        string? fullName,
+        string? email,
+        CancellationToken ct)
+    {
+        var (appleSubject, appleEmail) = ValidateAppleToken(identityToken);
+        if (appleSubject == null) return null;
+
+        var resolvedEmail = email ?? appleEmail;
+        var user = await GetOrCreateAppleUserAsync(appleSubject, resolvedEmail, fullName, ct);
+
         var accessToken = GenerateAccessToken(user);
         var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
 
@@ -215,5 +236,65 @@ public class AuthService
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(bytes);
         return Convert.ToBase64String(bytes);
+    }
+
+    private (string? subject, string? email) ValidateAppleToken(string identityToken)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(identityToken);
+
+            var audience = _appleSettings?.BundleId;
+            if (audience != null && jwt.Audiences.All(a => a != audience))
+                return (null, null);
+
+            if (jwt.Issuer != "https://appleid.apple.com")
+                return (null, null);
+
+            if (jwt.ValidTo < DateTime.UtcNow)
+                return (null, null);
+
+            var subject = jwt.Subject;
+            var email = jwt.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+
+            return (subject, email);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    private async Task<User> GetOrCreateAppleUserAsync(
+        string appleSubject, string? email, string? fullName, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.AppleSubject == appleSubject, ct);
+
+        if (user != null)
+        {
+            if (fullName != null && user.Name != fullName)
+            {
+                user.Name = fullName;
+                await _db.SaveChangesAsync(ct);
+            }
+            return user;
+        }
+
+        var resolvedEmail = email ?? $"{appleSubject}@privaterelay.appleid.com";
+
+        user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = resolvedEmail,
+            Name = fullName,
+            GoogleSubject = $"apple_{appleSubject}",
+            AppleSubject = appleSubject,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+        return user;
     }
 }

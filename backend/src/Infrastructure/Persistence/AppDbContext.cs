@@ -138,8 +138,10 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             e.HasIndex(x => x.Email).IsUnique();
             e.HasIndex(x => x.GoogleSubject).IsUnique();
+            e.HasIndex(x => x.AppleSubject).IsUnique().HasFilter("apple_subject IS NOT NULL");
             e.Property(x => x.Email).HasMaxLength(255);
             e.Property(x => x.GoogleSubject).HasMaxLength(255);
+            e.Property(x => x.AppleSubject).HasMaxLength(255);
             e.Property(x => x.Name).HasMaxLength(255);
         });
 
