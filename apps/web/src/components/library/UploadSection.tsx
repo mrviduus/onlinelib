@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { uploadUserBook, getStorageQuota, type StorageQuota } from '../../api/userBooks'
 
 interface UploadSectionProps {
@@ -11,7 +11,6 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   const [error, setError] = useState<string | null>(null)
   const [quota, setQuota] = useState<StorageQuota | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch quota on mount
   useEffect(() => {
@@ -82,15 +81,13 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onClick={() => !isUploading && fileInputRef.current?.click()}
       >
         <input
-          ref={fileInputRef}
           type="file"
           accept=".epub,.pdf"
           onChange={handleFileSelect}
           disabled={isUploading}
-          hidden
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 2 }}
         />
 
         {isUploading ? (

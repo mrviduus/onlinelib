@@ -5,11 +5,14 @@ public record UserBookListDto(
     string Title,
     string Slug,
     string Language,
+    string? Author,
     string? Description,
     string? CoverPath,
+    string? Genre,
     string Status,
     string? ErrorMessage,
     int ChapterCount,
+    int? TotalWordCount,
     DateTimeOffset CreatedAt
 );
 
@@ -18,8 +21,12 @@ public record UserBookDetailDto(
     string Title,
     string Slug,
     string Language,
+    string? Author,
     string? Description,
     string? CoverPath,
+    string? Genre,
+    int? PublishedYear,
+    int? TotalWordCount,
     string Status,
     string? ErrorMessage,
     IReadOnlyList<UserChapterSummaryDto> Chapters,

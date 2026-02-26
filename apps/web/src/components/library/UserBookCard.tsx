@@ -163,6 +163,9 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, progress }: Us
           >
             {book.title}
           </Link>
+          {book.author && (
+            <div className="user-book-card__author">{book.author}</div>
+          )}
           <div className="user-book-card__meta">
             {isReady && percent > 0 && (
               <span className="user-book-card__progress-text">{Math.round(percent * 100)}% read</span>

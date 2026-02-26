@@ -18,6 +18,8 @@ public class UserIngestionService
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly IImageOptimizer _imageOptimizer;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _config;
     private readonly ILogger<UserIngestionService> _logger;
 
     public UserIngestionService(
@@ -25,12 +27,16 @@ public class UserIngestionService
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
         IImageOptimizer imageOptimizer,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration config,
         ILogger<UserIngestionService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
         _extractorRegistry = extractorRegistry;
         _imageOptimizer = imageOptimizer;
+        _httpClientFactory = httpClientFactory;
+        _config = config;
         _logger = logger;
     }
 
@@ -203,6 +209,11 @@ public class UserIngestionService
             if (string.IsNullOrEmpty(job.UserBook.Description) && !string.IsNullOrEmpty(result.Metadata.Description))
                 job.UserBook.Description = result.Metadata.Description;
 
+            if (string.IsNullOrEmpty(job.UserBook.Author) && !string.IsNullOrEmpty(result.Metadata.Authors))
+                job.UserBook.Author = result.Metadata.Authors;
+
+            job.UserBook.TotalWordCount = result.Units.Sum(u => u.WordCount ?? 0);
+
             // If title was auto-generated, update with extracted title
             if (!string.IsNullOrEmpty(result.Metadata.Title))
             {
@@ -230,6 +241,54 @@ public class UserIngestionService
             job.Error = null;
 
             await db.SaveChangesAsync(ct);
+
+            // Fire-and-forget: enrich metadata via LLM (genre, year, description)
+            var bookId = job.UserBookId;
+            var bookTitle = job.UserBook.Title;
+            var bookAuthor = job.UserBook.Author;
+            var needsDesc = string.IsNullOrEmpty(job.UserBook.Description);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var meta = await BookMetadataGenerator.GenerateAsync(
+                        bookTitle, bookAuthor, needsDesc,
+                        _httpClientFactory, _config, CancellationToken.None);
+
+                    if (meta is null) return;
+
+                    await using var bgDb = await _dbFactory.CreateDbContextAsync(CancellationToken.None);
+                    var book = await bgDb.UserBooks.FirstOrDefaultAsync(
+                        b => b.Id == bookId, CancellationToken.None);
+                    if (book is null) return;
+
+                    var changed = false;
+                    if (meta.Genre != null && string.IsNullOrEmpty(book.Genre))
+                    { book.Genre = meta.Genre; changed = true; }
+                    if (meta.PublishedYear != null && book.PublishedYear == null)
+                    { book.PublishedYear = meta.PublishedYear; changed = true; }
+                    if (meta.Description != null && string.IsNullOrEmpty(book.Description))
+                    { book.Description = meta.Description; changed = true; }
+
+                    if (changed)
+                    {
+                        book.UpdatedAt = DateTimeOffset.UtcNow;
+                        await bgDb.SaveChangesAsync(CancellationToken.None);
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogWarning(ex, "Ollama unavailable for book metadata enrichment {BookId}", bookId);
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogWarning("Ollama timeout for book metadata enrichment {BookId}", bookId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to enrich book metadata {BookId}", bookId);
+                }
+            });
 
             _logger.LogInformation("User book job {JobId} completed. {ChapterCount} chapters created.",
                 jobId, result.Units.Count);

@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\backend\src\Application\Application.csproj" />
     <ProjectReference Include="..\..\backend\src\Api\Api.csproj" />
     <ProjectReference Include="..\..\backend\src\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="..\..\backend\src\Worker\Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

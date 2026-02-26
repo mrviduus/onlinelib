@@ -233,6 +233,8 @@ export interface UserBookDto {
   title: string | null
   author: string | null
   coverPath: string | null
+  genre: string | null
+  totalWordCount: number | null
   status: 'pending' | 'processing' | 'completed' | 'failed'
   chapterCount: number
   createdAt: string

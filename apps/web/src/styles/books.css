@@ -2812,6 +2812,7 @@ html.dark .search-page__sub-result-highlight b {
 }
 
 .upload-section__dropzone {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3021,6 +3022,14 @@ html.dark .search-page__sub-result-highlight b {
   text-decoration: underline;
 }
 
+.user-book-card__author {
+  font-size: 12px;
+  color: var(--color-text-secondary, #555);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .user-book-card__meta {
   font-size: 12px;
   color: var(--color-text-secondary, #555);
@@ -3194,6 +3203,12 @@ html.dark .search-page__sub-result-highlight b {
 
 .user-book-detail__title {
   font-size: 28px;
+  margin: 0 0 4px;
+}
+
+.user-book-detail__author {
+  font-size: 16px;
+  color: var(--color-text-secondary, #555);
   margin: 0 0 16px;
 }
 

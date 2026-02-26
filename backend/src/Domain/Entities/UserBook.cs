@@ -9,8 +9,12 @@ public class UserBook
     public required string Title { get; set; }
     public required string Slug { get; set; }
     public required string Language { get; set; }
+    public string? Author { get; set; }
     public string? Description { get; set; }
     public string? CoverPath { get; set; }
+    public string? Genre { get; set; }
+    public int? PublishedYear { get; set; }
+    public int? TotalWordCount { get; set; }
     public string? TocJson { get; set; }
     public UserBookStatus Status { get; set; }
     public string? ErrorMessage { get; set; }

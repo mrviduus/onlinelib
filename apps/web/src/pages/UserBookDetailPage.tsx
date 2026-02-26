@@ -177,13 +177,22 @@ export function UserBookDetailPage() {
         <div className="user-book-detail__info">
           <h1 className="user-book-detail__title">{book.title}</h1>
 
+          {book.author && (
+            <p className="user-book-detail__author">{book.author}</p>
+          )}
+
           {book.description && (
             <p className="user-book-detail__description">{book.description}</p>
           )}
 
           <div className="user-book-detail__meta">
             <span>Language: {book.language}</span>
+            {book.genre && <span>{book.genre}</span>}
+            {book.publishedYear && <span>{book.publishedYear}</span>}
             {isReady && <span>{book.chapters.length} chapters</span>}
+            {book.totalWordCount != null && book.totalWordCount > 0 && (
+              <span>{Math.round(book.totalWordCount / 250).toLocaleString()} pages</span>
+            )}
           </div>
 
           {isProcessing && (

@@ -394,26 +394,31 @@ public static class ReadingTrackingEndpoints
             .Select(g => new { EditionId = g.Key, FinishedAt = g.Min(s => s.EndedAt) })
             .ToListAsync(ct);
 
-        // Also count UserBook completions for total
-        var userBookFinished = await db.ReadingSessions
+        // Also find finished user books (with metadata for breakdowns)
+        var userBookFinishEvents = await db.ReadingSessions
             .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.UserBookId != null && s.EndPercent >= 0.99)
-            .Select(s => s.UserBookId!.Value)
-            .Distinct()
-            .CountAsync(ct);
+            .GroupBy(s => s.UserBookId!.Value)
+            .Select(g => new { UserBookId = g.Key, FinishedAt = g.Min(s => s.EndedAt) })
+            .ToListAsync(ct);
 
-        // Available years
-        var availableYears = finishEvents
-            .Select(f => f.FinishedAt.Year)
+        // Available years (both editions and user books)
+        var availableYears = finishEvents.Select(f => f.FinishedAt.Year)
+            .Concat(userBookFinishEvents.Select(f => f.FinishedAt.Year))
             .Distinct()
             .OrderDescending()
             .ToList();
 
         // 2. Year filter
         if (year.HasValue && year.Value > 0)
+        {
             finishEvents = finishEvents.Where(f => f.FinishedAt.Year == year.Value).ToList();
+            userBookFinishEvents = userBookFinishEvents.Where(f => f.FinishedAt.Year == year.Value).ToList();
+        }
 
         var editionIds = finishEvents.Select(f => f.EditionId).ToList();
         var finishMap = finishEvents.ToDictionary(f => f.EditionId, f => f.FinishedAt);
+        var userBookIds = userBookFinishEvents.Select(f => f.UserBookId).ToList();
+        var userBookFinishMap = userBookFinishEvents.ToDictionary(f => f.UserBookId, f => f.FinishedAt);
 
         // 3. Load edition metadata
         var editions = await db.Editions
@@ -431,6 +436,14 @@ public static class ReadingTrackingEndpoints
                     .ToList(),
             })
             .ToListAsync(ct);
+
+        // 3b. Load finished user book metadata
+        var userBooks = userBookIds.Count > 0
+            ? await db.UserBooks
+                .Where(b => userBookIds.Contains(b.Id))
+                .Select(b => new { b.Id, b.Language, b.Genre, b.Author, b.TotalWordCount })
+                .ToListAsync(ct)
+            : [];
 
         // 4. First session per edition (for avg days to finish)
         var firstSessions = await db.ReadingSessions
@@ -461,7 +474,8 @@ public static class ReadingTrackingEndpoints
             .ToListAsync(ct);
 
         // --- Aggregations ---
-        var totalPages = editions.Sum(e => e.WordCount) / 250;
+        var userBookPages = userBooks.Sum(b => (b.TotalWordCount ?? 0)) / 250;
+        var totalPages = editions.Sum(e => e.WordCount) / 250 + userBookPages;
 
         // Avg days to finish
         var daysToFinish = editions
@@ -470,47 +484,64 @@ public static class ReadingTrackingEndpoints
             .ToList();
         var avgDaysToFinish = daysToFinish.Count > 0 ? Math.Round(daysToFinish.Average(), 1) : 0;
 
-        // Genre stats
-        var genreStats = editions
-            .SelectMany(e => e.Genres)
+        // Genre stats (editions + user books with genre)
+        var genreItems = editions
+            .SelectMany(e => e.Genres.Select(g => new { g.Name, g.Slug }))
+            .Concat(userBooks
+                .Where(b => !string.IsNullOrEmpty(b.Genre))
+                .Select(b => new { Name = b.Genre!, Slug = b.Genre!.ToLowerInvariant().Replace(' ', '-') }));
+        var genreStats = genreItems
             .GroupBy(g => g.Slug)
             .Select(g => new GenreStatDto(g.First().Name, g.Key, g.Count()))
             .OrderByDescending(g => g.Count)
             .ToList();
 
-        // Author stats (top 10)
-        var authorStats = editions
-            .SelectMany(e => e.Authors)
+        // Author stats (editions + user books with author)
+        var authorItems = editions
+            .SelectMany(e => e.Authors.Select(a => new { a.Name, a.Slug }))
+            .Concat(userBooks
+                .Where(b => !string.IsNullOrEmpty(b.Author))
+                .Select(b => new { Name = b.Author!, Slug = b.Author!.ToLowerInvariant().Replace(' ', '-') }));
+        var authorStats = authorItems
             .GroupBy(a => a.Slug)
             .Select(g => new AuthorStatDto(g.First().Name, g.Key, g.Count()))
             .OrderByDescending(a => a.Count)
             .Take(10)
             .ToList();
 
-        // Language stats
-        var languageStats = editions
-            .GroupBy(e => e.Language)
+        // Language stats (editions + user books)
+        var languageItems = editions.Select(e => e.Language)
+            .Concat(userBooks.Select(b => b.Language));
+        var languageStats = languageItems
+            .GroupBy(l => l)
             .Select(g => new LanguageStatDto(g.Key, g.Count()))
             .OrderByDescending(l => l.Count)
             .ToList();
 
-        // Books over time
-        var booksOverTime = finishEvents
+        // Books over time (editions + user books)
+        var allFinishEvents = finishEvents
+            .Select(f => new { f.FinishedAt, EditionId = (Guid?)f.EditionId, UserBookId = (Guid?)null })
+            .Concat(userBookFinishEvents
+                .Select(f => new { f.FinishedAt, EditionId = (Guid?)null, UserBookId = (Guid?)f.UserBookId }));
+        var booksOverTime = allFinishEvents
             .GroupBy(f => year.HasValue && year.Value > 0
                 ? f.FinishedAt.ToString("yyyy-MM")
                 : f.FinishedAt.Year.ToString())
             .Select(g =>
             {
-                var eIds = g.Select(f => f.EditionId).ToHashSet();
-                var pages = editions.Where(e => eIds.Contains(e.Id)).Sum(e => e.WordCount) / 250;
+                var eIds = g.Where(f => f.EditionId != null).Select(f => f.EditionId!.Value).ToHashSet();
+                var ubIds = g.Where(f => f.UserBookId != null).Select(f => f.UserBookId!.Value).ToHashSet();
+                var pages = editions.Where(e => eIds.Contains(e.Id)).Sum(e => e.WordCount) / 250
+                          + userBooks.Where(b => ubIds.Contains(b.Id)).Sum(b => (b.TotalWordCount ?? 0)) / 250;
                 return new BooksOverTimeDto(g.Key, g.Count(), pages);
             })
             .OrderBy(b => b.Period)
             .ToList();
 
-        // Book length distribution
-        var lengthBuckets = editions
-            .Select(e => e.WordCount / 250) // pages
+        // Book length distribution (editions + user books)
+        var lengthPages = editions.Select(e => e.WordCount / 250)
+            .Concat(userBooks.Where(b => b.TotalWordCount > 0).Select(b => b.TotalWordCount!.Value / 250));
+        var lengthBuckets = lengthPages
             .GroupBy(p => p < 150 ? "short" : p < 400 ? "medium" : "long")
             .Select(g => new BookLengthBucketDto(g.Key, g.Count()))
             .ToList();
@@ -562,7 +593,7 @@ public static class ReadingTrackingEndpoints
             .ToList();
 
         return Results.Ok(new BookStatsResponse(
-            BooksFinished: editionIds.Count + userBookFinished,
+            BooksFinished: editionIds.Count + userBookIds.Count,
             TotalPages: totalPages,
             AvgDaysToFinish: avgDaysToFinish,
             GenreStats: genreStats,

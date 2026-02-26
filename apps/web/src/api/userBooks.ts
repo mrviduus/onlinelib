@@ -5,11 +5,14 @@ export interface UserBook {
   title: string
   slug: string
   language: string
+  author: string | null
   description: string | null
   coverPath: string | null
+  genre: string | null
   status: 'Processing' | 'Ready' | 'Failed'
   errorMessage: string | null
   chapterCount: number
+  totalWordCount: number | null
   createdAt: string
 }
 
@@ -32,8 +35,12 @@ export interface UserBookDetail {
   title: string
   slug: string
   language: string
+  author: string | null
   description: string | null
   coverPath: string | null
+  genre: string | null
+  publishedYear: number | null
+  totalWordCount: number | null
   status: 'Processing' | 'Ready' | 'Failed'
   errorMessage: string | null
   chapters: UserChapterSummary[]
