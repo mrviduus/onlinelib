@@ -18,7 +18,7 @@ test.describe('Search', () => {
     if (await searchInput.isVisible()) {
       await searchInput.fill('test')
       await searchInput.press('Enter')
-      await page.waitForLoadState('networkidle')
+      await page.waitForURL(/q=test/, { timeout: 10_000 })
       expect(page.url()).toContain('q=test')
     }
   })
