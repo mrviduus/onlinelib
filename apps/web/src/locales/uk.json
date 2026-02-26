@@ -140,6 +140,7 @@
     "viewBiography": "{name} - Переглянути біографію",
     "whatIsAbout": "Про що «{title}»?",
     "startReading": "Почати читати",
+    "continueReading": "Продовжити читати",
     "startReadingTitle": "Почати читати {title}",
     "downloading": "Завантаження {progress}%...",
     "availableOffline": "Доступно офлайн",

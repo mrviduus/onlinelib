@@ -140,6 +140,7 @@
     "viewBiography": "{name} - View biography",
     "whatIsAbout": "What is {title} about?",
     "startReading": "Start Reading",
+    "continueReading": "Continue Reading",
     "startReadingTitle": "Start reading {title}",
     "downloading": "Downloading {progress}%...",
     "availableOffline": "Available offline",

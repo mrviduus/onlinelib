@@ -74,6 +74,19 @@ export function BookDetailPage() {
     })
   }, [book?.id])
 
+  // Check localStorage for saved reading progress → "Continue Reading"
+  const continueSlug = useMemo(() => {
+    if (!book?.id) return null
+    try {
+      const stored = localStorage.getItem('reading.progress.' + book.id)
+      if (stored) {
+        const { chapterSlug } = JSON.parse(stored)
+        if (chapterSlug && book.chapters.some((c: { slug: string }) => c.slug === chapterSlug)) return chapterSlug
+      }
+    } catch {}
+    return null
+  }, [book?.id, book?.chapters])
+
   // Compute available languages for hreflang
   const availableLanguages = useMemo<SupportedLanguage[]>(() => {
     if (!book) return []
@@ -206,11 +219,13 @@ export function BookDetailPage() {
           <div className="book-hero__actions">
             {firstChapter && (
               <LocalizedLink
-                to={`/books/${book.slug}/${firstChapter.slug}?direct=1`}
+                to={continueSlug
+                  ? `/books/${book.slug}/${continueSlug}`
+                  : `/books/${book.slug}/${firstChapter.slug}?direct=1`}
                 className="book-hero__read-btn"
                 title={t('bookDetail.startReadingTitle').replace('{title}', book.title)}
               >
-                {t('bookDetail.startReading')}
+                {continueSlug ? t('bookDetail.continueReading') : t('bookDetail.startReading')}
               </LocalizedLink>
             )}
 
