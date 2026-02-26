@@ -271,6 +271,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { savedProgress, shouldNavigate, targetChapterSlug, isLoading: progressLoading } =
     useRestoreProgress(mode === 'public' ? publicBook?.id : undefined, chapterSlug)
 
+  // Unified progress for restore effects (public + userbook)
+  const effectiveProgress = mode === 'public' ? savedProgress : (
+    userProgress.savedProgress ? {
+      chapterSlug: userProgress.savedProgress.chapterSlug,
+      locator: userProgress.savedProgress.locator || '',
+      percent: userProgress.savedProgress.percent,
+    } : null
+  )
+  const effectiveLoading = mode === 'public' ? progressLoading : userProgress.isLoading
+
   // Auto-save info for bookmarks drawer
   const autoSaveInfo = useMemo((): AutoSaveInfo | null => {
     if (mode === 'public') {
@@ -545,44 +555,44 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     if (useScrollMode) return // Skip for scroll mode
     // Wait for: pagination ready, progress loaded, book data available
     const bookReady = !!book?.id
-    if (restoredRef.current || totalPages === 0 || progressLoading || shouldNavigate || !bookReady) return
+    if (restoredRef.current || totalPages === 0 || effectiveLoading || shouldNavigate || !bookReady) return
 
     restoredRef.current = true
 
     // No saved progress - go to page 0
-    if (!savedProgress) {
+    if (!effectiveProgress) {
       goToPage(0)
       return
     }
 
     // Restore to saved position
-    const { locator } = savedProgress
+    const { locator } = effectiveProgress
     if (locator.startsWith('page:')) {
       const page = parseInt(locator.split(':')[1], 10)
       if (!isNaN(page)) goToPage(Math.min(page, totalPages - 1))
     } else if (locator.startsWith('percent:')) {
       const pct = parseFloat(locator.split(':')[1])
       if (!isNaN(pct)) goToPage(Math.floor(pct * (totalPages - 1)))
-    } else if (savedProgress.percent != null && savedProgress.percent > 0) {
+    } else if (effectiveProgress.percent != null && effectiveProgress.percent > 0) {
       // Fallback for scroll: or other formats
-      goToPage(Math.floor(savedProgress.percent * (totalPages - 1)))
+      goToPage(Math.floor(effectiveProgress.percent * (totalPages - 1)))
     }
-  }, [useScrollMode, totalPages, savedProgress, progressLoading, shouldNavigate, goToPage, book?.id])
+  }, [useScrollMode, totalPages, effectiveProgress, effectiveLoading, shouldNavigate, goToPage, book?.id])
 
   // Restore scroll position (scroll mode)
   const scrollRestoredRef = useRef(false)
   useEffect(() => {
     if (!useScrollMode) return // Only for scroll mode
-    if (scrollRestoredRef.current || progressLoading || shouldNavigate) return
+    if (scrollRestoredRef.current || effectiveLoading || shouldNavigate) return
     if (scrollReader.chapters.length === 0) return // Wait for chapters to load
 
     // Parse scroll locator: scroll:{chapterSlug}:{offset}
-    if (!savedProgress?.locator?.startsWith('scroll:')) {
+    if (!effectiveProgress?.locator?.startsWith('scroll:')) {
       scrollRestoredRef.current = true
       return
     }
 
-    const parts = savedProgress.locator.split(':')
+    const parts = effectiveProgress.locator.split(':')
     if (parts.length < 3) {
       scrollRestoredRef.current = true
       return
@@ -605,7 +615,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     requestAnimationFrame(() => {
       window.scrollTo({ top: chapterEl.offsetTop + savedOffset, behavior: 'instant' })
     })
-  }, [useScrollMode, progressLoading, shouldNavigate, savedProgress, scrollReader.chapters, scrollReader.chapterRefs])
+  }, [useScrollMode, effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
 
   // Reset restore refs on chapter change
   useEffect(() => {
