@@ -22,6 +22,7 @@ import {
 } from '../lib/bookSeo'
 import { StarRating } from '../components/StarRating'
 import { MoodSelector } from '../components/MoodSelector'
+import { ReviewsList } from '../components/reviews/ReviewsList'
 import type { BookDetail } from '../types/api'
 
 // Strip HTML tags from description text
@@ -50,6 +51,7 @@ export function BookDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [showAllChapters, setShowAllChapters] = useState(false)
+  const [activeTab, setActiveTab] = useState<'chapters' | 'reviews'>('chapters')
 
   useEffect(() => {
     if (!bookSlug) return
@@ -205,6 +207,25 @@ export function BookDetailPage() {
           <StarRating editionId={book.id} />
           <MoodSelector editionId={book.id} />
 
+          {(book.avgRating || book.ratingCount > 0) && (
+            <div className="book-hero__rating-summary">
+              {book.avgRating && (
+                <>
+                  <span className="material-icons-outlined book-hero__rating-star">star</span>
+                  <span className="book-hero__rating-value">{book.avgRating}</span>
+                </>
+              )}
+              <span className="book-hero__rating-sep">&middot;</span>
+              <span>{book.ratingCount} {t('reviews.ratings')}</span>
+              {book.reviewCount > 0 && (
+                <>
+                  <span className="book-hero__rating-sep">&middot;</span>
+                  <span>{book.reviewCount} {t('reviews.reviews')}</span>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="book-hero__meta">
             <span className="book-hero__meta-item">
               <span className="material-icons-outlined">auto_stories</span>
@@ -259,43 +280,65 @@ export function BookDetailPage() {
         </div>
       </section>
 
-      {/* Chapters Section */}
-      <section className="book-chapters">
-        <h2 className="book-chapters__heading">
-          {t('bookDetail.chaptersHeading')}
-          <span className="book-chapters__heading-line" />
-        </h2>
-
-        <div className="book-chapters__list">
-          {visibleChapters.map((ch) => (
-            <LocalizedLink
-              key={ch.id}
-              to={`/books/${book.slug}/${ch.slug}?direct=1`}
-              className="book-chapters__item"
-              title={t('bookDetail.readChapter').replace('{title}', ch.title)}
-            >
-              <div className="book-chapters__item-left">
-                <span className="book-chapters__number">{formatChapterNumber(ch.chapterNumber)}.</span>
-                <h3 className="book-chapters__title">{ch.title}</h3>
-              </div>
-              <div className="book-chapters__item-right">
-                {ch.wordCount && (
-                  <span className="book-chapters__words">{ch.wordCount} {t('bookDetail.words')}</span>
-                )}
-                <span className="book-chapters__arrow material-icons-outlined">arrow_forward_ios</span>
-              </div>
-            </LocalizedLink>
-          ))}
+      {/* Chapters / Reviews Tabs */}
+      <section className="book-tabs">
+        <div className="book-tabs__nav">
+          <button
+            className={`book-tabs__tab ${activeTab === 'chapters' ? 'book-tabs__tab--active' : ''}`}
+            onClick={() => setActiveTab('chapters')}
+          >
+            <span className="material-icons-outlined">auto_stories</span>
+            {t('bookDetail.chaptersHeading')} ({book.chapters.length})
+          </button>
+          <button
+            className={`book-tabs__tab ${activeTab === 'reviews' ? 'book-tabs__tab--active' : ''}`}
+            onClick={() => setActiveTab('reviews')}
+          >
+            <span className="material-icons-outlined">rate_review</span>
+            {t('reviews.title')} {book.reviewCount > 0 ? `(${book.reviewCount})` : ''}
+          </button>
         </div>
 
-        {hasMoreChapters && !showAllChapters && (
-          <button
-            className="book-chapters__view-all"
-            onClick={() => setShowAllChapters(true)}
-          >
-            {t('bookDetail.viewAllChapters').replace('{count}', String(book.chapters.length))}
-            <span className="material-icons-outlined">expand_more</span>
-          </button>
+        {activeTab === 'chapters' && (
+          <div className="book-tabs__panel">
+            <div className="book-chapters__list">
+              {visibleChapters.map((ch) => (
+                <LocalizedLink
+                  key={ch.id}
+                  to={`/books/${book.slug}/${ch.slug}?direct=1`}
+                  className="book-chapters__item"
+                  title={t('bookDetail.readChapter').replace('{title}', ch.title)}
+                >
+                  <div className="book-chapters__item-left">
+                    <span className="book-chapters__number">{formatChapterNumber(ch.chapterNumber)}.</span>
+                    <h3 className="book-chapters__title">{ch.title}</h3>
+                  </div>
+                  <div className="book-chapters__item-right">
+                    {ch.wordCount && (
+                      <span className="book-chapters__words">{ch.wordCount} {t('bookDetail.words')}</span>
+                    )}
+                    <span className="book-chapters__arrow material-icons-outlined">arrow_forward_ios</span>
+                  </div>
+                </LocalizedLink>
+              ))}
+            </div>
+
+            {hasMoreChapters && !showAllChapters && (
+              <button
+                className="book-chapters__view-all"
+                onClick={() => setShowAllChapters(true)}
+              >
+                {t('bookDetail.viewAllChapters').replace('{count}', String(book.chapters.length))}
+                <span className="material-icons-outlined">expand_more</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'reviews' && (
+          <div className="book-tabs__panel">
+            <ReviewsList editionId={book.id} />
+          </div>
         )}
       </section>
 

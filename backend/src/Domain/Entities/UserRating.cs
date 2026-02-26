@@ -8,10 +8,15 @@ public class UserRating
     public Guid EditionId { get; set; }
     public double Rating { get; set; } // 0.5-5 (half-star increments)
     public string? ReviewText { get; set; }
+    public string? Title { get; set; }
+    public bool IsSpoiler { get; set; }
+    public int HelpfulCount { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
     public User User { get; set; } = null!;
     public Site Site { get; set; } = null!;
     public Edition Edition { get; set; } = null!;
+    public ICollection<ReviewLike> Likes { get; set; } = [];
+    public ICollection<ReviewComment> Comments { get; set; } = [];
 }

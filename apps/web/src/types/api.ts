@@ -59,6 +59,9 @@ export interface BookDetail {
   chapters: ChapterSummary[]
   otherEditions: { slug: string; language: string; title: string }[]
   authors: BookAuthor[]
+  avgRating: number | null
+  ratingCount: number
+  reviewCount: number
 }
 
 export interface SearchEdition {

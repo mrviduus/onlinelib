@@ -29,6 +29,7 @@ import './styles/reader.css'
 import './styles/books.css'
 import './styles/stats.css'
 import './styles/vocabulary.css'
+import './styles/reviews.css'
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()

@@ -45,6 +45,8 @@ public interface IAppDbContext
     DbSet<UserMoodTag> UserMoodTags { get; }
     DbSet<VocabularyWord> VocabularyWords { get; }
     DbSet<VocabularyReview> VocabularyReviews { get; }
+    DbSet<ReviewLike> ReviewLikes { get; }
+    DbSet<ReviewComment> ReviewComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

@@ -1,15 +1,26 @@
 import { authFetch } from './client'
 
 export interface UserRatingDto {
+  id: string
   editionId: string
   rating: number
   reviewText: string | null
+  title: string | null
+  isSpoiler: boolean
+  helpfulCount: number
+  commentCount: number
   updatedAt: string
+  editionTitle: string | null
+  editionSlug: string | null
+  editionCoverPath: string | null
+  editionLanguage: string | null
 }
 
 export interface UpsertRatingRequest {
   rating: number
   reviewText?: string | null
+  title?: string | null
+  isSpoiler?: boolean
 }
 
 export async function getRating(editionId: string): Promise<UserRatingDto | null> {

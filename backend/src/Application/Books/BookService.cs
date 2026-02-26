@@ -133,6 +133,18 @@ public class BookService(IAppDbContext db)
             }
         }
 
+        // Rating stats
+        var ratingStats = await db.UserRatings
+            .Where(r => r.EditionId == result.Id)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Avg = g.Average(r => r.Rating),
+                Total = g.Count(),
+                WithReview = g.Count(r => r.ReviewText != null),
+            })
+            .FirstOrDefaultAsync(ct);
+
         return new BookDetailDto(
             result.Id,
             result.Slug,
@@ -151,7 +163,10 @@ public class BookService(IAppDbContext db)
             result.Chapters,
             result.OtherEditions,
             result.Authors,
-            toc
+            toc,
+            ratingStats != null ? Math.Round(ratingStats.Avg, 1) : null,
+            ratingStats?.Total ?? 0,
+            ratingStats?.WithReview ?? 0
         );
     }
 

@@ -33,7 +33,10 @@ public static class UserRatingEndpoints
         var ratings = await db.UserRatings
             .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
             .OrderByDescending(r => r.UpdatedAt)
-            .Select(r => new UserRatingDto(r.EditionId, r.Rating, r.ReviewText, r.UpdatedAt))
+            .Select(r => new UserRatingDto(
+                r.Id, r.EditionId, r.Rating, r.ReviewText, r.Title, r.IsSpoiler,
+                r.HelpfulCount, r.Comments.Count, r.UpdatedAt,
+                r.Edition.Title, r.Edition.Slug, r.Edition.CoverPath, r.Edition.Language))
             .ToListAsync(ct);
 
         return Results.Ok(ratings);
@@ -52,7 +55,10 @@ public static class UserRatingEndpoints
 
         var rating = await db.UserRatings
             .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.EditionId == editionId)
-            .Select(r => new UserRatingDto(r.EditionId, r.Rating, r.ReviewText, r.UpdatedAt))
+            .Select(r => new UserRatingDto(
+                r.Id, r.EditionId, r.Rating, r.ReviewText, r.Title, r.IsSpoiler,
+                r.HelpfulCount, r.Comments.Count, r.UpdatedAt,
+                r.Edition.Title, r.Edition.Slug, r.Edition.CoverPath, r.Edition.Language))
             .FirstOrDefaultAsync(ct);
 
         if (rating == null) return Results.NotFound();
@@ -74,17 +80,27 @@ public static class UserRatingEndpoints
         if (request.Rating < 0.5 || request.Rating > 5 || request.Rating % 0.5 != 0)
             return Results.BadRequest("Rating must be 0.5-5 in half-star increments");
 
+        if (request.Title?.Length > 200)
+            return Results.BadRequest("Title must be 200 characters or less");
+
         var existing = await db.UserRatings
+            .Include(r => r.Edition)
             .FirstOrDefaultAsync(r => r.UserId == userId.Value && r.SiteId == siteId && r.EditionId == editionId, ct);
 
         if (existing != null)
         {
             existing.Rating = request.Rating;
             existing.ReviewText = request.ReviewText;
+            existing.Title = request.Title;
+            existing.IsSpoiler = request.IsSpoiler;
             existing.UpdatedAt = DateTimeOffset.UtcNow;
         }
         else
         {
+            // Load edition for response DTO
+            var edition = await db.Editions.FirstOrDefaultAsync(e => e.Id == editionId, ct);
+            if (edition == null) return Results.NotFound();
+
             existing = new UserRating
             {
                 Id = Guid.NewGuid(),
@@ -93,15 +109,23 @@ public static class UserRatingEndpoints
                 EditionId = editionId,
                 Rating = request.Rating,
                 ReviewText = request.ReviewText,
+                Title = request.Title,
+                IsSpoiler = request.IsSpoiler,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
+                Edition = edition,
             };
             db.UserRatings.Add(existing);
         }
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new UserRatingDto(existing.EditionId, existing.Rating, existing.ReviewText, existing.UpdatedAt));
+        var commentCount = await db.ReviewComments.CountAsync(c => c.UserRatingId == existing.Id, ct);
+        return Results.Ok(new UserRatingDto(
+            existing.Id, existing.EditionId, existing.Rating, existing.ReviewText,
+            existing.Title, existing.IsSpoiler, existing.HelpfulCount, commentCount,
+            existing.UpdatedAt, existing.Edition.Title, existing.Edition.Slug,
+            existing.Edition.CoverPath, existing.Edition.Language));
     }
 
     private static async Task<IResult> DeleteRating(
@@ -127,5 +151,10 @@ public static class UserRatingEndpoints
     }
 }
 
-public record UpsertRatingRequest(double Rating, string? ReviewText);
-public record UserRatingDto(Guid EditionId, double Rating, string? ReviewText, DateTimeOffset UpdatedAt);
+public record UpsertRatingRequest(double Rating, string? ReviewText, string? Title = null, bool IsSpoiler = false);
+public record UserRatingDto(
+    Guid Id, Guid EditionId, double Rating, string? ReviewText,
+    string? Title, bool IsSpoiler, int HelpfulCount, int CommentCount,
+    DateTimeOffset UpdatedAt,
+    string? EditionTitle = null, string? EditionSlug = null,
+    string? EditionCoverPath = null, string? EditionLanguage = null);

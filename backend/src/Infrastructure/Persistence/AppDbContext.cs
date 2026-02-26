@@ -48,6 +48,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserMoodTag> UserMoodTags => Set<UserMoodTag>();
     public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
     public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
+    public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
+    public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -456,8 +458,31 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique();
             e.HasIndex(x => x.EditionId);
+            e.HasIndex(x => new { x.EditionId, x.HelpfulCount });
+            e.Property(x => x.Title).HasMaxLength(200);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Likes).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Comments).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ReviewLike
+        modelBuilder.Entity<ReviewLike>(e =>
+        {
+            e.HasIndex(x => new { x.UserRatingId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.UserRatingId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ReviewComment
+        modelBuilder.Entity<ReviewComment>(e =>
+        {
+            e.HasIndex(x => x.UserRatingId);
+            e.HasIndex(x => new { x.UserId, x.SiteId });
+            e.Property(x => x.Text).HasMaxLength(2000);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -14,12 +14,13 @@ import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
 import { createApi, getStorageUrl } from '../api/client'
 import { getUserBooks, getUserBookCoverUrl, getUserBookProgress, type UserBook, type UserBookProgress } from '../api/userBooks'
+import { getAllRatings, type UserRatingDto } from '../api/userRatings'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
 
 type ViewMode = 'list' | 'grid'
 type SortOption = 'recent' | 'title' | 'progress'
-type SidebarTab = 'saved' | 'uploads'
+type SidebarTab = 'saved' | 'uploads' | 'reviews'
 
 export function LibraryPage() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth()
@@ -31,6 +32,8 @@ export function LibraryPage() {
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
   const [userBookProgress, setUserBookProgress] = useState<Record<string, UserBookProgress>>({})
+  const [myReviews, setMyReviews] = useState<UserRatingDto[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('library-view') as ViewMode) || 'list'
@@ -61,6 +64,16 @@ export function LibraryPage() {
   useEffect(() => {
     fetchUserBooks()
   }, [fetchUserBooks])
+
+  // Fetch my reviews when tab is active
+  useEffect(() => {
+    if (activeTab !== 'reviews' || !isAuthenticated) return
+    setReviewsLoading(true)
+    getAllRatings()
+      .then((ratings) => setMyReviews(ratings.filter((r) => r.reviewText)))
+      .catch(() => {})
+      .finally(() => setReviewsLoading(false))
+  }, [activeTab, isAuthenticated])
 
   // Fetch progress for ready user books
   useEffect(() => {
@@ -207,6 +220,13 @@ export function LibraryPage() {
             <span className="material-icons-outlined">file_upload</span>
             <span>{t('library.uploads')}</span>
             {userBooks.length > 0 && <span className="library-sidebar__count">{userBooks.length}</span>}
+          </button>
+          <button
+            className={`library-sidebar__btn ${activeTab === 'reviews' ? 'library-sidebar__btn--active' : ''}`}
+            onClick={() => setActiveTab('reviews')}
+          >
+            <span className="material-icons-outlined">rate_review</span>
+            <span>{t('reviews.myReviews')}</span>
           </button>
         </div>
       </aside>
@@ -576,6 +596,73 @@ export function LibraryPage() {
                     progress={userBookProgress[book.id]}
                   />
                 ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'reviews' && (
+          <>
+            {reviewsLoading ? (
+              <div className="library-page__loading">{t('library.loading')}</div>
+            ) : myReviews.length === 0 ? (
+              <div className="library-page__empty">
+                <p>{t('reviews.noMyReviews')}</p>
+                <LocalizedLink to="/books" className="library-page__browse-btn">
+                  {t('library.browseBooks')}
+                </LocalizedLink>
+              </div>
+            ) : (
+              <div className="library-list">
+                {myReviews.map((review) => {
+                  const destination = review.editionSlug && review.editionLanguage
+                    ? `/${review.editionLanguage}/books/${review.editionSlug}`
+                    : '#'
+                  return (
+                    <article key={review.id} className="library-list-item">
+                      <Link to={destination} className="library-list-item__cover">
+                        {review.editionCoverPath ? (
+                          <img src={getStorageUrl(review.editionCoverPath)} alt={review.editionTitle || ''} />
+                        ) : (
+                          <div
+                            className="library-list-item__cover-placeholder"
+                            style={{ backgroundColor: stringToColor(review.editionTitle || '') }}
+                          >
+                            {review.editionTitle?.[0] || '?'}
+                          </div>
+                        )}
+                      </Link>
+                      <div className="library-list-item__content">
+                        <Link to={destination} className="library-list-item__title">
+                          {review.title || review.editionTitle || t('reviews.untitled')}
+                        </Link>
+                        <div className="library-review__stars">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <span key={i} className={`material-icons-outlined library-review__star ${i < Math.round(review.rating) ? 'library-review__star--filled' : ''}`}>
+                              {i < Math.round(review.rating) ? 'star' : 'star_outline'}
+                            </span>
+                          ))}
+                        </div>
+                        {review.reviewText && (
+                          <p className="library-review__preview">{review.reviewText}</p>
+                        )}
+                        <div className="library-list-item__info">
+                          <span className="library-list-item__info-item">
+                            <span className="material-icons-outlined">thumb_up</span>
+                            {review.helpfulCount}
+                          </span>
+                          <span className="library-list-item__info-item">
+                            <span className="material-icons-outlined">chat_bubble_outline</span>
+                            {review.commentCount}
+                          </span>
+                          <span className="library-list-item__info-item">
+                            {new Date(review.updatedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
             )}
           </>

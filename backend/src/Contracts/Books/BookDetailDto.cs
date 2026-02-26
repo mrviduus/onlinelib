@@ -19,7 +19,10 @@ public record BookDetailDto(
     IReadOnlyList<ChapterSummaryDto> Chapters,
     IReadOnlyList<EditionSummaryDto> OtherEditions,
     IReadOnlyList<BookAuthorDto> Authors,
-    IReadOnlyList<TocEntryDto>? Toc = null
+    IReadOnlyList<TocEntryDto>? Toc = null,
+    double? AvgRating = null,
+    int RatingCount = 0,
+    int ReviewCount = 0
 );
 
 public record WorkDto(Guid Id, string Slug);

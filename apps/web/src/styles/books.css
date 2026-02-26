@@ -4137,6 +4137,52 @@ html.dark .book-hero__read-btn {
 }
 
 /* Chapters Section */
+/* Book Tabs (Chapters / Reviews) */
+.book-tabs {
+  max-width: 900px;
+  margin-bottom: 64px;
+}
+
+.book-tabs__nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 32px;
+}
+
+.book-tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.book-tabs__tab .material-icons-outlined {
+  font-size: 20px;
+}
+
+.book-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.book-tabs__tab--active {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+}
+
+.book-tabs__panel {
+  min-height: 200px;
+}
+
 .book-chapters {
   max-width: 800px;
   margin-bottom: 64px;

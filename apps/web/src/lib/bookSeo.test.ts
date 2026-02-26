@@ -118,6 +118,9 @@ describe('generateFAQs', () => {
     ],
     otherEditions: [{ slug: 'test-uk', language: 'uk', title: 'Тестова книга' }],
     authors: [{ id: '1', slug: 'author', name: 'Test Author', role: 'author' }],
+    avgRating: null,
+    ratingCount: 0,
+    reviewCount: 0,
   }
 
   it('returns 6 FAQs when year available', () => {
