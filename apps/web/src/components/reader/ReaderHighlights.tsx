@@ -3,6 +3,7 @@ import { useTextSelection } from '../../hooks/useTextSelection'
 import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useDictionary } from '../../hooks/useDictionary'
+import { useTts } from '../../hooks/useTts'
 import { createTextAnchor } from '../../lib/textAnchor'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { saveWord as saveWordApi } from '../../api/vocabulary'
@@ -21,6 +22,7 @@ interface ReaderHighlightsProps {
   bookLanguage?: string
   bookTitle?: string
   userBookId?: string
+  ttsSpeed?: number
   children: React.ReactNode
 }
 
@@ -32,6 +34,7 @@ export function ReaderHighlights({
   bookLanguage = 'en',
   bookTitle,
   userBookId,
+  ttsSpeed = 1.0,
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -76,6 +79,12 @@ export function ReaderHighlights({
     defaultSourceLang: bookLanguage,
     defaultTargetLang: bookLanguage === 'uk' ? 'en' : 'uk',
   })
+
+  // TTS
+  const { speak } = useTts()
+  const handleSpeak = useCallback((text: string, lang?: string) => {
+    speak(text, lang || bookLanguage, undefined, ttsSpeed)
+  }, [speak, bookLanguage, ttsSpeed])
 
   // Dictionary
   const {
@@ -266,6 +275,7 @@ export function ReaderHighlights({
           onTranslate={handleTranslate}
           onDictionary={handleDictionary}
           onSaveWord={isAuthenticated ? handleSaveWord : undefined}
+          onSpeak={() => handleSpeak(selection.text)}
           onCopy={handleCopy}
         />
       )}
@@ -283,6 +293,7 @@ export function ReaderHighlights({
           containerRef={containerRef}
           onSourceLangChange={handleSourceLangChange}
           onTargetLangChange={handleTargetLangChange}
+          onSpeak={handleSpeak}
           onClose={handleCloseTranslation}
         />
       )}
@@ -297,6 +308,7 @@ export function ReaderHighlights({
           containerRef={containerRef}
           onClose={handleCloseDictionary}
           onSaveWord={isAuthenticated ? handleSaveWordFromDict : undefined}
+          onSpeak={(text) => handleSpeak(text)}
           wordSaved={vocabSaved}
         />
       )}

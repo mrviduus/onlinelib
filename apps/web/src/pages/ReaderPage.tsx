@@ -1003,6 +1003,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             bookLanguage={publicBook?.language}
             bookTitle={book?.title}
             userBookId={mode === 'userbook' ? id : undefined}
+            ttsSpeed={settings.ttsSpeed}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1025,6 +1026,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             bookLanguage={publicBook?.language}
             bookTitle={book.title}
             userBookId={mode === 'userbook' ? id : undefined}
+            ttsSpeed={settings.ttsSpeed}
           >
             <ReaderContent
               ref={contentRef}

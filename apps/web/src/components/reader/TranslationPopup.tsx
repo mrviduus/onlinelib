@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LanguageInfo } from '../../api/translation'
+import { SpeakButton } from '../vocabulary/SpeakButton'
 
 interface TranslationPopupProps {
   text: string
@@ -13,6 +14,7 @@ interface TranslationPopupProps {
   containerRef: React.RefObject<HTMLElement | null>
   onSourceLangChange: (lang: string) => void
   onTargetLangChange: (lang: string) => void
+  onSpeak?: (text: string, lang: string) => void
   onClose: () => void
 }
 
@@ -28,6 +30,7 @@ export function TranslationPopup({
   containerRef,
   onSourceLangChange,
   onTargetLangChange,
+  onSpeak,
   onClose,
 }: TranslationPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
@@ -138,6 +141,7 @@ export function TranslationPopup({
       </div>
 
       <div className="translation-popup__source">
+        {onSpeak && text.length <= 500 && <SpeakButton onClick={() => onSpeak(text, sourceLang)} size={14} className="translation-popup__speak" />}
         {truncatedText}
       </div>
 
@@ -157,6 +161,7 @@ export function TranslationPopup({
         )}
         {translatedText && !isLoading && !error && (
           <div className="translation-popup__translated">
+            {onSpeak && <SpeakButton onClick={() => onSpeak(translatedText, targetLang)} size={14} className="translation-popup__speak" />}
             {translatedText}
           </div>
         )}

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import type { ReviewCardDto } from '../../api/vocabulary'
+import { SpeakButton } from './SpeakButton'
 
 interface Props {
   card: ReviewCardDto
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
+  onSpeak?: (text: string) => void
   t: (key: string) => string
 }
 
-export function MultipleChoiceCard({ card, onAnswer, t }: Props) {
+export function MultipleChoiceCard({ card, onAnswer, onSpeak, t }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const [startTime] = useState(Date.now())
 
@@ -24,7 +26,10 @@ export function MultipleChoiceCard({ card, onAnswer, t }: Props) {
 
   return (
     <div className="review-mc">
-      <div className="review-mc__prompt">{prompt}</div>
+      <div className="review-mc__prompt">
+        {onSpeak && <SpeakButton onClick={() => onSpeak(prompt || card.word)} size={14} className="review-card__speak" />}
+        {prompt}
+      </div>
       {card.hint && (
         <div className="review-card__hint">{card.hint}</div>
       )}

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { useVocabularyReview } from '../hooks/useVocabularyReview'
+import { useTts } from '../hooks/useTts'
 import { MultipleChoiceCard } from '../components/vocabulary/MultipleChoiceCard'
 import { TypedRecallCard } from '../components/vocabulary/TypedRecallCard'
 import { ContextCard } from '../components/vocabulary/ContextCard'
@@ -32,6 +33,8 @@ export function VocabularyReviewPage() {
     nextCard,
     cards,
   } = useVocabularyReview()
+  const { speak } = useTts()
+  const handleSpeak = (text: string) => speak(text, language)
 
   useEffect(() => {
     if (user) startSession(20)
@@ -108,13 +111,13 @@ export function VocabularyReviewPage() {
       {currentCard && !answerRevealed && (
         <>
           {currentCard.reviewMode === 'multiple_choice' && (
-            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} t={t} />
+            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
           )}
           {currentCard.reviewMode === 'typed_recall' && (
-            <TypedRecallCard card={currentCard} onAnswer={submitAnswer} t={t} />
+            <TypedRecallCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
           )}
           {currentCard.reviewMode === 'context' && (
-            <ContextCard card={currentCard} onAnswer={submitAnswer} t={t} />
+            <ContextCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
           )}
         </>
       )}
@@ -124,6 +127,7 @@ export function VocabularyReviewPage() {
           card={currentCard}
           result={lastResult}
           isCorrect={lastAnswerCorrect}
+          onSpeak={handleSpeak}
           t={t}
           onNext={nextCard}
         />

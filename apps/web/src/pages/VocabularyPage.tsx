@@ -4,8 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { useVocabulary } from '../hooks/useVocabulary'
+import { useTts } from '../hooks/useTts'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { SpeakButton } from '../components/vocabulary/SpeakButton'
 
 const STAGE_COLORS = ['#94a3b8', '#60a5fa', '#f59e0b', '#a78bfa', '#22c55e']
 
@@ -30,6 +32,7 @@ export function VocabularyPage() {
     filters, applyFilters,
     removeWord, editWord,
   } = useVocabulary()
+  const { speak, isPlaying } = useTts()
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -186,6 +189,10 @@ export function VocabularyPage() {
                   onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}
                 >
                   <div className="vocab-word__main">
+                    <SpeakButton
+                      onClick={() => speak(w.word, w.language)}
+                      isPlaying={isPlaying}
+                    />
                     <span className="vocab-word__text">{w.word}</span>
                     {w.translation && (
                       <span className="vocab-word__translation">{w.translation}</span>

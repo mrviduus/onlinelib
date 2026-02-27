@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DictionaryEntry } from '../../api/dictionary'
+import { SpeakButton } from '../vocabulary/SpeakButton'
 
 interface DictionaryPopupProps {
   word: string
@@ -10,6 +11,7 @@ interface DictionaryPopupProps {
   containerRef: React.RefObject<HTMLElement | null>
   onClose: () => void
   onSaveWord?: (word: string, definition: string) => void
+  onSpeak?: (text: string) => void
   wordSaved?: boolean
 }
 
@@ -22,6 +24,7 @@ export function DictionaryPopup({
   containerRef,
   onClose,
   onSaveWord,
+  onSpeak,
   wordSaved,
 }: DictionaryPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
@@ -97,6 +100,7 @@ export function DictionaryPopup({
       }}
     >
       <div className="dictionary-popup__header">
+        {onSpeak && <SpeakButton onClick={() => onSpeak(word)} size={14} className="dictionary-popup__speak" />}
         <span className="dictionary-popup__word">{word}</span>
         {entry?.phonetic && (
           <span className="dictionary-popup__phonetic">{entry.phonetic}</span>

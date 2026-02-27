@@ -1338,6 +1338,9 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   font-size: 13px;
   color: var(--reader-secondary);
   line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .translation-popup__divider {
@@ -1381,6 +1384,9 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   font-size: 14px;
   line-height: 1.5;
   color: var(--reader-text);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 /* Dictionary popup */
@@ -1636,4 +1642,11 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   stroke: var(--reader-text);
   stroke-width: 1;
   stroke-dasharray: 3 2;
+}
+
+/* TTS speak buttons in popups */
+.dictionary-popup__speak,
+.translation-popup__speak {
+  flex-shrink: 0;
+  margin-right: 2px;
 }

@@ -16,6 +16,7 @@ interface SelectionToolbarProps {
   onTranslate?: () => void
   onDictionary?: () => void
   onSaveWord?: () => void
+  onSpeak?: () => void
   onCopy?: () => void
 }
 
@@ -27,6 +28,7 @@ export function SelectionToolbar({
   onTranslate,
   onDictionary,
   onSaveWord,
+  onSpeak,
   onCopy,
 }: SelectionToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null)
@@ -139,6 +141,18 @@ export function SelectionToolbar({
           <VocabIcon />
         </button>
       )}
+      {onSpeak && text.trim().length <= 500 && (
+        <button
+          className="selection-toolbar__action"
+          onMouseDown={(e) => e.preventDefault()}
+          onTouchStart={(e) => e.preventDefault()}
+          onClick={onSpeak}
+          title="Listen"
+          aria-label="Listen to pronunciation"
+        >
+          <SpeakIcon />
+        </button>
+      )}
       <button
         className="selection-toolbar__action"
         onMouseDown={(e) => e.preventDefault()}
@@ -191,6 +205,16 @@ function VocabIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 5v14" />
       <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+function SpeakIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
     </svg>
   )
 }

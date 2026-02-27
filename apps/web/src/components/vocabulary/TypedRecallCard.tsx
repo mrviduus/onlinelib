@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react'
 import { fuzzyMatch } from '../../lib/fuzzyMatch'
 import type { ReviewCardDto } from '../../api/vocabulary'
+import { SpeakButton } from './SpeakButton'
 
 interface Props {
   card: ReviewCardDto
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
+  onSpeak?: (text: string) => void
   t: (key: string) => string
 }
 
-export function TypedRecallCard({ card, onAnswer, t }: Props) {
+export function TypedRecallCard({ card, onAnswer, onSpeak, t }: Props) {
   const [input, setInput] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [startTime] = useState(Date.now())
@@ -24,6 +26,7 @@ export function TypedRecallCard({ card, onAnswer, t }: Props) {
   return (
     <div className="review-typed">
       <div className="review-typed__prompt">
+        {onSpeak && <SpeakButton onClick={() => onSpeak(card.definition || card.translation || card.word)} size={14} className="review-card__speak" />}
         {card.definition ? (
           <div className="review-typed__definition">{card.definition}</div>
         ) : card.translation ? (

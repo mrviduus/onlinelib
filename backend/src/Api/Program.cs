@@ -20,6 +20,7 @@ using Npgsql;
 using TextStack.Search;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Meilisearch;
+using TextStack.Tts;
 using Application.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
@@ -112,6 +113,11 @@ builder.Services.AddScoped<StandardEbooksSyncService>();
 
 // HttpClient for translation proxy
 builder.Services.AddHttpClient();
+
+// TTS
+builder.Services.Configure<TtsConfiguration>(builder.Configuration.GetSection("Tts"));
+builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
+builder.Services.AddHostedService(sp => (EdgeTtsService)sp.GetRequiredService<ITtsService>());
 
 
 // Rate limiting for admin login
@@ -235,6 +241,7 @@ app.MapReviewEndpoints();
 app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
 app.MapVocabularyEndpoints();
+app.MapTtsEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")

@@ -28,6 +28,8 @@ const alignments: { value: TextAlign; label: string }[] = [
 
 const lineHeights = [1.5, 1.65, 1.8]
 
+const ttsSpeeds = [0.75, 1.0, 1.25, 1.5, 2.0]
+
 export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Props) {
   const containerRef = useFocusTrap(open)
 
@@ -121,6 +123,21 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
                 style={{ fontFamily: f.fontFamily }}
               >
                 {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>TTS Speed</label>
+          <div className="reader-settings-drawer__options">
+            {ttsSpeeds.map((s) => (
+              <button
+                key={s}
+                className={settings.ttsSpeed === s ? 'active' : ''}
+                onClick={() => onUpdate({ ttsSpeed: s })}
+              >
+                {s}x
               </button>
             ))}
           </div>

@@ -71,13 +71,21 @@ export interface CachedDictionaryEntry {
   cachedAt: number
 }
 
+export interface CachedTtsAudio {
+  key: string // `${lang}:${hash(text)}`
+  audioData: ArrayBuffer
+  lang: string
+  cachedAt: number
+}
+
 const DB_NAME = 'textstack-reader'
-const DB_VERSION = 5
+const DB_VERSION = 6
 const CHAPTERS_STORE = 'chapters'
 const BOOKS_META_STORE = 'cachedBooks'
 const HIGHLIGHTS_STORE = 'highlights'
 const TRANSLATIONS_STORE = 'translations'
 const DICTIONARY_STORE = 'dictionary'
+const TTS_STORE = 'tts-audio'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -128,6 +136,12 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       // Dictionary cache store (v5)
       if (!db.objectStoreNames.contains(DICTIONARY_STORE)) {
         const store = db.createObjectStore(DICTIONARY_STORE, { keyPath: 'key' })
+        store.createIndex('cachedAt', 'cachedAt', { unique: false })
+      }
+
+      // TTS audio cache store (v6)
+      if (!db.objectStoreNames.contains(TTS_STORE)) {
+        const store = db.createObjectStore(TTS_STORE, { keyPath: 'key' })
         store.createIndex('cachedAt', 'cachedAt', { unique: false })
       }
     }
@@ -563,6 +577,83 @@ export async function clearOldDictionaryEntries(maxAgeMs = 30 * 24 * 60 * 60 * 1
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DICTIONARY_STORE, 'readwrite')
     const store = tx.objectStore(DICTIONARY_STORE)
+    const index = store.index('cachedAt')
+    const range = IDBKeyRange.upperBound(cutoff)
+    const request = index.openCursor(range)
+
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (cursor) {
+        cursor.delete()
+        cursor.continue()
+      } else {
+        resolve()
+      }
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+// ============ TTS AUDIO CACHE ============
+
+function makeTtsKey(lang: string, text: string): string {
+  return `${lang}:${hashText(text)}`
+}
+
+export async function getCachedTtsAudio(
+  lang: string,
+  text: string
+): Promise<CachedTtsAudio | null> {
+  const db = await openOfflineDb()
+  const key = makeTtsKey(lang, text)
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TTS_STORE, 'readonly')
+    const store = tx.objectStore(TTS_STORE)
+    const request = store.get(key)
+
+    request.onsuccess = () => {
+      const result = request.result as CachedTtsAudio | undefined
+      if (result && Date.now() - result.cachedAt < 30 * 24 * 60 * 60 * 1000) {
+        resolve(result)
+      } else {
+        resolve(null)
+      }
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function cacheTtsAudio(
+  lang: string,
+  text: string,
+  audioData: ArrayBuffer
+): Promise<void> {
+  const db = await openOfflineDb()
+  const cached: CachedTtsAudio = {
+    key: makeTtsKey(lang, text),
+    audioData,
+    lang,
+    cachedAt: Date.now(),
+  }
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TTS_STORE, 'readwrite')
+    const store = tx.objectStore(TTS_STORE)
+    const request = store.put(cached)
+
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function clearOldTtsAudio(maxAgeMs = 30 * 24 * 60 * 60 * 1000): Promise<void> {
+  const db = await openOfflineDb()
+  const cutoff = Date.now() - maxAgeMs
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TTS_STORE, 'readwrite')
+    const store = tx.objectStore(TTS_STORE)
     const index = store.index('cachedAt')
     const range = IDBKeyRange.upperBound(cutoff)
     const request = index.openCursor(range)

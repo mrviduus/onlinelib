@@ -10,6 +10,9 @@ export interface ReaderSettings {
   textAlign: TextAlign
   theme: Theme
   fontFamily: FontFamily
+  ttsSpeed: number // 0.75 - 2.0
+  ttsVoiceEn: string
+  ttsVoiceUk: string
 }
 
 const STORAGE_KEY = 'reader.settings.v1'
@@ -20,6 +23,9 @@ const defaults: ReaderSettings = {
   textAlign: 'center',
   theme: 'light',
   fontFamily: 'serif',
+  ttsSpeed: 1.0,
+  ttsVoiceEn: 'en-US-AriaNeural',
+  ttsVoiceUk: 'uk-UA-PolinaNeural',
 }
 
 function load(): ReaderSettings {

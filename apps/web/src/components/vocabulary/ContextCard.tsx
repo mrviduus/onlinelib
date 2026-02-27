@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { fuzzyMatch } from '../../lib/fuzzyMatch'
 import type { ReviewCardDto } from '../../api/vocabulary'
+import { SpeakButton } from './SpeakButton'
 
 interface Props {
   card: ReviewCardDto
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
+  onSpeak?: (text: string) => void
   t: (key: string) => string
 }
 
-export function ContextCard({ card, onAnswer, t }: Props) {
+export function ContextCard({ card, onAnswer, onSpeak, t }: Props) {
   const [input, setInput] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [startTime] = useState(Date.now())
@@ -23,6 +25,7 @@ export function ContextCard({ card, onAnswer, t }: Props) {
   return (
     <div className="review-context">
       <div className="review-context__sentence">
+        {onSpeak && <SpeakButton onClick={() => onSpeak(card.originalSentence || card.word)} size={14} className="review-card__speak" />}
         {card.blankSentence || card.originalSentence}
       </div>
       {card.bookTitle && (

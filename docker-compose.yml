@@ -65,12 +65,14 @@ services:
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
       Search__Meilisearch__Url: http://meilisearch:7700
       Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-changeme}
+      Tts__CachePath: /data/tts-cache
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: gemma3:4b
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
       - ./data/textstack:/data/textstack
+      - ./data/tts-cache:/data/tts-cache
     ports:
       - "127.0.0.1:8080:8080"  # Only localhost, nginx will proxy
     restart: always

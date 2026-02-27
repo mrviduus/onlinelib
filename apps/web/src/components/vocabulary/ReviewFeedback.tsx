@@ -1,14 +1,16 @@
 import type { ReviewCardDto, SubmitReviewResponse } from '../../api/vocabulary'
+import { SpeakButton } from './SpeakButton'
 
 interface Props {
   card: ReviewCardDto
   result: SubmitReviewResponse
   isCorrect: boolean
+  onSpeak?: (text: string) => void
   t: (key: string) => string
   onNext: () => void
 }
 
-export function ReviewFeedback({ card, result, isCorrect, t, onNext }: Props) {
+export function ReviewFeedback({ card, result, isCorrect, onSpeak, t, onNext }: Props) {
   const stageName = (stage: number) => t(`vocabulary.stages.${stage}`) || `Stage ${stage}`
 
   return (
@@ -17,6 +19,7 @@ export function ReviewFeedback({ card, result, isCorrect, t, onNext }: Props) {
         {isCorrect ? '✓' : '✗'}
       </div>
       <div className="review-feedback__message">
+        {onSpeak && <SpeakButton onClick={() => onSpeak(card.word)} size={18} className="review-card__speak" />}
         {isCorrect ? t('vocabulary.review.correct') : t('vocabulary.review.wrong')}
       </div>
 

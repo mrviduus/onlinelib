@@ -392,5 +392,13 @@
     "untitled": "Untitled Review",
     "ratingRequired": "Please select a rating",
     "textRequired": "Please write your review"
+  },
+  "tts": {
+    "listen": "Listen",
+    "speed": "Speed",
+    "voice": "Voice",
+    "settings": "Pronunciation",
+    "unavailable": "Pronunciation unavailable",
+    "test": "Test"
   }
 }
