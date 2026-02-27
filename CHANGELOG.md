@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### TTS (Text-to-Speech)
+- **Edge TTS integration** — direct WebSocket to `speech.platform.bing.com`, no deps, no API key
+- **`TextStack.Tts`** — separate class library: `EdgeTtsClient` (WebSocket protocol), `EdgeTtsService` (disk cache + SemaphoreSlim)
+- **API**: `GET /api/tts?text=&lang=&speed=` → MP3, `GET /api/tts/voices?lang=` → voice list
+- **Two-layer cache** — server disk (SHA256 key, 30d TTL, 1GB limit) + client IndexedDB (30d TTL)
+- **Vocabulary** — speak buttons on word list + all SRS cards (MC, typed recall, context, feedback)
+- **Reader** — speak in SelectionToolbar, DictionaryPopup (word), TranslationPopup (source + translated)
+- **Settings** — TTS speed in ReaderSettingsDrawer (0.75x – 2.0x)
+- **Voices** — `en-US-AriaNeural` (en), `uk-UA-PolinaNeural` (uk), 200+ available
+- **Tests** — 19 unit (EdgeTtsServiceTests), 11 integration (TtsEndpointTests), 6 E2E (tts.spec.ts)
+
 ### SEO Content — Full Coverage
 - **654 authors** with full SEO (bio, relevance, themes, FAQs) — 100% of indexable authors
 - **1,567 editions** with full SEO (description, relevance, themes, FAQs) — 100% of published editions

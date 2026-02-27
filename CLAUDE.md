@@ -176,6 +176,17 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Translation**: `POST /translate` via LibreTranslate container. Config: `LibreTranslate:BaseUrl`, `LibreTranslate:TimeoutSeconds`, `LibreTranslate:MaxTextLength`.
 
+**TTS (Text-to-Speech)**: Edge TTS via direct WebSocket to `speech.platform.bing.com`. No API key, no deps.
+- **`TextStack.Tts`** class library: `EdgeTtsClient` (WebSocket protocol), `EdgeTtsService` (disk cache + `IHostedService` startup cleanup)
+- **API**: `GET /api/tts?text=&lang=&voice=&speed=` → `audio/mpeg`, `GET /api/tts/voices?lang=` → voice list. No auth required
+- **Two-layer cache**: server disk (`data/tts-cache/`, SHA256 key, 30d TTL, 1GB) + client IndexedDB (30d TTL)
+- **Frontend**: `useTts()` hook → speak/stop/isPlaying. Used in vocabulary (word list + SRS cards) and reader (SelectionToolbar, DictionaryPopup, TranslationPopup)
+- **Reader wiring**: `ReaderHighlights.tsx` orchestrates — passes `onSpeak` to toolbar/popups
+- **Settings**: `ttsSpeed` in `useReaderSettings` (0.75x–2.0x), UI in `ReaderSettingsDrawer`
+- **Voices**: `en-US-AriaNeural` (en), `uk-UA-PolinaNeural` (uk), 200+ available
+- **Config**: `Tts:CachePath`, `Tts:MaxTextLength` (500), `Tts:TimeoutSeconds` (15). Docker: env `Tts__CachePath=/data/tts-cache`
+- **Graceful degradation**: if disk cache unavailable (permissions), TTS still works without caching
+
 **Vocabulary SRS**: Spaced repetition vocabulary builder integrated into the reader.
 - **Entity**: `VocabularyWord` — word, translation, definition, sentence, bookTitle, distractors (JSON), hint (LLM-generated), SRS fields (stage, interval, consecutiveCorrect, nextReviewAt)
 - **Review entity**: `VocabularyReview` — tracks each answer (isCorrect, responseTimeMs, reviewMode)
@@ -200,7 +211,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 ## API Endpoints
 
-**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`
+**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`
 
 **Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`
 
@@ -245,6 +256,10 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Vocab Components | `apps/web/src/components/vocabulary/` |
 | Vocab Hooks | `apps/web/src/hooks/useVocabulary.ts`, `useVocabularyReview.ts` |
 | Vocab E2E | `apps/web/e2e/tests/vocabulary.spec.ts` |
+| TTS Library | `backend/src/Tts/TextStack.Tts/` (EdgeTtsClient, EdgeTtsService, ITtsService) |
+| TTS API | `backend/src/Api/Endpoints/TtsEndpoints.cs` |
+| TTS Hook | `apps/web/src/hooks/useTts.ts` |
+| TTS E2E | `apps/web/e2e/tests/tts.spec.ts` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
 

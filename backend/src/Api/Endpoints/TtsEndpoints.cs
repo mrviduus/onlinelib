@@ -13,8 +13,8 @@ public static class TtsEndpoints
     }
 
     private static async Task<IResult> Synthesize(
-        string text,
-        string lang,
+        string? text,
+        string? lang,
         string? voice,
         double? speed,
         ITtsService tts,

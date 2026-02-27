@@ -33,6 +33,10 @@ Modular monolith: single API + Worker, layered architecture, PostgreSQL.
                                           ┌───────────────┐
                                           │LibreTranslate │
                                           └───────────────┘
+                                          ┌───────────────┐
+                                          │  Edge TTS     │
+                                          │ (WebSocket)   │
+                                          └───────────────┘
 ```
 
 ## Backend Layers
@@ -56,6 +60,8 @@ backend/src/
 │   ├── Data/         # AppDbContext, Configurations
 │   ├── Migrations/   # EF migrations
 │   └── Storage/      # LocalFileStorageService
+├── Tts/              # Text-to-Speech
+│   └── TextStack.Tts/ # EdgeTtsClient (WebSocket), EdgeTtsService (cache)
 ├── Worker/           # Background jobs
 │   ├── Services/     # IngestionWorker
 │   └── Parsers/      # EpubParser
@@ -85,6 +91,7 @@ Endpoints grouped by domain:
 - `MapSearchEndpoints()` — FTS search
 - `MapVocabularyEndpoints()` — vocabulary SRS + review
 - `MapReadingTrackingEndpoints()` — sessions, goals, achievements
+- `MapTtsEndpoints()` — text-to-speech synthesis + voice listing
 
 ### Background Jobs
 Worker polls database for queued jobs:
@@ -117,6 +124,25 @@ packages/             # Shared TS code
 ├── sync/             # Offline queue
 └── reader/           # Locator format
 ```
+
+## TTS (Text-to-Speech)
+
+```
+┌──────────┐    ┌──────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│ Frontend │───►│ GET /api/tts │───►│ EdgeTtsService  │───►│  EdgeTtsClient   │
+│ useTts() │    │ TtsEndpoints │    │ (disk cache)    │    │ (WebSocket)      │
+└──────────┘    └──────────────┘    └─────────────────┘    └──────────────────┘
+     │                                     │                        │
+     ▼                                     ▼                        ▼
+┌──────────┐                      ┌─────────────────┐    ┌──────────────────┐
+│IndexedDB │                      │ data/tts-cache/  │    │ speech.platform  │
+│(browser) │                      │ {sha256}.mp3     │    │ .bing.com (wss)  │
+└──────────┘                      └─────────────────┘    └──────────────────┘
+```
+
+**Flow**: `useTts.speak(text, lang)` → check IndexedDB → miss → `GET /api/tts` → `EdgeTtsService` checks disk cache → miss → `EdgeTtsClient` opens WebSocket → receives MP3 chunks → saves to disk → returns bytes → frontend saves to IndexedDB → plays `<audio>`.
+
+**Cache keys**: Server: `SHA256(text+voice+rate)[:16].mp3`. Client: `{lang}:{SHA256(text)[:16]}`.
 
 ## See Also
 
