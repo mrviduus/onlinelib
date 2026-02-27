@@ -73,8 +73,15 @@ public class EdgeTtsService : ITtsService, IHostedService
 
             if (cachePath != null)
             {
-                await File.WriteAllBytesAsync(cachePath, audio, ct);
-                _logger.LogInformation("TTS cached: {Key} ({Size}KB)", cacheKey, audio.Length / 1024);
+                try
+                {
+                    await File.WriteAllBytesAsync(cachePath, audio, ct);
+                    _logger.LogInformation("TTS cached: {Key} ({Size}KB)", cacheKey, audio.Length / 1024);
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                {
+                    _logger.LogWarning(ex, "TTS cache write failed for {Key}, returning audio without caching", cacheKey);
+                }
             }
 
             return audio;
