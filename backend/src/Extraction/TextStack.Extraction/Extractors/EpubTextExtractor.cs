@@ -146,8 +146,21 @@ public sealed class EpubTextExtractor : ITextExtractor
 
         try
         {
+            // EPUB 3: properties="cover-image"
             var coverFilePath = book.Schema.Package.Manifest.Items
                 .FirstOrDefault(i => i.Properties?.Contains(EpubManifestProperty.COVER_IMAGE) == true)?.Href;
+
+            // EPUB 2 fallback: <meta name="cover" content="item-id"/>
+            if (coverFilePath == null)
+            {
+                var coverMetaId = book.Schema.Package.Metadata.MetaItems
+                    .FirstOrDefault(m => string.Equals(m.Name, "cover", StringComparison.OrdinalIgnoreCase))?.Content;
+                if (coverMetaId != null)
+                {
+                    coverFilePath = book.Schema.Package.Manifest.Items
+                        .FirstOrDefault(i => string.Equals(i.Id, coverMetaId, StringComparison.OrdinalIgnoreCase))?.Href;
+                }
+            }
 
             foreach (var imageFile in book.Content.Images.Local)
             {
@@ -159,9 +172,11 @@ public sealed class EpubTextExtractor : ITextExtractor
 
                     var mimeType = GetMimeType(imageFile.ContentType) ?? ImageUtils.DetectMimeType(imageBytes);
                     var originalPath = imageFile.FilePath;
-                    var isCover = coverFilePath != null &&
-                                  (originalPath.EndsWith(coverFilePath, StringComparison.OrdinalIgnoreCase) ||
-                                   originalPath.Contains("cover", StringComparison.OrdinalIgnoreCase));
+                    var isCover = coverFilePath != null
+                        ? (originalPath.EndsWith(coverFilePath, StringComparison.OrdinalIgnoreCase) ||
+                           originalPath.Contains("cover", StringComparison.OrdinalIgnoreCase))
+                        : Path.GetFileNameWithoutExtension(originalPath)
+                              .Equals("cover", StringComparison.OrdinalIgnoreCase);
 
                     if (isCover && coverImage == null)
                     {

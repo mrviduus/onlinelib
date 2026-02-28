@@ -21,7 +21,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 RUN apk add --no-cache git \
     && deluser app 2>/dev/null; delgroup app 2>/dev/null; \
        addgroup -g 1000 app && adduser -D -u 1000 -G app app
-RUN mkdir -p /storage /data/textstack /data/tts-cache && chown -R app:app /storage /data/textstack /data/tts-cache
+RUN mkdir -p /storage/users /data/textstack /data/tts-cache && chown -R app:app /storage /data/textstack /data/tts-cache
 WORKDIR /app
 COPY --from=build /app/publish .
 USER app
