@@ -83,7 +83,7 @@ export function UploadPage() {
   return (
     <div className="upload-page">
       <h1>Upload Book</h1>
-      <p className="upload-page__subtitle">Upload an EPUB or PDF file to add to the library.</p>
+      <p className="upload-page__subtitle">Upload an EPUB, PDF or FB2 file to add to the library.</p>
 
       <form onSubmit={handleSubmit} className="upload-form">
         <div className="form-group">
@@ -91,7 +91,7 @@ export function UploadPage() {
           <input
             type="file"
             id="file"
-            accept=".epub,.pdf"
+            accept=".epub,.pdf,.fb2"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             required
           />

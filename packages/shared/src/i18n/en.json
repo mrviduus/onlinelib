@@ -91,7 +91,7 @@
     "processing": "Processing...",
     "failed": "Failed",
     "noUploads": "No uploaded books yet.",
-    "uploadHint": "Click the + button to upload EPUB files.",
+    "uploadHint": "Click the + button to upload EPUB, PDF or FB2 files.",
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

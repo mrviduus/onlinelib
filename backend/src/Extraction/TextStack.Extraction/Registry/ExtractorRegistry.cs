@@ -9,7 +9,8 @@ public sealed class ExtractorRegistry : IExtractorRegistry
     private static readonly Dictionary<string, SourceFormat> ExtensionMap = new(StringComparer.OrdinalIgnoreCase)
     {
         [".epub"] = SourceFormat.Epub,
-        [".pdf"] = SourceFormat.Pdf
+        [".pdf"] = SourceFormat.Pdf,
+        [".fb2"] = SourceFormat.Fb2
     };
 
     private readonly Dictionary<SourceFormat, ITextExtractor> _extractors;

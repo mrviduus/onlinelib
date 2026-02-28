@@ -49,6 +49,7 @@ else
 // Extraction
 builder.Services.AddSingleton<ITextExtractor, EpubTextExtractor>();
 builder.Services.AddSingleton<ITextExtractor, PdfTextExtractor>();
+builder.Services.AddSingleton<ITextExtractor, Fb2TextExtractor>();
 builder.Services.AddSingleton<IExtractorRegistry, ExtractorRegistry>();
 
 // Image optimization

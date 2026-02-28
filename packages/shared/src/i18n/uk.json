@@ -91,7 +91,7 @@
     "processing": "Обробка...",
     "failed": "Помилка",
     "noUploads": "Завантажених книг поки немає.",
-    "uploadHint": "Натисніть кнопку +, щоб завантажити EPUB файли.",
+    "uploadHint": "Натисніть кнопку +, щоб завантажити EPUB, PDF або FB2 файли.",
     "timeJustNow": "щойно",
     "timeMinAgo": "хв тому",
     "timeHoursAgo": "год тому",
