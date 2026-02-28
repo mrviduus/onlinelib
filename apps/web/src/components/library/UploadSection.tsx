@@ -84,7 +84,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
       >
         <input
           type="file"
-          accept=".epub,.pdf"
+          accept=".epub,.pdf,.fb2"
           onChange={handleFileSelect}
           disabled={isUploading}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 2 }}
@@ -108,7 +108,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
             <p className="upload-section__text">
-              Drop EPUB or PDF here
+              Drop EPUB, PDF or FB2 here
             </p>
             <p className="upload-section__subtext">
               or click to browse

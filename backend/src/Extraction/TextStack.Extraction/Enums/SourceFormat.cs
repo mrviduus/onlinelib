@@ -4,5 +4,6 @@ public enum SourceFormat
 {
     Unknown = 0,
     Epub = 1,
-    Pdf = 2
+    Pdf = 2,
+    Fb2 = 3
 }
