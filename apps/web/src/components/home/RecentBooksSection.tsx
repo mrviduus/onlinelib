@@ -48,14 +48,7 @@ export function RecentBooksSection() {
   }
 
   if (error) {
-    return (
-      <section className="home-books">
-        <div className="home-books__header">
-          <h2 className="home-books__title">{t('home.recentBooks.title')}</h2>
-        </div>
-        <p className="home-books__error">{error}</p>
-      </section>
-    )
+    return null
   }
 
   if (books.length === 0) {
