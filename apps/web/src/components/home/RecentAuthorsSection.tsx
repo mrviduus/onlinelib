@@ -48,14 +48,7 @@ export function RecentAuthorsSection() {
   }
 
   if (error) {
-    return (
-      <section className="home-authors">
-        <div className="home-authors__header">
-          <h2 className="home-authors__title">{t('home.recentAuthors.title')}</h2>
-        </div>
-        <p className="home-authors__error">{error}</p>
-      </section>
-    )
+    return null
   }
 
   if (authors.length === 0) {

@@ -28,6 +28,8 @@ make up / down / restart / logs / status
 make build                    # docker compose up -d --build
 make rebuild                  # full rebuild --no-cache
 make clean-ssg                # remove dist/ssg*
+make fix-permissions          # Fix volume permissions
+make reindex-search           # Rebuild search indexes
 
 # Deploy
 make deploy                   # Full deploy (pull, build, restart, SSG)
@@ -157,6 +159,7 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 - UserBook → UserChapter (parallel to Work/Edition/Chapter but per-user)
 - Upload flow: UserBookFile → UserIngestionJob → Worker extracts chapters
 - Pages: `/:lang/library/my/:id` (detail), `/:lang/library/my/:id/read/:chapterSlug` (reader with `mode="userbook"`)
+- Metadata enrichment: `BookMetadataGenerator` (Worker) — Ollama fire-and-forget generates genre, year, description from title+author. Fields: Author, Genre, PublishedYear, TotalWordCount
 
 **Book Upload Flow**:
 ```
@@ -198,6 +201,17 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
 
+**Reviews & Ratings**: Users rate books (0–5 stars, half-step) and write reviews.
+- Entities: `UserRating`, `ReviewComment` (threads), `ReviewLike` (upvotes)
+- API: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
+- Frontend: `ReviewForm`, `ReviewsList`, `ReviewCard`, `ReviewComments`, `RatingDistribution` in `components/reviews/`
+- API client: `apps/web/src/api/reviews.ts`
+
+**Reading Moods**: Tag reading sessions with moods for emotional tracking.
+- Entities: `Mood`, `UserMoodTag`
+- Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
+- Admin: `MapAdminMoodEndpoints()` in `Api/Endpoints/AdminMoodEndpoints.cs`
+
 **SSG**: Puppeteer prerenders SEO pages to static HTML
 - nginx serves SSG first, falls back to SPA
 - Run `make rebuild-ssg` after content changes
@@ -219,11 +233,15 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
+**Reviews**: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
+
+**Moods**: `GET/POST /me/moods`
+
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`
 
 ## Key Files
 
@@ -260,13 +278,27 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | TTS API | `backend/src/Api/Endpoints/TtsEndpoints.cs` |
 | TTS Hook | `apps/web/src/hooks/useTts.ts` |
 | TTS E2E | `apps/web/e2e/tests/tts.spec.ts` |
+| Reviews API | `backend/src/Api/Endpoints/ReviewEndpoints.cs` |
+| Reviews Client | `apps/web/src/api/reviews.ts` |
+| Review Components | `apps/web/src/components/reviews/` |
+| Moods | `apps/web/src/components/MoodSelector.tsx`, `components/stats/MoodChart.tsx` |
+| Moods Admin | `backend/src/Api/Endpoints/AdminMoodEndpoints.cs` |
+| Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
+| FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
+| Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
 
 ## Search
 
-Search uses raw SQL (Dapper). After schema changes:
-1. Update `backend/src/Search/TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs`
+Two providers, swappable via `SEARCH_PROVIDER` env var (default: `postgres`):
+- **PostgreSQL FTS**: Raw SQL (Dapper) in `TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs`
+- **Meilisearch**: `TextStack.Search.Meilisearch/` — typo tolerance, better ranking, faceting. Docker service `meilisearch:v1.12`, config: `MEILI_MASTER_KEY`
+
+Reindex: `make reindex-search`
+
+After schema changes:
+1. Update the relevant search provider
 2. Run `dotnet test tests/TextStack.IntegrationTests --filter SearchEndpoint`
 3. Test: `https://textstack.app/en/search?q=test`
 
@@ -311,11 +343,15 @@ Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
   └─ textstack.dev → admin panel (:81)
 ```
 
-Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard`, `libretranslate`. All localhost-only, no public ports except 80 via tunnel.
+Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard`, `libretranslate`, `ollama`, `meilisearch`. All localhost-only, no public ports except 80 via tunnel.
+
+**Notable env vars** (beyond `.env.example` basics): `SEARCH_PROVIDER=postgres|meilisearch`, `MEILI_MASTER_KEY`, `INDEXNOW_KEY`, `INDEXNOW_ENABLED`.
 
 ## Extraction Pipeline
 
-Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
+Supported formats: EPUB, PDF, FB2. Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
+
+FB2 (`Fb2TextExtractor`): XML-based FictionBook 2.0. Cover from binary elements, metadata extraction, chapter flattening, namespace detection for non-compliant files.
 
 ## Telemetry
 
