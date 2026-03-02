@@ -1,9 +1,9 @@
 {
   "home": {
     "hero": {
-      "title": "A calm place to read books online",
-      "subtitle": "Clean reading experience. Thousands of books. No distractions.",
-      "description": "TextStack is a free online library of classic and public-domain books. Read literature by famous authors directly in your browser — no downloads, no distractions.",
+      "title": "Learn languages by reading real books",
+      "subtitle": "Read classic literature. Build vocabulary. Track your progress.",
+      "description": "TextStack is a reading platform for language learners. Thousands of classic books with built-in vocabulary tools, spaced repetition, and reading statistics.",
       "cta": "Browse catalog"
     },
     "recentAuthors": {
@@ -16,7 +16,7 @@
       "read": "Read"
     },
     "seo": {
-      "content": "Textstack is an online platform designed for comfortable reading. The current catalog features classic literature and public-domain works by authors from different eras and traditions. Each book is organized into chapters for easy navigation. The platform is built for readers who prefer a distraction-free reading experience."
+      "content": "TextStack is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
     }
   },
   "common": {
@@ -30,12 +30,12 @@
     "stats": "Stats",
     "vocabulary": "Vocabulary",
     "about": "About",
-    "brandTitle": "TextStack - Free online library",
+    "brandTitle": "TextStack - Learn languages through reading",
     "browseBooks": "Browse all books",
     "aboutTextStack": "About TextStack"
   },
   "footer": {
-    "description": "TextStack is an online platform designed for comfortable reading. The current catalog features classic literature and public-domain works by authors from different eras and traditions. Each book is organized into chapters for easy navigation. The platform is built for readers who prefer a distraction-free reading experience.",
+    "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "contact": "Contact Us"
