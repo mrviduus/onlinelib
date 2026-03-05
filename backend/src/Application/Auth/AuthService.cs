@@ -107,12 +107,18 @@ public class AuthService
         if (token == null)
             return null;
 
-        // Rotate refresh token
-        _db.UserRefreshTokens.Remove(token);
-        var newRefreshToken = await CreateRefreshTokenAsync(token.UserId, ct);
-        var accessToken = GenerateAccessToken(token.User);
-
-        return (token.User, accessToken, newRefreshToken);
+        // Rotate refresh token — catch race condition if token already consumed by concurrent request
+        try
+        {
+            _db.UserRefreshTokens.Remove(token);
+            var newRefreshToken = await CreateRefreshTokenAsync(token.UserId, ct);
+            var accessToken = GenerateAccessToken(token.User);
+            return (token.User, accessToken, newRefreshToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return null;
+        }
     }
 
     public async Task<bool> LogoutAsync(string refreshToken, CancellationToken ct)
