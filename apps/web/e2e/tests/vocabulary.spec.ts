@@ -71,8 +71,8 @@ test.describe('Vocabulary', () => {
     await page.goto('/en/vocabulary')
     await page.waitForLoadState('networkidle')
 
-    // Click Start Review
-    await page.locator('.vocab-review-btn').click()
+    // Click Start Review (not Practice)
+    await page.locator('.vocab-review-btn:not(.vocab-review-btn--practice)').click()
     await page.waitForLoadState('networkidle')
 
     // Should be on review page
