@@ -265,6 +265,7 @@ public static class VocabularyEndpoints
         AuthService authService,
         IAppDbContext db,
         [FromQuery] int? limit,
+        [FromQuery] string? mode,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -273,15 +274,30 @@ public static class VocabularyEndpoints
 
         var now = DateTimeOffset.UtcNow;
         var batchSize = Math.Min(limit ?? 20, 50);
+        var isPractice = string.Equals(mode, "practice", StringComparison.OrdinalIgnoreCase);
 
         var totalDue = await db.VocabularyWords
             .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now, ct);
 
-        var dueWords = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
-            .OrderBy(w => w.NextReviewAt)
-            .Take(batchSize)
-            .ToListAsync(ct);
+        List<VocabularyWord> dueWords;
+        if (isPractice)
+        {
+            dueWords = await db.VocabularyWords
+                .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+                .OrderBy(w => w.TotalReviews == 0 ? 0.0 : (double)w.CorrectReviews / w.TotalReviews)
+                .ThenBy(w => w.Stage)
+                .ThenBy(_ => EF.Functions.Random())
+                .Take(batchSize)
+                .ToListAsync(ct);
+        }
+        else
+        {
+            dueWords = await db.VocabularyWords
+                .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
+                .OrderBy(w => w.NextReviewAt)
+                .Take(batchSize)
+                .ToListAsync(ct);
+        }
 
         if (dueWords.Count == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue));
@@ -306,19 +322,19 @@ public static class VocabularyEndpoints
         var cards = new List<ReviewCardDto>();
         foreach (var w in dueWords)
         {
-            var mode = SrsEngine.GetReviewMode(w.Stage, w.Sentence != null);
+            var reviewMode = SrsEngine.GetReviewMode(w.Stage, w.Sentence != null);
             List<string>? options = null;
             int? correctIndex = null;
             string? blankSentence = null;
 
-            if (mode == "multiple_choice")
+            if (reviewMode == "multiple_choice")
             {
                 var llmDistractors = ParseDistractors(w.Distractors);
                 var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition) || !string.IsNullOrWhiteSpace(w.Translation);
 
                 if (!hasPrompt && w.Sentence == null)
                 {
-                    mode = "typed_recall";
+                    reviewMode = "typed_recall";
                 }
                 else
                 {
@@ -362,12 +378,12 @@ public static class VocabularyEndpoints
                 }
             }
 
-            if (mode == "context" && w.Sentence != null)
+            if (reviewMode == "context" && w.Sentence != null)
                 blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
 
             cards.Add(new ReviewCardDto(
                 w.Id, w.Word, w.Translation, w.Definition,
-                mode, blankSentence, w.Sentence, w.BookTitle,
+                reviewMode, blankSentence, w.Sentence, w.BookTitle,
                 w.Hint, options, correctIndex));
         }
 
@@ -391,27 +407,44 @@ public static class VocabularyEndpoints
             .FirstOrDefaultAsync(w => w.Id == request.WordId && w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (word == null) return Results.NotFound();
 
+        var isPractice = string.Equals(request.Mode, "practice", StringComparison.OrdinalIgnoreCase);
         var prevStage = word.Stage;
-        var (newStage, newInterval, newConsecutive) = SrsEngine.Calculate(
-            word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
-
         var now = DateTimeOffset.UtcNow;
-        word.Stage = newStage;
-        word.IntervalDays = newInterval;
-        word.ConsecutiveCorrect = newConsecutive;
-        word.NextReviewAt = now.AddDays(newInterval);
+        int newStage;
+        double newInterval;
+        int newConsecutive;
+
+        if (isPractice && request.IsCorrect)
+        {
+            // Practice correct: don't change SRS schedule
+            newStage = prevStage;
+            newInterval = word.IntervalDays;
+            newConsecutive = word.ConsecutiveCorrect;
+        }
+        else
+        {
+            // SRS review OR practice incorrect: full SRS calculation
+            (newStage, newInterval, newConsecutive) = SrsEngine.Calculate(
+                word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
+            word.Stage = newStage;
+            word.IntervalDays = newInterval;
+            word.ConsecutiveCorrect = newConsecutive;
+            word.NextReviewAt = now.AddDays(newInterval);
+        }
+
         word.LastReviewedAt = now;
         word.TotalReviews++;
         if (request.IsCorrect) word.CorrectReviews++;
         word.UpdatedAt = now;
 
+        var reviewMode = SrsEngine.GetReviewMode(prevStage, word.Sentence != null);
         var review = new VocabularyReview
         {
             Id = Guid.NewGuid(),
             VocabularyWordId = word.Id,
             UserId = userId.Value,
             SiteId = siteId,
-            ReviewMode = SrsEngine.GetReviewMode(prevStage, word.Sentence != null),
+            ReviewMode = isPractice ? $"practice_{reviewMode}" : reviewMode,
             IsCorrect = request.IsCorrect,
             ResponseTimeMs = request.ResponseTimeMs,
             StageBefore = prevStage,
@@ -569,7 +602,7 @@ public record ReviewCardDto(
     string? Hint,
     List<string>? Options, int? CorrectOptionIndex);
 
-public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs);
+public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs, string? Mode = null);
 
 public record SubmitReviewResponse(
     Guid WordId, int PreviousStage, int NewStage, bool StageChanged,

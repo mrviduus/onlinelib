@@ -302,6 +302,7 @@
     "wordSaved": "Word saved",
     "alreadySaved": "Already saved",
     "startReview": "Start Review",
+    "startPractice": "Practice",
     "dueToday": "Due today",
     "totalWords": "Total words",
     "mastered": "Mastered",
@@ -351,7 +352,10 @@
       "promoted": "Level up!",
       "check": "Check",
       "fromBook": "from \"{title}\"",
-      "backToVocab": "Back to Vocabulary"
+      "backToVocab": "Back to Vocabulary",
+      "practiceMode": "Practice Mode",
+      "practiceNote": "Correct answers don't change your review schedule.",
+      "noPracticeWords": "Save some words while reading to practice them."
     },
     "stats": {
       "reviewedToday": "Reviewed today",

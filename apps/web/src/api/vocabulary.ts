@@ -64,6 +64,7 @@ export interface SubmitReviewRequest {
   wordId: string
   isCorrect: boolean
   responseTimeMs: number
+  mode?: string
 }
 
 export interface SubmitReviewResponse {
@@ -138,9 +139,12 @@ export async function updateWord(id: string, data: UpdateWordRequest): Promise<V
   })
 }
 
-export async function getReviewQueue(limit?: number): Promise<ReviewQueueResponse> {
-  const qs = limit ? `?limit=${limit}` : ''
-  return authFetch<ReviewQueueResponse>(`/me/vocabulary/review${qs}`)
+export async function getReviewQueue(limit?: number, mode?: 'srs' | 'practice'): Promise<ReviewQueueResponse> {
+  const params = new URLSearchParams()
+  if (limit) params.set('limit', String(limit))
+  if (mode && mode !== 'srs') params.set('mode', mode)
+  const qs = params.toString()
+  return authFetch<ReviewQueueResponse>(`/me/vocabulary/review${qs ? `?${qs}` : ''}`)
 }
 
 export async function submitReview(data: SubmitReviewRequest): Promise<SubmitReviewResponse> {

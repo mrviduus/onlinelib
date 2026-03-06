@@ -130,14 +130,26 @@ export function VocabularyPage() {
           </div>
         )}
 
-        {/* Review button */}
-        {stats && stats.dueNow > 0 && (
-          <button
-            className="vocab-review-btn"
-            onClick={() => navigate(getLocalizedPath('/vocabulary/review'))}
-          >
-            {t('vocabulary.startReview')} ({stats.dueNow})
-          </button>
+        {/* Review / Practice buttons */}
+        {stats && (stats.dueNow > 0 || stats.totalWords > 0) && (
+          <div className="vocab-review-actions">
+            {stats.dueNow > 0 && (
+              <button
+                className="vocab-review-btn"
+                onClick={() => navigate(getLocalizedPath('/vocabulary/review'))}
+              >
+                {t('vocabulary.startReview')} ({stats.dueNow})
+              </button>
+            )}
+            {stats.totalWords > 0 && (
+              <button
+                className="vocab-review-btn vocab-review-btn--practice"
+                onClick={() => navigate(getLocalizedPath('/vocabulary/review') + '?mode=practice')}
+              >
+                {t('vocabulary.startPractice')}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Filters */}

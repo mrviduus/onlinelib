@@ -302,6 +302,7 @@
     "wordSaved": "Слово збережено",
     "alreadySaved": "Вже збережено",
     "startReview": "Почати повторення",
+    "startPractice": "Практика",
     "dueToday": "На сьогодні",
     "totalWords": "Всього слів",
     "mastered": "Засвоєно",
@@ -351,7 +352,10 @@
       "promoted": "Новий рівень!",
       "check": "Перевірити",
       "fromBook": "з \"{title}\"",
-      "backToVocab": "До словника"
+      "backToVocab": "До словника",
+      "practiceMode": "Режим практики",
+      "practiceNote": "Правильні відповіді не впливають на розклад повторення.",
+      "noPracticeWords": "Зберігайте слова під час читання, щоб практикувати їх."
     },
     "stats": {
       "reviewedToday": "Повторено сьогодні",

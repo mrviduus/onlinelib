@@ -22,8 +22,11 @@ export function useVocabularyReview() {
   const [lastResult, setLastResult] = useState<SubmitReviewResponse | null>(null)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
   const [answerRevealed, setAnswerRevealed] = useState(false)
+  const [mode, setMode] = useState<'srs' | 'practice'>('srs')
 
-  const startSession = useCallback(async (limit?: number) => {
+  const startSession = useCallback(async (limit?: number, sessionMode?: 'srs' | 'practice') => {
+    const m = sessionMode || 'srs'
+    setMode(m)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
@@ -32,7 +35,7 @@ export function useVocabularyReview() {
     setLastAnswerCorrect(false)
     setAnswerRevealed(false)
     try {
-      const queue = await getReviewQueue(limit)
+      const queue = await getReviewQueue(limit, m)
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
       setSessionStats(prev => ({ ...prev, total: queue.cards.length }))
@@ -52,6 +55,7 @@ export function useVocabularyReview() {
         wordId: card.wordId,
         isCorrect,
         responseTimeMs,
+        mode: mode === 'practice' ? 'practice' : undefined,
       })
       setLastResult(result)
       setLastAnswerCorrect(isCorrect)
@@ -64,7 +68,7 @@ export function useVocabularyReview() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit')
     }
-  }, [cards, currentIndex])
+  }, [cards, currentIndex, mode])
 
   const nextCard = useCallback(() => {
     setCurrentIndex(prev => prev + 1)
@@ -90,6 +94,7 @@ export function useVocabularyReview() {
     answerRevealed,
     isSessionComplete,
     hasCards,
+    mode,
     startSession,
     submitAnswer,
     nextCard,

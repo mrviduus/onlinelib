@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
@@ -16,6 +16,8 @@ export function VocabularyReviewPage() {
   const { language } = useLanguage()
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sessionMode = searchParams.get('mode') === 'practice' ? 'practice' as const : 'srs' as const
 
   const {
     currentCard,
@@ -28,6 +30,7 @@ export function VocabularyReviewPage() {
     answerRevealed,
     isSessionComplete,
     hasCards,
+    mode,
     startSession,
     submitAnswer,
     nextCard,
@@ -37,8 +40,8 @@ export function VocabularyReviewPage() {
   const handleSpeak = (text: string) => speak(text, language)
 
   useEffect(() => {
-    if (user) startSession(20)
-  }, [user, startSession])
+    if (user) startSession(20, sessionMode)
+  }, [user, startSession, sessionMode])
 
   if (!user) {
     return (
@@ -68,7 +71,7 @@ export function VocabularyReviewPage() {
     return (
       <div className="vocab-page">
         <div className="vocab-empty">
-          <p>{t('vocabulary.noReviewDue')}</p>
+          <p>{mode === 'practice' ? t('vocabulary.review.noPracticeWords') : t('vocabulary.noReviewDue')}</p>
           <button
             className="vocab-review-btn"
             style={{ marginTop: '1rem' }}
@@ -90,12 +93,18 @@ export function VocabularyReviewPage() {
           t={t}
           onBack={() => navigate(`/${language}/vocabulary`)}
         />
+        {mode === 'practice' && (
+          <p className="review-practice-note">{t('vocabulary.review.practiceNote')}</p>
+        )}
       </div>
     )
   }
 
   return (
     <div className="vocab-page">
+      {mode === 'practice' && (
+        <div className="review-mode-badge">{t('vocabulary.review.practiceMode')}</div>
+      )}
       <div className="review-progress">
         <div className="review-progress__bar">
           <div
