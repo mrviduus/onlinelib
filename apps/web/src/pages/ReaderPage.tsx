@@ -134,6 +134,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   )
   const { add: addToLibrary, isInLibrary } = useLibrary()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [bookCompleted, setBookCompleted] = useState(false)
   const libraryAddedRef = useRef(false)
   const editionIdRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
@@ -320,7 +321,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const restoredRef = useRef(false)
 
   // Calculate overall book progress based on word counts
-  const overallProgress = useMemo(() => {
+  const calculatedProgress = useMemo(() => {
     // For scroll mode (both public and userbook)
     if (useScrollMode && scrollReaderBook) {
       const chapters = scrollReaderBook.chapters
@@ -392,6 +393,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
     return 0
   }, [mode, publicBook, book, scrollReaderBook, chapterSlug, chapterIdentifier, progress, totalPages, useScrollMode, scrollReader.visibleIdentifier, scrollReader.scrollOffset, scrollReader.chapterRefs])
+
+  // Force 100% when book is completed
+  const overallProgress = bookCompleted ? 1 : calculatedProgress
 
   // Reading session tracking (time, words)
   const readingSession = useReadingSession({
@@ -838,6 +842,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // Navigation handlers
   const navigateToChapterCustom = useCallback((identifier: string) => {
+    setBookCompleted(false)
     navigate(getChapterUrl(identifier))
   }, [navigate, getChapterUrl])
 
@@ -856,6 +861,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       nextPage()
     } else if (chapter?.next) {
       navigateToChapterCustom(chapter.next.identifier)
+    } else if (currentPage >= totalPages - 1 && !chapter?.next) {
+      setBookCompleted(true)
     }
   }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession])
 
@@ -1105,6 +1112,32 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
       {toastMessage && (
         <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+      )}
+
+      {bookCompleted && (
+        <div className="reader-complete-overlay" onClick={() => setBookCompleted(false)}>
+          <div className="reader-complete" onClick={e => e.stopPropagation()}>
+            <h2>You've finished this book</h2>
+            <p className="reader-complete__title">{book.title}</p>
+            <div className="reader-complete__actions">
+              {mode === 'public' ? (
+                <LocalizedLink to={backUrl} className="reader-complete__btn">
+                  Back to Book
+                </LocalizedLink>
+              ) : (
+                <Link to={backUrl} className="reader-complete__btn">
+                  Back to Book
+                </Link>
+              )}
+              <button
+                className="reader-complete__btn reader-complete__btn--secondary"
+                onClick={() => setBookCompleted(false)}
+              >
+                Keep Reading
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

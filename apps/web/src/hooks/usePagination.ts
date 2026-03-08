@@ -131,7 +131,7 @@ export function usePagination(
     }
   }, [currentPage, goToPage])
 
-  const progress = totalPages > 1 ? currentPage / (totalPages - 1) : 0
+  const progress = totalPages <= 1 ? 1 : currentPage / (totalPages - 1)
   const pagesLeft = totalPages - currentPage - 1
 
   return {
