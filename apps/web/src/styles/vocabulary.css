@@ -68,7 +68,9 @@
 }
 
 .vocab-review-btn--practice {
-  background: var(--color-text-muted);
+  background: transparent;
+  border: 1.5px solid var(--color-primary);
+  color: var(--color-primary);
 }
 
 .vocab-review-actions {
