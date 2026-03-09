@@ -43,14 +43,6 @@ jobs:
             git pull origin main
           fi
 
-      - name: Clean dist/ssg before build
-        run: |
-          cd $PROJECT_DIR/apps/web
-          # Remove ssg folder if owned by root (Docker) - will be rebuilt after
-          if [ -d dist/ssg ]; then
-            docker run --rm -v "$PWD/dist:/dist" alpine rm -rf /dist/ssg /dist/ssg-old /dist/ssg-new 2>/dev/null || true
-          fi
-
       - name: Build frontend
         run: |
           cd $PROJECT_DIR/apps/web
@@ -70,34 +62,9 @@ jobs:
           curl -sf http://localhost:8080/health || exit 1
           echo "API health check passed"
 
-      - name: Run SSG prerender (atomic swap)
+      - name: Queue SSG rebuild
         run: |
-          cd $PROJECT_DIR/apps/web
-
-          # Kill any leftover prerender process on port 3456
-          fuser -k 3456/tcp 2>/dev/null || true
-
-          # Build to temp dir
-          API_URL=http://localhost:8080 API_HOST=textstack.app CONCURRENCY=4 \
-            node scripts/prerender.mjs --output-dir dist/ssg-new
-
-          # Atomic swap
-          rm -rf dist/ssg-old
-          [ -d dist/ssg ] && mv dist/ssg dist/ssg-old || true
-          mv dist/ssg-new dist/ssg
-          rm -rf dist/ssg-old
-
-          # Validate SSG output
-          SSG_COUNT=$(find dist/ssg -name '*.html' | wc -l)
-          echo "SSG pages: $SSG_COUNT"
-          if [ "$SSG_COUNT" -lt 10 ]; then
-            echo "ERROR: SSG produced too few pages ($SSG_COUNT). Aborting."
-            exit 1
-          fi
-
-          echo "SSG atomic swap completed"
-
-      # nginx config update requires sudo - run manually via `make deploy` when config changes
+          curl -sf -X POST http://localhost:8080/internal/ssg/rebuild-all && echo "SSG rebuild queued" || echo "SSG rebuild queue failed (non-blocking)"
 
       - name: Health check frontend
         run: |
