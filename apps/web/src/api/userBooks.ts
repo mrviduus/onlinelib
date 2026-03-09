@@ -14,6 +14,7 @@ export interface UserBook {
   chapterCount: number
   totalWordCount: number | null
   createdAt: string
+  completedAt: string | null
 }
 
 export interface UserChapterSummary {
@@ -47,6 +48,7 @@ export interface UserBookDetail {
   toc: TocEntry[] | null
   createdAt: string
   updatedAt: string
+  completedAt: string | null
 }
 
 export interface UserChapter {
@@ -134,6 +136,14 @@ export async function retryUserBook(id: string): Promise<void> {
 
 export async function cancelUserBook(id: string): Promise<void> {
   await authFetch<void>(`/me/books/${id}/cancel`, { method: 'POST' })
+}
+
+export async function markUserBookComplete(id: string): Promise<void> {
+  await authFetch<void>(`/me/books/${id}/complete`, { method: 'POST' })
+}
+
+export async function unmarkUserBookComplete(id: string): Promise<void> {
+  await authFetch<void>(`/me/books/${id}/complete`, { method: 'DELETE' })
 }
 
 export async function getStorageQuota(): Promise<StorageQuota> {

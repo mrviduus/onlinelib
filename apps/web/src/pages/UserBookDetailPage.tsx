@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { getUserBook, deleteUserBook, getUserBookCoverUrl, type UserBookDetail } from '../api/userBooks'
+import { getUserBook, deleteUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBookDetail } from '../api/userBooks'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
@@ -209,6 +209,15 @@ export function UserBookDetailPage() {
             </div>
           )}
 
+          {isReady && book.completedAt && (
+            <div className="user-book-detail__completed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Read
+            </div>
+          )}
+
           <div className="user-book-detail__actions">
             {isReady && book.chapters.length > 0 && (
               <Link
@@ -217,6 +226,30 @@ export function UserBookDetailPage() {
               >
                 {continueReadingSlug ? 'Continue Reading' : 'Start Reading'}
               </Link>
+            )}
+
+            {isReady && !book.completedAt && (
+              <button
+                onClick={async () => {
+                  await markUserBookComplete(book.id)
+                  setBook({ ...book, completedAt: new Date().toISOString() })
+                }}
+                className="user-book-detail__mark-btn"
+              >
+                Mark as read
+              </button>
+            )}
+
+            {isReady && book.completedAt && (
+              <button
+                onClick={async () => {
+                  await unmarkUserBookComplete(book.id)
+                  setBook({ ...book, completedAt: null })
+                }}
+                className="user-book-detail__mark-btn"
+              >
+                Mark as unread
+              </button>
             )}
 
             <button

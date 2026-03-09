@@ -26,6 +26,7 @@ public class UserBook
     public string? ProgressLocator { get; set; }
     public double? ProgressPercent { get; set; }
     public DateTimeOffset? ProgressUpdatedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
 
     public User User { get; set; } = null!;
     public ICollection<UserChapter> Chapters { get; set; } = [];

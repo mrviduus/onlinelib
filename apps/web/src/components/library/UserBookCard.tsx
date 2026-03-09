@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteUserBook, retryUserBook, cancelUserBook, getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
+import { deleteUserBook, retryUserBook, cancelUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
 import { stringToColor } from '../../utils/colors'
 import { useLanguage } from '../../context/LanguageContext'
 
@@ -9,6 +9,7 @@ interface UserBookCardProps {
   onDelete: () => void
   onRetry?: () => void
   onCancel?: () => void
+  onUpdate?: () => void
   progress?: { percent: number | null; chapterSlug: string | null; updatedAt: string | null }
 }
 
@@ -18,7 +19,7 @@ function formatElapsed(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function UserBookCard({ book, onDelete, onRetry, onCancel, progress }: UserBookCardProps) {
+export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress }: UserBookCardProps) {
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [menuOpen, setMenuOpen] = useState(false)
@@ -144,7 +145,16 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, progress }: Us
           </div>
         )}
 
-        {isReady && percent > 0 && (
+        {isReady && book.completedAt && (
+          <div className="user-book-card__completed-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Read
+          </div>
+        )}
+
+        {isReady && !book.completedAt && percent > 0 && (
           <div className="user-book-card__progress-bar">
             <div
               className="user-book-card__progress-fill"
@@ -167,10 +177,13 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, progress }: Us
             <div className="user-book-card__author">{book.author}</div>
           )}
           <div className="user-book-card__meta">
-            {isReady && percent > 0 && (
+            {isReady && book.completedAt && (
+              <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>
+            )}
+            {isReady && !book.completedAt && percent > 0 && (
               <span className="user-book-card__progress-text">{Math.round(percent * 100)}% read</span>
             )}
-            {isReady && book.chapterCount > 0 && percent === 0 && (
+            {isReady && !book.completedAt && book.chapterCount > 0 && percent === 0 && (
               <span>{book.chapterCount} chapters</span>
             )}
             {isFailed && book.errorMessage && (
@@ -213,6 +226,41 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, progress }: Us
                   </svg>
                   View details
                 </Link>
+              )}
+
+              {isReady && !book.completedAt && (
+                <button
+                  className="user-book-card__item"
+                  onClick={async () => {
+                    await markUserBookComplete(book.id)
+                    onUpdate?.()
+                    setMenuOpen(false)
+                  }}
+                  role="menuitem"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Mark as read
+                </button>
+              )}
+
+              {isReady && book.completedAt && (
+                <button
+                  className="user-book-card__item"
+                  onClick={async () => {
+                    await unmarkUserBookComplete(book.id)
+                    onUpdate?.()
+                    setMenuOpen(false)
+                  }}
+                  role="menuitem"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                  Mark as unread
+                </button>
               )}
 
               {isFailed && (

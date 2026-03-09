@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteUserBook, retryUserBook, cancelUserBook, type UserBook } from '../../api/userBooks'
+import { deleteUserBook, retryUserBook, cancelUserBook, markUserBookComplete, unmarkUserBookComplete, type UserBook } from '../../api/userBooks'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface UserBookMenuProps {
@@ -89,6 +89,32 @@ export function UserBookMenu({ book, onAction }: UserBookMenuProps) {
             >
               View details
             </Link>
+          )}
+          {isReady && !book.completedAt && (
+            <button
+              className="user-book-card__item"
+              onClick={async () => {
+                await markUserBookComplete(book.id)
+                onAction()
+                setOpen(false)
+              }}
+              role="menuitem"
+            >
+              Mark as read
+            </button>
+          )}
+          {isReady && book.completedAt && (
+            <button
+              className="user-book-card__item"
+              onClick={async () => {
+                await unmarkUserBookComplete(book.id)
+                onAction()
+                setOpen(false)
+              }}
+              role="menuitem"
+            >
+              Mark as unread
+            </button>
           )}
           {isFailed && (
             <button className="user-book-card__item" onClick={handleRetry} disabled={retrying} role="menuitem">

@@ -115,7 +115,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.ErrorMessage,
                 ChapterCount = b.Chapters.Count,
                 b.TotalWordCount,
-                b.CreatedAt
+                b.CreatedAt,
+                b.CompletedAt
             })
             .ToListAsync(ct);
 
@@ -132,7 +133,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             b.ErrorMessage,
             b.ChapterCount,
             b.TotalWordCount,
-            b.CreatedAt
+            b.CreatedAt,
+            b.CompletedAt
         )).ToList();
     }
 
@@ -157,6 +159,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.TocJson,
                 b.CreatedAt,
                 b.UpdatedAt,
+                b.CompletedAt,
                 Chapters = b.Chapters
                     .OrderBy(c => c.ChapterNumber)
                     .Select(c => new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
@@ -196,7 +199,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             book.Chapters,
             toc,
             book.CreatedAt,
-            book.UpdatedAt
+            book.UpdatedAt,
+            book.CompletedAt
         );
     }
 
@@ -384,6 +388,9 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         book.ProgressLocator = request.Locator;
         book.ProgressPercent = request.Percent;
         book.ProgressUpdatedAt = request.UpdatedAt ?? DateTimeOffset.UtcNow;
+
+        if (book.CompletedAt is null && request.Percent is >= 0.99)
+            book.CompletedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
         return (true, null);

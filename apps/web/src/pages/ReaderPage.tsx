@@ -863,8 +863,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       navigateToChapterCustom(chapter.next.identifier)
     } else if (currentPage >= totalPages - 1 && !chapter?.next) {
       setBookCompleted(true)
+      updateProgress(1, currentPage)
     }
-  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession])
+  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress])
 
   // Legacy navigation hook (still needed for keyboard shortcuts compatibility)
   const { navigateToChapter } = useReaderNavigation({

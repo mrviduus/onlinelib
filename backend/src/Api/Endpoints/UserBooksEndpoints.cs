@@ -4,6 +4,7 @@ using Application.Common.Interfaces;
 using Application.UserBooks;
 using Contracts.UserBooks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Endpoints;
 
@@ -27,6 +28,8 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/bookmarks", CreateBookmark).WithName("CreateUserBookBookmark");
         group.MapDelete("/{id:guid}/bookmarks/{bookmarkId:guid}", DeleteBookmark).WithName("DeleteUserBookBookmark");
         group.MapGet("/{id:guid}/assets/{assetId:guid}", GetAsset).WithName("GetUserBookAsset");
+        group.MapPost("/{id:guid}/complete", MarkComplete).WithName("MarkUserBookComplete");
+        group.MapDelete("/{id:guid}/complete", UnmarkComplete).WithName("UnmarkUserBookComplete");
         group.MapPost("/{id:guid}/retry", RetryBook).WithName("RetryUserBook");
         group.MapPost("/{id:guid}/cancel", CancelBook).WithName("CancelUserBook");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
@@ -243,6 +246,42 @@ public static class UserBooksEndpoints
             return Results.NotFound();
 
         return Results.File(stream, contentType);
+    }
+
+    private static async Task<IResult> MarkComplete(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId.Value && b.Id == id, ct);
+        if (book is null) return Results.NotFound();
+
+        book.CompletedAt ??= DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnmarkComplete(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId.Value && b.Id == id, ct);
+        if (book is null) return Results.NotFound();
+
+        book.CompletedAt = null;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> RetryBook(

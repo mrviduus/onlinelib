@@ -537,7 +537,14 @@ export function LibraryPage() {
                         )}
 
                         {/* Progress bar for ready books */}
-                        {isReady && (
+                        {isReady && book.completedAt && (
+                          <div className="library-list-item__progress">
+                            <div className="library-list-item__progress-header">
+                              <span className="library-list-item__completed-text">Read</span>
+                            </div>
+                          </div>
+                        )}
+                        {isReady && !book.completedAt && (
                           <div className="library-list-item__progress">
                             <div className="library-list-item__progress-header">
                               <span>{t('library.readingProgress')}</span>
@@ -593,6 +600,7 @@ export function LibraryPage() {
                     book={book}
                     onDelete={fetchUserBooks}
                     onRetry={fetchUserBooks}
+                    onUpdate={fetchUserBooks}
                     progress={userBookProgress[book.id]}
                   />
                 ))}

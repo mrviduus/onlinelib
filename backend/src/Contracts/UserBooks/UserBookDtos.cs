@@ -13,7 +13,8 @@ public record UserBookListDto(
     string? ErrorMessage,
     int ChapterCount,
     int? TotalWordCount,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt
 );
 
 public record UserBookDetailDto(
@@ -32,7 +33,8 @@ public record UserBookDetailDto(
     IReadOnlyList<UserChapterSummaryDto> Chapters,
     IReadOnlyList<TocEntryDto>? Toc,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? CompletedAt
 );
 
 public record UserChapterSummaryDto(

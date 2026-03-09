@@ -3040,6 +3040,32 @@ html.dark .search-page__sub-result-highlight b {
   color: var(--color-primary, #8B7355);
 }
 
+.user-book-card__completed-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(34, 139, 34, 0.9);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.user-book-card__progress-text--done {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.library-list-item__completed-text {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
 .user-book-card__progress-bar {
   position: absolute;
   bottom: 0;
@@ -3274,6 +3300,31 @@ html.dark .search-page__sub-result-highlight b {
 
 .user-book-detail__read-btn:hover {
   opacity: 0.9;
+}
+
+.user-book-detail__completed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2e7d32;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.user-book-detail__mark-btn {
+  padding: 12px 24px;
+  background: none;
+  border: 1px solid var(--color-border, #d1d5db);
+  color: var(--color-text-secondary, #6b7280);
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.user-book-detail__mark-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .user-book-detail__delete-btn {
