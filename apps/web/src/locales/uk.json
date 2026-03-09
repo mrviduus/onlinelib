@@ -354,13 +354,17 @@
       "fromBook": "з \"{title}\"",
       "backToVocab": "До словника",
       "practiceMode": "Режим практики",
+      "practiceAgain": "Практикувати ще",
+      "keepPracticing": "Продовжити практику",
+      "reviewDue": "Повторити заплановані",
       "practiceNote": "Правильні відповіді не впливають на розклад повторення.",
       "noPracticeWords": "Зберігайте слова під час читання, щоб практикувати їх."
     },
     "stats": {
       "reviewedToday": "Повторено сьогодні",
       "correctRate": "Правильних",
-      "streak": "Серія повторень"
+      "streak": "Серія повторень",
+      "practicedToday": "Практика сьогодні"
     }
   },
   "reviews": {

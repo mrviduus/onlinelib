@@ -31,6 +31,7 @@ export function VocabularyReviewPage() {
     isSessionComplete,
     hasCards,
     mode,
+    totalDue,
     startSession,
     submitAnswer,
     nextCard,
@@ -90,12 +91,13 @@ export function VocabularyReviewPage() {
         <SessionSummary
           reviewed={sessionStats.reviewed}
           correct={sessionStats.correct}
+          mode={mode}
           t={t}
           onBack={() => navigate(`/${language}/vocabulary`)}
+          onPracticeAgain={() => startSession(20, 'practice')}
+          onStartSrs={() => startSession(20, 'srs')}
+          dueCount={totalDue}
         />
-        {mode === 'practice' && (
-          <p className="review-practice-note">{t('vocabulary.review.practiceNote')}</p>
-        )}
       </div>
     )
   }

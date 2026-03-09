@@ -90,6 +90,10 @@ export interface VocabStatsDto {
   dueNow: number
   reviewedToday: number
   correctRateToday: number
+  srsReviewedToday: number
+  srsCorrectRateToday: number
+  practicedToday: number
+  practiceCorrectRateToday: number
   totalReviews: number
   overallCorrectRate: number
   streak: number

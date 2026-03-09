@@ -354,13 +354,17 @@
       "fromBook": "from \"{title}\"",
       "backToVocab": "Back to Vocabulary",
       "practiceMode": "Practice Mode",
+      "practiceAgain": "Practice Again",
+      "keepPracticing": "Keep Practicing",
+      "reviewDue": "Review Due Words",
       "practiceNote": "Correct answers don't change your review schedule.",
       "noPracticeWords": "Save some words while reading to practice them."
     },
     "stats": {
       "reviewedToday": "Reviewed today",
       "correctRate": "Correct rate",
-      "streak": "Review streak"
+      "streak": "Review streak",
+      "practicedToday": "Practiced today"
     }
   },
   "reviews": {

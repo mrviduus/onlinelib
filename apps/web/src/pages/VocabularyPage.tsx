@@ -127,6 +127,12 @@ export function VocabularyPage() {
               <span className="vocab-stat__value">{stats.streak}d</span>
               <span className="vocab-stat__label">{t('vocabulary.stats.streak')}</span>
             </div>
+            {stats.practicedToday > 0 && (
+              <div className="vocab-stat">
+                <span className="vocab-stat__value">{stats.practicedToday}</span>
+                <span className="vocab-stat__label">{t('vocabulary.stats.practicedToday')}</span>
+              </div>
+            )}
           </div>
         )}
 

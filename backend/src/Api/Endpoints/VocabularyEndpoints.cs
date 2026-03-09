@@ -493,6 +493,10 @@ public static class VocabularyEndpoints
             .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart);
         var reviewedToday = await todayReviews.CountAsync(ct);
         var correctToday = await todayReviews.CountAsync(r => r.IsCorrect, ct);
+        var practiceToday = await todayReviews.CountAsync(r => r.ReviewMode.StartsWith("practice_"), ct);
+        var practiceCorrectToday = await todayReviews.CountAsync(r => r.ReviewMode.StartsWith("practice_") && r.IsCorrect, ct);
+        var srsReviewedToday = reviewedToday - practiceToday;
+        var srsCorrectToday = correctToday - practiceCorrectToday;
 
         var allReviews = db.VocabularyReviews
             .Where(r => r.UserId == userId.Value && r.SiteId == siteId);
@@ -540,6 +544,10 @@ public static class VocabularyEndpoints
             dueNow,
             reviewedToday,
             correctRateToday = reviewedToday > 0 ? Math.Round((double)correctToday / reviewedToday * 100, 1) : 0,
+            srsReviewedToday,
+            srsCorrectRateToday = srsReviewedToday > 0 ? Math.Round((double)srsCorrectToday / srsReviewedToday * 100, 1) : 0,
+            practicedToday = practiceToday,
+            practiceCorrectRateToday = practiceToday > 0 ? Math.Round((double)practiceCorrectToday / practiceToday * 100, 1) : 0,
             totalReviews,
             overallCorrectRate = totalReviews > 0 ? Math.Round((double)totalCorrect / totalReviews * 100, 1) : 0,
             streak,
