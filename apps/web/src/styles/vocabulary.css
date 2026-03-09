@@ -53,7 +53,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -350,7 +350,7 @@
 
 .dictionary-popup__save-word:hover:not(:disabled) {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
 }
 
 .dictionary-popup__save-word:disabled {
@@ -521,7 +521,7 @@
   border: none;
   border-radius: 8px;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -591,7 +591,7 @@
   border: none;
   border-radius: 8px;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -689,7 +689,7 @@
   border: none;
   border-radius: 8px;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -745,7 +745,7 @@
   border: none;
   border-radius: 8px;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
