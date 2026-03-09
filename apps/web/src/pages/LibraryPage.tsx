@@ -381,7 +381,15 @@ export function LibraryPage() {
                             {item.title?.[0] || '?'}
                           </div>
                         )}
-                        {percent > 0 && (
+                        {percent >= 1 && (
+                          <div className="user-book-card__completed-badge">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Read
+                          </div>
+                        )}
+                        {percent > 0 && percent < 1 && (
                           <div className="library-card__progress-bar">
                             <div
                               className="library-card__progress-fill"
@@ -396,7 +404,10 @@ export function LibraryPage() {
                             {item.title}
                           </Link>
                           <div className="library-card__meta">
-                            {percent > 0 && (
+                            {percent >= 1 && (
+                              <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>
+                            )}
+                            {percent > 0 && percent < 1 && (
                               <span className="library-card__progress-text">
                                 {Math.round(percent * 100)}% {t('library.read')}
                               </span>
