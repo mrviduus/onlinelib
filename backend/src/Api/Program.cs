@@ -21,6 +21,7 @@ using TextStack.Search;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Meilisearch;
 using TextStack.Tts;
+using Api.Services;
 using Application.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
@@ -119,6 +120,9 @@ builder.Services.Configure<TtsConfiguration>(builder.Configuration.GetSection("T
 builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
 builder.Services.AddHostedService(sp => (EdgeTtsService)sp.GetRequiredService<ITtsService>());
 
+
+// SSG periodic rebuild
+builder.Services.AddHostedService<SsgPeriodicRebuildWorker>();
 
 // Rate limiting for admin login
 builder.Services.AddRateLimiter(options =>
@@ -242,6 +246,7 @@ app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
+app.MapInternalEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")

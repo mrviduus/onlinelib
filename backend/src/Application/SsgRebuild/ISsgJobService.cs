@@ -11,6 +11,9 @@ public interface ISsgJobService
     /// <summary>Creates a new queued job.</summary>
     Task<SsgRebuildJob> CreateJobAsync(CreateSsgRebuildJobRequest request, CancellationToken ct);
 
+    /// <summary>Creates and starts a job, skipping if duplicate already queued/running.</summary>
+    Task<SsgRebuildJob?> EnqueueSsgRebuildAsync(CreateSsgRebuildJobRequest request, CancellationToken ct);
+
     /// <summary>Gets job details by ID.</summary>
     Task<SsgRebuildJobDetailDto?> GetJobAsync(Guid id, CancellationToken ct);
 

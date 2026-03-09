@@ -48,13 +48,7 @@ deploy: fix-permissions
 	docker compose up -d --build
 	@sleep 10
 	@curl -sf http://localhost:8080/health && echo " API OK" || echo " API FAILED"
-	cd apps/web && \
-	API_URL=http://localhost:8080 API_HOST=textstack.app CONCURRENCY=4 \
-	node scripts/prerender.mjs --output-dir dist/ssg-new && \
-	rm -rf dist/ssg-old && \
-	([ -d dist/ssg ] && mv dist/ssg dist/ssg-old || true) && \
-	mv dist/ssg-new dist/ssg && \
-	rm -rf dist/ssg-old
+	@curl -sf -X POST http://localhost:8080/internal/ssg/rebuild-all && echo " SSG rebuild queued" || echo " SSG rebuild queue failed (non-blocking)"
 	@echo "Updating nginx config..."
 	@PROJECT_DIR=$$(pwd) && \
 	sed "s|/home/vasyl/projects/onlinelib/textstack|$$PROJECT_DIR|g" \

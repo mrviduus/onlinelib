@@ -224,6 +224,35 @@ public class SsgRebuildService : ISsgJobService
         return (total, items);
     }
 
+    public async Task<SsgRebuildJob?> EnqueueSsgRebuildAsync(CreateSsgRebuildJobRequest request, CancellationToken ct)
+    {
+        var mode = ParseMode(request.Mode);
+
+        // Dedup: skip if identical job already queued or running
+        var duplicateQuery = _db.SsgRebuildJobs
+            .Where(j => j.SiteId == request.SiteId
+                && j.Mode == mode
+                && (j.Status == SsgRebuildJobStatus.Queued || j.Status == SsgRebuildJobStatus.Running));
+
+        if (mode == SsgRebuildMode.Specific)
+        {
+            var bookSlugsJson = SerializeSlugs(request.BookSlugs);
+            var authorSlugsJson = SerializeSlugs(request.AuthorSlugs);
+            var genreSlugsJson = SerializeSlugs(request.GenreSlugs);
+            duplicateQuery = duplicateQuery.Where(j =>
+                j.BookSlugsJson == bookSlugsJson &&
+                j.AuthorSlugsJson == authorSlugsJson &&
+                j.GenreSlugsJson == genreSlugsJson);
+        }
+
+        if (await duplicateQuery.AnyAsync(ct))
+            return null;
+
+        var job = await CreateJobAsync(request, ct);
+        await StartJobAsync(job.Id, ct);
+        return job;
+    }
+
     #region Private Helpers
 
     private static SsgRebuildMode ParseMode(string? mode) =>

@@ -620,6 +620,10 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         }
 
         await db.SaveChangesAsync(ct);
+
+        if (edition.Status == EditionStatus.Published)
+            _ = EnqueueSsgSafe(edition.SiteId, bookSlugs: [edition.Slug]);
+
         return (true, null);
     }
 
@@ -677,25 +681,7 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         await IndexChaptersAsync(edition, ct);
 
         // Trigger SSG rebuild for this book (fire and forget)
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var job = await ssgRebuildService.CreateJobAsync(new CreateSsgRebuildJobRequest(
-                    SiteId: edition.SiteId,
-                    Mode: "Specific",
-                    Concurrency: 2,
-                    BookSlugs: [edition.Slug]
-                ), CancellationToken.None);
-
-                // Auto-start the job
-                await ssgRebuildService.StartJobAsync(job.Id, CancellationToken.None);
-            }
-            catch
-            {
-                // SSG rebuild failure shouldn't block publish
-            }
-        });
+        _ = EnqueueSsgSafe(edition.SiteId, bookSlugs: [edition.Slug]);
 
         return (true, null);
     }
@@ -752,6 +738,10 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         edition.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
+
+        // Full rebuild — book removed from public listings
+        _ = EnqueueSsgSafe(edition.SiteId);
+
         return (true, null);
     }
 
@@ -842,5 +832,25 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         if (string.IsNullOrWhiteSpace(text))
             return 0;
         return text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private async Task EnqueueSsgSafe(Guid siteId, string[]? bookSlugs = null, string[]? authorSlugs = null, string[]? genreSlugs = null)
+    {
+        try
+        {
+            var isSpecific = bookSlugs != null || authorSlugs != null || genreSlugs != null;
+            await ssgRebuildService.EnqueueSsgRebuildAsync(new CreateSsgRebuildJobRequest(
+                SiteId: siteId,
+                Mode: isSpecific ? "Specific" : "Full",
+                Concurrency: 2,
+                BookSlugs: bookSlugs,
+                AuthorSlugs: authorSlugs,
+                GenreSlugs: genreSlugs
+            ), CancellationToken.None);
+        }
+        catch
+        {
+            // SSG failure should never block admin operations
+        }
     }
 }
