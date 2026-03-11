@@ -491,16 +491,16 @@
 }
 
 .review-mc__option--correct {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
+  border-color: var(--color-success, #22c55e);
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+  color: var(--color-success-text, #16a34a);
   font-weight: 600;
 }
 
 .review-mc__option--wrong {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  border-color: var(--color-error, #ef4444);
+  background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+  color: var(--color-error-text, #dc2626);
 }
 
 /* Review definition (shared across all card types) */
@@ -696,26 +696,20 @@
   margin-bottom: 0.5rem;
 }
 
-.review-feedback--correct .review-feedback__icon {
-  color: #22c55e;
+.review-feedback--correct .review-feedback__icon,
+.review-feedback--correct .review-feedback__message {
+  color: var(--color-success, #22c55e);
 }
 
-.review-feedback--wrong .review-feedback__icon {
-  color: #ef4444;
+.review-feedback--wrong .review-feedback__icon,
+.review-feedback--wrong .review-feedback__message {
+  color: var(--color-error, #ef4444);
 }
 
 .review-feedback__message {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
-}
-
-.review-feedback--correct .review-feedback__message {
-  color: #22c55e;
-}
-
-.review-feedback--wrong .review-feedback__message {
-  color: #ef4444;
 }
 
 .review-feedback__answer {

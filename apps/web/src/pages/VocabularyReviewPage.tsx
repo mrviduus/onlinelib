@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -18,6 +18,10 @@ export function VocabularyReviewPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionMode = searchParams.get('mode') === 'practice' ? 'practice' as const : 'srs' as const
+  const batchSize = useMemo(() => {
+    const v = parseInt(searchParams.get('limit') || '20', 10)
+    return [10, 20, 50].includes(v) ? v : 20
+  }, [searchParams])
 
   const {
     currentCard,
@@ -42,8 +46,8 @@ export function VocabularyReviewPage() {
   const handleSpeak = (text: string) => speak(text, language)
 
   useEffect(() => {
-    if (user) startSession(20, sessionMode)
-  }, [user, startSession, sessionMode])
+    if (user) startSession(batchSize, sessionMode)
+  }, [user, startSession, sessionMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) {
     return (
@@ -95,8 +99,8 @@ export function VocabularyReviewPage() {
           mode={mode}
           t={t}
           onBack={() => navigate(`/${language}/vocabulary`)}
-          onPracticeAgain={() => startSession(20, 'practice')}
-          onStartSrs={() => startSession(20, 'srs')}
+          onPracticeAgain={() => startSession(batchSize, 'practice')}
+          onStartSrs={() => startSession(batchSize, 'srs')}
           dueCount={totalDue}
         />
       </div>

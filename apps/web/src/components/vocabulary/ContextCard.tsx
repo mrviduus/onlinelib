@@ -1,6 +1,5 @@
-import { useState } from 'react'
-import { fuzzyMatch } from '../../lib/fuzzyMatch'
 import type { ReviewCardDto } from '../../api/vocabulary'
+import { useCardAnswer } from '../../hooks/useCardAnswer'
 import { SpeakButton } from './SpeakButton'
 
 interface Props {
@@ -12,16 +11,7 @@ interface Props {
 }
 
 export function ContextCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
-  const [input, setInput] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [startTime] = useState(Date.now())
-
-  const handleSubmit = () => {
-    if (!input.trim() || submitted || disabled) return
-    setSubmitted(true)
-    const { match } = fuzzyMatch(input, card.word)
-    onAnswer(match, Date.now() - startTime)
-  }
+  const { input, setInput, submitted, submitTyped } = useCardAnswer(card.word, onAnswer, disabled)
 
   return (
     <div className="review-context">
@@ -45,7 +35,7 @@ export function ContextCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
           className="review-context__input"
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={e => e.key === 'Enter' && submitTyped()}
           disabled={submitted || disabled}
           autoFocus
           autoComplete="off"
@@ -54,7 +44,7 @@ export function ContextCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
         />
         <button
           className="review-context__submit"
-          onClick={handleSubmit}
+          onClick={submitTyped}
           disabled={submitted || disabled || !input.trim()}
         >
           {t('vocabulary.review.check')}

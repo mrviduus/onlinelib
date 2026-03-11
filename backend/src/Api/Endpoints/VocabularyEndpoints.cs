@@ -511,23 +511,39 @@ public static class VocabularyEndpoints
         var stageDict = byStage.ToDictionary(s => s.Stage, s => s.Count);
         var dueNow = await words.CountAsync(w => w.NextReviewAt <= now, ct);
 
-        // Combine today's review stats into one query
-        var todayReviews = db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart);
-        var reviewedToday = await todayReviews.CountAsync(ct);
-        var correctToday = await todayReviews.CountAsync(r => r.IsCorrect, ct);
-        var practiceToday = await todayReviews.CountAsync(r => r.ReviewMode.StartsWith("practice_"), ct);
-        var practiceCorrectToday = await todayReviews.CountAsync(r => r.ReviewMode.StartsWith("practice_") && r.IsCorrect, ct);
+        // Single query for today's review stats
+        var todayStats = await db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Correct = g.Count(r => r.IsCorrect),
+                Practice = g.Count(r => r.ReviewMode.StartsWith("practice_")),
+                PracticeCorrect = g.Count(r => r.ReviewMode.StartsWith("practice_") && r.IsCorrect),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        var reviewedToday = todayStats?.Total ?? 0;
+        var correctToday = todayStats?.Correct ?? 0;
+        var practiceToday = todayStats?.Practice ?? 0;
+        var practiceCorrectToday = todayStats?.PracticeCorrect ?? 0;
         var srsReviewedToday = reviewedToday - practiceToday;
         var srsCorrectToday = correctToday - practiceCorrectToday;
 
-        var allReviews = db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId);
-        var totalReviews = await allReviews.CountAsync(ct);
-        var totalCorrect = await allReviews.CountAsync(r => r.IsCorrect, ct);
+        // Single query for all-time review stats
+        var allStats = await db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
+            .GroupBy(_ => 1)
+            .Select(g => new { Total = g.Count(), Correct = g.Count(r => r.IsCorrect) })
+            .FirstOrDefaultAsync(ct);
+
+        var totalReviews = allStats?.Total ?? 0;
+        var totalCorrect = allStats?.Correct ?? 0;
 
         // Streak: consecutive days with reviews (HashSet for O(1) lookup)
-        var reviewDays = (await allReviews
+        var reviewDays = (await db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
             .Select(r => r.CreatedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)

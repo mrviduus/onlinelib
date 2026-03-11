@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ReviewCardDto } from '../../api/vocabulary'
+import { useCardAnswer } from '../../hooks/useCardAnswer'
 import { SpeakButton } from './SpeakButton'
 
 interface Props {
@@ -11,16 +12,15 @@ interface Props {
 }
 
 export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
+  const { submitted, submitChoice } = useCardAnswer(card.word, onAnswer, disabled)
   const [selected, setSelected] = useState<number | null>(null)
-  const [startTime] = useState(Date.now())
 
   if (!card.options) return null
 
   const handleSelect = (idx: number) => {
-    if (selected !== null || disabled) return
+    if (submitted) return
     setSelected(idx)
-    const isCorrect = idx === card.correctOptionIndex
-    onAnswer(isCorrect, Date.now() - startTime)
+    submitChoice(idx === card.correctOptionIndex)
   }
 
   const prompt = card.definition || card.translation
@@ -56,7 +56,7 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Pro
               key={idx}
               className={cls}
               onClick={() => handleSelect(idx)}
-              disabled={selected !== null}
+              disabled={submitted}
             >
               {option}
             </button>

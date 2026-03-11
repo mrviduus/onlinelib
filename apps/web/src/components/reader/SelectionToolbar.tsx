@@ -69,10 +69,11 @@ export function SelectionToolbar({
     return null
   }
 
-  // Check if selection is a single word (no spaces, reasonable length)
-  const isSingleWord = text.trim().length > 0 &&
-    text.trim().length <= 50 &&
-    !/\s/.test(text.trim())
+  // Check if selection is a single word (allow hyphens, no spaces)
+  const trimmed = text.trim()
+  const isSingleWord = trimmed.length > 0 &&
+    trimmed.length <= 50 &&
+    /^[^\s]+$/.test(trimmed)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text)
