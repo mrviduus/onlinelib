@@ -197,10 +197,11 @@ test.describe('Vocabulary', () => {
     await page.locator('.vocab-word__row').first().click()
     await page.waitForTimeout(300)
 
-    // Handle confirm dialog
-    page.on('dialog', dialog => dialog.accept())
+    // Click delete button (first click shows inline confirm)
+    await page.locator('.vocab-word__delete').first().click()
+    await page.waitForTimeout(300)
 
-    // Click delete button
+    // Confirm delete (second click)
     await page.locator('.vocab-word__delete').first().click()
     await page.waitForTimeout(1000)
 
