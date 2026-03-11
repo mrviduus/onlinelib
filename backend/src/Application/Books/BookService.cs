@@ -112,12 +112,29 @@ public class BookService(IAppDbContext db)
                         ea.Author.Name,
                         ea.Role.ToString()
                     ))
-                    .ToList()
+                    .ToList(),
+                Genres = e.Genres
+                    .Select(g => new BookGenreDto(g.Id, g.Slug, g.Name))
+                    .ToList(),
+                AuthorIds = e.EditionAuthors.Select(ea => ea.AuthorId).ToList()
             })
             .FirstOrDefaultAsync(ct);
 
         if (result is null)
             return null;
+
+        // More books by same author(s)
+        var moreByAuthor = await db.Editions
+            .Where(e => e.SiteId == siteId
+                && e.Id != result.Id
+                && e.Language == result.Language
+                && e.Status == EditionStatus.Published
+                && e.Chapters.Any()
+                && e.EditionAuthors.Any(ea => result.AuthorIds.Contains(ea.AuthorId)))
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .Take(6)
+            .Select(e => new RelatedBookDto(e.Id, e.Slug, e.Title, e.CoverPath))
+            .ToListAsync(ct);
 
         // Deserialize ToC from JSON
         IReadOnlyList<TocEntryDto>? toc = null;
@@ -163,6 +180,8 @@ public class BookService(IAppDbContext db)
             result.Chapters,
             result.OtherEditions,
             result.Authors,
+            result.Genres,
+            moreByAuthor,
             toc,
             ratingStats != null ? Math.Round(ratingStats.Avg, 1) : null,
             ratingStats?.Total ?? 0,

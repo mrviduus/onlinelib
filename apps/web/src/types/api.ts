@@ -41,6 +41,19 @@ export interface Chapter {
   next: ChapterNav | null
 }
 
+export interface BookGenre {
+  id: string
+  slug: string
+  name: string
+}
+
+export interface RelatedBook {
+  id: string
+  slug: string
+  title: string
+  coverPath: string | null
+}
+
 export interface BookDetail {
   id: string
   slug: string
@@ -59,6 +72,8 @@ export interface BookDetail {
   chapters: ChapterSummary[]
   otherEditions: { slug: string; language: string; title: string }[]
   authors: BookAuthor[]
+  genres: BookGenre[]
+  moreByAuthor: RelatedBook[]
   avgRating: number | null
   ratingCount: number
   reviewCount: number

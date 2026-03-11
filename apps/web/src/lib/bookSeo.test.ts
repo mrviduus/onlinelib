@@ -118,6 +118,8 @@ describe('generateFAQs', () => {
     ],
     otherEditions: [{ slug: 'test-uk', language: 'uk', title: 'Тестова книга' }],
     authors: [{ id: '1', slug: 'author', name: 'Test Author', role: 'author' }],
+    genres: [],
+    moreByAuthor: [],
     avgRating: null,
     ratingCount: 0,
     reviewCount: 0,

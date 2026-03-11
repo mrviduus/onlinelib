@@ -127,6 +127,8 @@ export function BookDetailPage() {
     )
   }
 
+  const genres = book.genres ?? []
+  const moreByAuthor = book.moreByAuthor ?? []
   const firstChapter = book.chapters[0]
   const visibleChapters = showAllChapters ? book.chapters : book.chapters.slice(0, 5)
   const hasMoreChapters = book.chapters.length > 5
@@ -157,7 +159,32 @@ export function BookDetailPage() {
             name: a.name,
             url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/authors/${a.slug}` }),
           })),
+          genre: genres.map((g) => g.name),
           url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: location.pathname }),
+        }}
+      />
+
+      {/* Breadcrumbs */}
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+          <li><LocalizedLink to="/">{t('breadcrumbs.home')}</LocalizedLink></li>
+          <li><LocalizedLink to="/books">{t('breadcrumbs.books')}</LocalizedLink></li>
+          {genres.length > 0 && (
+            <li><LocalizedLink to={`/genres/${genres[0].slug}`}>{genres[0].name}</LocalizedLink></li>
+          )}
+          <li aria-current="page">{book.title}</li>
+        </ol>
+      </nav>
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: t('breadcrumbs.home'), item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}` }) },
+            { '@type': 'ListItem', position: 2, name: t('breadcrumbs.books'), item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/books` }) },
+            ...(genres.length > 0 ? [{ '@type': 'ListItem', position: 3, name: genres[0].name, item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/genres/${genres[0].slug}` }) }] : []),
+            { '@type': 'ListItem', position: genres.length > 0 ? 4 : 3, name: book.title },
+          ],
         }}
       />
 
@@ -235,6 +262,11 @@ export function BookDetailPage() {
             <span className="book-hero__meta-item book-hero__meta-item--lang">
               {book.language.toUpperCase()}
             </span>
+            {genres.map((g) => (
+              <LocalizedLink key={g.id} to={`/genres/${g.slug}`} className="book-hero__meta-genre" title={g.name}>
+                {g.name}
+              </LocalizedLink>
+            ))}
           </div>
 
           <div className="book-hero__actions">
@@ -370,6 +402,30 @@ export function BookDetailPage() {
           <LocalizedLink to={`/authors/${book.authors[0].slug}`}>
             {book.authors[0].name}
           </LocalizedLink>
+        </section>
+      )}
+
+      {/* More by this author */}
+      {moreByAuthor.length > 0 && (
+        <section className="book-more-by-author">
+          <h2>{t('bookDetail.moreByAuthor')}</h2>
+          <div className="book-more-by-author__grid">
+            {moreByAuthor.map((b) => (
+              <LocalizedLink key={b.id} to={`/books/${b.slug}`} className="book-more-by-author__card">
+                <div
+                  className="book-more-by-author__cover"
+                  style={{ backgroundColor: b.coverPath ? undefined : stringToColor(b.title) }}
+                >
+                  {b.coverPath ? (
+                    <img src={getStorageUrl(b.coverPath)} alt={b.title} loading="lazy" />
+                  ) : (
+                    <span className="book-more-by-author__cover-text">{b.title?.[0] || '?'}</span>
+                  )}
+                </div>
+                <span className="book-more-by-author__title">{b.title}</span>
+              </LocalizedLink>
+            ))}
+          </div>
         </section>
       )}
 

@@ -31,13 +31,16 @@
     "vocabulary": "Vocabulary",
     "about": "About",
     "brandTitle": "TextStack - Learn languages through reading",
+    "genres": "Genres",
     "browseBooks": "Browse all books",
+    "browseGenres": "Browse genres",
     "aboutTextStack": "About TextStack"
   },
   "footer": {
     "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
+    "authors": "Authors",
     "contact": "Contact Us"
   },
   "about": {
@@ -155,6 +158,7 @@
     "faq": "Frequently Asked Questions",
     "otherEditions": "Other Editions",
     "readInLang": "Read {title} in {lang}",
+    "moreByAuthor": "More by this author",
     "browseAll": "Browse all books",
     "backToBooks": "Back to Books",
     "faqWhoWrote": "Who wrote {title}?",
@@ -400,6 +404,10 @@
     "untitled": "Untitled Review",
     "ratingRequired": "Please select a rating",
     "textRequired": "Please write your review"
+  },
+  "breadcrumbs": {
+    "home": "Home",
+    "books": "Books"
   },
   "tts": {
     "listen": "Listen",

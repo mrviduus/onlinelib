@@ -19,11 +19,17 @@ public record BookDetailDto(
     IReadOnlyList<ChapterSummaryDto> Chapters,
     IReadOnlyList<EditionSummaryDto> OtherEditions,
     IReadOnlyList<BookAuthorDto> Authors,
+    IReadOnlyList<BookGenreDto> Genres,
+    IReadOnlyList<RelatedBookDto> MoreByAuthor,
     IReadOnlyList<TocEntryDto>? Toc = null,
     double? AvgRating = null,
     int RatingCount = 0,
     int ReviewCount = 0
 );
+
+public record BookGenreDto(Guid Id, string Slug, string Name);
+
+public record RelatedBookDto(Guid Id, string Slug, string Title, string? CoverPath);
 
 public record WorkDto(Guid Id, string Slug);
 

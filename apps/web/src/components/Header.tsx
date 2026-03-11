@@ -26,6 +26,9 @@ export function Header() {
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
             {t('nav.catalog')}
           </LocalizedLink>
+          <LocalizedLink to="/genres" className="site-header__nav-link" title={t('nav.browseGenres')}>
+            {t('nav.genres')}
+          </LocalizedLink>
           {isAuthenticated && (
             <LocalizedLink to="/library" className="site-header__nav-link" title={t('nav.library')}>
               {t('nav.library')}

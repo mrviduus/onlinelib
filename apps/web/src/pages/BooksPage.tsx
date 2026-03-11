@@ -136,13 +136,14 @@ export function BooksPage() {
             {t('books.allCategories')}
           </button>
           {genres.map((g) => (
-            <button
+            <LocalizedLink
               key={g.id}
+              to={`/genres/${g.slug}`}
               className={`catalogue-genres__chip ${genre === g.slug ? 'catalogue-genres__chip--active' : ''}`}
-              onClick={() => setFilter('genre', genre === g.slug ? '' : g.slug)}
+              onClick={(e: React.MouseEvent) => { e.preventDefault(); setFilter('genre', genre === g.slug ? '' : g.slug) }}
             >
               {g.name}
-            </button>
+            </LocalizedLink>
           ))}
         </div>
       )}
