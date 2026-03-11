@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Blog
+- **Full-stack blog** — admin CRUD, public pages, comments (2-level threaded), likes, share buttons
+- **Admin panel** — create/edit/publish/unpublish, cover upload, stats, search, status/language filters
+- **Web** — `/:lang/blog` list, `/:lang/blog/:slug` detail, Article JSON-LD, internal link interception
+- **SSG** — prerender blog list + detail, `/sitemaps/blog.xml`, nginx location blocks
+- **i18n** — en + uk translations, legacy URL redirects for `/blog`
+
+### Vocabulary
+- **Definition on review cards** — show dictionary definition below book sentence on all card types (MC, typed recall, context, feedback)
+
 ### TTS (Text-to-Speech)
 - **Edge TTS integration** — direct WebSocket to `speech.platform.bing.com`, no deps, no API key
 - **`TextStack.Tts`** — separate class library: `EdgeTtsClient` (WebSocket protocol), `EdgeTtsService` (disk cache + SemaphoreSlim)

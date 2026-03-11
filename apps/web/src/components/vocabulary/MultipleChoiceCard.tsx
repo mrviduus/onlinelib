@@ -26,14 +26,23 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t }: Props) {
 
   return (
     <div className="review-mc">
+      {card.originalSentence && (
+        <div className="review-mc__sentence">
+          "{card.originalSentence}"
+          {card.bookTitle && <span className="review-mc__book"> — {card.bookTitle}</span>}
+        </div>
+      )}
       <div className="review-mc__prompt">
         {onSpeak && <SpeakButton onClick={() => onSpeak(prompt || card.word)} size={14} className="review-card__speak" />}
         {prompt}
       </div>
+      {card.definition && (
+        <div className="review-card__definition">{card.definition}</div>
+      )}
       {card.hint && (
         <div className="review-card__hint">{card.hint}</div>
       )}
-      {card.bookTitle && (
+      {!card.originalSentence && card.bookTitle && (
         <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle!)}</div>
       )}
       <div className="review-mc__options">

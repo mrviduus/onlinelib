@@ -31,6 +31,9 @@ export function ContextCard({ card, onAnswer, onSpeak, t }: Props) {
       {card.bookTitle && (
         <div className="review-context__book">— {card.bookTitle}</div>
       )}
+      {card.definition && (
+        <div className="review-card__definition">{card.definition}</div>
+      )}
       {card.hint && (
         <div className="review-card__hint">{card.hint}</div>
       )}

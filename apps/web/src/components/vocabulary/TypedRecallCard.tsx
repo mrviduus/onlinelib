@@ -25,6 +25,12 @@ export function TypedRecallCard({ card, onAnswer, onSpeak, t }: Props) {
 
   return (
     <div className="review-typed">
+      {card.originalSentence && (
+        <div className="review-typed__sentence">
+          "{card.originalSentence}"
+          {card.bookTitle && <span className="review-typed__book"> — {card.bookTitle}</span>}
+        </div>
+      )}
       <div className="review-typed__prompt">
         {onSpeak && <SpeakButton onClick={() => onSpeak(card.definition || card.translation || card.word)} size={14} className="review-card__speak" />}
         {card.definition ? (

@@ -40,6 +40,10 @@ export function ReviewFeedback({ card, result, isCorrect, onSpeak, t, onNext }: 
         </div>
       )}
 
+      {card.definition && (
+        <div className="review-card__definition">{card.definition}</div>
+      )}
+
       {result.stageChanged && (
         <div className="review-feedback__stage">
           {stageName(result.previousStage)} → {stageName(result.newStage)}
