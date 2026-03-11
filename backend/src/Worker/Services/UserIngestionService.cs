@@ -207,7 +207,7 @@ public class UserIngestionService
 
             // Update book metadata
             if (string.IsNullOrEmpty(job.UserBook.Description) && !string.IsNullOrEmpty(result.Metadata.Description))
-                job.UserBook.Description = result.Metadata.Description;
+                job.UserBook.Description = StripHtml(result.Metadata.Description);
 
             if (string.IsNullOrEmpty(job.UserBook.Author) && !string.IsNullOrEmpty(result.Metadata.Authors))
                 job.UserBook.Author = result.Metadata.Authors;
@@ -324,4 +324,14 @@ public class UserIngestionService
 
     private static string SanitizeText(string? text)
         => text?.Replace("\0", "") ?? "";
+
+    private static string StripHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+            return string.Empty;
+        var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
+        return text.Trim();
+    }
 }
