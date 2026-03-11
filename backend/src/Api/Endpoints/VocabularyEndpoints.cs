@@ -26,6 +26,10 @@ public static class VocabularyEndpoints
         group.MapGet("/review", GetReviewQueue).WithName("GetVocabularyReview");
         group.MapPost("/review", SubmitReview).WithName("SubmitVocabularyReview");
         group.MapGet("/stats", GetStats).WithName("GetVocabularyStats");
+
+        // Admin: backfill definitions for words missing them
+        app.MapPost("/admin/vocabulary/backfill-definitions", BackfillDefinitions)
+            .WithTags("Admin").WithName("BackfillVocabularyDefinitions");
     }
 
     // --- Save Word ---
@@ -90,7 +94,7 @@ public static class VocabularyEndpoints
         db.VocabularyWords.Add(entry);
         await db.SaveChangesAsync(ct);
 
-        // Fire-and-forget: generate distractors in background (own DI scope)
+        // Fire-and-forget: enrich word in background (own DI scope)
         var wordId = entry.Id;
         var wordText = word;
         var lang = request.Language;
@@ -105,8 +109,27 @@ public static class VocabularyEndpoints
                 var bgHttp = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                 var bgConfig = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
+                // Enrich definition from Free Dictionary API if not provided
+                string? enrichedDef = null;
+                if (string.IsNullOrWhiteSpace(def))
+                {
+                    enrichedDef = await DefinitionEnricher.FetchDefinitionAsync(
+                        wordText, lang, bgHttp, CancellationToken.None);
+                    if (enrichedDef != null)
+                    {
+                        var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
+                            x => x.Id == wordId, CancellationToken.None);
+                        if (w != null)
+                        {
+                            w.Definition = enrichedDef;
+                            await bgDb.SaveChangesAsync(CancellationToken.None);
+                        }
+                    }
+                }
+
+                // Generate distractors + hint via Ollama
                 var (distractors, hint) = await DistractorGenerator.GenerateAsync(
-                    wordText, lang, def, sent, bgHttp, bgConfig, CancellationToken.None);
+                    wordText, lang, enrichedDef ?? def, sent, bgHttp, bgConfig, CancellationToken.None);
                 if (distractors?.Count > 0 || hint != null)
                 {
                     var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
@@ -123,15 +146,15 @@ public static class VocabularyEndpoints
             }
             catch (HttpRequestException ex)
             {
-                logger.LogWarning(ex, "Ollama unavailable for word {Word}", wordText);
+                logger.LogWarning(ex, "Enrichment failed for word {Word}", wordText);
             }
             catch (TaskCanceledException)
             {
-                logger.LogWarning("Ollama timeout for word {WordText}", wordText);
+                logger.LogWarning("Enrichment timeout for word {WordText}", wordText);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to generate distractors for word {Word}", wordText);
+                logger.LogError(ex, "Failed to enrich word {Word}", wordText);
             }
         });
 
@@ -570,6 +593,53 @@ public static class VocabularyEndpoints
         if (idx >= 0)
             return string.Concat(sentence.AsSpan(0, idx), "___", sentence.AsSpan(idx + word.Length));
         return sentence + " [___]";
+    }
+
+    // --- Admin: Backfill Definitions ---
+
+    private static async Task<IResult> BackfillDefinitions(
+        IAppDbContext db,
+        IHttpClientFactory httpClientFactory,
+        ILogger<IAppDbContext> logger,
+        CancellationToken ct)
+    {
+        var words = await db.VocabularyWords
+            .Where(w => w.Definition == null || w.Definition == "")
+            .OrderBy(w => w.CreatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        var enriched = 0;
+        var failed = 0;
+
+        foreach (var w in words)
+        {
+            try
+            {
+                var def = await DefinitionEnricher.FetchDefinitionAsync(
+                    w.Word, w.Language, httpClientFactory, ct);
+                if (def != null)
+                {
+                    w.Definition = def;
+                    enriched++;
+                }
+                else
+                {
+                    failed++;
+                }
+                // Rate limit: Free Dictionary API
+                await Task.Delay(200, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Backfill failed for word {Word}", w.Word);
+                failed++;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { total = words.Count, enriched, failed });
     }
 
     private static VocabWordDto ToDto(VocabularyWord w) => new(

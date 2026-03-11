@@ -386,45 +386,6 @@ html.dark .blog-card:hover {
   font-size: 18px;
 }
 
-/* === Share Buttons === */
-.blog-share {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.blog-share__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.blog-share__btn:hover {
-  border-color: var(--color-brand);
-  color: var(--color-brand);
-}
-
-.blog-share__btn--copied {
-  border-color: var(--color-brand);
-  background: var(--color-brand);
-  color: #fff;
-}
-
-.blog-share__btn .material-icons-outlined {
-  font-size: 18px;
-}
-
 /* === Blog Comments === */
 .blog-comments {
   margin-top: 40px;

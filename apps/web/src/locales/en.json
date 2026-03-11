@@ -432,10 +432,12 @@
     "reply": "Reply",
     "replyPlaceholder": "Write your reply...",
     "likes": "Likes",
+    "backToBlog": "Back to Blog"
+  },
+  "share": {
     "share": "Share",
     "shareOn": "Share on",
     "copyLink": "Copy link",
-    "linkCopied": "Link copied!",
-    "backToBlog": "Back to Blog"
+    "linkCopied": "Link copied!"
   }
 }

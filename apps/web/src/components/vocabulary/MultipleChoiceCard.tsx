@@ -22,19 +22,20 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t }: Props) {
     onAnswer(isCorrect, Date.now() - startTime)
   }
 
-  const prompt = card.definition || card.translation || card.blankSentence
+  const prompt = card.definition || card.translation
+  const usingSentenceAsPrompt = !prompt && !!card.blankSentence
 
   return (
     <div className="review-mc">
-      {card.originalSentence && (
+      {card.originalSentence && !usingSentenceAsPrompt && (
         <div className="review-mc__sentence">
           "{card.originalSentence}"
           {card.bookTitle && <span className="review-mc__book"> — {card.bookTitle}</span>}
         </div>
       )}
       <div className="review-mc__prompt">
-        {onSpeak && <SpeakButton onClick={() => onSpeak(prompt || card.word)} size={14} className="review-card__speak" />}
-        {prompt}
+        {onSpeak && <SpeakButton onClick={() => onSpeak(prompt || card.blankSentence || card.word)} size={14} className="review-card__speak" />}
+        {prompt || card.blankSentence}
       </div>
       {card.definition && (
         <div className="review-card__definition">{card.definition}</div>
@@ -42,7 +43,7 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t }: Props) {
       {card.hint && (
         <div className="review-card__hint">{card.hint}</div>
       )}
-      {!card.originalSentence && card.bookTitle && (
+      {(usingSentenceAsPrompt || !card.originalSentence) && card.bookTitle && (
         <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle!)}</div>
       )}
       <div className="review-mc__options">

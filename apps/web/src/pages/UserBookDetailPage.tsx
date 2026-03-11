@@ -6,6 +6,7 @@ import { getUserBook, deleteUserBook, markUserBookComplete, unmarkUserBookComple
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
+import { ShareButtons } from '../components/ShareButtons'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -259,6 +260,15 @@ export function UserBookDetailPage() {
             >
               {deleting ? 'Deleting...' : 'Delete Book'}
             </button>
+
+            {isReady && (
+              <ShareButtons
+                url={window.location.href}
+                title={book.title}
+                subtitle={book.author || undefined}
+                linkOnly
+              />
+            )}
           </div>
         </div>
       </div>

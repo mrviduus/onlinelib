@@ -22,6 +22,7 @@ import {
 } from '../lib/bookSeo'
 import { StarRating } from '../components/StarRating'
 import { MoodSelector } from '../components/MoodSelector'
+import { ShareButtons } from '../components/ShareButtons'
 import { ReviewsList } from '../components/reviews/ReviewsList'
 import type { BookDetail } from '../types/api'
 
@@ -308,6 +309,12 @@ export function BookDetailPage() {
                 {t('bookDetail.downloadForOffline')}
               </button>
             )}
+
+            <ShareButtons
+              url={`${canonicalOrigin}/${language}/books/${book.slug}`}
+              title={book.title}
+              subtitle={book.authors.map(a => a.name).join(', ')}
+            />
           </div>
         </div>
       </section>

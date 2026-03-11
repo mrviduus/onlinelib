@@ -7,6 +7,9 @@ import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
+import { useSite } from '../context/SiteContext'
+import { getCanonicalOrigin } from '../lib/canonicalUrl'
+import { ShareButtons } from '../components/ShareButtons'
 import {
   generateAboutText,
   generateRelevanceText,
@@ -19,6 +22,8 @@ import type { AuthorDetail } from '../types/api'
 export function AuthorDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { language } = useLanguage()
+  const { site } = useSite()
+  const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
   const api = useApi()
   const [author, setAuthor] = useState<AuthorDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -113,6 +118,10 @@ export function AuthorDetailPage() {
             <h2>{language === 'uk' ? 'Біографія' : 'Biography'}</h2>
             <p>{generateAboutText(author)}</p>
           </div>
+          <ShareButtons
+            url={`${canonicalOrigin}/${language}/authors/${author.slug}`}
+            title={author.name}
+          />
         </div>
       </div>
 
