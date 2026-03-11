@@ -14,6 +14,9 @@ import { EditAuthorPage } from './pages/EditAuthorPage'
 import { GenresPage } from './pages/GenresPage'
 import { CreateGenrePage } from './pages/CreateGenrePage'
 import { EditGenrePage } from './pages/EditGenrePage'
+import { BlogPostsPage } from './pages/BlogPostsPage'
+import { CreateBlogPostPage } from './pages/CreateBlogPostPage'
+import { EditBlogPostPage } from './pages/EditBlogPostPage'
 import { EditChapterPage } from './pages/EditChapterPage'
 import { ToolsPage } from './pages/ToolsPage'
 import { SeoCrawlPage } from './pages/SeoCrawlPage'
@@ -50,6 +53,9 @@ function App() {
             <Route path="genres" element={<GenresPage />} />
             <Route path="genres/new" element={<CreateGenrePage />} />
             <Route path="genres/:id" element={<EditGenrePage />} />
+            <Route path="blog" element={<BlogPostsPage />} />
+            <Route path="blog/new" element={<CreateBlogPostPage />} />
+            <Route path="blog/:id" element={<EditBlogPostPage />} />
             <Route path="tools" element={<ToolsPage />} />
             <Route path="seo-crawl" element={<SeoCrawlPage />} />
             <Route path="seo-crawl/:id" element={<SeoCrawlJobPage />} />

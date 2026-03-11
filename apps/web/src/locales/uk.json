@@ -416,5 +416,26 @@
     "settings": "Вимова",
     "unavailable": "Вимова недоступна",
     "test": "Тест"
+  },
+  "blog": {
+    "title": "Блог",
+    "readMore": "Читати далі",
+    "noPostsYet": "Поки що немає записів",
+    "publishedOn": "Опубліковано",
+    "writtenBy": "Автор",
+    "tags": "Теги",
+    "loadMore": "Завантажити ще",
+    "comments": "Коментарі",
+    "leaveComment": "Залишити коментар",
+    "commentPlaceholder": "Напишіть коментар...",
+    "deleteComment": "Видалити",
+    "reply": "Відповісти",
+    "replyPlaceholder": "Напишіть відповідь...",
+    "likes": "Вподобання",
+    "share": "Поділитись",
+    "shareOn": "Поділитись у",
+    "copyLink": "Копіювати посилання",
+    "linkCopied": "Посилання скопійовано!",
+    "backToBlog": "Назад до блогу"
   }
 }

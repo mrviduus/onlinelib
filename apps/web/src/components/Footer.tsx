@@ -14,6 +14,7 @@ export function Footer() {
           <LocalizedLink to="/books" className="site-footer__link">{t('nav.catalog')}</LocalizedLink>
           <LocalizedLink to="/authors" className="site-footer__link">{t('footer.authors')}</LocalizedLink>
           <LocalizedLink to="/genres" className="site-footer__link">{t('nav.genres')}</LocalizedLink>
+          <LocalizedLink to="/blog" className="site-footer__link">{t('blog.title')}</LocalizedLink>
         </nav>
         <nav className="site-footer__links">
           <LocalizedLink to="/privacy" className="site-footer__link">{t('footer.privacy')}</LocalizedLink>

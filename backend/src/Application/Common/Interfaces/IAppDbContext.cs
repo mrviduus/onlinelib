@@ -47,6 +47,9 @@ public interface IAppDbContext
     DbSet<VocabularyReview> VocabularyReviews { get; }
     DbSet<ReviewLike> ReviewLikes { get; }
     DbSet<ReviewComment> ReviewComments { get; }
+    DbSet<BlogPost> BlogPosts { get; }
+    DbSet<BlogComment> BlogComments { get; }
+    DbSet<BlogLike> BlogLikes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

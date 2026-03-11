@@ -478,6 +478,50 @@ async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
 // Single site architecture - this is the only public site
 export const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
+export interface BlogPostListItem {
+  id: string
+  slug: string
+  title: string
+  authorName: string
+  language: string
+  status: string
+  likeCount: number
+  commentCount: number
+  viewCount: number
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BlogPostDetail {
+  id: string
+  slug: string
+  title: string
+  content: string
+  excerpt: string | null
+  coverImagePath: string | null
+  authorName: string
+  tags: string | null
+  language: string
+  status: string
+  seoTitle: string | null
+  seoDescription: string | null
+  likeCount: number
+  commentCount: number
+  viewCount: number
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BlogStats {
+  total: number
+  published: number
+  draft: number
+  totalComments: number
+  totalLikes: number
+}
+
 export const adminApi = {
   uploadBook: async (params: {
     file: File
@@ -872,5 +916,65 @@ export const adminApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
+  },
+
+  // Blog
+  getBlogPosts: async (params?: { search?: string; status?: string; language?: string; offset?: number; limit?: number }): Promise<PaginatedResult<BlogPostListItem>> => {
+    const query = new URLSearchParams({ siteId: DEFAULT_SITE_ID })
+    if (params?.search) query.set('search', params.search)
+    if (params?.status) query.set('status', params.status)
+    if (params?.language) query.set('language', params.language)
+    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.limit) query.set('limit', String(params.limit))
+    return fetchJson<PaginatedResult<BlogPostListItem>>(`/admin/blog?${query}`)
+  },
+
+  getBlogPost: async (id: string): Promise<BlogPostDetail> => {
+    return fetchJson<BlogPostDetail>(`/admin/blog/${id}`)
+  },
+
+  createBlogPost: async (data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
+    return fetchJson<BlogPostDetail>('/admin/blog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  updateBlogPost: async (id: string, data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
+    return fetchJson<BlogPostDetail>(`/admin/blog/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteBlogPost: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/blog/${id}`, { method: 'DELETE' })
+  },
+
+  publishBlogPost: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/blog/${id}/publish`, { method: 'POST' })
+  },
+
+  unpublishBlogPost: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/blog/${id}/unpublish`, { method: 'POST' })
+  },
+
+  uploadBlogCover: async (id: string, file: File): Promise<{ coverImagePath: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetchJson<{ coverImagePath: string }>(`/admin/blog/${id}/cover`, {
+      method: 'POST',
+      body: formData,
+    })
+  },
+
+  deleteBlogCover: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/blog/${id}/cover`, { method: 'DELETE' })
+  },
+
+  getBlogStats: async (): Promise<BlogStats> => {
+    return fetchJson<BlogStats>('/admin/blog/stats')
   },
 }

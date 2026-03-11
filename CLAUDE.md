@@ -145,7 +145,7 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 
 **Reader hooks** (`apps/web/src/hooks/`): Reading session tracking (`useReadingSession`), progress sync (`useReadingProgress`), fullscreen (`useFullscreen`, `useImmersiveMode`), keyboard nav (`useReaderKeyboard`), in-book search (`useInBookSearch`), text selection (`useTextSelection`, `useDictionary`, `useTextTranslation`), dark mode (`useReaderSettings`, `useDarkMode`).
 
-**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Chapter editor, SSG rebuild, SEO crawl, Tools, Settings.
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild, SEO crawl, Tools, Settings.
 
 ## Key Concepts
 
@@ -154,6 +154,14 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 - Edition contains: title, description, cover_path, SEO fields
 - Edition ↔ Author via EditionAuthor (M2M), Edition → Genre (FK)
 - Chapter contains: html (rendered), plain_text (search), search_vector (FTS)
+
+**Blog**: Admin-created blog posts for internal linking and curated content (e.g. "Top 10 dystopian books").
+- BlogPost → BlogComment (threaded, 2-level max), BlogLike
+- Per-language posts (separate post for en/uk, like Editions)
+- Status: Draft/Published, admin publish/unpublish
+- Public pages: `/:lang/blog` (list), `/:lang/blog/:slug` (detail)
+- Admin CRUD: `/admin/blog` endpoints, admin panel pages
+- SSG prerendered, included in sitemap
 
 **User Books**: Users can upload their own books (separate from admin library).
 - UserBook → UserChapter (parallel to Work/Edition/Chapter but per-user)
@@ -221,11 +229,12 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - After adding/publishing new books
 - After updating book metadata
 - After adding/updating authors or genres
+- After publishing/updating blog posts
 - NOT needed for: reading progress, bookmarks, user data
 
 ## API Endpoints
 
-**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`
+**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`, `GET /blog`, `/blog/{slug}`, `/blog/{postId}/comments`
 
 **Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`
 
@@ -235,13 +244,15 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Reviews**: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
 
+**Blog**: `POST/DELETE /me/blog/{postId}/like`, `POST /me/blog/{postId}/comments`, `DELETE /me/blog/comments/{commentId}`
+
 **Moods**: `GET/POST /me/moods`
 
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`
 
 ## Key Files
 
@@ -283,6 +294,12 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Review Components | `apps/web/src/components/reviews/` |
 | Moods | `apps/web/src/components/MoodSelector.tsx`, `components/stats/MoodChart.tsx` |
 | Moods Admin | `backend/src/Api/Endpoints/AdminMoodEndpoints.cs` |
+| Blog API (public) | `backend/src/Api/Endpoints/BlogEndpoints.cs` |
+| Blog API (admin) | `backend/src/Api/Endpoints/AdminBlogEndpoints.cs` |
+| Blog Client | `apps/web/src/api/blog.ts` |
+| Blog Pages | `apps/web/src/pages/BlogPage.tsx`, `BlogPostPage.tsx` |
+| Blog Components | `apps/web/src/components/blog/` |
+| Blog Admin | `apps/admin/src/pages/BlogPostsPage.tsx`, `CreateBlogPostPage.tsx`, `EditBlogPostPage.tsx` |
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
 | FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |

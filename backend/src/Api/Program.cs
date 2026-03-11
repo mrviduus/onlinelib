@@ -244,6 +244,8 @@ app.MapUserRatingEndpoints();
 app.MapReviewEndpoints();
 app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
+app.MapAdminBlogEndpoints();
+app.MapBlogEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapInternalEndpoints();

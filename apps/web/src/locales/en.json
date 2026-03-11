@@ -416,5 +416,26 @@
     "settings": "Pronunciation",
     "unavailable": "Pronunciation unavailable",
     "test": "Test"
+  },
+  "blog": {
+    "title": "Blog",
+    "readMore": "Read more",
+    "noPostsYet": "No posts yet",
+    "publishedOn": "Published on",
+    "writtenBy": "By",
+    "tags": "Tags",
+    "loadMore": "Load more",
+    "comments": "Comments",
+    "leaveComment": "Leave a comment",
+    "commentPlaceholder": "Write your comment...",
+    "deleteComment": "Delete",
+    "reply": "Reply",
+    "replyPlaceholder": "Write your reply...",
+    "likes": "Likes",
+    "share": "Share",
+    "shareOn": "Share on",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied!",
+    "backToBlog": "Back to Blog"
   }
 }
