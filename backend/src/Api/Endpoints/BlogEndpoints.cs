@@ -77,9 +77,21 @@ public static class BlogEndpoints
             .Where(p => p.Slug == slug && p.SiteId == siteId && p.Status == BlogPostStatus.Published)
             .Select(p => new
             {
-                p.Id, p.Slug, p.Title, p.Content, p.Excerpt, p.CoverImagePath,
-                p.AuthorName, p.Tags, p.Language, p.SeoTitle, p.SeoDescription,
-                p.LikeCount, p.CommentCount, p.ViewCount, p.PublishedAt,
+                p.Id,
+                p.Slug,
+                p.Title,
+                p.Content,
+                p.Excerpt,
+                p.CoverImagePath,
+                p.AuthorName,
+                p.Tags,
+                p.Language,
+                p.SeoTitle,
+                p.SeoDescription,
+                p.LikeCount,
+                p.CommentCount,
+                p.ViewCount,
+                p.PublishedAt,
                 IsLikedByMe = userId.HasValue && p.Likes.Any(l => l.UserId == userId.Value),
             })
             .FirstOrDefaultAsync(ct);
