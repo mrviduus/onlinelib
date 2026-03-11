@@ -22,7 +22,9 @@
   "common": {
     "loading": "Loading...",
     "noBooksYet": "No books available yet.",
-    "noAuthorsYet": "No authors available yet."
+    "noAuthorsYet": "No authors available yet.",
+    "save": "Save",
+    "cancel": "Cancel"
   },
   "nav": {
     "catalog": "Catalog",
@@ -318,8 +320,10 @@
     "source": "Source",
     "dueDate": "Due",
     "noReviewDue": "No words due for review!",
-    "deleteConfirm": "Remove this word?",
+    "deleteConfirm": "Remove",
+    "deleteConfirmAction": "Confirm?",
     "editTranslation": "Edit translation",
+    "loadMore": "Load more",
     "stages": {
       "0": "New",
       "1": "Recognition",

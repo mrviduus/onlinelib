@@ -13,6 +13,7 @@ export interface VocabWordDto {
   userBookId: string | null
   sentence: string | null
   bookTitle: string | null
+  hint: string | null
   stage: number
   intervalDays: number
   consecutiveCorrect: number

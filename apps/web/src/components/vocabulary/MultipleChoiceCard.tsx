@@ -7,16 +7,17 @@ interface Props {
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
   onSpeak?: (text: string) => void
   t: (key: string) => string
+  disabled?: boolean
 }
 
-export function MultipleChoiceCard({ card, onAnswer, onSpeak, t }: Props) {
+export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const [startTime] = useState(Date.now())
 
   if (!card.options) return null
 
   const handleSelect = (idx: number) => {
-    if (selected !== null) return // already answered
+    if (selected !== null || disabled) return
     setSelected(idx)
     const isCorrect = idx === card.correctOptionIndex
     onAnswer(isCorrect, Date.now() - startTime)

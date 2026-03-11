@@ -15,7 +15,7 @@ export function ReviewFeedback({ card, result, isCorrect, onSpeak, t, onNext }: 
 
   return (
     <div className={`review-feedback ${isCorrect ? 'review-feedback--correct' : 'review-feedback--wrong'}`}>
-      <div className="review-feedback__icon">
+      <div className="review-feedback__icon" aria-hidden="true">
         {isCorrect ? '✓' : '✗'}
       </div>
       <div className="review-feedback__message">

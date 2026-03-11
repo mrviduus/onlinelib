@@ -221,7 +221,7 @@ public static class VocabularyEndpoints
             .Select(w => new VocabWordDto(
                 w.Id, w.Word, w.Language, w.Translation, w.Definition,
                 w.EditionId, w.ChapterId, w.UserBookId,
-                w.Sentence, w.BookTitle,
+                w.Sentence, w.BookTitle, w.Hint,
                 w.Stage, w.IntervalDays, w.ConsecutiveCorrect,
                 w.NextReviewAt, w.LastReviewedAt,
                 w.TotalReviews, w.CorrectReviews,
@@ -388,7 +388,7 @@ public static class VocabularyEndpoints
 
                     if (distractors.Count < 3)
                     {
-                        foreach (var fb in DistractorWords.English.OrderBy(_ => Random.Shared.Next()))
+                        foreach (var fb in DistractorWords.ForLanguage(w.Language).OrderBy(_ => Random.Shared.Next()))
                         {
                             if (distractors.Count >= 3) break;
                             if (fb != correct && !distractors.Contains(fb))
@@ -645,7 +645,7 @@ public static class VocabularyEndpoints
     private static VocabWordDto ToDto(VocabularyWord w) => new(
         w.Id, w.Word, w.Language, w.Translation, w.Definition,
         w.EditionId, w.ChapterId, w.UserBookId,
-        w.Sentence, w.BookTitle,
+        w.Sentence, w.BookTitle, w.Hint,
         w.Stage, w.IntervalDays, w.ConsecutiveCorrect,
         w.NextReviewAt, w.LastReviewedAt,
         w.TotalReviews, w.CorrectReviews,
@@ -665,7 +665,7 @@ public record UpdateWordRequest(string? Translation, string? Definition);
 public record VocabWordDto(
     Guid Id, string Word, string Language, string? Translation, string? Definition,
     Guid? EditionId, Guid? ChapterId, Guid? UserBookId,
-    string? Sentence, string? BookTitle,
+    string? Sentence, string? BookTitle, string? Hint,
     int Stage, double IntervalDays, int ConsecutiveCorrect,
     DateTimeOffset NextReviewAt, DateTimeOffset? LastReviewedAt,
     int TotalReviews, int CorrectReviews,

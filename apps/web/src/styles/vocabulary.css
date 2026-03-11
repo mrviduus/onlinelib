@@ -15,6 +15,17 @@
   padding: 2rem 0;
 }
 
+.vocab-error,
+.review-error {
+  color: var(--color-error, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
 /* Stats bar */
 .vocab-stats-bar {
   display: flex;
@@ -224,6 +235,12 @@
   letter-spacing: 0.05em;
 }
 
+.vocab-stage-badge--0 { background: #94a3b8; }
+.vocab-stage-badge--1 { background: #60a5fa; }
+.vocab-stage-badge--2 { background: #f59e0b; }
+.vocab-stage-badge--3 { background: #a78bfa; }
+.vocab-stage-badge--4 { background: #22c55e; }
+
 .vocab-word__book {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -249,6 +266,15 @@
   color: var(--color-text-muted);
   font-style: italic;
   margin-bottom: 0.5rem;
+}
+
+.vocab-word__hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-hover, rgba(0,0,0,0.03));
+  border-radius: 6px;
 }
 
 .vocab-word__stats {
@@ -278,6 +304,31 @@
 .vocab-word__delete {
   color: var(--color-error, #ef4444) !important;
   border-color: var(--color-error, #ef4444) !important;
+}
+
+.vocab-word__delete--confirming {
+  background: var(--color-error, #ef4444) !important;
+  color: white !important;
+}
+
+.vocab-load-more {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.vocab-load-more:hover {
+  background: var(--color-hover);
+  border-color: var(--color-primary);
 }
 
 .vocab-word__edit-row {
@@ -834,6 +885,10 @@
 @keyframes speak-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speak-btn--playing { animation: none; }
 }
 
 .review-card__speak {

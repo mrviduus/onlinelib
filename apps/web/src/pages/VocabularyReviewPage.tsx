@@ -23,6 +23,7 @@ export function VocabularyReviewPage() {
     currentCard,
     currentIndex,
     loading,
+    submitting,
     error,
     sessionStats,
     lastResult,
@@ -119,16 +120,20 @@ export function VocabularyReviewPage() {
         </span>
       </div>
 
+      {error && !loading && (
+        <div className="review-error">{error}</div>
+      )}
+
       {currentCard && !answerRevealed && (
         <>
           {currentCard.reviewMode === 'multiple_choice' && (
-            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
+            <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />
           )}
           {currentCard.reviewMode === 'typed_recall' && (
-            <TypedRecallCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
+            <TypedRecallCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />
           )}
           {currentCard.reviewMode === 'context' && (
-            <ContextCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} />
+            <ContextCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />
           )}
         </>
       )}

@@ -8,15 +8,16 @@ interface Props {
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
   onSpeak?: (text: string) => void
   t: (key: string) => string
+  disabled?: boolean
 }
 
-export function ContextCard({ card, onAnswer, onSpeak, t }: Props) {
+export function ContextCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
   const [input, setInput] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [startTime] = useState(Date.now())
 
   const handleSubmit = () => {
-    if (!input.trim() || submitted) return
+    if (!input.trim() || submitted || disabled) return
     setSubmitted(true)
     const { match } = fuzzyMatch(input, card.word)
     onAnswer(match, Date.now() - startTime)
@@ -45,15 +46,16 @@ export function ContextCard({ card, onAnswer, onSpeak, t }: Props) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          disabled={submitted}
+          disabled={submitted || disabled}
           autoFocus
           autoComplete="off"
           autoCapitalize="off"
+          aria-label={t('vocabulary.review.fillBlank')}
         />
         <button
           className="review-context__submit"
           onClick={handleSubmit}
-          disabled={submitted || !input.trim()}
+          disabled={submitted || disabled || !input.trim()}
         >
           {t('vocabulary.review.check')}
         </button>

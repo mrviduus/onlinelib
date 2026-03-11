@@ -16,6 +16,7 @@ export function useVocabularyReview() {
   const [cards, setCards] = useState<ReviewCardDto[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalDue, setTotalDue] = useState(0)
   const [sessionStats, setSessionStats] = useState<SessionStats>({ total: 0, correct: 0, reviewed: 0 })
@@ -48,8 +49,9 @@ export function useVocabularyReview() {
 
   const submitAnswer = useCallback(async (isCorrect: boolean, responseTimeMs: number) => {
     const card = cards[currentIndex]
-    if (!card) return
+    if (!card || submitting) return
 
+    setSubmitting(true)
     try {
       const result = await submitReview({
         wordId: card.wordId,
@@ -67,8 +69,10 @@ export function useVocabularyReview() {
       }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit')
+    } finally {
+      setSubmitting(false)
     }
-  }, [cards, currentIndex, mode])
+  }, [cards, currentIndex, mode, submitting])
 
   const nextCard = useCallback(() => {
     setCurrentIndex(prev => prev + 1)
@@ -87,6 +91,7 @@ export function useVocabularyReview() {
     currentIndex,
     totalDue,
     loading,
+    submitting,
     error,
     sessionStats,
     lastResult,

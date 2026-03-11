@@ -9,14 +9,9 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
 
-const STAGE_COLORS = ['#94a3b8', '#60a5fa', '#f59e0b', '#a78bfa', '#22c55e']
-
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
   return (
-    <span
-      className="vocab-stage-badge"
-      style={{ background: STAGE_COLORS[stage] || STAGE_COLORS[0] }}
-    >
+    <span className={`vocab-stage-badge vocab-stage-badge--${stage}`}>
       {t(`vocabulary.stages.${stage}`)}
     </span>
   )
@@ -28,8 +23,8 @@ export function VocabularyPage() {
   const { getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
   const {
-    words, total, loading, stats,
-    filters, applyFilters,
+    words, total, loading, error, stats,
+    filters, applyFilters, loadMore,
     removeWord, editWord,
   } = useVocabulary()
   const { speak, isPlaying } = useTts()
@@ -39,6 +34,7 @@ export function VocabularyPage() {
   const [editValue, setEditValue] = useState('')
   const [activeTab, setActiveTab] = useState('all')
   const [search, setSearch] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   if (!isAuthenticated) {
     return (
@@ -59,7 +55,7 @@ export function VocabularyPage() {
         <SeoHead title={t('vocabulary.title')} noindex />
         <div className="vocab-page">
           <h1>{t('vocabulary.title')}</h1>
-          <div className="vocab-loading">Loading...</div>
+          <div className="vocab-loading">{t('common.loading')}</div>
         </div>
         <Footer />
       </div>
@@ -97,8 +93,12 @@ export function VocabularyPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm(t('vocabulary.deleteConfirm'))) {
+    if (deletingId === id) {
       await removeWord(id)
+      setDeletingId(null)
+    } else {
+      setDeletingId(id)
+      setTimeout(() => setDeletingId(prev => prev === id ? null : prev), 3000)
     }
   }
 
@@ -107,6 +107,10 @@ export function VocabularyPage() {
       <SeoHead title={t('vocabulary.title')} noindex />
       <div className="vocab-page">
         <h1>{t('vocabulary.title')}</h1>
+
+        {error && (
+          <div className="vocab-error">{error}</div>
+        )}
 
         {/* Stats bar */}
         {stats && (
@@ -160,10 +164,12 @@ export function VocabularyPage() {
 
         {/* Filters */}
         <div className="vocab-filters">
-          <div className="vocab-tabs">
+          <div className="vocab-tabs" role="tablist">
             {['all', 'new', 'learning', 'mastered'].map(tab => (
               <button
                 key={tab}
+                role="tab"
+                aria-selected={activeTab === tab}
                 className={`vocab-tab ${activeTab === tab ? 'vocab-tab--active' : ''}`}
                 onClick={() => handleTabChange(tab)}
               >
@@ -176,6 +182,7 @@ export function VocabularyPage() {
               type="text"
               className="vocab-search"
               placeholder={t('vocabulary.filters.search')}
+              aria-label={t('vocabulary.filters.search')}
               value={search}
               onChange={e => handleSearch(e.target.value)}
             />
@@ -183,6 +190,7 @@ export function VocabularyPage() {
               className="vocab-sort"
               value={filters.sort || 'recent'}
               onChange={e => handleSort(e.target.value)}
+              aria-label={t('vocabulary.sort.recent')}
             >
               <option value="recent">{t('vocabulary.sort.recent')}</option>
               <option value="alphabetical">{t('vocabulary.sort.alphabetical')}</option>
@@ -229,14 +237,17 @@ export function VocabularyPage() {
                     {w.definition && (
                       <p className="vocab-word__definition">{w.definition}</p>
                     )}
+                    {w.hint && (
+                      <p className="vocab-word__hint">{w.hint}</p>
+                    )}
                     {w.sentence && (
                       <p className="vocab-word__sentence">"{w.sentence}"</p>
                     )}
                     <div className="vocab-word__stats">
-                      <span>Reviews: {w.totalReviews}</span>
-                      <span>Correct: {w.totalReviews > 0 ? Math.round(w.correctReviews / w.totalReviews * 100) : 0}%</span>
+                      <span>{t('vocabulary.review.reviewed')}: {w.totalReviews}</span>
+                      <span>{t('vocabulary.review.correctRate')}: {w.totalReviews > 0 ? Math.round(w.correctReviews / w.totalReviews * 100) : 0}%</span>
                       {w.nextReviewAt && (
-                        <span>Next: {new Date(w.nextReviewAt).toLocaleDateString()}</span>
+                        <span>{t('vocabulary.dueDate')}: {new Date(w.nextReviewAt).toLocaleDateString()}</span>
                       )}
                     </div>
                     <div className="vocab-word__actions">
@@ -249,16 +260,19 @@ export function VocabularyPage() {
                             onKeyDown={e => e.key === 'Enter' && handleSaveEdit(w.id)}
                             autoFocus
                           />
-                          <button onClick={() => handleSaveEdit(w.id)}>Save</button>
-                          <button onClick={() => setEditingId(null)}>Cancel</button>
+                          <button onClick={() => handleSaveEdit(w.id)}>{t('common.save')}</button>
+                          <button onClick={() => setEditingId(null)}>{t('common.cancel')}</button>
                         </div>
                       ) : (
                         <button onClick={() => handleStartEdit(w.id, w.translation || '')}>
                           {t('vocabulary.editTranslation')}
                         </button>
                       )}
-                      <button className="vocab-word__delete" onClick={() => handleDelete(w.id)}>
-                        {t('vocabulary.deleteConfirm')}
+                      <button
+                        className={`vocab-word__delete ${deletingId === w.id ? 'vocab-word__delete--confirming' : ''}`}
+                        onClick={() => handleDelete(w.id)}
+                      >
+                        {deletingId === w.id ? t('vocabulary.deleteConfirmAction') : t('vocabulary.deleteConfirm')}
                       </button>
                     </div>
                   </div>
@@ -269,9 +283,9 @@ export function VocabularyPage() {
         )}
 
         {total > words.length && (
-          <div className="vocab-total">
-            Showing {words.length} of {total}
-          </div>
+          <button className="vocab-load-more" onClick={loadMore}>
+            {t('vocabulary.loadMore')} ({total - words.length})
+          </button>
         )}
       </div>
       <Footer />
