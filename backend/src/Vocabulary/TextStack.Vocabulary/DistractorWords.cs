@@ -1,4 +1,4 @@
-namespace Application.Vocabulary;
+namespace TextStack.Vocabulary;
 
 public static class DistractorWords
 {

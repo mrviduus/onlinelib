@@ -3,10 +3,11 @@ using Api.Extensions;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
-using Application.Vocabulary;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TextStack.Vocabulary;
+using TextStack.Vocabulary.Contracts;
 
 namespace Api.Endpoints;
 
@@ -106,15 +107,15 @@ public static class VocabularyEndpoints
             {
                 using var scope = scopeFactory.CreateScope();
                 var bgDb = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
-                var bgHttp = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-                var bgConfig = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+                var enricher = scope.ServiceProvider.GetRequiredService<IDefinitionEnricher>();
+                var generator = scope.ServiceProvider.GetRequiredService<IDistractorGenerator>();
 
                 // Enrich definition from Free Dictionary API if not provided
                 string? enrichedDef = null;
                 if (string.IsNullOrWhiteSpace(def))
                 {
-                    enrichedDef = await DefinitionEnricher.FetchDefinitionAsync(
-                        wordText, lang, bgHttp, CancellationToken.None);
+                    enrichedDef = await enricher.FetchDefinitionAsync(
+                        wordText, lang, CancellationToken.None);
                     if (enrichedDef != null)
                     {
                         var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
@@ -128,8 +129,8 @@ public static class VocabularyEndpoints
                 }
 
                 // Generate distractors + hint via Ollama
-                var (distractors, hint) = await DistractorGenerator.GenerateAsync(
-                    wordText, lang, enrichedDef ?? def, sent, bgHttp, bgConfig, CancellationToken.None);
+                var (distractors, hint) = await generator.GenerateAsync(
+                    wordText, lang, enrichedDef ?? def, sent, CancellationToken.None);
                 if (distractors?.Count > 0 || hint != null)
                 {
                     var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
@@ -287,6 +288,7 @@ public static class VocabularyEndpoints
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
+        IReviewCardBuilder cardBuilder,
         [FromQuery] int? limit,
         [FromQuery] string? mode,
         CancellationToken ct)
@@ -335,82 +337,24 @@ public static class VocabularyEndpoints
                 && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
             .Take(MaxDistractorPoolSize)
-            .Select(w => new { w.Word, w.Language })
+            .Select(w => new DistractorPoolEntry(w.Word, w.Language))
             .ToListAsync(ct);
 
-        var distractorsByLang = distractorPool
-            .GroupBy(d => d.Language)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        var wordsForReview = dueWords.Select(w => new WordForReview(
+            w.Id, w.Word, w.Language,
+            w.Translation, w.Definition,
+            w.Sentence, w.BookTitle, w.Hint,
+            w.Distractors, w.Stage)).ToList();
 
-        var cards = new List<ReviewCardDto>();
-        foreach (var w in dueWords)
-        {
-            var reviewMode = SrsEngine.GetReviewMode(w.Stage, w.Sentence != null);
-            List<string>? options = null;
-            int? correctIndex = null;
-            string? blankSentence = null;
+        var cards = cardBuilder.BuildCards(wordsForReview, distractorPool);
 
-            if (reviewMode == "multiple_choice")
-            {
-                var llmDistractors = ParseDistractors(w.Distractors);
-                var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition) || !string.IsNullOrWhiteSpace(w.Translation);
+        // Map to endpoint DTO
+        var cardDtos = cards.Select(c => new ReviewCardDto(
+            c.WordId, c.Word, c.Translation, c.Definition,
+            c.ReviewMode, c.BlankSentence, c.OriginalSentence, c.BookTitle,
+            c.Hint, c.Options, c.CorrectOptionIndex)).ToList();
 
-                if (w.Sentence == null && !hasPrompt)
-                {
-                    reviewMode = "typed_recall";
-                }
-                else
-                {
-                    if (w.Sentence != null)
-                        blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
-
-                    var correct = w.Word;
-                    List<string> distractors;
-
-                    if (llmDistractors?.Count >= 3)
-                    {
-                        distractors = llmDistractors
-                            .Where(d => !d.Equals(w.Word, StringComparison.OrdinalIgnoreCase))
-                            .OrderBy(_ => Random.Shared.Next())
-                            .Take(3)
-                            .ToList();
-                    }
-                    else
-                    {
-                        var pool = distractorsByLang.GetValueOrDefault(w.Language, []);
-                        distractors = pool
-                            .Where(d => d.Word != w.Word)
-                            .OrderBy(_ => Random.Shared.Next())
-                            .Take(3)
-                            .Select(d => d.Word)
-                            .ToList();
-                    }
-
-                    if (distractors.Count < 3)
-                    {
-                        foreach (var fb in DistractorWords.ForLanguage(w.Language).OrderBy(_ => Random.Shared.Next()))
-                        {
-                            if (distractors.Count >= 3) break;
-                            if (fb != correct && !distractors.Contains(fb))
-                                distractors.Add(fb);
-                        }
-                    }
-
-                    options = distractors.Take(3).Append(correct).OrderBy(_ => Random.Shared.Next()).ToList();
-                    correctIndex = options.IndexOf(correct);
-                }
-            }
-
-            if (reviewMode == "context" && w.Sentence != null)
-                blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
-
-            cards.Add(new ReviewCardDto(
-                w.Id, w.Word, w.Translation, w.Definition,
-                reviewMode, blankSentence, w.Sentence, w.BookTitle,
-                w.Hint, options, correctIndex));
-        }
-
-        return Results.Ok(new ReviewQueueResponse(cards, totalDue));
+        return Results.Ok(new ReviewQueueResponse(cardDtos, totalDue));
     }
 
     // --- Submit Review ---
@@ -420,6 +364,7 @@ public static class VocabularyEndpoints
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
+        ISrsEngine srsEngine,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -447,7 +392,7 @@ public static class VocabularyEndpoints
         else
         {
             // SRS review OR practice incorrect: full SRS calculation
-            (newStage, newInterval, newConsecutive) = SrsEngine.Calculate(
+            (newStage, newInterval, newConsecutive) = srsEngine.Calculate(
                 word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
             word.Stage = newStage;
             word.IntervalDays = newInterval;
@@ -460,7 +405,7 @@ public static class VocabularyEndpoints
         if (request.IsCorrect) word.CorrectReviews++;
         word.UpdatedAt = now;
 
-        var reviewMode = SrsEngine.GetReviewMode(prevStage, word.Sentence != null);
+        var reviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
         var review = new VocabularyReview
         {
             Id = Guid.NewGuid(),
@@ -594,28 +539,11 @@ public static class VocabularyEndpoints
         });
     }
 
-    // --- Helpers ---
-
-    private static List<string>? ParseDistractors(string? json)
-    {
-        if (string.IsNullOrEmpty(json)) return null;
-        try { return JsonSerializer.Deserialize<List<string>>(json); }
-        catch { return null; }
-    }
-
-    private static string ReplaceWordInSentence(string sentence, string word)
-    {
-        var idx = sentence.IndexOf(word, StringComparison.OrdinalIgnoreCase);
-        if (idx >= 0)
-            return string.Concat(sentence.AsSpan(0, idx), "___", sentence.AsSpan(idx + word.Length));
-        return sentence + " [___]";
-    }
-
     // --- Admin: Backfill Definitions ---
 
     private static async Task<IResult> BackfillDefinitions(
         IAppDbContext db,
-        IHttpClientFactory httpClientFactory,
+        IDefinitionEnricher enricher,
         ILogger<IAppDbContext> logger,
         CancellationToken ct)
     {
@@ -632,8 +560,7 @@ public static class VocabularyEndpoints
         {
             try
             {
-                var def = await DefinitionEnricher.FetchDefinitionAsync(
-                    w.Word, w.Language, httpClientFactory, ct);
+                var def = await enricher.FetchDefinitionAsync(w.Word, w.Language, ct);
                 if (def != null)
                 {
                     w.Definition = def;

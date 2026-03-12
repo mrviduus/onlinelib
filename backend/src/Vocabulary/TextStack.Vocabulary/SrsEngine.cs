@@ -1,6 +1,6 @@
-namespace Application.Vocabulary;
+namespace TextStack.Vocabulary;
 
-public static class SrsEngine
+public sealed class SrsEngine : ISrsEngine
 {
     // Stages: 0=New, 1=Recognition, 2=Recall, 3=Context, 4=Mastered
     private const int MaxStage = 4;
@@ -11,7 +11,7 @@ public static class SrsEngine
     // Base review intervals per stage (days)
     private static readonly double[] BaseIntervals = [0, 1, 3, 7, 14];
 
-    public static (int NewStage, double NewInterval, int NewConsecutive) Calculate(
+    public (int NewStage, double NewInterval, int NewConsecutive) Calculate(
         int stage, int consecutiveCorrect, double currentInterval, bool isCorrect)
     {
         if (isCorrect)
@@ -42,7 +42,7 @@ public static class SrsEngine
         return (demotedStage, 1, 0);
     }
 
-    public static string GetReviewMode(int stage, bool hasSentence)
+    public string GetReviewMode(int stage, bool hasSentence)
     {
         return stage switch
         {

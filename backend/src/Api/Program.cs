@@ -21,6 +21,7 @@ using TextStack.Search;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Meilisearch;
 using TextStack.Tts;
+using TextStack.Vocabulary;
 using Api.Services;
 using Application.Search;
 using OpenTelemetry.Trace;
@@ -94,6 +95,14 @@ else
 
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();
+
+// Vocabulary SRS library
+builder.Services.AddTextStackVocabulary(options =>
+{
+    options.OllamaBaseUrl = builder.Configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
+    options.OllamaModel = builder.Configuration["Ollama:Model"] ?? "gemma3:4b";
+    options.OllamaTimeoutSeconds = builder.Configuration.GetValue("Ollama:TimeoutSeconds", 30);
+});
 
 // Image optimization
 builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();

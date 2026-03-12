@@ -1,27 +1,31 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
-namespace Api.Endpoints;
+namespace TextStack.Vocabulary;
 
-public static class DistractorGenerator
+public sealed class DistractorGenerator : IDistractorGenerator
 {
-    public static async Task<(List<string>? Distractors, string? Hint)> GenerateAsync(
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly VocabularyOptions _options;
+
+    public DistractorGenerator(IHttpClientFactory httpClientFactory, IOptions<VocabularyOptions> options)
+    {
+        _httpClientFactory = httpClientFactory;
+        _options = options.Value;
+    }
+
+    public async Task<(List<string>? Distractors, string? Hint)> GenerateAsync(
         string word, string language, string? definition, string? sentence,
-        IHttpClientFactory httpClientFactory, IConfiguration config,
         CancellationToken ct)
     {
-        var baseUrl = config.GetValue<string>("Ollama:BaseUrl") ?? "http://localhost:11434";
-        var model = config.GetValue<string>("Ollama:Model") ?? "gemma3:4b";
-        var timeout = config.GetValue("Ollama:TimeoutSeconds", 30);
-
         var prompt = BuildPrompt(word, language, definition, sentence);
 
-        var client = httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(timeout);
+        var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(_options.OllamaTimeoutSeconds);
 
-        var request = new { model, prompt, stream = false };
-        var response = await client.PostAsJsonAsync($"{baseUrl}/api/generate", request, ct);
+        var request = new { model = _options.OllamaModel, prompt, stream = false };
+        var response = await client.PostAsJsonAsync($"{_options.OllamaBaseUrl}/api/generate", request, ct);
 
         if (!response.IsSuccessStatusCode)
             return (null, null);

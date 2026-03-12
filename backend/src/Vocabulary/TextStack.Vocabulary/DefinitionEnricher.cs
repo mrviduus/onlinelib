@@ -1,18 +1,22 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
-namespace Api.Endpoints;
+namespace TextStack.Vocabulary;
 
-public static class DefinitionEnricher
+public sealed class DefinitionEnricher : IDefinitionEnricher
 {
     private const string ApiBaseUrl = "https://api.dictionaryapi.dev/api/v2/entries";
 
-    public static async Task<string?> FetchDefinitionAsync(
-        string word, string language,
-        IHttpClientFactory httpClientFactory,
-        CancellationToken ct)
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public DefinitionEnricher(IHttpClientFactory httpClientFactory)
     {
-        var client = httpClientFactory.CreateClient();
+        _httpClientFactory = httpClientFactory;
+    }
+
+    public async Task<string?> FetchDefinitionAsync(string word, string language, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(10);
 
         var langCode = NormalizeLanguage(language);
