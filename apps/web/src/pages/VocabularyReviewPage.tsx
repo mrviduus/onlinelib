@@ -150,6 +150,7 @@ export function VocabularyReviewPage() {
           onSpeak={handleSpeak}
           t={t}
           onNext={nextCard}
+          language={language}
         />
       )}
     </div>
