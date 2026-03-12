@@ -298,7 +298,7 @@ async function renderRoute(browser, routeObj) {
     }
 
     // Get the rendered HTML
-    const html = await page.content();
+    let html = await page.content();
 
     // Skip saving pages with noindex (real 404 or error state) — keep existing SSG file
     const hasNoindex = html.includes('content="noindex');
@@ -306,6 +306,12 @@ async function renderRoute(browser, routeObj) {
       const renderTimeMs = Date.now() - startTime;
       return { route, routeType, success: false, error: 'Page has noindex meta tag', renderTimeMs };
     }
+
+    // Strip JS module scripts to prevent hydration overwriting SSG content
+    // Googlebot executes JS which causes React to re-render and potentially show errors
+    html = html.replace(/<script type="module"[^>]*crossorigin[^>]*src="\/assets\/[^"]*"[^>]*><\/script>/g, '');
+    // Also strip modulepreload links
+    html = html.replace(/<link rel="modulepreload"[^>]*href="\/assets\/[^"]*"[^>]*\/?>/g, '');
 
     // Determine output path
     const outputPath = route.endsWith('/')
