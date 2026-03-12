@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### SSG / SEO — Critical Fix (2026-03-12)
+- **Fix: SSG saved error pages as permanent static files** — if API failed during prerender (timeout, 499), broken HTML with `noindex` was saved and served to Google. Now skips saving pages with `noindex` meta tag
+- **Fix: detail pages treated all errors as 404** — created `errorUtils.ts` with `isNotFoundError()`. Only real HTTP 404 gets `noindex`; transient errors (499, timeout) no longer add `noindex`
+- **Fix: Google JS hydration overwrites SSG** — strip `<script type="module">` and `<link rel="modulepreload">` from SSG output so Googlebot can't re-execute React
+- **Fix: SSG worker blocked by AllowedHosts** — added Docker hostname `api` to `AllowedHosts` in `appsettings.json`
+- **Retry logic** — failed routes retried up to 2x during SSG rebuild
+- **Admin blog INTERNAL_ERROR** — all admin blog endpoints used `GetSiteId()` which throws on admin routes (SiteContextMiddleware skipped). Changed to `[FromQuery] Guid siteId` (PR #37)
+
 ### Blog
 - **Full-stack blog** — admin CRUD, public pages, comments (2-level threaded), likes, share buttons
 - **Admin panel** — create/edit/publish/unpublish, cover upload, stats, search, status/language filters
