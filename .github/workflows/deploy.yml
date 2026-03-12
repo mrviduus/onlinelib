@@ -31,6 +31,8 @@ jobs:
           DATE=$(date +%F-%H%M)
           docker exec textstack_db_prod pg_dump -U textstack_prod textstack_prod | gzip > ~/backups/textstack/pre-deploy-$DATE.sql.gz
           echo "Backup created: pre-deploy-$DATE.sql.gz"
+          # Keep only 5 newest pre-deploy backups
+          cd ~/backups/textstack && ls -1t pre-deploy-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -v
 
       - name: Pull latest code
         run: |
