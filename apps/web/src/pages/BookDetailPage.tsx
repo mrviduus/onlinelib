@@ -24,6 +24,7 @@ import { StarRating } from '../components/StarRating'
 import { MoodSelector } from '../components/MoodSelector'
 import { ShareButtons } from '../components/ShareButtons'
 import { ReviewsList } from '../components/reviews/ReviewsList'
+import { isNotFoundError } from '../lib/errorUtils'
 import type { BookDetail } from '../types/api'
 
 // Strip HTML tags from description text
@@ -49,7 +50,7 @@ export function BookDetailPage() {
   const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<Error | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [showAllChapters, setShowAllChapters] = useState(false)
   const [activeTab, setActiveTab] = useState<'chapters' | 'reviews'>('chapters')
@@ -60,7 +61,7 @@ export function BookDetailPage() {
     setLoading(true)
     api.getBook(bookSlug)
       .then((data) => { if (!cancelled) setBook(data) })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => { if (!cancelled) setError(err) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [bookSlug, api])
@@ -110,7 +111,7 @@ export function BookDetailPage() {
     )
   }
 
-  if (error || !book) {
+  if (isNotFoundError(error) || (!book && !error)) {
     return (
       <div className="book-detail--stitch">
         <SeoHead
@@ -120,13 +121,28 @@ export function BookDetailPage() {
           statusCode={404}
         />
         <h1>{t('bookDetail.notFoundHeading')}</h1>
-        <p className="error">{error || t('bookDetail.notFoundError')}</p>
+        <p className="error">{error?.message || t('bookDetail.notFoundError')}</p>
         <LocalizedLink to="/" className="back-home-link">
           {t('bookDetail.backToHome')}
         </LocalizedLink>
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="book-detail--stitch">
+        <SeoHead title="Error" />
+        <h1>{t('bookDetail.notFoundHeading')}</h1>
+        <p className="error">{error.message}</p>
+        <LocalizedLink to="/" className="back-home-link">
+          {t('bookDetail.backToHome')}
+        </LocalizedLink>
+      </div>
+    )
+  }
+
+  if (!book) return null
 
   const genres = book.genres ?? []
   const moreByAuthor = book.moreByAuthor ?? []

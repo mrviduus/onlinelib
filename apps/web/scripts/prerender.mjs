@@ -292,10 +292,14 @@ async function renderRoute(browser, routeObj) {
       return null; // Keep waiting
     }, { timeout: 5000 }).then(h => h?.jsonValue()).catch(() => 'timeout');
 
-    // Small stabilization delay only for successful content
-    if (renderState === 'content') {
-      await new Promise(r => setTimeout(r, 100));
+    // Skip saving error/timeout/skeleton pages — keep existing SSG file intact
+    if (renderState !== 'content') {
+      const renderTimeMs = Date.now() - startTime;
+      return { route, routeType, success: false, error: `Render state: ${renderState}`, renderTimeMs };
     }
+
+    // Small stabilization delay for successful content
+    await new Promise(r => setTimeout(r, 100));
 
     // Get the rendered HTML
     const html = await page.content();
@@ -369,6 +373,47 @@ async function processRoutes(browser, routes) {
   }
 
   process.stderr.write('\n'); // New line after progress
+
+  // Retry failed routes up to 2 times
+  const MAX_RETRIES = 2;
+  for (let retry = 1; retry <= MAX_RETRIES; retry++) {
+    const failedRoutes = results.filter(r => !r.success);
+    if (failedRoutes.length === 0) break;
+
+    process.stderr.write(`\nRetry ${retry}/${MAX_RETRIES}: ${failedRoutes.length} failed routes...\n`);
+
+    for (let i = 0; i < failedRoutes.length; i += CONCURRENCY) {
+      const batch = failedRoutes.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(prev => renderRoute(browser, { route: prev.route, routeType: prev.routeType }))
+      );
+
+      for (const result of batchResults) {
+        if (result.success) {
+          // Replace failed result with success
+          const idx = results.findIndex(r => r.route === result.route);
+          if (idx !== -1) {
+            results[idx] = result;
+            rendered++;
+            failed--;
+          }
+
+          emitEvent({
+            event: 'result',
+            route: result.route,
+            routeType: result.routeType,
+            success: true,
+            renderTimeMs: result.renderTimeMs,
+            error: null,
+          });
+        }
+      }
+    }
+
+    emitEvent({ event: 'progress', rendered, failed, total });
+    process.stderr.write(`After retry ${retry}: ${rendered} rendered, ${failed} failed\n`);
+  }
+
   return results;
 }
 

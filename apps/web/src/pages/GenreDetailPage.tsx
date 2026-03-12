@@ -6,6 +6,7 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
+import { isNotFoundError } from '../lib/errorUtils'
 import type { GenreDetail } from '../types/api'
 
 export function GenreDetailPage() {
@@ -14,14 +15,14 @@ export function GenreDetailPage() {
   const api = useApi()
   const [genre, setGenre] = useState<GenreDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     if (!slug) return
     let cancelled = false
     api.getGenre(slug)
       .then((data) => { if (!cancelled) setGenre(data) })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => { if (!cancelled) setError(err) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [api, slug])
@@ -37,7 +38,7 @@ export function GenreDetailPage() {
     )
   }
 
-  if (error || !genre) {
+  if (isNotFoundError(error) || (!genre && !error)) {
     return (
       <div className="genre-detail">
         <SeoHead
@@ -47,13 +48,28 @@ export function GenreDetailPage() {
           statusCode={404}
         />
         <h1>{language === 'uk' ? 'Жанр не знайдений' : 'Genre not found'}</h1>
-        <p className="error">{error || 'Not found'}</p>
+        <p className="error">{error?.message || 'Not found'}</p>
         <LocalizedLink to="/" className="back-home-link">
           {language === 'uk' ? 'На головну' : 'Back to Home'}
         </LocalizedLink>
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="genre-detail">
+        <SeoHead title="Error" />
+        <h1>{language === 'uk' ? 'Помилка завантаження' : 'Loading error'}</h1>
+        <p className="error">{error.message}</p>
+        <LocalizedLink to="/" className="back-home-link">
+          {language === 'uk' ? 'На головну' : 'Back to Home'}
+        </LocalizedLink>
+      </div>
+    )
+  }
+
+  if (!genre) return null
 
   const seoTitle = language === 'uk'
     ? `${genre.name} — книги онлайн`

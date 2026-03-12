@@ -11,6 +11,7 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
+import { isNotFoundError } from '../lib/errorUtils'
 
 export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -21,7 +22,7 @@ export function BlogPostPage() {
 
   const [post, setPost] = useState<BlogPostDetailDto | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<Error | null>(null)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
@@ -39,7 +40,7 @@ export function BlogPostPage() {
         setLiked(data.isLikedByMe)
         setLikeCount(data.likeCount)
       })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => { if (!cancelled) setError(err) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [slug, language])
@@ -83,12 +84,12 @@ export function BlogPostPage() {
     )
   }
 
-  if (error || !post) {
+  if (isNotFoundError(error) || (!post && !error)) {
     return (
       <>
         <div className="blog-post">
           <SeoHead title={t('blog.title')} noindex statusCode={404} />
-          <p className="error">{error || 'Post not found'}</p>
+          <p className="error">{error?.message || 'Post not found'}</p>
           <LocalizedLink to="/blog" className="blog-post__back">
             {t('blog.backToBlog')}
           </LocalizedLink>
@@ -97,6 +98,23 @@ export function BlogPostPage() {
       </>
     )
   }
+
+  if (error) {
+    return (
+      <>
+        <div className="blog-post">
+          <SeoHead title="Error" />
+          <p className="error">{error.message}</p>
+          <LocalizedLink to="/blog" className="blog-post__back">
+            {t('blog.backToBlog')}
+          </LocalizedLink>
+        </div>
+        <Footer />
+      </>
+    )
+  }
+
+  if (!post) return null
 
   const dateStr = post.publishedAt
     ? new Date(post.publishedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })

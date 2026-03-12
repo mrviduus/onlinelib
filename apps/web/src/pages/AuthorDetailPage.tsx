@@ -17,6 +17,7 @@ import {
   getFAQs,
   generateThemeDescription,
 } from '../lib/authorSeo'
+import { isNotFoundError } from '../lib/errorUtils'
 import type { AuthorDetail } from '../types/api'
 
 export function AuthorDetailPage() {
@@ -27,14 +28,14 @@ export function AuthorDetailPage() {
   const api = useApi()
   const [author, setAuthor] = useState<AuthorDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     if (!slug) return
     let cancelled = false
     api.getAuthor(slug)
       .then((data) => { if (!cancelled) setAuthor(data) })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => { if (!cancelled) setError(err) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [api, slug])
@@ -53,7 +54,7 @@ export function AuthorDetailPage() {
     )
   }
 
-  if (error || !author) {
+  if (isNotFoundError(error) || (!author && !error)) {
     return (
       <div className="author-detail">
         <SeoHead
@@ -63,13 +64,28 @@ export function AuthorDetailPage() {
           statusCode={404}
         />
         <h1>{language === 'uk' ? 'Автор не знайдений' : 'Author not found'}</h1>
-        <p className="error">{error || 'Not found'}</p>
+        <p className="error">{error?.message || 'Not found'}</p>
         <LocalizedLink to="/" className="back-home-link">
           {language === 'uk' ? 'На головну' : 'Back to Home'}
         </LocalizedLink>
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="author-detail">
+        <SeoHead title="Error" />
+        <h1>{language === 'uk' ? 'Помилка завантаження' : 'Loading error'}</h1>
+        <p className="error">{error.message}</p>
+        <LocalizedLink to="/" className="back-home-link">
+          {language === 'uk' ? 'На головну' : 'Back to Home'}
+        </LocalizedLink>
+      </div>
+    )
+  }
+
+  if (!author) return null
 
   const seoTitle = language === 'uk'
     ? `${author.name} — книги автора`
