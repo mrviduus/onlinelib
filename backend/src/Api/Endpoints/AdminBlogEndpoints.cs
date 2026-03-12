@@ -5,7 +5,6 @@ using Domain.Enums;
 using Domain.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Api.Sites;
 
 namespace Api.Endpoints;
 
@@ -28,8 +27,8 @@ public static class AdminBlogEndpoints
     }
 
     private static async Task<IResult> GetAll(
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         [FromQuery] string? search,
         [FromQuery] string? status,
         [FromQuery] string? language,
@@ -37,7 +36,6 @@ public static class AdminBlogEndpoints
         [FromQuery] int limit = 20,
         CancellationToken ct = default)
     {
-        var siteId = httpContext.GetSiteId();
 
         var query = db.BlogPosts.Where(p => p.SiteId == siteId);
 
@@ -66,11 +64,10 @@ public static class AdminBlogEndpoints
     }
 
     private static async Task<IResult> GetStats(
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
 
         var posts = db.BlogPosts.Where(p => p.SiteId == siteId);
         var total = await posts.CountAsync(ct);
@@ -84,11 +81,10 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> GetById(
         Guid id,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
 
         var post = await db.BlogPosts
             .Where(p => p.Id == id && p.SiteId == siteId)
@@ -105,11 +101,10 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> Create(
         [FromBody] CreateBlogPostRequest request,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
 
         if (string.IsNullOrWhiteSpace(request.Title))
             return Results.BadRequest("Title is required");
@@ -161,11 +156,10 @@ public static class AdminBlogEndpoints
     private static async Task<IResult> Update(
         Guid id,
         [FromBody] UpdateBlogPostRequest request,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 
@@ -207,11 +201,10 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> Delete(
         Guid id,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 
@@ -223,11 +216,10 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> Publish(
         Guid id,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 
@@ -242,11 +234,10 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> Unpublish(
         Guid id,
-        HttpContext httpContext,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 
@@ -264,13 +255,12 @@ public static class AdminBlogEndpoints
     private static async Task<IResult> UploadCover(
         Guid id,
         IFormFile file,
-        HttpContext httpContext,
         IAppDbContext db,
         IFileStorageService storage,
         IImageOptimizer imageOptimizer,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 
@@ -303,12 +293,11 @@ public static class AdminBlogEndpoints
 
     private static async Task<IResult> DeleteCover(
         Guid id,
-        HttpContext httpContext,
         IAppDbContext db,
         IFileStorageService storage,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var post = await db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id && p.SiteId == siteId, ct);
         if (post is null) return Results.NotFound();
 

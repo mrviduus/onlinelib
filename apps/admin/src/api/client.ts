@@ -930,11 +930,11 @@ export const adminApi = {
   },
 
   getBlogPost: async (id: string): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>(`/admin/blog/${id}`)
+    return fetchJson<BlogPostDetail>(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`)
   },
 
   createBlogPost: async (data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>('/admin/blog', {
+    return fetchJson<BlogPostDetail>(`/admin/blog?siteId=${DEFAULT_SITE_ID}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -942,7 +942,7 @@ export const adminApi = {
   },
 
   updateBlogPost: async (id: string, data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>(`/admin/blog/${id}`, {
+    return fetchJson<BlogPostDetail>(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -950,31 +950,31 @@ export const adminApi = {
   },
 
   deleteBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}`, { method: 'DELETE' })
+    await fetchVoid(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
   },
 
   publishBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/publish`, { method: 'POST' })
+    await fetchVoid(`/admin/blog/${id}/publish?siteId=${DEFAULT_SITE_ID}`, { method: 'POST' })
   },
 
   unpublishBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/unpublish`, { method: 'POST' })
+    await fetchVoid(`/admin/blog/${id}/unpublish?siteId=${DEFAULT_SITE_ID}`, { method: 'POST' })
   },
 
   uploadBlogCover: async (id: string, file: File): Promise<{ coverImagePath: string }> => {
     const formData = new FormData()
     formData.append('file', file)
-    return fetchJson<{ coverImagePath: string }>(`/admin/blog/${id}/cover`, {
+    return fetchJson<{ coverImagePath: string }>(`/admin/blog/${id}/cover?siteId=${DEFAULT_SITE_ID}`, {
       method: 'POST',
       body: formData,
     })
   },
 
   deleteBlogCover: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/cover`, { method: 'DELETE' })
+    await fetchVoid(`/admin/blog/${id}/cover?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
   },
 
   getBlogStats: async (): Promise<BlogStats> => {
-    return fetchJson<BlogStats>('/admin/blog/stats')
+    return fetchJson<BlogStats>(`/admin/blog/stats?siteId=${DEFAULT_SITE_ID}`)
   },
 }
