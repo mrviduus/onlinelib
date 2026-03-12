@@ -15,7 +15,7 @@ import { useTranslation } from '../hooks/useTranslation'
 export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  useLanguage() // ensure language context
+  const { language } = useLanguage()
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
 
@@ -32,7 +32,7 @@ export function BlogPostPage() {
     if (!slug) return
     let cancelled = false
     setLoading(true)
-    getBlogPost(slug)
+    getBlogPost(slug, language)
       .then((data) => {
         if (cancelled) return
         setPost(data)
@@ -42,7 +42,7 @@ export function BlogPostPage() {
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [slug])
+  }, [slug, language])
 
   // Intercept internal links in post content for SPA navigation
   useEffect(() => {

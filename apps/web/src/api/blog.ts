@@ -75,11 +75,12 @@ export async function getBlogPosts(
     `${API_BASE}/blog${query ? `?${query}` : ''}`)
 }
 
-export async function getBlogPost(slug: string): Promise<BlogPostDetailDto> {
+export async function getBlogPost(slug: string, language?: string): Promise<BlogPostDetailDto> {
+  const qs = language ? `?language=${language}` : ''
   try {
-    return await authFetch<BlogPostDetailDto>(`/blog/${slug}`)
+    return await authFetch<BlogPostDetailDto>(`/blog/${slug}${qs}`)
   } catch {
-    return fetchJsonWithRetry<BlogPostDetailDto>(`${API_BASE}/blog/${slug}`)
+    return fetchJsonWithRetry<BlogPostDetailDto>(`${API_BASE}/blog/${slug}${qs}`)
   }
 }
 

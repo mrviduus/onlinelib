@@ -65,6 +65,7 @@ public static class BlogEndpoints
 
     private static async Task<IResult> GetPost(
         string slug,
+        [FromQuery] string? language,
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
@@ -73,8 +74,13 @@ public static class BlogEndpoints
         var siteId = httpContext.GetSiteId();
         var userId = httpContext.GetUserId(authService);
 
-        var post = await db.BlogPosts
-            .Where(p => p.Slug == slug && p.SiteId == siteId && p.Status == BlogPostStatus.Published)
+        var query = db.BlogPosts
+            .Where(p => p.Slug == slug && p.SiteId == siteId && p.Status == BlogPostStatus.Published);
+
+        if (!string.IsNullOrWhiteSpace(language))
+            query = query.Where(p => p.Language == language);
+
+        var post = await query
             .Select(p => new
             {
                 p.Id,
