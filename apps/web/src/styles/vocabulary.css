@@ -514,8 +514,7 @@
   margin-right: auto;
 }
 
-/* Review sentence (MC + typed recall) */
-.review-mc__sentence,
+/* Review sentence (typed recall) */
 .review-typed__sentence {
   color: var(--color-text);
   font-size: 0.95rem;
@@ -523,7 +522,6 @@
   line-height: 1.5;
 }
 
-.review-mc__sentence .review-mc__book,
 .review-typed__book {
   font-weight: 400;
   font-style: normal;

@@ -355,13 +355,13 @@ public static class VocabularyEndpoints
                 var llmDistractors = ParseDistractors(w.Distractors);
                 var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition) || !string.IsNullOrWhiteSpace(w.Translation);
 
-                if (!hasPrompt && w.Sentence == null)
+                if (w.Sentence == null && !hasPrompt)
                 {
                     reviewMode = "typed_recall";
                 }
                 else
                 {
-                    if (!hasPrompt && w.Sentence != null)
+                    if (w.Sentence != null)
                         blankSentence = ReplaceWordInSentence(w.Sentence, w.Word);
 
                     var correct = w.Word;

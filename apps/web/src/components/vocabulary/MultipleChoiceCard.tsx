@@ -23,26 +23,19 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Pro
     submitChoice(idx === card.correctOptionIndex)
   }
 
-  const prompt = card.definition || card.translation
-  const usingSentenceAsPrompt = !prompt && !!card.blankSentence
+  const prompt = card.blankSentence || card.definition || card.translation
 
   return (
     <div className="review-mc">
-      {card.originalSentence && !usingSentenceAsPrompt && (
-        <div className="review-mc__sentence">
-          <strong>"{card.originalSentence}"</strong>
-          {card.bookTitle && <span className="review-mc__book"> — {card.bookTitle}</span>}
-        </div>
-      )}
       <div className="review-mc__prompt">
-        {onSpeak && <SpeakButton onClick={() => onSpeak(prompt || card.blankSentence || card.word)} size={14} className="review-card__speak" />}
-        {prompt || card.blankSentence}
+        {onSpeak && <SpeakButton onClick={() => onSpeak(card.blankSentence || card.word)} size={14} className="review-card__speak" />}
+        {prompt}
       </div>
+      {card.bookTitle && (
+        <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle)}</div>
+      )}
       {card.hint && (
         <div className="review-card__hint">{card.hint}</div>
-      )}
-      {(usingSentenceAsPrompt || !card.originalSentence) && card.bookTitle && (
-        <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle!)}</div>
       )}
       <div className="review-mc__options">
         {card.options.map((option, idx) => {
