@@ -292,17 +292,20 @@ async function renderRoute(browser, routeObj) {
       return null; // Keep waiting
     }, { timeout: 5000 }).then(h => h?.jsonValue()).catch(() => 'timeout');
 
-    // Skip saving error/timeout/skeleton pages — keep existing SSG file intact
-    if (renderState !== 'content') {
-      const renderTimeMs = Date.now() - startTime;
-      return { route, routeType, success: false, error: `Render state: ${renderState}`, renderTimeMs };
-    }
-
     // Small stabilization delay for successful content
-    await new Promise(r => setTimeout(r, 100));
+    if (renderState === 'content') {
+      await new Promise(r => setTimeout(r, 100));
+    }
 
     // Get the rendered HTML
     const html = await page.content();
+
+    // Skip saving pages with noindex (real 404 or error state) — keep existing SSG file
+    const hasNoindex = html.includes('content="noindex');
+    if (hasNoindex) {
+      const renderTimeMs = Date.now() - startTime;
+      return { route, routeType, success: false, error: 'Page has noindex meta tag', renderTimeMs };
+    }
 
     // Determine output path
     const outputPath = route.endsWith('/')
