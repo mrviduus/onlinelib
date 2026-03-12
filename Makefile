@@ -53,6 +53,7 @@ deploy: fix-permissions
 	@PROJECT_DIR=$$(pwd) && \
 	sed "s|/home/vasyl/projects/onlinelib/textstack|$$PROJECT_DIR|g" \
 		infra/nginx/textstack.conf | sudo tee /etc/nginx/sites-available/textstack > /dev/null
+	sudo ln -sf /etc/nginx/sites-available/textstack /etc/nginx/sites-enabled/textstack
 	sudo nginx -t && sudo systemctl reload nginx
 	docker image prune -f
 	@echo "=== Done ==="
