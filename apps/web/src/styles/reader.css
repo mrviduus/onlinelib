@@ -1588,6 +1588,141 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   color: var(--reader-secondary);
 }
 
+/* Dictionary card (compact, Kindle-like) */
+.dictionary-card {
+  width: 280px;
+  max-width: 90vw;
+  background: var(--reader-bg);
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 155;
+  overflow: hidden;
+}
+
+.dictionary-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--reader-border);
+}
+
+.dictionary-card__word {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--reader-text);
+}
+
+.dictionary-card__phonetic {
+  color: var(--reader-secondary);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.dictionary-card__saved {
+  margin-left: auto;
+  color: #4caf50;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.dictionary-card__saved--visible { opacity: 1; }
+
+.dictionary-card__signin {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--reader-secondary);
+  white-space: nowrap;
+}
+
+.dictionary-card__loading {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--reader-secondary);
+}
+
+.dictionary-card__body {
+  padding: 8px 10px;
+}
+
+.dictionary-card__pos {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--reader-link, var(--reader-secondary));
+  text-transform: capitalize;
+  margin-bottom: 4px;
+}
+
+.dictionary-card__def {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--reader-text);
+}
+
+.dictionary-card__example {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--reader-secondary);
+  margin-top: 4px;
+}
+
+.dictionary-card__expand {
+  display: block;
+  width: 100%;
+  text-align: right;
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  color: var(--reader-link, var(--reader-secondary));
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.dictionary-card__expand:hover {
+  text-decoration: underline;
+}
+
+/* Settings toggle */
+.reader-settings-drawer__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.reader-settings-drawer__toggle-desc {
+  font-size: 13px;
+  color: var(--reader-text);
+}
+.reader-settings-drawer__toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  background: var(--reader-border);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.reader-settings-drawer__toggle.active {
+  background: #4caf50;
+}
+.reader-settings-drawer__toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.reader-settings-drawer__toggle.active .reader-settings-drawer__toggle-thumb {
+  transform: translateX(20px);
+}
+
 /* Note editor */
 .note-editor {
   width: 320px;

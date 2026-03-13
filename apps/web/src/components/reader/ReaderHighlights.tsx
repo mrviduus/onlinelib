@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
 import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
@@ -12,6 +12,8 @@ import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { DictionaryPopup } from './DictionaryPopup'
+import { DictionaryCard } from './DictionaryCard'
+import type { AutoSaveState } from './DictionaryCard'
 import { NoteEditor } from './NoteEditor'
 
 interface ReaderHighlightsProps {
@@ -23,6 +25,7 @@ interface ReaderHighlightsProps {
   bookTitle?: string
   userBookId?: string
   ttsSpeed?: number
+  autoLookup?: boolean
   children: React.ReactNode
 }
 
@@ -35,6 +38,7 @@ export function ReaderHighlights({
   bookTitle,
   userBookId,
   ttsSpeed = 1.0,
+  autoLookup = true,
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -48,6 +52,9 @@ export function ReaderHighlights({
   const [editingHighlightRect, setEditingHighlightRect] = useState<DOMRect | null>(null)
   const [vocabSaved, setVocabSaved] = useState(false)
   const [vocabToast, setVocabToast] = useState<string | null>(null)
+  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>('idle')
+  const autoSaveRef = useRef('')
+  const autoLookupTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   // Use the container ref for selection detection
   const { selection, clearSelection, hasSelection } = useTextSelection(containerRef)
@@ -94,6 +101,68 @@ export function ReaderHighlights({
     lookup: lookupWord,
     reset: resetDictionary,
   } = useDictionary()
+
+  // Helper: check if text is a single word
+  const selectedWord = selection.text.trim()
+  const isSingleWord = selectedWord.length > 0 && selectedWord.length <= 50 && /^[^\s]+$/.test(selectedWord)
+
+  // Auto-lookup: debounced dictionary fetch on single-word selection
+  useEffect(() => {
+    if (!autoLookup || !hasSelection || !isSingleWord) return
+
+    clearTimeout(autoLookupTimerRef.current)
+    autoLookupTimerRef.current = setTimeout(() => {
+      lookupWord(selectedWord, bookLanguage)
+    }, 200)
+
+    return () => clearTimeout(autoLookupTimerRef.current)
+  }, [autoLookup, hasSelection, isSingleWord, selectedWord, bookLanguage, lookupWord])
+
+  // Auto-save: fire-and-forget after dictionary loads (or errors)
+  useEffect(() => {
+    if (!autoLookup || !isAuthenticated || !hasSelection || !isSingleWord) return
+    if (isDictionaryLoading) return
+    if (autoSaveRef.current === selectedWord) return
+
+    autoSaveRef.current = selectedWord
+    setAutoSaveState('saving')
+
+    const def = dictionaryEntry?.definitions?.[0]?.definitions?.[0]?.definition || undefined
+    const sentence = selection.range && containerRef.current
+      ? extractSentence(selection.range, containerRef.current)
+      : undefined
+
+    saveWordApi({
+      word: selectedWord,
+      language: bookLanguage,
+      definition: def,
+      editionId: userBookId ? undefined : editionId || undefined,
+      chapterId: userBookId ? undefined : chapterId || undefined,
+      userBookId: userBookId || undefined,
+      sentence: sentence || undefined,
+      bookTitle: bookTitle || undefined,
+    })
+      .then(() => setAutoSaveState('saved'))
+      .catch(() => setAutoSaveState('idle'))
+  }, [autoLookup, isAuthenticated, hasSelection, isSingleWord, selectedWord, isDictionaryLoading, dictionaryEntry, selection.range, containerRef, bookLanguage, editionId, chapterId, userBookId, bookTitle])
+
+  // Reset auto-save state when selection clears
+  useEffect(() => {
+    if (!hasSelection) {
+      autoSaveRef.current = ''
+      setAutoSaveState('idle')
+      resetDictionary()
+    }
+  }, [hasSelection, resetDictionary])
+
+  // Expand from DictionaryCard to full DictionaryPopup
+  const handleExpandDictionary = useCallback(() => {
+    if (!selection.rect) return
+    setDictionaryWord(selectedWord)
+    setDictionaryRect(selection.rect)
+    setShowDictionary(true)
+    setVocabSaved(autoSaveState === 'saved')
+  }, [selection.rect, selectedWord, autoSaveState])
 
   const handleHighlight = useCallback(
     async (color: HighlightColor) => {
@@ -273,10 +342,25 @@ export function ReaderHighlights({
           containerRef={containerRef}
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
-          onDictionary={handleDictionary}
-          onSaveWord={isAuthenticated ? handleSaveWord : undefined}
-          onSpeak={() => handleSpeak(selection.text)}
+          onDictionary={autoLookup ? undefined : handleDictionary}
+          onSaveWord={autoLookup || !isAuthenticated ? undefined : handleSaveWord}
+          onSpeak={autoLookup && isSingleWord ? undefined : () => handleSpeak(selection.text)}
           onCopy={handleCopy}
+        />
+      )}
+
+      {hasSelection && isSingleWord && autoLookup && !showDictionary && !showTranslation && (
+        <DictionaryCard
+          word={selectedWord}
+          entry={dictionaryEntry}
+          isLoading={isDictionaryLoading}
+          error={dictionaryError}
+          rect={selection.rect}
+          containerRef={containerRef}
+          onExpand={handleExpandDictionary}
+          onSpeak={(text) => handleSpeak(text)}
+          savedState={autoSaveState}
+          isAuthenticated={isAuthenticated}
         />
       )}
 
