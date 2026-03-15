@@ -206,12 +206,16 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.ChapterId);
             e.HasIndex(x => x.EditionId);
             e.HasIndex(x => x.SiteId);
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId });
+            e.HasIndex(x => x.UserBookId);
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).HasFilter("edition_id IS NOT NULL");
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).HasFilter("user_book_id IS NOT NULL");
             e.Property(x => x.AnchorJson).HasColumnType("jsonb");
             e.Property(x => x.Color).HasMaxLength(20);
             e.HasOne(x => x.User).WithMany(x => x.Highlights).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserChapter).WithMany().HasForeignKey(x => x.UserChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -461,12 +465,15 @@ public class AppDbContext : DbContext, IAppDbContext
         // UserRating
         modelBuilder.Entity<UserRating>(e =>
         {
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique().HasFilter("edition_id IS NOT NULL");
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).IsUnique().HasFilter("user_book_id IS NOT NULL");
             e.HasIndex(x => x.EditionId);
+            e.HasIndex(x => x.UserBookId);
             e.HasIndex(x => new { x.EditionId, x.HelpfulCount });
             e.Property(x => x.Title).HasMaxLength(200);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasMany(x => x.Likes).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Comments).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
@@ -504,10 +511,13 @@ public class AppDbContext : DbContext, IAppDbContext
         // UserMoodTag
         modelBuilder.Entity<UserMoodTag>(e =>
         {
-            e.HasIndex(x => new { x.UserId, x.EditionId });
-            e.HasIndex(x => new { x.UserId, x.EditionId, x.MoodId }).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.EditionId }).HasFilter("edition_id IS NOT NULL");
+            e.HasIndex(x => new { x.UserId, x.UserBookId }).HasFilter("user_book_id IS NOT NULL");
+            e.HasIndex(x => new { x.UserId, x.EditionId, x.MoodId }).IsUnique().HasFilter("edition_id IS NOT NULL");
+            e.HasIndex(x => new { x.UserId, x.UserBookId, x.MoodId }).IsUnique().HasFilter("user_book_id IS NOT NULL");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Mood).WithMany().HasForeignKey(x => x.MoodId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });

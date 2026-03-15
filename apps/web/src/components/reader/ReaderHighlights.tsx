@@ -65,7 +65,7 @@ export function ReaderHighlights({
     addHighlight,
     updateHighlight,
     removeHighlight,
-  } = useHighlights(editionId, {
+  } = useHighlights(userBookId ? undefined : editionId, userBookId, {
     chapterId,
     isAuthenticated,
   })

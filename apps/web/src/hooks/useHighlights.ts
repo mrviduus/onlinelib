@@ -4,13 +4,16 @@ import {
   type TextAnchor,
   type HighlightColor,
   getHighlightsForEdition,
+  getHighlightsForUserBook,
   getHighlightsForChapter,
   saveHighlight,
   deleteHighlight as deleteHighlightFromDB,
   deleteHighlightsByEdition,
+  deleteHighlightsByUserBook,
 } from '../lib/offlineDb'
 import {
   getPublicHighlights,
+  getUserBookHighlights,
   createPublicHighlight,
   updatePublicHighlight,
   deletePublicHighlight,
@@ -25,15 +28,18 @@ interface UseHighlightsOptions {
   isAuthenticated?: boolean
 }
 
-export function useHighlights(editionId: string, options?: UseHighlightsOptions) {
+export function useHighlights(editionId?: string, userBookId?: string, options?: UseHighlightsOptions) {
   const { chapterId, isAuthenticated } = options || {}
   const [highlights, setHighlights] = useState<StoredHighlight[]>([])
   const [loading, setLoading] = useState(true)
   const serverSyncedRef = useRef(false)
 
+  const bookId = userBookId || editionId || ''
+  const isUserBook = !!userBookId
+
   // Load highlights: IndexedDB first, then server if authenticated
   useEffect(() => {
-    if (!editionId) {
+    if (!bookId) {
       setLoading(false)
       return
     }
@@ -42,9 +48,11 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
     serverSyncedRef.current = false
 
     // 1. Load from IndexedDB first (instant)
-    const loadLocal = chapterId
-      ? getHighlightsForChapter(editionId, chapterId)
-      : getHighlightsForEdition(editionId)
+    const loadLocal = isUserBook
+      ? getHighlightsForUserBook(bookId)
+      : chapterId
+        ? getHighlightsForChapter(bookId, chapterId)
+        : getHighlightsForEdition(bookId)
 
     loadLocal
       .then((localHighlights) => {
@@ -55,7 +63,11 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
 
     // 2. If authenticated, fetch from server
     if (isAuthenticated) {
-      getPublicHighlights(editionId)
+      const fetchServer = isUserBook
+        ? getUserBookHighlights(bookId)
+        : getPublicHighlights(bookId)
+
+      fetchServer
         .then(async (serverHighlights) => {
           if (cancelled) return
           serverSyncedRef.current = true
@@ -63,8 +75,10 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
           // Convert server highlights to local format
           const converted: StoredHighlight[] = serverHighlights.map((sh) => ({
             id: sh.id,
-            editionId: sh.editionId,
-            chapterId: sh.chapterId,
+            editionId: sh.editionId || '',
+            chapterId: sh.chapterId || '',
+            userBookId: sh.userBookId || undefined,
+            userChapterId: sh.userChapterId || undefined,
             anchor: JSON.parse(sh.anchorJson) as TextAnchor,
             color: sh.color as HighlightColor,
             selectedText: sh.selectedText,
@@ -75,15 +89,19 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
             updatedAt: new Date(sh.updatedAt).getTime(),
           }))
 
-          // Replace local with server data for this edition
-          await deleteHighlightsByEdition(editionId)
+          // Replace local with server data for this book
+          if (isUserBook) {
+            await deleteHighlightsByUserBook(bookId)
+          } else {
+            await deleteHighlightsByEdition(bookId)
+          }
           for (const h of converted) {
             await saveHighlight(h)
           }
 
           // Filter by chapter if needed
           const filtered = chapterId
-            ? converted.filter((h) => h.chapterId === chapterId)
+            ? converted.filter((h) => h.chapterId === chapterId || h.userChapterId === chapterId)
             : converted
 
           if (!cancelled) setHighlights(filtered)
@@ -101,7 +119,7 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
     return () => {
       cancelled = true
     }
-  }, [editionId, chapterId, isAuthenticated])
+  }, [bookId, chapterId, isAuthenticated, isUserBook])
 
   const addHighlight = useCallback(
     async (
@@ -112,8 +130,10 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
       const now = Date.now()
       const highlight: StoredHighlight = {
         id: generateId(),
-        editionId,
+        editionId: isUserBook ? '' : bookId,
         chapterId: anchor.chapterId,
+        userBookId: isUserBook ? bookId : undefined,
+        userChapterId: isUserBook ? anchor.chapterId : undefined,
         anchor,
         color,
         selectedText,
@@ -126,13 +146,23 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
       // If authenticated, create on server first
       if (isAuthenticated) {
         try {
-          const serverHighlight = await createPublicHighlight({
-            editionId,
-            chapterId: anchor.chapterId,
-            anchorJson: JSON.stringify(anchor),
-            color,
-            selectedText,
-          })
+          const serverHighlight = await createPublicHighlight(
+            isUserBook
+              ? {
+                  userBookId: bookId,
+                  userChapterId: anchor.chapterId,
+                  anchorJson: JSON.stringify(anchor),
+                  color,
+                  selectedText,
+                }
+              : {
+                  editionId: bookId,
+                  chapterId: anchor.chapterId,
+                  anchorJson: JSON.stringify(anchor),
+                  color,
+                  selectedText,
+                }
+          )
 
           highlight.id = serverHighlight.id
           highlight.syncStatus = 'synced'
@@ -148,7 +178,7 @@ export function useHighlights(editionId: string, options?: UseHighlightsOptions)
       setHighlights((prev) => [highlight, ...prev])
       return highlight
     },
-    [editionId, isAuthenticated]
+    [bookId, isAuthenticated, isUserBook]
   )
 
   const updateHighlight = useCallback(

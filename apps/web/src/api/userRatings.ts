@@ -2,7 +2,8 @@ import { authFetch } from './client'
 
 export interface UserRatingDto {
   id: string
-  editionId: string
+  editionId: string | null
+  userBookId: string | null
   rating: number
   reviewText: string | null
   title: string | null
@@ -14,6 +15,7 @@ export interface UserRatingDto {
   editionSlug: string | null
   editionCoverPath: string | null
   editionLanguage: string | null
+  userBookTitle: string | null
 }
 
 export interface UpsertRatingRequest {
@@ -46,4 +48,26 @@ export async function upsertRating(editionId: string, data: UpsertRatingRequest)
 
 export async function deleteRating(editionId: string): Promise<void> {
   await authFetch<void>(`/me/ratings/${editionId}`, { method: 'DELETE' })
+}
+
+// User book ratings
+export async function getUserBookRating(userBookId: string): Promise<UserRatingDto | null> {
+  try {
+    return await authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`)
+  } catch (e: any) {
+    if (e.message?.includes('404') || e.message?.includes('Not Found')) return null
+    throw e
+  }
+}
+
+export async function upsertUserBookRating(userBookId: string, data: UpsertRatingRequest): Promise<UserRatingDto> {
+  return authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteUserBookRating(userBookId: string): Promise<void> {
+  await authFetch<void>(`/me/ratings/userbook/${userBookId}`, { method: 'DELETE' })
 }

@@ -461,15 +461,19 @@ public static class ReadingTrackingEndpoints
             .ToListAsync(ct);
         var sessionMap = sessionsByEdition.ToDictionary(s => s.EditionId);
 
-        // 6. User mood tags for finished editions
+        // 6. User mood tags for finished editions + user books
         var moodTags = await db.UserMoodTags
-            .Where(t => t.UserId == userId.Value && t.SiteId == siteId && editionIds.Contains(t.EditionId))
+            .Where(t => t.UserId == userId.Value && t.SiteId == siteId
+                && ((t.EditionId != null && editionIds.Contains(t.EditionId.Value))
+                    || t.UserBookId != null))
             .Join(db.Moods, t => t.MoodId, m => m.Id, (t, m) => new { m.Name, m.Emoji })
             .ToListAsync(ct);
 
-        // 7. User ratings for finished editions
+        // 7. User ratings for finished editions + user books
         var ratings = await db.UserRatings
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && editionIds.Contains(r.EditionId))
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId
+                && ((r.EditionId != null && editionIds.Contains(r.EditionId.Value))
+                    || r.UserBookId != null))
             .Select(r => r.Rating)
             .ToListAsync(ct);
 

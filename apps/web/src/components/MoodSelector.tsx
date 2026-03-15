@@ -1,33 +1,40 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getAllMoods, getMoodsForEdition, setMoodsForEdition, type MoodDto } from '../api/moods'
+import { getAllMoods, getMoodsForEdition, setMoodsForEdition, getMoodsForUserBook, setMoodsForUserBook, type MoodDto } from '../api/moods'
 
 interface MoodSelectorProps {
-  editionId: string
+  editionId?: string
+  userBookId?: string
 }
 
-export function MoodSelector({ editionId }: MoodSelectorProps) {
+export function MoodSelector({ editionId, userBookId }: MoodSelectorProps) {
   const { isAuthenticated } = useAuth()
   const [moods, setMoods] = useState<MoodDto[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
+  const bookId = userBookId || editionId
+  const isUserBook = !!userBookId
+
   useEffect(() => {
     getAllMoods().then(setMoods).catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (!isAuthenticated || !editionId) return
-    getMoodsForEdition(editionId)
+    if (!isAuthenticated || !bookId) return
+    const fetchMoods = isUserBook
+      ? getMoodsForUserBook(bookId)
+      : getMoodsForEdition(bookId)
+    fetchMoods
       .then((ids) => { setSelected(new Set(ids)); setLoaded(true) })
       .catch(() => setLoaded(true))
-  }, [isAuthenticated, editionId])
+  }, [isAuthenticated, bookId, isUserBook])
 
   if (!isAuthenticated || moods.length === 0) return null
 
   const toggle = async (moodId: string) => {
-    if (saving) return
+    if (saving || !bookId) return
     const next = new Set(selected)
     if (next.has(moodId)) {
       next.delete(moodId)
@@ -38,7 +45,8 @@ export function MoodSelector({ editionId }: MoodSelectorProps) {
     setSelected(next)
     setSaving(true)
     try {
-      await setMoodsForEdition(editionId, Array.from(next))
+      const setMoodsFn = isUserBook ? setMoodsForUserBook : setMoodsForEdition
+      await setMoodsFn(bookId, Array.from(next))
     } catch {
       setSelected(selected) // revert
     }

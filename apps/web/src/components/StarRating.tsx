@@ -1,35 +1,43 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getRating, upsertRating, deleteRating } from '../api/userRatings'
+import { getRating, upsertRating, deleteRating, getUserBookRating, upsertUserBookRating, deleteUserBookRating } from '../api/userRatings'
 
 interface StarRatingProps {
-  editionId: string
+  editionId?: string
+  userBookId?: string
 }
 
-export function StarRating({ editionId }: StarRatingProps) {
+export function StarRating({ editionId, userBookId }: StarRatingProps) {
   const { isAuthenticated } = useAuth()
   const [rating, setRating] = useState<number>(0)
   const [hover, setHover] = useState<number>(0)
   const [saving, setSaving] = useState(false)
 
+  const bookId = userBookId || editionId
+  const isUserBook = !!userBookId
+  const clipId = bookId || 'star'
+
   useEffect(() => {
-    if (!isAuthenticated || !editionId) return
-    getRating(editionId).then((r) => {
+    if (!isAuthenticated || !bookId) return
+    const fetchRating = isUserBook ? getUserBookRating(bookId) : getRating(bookId)
+    fetchRating.then((r) => {
       if (r) setRating(r.rating)
     }).catch(() => {})
-  }, [isAuthenticated, editionId])
+  }, [isAuthenticated, bookId, isUserBook])
 
   if (!isAuthenticated) return null
 
   const handleClick = async (value: number) => {
-    if (saving) return
+    if (saving || !bookId) return
     setSaving(true)
     try {
       if (value === rating) {
-        await deleteRating(editionId)
+        isUserBook ? await deleteUserBookRating(bookId) : await deleteRating(bookId)
         setRating(0)
       } else {
-        await upsertRating(editionId, { rating: value })
+        isUserBook
+          ? await upsertUserBookRating(bookId, { rating: value })
+          : await upsertRating(bookId, { rating: value })
         setRating(value)
       }
     } catch {}
@@ -75,7 +83,7 @@ export function StarRating({ editionId }: StarRatingProps) {
               style={{ pointerEvents: 'none' }}
             >
               <defs>
-                <clipPath id={`half-clip-${editionId}-${star}`}>
+                <clipPath id={`half-clip-${clipId}-${star}`}>
                   <rect x="0" y="0" width="12" height="24" />
                 </clipPath>
               </defs>
@@ -87,7 +95,7 @@ export function StarRating({ editionId }: StarRatingProps) {
               )}
               {/* Half fill */}
               {isHalf && (
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor" stroke="none" clipPath={`url(#half-clip-${editionId}-${star})`} />
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor" stroke="none" clipPath={`url(#half-clip-${clipId}-${star})`} />
               )}
             </svg>
           </span>

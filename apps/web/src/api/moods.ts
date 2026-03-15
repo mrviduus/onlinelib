@@ -27,3 +27,17 @@ export async function setMoodsForEdition(editionId: string, moodIds: string[]): 
     body: JSON.stringify({ moodIds }),
   })
 }
+
+/** Get user's mood IDs for a user book */
+export async function getMoodsForUserBook(userBookId: string): Promise<string[]> {
+  return authFetch<string[]>(`/me/moods/userbook/${userBookId}`)
+}
+
+/** Set moods for a user book (replaces all) */
+export async function setMoodsForUserBook(userBookId: string, moodIds: string[]): Promise<string[]> {
+  return authFetch<string[]>(`/me/moods/userbook/${userBookId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moodIds }),
+  })
+}

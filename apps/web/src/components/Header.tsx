@@ -44,6 +44,11 @@ export function Header() {
               {t('nav.vocabulary')}
             </LocalizedLink>
           )}
+          {isAuthenticated && (
+            <LocalizedLink to="/highlights" className="site-header__nav-link" title={t('nav.highlights')}>
+              {t('nav.highlights')}
+            </LocalizedLink>
+          )}
           <LocalizedLink to="/blog" className="site-header__nav-link" title={t('blog.title')}>
             {t('blog.title')}
           </LocalizedLink>

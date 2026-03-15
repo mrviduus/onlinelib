@@ -35,6 +35,8 @@ export interface StoredHighlight {
   id: string
   editionId: string
   chapterId: string
+  userBookId?: string
+  userChapterId?: string
   anchor: TextAnchor
   color: HighlightColor
   selectedText: string
@@ -79,7 +81,7 @@ export interface CachedTtsAudio {
 }
 
 const DB_NAME = 'textstack-reader'
-const DB_VERSION = 6
+const DB_VERSION = 7
 const CHAPTERS_STORE = 'chapters'
 const BOOKS_META_STORE = 'cachedBooks'
 const HIGHLIGHTS_STORE = 'highlights'
@@ -125,6 +127,15 @@ export function openOfflineDb(): Promise<IDBDatabase> {
         store.createIndex('editionId', 'editionId', { unique: false })
         store.createIndex('chapterId', 'chapterId', { unique: false })
         store.createIndex('editionChapter', ['editionId', 'chapterId'], { unique: false })
+      }
+
+      // Add userBookId index to highlights (v7)
+      if (db.objectStoreNames.contains(HIGHLIGHTS_STORE)) {
+        const tx = (event.target as IDBOpenDBRequest).transaction!
+        const store = tx.objectStore(HIGHLIGHTS_STORE)
+        if (!store.indexNames.contains('userBookId')) {
+          store.createIndex('userBookId', 'userBookId', { unique: false })
+        }
       }
 
       // Translations cache store (v4)
@@ -388,6 +399,48 @@ export async function deleteHighlightsByEdition(editionId: string): Promise<void
     const store = tx.objectStore(HIGHLIGHTS_STORE)
     const index = store.index('editionId')
     const request = index.openCursor(IDBKeyRange.only(editionId))
+
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (cursor) {
+        cursor.delete()
+        cursor.continue()
+      } else {
+        resolve()
+      }
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function getHighlightsForUserBook(
+  userBookId: string
+): Promise<StoredHighlight[]> {
+  const db = await openOfflineDb()
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HIGHLIGHTS_STORE, 'readonly')
+    const store = tx.objectStore(HIGHLIGHTS_STORE)
+    const index = store.index('userBookId')
+    const request = index.getAll(userBookId)
+
+    request.onsuccess = () => {
+      const highlights = request.result as StoredHighlight[]
+      highlights.sort((a, b) => b.createdAt - a.createdAt)
+      resolve(highlights)
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function deleteHighlightsByUserBook(userBookId: string): Promise<void> {
+  const db = await openOfflineDb()
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HIGHLIGHTS_STORE, 'readwrite')
+    const store = tx.objectStore(HIGHLIGHTS_STORE)
+    const index = store.index('userBookId')
+    const request = index.openCursor(IDBKeyRange.only(userBookId))
 
     request.onsuccess = () => {
       const cursor = request.result

@@ -14,6 +14,10 @@ public static class HighlightsEndpoints
     {
         var group = app.MapGroup("/me/highlights").WithTags("Highlights");
 
+        group.MapGet("/all", GetAllHighlights).WithName("GetAllHighlights");
+        group.MapGet("/review", GetHighlightsForReview).WithName("GetHighlightsForReview");
+        group.MapPost("/review", MarkHighlightReviewed).WithName("MarkHighlightReviewed");
+        group.MapGet("/userbook/{userBookId:guid}", GetUserBookHighlights).WithName("GetUserBookHighlights");
         group.MapGet("/{editionId:guid}", GetHighlights).WithName("GetHighlights");
         group.MapPost("", CreateHighlight).WithName("CreateHighlight");
         group.MapPut("/{id:guid}", UpdateHighlight).WithName("UpdateHighlight");
@@ -36,20 +40,163 @@ public static class HighlightsEndpoints
             .Where(h => h.UserId == userId.Value && h.SiteId == siteId && h.EditionId == editionId)
             .OrderByDescending(h => h.CreatedAt)
             .Select(h => new HighlightDto(
-                h.Id,
-                h.EditionId,
-                h.ChapterId,
-                h.AnchorJson,
-                h.Color,
-                h.SelectedText,
-                h.NoteText,
-                h.Version,
-                h.CreatedAt,
-                h.UpdatedAt
+                h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
+                h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
+                h.Version, h.CreatedAt, h.UpdatedAt
             ))
             .ToListAsync(ct);
 
         return Results.Ok(highlights);
+    }
+
+    private static async Task<IResult> GetUserBookHighlights(
+        Guid userBookId,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var siteId = httpContext.GetSiteId();
+
+        // Verify user owns the book
+        var owns = await db.UserBooks.AnyAsync(b => b.Id == userBookId && b.UserId == userId.Value, ct);
+        if (!owns) return Results.NotFound();
+
+        var highlights = await db.Highlights
+            .Where(h => h.UserId == userId.Value && h.SiteId == siteId && h.UserBookId == userBookId)
+            .OrderByDescending(h => h.CreatedAt)
+            .Select(h => new HighlightDto(
+                h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
+                h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
+                h.Version, h.CreatedAt, h.UpdatedAt
+            ))
+            .ToListAsync(ct);
+
+        return Results.Ok(highlights);
+    }
+
+    private static async Task<IResult> GetAllHighlights(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        [FromQuery] string? bookType = "all",
+        [FromQuery] string? sort = "newest",
+        [FromQuery] string? search = null,
+        [FromQuery] string? color = null,
+        CancellationToken ct = default)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var siteId = httpContext.GetSiteId();
+        limit = Math.Clamp(limit, 1, 100);
+
+        var query = db.Highlights
+            .Where(h => h.UserId == userId.Value && h.SiteId == siteId);
+
+        if (bookType == "edition")
+            query = query.Where(h => h.EditionId != null);
+        else if (bookType == "userbook")
+            query = query.Where(h => h.UserBookId != null);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(h => h.SelectedText.Contains(search) || (h.NoteText != null && h.NoteText.Contains(search)));
+
+        if (!string.IsNullOrEmpty(color))
+            query = query.Where(h => h.Color == color);
+
+        var totalCount = await query.CountAsync(ct);
+
+        query = sort == "oldest"
+            ? query.OrderBy(h => h.CreatedAt)
+            : query.OrderByDescending(h => h.CreatedAt);
+
+        var highlights = await query
+            .Skip(offset)
+            .Take(limit)
+            .Select(h => new HighlightListItemDto(
+                h.Id,
+                h.SelectedText,
+                h.Color,
+                h.NoteText,
+                h.CreatedAt,
+                h.EditionId,
+                h.EditionId != null ? h.Edition!.Title : null,
+                h.EditionId != null ? h.Edition!.Slug : null,
+                h.EditionId != null ? h.Edition!.CoverPath : null,
+                h.UserBookId,
+                h.UserBookId != null ? h.UserBook!.Title : null,
+                h.UserBookId != null ? h.UserBook!.CoverPath : null,
+                h.ChapterId,
+                h.UserChapterId,
+                h.ChapterId != null ? h.Chapter!.Title : null,
+                h.UserChapterId != null ? h.UserChapter!.Title : null
+            ))
+            .ToListAsync(ct);
+
+        return Results.Ok(new { items = highlights, totalCount });
+    }
+
+    private static async Task<IResult> GetHighlightsForReview(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        [FromQuery] int limit = 10,
+        CancellationToken ct = default)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var siteId = httpContext.GetSiteId();
+        limit = Math.Clamp(limit, 1, 30);
+
+        var cutoff = DateTimeOffset.UtcNow.AddHours(-24);
+
+        var highlights = await db.Highlights
+            .Where(h => h.UserId == userId.Value && h.SiteId == siteId
+                && (h.LastReviewedAt == null || h.LastReviewedAt < cutoff))
+            .OrderBy(h => h.LastReviewedAt ?? DateTimeOffset.MinValue) // least recently reviewed first
+            .ThenBy(h => h.CreatedAt) // oldest first
+            .Take(limit)
+            .Select(h => new HighlightReviewDto(
+                h.Id,
+                h.SelectedText,
+                h.Color,
+                h.NoteText,
+                h.EditionId != null ? h.Edition!.Title : (h.UserBookId != null ? h.UserBook!.Title : null),
+                h.ChapterId != null ? h.Chapter!.Title : (h.UserChapterId != null ? h.UserChapter!.Title : null),
+                h.LastReviewedAt
+            ))
+            .ToListAsync(ct);
+
+        return Results.Ok(highlights);
+    }
+
+    private static async Task<IResult> MarkHighlightReviewed(
+        [FromBody] MarkReviewedRequest request,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var highlight = await db.Highlights
+            .Where(h => h.Id == request.HighlightId && h.UserId == userId.Value)
+            .FirstOrDefaultAsync(ct);
+
+        if (highlight == null) return Results.NotFound();
+
+        highlight.LastReviewedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok();
     }
 
     private static async Task<IResult> CreateHighlight(
@@ -64,19 +211,42 @@ public static class HighlightsEndpoints
 
         var siteId = httpContext.GetSiteId();
 
-        // Validate edition exists
-        var edition = await db.Editions
-            .Where(e => e.Id == request.EditionId && e.SiteId == siteId)
-            .FirstOrDefaultAsync(ct);
+        bool isUserBook = request.UserBookId.HasValue;
+        bool isEdition = request.EditionId.HasValue;
 
-        if (edition == null) return Results.NotFound("Edition not found");
+        if (isUserBook == isEdition) // must provide exactly one
+            return Results.BadRequest("Provide either EditionId+ChapterId or UserBookId+UserChapterId");
 
-        // Validate chapter exists
-        var chapter = await db.Chapters
-            .Where(c => c.Id == request.ChapterId && c.EditionId == request.EditionId)
-            .FirstOrDefaultAsync(ct);
+        if (isEdition)
+        {
+            if (!request.ChapterId.HasValue)
+                return Results.BadRequest("ChapterId required for edition highlights");
 
-        if (chapter == null) return Results.NotFound("Chapter not found");
+            var edition = await db.Editions
+                .Where(e => e.Id == request.EditionId.Value && e.SiteId == siteId)
+                .FirstOrDefaultAsync(ct);
+            if (edition == null) return Results.NotFound("Edition not found");
+
+            var chapter = await db.Chapters
+                .Where(c => c.Id == request.ChapterId.Value && c.EditionId == request.EditionId.Value)
+                .FirstOrDefaultAsync(ct);
+            if (chapter == null) return Results.NotFound("Chapter not found");
+        }
+        else
+        {
+            if (!request.UserChapterId.HasValue)
+                return Results.BadRequest("UserChapterId required for user book highlights");
+
+            var userBook = await db.UserBooks
+                .Where(b => b.Id == request.UserBookId!.Value && b.UserId == userId.Value)
+                .FirstOrDefaultAsync(ct);
+            if (userBook == null) return Results.NotFound("User book not found");
+
+            var userChapter = await db.UserChapters
+                .Where(c => c.Id == request.UserChapterId.Value && c.UserBookId == request.UserBookId.Value)
+                .FirstOrDefaultAsync(ct);
+            if (userChapter == null) return Results.NotFound("User chapter not found");
+        }
 
         var now = DateTimeOffset.UtcNow;
         var highlight = new Highlight
@@ -86,6 +256,8 @@ public static class HighlightsEndpoints
             SiteId = siteId,
             EditionId = request.EditionId,
             ChapterId = request.ChapterId,
+            UserBookId = request.UserBookId,
+            UserChapterId = request.UserChapterId,
             AnchorJson = request.AnchorJson,
             Color = request.Color,
             SelectedText = request.SelectedText,
@@ -98,18 +270,7 @@ public static class HighlightsEndpoints
         db.Highlights.Add(highlight);
         await db.SaveChangesAsync(ct);
 
-        return Results.Created($"/me/highlights/{highlight.Id}", new HighlightDto(
-            highlight.Id,
-            highlight.EditionId,
-            highlight.ChapterId,
-            highlight.AnchorJson,
-            highlight.Color,
-            highlight.SelectedText,
-            highlight.NoteText,
-            highlight.Version,
-            highlight.CreatedAt,
-            highlight.UpdatedAt
-        ));
+        return Results.Created($"/me/highlights/{highlight.Id}", ToDto(highlight));
     }
 
     private static async Task<IResult> UpdateHighlight(
@@ -131,20 +292,7 @@ public static class HighlightsEndpoints
 
         // Conflict resolution: only update if client version matches
         if (request.Version.HasValue && request.Version.Value != highlight.Version)
-        {
-            return Results.Conflict(new HighlightDto(
-                highlight.Id,
-                highlight.EditionId,
-                highlight.ChapterId,
-                highlight.AnchorJson,
-                highlight.Color,
-                highlight.SelectedText,
-                highlight.NoteText,
-                highlight.Version,
-                highlight.CreatedAt,
-                highlight.UpdatedAt
-            ));
-        }
+            return Results.Conflict(ToDto(highlight));
 
         if (request.Color != null)
             highlight.Color = request.Color;
@@ -152,26 +300,17 @@ public static class HighlightsEndpoints
             highlight.AnchorJson = request.AnchorJson;
         if (request.SelectedText != null)
             highlight.SelectedText = request.SelectedText;
-        // NoteText can be set to null to remove the note, so we check if it was provided in request
-        highlight.NoteText = request.NoteText;
+        if (request.NoteText != null)
+            highlight.NoteText = request.NoteText;
+        else if (request.RemoveNote)
+            highlight.NoteText = null;
 
         highlight.Version++;
         highlight.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new HighlightDto(
-            highlight.Id,
-            highlight.EditionId,
-            highlight.ChapterId,
-            highlight.AnchorJson,
-            highlight.Color,
-            highlight.SelectedText,
-            highlight.NoteText,
-            highlight.Version,
-            highlight.CreatedAt,
-            highlight.UpdatedAt
-        ));
+        return Results.Ok(ToDto(highlight));
     }
 
     private static async Task<IResult> DeleteHighlight(
@@ -195,13 +334,21 @@ public static class HighlightsEndpoints
 
         return Results.NoContent();
     }
+
+    private static HighlightDto ToDto(Highlight h) => new(
+        h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
+        h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
+        h.Version, h.CreatedAt, h.UpdatedAt
+    );
 }
 
 // DTOs
 public record HighlightDto(
     Guid Id,
-    Guid EditionId,
-    Guid ChapterId,
+    Guid? EditionId,
+    Guid? ChapterId,
+    Guid? UserBookId,
+    Guid? UserChapterId,
     string AnchorJson,
     string Color,
     string SelectedText,
@@ -211,19 +358,53 @@ public record HighlightDto(
     DateTimeOffset UpdatedAt
 );
 
+public record HighlightListItemDto(
+    Guid Id,
+    string SelectedText,
+    string Color,
+    string? NoteText,
+    DateTimeOffset CreatedAt,
+    Guid? EditionId,
+    string? EditionTitle,
+    string? EditionSlug,
+    string? EditionCoverPath,
+    Guid? UserBookId,
+    string? UserBookTitle,
+    string? UserBookCoverPath,
+    Guid? ChapterId,
+    Guid? UserChapterId,
+    string? ChapterTitle,
+    string? UserChapterTitle
+);
+
+public record HighlightReviewDto(
+    Guid Id,
+    string SelectedText,
+    string Color,
+    string? NoteText,
+    string? BookTitle,
+    string? ChapterTitle,
+    DateTimeOffset? LastReviewedAt
+);
+
 public record CreateHighlightRequest(
-    Guid EditionId,
-    Guid ChapterId,
+    Guid? EditionId,
+    Guid? ChapterId,
     string AnchorJson,
     string Color,
     string SelectedText,
-    string? NoteText = null
+    string? NoteText = null,
+    Guid? UserBookId = null,
+    Guid? UserChapterId = null
 );
+
+public record MarkReviewedRequest(Guid HighlightId);
 
 public record UpdateHighlightRequest(
     string? Color,
     string? AnchorJson,
     string? SelectedText,
     string? NoteText,
-    int? Version
+    int? Version,
+    bool RemoveNote = false
 );

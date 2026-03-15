@@ -1,0 +1,368 @@
+/* Highlights Page */
+.highlights-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  min-height: 60vh;
+}
+
+.highlights-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.highlights-page__header h1 {
+  margin: 0;
+}
+
+.highlights-page__review-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.highlights-page__review-btn:hover {
+  opacity: 0.9;
+}
+
+.highlights-page__review-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.highlights-page__filters {
+  margin-bottom: 1.5rem;
+}
+
+.highlights-page__tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.highlights-page__tab {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.highlights-page__tab--active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.highlights-page__search-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.highlights-page__search {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.highlights-page__color-filter {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.highlights-page__loading,
+.highlights-page__empty {
+  color: var(--color-text-muted);
+  padding: 3rem 0;
+  text-align: center;
+}
+
+/* Book Groups */
+.highlights-page__book-group {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.highlights-page__book-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  border: none;
+  background: var(--color-bg-secondary, rgba(0,0,0,0.02));
+  cursor: pointer;
+  text-align: left;
+  color: var(--color-text);
+}
+
+.highlights-page__book-cover {
+  width: 36px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.highlights-page__book-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.highlights-page__book-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.highlights-page__book-count {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.highlights-page__chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  color: var(--color-text-muted);
+}
+
+.highlights-page__chevron--open {
+  transform: rotate(90deg);
+}
+
+/* Highlight Items */
+.highlights-page__highlight-list {
+  border-top: 1px solid var(--color-border);
+}
+
+.highlights-page__highlight {
+  display: flex;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.highlights-page__highlight:last-child {
+  border-bottom: none;
+}
+
+.highlights-page__highlight:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+.highlights-page__color-bar {
+  width: 4px;
+  border-radius: 2px;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.highlights-page__color-bar--yellow { background: #fbbf24; }
+.highlights-page__color-bar--green { background: #34d399; }
+.highlights-page__color-bar--pink { background: #f472b6; }
+.highlights-page__color-bar--blue { background: #60a5fa; }
+
+.highlights-page__highlight-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.highlights-page__text {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.highlights-page__note {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.highlights-page__note-label {
+  font-style: normal;
+  font-weight: 500;
+}
+
+.highlights-page__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+.highlights-page__load-more {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.highlights-page__load-more:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+/* Highlight Review Page */
+.highlight-review {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.highlight-review__loading,
+.highlight-review__empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 3rem 0;
+}
+
+.highlight-review__empty button,
+.highlight-review__back-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.highlight-review__progress {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.highlight-review__card {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2rem;
+  cursor: pointer;
+  min-height: 200px;
+  border-left: 5px solid #ccc;
+  transition: border-color 0.2s;
+}
+
+.highlight-review__card--yellow { border-left-color: #fbbf24; }
+.highlight-review__card--green { border-left-color: #34d399; }
+.highlight-review__card--pink { border-left-color: #f472b6; }
+.highlight-review__card--blue { border-left-color: #60a5fa; }
+
+.highlight-review__quote {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin: 0;
+  font-style: italic;
+}
+
+.highlight-review__flip-hint {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.highlight-review__card-back {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.highlight-review__book {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0 0 0.25rem;
+}
+
+.highlight-review__chapter {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.highlight-review__card-note {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.highlight-review__actions {
+  margin-top: 1.5rem;
+  width: 100%;
+}
+
+.highlight-review__next-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.highlight-review__next-btn:hover {
+  opacity: 0.9;
+}
+
+.highlight-review__back-link {
+  margin-top: 1rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.highlight-review__summary {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.highlight-review__summary h2 {
+  margin-bottom: 0.5rem;
+}
+
+.highlight-review__summary p {
+  color: var(--color-text-muted);
+}
