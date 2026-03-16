@@ -40,6 +40,9 @@ import { ReaderShortcutsModal } from '../components/reader/ReaderShortcutsModal'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
+import { useQuickStats } from '../hooks/useQuickStats'
+import { calculateETF, calculateChapterETF } from '../lib/etf'
+import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 
 export type ReaderMode = 'public' | 'userbook'
 
@@ -412,6 +415,27 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   useEffect(() => {
     readingSession.updatePercent(overallProgress)
   }, [overallProgress, readingSession])
+
+  // ETF & reader stats
+  const quickStats = useQuickStats()
+  const userWpm = quickStats?.wpm ?? null
+
+  const bookTotalWords = useMemo(() => {
+    if (mode === 'public' && publicBook) {
+      return publicBook.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
+    }
+    return 0
+  }, [mode, publicBook])
+
+  const bookEtf = useMemo(
+    () => calculateETF(bookTotalWords, overallProgress, userWpm),
+    [bookTotalWords, overallProgress, userWpm],
+  )
+
+  const chapterEtf = useMemo(() => {
+    if (!chapter?.wordCount) return null
+    return calculateChapterETF(chapter.wordCount, progress, userWpm)
+  }, [chapter?.wordCount, progress, userWpm])
 
   // Track scroll activity for reading session (scroll mode)
   useEffect(() => {
@@ -1060,9 +1084,19 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         />
       )}
 
+      {settings.showReaderStats && (
+        <ReaderStatsWidget
+          sessionStartedAt={readingSession.sessionStartedAt}
+          quickStats={quickStats}
+          bookEtf={bookEtf?.formatted}
+        />
+      )}
+
       <ReaderFooterNav
         chapterTitle={activeChapter?.title || chapter.title}
         overallProgress={overallProgress}
+        bookEtf={bookEtf?.formatted}
+        chapterEtf={chapterEtf?.formatted}
       />
 
       <ReaderTocDrawer

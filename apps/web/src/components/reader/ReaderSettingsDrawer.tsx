@@ -157,6 +157,21 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
             </button>
           </div>
         </div>
+
+        <div className="reader-settings-drawer__section">
+          <label>Reading Stats</label>
+          <div className="reader-settings-drawer__toggle-row">
+            <span className="reader-settings-drawer__toggle-desc">Session time, daily goal, time left</span>
+            <button
+              className={`reader-settings-drawer__toggle ${settings.showReaderStats ? 'active' : ''}`}
+              onClick={() => onUpdate({ showReaderStats: !settings.showReaderStats })}
+              role="switch"
+              aria-checked={settings.showReaderStats}
+            >
+              <span className="reader-settings-drawer__toggle-thumb" />
+            </button>
+          </div>
+        </div>
       </div>
     </>
   )

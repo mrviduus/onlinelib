@@ -271,7 +271,11 @@
     "fast": "Fast",
     "short": "Short",
     "long": "Long",
-    "noData": "No data yet"
+    "noData": "No data yet",
+    "overview": "Overview",
+    "time": "Time",
+    "today": "Today",
+    "words": "words"
   },
   "terms": {
     "seoTitle": "Terms of Service - TextStack",

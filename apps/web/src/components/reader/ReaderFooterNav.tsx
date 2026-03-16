@@ -1,31 +1,26 @@
+import { useState } from 'react'
+
 interface Props {
   chapterTitle: string
   overallProgress: number
+  bookEtf?: string | null
+  chapterEtf?: string | null
 }
 
 export function ReaderFooterNav({
   chapterTitle,
   overallProgress,
+  bookEtf,
+  chapterEtf,
 }: Props) {
   const bookPercent = Math.round(overallProgress * 100)
+  const [showChapterEtf, setShowChapterEtf] = useState(false)
+  const hasEtf = bookEtf || chapterEtf
+  const displayEtf = showChapterEtf && chapterEtf ? chapterEtf : bookEtf
 
   return (
     <footer className="reader-footer">
-      {/* Desktop: book-based progress */}
-      <div className="reader-footer__progress reader-footer__progress--desktop">
-        <div
-          className="reader-footer__progress-bar"
-          style={{ width: `${bookPercent}%` }}
-          role="progressbar"
-          aria-valuenow={bookPercent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Reading progress"
-        />
-      </div>
-
-      {/* Mobile: book-based progress (same as desktop for consistency) */}
-      <div className="reader-footer__progress reader-footer__progress--mobile">
+      <div className="reader-footer__progress">
         <div
           className="reader-footer__progress-bar"
           style={{ width: `${bookPercent}%` }}
@@ -39,13 +34,12 @@ export function ReaderFooterNav({
 
       <div className="reader-footer__info">
         <span className="reader-footer__chapter">{chapterTitle}</span>
-        {/* Desktop: overall book progress */}
-        <span className="reader-footer__pages reader-footer__pages--desktop">
-          {bookPercent}%
-        </span>
-        {/* Mobile: overall book progress */}
-        <span className="reader-footer__pages reader-footer__pages--mobile">
-          {bookPercent}%
+        <span
+          className="reader-footer__pages"
+          onClick={hasEtf ? () => setShowChapterEtf(!showChapterEtf) : undefined}
+          style={hasEtf ? { cursor: 'pointer' } : undefined}
+        >
+          {bookPercent}%{displayEtf && <span className="reader-footer__etf"> · {displayEtf}</span>}
         </span>
       </div>
     </footer>

@@ -163,6 +163,7 @@ export function useReadingSession(options: UseReadingSessionOptions) {
     recordActivity,
     updatePercent,
     lastSubmitResponse: lastSubmitResponseRef.current,
+    sessionStartedAt: sessionActiveRef.current ? startedAtRef.current : null,
   }
 }
 
