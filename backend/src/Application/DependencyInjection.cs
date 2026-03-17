@@ -7,6 +7,7 @@ using Application.Books;
 using Application.Reprocessing;
 using Application.Seo;
 using Application.SeoCrawl;
+using Application.Export;
 using Application.SsgRebuild;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<AdminSettingsService>();
         services.AddScoped<ReprocessingService>();
         services.AddScoped<SeoCrawlService>();
+        services.AddScoped<EpubExportService>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

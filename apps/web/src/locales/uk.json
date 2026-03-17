@@ -151,6 +151,7 @@
     "downloading": "Завантаження {progress}%...",
     "availableOffline": "Доступно офлайн",
     "downloadForOffline": "Завантажити офлайн",
+    "downloadEpub": "Завантажити EPUB",
     "chaptersHeading": "Розділи",
     "readChapter": "Читати {title}",
     "words": "слів",

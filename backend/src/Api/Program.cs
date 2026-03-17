@@ -257,6 +257,7 @@ app.MapAdminBlogEndpoints();
 app.MapBlogEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
+app.MapExportEndpoints();
 app.MapInternalEndpoints();
 
 // CLI: import-textstack command

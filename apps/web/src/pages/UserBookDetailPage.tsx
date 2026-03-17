@@ -262,6 +262,17 @@ export function UserBookDetailPage() {
               </button>
             )}
 
+            {isReady && (
+              <a
+                href={`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/me/books/${book.id}/export/epub`}
+                className="user-book-detail__read-btn"
+                style={{ textDecoration: 'none' }}
+                download
+              >
+                Download EPUB
+              </a>
+            )}
+
             <button
               onClick={handleDelete}
               disabled={deleting}

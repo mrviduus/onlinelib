@@ -96,7 +96,11 @@ public sealed class ReviewCardBuilder : IReviewCardBuilder
     private static List<string>? ParseDistractors(string? json)
     {
         if (string.IsNullOrEmpty(json)) return null;
-        try { return JsonSerializer.Deserialize<List<string>>(json); }
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<string>>(json);
+            return list?.Where(w => w.Length > 1 && w.Any(char.IsLetter)).ToList();
+        }
         catch { return null; }
     }
 }

@@ -151,6 +151,7 @@
     "downloading": "Downloading {progress}%...",
     "availableOffline": "Available offline",
     "downloadForOffline": "Download for offline",
+    "downloadEpub": "Download EPUB",
     "chaptersHeading": "Chapters",
     "readChapter": "Read {title}",
     "words": "words",

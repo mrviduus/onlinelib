@@ -105,8 +105,9 @@ public sealed class DistractorGenerator : IDistractorGenerator
         var words = raw
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(w => w.TrimStart('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '-', ' ').Trim())
-            .Where(w => w.Length > 0
+            .Where(w => w.Length > 1
                 && w.Length < 50
+                && w.Any(char.IsLetter) // must contain at least one letter
                 && !w.Equals(originalWord, StringComparison.OrdinalIgnoreCase)
                 && !w.Contains(' ')) // single words only
             .Distinct(StringComparer.OrdinalIgnoreCase)
