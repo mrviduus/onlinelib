@@ -17,6 +17,7 @@ export interface TocChapter {
   identifier: string // slug for public, chapterNumber as string for user
   title: string
   chapterNumber: number
+  wordCount?: number | null
 }
 
 interface Props {

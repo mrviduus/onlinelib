@@ -66,6 +66,7 @@ interface NormalizedChapter {
 interface NormalizedBook {
   id: string
   title: string
+  totalWordCount?: number | null
   chapters: TocChapter[]
 }
 
@@ -169,7 +170,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           identifier: c.identifier, // slug for userbook
           title: c.title,
           chapterNumber: c.chapterNumber,
-          wordCount: null, // userbook doesn't have wordCount in list
+          wordCount: c.wordCount ?? null,
         }))
       }
     }
@@ -424,8 +425,11 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     if (mode === 'public' && publicBook) {
       return publicBook.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
     }
+    if (mode === 'userbook' && book) {
+      return book.totalWordCount || book.chapters.reduce((sum: number, c: any) => sum + (c.wordCount || 0), 0)
+    }
     return 0
-  }, [mode, publicBook])
+  }, [mode, publicBook, book])
 
   const bookEtf = useMemo(
     () => calculateETF(bookTotalWords, overallProgress, userWpm),
@@ -793,11 +797,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           setBook({
             id: bk.id,
             title: bk.title,
+            totalWordCount: bk.totalWordCount,
             chapters: bk.chapters.map(c => ({
               id: c.id,
               identifier: c.slug || String(c.chapterNumber),
               title: c.title,
               chapterNumber: c.chapterNumber,
+              wordCount: c.wordCount,
             })),
           })
         }
