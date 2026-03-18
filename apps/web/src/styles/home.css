@@ -78,6 +78,23 @@
   box-shadow: 0 0 0 1px var(--color-text);
 }
 
+/* Stats Bar */
+.home-stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 16px;
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  font-size: clamp(1rem, 1.5vw, 1.125rem);
+  color: var(--color-text-secondary);
+}
+
+.home-stats__dot {
+  font-style: normal;
+}
+
 /* Books Section - Stitch design */
 .home-books {
   padding: 64px 0;

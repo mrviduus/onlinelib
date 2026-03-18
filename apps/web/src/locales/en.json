@@ -6,6 +6,11 @@
       "description": "TextStack is a reading platform for language learners. Thousands of classic books with built-in vocabulary tools, spaced repetition, and reading statistics.",
       "cta": "Browse catalog"
     },
+    "stats": {
+      "books": "books",
+      "authors": "authors",
+      "genres": "genres"
+    },
     "recentAuthors": {
       "title": "Recently Added Authors",
       "viewAll": "View all authors"

@@ -1,5 +1,6 @@
 import { SeoHead } from '../components/SeoHead'
 import { HeroSection } from '../components/home/HeroSection'
+import { StatsBar } from '../components/home/StatsBar'
 import { RecentAuthorsSection } from '../components/home/RecentAuthorsSection'
 import { RecentBooksSection } from '../components/home/RecentBooksSection'
 import { Footer } from '../components/Footer'
@@ -17,6 +18,7 @@ export function HomePage() {
           description={t('home.hero.subtitle')}
         />
         <HeroSection />
+        <StatsBar />
         <RecentBooksSection />
         <RecentAuthorsSection />
       </div>
