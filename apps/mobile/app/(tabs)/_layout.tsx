@@ -1,94 +1,75 @@
 import { Tabs } from 'expo-router'
-import { View, Text, StyleSheet, Platform } from 'react-native'
-import { colors } from '../../src/theme/colors'
+import { Platform } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '../../src/context/ThemeContext'
+import { typography } from '../../src/theme/typography'
 
-const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
-  Home:    { active: '📚', inactive: '📚' },
-  Search:  { active: '🔍', inactive: '🔍' },
-  Library: { active: '📖', inactive: '📖' },
-  Profile: { active: '👤', inactive: '👤' },
-}
-
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icon = TAB_ICONS[name] || { active: '📄', inactive: '📄' }
-  return (
-    <View style={styles.iconContainer}>
-      <Text style={[styles.icon, { opacity: focused ? 1 : 0.45 }]}>
-        {focused ? icon.active : icon.inactive}
-      </Text>
-      {focused && <View style={styles.dot} />}
-    </View>
-  )
+const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
+  Home:    { active: 'home', inactive: 'home-outline' },
+  Search:  { active: 'search', inactive: 'search-outline' },
+  Library: { active: 'library', inactive: 'library-outline' },
+  Profile: { active: 'person', inactive: 'person-outline' },
 }
 
 export default function TabLayout() {
+  const { colors } = useTheme()
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: colors.background,
+          paddingTop: 4,
+          height: Platform.OS === 'ios' ? 88 : 60,
+        },
+        tabBarLabelStyle: typography.tabLabel,
         headerShown: true,
-        headerTitleStyle: { fontWeight: '600' },
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { ...typography.h3, color: colors.text },
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon name="Home" focused={focused} />,
+          headerShown: false,
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? TAB_ICONS.Home.active : TAB_ICONS.Home.inactive} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: 'Search',
-          tabBarIcon: ({ focused }) => <TabIcon name="Search" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? TAB_ICONS.Search.active : TAB_ICONS.Search.inactive} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="library"
         options={{
           title: 'Library',
-          tabBarIcon: ({ focused }) => <TabIcon name="Library" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? TAB_ICONS.Library.active : TAB_ICONS.Library.inactive} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon name="Profile" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? TAB_ICONS.Profile.active : TAB_ICONS.Profile.inactive} size={22} color={color} />
+          ),
         }}
       />
     </Tabs>
   )
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-    paddingTop: 4,
-    height: Platform.OS === 'ios' ? 88 : 60,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 22,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    marginTop: 2,
-  },
-})

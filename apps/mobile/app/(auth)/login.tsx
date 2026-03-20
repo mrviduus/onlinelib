@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { authApi } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
-import { colors } from '../../src/theme/colors'
+import { useTheme } from '../../src/context/ThemeContext'
+import { fonts } from '../../src/theme/typography'
 
 // Dynamic import — expo-apple-authentication crashes on web
 const AppleAuthentication = Platform.OS === 'ios'
@@ -11,6 +13,7 @@ const AppleAuthentication = Platform.OS === 'ios'
   : null
 
 export default function LoginScreen() {
+  const { colors } = useTheme()
   const router = useRouter()
   const { signInWithTokens } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -67,9 +70,12 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign In</Text>
-      <Text style={styles.subtitle}>Access your library, sync progress, and more</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Ionicons name="book" size={48} color={colors.primary} style={{ marginBottom: 12 }} />
+      <Text style={[styles.brand, { color: colors.text, fontFamily: fonts.serifBold }]}>TextStack</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
+        Your reading journey starts here
+      </Text>
 
       {loading && <ActivityIndicator style={styles.loader} size="large" color={colors.primary} />}
 
@@ -78,7 +84,8 @@ export default function LoginScreen() {
         onPress={handleGoogleSignIn}
         disabled={loading}
       >
-        <Text style={styles.buttonText}>Continue with Google</Text>
+        <Ionicons name="logo-google" size={20} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={[styles.buttonText, { fontFamily: fonts.sansMedium }]}>Continue with Google</Text>
       </TouchableOpacity>
 
       {Platform.OS === 'ios' && AppleAuthentication && (
@@ -92,7 +99,7 @@ export default function LoginScreen() {
       )}
 
       <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
-        <Text style={styles.cancelText}>Cancel</Text>
+        <Text style={[styles.cancelText, { color: colors.textSecondary, fontFamily: fonts.sansMedium }]}>Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -104,10 +111,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: colors.background,
   },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  subtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: 32, textAlign: 'center' },
+  brand: { fontSize: 32, marginBottom: 8 },
+  subtitle: { fontSize: 15, marginBottom: 32, textAlign: 'center' },
   loader: { marginBottom: 16 },
   button: {
     width: '100%',
@@ -115,16 +121,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   googleButton: {
     backgroundColor: '#4285F4',
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { color: '#fff', fontSize: 16 },
   appleButton: {
     width: '100%',
     height: 48,
     marginBottom: 12,
   },
   cancelButton: { marginTop: 16 },
-  cancelText: { fontSize: 16, color: colors.textSecondary },
+  cancelText: { fontSize: 16 },
 })

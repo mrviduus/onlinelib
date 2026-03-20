@@ -89,5 +89,5 @@ export function useReadingSession(config: SessionConfig) {
     currentPercentRef.current = progress
   }, [])
 
-  return { updateProgress }
+  return { updateProgress, sessionStartedAt: startTimeRef.current }
 }

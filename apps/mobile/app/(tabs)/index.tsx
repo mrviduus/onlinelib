@@ -1,16 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
-import { Image } from 'expo-image'
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, TextInput, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { Edition } from '@textstack/shared'
-import { colors } from '../../src/theme/colors'
+import { useTheme } from '../../src/context/ThemeContext'
+import { typography, fonts } from '../../src/theme/typography'
+import { BookCard } from '../../src/components/ui/BookCard'
+import { BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
+import { Ionicons } from '@expo/vector-icons'
 
 const LANG = 'en'
 const PAGE_SIZE = 20
 
 export default function HomeScreen() {
   const router = useRouter()
+  const { colors } = useTheme()
   const [books, setBooks] = useState<Edition[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -31,9 +35,7 @@ export default function HomeScreen() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchBooks()
-  }, [])
+  useEffect(() => { fetchBooks() }, [])
 
   const onRefresh = () => {
     setRefreshing(true)
@@ -41,82 +43,97 @@ export default function HomeScreen() {
   }
 
   const onEndReached = () => {
-    if (books.length < total) {
-      fetchBooks(books.length)
-    }
+    if (books.length < total) fetchBooks(books.length)
   }
 
   const renderBook = ({ item }: { item: Edition }) => (
-    <TouchableOpacity
-      style={styles.bookCard}
+    <BookCard
+      title={item.title}
+      author={item.authors.map(a => a.name).join(', ')}
+      coverUrl={getStorageUrl(item.coverPath)}
       onPress={() => router.push(`/book/${item.slug}`)}
-      activeOpacity={0.7}
-    >
-      <Image
-        source={getStorageUrl(item.coverPath)}
-        style={styles.cover}
-        contentFit="cover"
-        placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-      />
-      <View style={styles.bookInfo}>
-        <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
-        {item.authors.length > 0 && (
-          <Text style={styles.bookAuthor} numberOfLines={1}>
-            {item.authors.map(a => a.name).join(', ')}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+    />
   )
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    )
-  }
+  const header = (
+    <View style={[styles.hero, { backgroundColor: colors.bgWarm }]}>
+      <Text style={[styles.heroTitle, { color: colors.text }]}>TextStack</Text>
+      <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+        Read classic literature, build vocabulary
+      </Text>
+      <TouchableOpacity
+        style={[styles.searchPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => router.push('/(tabs)/search')}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+        <Text style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>
+          Search books...
+        </Text>
+      </TouchableOpacity>
+    </View>
+  )
 
   return (
-    <FlatList
-      data={books}
-      renderItem={renderBook}
-      keyExtractor={item => item.id}
-      numColumns={2}
-      columnWrapperStyle={styles.row}
-      contentContainerStyle={styles.list}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bgWarm }]}>
+      {loading ? (
+        <View>
+          {header}
+          <BookGridSkeleton count={6} />
+        </View>
+      ) : (
+        <FlatList
+          data={books}
+          renderItem={renderBook}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={header}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        />
+      )}
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: 12 },
-  row: { justifyContent: 'space-between' },
-  bookCard: {
-    width: '48%',
-    marginBottom: 16,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    overflow: 'hidden',
+  container: { flex: 1 },
+  hero: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+    alignItems: 'center',
   },
-  cover: {
+  heroTitle: {
+    fontFamily: fonts.serif,
+    fontSize: 36,
+    lineHeight: 42,
+  },
+  heroSubtitle: {
+    fontFamily: fonts.serifItalic,
+    fontSize: 15,
+    marginTop: 4,
+  },
+  searchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
     width: '100%',
-    aspectRatio: 2 / 3,
-    backgroundColor: colors.border,
+    gap: 8,
   },
-  bookInfo: { padding: 8 },
-  bookTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+  searchPlaceholder: {
+    fontFamily: fonts.sans,
+    fontSize: 15,
   },
-  bookAuthor: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
+  list: { paddingHorizontal: 16, paddingBottom: 20 },
+  row: { justifyContent: 'space-between' },
 })

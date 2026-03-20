@@ -3,10 +3,12 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack } from 'expo-router'
 import { vocabularyApi } from '@textstack/shared'
 import type { ReviewCardDto } from '@textstack/shared'
-import { colors } from '../../src/theme/colors'
+import { useTheme } from '../../src/context/ThemeContext'
+import { fonts } from '../../src/theme/typography'
 
 type SessionState = 'loading' | 'card' | 'feedback' | 'summary'
 
@@ -16,6 +18,7 @@ interface SessionStats {
 }
 
 export default function VocabularyReviewScreen() {
+  const { colors } = useTheme()
   const router = useRouter()
   const [state, setState] = useState<SessionState>('loading')
   const [cards, setCards] = useState<ReviewCardDto[]>([])
@@ -70,7 +73,7 @@ export default function VocabularyReviewScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Review', headerShown: true }} />
-        <View style={styles.center}>
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </>
@@ -82,15 +85,15 @@ export default function VocabularyReviewScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Review Complete', headerShown: true }} />
-        <View style={styles.center}>
-          <Text style={styles.summaryEmoji}>🎉</Text>
-          <Text style={styles.summaryTitle}>Session Complete!</Text>
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <Ionicons name="ribbon-outline" size={56} color={colors.primary} style={{ marginBottom: 16 }} />
+          <Text style={[styles.summaryTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Session Complete!</Text>
           <View style={styles.summaryStats}>
-            <Text style={styles.summaryStatText}>Reviewed: {stats.reviewed}</Text>
-            <Text style={styles.summaryStatText}>Correct: {rate}%</Text>
+            <Text style={[styles.summaryStatText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Reviewed: {stats.reviewed}</Text>
+            <Text style={[styles.summaryStatText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Correct: {rate}%</Text>
           </View>
-          <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
-            <Text style={styles.doneBtnText}>Back to Vocabulary</Text>
+          <TouchableOpacity style={[styles.doneBtn, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
+            <Text style={[styles.doneBtnText, { fontFamily: fonts.sansMedium }]}>Back to Vocabulary</Text>
           </TouchableOpacity>
         </View>
       </>
@@ -100,14 +103,14 @@ export default function VocabularyReviewScreen() {
   return (
     <>
       <Stack.Screen options={{ title: `Review (${index + 1}/${cards.length})`, headerShown: true }} />
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           {/* Progress bar */}
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${((index) / cards.length) * 100}%` }]} />
+          <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+            <View style={[styles.progressFill, { width: `${((index) / cards.length) * 100}%`, backgroundColor: colors.primary }]} />
           </View>
 
           {state === 'card' && currentCard && (
@@ -142,22 +145,23 @@ function CardRenderer({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (corr
 // --- Multiple Choice ---
 
 function MultipleChoiceCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (correct: boolean) => void }) {
+  const { colors } = useTheme()
   const prompt = card.definition || card.translation || card.word
 
   return (
     <View style={styles.cardContainer}>
-      <Text style={styles.cardLabel}>What word matches this?</Text>
-      <Text style={styles.cardPrompt}>{prompt}</Text>
-      {card.hint && <Text style={styles.cardHint}>Hint: {card.hint}</Text>}
+      <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>What word matches this?</Text>
+      <Text style={[styles.cardPrompt, { color: colors.text, fontFamily: fonts.serifBold }]}>{prompt}</Text>
+      {card.hint && <Text style={[styles.cardHint, { color: colors.primary, fontFamily: fonts.sans }]}>Hint: {card.hint}</Text>}
 
       <View style={styles.optionsContainer}>
         {(card.options || []).map((opt, i) => (
           <TouchableOpacity
             key={i}
-            style={styles.optionBtn}
+            style={[styles.optionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => onSubmit(opt.toLowerCase() === card.word.toLowerCase())}
           >
-            <Text style={styles.optionText}>{opt}</Text>
+            <Text style={[styles.optionText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{opt}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -168,6 +172,7 @@ function MultipleChoiceCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit:
 // --- Typed Recall ---
 
 function TypedRecallCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (correct: boolean) => void }) {
+  const { colors } = useTheme()
   const [input, setInput] = useState('')
   const prompt = card.definition || card.translation || 'Type the word'
 
@@ -178,12 +183,12 @@ function TypedRecallCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (c
 
   return (
     <View style={styles.cardContainer}>
-      <Text style={styles.cardLabel}>Type the word</Text>
-      <Text style={styles.cardPrompt}>{prompt}</Text>
-      {card.hint && <Text style={styles.cardHint}>Hint: {card.hint}</Text>}
+      <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Type the word</Text>
+      <Text style={[styles.cardPrompt, { color: colors.text, fontFamily: fonts.serifBold }]}>{prompt}</Text>
+      {card.hint && <Text style={[styles.cardHint, { color: colors.primary, fontFamily: fonts.sans }]}>Hint: {card.hint}</Text>}
 
       <TextInput
-        style={styles.typedInput}
+        style={[styles.typedInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
         value={input}
         onChangeText={setInput}
         placeholder="Type your answer..."
@@ -194,11 +199,11 @@ function TypedRecallCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (c
         onSubmitEditing={handleSubmit}
       />
       <TouchableOpacity
-        style={[styles.submitBtn, !input.trim() && styles.submitBtnDisabled]}
+        style={[styles.submitBtn, { backgroundColor: colors.primary }, !input.trim() && styles.submitBtnDisabled]}
         onPress={handleSubmit}
         disabled={!input.trim()}
       >
-        <Text style={styles.submitBtnText}>Check</Text>
+        <Text style={[styles.submitBtnText, { fontFamily: fonts.sansMedium }]}>Check</Text>
       </TouchableOpacity>
     </View>
   )
@@ -207,6 +212,7 @@ function TypedRecallCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (c
 // --- Context (fill-in-blank) ---
 
 function ContextCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (correct: boolean) => void }) {
+  const { colors } = useTheme()
   const [input, setInput] = useState('')
 
   // Create blank sentence
@@ -221,12 +227,12 @@ function ContextCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (corre
 
   return (
     <View style={styles.cardContainer}>
-      <Text style={styles.cardLabel}>Fill in the blank</Text>
-      <Text style={styles.cardPrompt}>{blankSentence}</Text>
-      {card.hint && <Text style={styles.cardHint}>Hint: {card.hint}</Text>}
+      <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Fill in the blank</Text>
+      <Text style={[styles.cardPrompt, { color: colors.text, fontFamily: fonts.serifBold }]}>{blankSentence}</Text>
+      {card.hint && <Text style={[styles.cardHint, { color: colors.primary, fontFamily: fonts.sans }]}>Hint: {card.hint}</Text>}
 
       <TextInput
-        style={styles.typedInput}
+        style={[styles.typedInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
         value={input}
         onChangeText={setInput}
         placeholder="Type the missing word..."
@@ -237,11 +243,11 @@ function ContextCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (corre
         onSubmitEditing={handleSubmit}
       />
       <TouchableOpacity
-        style={[styles.submitBtn, !input.trim() && styles.submitBtnDisabled]}
+        style={[styles.submitBtn, { backgroundColor: colors.primary }, !input.trim() && styles.submitBtnDisabled]}
         onPress={handleSubmit}
         disabled={!input.trim()}
       >
-        <Text style={styles.submitBtnText}>Check</Text>
+        <Text style={[styles.submitBtnText, { fontFamily: fonts.sansMedium }]}>Check</Text>
       </TouchableOpacity>
     </View>
   )
@@ -250,27 +256,34 @@ function ContextCard({ card, onSubmit }: { card: ReviewCardDto; onSubmit: (corre
 // --- Feedback ---
 
 function FeedbackView({ card, isCorrect, onNext }: { card: ReviewCardDto; isCorrect: boolean; onNext: () => void }) {
+  const { colors } = useTheme()
   return (
     <View style={styles.cardContainer}>
       <View style={[styles.feedbackBanner, isCorrect ? styles.feedbackCorrect : styles.feedbackWrong]}>
-        <Text style={styles.feedbackIcon}>{isCorrect ? '✓' : '✗'}</Text>
-        <Text style={styles.feedbackText}>{isCorrect ? 'Correct!' : 'Wrong'}</Text>
+        <Ionicons
+          name={isCorrect ? 'checkmark-circle' : 'close-circle'}
+          size={28}
+          color={isCorrect ? '#059669' : '#DC2626'}
+        />
+        <Text style={[styles.feedbackText, { color: isCorrect ? '#059669' : '#DC2626', fontFamily: fonts.sansBold }]}>
+          {isCorrect ? 'Correct!' : 'Wrong'}
+        </Text>
       </View>
 
       {!isCorrect && (
         <View style={styles.correctAnswer}>
-          <Text style={styles.correctLabel}>Correct answer:</Text>
-          <Text style={styles.correctWord}>{card.word}</Text>
-          {card.translation && <Text style={styles.correctTranslation}>= {card.translation}</Text>}
+          <Text style={[styles.correctLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Correct answer:</Text>
+          <Text style={[styles.correctWord, { color: colors.text, fontFamily: fonts.serifBold }]}>{card.word}</Text>
+          {card.translation && <Text style={[styles.correctTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]}>= {card.translation}</Text>}
         </View>
       )}
 
       {card.sentence && (
-        <Text style={styles.feedbackSentence}>"{card.sentence}"</Text>
+        <Text style={[styles.feedbackSentence, { color: colors.textSecondary, fontFamily: fonts.sans }]}>"{card.sentence}"</Text>
       )}
 
-      <TouchableOpacity style={styles.nextBtn} onPress={onNext}>
-        <Text style={styles.nextBtnText}>Next</Text>
+      <TouchableOpacity style={[styles.nextBtn, { backgroundColor: colors.primary }]} onPress={onNext}>
+        <Text style={[styles.nextBtnText, { fontFamily: fonts.sansMedium }]}>Next</Text>
       </TouchableOpacity>
     </View>
   )
@@ -304,18 +317,17 @@ function levenshtein(a: string, b: string): number {
 // --- Styles ---
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
 
   // Progress
-  progressTrack: { height: 3, backgroundColor: colors.border },
-  progressFill: { height: '100%', backgroundColor: colors.primary },
+  progressTrack: { height: 3 },
+  progressFill: { height: '100%' },
 
   // Card
   cardContainer: { flex: 1, padding: 20, justifyContent: 'center' },
-  cardLabel: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 8 },
-  cardPrompt: { fontSize: 20, fontWeight: '600', color: colors.text, textAlign: 'center', marginBottom: 12, lineHeight: 28 },
-  cardHint: { fontSize: 13, color: colors.primary, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 },
+  cardLabel: { fontSize: 13, textAlign: 'center', marginBottom: 8 },
+  cardPrompt: { fontSize: 20, textAlign: 'center', marginBottom: 12, lineHeight: 28 },
+  cardHint: { fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 },
 
   // MC options
   optionsContainer: { marginTop: 24, gap: 10 },
@@ -323,35 +335,29 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
   },
-  optionText: { fontSize: 16, fontWeight: '500', color: colors.text },
+  optionText: { fontSize: 16 },
 
   // Typed input
   typedInput: {
     marginTop: 24,
     height: 48,
     borderRadius: 8,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: colors.text,
     textAlign: 'center',
   },
   submitBtn: {
     marginTop: 12,
-    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  submitBtnText: { color: '#fff', fontSize: 16 },
 
   // Feedback
   feedbackBanner: {
@@ -365,32 +371,28 @@ const styles = StyleSheet.create({
   },
   feedbackCorrect: { backgroundColor: '#D1FAE5' },
   feedbackWrong: { backgroundColor: '#FEE2E2' },
-  feedbackIcon: { fontSize: 24, fontWeight: '700' },
-  feedbackText: { fontSize: 18, fontWeight: '600' },
+  feedbackText: { fontSize: 18 },
   correctAnswer: { alignItems: 'center', marginBottom: 16 },
-  correctLabel: { fontSize: 13, color: colors.textSecondary },
-  correctWord: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: 4 },
-  correctTranslation: { fontSize: 15, color: colors.textSecondary, marginTop: 2 },
-  feedbackSentence: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 },
+  correctLabel: { fontSize: 13 },
+  correctWord: { fontSize: 22, marginTop: 4 },
+  correctTranslation: { fontSize: 15, marginTop: 2 },
+  feedbackSentence: { fontSize: 14, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 },
   nextBtn: {
     marginTop: 20,
-    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
-  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  nextBtnText: { color: '#fff', fontSize: 16 },
 
   // Summary
-  summaryEmoji: { fontSize: 48, marginBottom: 16 },
-  summaryTitle: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  summaryTitle: { fontSize: 24, marginBottom: 16 },
   summaryStats: { gap: 8, alignItems: 'center', marginBottom: 24 },
-  summaryStatText: { fontSize: 18, color: colors.textSecondary },
+  summaryStatText: { fontSize: 18 },
   doneBtn: {
-    backgroundColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 48,
     borderRadius: 8,
   },
-  doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  doneBtnText: { color: '#fff', fontSize: 16 },
 })

@@ -3,15 +3,25 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaVi
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi } from '@textstack/shared'
-import type { Chapter, BookmarkDto } from '@textstack/shared'
+import type { Chapter, BookmarkDto, ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
+import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
+import { DictionarySheet } from '../../../src/components/DictionarySheet'
+import { TranslationSheet } from '../../../src/components/TranslationSheet'
+import { TocSheet } from '../../../src/components/TocSheet'
+import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
+import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
-import { colors } from '../../../src/theme/colors'
+import { useTts } from '../../../src/hooks/useTts'
+import { useQuickStats } from '../../../src/hooks/useQuickStats'
+import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '../../../src/context/ThemeContext'
+import { fonts } from '../../../src/theme/typography'
 
 const LANG = 'en'
 
@@ -25,16 +35,30 @@ export default function ReaderScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
-  const [selectedWord, setSelectedWord] = useState<{ text: string; sentence: string } | null>(null)
+  const [selection, setSelection] = useState<{ text: string; sentence: string } | null>(null)
   const [wordSaved, setWordSaved] = useState(false)
+  const [dictOpen, setDictOpen] = useState(false)
+  const [translateOpen, setTranslateOpen] = useState(false)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchMatchCount, setSearchMatchCount] = useState(0)
+  const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
+  const [chapters, setChapters] = useState<ChapterSummary[]>([])
+  const [progress, setProgress] = useState(0)
+  const { toggle: toggleTts, isSpeaking } = useTts()
   const webViewRef = useRef<WebView>(null)
   const progressRef = useRef(0)
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
   const wordCountRef = useRef(0)
+  const totalWordCountRef = useRef(0)
+
+  const { colors } = useTheme()
+  const quickStats = useQuickStats(isAuthenticated)
+  const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
 
   // Reading session tracking
-  const { updateProgress: updateSessionProgress } = useReadingSession({
+  const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: editionIdRef.current,
     wordCount: wordCountRef.current,
     isAuthenticated,
@@ -48,7 +72,10 @@ export default function ReaderScreen() {
       .then(b => {
         editionIdRef.current = b.id
         bookTitleRef.current = b.title
-        // Load bookmarks
+        if (b.chapters) {
+          setChapters(b.chapters)
+          totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
+        }
         if (isAuthenticated) {
           bookmarksApi.getBookmarks(b.id)
             .then(setBookmarks)
@@ -121,17 +148,40 @@ export default function ReaderScreen() {
       const data = JSON.parse(event.nativeEvent.data)
       if (data.type === 'progress') {
         progressRef.current = data.progress
+        setProgress(data.progress)
         updateSessionProgress(data.progress)
+      } else if (data.type === 'search') {
+        setSearchMatchCount(data.matchCount || 0)
+        setSearchCurrentMatch(data.currentMatch || 0)
+      } else if (data.type === 'loaded') {
+        // Enable infinite scroll if there's a next chapter
+        if (chapter?.next) {
+          nextChapterRef.current = chapter.next
+          injectJs('enableInfiniteScroll()')
+        }
+      } else if (data.type === 'requestNextChapter') {
+        loadNextChapter()
       } else if (data.type === 'selection') {
         if (data.text) {
-          setSelectedWord({ text: data.text, sentence: data.sentence || '' })
+          setSelection({ text: data.text, sentence: data.sentence || '' })
           setWordSaved(false)
+          // Auto-lookup: open dictionary for single words
+          if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
+            setDictOpen(true)
+            if (isAuthenticated) {
+              vocabularyApi.saveWord({
+                word: data.text,
+                sentence: data.sentence || null,
+                bookTitle: bookTitleRef.current || null,
+              }).catch(() => {})
+            }
+          }
         } else {
-          setSelectedWord(null)
+          setSelection(null)
         }
       }
     } catch {}
-  }, [])
+  }, [settings.autoLookup, isAuthenticated])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -160,22 +210,50 @@ export default function ReaderScreen() {
   }
 
   const handleSaveWord = async () => {
-    if (!selectedWord || !isAuthenticated) return
+    if (!selection || !isAuthenticated) return
     try {
       await vocabularyApi.saveWord({
-        word: selectedWord.text,
-        sentence: selectedWord.sentence || null,
+        word: selection.text,
+        sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
       })
       setWordSaved(true)
-      setTimeout(() => { setSelectedWord(null); setWordSaved(false) }, 1500)
+      setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
     } catch {}
   }
+
+  const isMultiWord = !!(selection && selection.text.includes(' '))
 
   const deleteBookmark = async (id: string) => {
     await bookmarksApi.deleteBookmark(id).catch(() => {})
     setBookmarks(prev => prev.filter(b => b.id !== id))
   }
+
+  const injectJs = (js: string) => webViewRef.current?.injectJavaScript(js + ';true;')
+  const handleSearch = (q: string) => injectJs(`searchInContent(${JSON.stringify(q)})`)
+  const handleSearchNext = () => injectJs('nextMatch()')
+  const handleSearchPrev = () => injectJs('prevMatch()')
+  const handleSearchClose = () => { injectJs('clearSearch()'); setSearchOpen(false) }
+
+  const loadNextChapter = async () => {
+    const next = nextChapterRef.current
+    if (!next || !bookSlug) return
+    try {
+      const api = createBooksApi(LANG)
+      const ch = await api.getChapter(bookSlug, next.slug)
+      const escaped = JSON.stringify(ch.html).slice(1, -1) // remove outer quotes
+      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)})`)
+      wordCountRef.current += ch.wordCount || 0
+      nextChapterRef.current = ch.next || null
+      if (!ch.next) injectJs('disableInfiniteScroll()')
+    } catch {
+      injectJs('disableInfiniteScroll()')
+    }
+  }
+
+  // ETF calculation
+  const wordsLeft = wordCountRef.current * (1 - progress)
+  const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
 
   if (loading || !chapter) {
     return (
@@ -189,6 +267,7 @@ export default function ReaderScreen() {
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,
     fontFamily: resolvedFontFamily,
+    textAlign: settings.textAlign,
     backgroundColor: resolvedTheme.backgroundColor,
     textColor: resolvedTheme.textColor,
   })
@@ -203,22 +282,42 @@ export default function ReaderScreen() {
         {/* Top bar */}
         <View style={[styles.topBar, { borderBottomColor: barText + '20' }]}>
           <TouchableOpacity onPress={() => { saveProgress(); router.back() }} style={styles.topBarBtn}>
-            <Text style={[styles.backButton, { color: colors.primary }]}>Back</Text>
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={[styles.chapterTitle, { color: barText }]} numberOfLines={1}>
             {chapter.title}
           </Text>
           <View style={styles.topBarRight}>
+            <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
+              <Ionicons name="search-outline" size={20} color={barText} />
+            </TouchableOpacity>
+            {chapters.length > 0 && (
+              <TouchableOpacity onPress={() => setTocOpen(true)} style={styles.iconBtn}>
+                <Ionicons name="list-outline" size={20} color={barText} />
+              </TouchableOpacity>
+            )}
             {isAuthenticated && (
               <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
-                <Text style={{ fontSize: 16 }}>{isCurrentBookmarked ? '★' : '☆'}</Text>
+                <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
-              <Text style={{ fontSize: 18 }}>Aa</Text>
+              <Ionicons name="text-outline" size={20} color={barText} />
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Search bar */}
+        {searchOpen && (
+          <ReaderSearchBar
+            onSearch={handleSearch}
+            onNext={handleSearchNext}
+            onPrev={handleSearchPrev}
+            onClose={handleSearchClose}
+            matchCount={searchMatchCount}
+            currentMatch={searchCurrentMatch}
+          />
+        )}
 
         {/* Reader WebView */}
         <WebView
@@ -231,22 +330,38 @@ export default function ReaderScreen() {
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Save word floating button */}
-        {isAuthenticated && selectedWord && (
-          <View style={styles.saveWordBar}>
-            <Text style={styles.saveWordText} numberOfLines={1}>
-              "{selectedWord.text}"
-            </Text>
-            <TouchableOpacity
-              style={[styles.saveWordBtn, wordSaved && styles.saveWordBtnDone]}
-              onPress={handleSaveWord}
-              disabled={wordSaved}
-            >
-              <Text style={styles.saveWordBtnText}>
-                {wordSaved ? 'Saved!' : 'Save Word'}
-              </Text>
-            </TouchableOpacity>
+        {/* Selection action bar */}
+        {selection && (
+          <SelectionActionBar
+            selectedText={selection.text}
+            isMultiWord={isMultiWord}
+            onDictionary={() => setDictOpen(true)}
+            onTranslate={() => setTranslateOpen(true)}
+            onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+            onSaveWord={handleSaveWord}
+            isSpeaking={isSpeaking}
+            wordSaved={wordSaved}
+            isAuthenticated={isAuthenticated}
+          />
+        )}
+
+        {/* Progress bar + ETF */}
+        <View style={[styles.progressContainer, { borderTopColor: colors.border }]}>
+          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
           </View>
+          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+            {Math.round(progress * 100)}% · ~{etfMinutes} min left
+          </Text>
+        </View>
+
+        {/* Reading stats widget */}
+        {settings.showReaderStats && isAuthenticated && quickStats && (
+          <ReaderStatsWidget
+            sessionStartedAt={sessionStartedAt}
+            todaySeconds={quickStats.todaySeconds}
+            dailyGoalMinutes={quickStats.dailyGoalMinutes}
+          />
         )}
 
         {/* Bottom navigation */}
@@ -256,7 +371,7 @@ export default function ReaderScreen() {
             disabled={!chapter.prev}
             onPress={() => chapter.prev && navigateChapter(chapter.prev.slug)}
           >
-            <Text style={styles.navText}>Prev</Text>
+            <Text style={[styles.navText, { color: colors.primary }]}>Prev</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -264,7 +379,7 @@ export default function ReaderScreen() {
             disabled={!chapter.next}
             onPress={() => chapter.next && navigateChapter(chapter.next.slug)}
           >
-            <Text style={styles.navText}>Next</Text>
+            <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
           </TouchableOpacity>
         </View>
 
@@ -287,6 +402,32 @@ export default function ReaderScreen() {
           onToggleCurrent={toggleBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
         />
+
+        {/* Dictionary sheet */}
+        <DictionarySheet
+          visible={dictOpen}
+          word={selection?.text || ''}
+          onClose={() => setDictOpen(false)}
+          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+        />
+
+        {/* Translation sheet */}
+        <TranslationSheet
+          visible={translateOpen}
+          text={selection?.text || ''}
+          onClose={() => setTranslateOpen(false)}
+          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+        />
+
+        {/* TOC sheet */}
+        <TocSheet
+          visible={tocOpen}
+          chapters={chapters.map(c => ({ slug: c.slug, title: c.title, chapterNumber: c.chapterNumber }))}
+          currentChapterSlug={chapterSlug || ''}
+          bookmarks={bookmarks.map(b => ({ chapterSlug: b.chapterSlug }))}
+          onNavigate={navigateChapter}
+          onClose={() => setTocOpen(false)}
+        />
       </SafeAreaView>
     </>
   )
@@ -303,11 +444,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  topBarBtn: { width: 50 },
+  topBarBtn: { minWidth: 44, minHeight: 44, justifyContent: 'center' as const },
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconBtn: { padding: 4, minWidth: 28, alignItems: 'center' },
-  backButton: { fontSize: 15, fontWeight: '500' },
-  chapterTitle: { flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '500' },
+  iconBtn: { padding: 8, minWidth: 44, minHeight: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
+  chapterTitle: { flex: 1, textAlign: 'center' as const, fontSize: 14, fontWeight: '500' as const, fontFamily: fonts.sansMedium },
   webview: { flex: 1 },
   bottomBar: {
     flexDirection: 'row',
@@ -318,26 +458,24 @@ const styles = StyleSheet.create({
   },
   navButton: { paddingVertical: 8, paddingHorizontal: 16 },
   navDisabled: { opacity: 0.3 },
-  navText: { fontSize: 15, color: colors.primary, fontWeight: '500' },
-
-  // Save word
-  saveWordBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  navText: { fontSize: 15, fontWeight: '500', fontFamily: fonts.sansMedium },
+  progressContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.primaryLight,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  saveWordText: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '500', marginRight: 12 },
-  saveWordBtn: {
-    backgroundColor: colors.primary,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  saveWordBtnDone: { backgroundColor: '#10B981' },
-  saveWordBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  progressBar: {
+    height: 3,
+    borderRadius: 2,
+  },
+  progressFill: {
+    height: 3,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 11,
+    textAlign: 'center' as const,
+    marginTop: 4,
+    fontFamily: fonts.sans,
+  },
 })

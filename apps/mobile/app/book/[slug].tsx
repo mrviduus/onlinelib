@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl, libraryApi, readingProgressApi } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
+import { useTheme } from '../../src/context/ThemeContext'
 import { isBookFullyCached } from '../../src/lib/offlineDb'
-import { colors } from '../../src/theme/colors'
+import { fonts } from '../../src/theme/typography'
+import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
 const LANG = 'en'
 
@@ -15,6 +18,7 @@ export default function BookDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
+  const { colors } = useTheme()
   const { downloads, startDownload, cancelDownload, removeDownload } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,7 +33,6 @@ export default function BookDetailScreen() {
       .then(async (b) => {
         setBook(b)
         setCached(await isBookFullyCached(b.id))
-        // Check library + progress if authenticated
         if (isAuthenticated) {
           try {
             const lib = await libraryApi.getLibrary()
@@ -51,57 +54,75 @@ export default function BookDetailScreen() {
 
   if (loading || !book) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <>
+        <Stack.Screen options={{ title: '', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={styles.header}>
+            <SkeletonLoader width={160} height={240} borderRadius={8} />
+          </View>
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            <SkeletonLoader width="60%" height={24} />
+            <SkeletonLoader width="40%" height={16} />
+            <SkeletonLoader width="100%" height={48} borderRadius={10} style={{ marginTop: 16 }} />
+          </View>
+        </View>
+      </>
     )
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: book.title, headerShown: true }} />
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Image
-            source={getStorageUrl(book.coverPath)}
-            style={styles.cover}
-            contentFit="cover"
-          />
-          <View style={styles.meta}>
-            <Text style={styles.title}>{book.title}</Text>
-            {book.authors.length > 0 && (
-              <Text style={styles.authors}>
-                {book.authors.map(a => a.name).join(', ')}
-              </Text>
-            )}
-            <Text style={styles.chapters}>{book.chapters.length} chapters</Text>
+      <Stack.Screen options={{
+        title: book.title,
+        headerShown: true,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontFamily: fonts.sansMedium, fontSize: 16 },
+        headerShadowVisible: false,
+      }} />
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Hero */}
+        <View style={styles.hero}>
+          <View style={styles.coverWrapper}>
+            <Image source={getStorageUrl(book.coverPath)} style={[styles.cover, { backgroundColor: colors.border }]} contentFit="cover" />
+          </View>
+          <Text style={[styles.title, { color: colors.text }]}>{book.title}</Text>
+          {book.authors.length > 0 && (
+            <Text style={[styles.authors, { color: colors.textSecondary }]}>
+              {book.authors.map(a => a.name).join(', ')}
+            </Text>
+          )}
+          <View style={styles.metaRow}>
+            <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>{book.chapters.length} chapters</Text>
           </View>
         </View>
 
         {book.description && (
-          <Text style={styles.description}>{book.description}</Text>
+          <Text style={[styles.description, { color: colors.text }]}>{book.description}</Text>
         )}
 
-        {/* Action buttons */}
+        {/* Actions */}
         <View style={styles.actions}>
           {book.chapters.length > 0 && (
             <TouchableOpacity
-              style={styles.readButton}
+              style={[styles.readButton, { backgroundColor: colors.primary }]}
               onPress={() => {
                 const target = continueSlug || book.chapters[0].slug
                 router.push(`/reader/${slug}/${target}`)
               }}
+              activeOpacity={0.85}
             >
+              <Ionicons name={continueSlug ? 'play' : 'book-outline'} size={18} color="#fff" />
               <Text style={styles.readButtonText}>
                 {continueSlug ? 'Continue Reading' : 'Start Reading'}
               </Text>
             </TouchableOpacity>
           )}
 
-          {/* Save to Library */}
           {isAuthenticated && (
             <TouchableOpacity
-              style={inLibrary ? styles.inLibraryButton : styles.saveLibraryButton}
+              style={[styles.secondaryButton, { borderColor: inLibrary ? colors.success : colors.primary }]}
               onPress={async () => {
                 try {
                   if (inLibrary) {
@@ -113,47 +134,44 @@ export default function BookDetailScreen() {
                   }
                 } catch {}
               }}
+              activeOpacity={0.85}
             >
-              <Text style={inLibrary ? styles.inLibraryText : styles.saveLibraryText}>
-                {inLibrary ? 'In Library ✓' : 'Save to Library'}
+              <Ionicons name={inLibrary ? 'checkmark-circle' : 'add-circle-outline'} size={18} color={inLibrary ? colors.success : colors.primary} />
+              <Text style={[styles.secondaryButtonText, { color: inLibrary ? colors.success : colors.primary }]}>
+                {inLibrary ? 'In Library' : 'Save to Library'}
               </Text>
             </TouchableOpacity>
           )}
 
-          {/* Download / Cached status */}
           {cached ? (
-            <TouchableOpacity
-              style={styles.downloadedButton}
-              onPress={() => removeDownload(book.id)}
-            >
-              <Text style={styles.downloadedText}>Downloaded — Remove</Text>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.success }]} onPress={() => removeDownload(book.id)} activeOpacity={0.85}>
+              <Ionicons name="cloud-done-outline" size={18} color={colors.success} />
+              <Text style={[styles.secondaryButtonText, { color: colors.success }]}>Downloaded — Remove</Text>
             </TouchableOpacity>
           ) : isDownloading ? (
-            <TouchableOpacity
-              style={styles.downloadingButton}
-              onPress={() => cancelDownload(book.id)}
-            >
-              <Text style={styles.downloadingText}>Downloading {progress}% — Cancel</Text>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => cancelDownload(book.id)} activeOpacity={0.85}>
+              <Ionicons name="cloud-download-outline" size={18} color={colors.primary} />
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Downloading {progress}% — Cancel</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={styles.downloadButton}
-              onPress={() => startDownload(book, LANG)}
-            >
-              <Text style={styles.downloadText}>Download for Offline</Text>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, LANG)} activeOpacity={0.85}>
+              <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download for Offline</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>Chapters</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
         {book.chapters.map((ch) => (
           <TouchableOpacity
             key={ch.id}
-            style={styles.chapterItem}
+            style={[styles.chapterItem, { borderBottomColor: colors.border }]}
             onPress={() => router.push(`/reader/${slug}/${ch.slug}`)}
+            activeOpacity={0.7}
           >
-            <Text style={styles.chapterNumber}>{ch.chapterNumber}</Text>
-            <Text style={styles.chapterTitle} numberOfLines={1}>{ch.title}</Text>
+            <Text style={[styles.chapterNumber, { color: colors.textSecondary }]}>{ch.chapterNumber}</Text>
+            <Text style={[styles.chapterTitle, { color: colors.text }]} numberOfLines={1}>{ch.title}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
 
@@ -164,88 +182,51 @@ export default function BookDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', padding: 16 },
-  cover: { width: 120, height: 180, borderRadius: 8, backgroundColor: colors.border },
-  meta: { flex: 1, marginLeft: 16, justifyContent: 'center' },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text },
-  authors: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
-  chapters: { fontSize: 13, color: colors.textSecondary, marginTop: 8 },
-  description: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-    paddingHorizontal: 16,
+  container: { flex: 1 },
+  header: { alignItems: 'center', padding: 16 },
+  hero: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 },
+  coverWrapper: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 6,
     marginBottom: 16,
   },
-  actions: { paddingHorizontal: 16, marginBottom: 24, gap: 8 },
+  cover: { width: 160, height: 240, borderRadius: 8 },
+  title: { fontFamily: fonts.serifBold, fontSize: 24, textAlign: 'center', lineHeight: 30 },
+  authors: { fontFamily: fonts.sans, fontSize: 15, marginTop: 6, textAlign: 'center' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  metaText: { fontFamily: fonts.sans, fontSize: 13 },
+  description: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 22, paddingHorizontal: 16, marginBottom: 16 },
+  actions: { paddingHorizontal: 16, marginBottom: 24, gap: 10 },
   readButton: {
-    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
-  readButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  downloadButton: {
-    backgroundColor: colors.surface,
+  readButtonText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 16 },
+  secondaryButton: {
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
   },
-  downloadText: { fontSize: 14, color: colors.text, fontWeight: '500' },
-  downloadingButton: {
-    backgroundColor: colors.primaryLight,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  downloadingText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
-  downloadedButton: {
-    backgroundColor: '#D1FAE5',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  downloadedText: { fontSize: 14, color: '#059669', fontWeight: '500' },
-  saveLibraryButton: {
-    backgroundColor: colors.surface,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  saveLibraryText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
-  inLibraryButton: {
-    backgroundColor: '#D1FAE5',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  inLibraryText: { fontSize: 14, color: '#059669', fontWeight: '500' },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
+  secondaryButtonText: { fontFamily: fonts.sansMedium, fontSize: 14 },
+  sectionTitle: { fontFamily: fonts.serifBold, fontSize: 20, paddingHorizontal: 16, marginBottom: 8 },
   chapterItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  chapterNumber: {
-    width: 32,
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  chapterTitle: { flex: 1, fontSize: 15, color: colors.text },
+  chapterNumber: { width: 32, fontFamily: fonts.sansMedium, fontSize: 14 },
+  chapterTitle: { flex: 1, fontFamily: fonts.sans, fontSize: 15 },
 })

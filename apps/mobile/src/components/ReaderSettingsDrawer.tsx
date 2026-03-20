@@ -1,5 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native'
-import { colors } from '../theme/colors'
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Switch, ScrollView } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '../context/ThemeContext'
+import { fonts } from '../theme/typography'
 import type { ReaderSettings } from '../hooks/useReaderSettings'
 import { themeStyles } from '../hooks/useReaderSettings'
 
@@ -10,101 +12,154 @@ interface Props {
   onUpdate: (patch: Partial<ReaderSettings>) => void
 }
 
-const fontSizes = [14, 16, 18, 20, 22, 24, 26, 28]
-const lineHeights = [1.4, 1.65, 1.8]
-const fonts: { key: ReaderSettings['fontFamily']; label: string }[] = [
+const lineHeights = [1.5, 1.65, 1.8]
+const fontOptions: { key: ReaderSettings['fontFamily']; label: string }[] = [
   { key: 'serif', label: 'Serif' },
   { key: 'sans', label: 'Sans' },
-  { key: 'system', label: 'System' },
+  { key: 'dyslexic', label: 'Dyslexic' },
 ]
-const themes: { key: ReaderSettings['theme']; label: string }[] = [
+const textAligns: { key: ReaderSettings['textAlign']; label: string }[] = [
+  { key: 'left', label: 'Left' },
+  { key: 'center', label: 'Center' },
+  { key: 'justify', label: 'Justify' },
+]
+const themeOptions: { key: ReaderSettings['theme']; label: string }[] = [
   { key: 'light', label: 'Light' },
   { key: 'sepia', label: 'Sepia' },
   { key: 'dark', label: 'Dark' },
 ]
+const ttsSpeeds = [0.75, 1.0, 1.25, 1.5, 2.0]
 
 export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: Props) {
+  const { colors } = useTheme()
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.drawer} onPress={e => e.stopPropagation()}>
-          <Text style={styles.title}>Reader Settings</Text>
-
-          {/* Font Size */}
-          <Text style={styles.label}>Font Size: {settings.fontSize}px</Text>
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={styles.sizeButton}
-              onPress={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 2) })}
-            >
-              <Text style={styles.sizeText}>A-</Text>
-            </TouchableOpacity>
-            <View style={styles.sizePreview}>
-              <Text style={{ fontSize: settings.fontSize }}>Aa</Text>
+        <Pressable style={[styles.drawer, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
+          <View style={styles.handle} />
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Reading Settings</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.sizeButton}
-              onPress={() => onUpdate({ fontSize: Math.min(28, settings.fontSize + 2) })}
-            >
-              <Text style={styles.sizeText}>A+</Text>
-            </TouchableOpacity>
-          </View>
 
-          {/* Line Height */}
-          <Text style={styles.label}>Line Height</Text>
-          <View style={styles.row}>
-            {lineHeights.map(lh => (
+            {/* Font Size */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>FONT SIZE</Text>
+            <View style={styles.row}>
               <TouchableOpacity
-                key={lh}
-                style={[styles.chip, settings.lineHeight === lh && styles.chipActive]}
-                onPress={() => onUpdate({ lineHeight: lh })}
+                style={[styles.sizeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 2) })}
               >
-                <Text style={[styles.chipText, settings.lineHeight === lh && styles.chipTextActive]}>
-                  {lh === 1.4 ? 'Tight' : lh === 1.65 ? 'Normal' : 'Loose'}
-                </Text>
+                <Text style={[styles.sizeText, { color: colors.text }]}>A-</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Font Family */}
-          <Text style={styles.label}>Font</Text>
-          <View style={styles.row}>
-            {fonts.map(f => (
+              <View style={styles.sizePreview}>
+                <Text style={[styles.sizeValue, { color: colors.text }]}>{settings.fontSize}px</Text>
+              </View>
               <TouchableOpacity
-                key={f.key}
-                style={[styles.chip, settings.fontFamily === f.key && styles.chipActive]}
-                onPress={() => onUpdate({ fontFamily: f.key })}
+                style={[styles.sizeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => onUpdate({ fontSize: Math.min(28, settings.fontSize + 2) })}
               >
-                <Text style={[styles.chipText, settings.fontFamily === f.key && styles.chipTextActive]}>
-                  {f.label}
-                </Text>
+                <Text style={[styles.sizeText, { color: colors.text }]}>A+</Text>
               </TouchableOpacity>
-            ))}
-          </View>
+            </View>
 
-          {/* Theme */}
-          <Text style={styles.label}>Theme</Text>
-          <View style={styles.row}>
-            {themes.map(t => (
-              <TouchableOpacity
-                key={t.key}
-                style={[
-                  styles.themeChip,
-                  { backgroundColor: themeStyles[t.key].backgroundColor },
-                  settings.theme === t.key && styles.themeChipActive,
-                ]}
-                onPress={() => onUpdate({ theme: t.key })}
-              >
-                <Text style={[styles.themeText, { color: themeStyles[t.key].textColor }]}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            {/* Line Height */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>LINE HEIGHT</Text>
+            <View style={styles.row}>
+              {lineHeights.map(lh => (
+                <TouchableOpacity
+                  key={lh}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
+                    settings.lineHeight === lh && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => onUpdate({ lineHeight: lh })}
+                >
+                  <Text style={[styles.chipText, { color: colors.text },
+                    settings.lineHeight === lh && { color: '#fff' }]}>{lh}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeText}>Done</Text>
-          </TouchableOpacity>
+            {/* Text Align */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TEXT ALIGN</Text>
+            <View style={styles.row}>
+              {textAligns.map(a => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
+                    settings.textAlign === a.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => onUpdate({ textAlign: a.key })}
+                >
+                  <Text style={[styles.chipText, { color: colors.text },
+                    settings.textAlign === a.key && { color: '#fff' }]}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Theme */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>THEME</Text>
+            <View style={styles.row}>
+              {themeOptions.map(t => (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[styles.themeChip, { backgroundColor: themeStyles[t.key].backgroundColor, borderColor: colors.border },
+                    settings.theme === t.key && { borderColor: colors.primary }]}
+                  onPress={() => onUpdate({ theme: t.key })}
+                >
+                  <View style={[styles.themeCircle, { backgroundColor: themeStyles[t.key].backgroundColor, borderColor: themeStyles[t.key].textColor + '40' }]} />
+                  <Text style={[styles.themeLabel, { color: themeStyles[t.key].textColor }]}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Font Family */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>FONT</Text>
+            <View style={styles.row}>
+              {fontOptions.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
+                    settings.fontFamily === f.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => onUpdate({ fontFamily: f.key })}
+                >
+                  <Text style={[styles.chipText, { color: colors.text },
+                    settings.fontFamily === f.key && { color: '#fff' }]}>{f.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* TTS Speed */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TTS SPEED</Text>
+            <View style={styles.row}>
+              {ttsSpeeds.map(s => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.chipSmall, { backgroundColor: colors.surface, borderColor: colors.border },
+                    settings.ttsSpeed === s && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => onUpdate({ ttsSpeed: s })}
+                >
+                  <Text style={[styles.chipText, { color: colors.text },
+                    settings.ttsSpeed === s && { color: '#fff' }]}>{s}x</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Instant Dictionary */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INSTANT DICTIONARY</Text>
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Auto-lookup & save words on select</Text>
+              <Switch value={settings.autoLookup} onValueChange={v => onUpdate({ autoLookup: v })} trackColor={{ true: colors.primary }} />
+            </View>
+
+            {/* Reading Stats */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>READING STATS</Text>
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left</Text>
+              <Switch value={settings.showReaderStats} onValueChange={v => onUpdate({ showReaderStats: v })} trackColor={{ true: colors.primary }} />
+            </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -112,64 +167,24 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  drawer: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 20 },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 8, marginTop: 16 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  drawer: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, maxHeight: '80%' },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  title: { fontFamily: fonts.serifBold, fontSize: 20 },
+  closeBtn: { padding: 8, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  sectionLabel: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 0.5, marginTop: 18, marginBottom: 8 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  sizeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sizeText: { fontSize: 16, fontWeight: '600', color: colors.text },
+  sizeButton: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  sizeText: { fontFamily: fonts.sansBold, fontSize: 16 },
   sizePreview: { flex: 1, alignItems: 'center' },
-  chip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: { fontSize: 14, color: colors.text, fontWeight: '500' },
-  chipTextActive: { color: '#fff' },
-  themeChip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  themeChipActive: { borderColor: colors.primary },
-  themeText: { fontSize: 14, fontWeight: '500' },
-  closeButton: {
-    marginTop: 24,
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  sizeValue: { fontFamily: fonts.sansMedium, fontSize: 16 },
+  chip: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+  chipSmall: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+  chipText: { fontFamily: fonts.sansMedium, fontSize: 14 },
+  themeChip: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 2, gap: 4 },
+  themeCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 1 },
+  themeLabel: { fontFamily: fonts.sansMedium, fontSize: 12 },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  toggleLabel: { fontFamily: fonts.sans, fontSize: 14, flex: 1, marginRight: 12 },
 })

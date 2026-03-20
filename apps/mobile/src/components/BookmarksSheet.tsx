@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, FlatList } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import type { BookmarkDto } from '@textstack/shared'
-import { colors } from '../theme/colors'
+import { useTheme } from '../context/ThemeContext'
+import { fonts } from '../theme/typography'
 
 interface Props {
   visible: boolean
@@ -17,51 +19,55 @@ export function BookmarksSheet({
   visible, onClose, bookmarks, currentChapterSlug,
   onNavigate, onDelete, onToggleCurrent, isCurrentBookmarked,
 }: Props) {
+  const { colors } = useTheme()
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={e => e.stopPropagation()}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 }} />
           <View style={styles.header}>
-            <Text style={styles.title}>Bookmarks</Text>
-            <TouchableOpacity style={styles.addBtn} onPress={onToggleCurrent}>
-              <Text style={styles.addBtnText}>
+            <Text style={[styles.title, { color: colors.text }]}>Bookmarks</Text>
+            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primaryLight }]} onPress={onToggleCurrent}>
+              <Text style={[styles.addBtnText, { color: colors.primary }]}>
                 {isCurrentBookmarked ? 'Remove Bookmark' : 'Bookmark This Chapter'}
               </Text>
             </TouchableOpacity>
           </View>
 
           {bookmarks.length === 0 ? (
-            <Text style={styles.empty}>No bookmarks yet</Text>
+            <Text style={[styles.empty, { color: colors.textSecondary }]}>No bookmarks yet</Text>
           ) : (
             <FlatList
               data={bookmarks}
               keyExtractor={item => item.id}
               style={styles.list}
               renderItem={({ item }) => (
-                <View style={styles.row}>
+                <View style={[styles.row, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.rowContent}
                     onPress={() => { onNavigate(item.chapterSlug); onClose() }}
                   >
                     <Text style={[
                       styles.rowTitle,
-                      item.chapterSlug === currentChapterSlug && styles.rowTitleActive,
+                      { color: colors.text },
+                      item.chapterSlug === currentChapterSlug && { color: colors.primary, fontWeight: '600' },
                     ]} numberOfLines={1}>
                       {item.title}
                     </Text>
-                    <Text style={styles.rowDate}>
+                    <Text style={[styles.rowDate, { color: colors.textSecondary }]}>
                       {new Date(item.createdAt).toLocaleDateString()}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id)}>
-                    <Text style={styles.deleteText}>X</Text>
+                    <Ionicons name="close" size={18} color="#DC2626" />
                   </TouchableOpacity>
                 </View>
               )}
             />
           )}
 
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.primary }]} onPress={onClose}>
             <Text style={styles.closeBtnText}>Done</Text>
           </TouchableOpacity>
         </Pressable>
@@ -77,7 +83,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.background,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
@@ -90,35 +95,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
+  title: { fontSize: 18, fontFamily: fonts.sansBold },
   addBtn: {
-    backgroundColor: colors.primaryLight,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
   },
-  addBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-  empty: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginVertical: 20 },
+  addBtnText: { fontSize: 12, fontFamily: fonts.sansBold },
+  empty: { fontSize: 14, textAlign: 'center', marginVertical: 20 },
   list: { maxHeight: 300 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   rowContent: { flex: 1 },
-  rowTitle: { fontSize: 15, color: colors.text },
-  rowTitleActive: { color: colors.primary, fontWeight: '600' },
-  rowDate: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  rowTitle: { fontSize: 15 },
+  rowDate: { fontSize: 11, marginTop: 2 },
   deleteBtn: { padding: 8 },
-  deleteText: { fontSize: 14, color: '#DC2626', fontWeight: '600' },
   closeBtn: {
     marginTop: 16,
-    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
-  closeBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  closeBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.sansBold },
 })

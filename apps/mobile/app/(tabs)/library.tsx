@@ -1,20 +1,24 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import {
   libraryApi, readingProgressApi, userBooksApi, getStorageUrl,
 } from '@textstack/shared'
 import type { UserLibraryItem, UserBookDto, ReadingProgressDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
-import { colors } from '../../src/theme/colors'
+import { useTheme } from '../../src/context/ThemeContext'
+import { fonts } from '../../src/theme/typography'
+import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
 type Tab = 'saved' | 'uploads'
 
 export default function LibraryScreen() {
   const { isAuthenticated } = useAuth()
+  const { colors } = useTheme()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
@@ -45,7 +49,6 @@ export default function LibraryScreen() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Refresh on focus (e.g. after reading)
   useFocusEffect(useCallback(() => {
     if (isAuthenticated && !loading) loadData()
   }, [isAuthenticated, loading, loadData]))
@@ -58,10 +61,11 @@ export default function LibraryScreen() {
 
   if (!isAuthenticated) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyTitle}>My Library</Text>
-        <Text style={styles.emptyText}>Sign in to access your library</Text>
-        <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/(auth)/login')}>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Ionicons name="library-outline" size={56} color={colors.border} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>My Library</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sign in to access your library</Text>
+        <TouchableOpacity style={[styles.signInBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(auth)/login')}>
           <Text style={styles.signInText}>Sign In</Text>
         </TouchableOpacity>
       </View>
@@ -70,80 +74,71 @@ export default function LibraryScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.skeletonList}>
+          {[0, 1, 2, 3].map(i => (
+            <View key={i} style={[styles.bookRow, { borderBottomColor: colors.border }]}>
+              <SkeletonLoader width={70} height={105} borderRadius={6} />
+              <View style={styles.bookInfo}>
+                <SkeletonLoader width="70%" height={16} />
+                <SkeletonLoader width="40%" height={13} style={{ marginTop: 6 }} />
+                <SkeletonLoader width="90%" height={4} style={{ marginTop: 12 }} />
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      {/* Tab switcher */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, tab === 'saved' && styles.tabActive]}
-          onPress={() => setTab('saved')}
-        >
-          <Text style={[styles.tabText, tab === 'saved' && styles.tabTextActive]}>
-            Saved ({library.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, tab === 'uploads' && styles.tabActive]}
-          onPress={() => setTab('uploads')}
-        >
-          <Text style={[styles.tabText, tab === 'uploads' && styles.tabTextActive]}>
-            My Uploads ({userBooks.length})
-          </Text>
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
+        {(['saved', 'uploads'] as Tab[]).map(t => (
+          <TouchableOpacity
+            key={t}
+            style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+            onPress={() => setTab(t)}
+          >
+            <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>
+              {t === 'saved' ? `Saved (${library.length})` : `Uploads (${userBooks.length})`}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {tab === 'saved' ? (
-        <SavedList
-          library={library}
-          progressMap={progressMap}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
+        <SavedList library={library} progressMap={progressMap} refreshing={refreshing} onRefresh={onRefresh} />
       ) : (
-        <UploadsList
-          books={userBooks}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
+        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} />
       )}
     </View>
   )
 }
 
-function SavedList({
-  library, progressMap, refreshing, onRefresh,
-}: {
-  library: UserLibraryItem[]
-  progressMap: Record<string, ReadingProgressDto>
-  refreshing: boolean
-  onRefresh: () => void
+function SavedList({ library, progressMap, refreshing, onRefresh }: {
+  library: UserLibraryItem[]; progressMap: Record<string, ReadingProgressDto>; refreshing: boolean; onRefresh: () => void
 }) {
   const router = useRouter()
+  const { colors } = useTheme()
 
   if (library.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>No saved books yet</Text>
-        <Text style={styles.emptySubtext}>Browse books and save them to your library</Text>
+        <Ionicons name="book-outline" size={48} color={colors.border} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No saved books yet</Text>
+        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Browse books and save them to your library</Text>
       </View>
     )
   }
 
-  const sorted = [...library].sort(
-    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-  )
+  const sorted = [...library].sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime())
 
   return (
     <FlatList
       data={sorted}
       keyExtractor={item => item.editionId}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       contentContainerStyle={styles.listContent}
       renderItem={({ item }) => {
         const progress = progressMap[item.editionId]
@@ -152,43 +147,43 @@ function SavedList({
 
         return (
           <TouchableOpacity
-            style={styles.bookRow}
+            style={[styles.bookRow, { borderBottomColor: colors.border }]}
             onPress={() => router.push(`/book/${item.edition.slug}`)}
+            activeOpacity={0.85}
           >
-            <Image
-              source={item.edition.coverPath ? getStorageUrl(item.edition.coverPath) : undefined}
-              style={styles.cover}
-              contentFit="cover"
-            />
+            <View style={styles.coverWrapper}>
+              <Image
+                source={item.edition.coverPath ? getStorageUrl(item.edition.coverPath) : undefined}
+                style={[styles.cover, { backgroundColor: colors.border }]}
+                contentFit="cover"
+              />
+            </View>
             <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle} numberOfLines={2}>{item.edition.title}</Text>
+              <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.edition.title}</Text>
               {item.edition.authors.length > 0 && (
-                <Text style={styles.bookAuthor} numberOfLines={1}>
+                <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
                   {item.edition.authors.map(a => a.name).join(', ')}
                 </Text>
               )}
-
-              {/* Progress bar */}
               {pct > 0 && (
                 <View style={styles.progressRow}>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${pct}%` }]} />
+                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                    <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
                   </View>
-                  <Text style={styles.progressText}>{pct}%</Text>
+                  <Text style={[styles.progressText, { color: colors.textSecondary }]}>{pct}%</Text>
                 </View>
               )}
-
-              {/* Continue reading */}
               {continueSlug ? (
                 <TouchableOpacity
-                  style={styles.continueBtn}
+                  style={[styles.continueBtn, { backgroundColor: colors.primary }]}
                   onPress={() => router.push(`/reader/${item.edition.slug}/${continueSlug}`)}
                 >
-                  <Text style={styles.continueBtnText}>Continue Reading</Text>
+                  <Ionicons name="play" size={12} color="#fff" />
+                  <Text style={styles.continueBtnText}>Continue</Text>
                 </TouchableOpacity>
               ) : (
                 item.edition.chapterCount > 0 && (
-                  <Text style={styles.chapterCount}>{item.edition.chapterCount} chapters</Text>
+                  <Text style={[styles.chapterCount, { color: colors.textSecondary }]}>{item.edition.chapterCount} chapters</Text>
                 )
               )}
             </View>
@@ -199,56 +194,51 @@ function SavedList({
   )
 }
 
-function UploadsList({
-  books, refreshing, onRefresh,
-}: {
-  books: UserBookDto[]
-  refreshing: boolean
-  onRefresh: () => void
+function UploadsList({ books, refreshing, onRefresh }: {
+  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void
 }) {
   const router = useRouter()
+  const { colors } = useTheme()
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Upload button */}
       <TouchableOpacity
-        style={styles.uploadBtn}
+        style={[styles.uploadBtn, { borderColor: colors.primary }]}
         onPress={() => router.push('/my-books/upload')}
       >
-        <Text style={styles.uploadBtnText}>+ Upload Book</Text>
+        <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+        <Text style={[styles.uploadBtnText, { color: colors.primary }]}>Upload Book</Text>
       </TouchableOpacity>
 
       {books.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No uploaded books</Text>
-          <Text style={styles.emptySubtext}>Upload EPUB or PDF files to read</Text>
+          <Ionicons name="cloud-upload-outline" size={48} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No uploaded books</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Upload EPUB or PDF files to read</Text>
         </View>
       ) : (
         <FlatList
           data={books}
           keyExtractor={item => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.bookRow}
-              onPress={() => {
-                if (item.status === 'completed') router.push(`/my-books/${item.id}`)
-              }}
+              style={[styles.bookRow, { borderBottomColor: colors.border }]}
+              onPress={() => { if (item.status === 'completed') router.push(`/my-books/${item.id}`) }}
               disabled={item.status !== 'completed'}
+              activeOpacity={0.85}
             >
-              <Image
-                source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                style={styles.cover}
-                contentFit="cover"
-              />
+              <View style={styles.coverWrapper}>
+                <Image
+                  source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
+                  style={[styles.cover, { backgroundColor: colors.border }]}
+                  contentFit="cover"
+                />
+              </View>
               <View style={styles.bookInfo}>
-                <Text style={styles.bookTitle} numberOfLines={2}>
-                  {item.title || 'Untitled'}
-                </Text>
-                {item.author && (
-                  <Text style={styles.bookAuthor} numberOfLines={1}>{item.author}</Text>
-                )}
+                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title || 'Untitled'}</Text>
+                {item.author && <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{item.author}</Text>}
                 <StatusBadge status={item.status} chapterCount={item.chapterCount} />
               </View>
             </TouchableOpacity>
@@ -260,110 +250,68 @@ function UploadsList({
 }
 
 function StatusBadge({ status, chapterCount }: { status: UserBookDto['status']; chapterCount: number }) {
+  const { colors } = useTheme()
   if (status === 'completed') {
-    return <Text style={styles.statusReady}>{chapterCount} chapters</Text>
+    return <Text style={[styles.statusBadge, { color: colors.success }]}>{chapterCount} chapters</Text>
   }
   if (status === 'failed') {
-    return <Text style={styles.statusFailed}>Processing failed</Text>
+    return <Text style={[styles.statusBadge, { color: colors.error }]}>Processing failed</Text>
   }
-  return <Text style={styles.statusProcessing}>Processing...</Text>
+  return <Text style={[styles.statusBadge, { color: colors.primary }]}>Processing...</Text>
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 20 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', color: colors.text, marginBottom: 8 },
-  emptyText: { fontSize: 16, color: colors.textSecondary, textAlign: 'center' },
-  emptySubtext: { fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' },
-  signInBtn: {
-    marginTop: 16,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-  },
-  signInText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-
-  // Tabs
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  tabText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
-  tabTextActive: { color: colors.primary },
-
-  // List
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, gap: 8 },
+  emptyTitle: { fontFamily: fonts.serifBold, fontSize: 22, marginTop: 8 },
+  emptyText: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center' },
+  emptySubtext: { fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
+  signInBtn: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10 },
+  signInText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 15 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1 },
+  tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
+  tabText: { fontFamily: fonts.sansMedium, fontSize: 14 },
   listContent: { paddingBottom: 20 },
-  bookRow: {
-    flexDirection: 'row',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  skeletonList: { padding: 12 },
+  bookRow: { flexDirection: 'row', padding: 14, borderBottomWidth: 1 },
+  coverWrapper: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  cover: {
-    width: 60,
-    height: 90,
-    borderRadius: 4,
-    backgroundColor: colors.border,
-  },
-  bookInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  bookTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
-  bookAuthor: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  chapterCount: { fontSize: 12, color: colors.textSecondary, marginTop: 6 },
-
-  // Progress
-  progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
-  progressTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressText: { fontSize: 11, color: colors.textSecondary, width: 32 },
-
-  // Continue
+  cover: { width: 70, height: 105, borderRadius: 6 },
+  bookInfo: { flex: 1, marginLeft: 14, justifyContent: 'center' },
+  bookTitle: { fontFamily: fonts.sansMedium, fontSize: 15 },
+  bookAuthor: { fontFamily: fonts.sans, fontSize: 13, marginTop: 2 },
+  chapterCount: { fontFamily: fonts.sans, fontSize: 12, marginTop: 6 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  progressTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+  progressText: { fontFamily: fonts.sans, fontSize: 11, width: 32 },
   continueBtn: {
-    marginTop: 6,
-    backgroundColor: colors.primary,
+    marginTop: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  continueBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-
-  // Upload
-  uploadBtn: {
-    margin: 12,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
     borderRadius: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  uploadBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-
-  // Status badges
-  statusReady: { fontSize: 12, color: '#059669', marginTop: 6 },
-  statusFailed: { fontSize: 12, color: '#DC2626', marginTop: 6 },
-  statusProcessing: { fontSize: 12, color: colors.primary, marginTop: 6 },
+  continueBtnText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 13 },
+  uploadBtn: {
+    margin: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  uploadBtnText: { fontFamily: fonts.sansMedium, fontSize: 15 },
+  statusBadge: { fontFamily: fonts.sans, fontSize: 12, marginTop: 6 },
 })
