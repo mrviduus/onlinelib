@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, TextInput, SafeAreaView } from 'react-native'
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, SafeAreaView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { Edition } from '@textstack/shared'
@@ -19,8 +19,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [total, setTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const api = createBooksApi(LANG)
+  const hasMore = books.length < total
 
   const fetchBooks = useCallback(async (offset = 0, refresh = false) => {
     try {
@@ -43,7 +45,10 @@ export default function HomeScreen() {
   }
 
   const onEndReached = () => {
-    if (books.length < total) fetchBooks(books.length)
+    if (hasMore && !loadingMore) {
+      setLoadingMore(true)
+      fetchBooks(books.length).finally(() => setLoadingMore(false))
+    }
   }
 
   const renderBook = ({ item }: { item: Edition }) => (
@@ -92,6 +97,21 @@ export default function HomeScreen() {
           ListHeaderComponent={header}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="library-outline" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No books available</Text>
+            </View>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator size="small" color={colors.primary} style={styles.footer} />
+            ) : !hasMore && books.length > 0 ? (
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                You've seen all {total} books
+              </Text>
+            ) : null
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
@@ -136,4 +156,8 @@ const styles = StyleSheet.create({
   },
   list: { paddingHorizontal: 16, paddingBottom: 20 },
   row: { justifyContent: 'space-between' },
+  footer: { paddingVertical: 20 },
+  footerText: { textAlign: 'center', paddingVertical: 20, fontFamily: fonts.sans, fontSize: 13 },
+  empty: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { fontFamily: fonts.sans, fontSize: 15 },
 })

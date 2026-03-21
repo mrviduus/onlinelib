@@ -97,12 +97,13 @@ export default function SearchScreen() {
         </View>
       ) : results.length === 0 && searched ? (
         <View style={styles.center}>
-          <Ionicons name="search-outline" size={48} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No results found</Text>
+          <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No results for "{query}"</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Try a different search term</Text>
         </View>
       ) : !searched ? (
         <View style={styles.center}>
-          <Ionicons name="book-outline" size={48} color={colors.border} />
+          <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Search across all books</Text>
         </View>
       ) : (
@@ -149,5 +150,6 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.sansMedium, fontSize: 15 },
   chapter: { fontFamily: fonts.sans, fontSize: 13, marginTop: 2 },
   highlight: { fontFamily: fonts.sans, fontSize: 12, marginTop: 4, fontStyle: 'italic' },
-  emptyText: { fontFamily: fonts.sans, fontSize: 15 },
+  emptyText: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center' },
+  emptySubtext: { fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
 })

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi } from '@textstack/shared'
@@ -45,6 +45,7 @@ export default function ReaderScreen() {
   const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
   const [chapters, setChapters] = useState<ChapterSummary[]>([])
   const [progress, setProgress] = useState(0)
+  const [bookTitle, setBookTitle] = useState('')
   const { toggle: toggleTts, isSpeaking } = useTts()
   const webViewRef = useRef<WebView>(null)
   const progressRef = useRef(0)
@@ -57,12 +58,44 @@ export default function ReaderScreen() {
   const quickStats = useQuickStats(isAuthenticated)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
 
+  // Immersive mode — auto-hide bars
+  const [barsVisible, setBarsVisible] = useState(true)
+  const barsAnim = useRef(new Animated.Value(1)).current
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentChapterSlugRef = useRef<string | null>(null)
+
   // Reading session tracking
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: editionIdRef.current,
     wordCount: wordCountRef.current,
     isAuthenticated,
   })
+
+  const startHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => {
+      setBarsVisible(false)
+      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+    }, 3000)
+  }, [barsAnim])
+
+  const toggleBars = useCallback(() => {
+    if (barsVisible) {
+      setBarsVisible(false)
+      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    } else {
+      setBarsVisible(true)
+      Animated.timing(barsAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start()
+      startHideTimer()
+    }
+  }, [barsVisible, barsAnim, startHideTimer])
+
+  // Start hide timer when chapter loads
+  useEffect(() => {
+    if (!loading && chapter) startHideTimer()
+    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
+  }, [loading, chapter, startHideTimer])
 
   // Resolve editionId from bookSlug (needed for progress + bookmarks)
   useEffect(() => {
@@ -72,6 +105,7 @@ export default function ReaderScreen() {
       .then(b => {
         editionIdRef.current = b.id
         bookTitleRef.current = b.title
+        setBookTitle(b.title)
         if (b.chapters) {
           setChapters(b.chapters)
           totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
@@ -131,9 +165,10 @@ export default function ReaderScreen() {
 
   const saveProgress = useCallback(() => {
     if (!isAuthenticated || !editionIdRef.current || !chapter || !chapterSlug) return
+    const slug = currentChapterSlugRef.current || chapterSlug
     readingProgressApi.updateProgress(editionIdRef.current, {
       chapterId: chapter.id,
-      chapterSlug,
+      chapterSlug: slug,
       progress: progressRef.current,
     }).catch(() => {})
   }, [isAuthenticated, chapter, chapterSlug])
@@ -146,10 +181,13 @@ export default function ReaderScreen() {
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
-      if (data.type === 'progress') {
+      if (data.type === 'tap') {
+        toggleBars()
+      } else if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
         updateSessionProgress(data.progress)
+        if (data.chapterSlug) currentChapterSlugRef.current = data.chapterSlug
       } else if (data.type === 'search') {
         setSearchMatchCount(data.matchCount || 0)
         setSearchCurrentMatch(data.currentMatch || 0)
@@ -181,7 +219,7 @@ export default function ReaderScreen() {
         }
       }
     } catch {}
-  }, [settings.autoLookup, isAuthenticated])
+  }, [settings.autoLookup, isAuthenticated, toggleBars])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -242,7 +280,7 @@ export default function ReaderScreen() {
       const api = createBooksApi(LANG)
       const ch = await api.getChapter(bookSlug, next.slug)
       const escaped = JSON.stringify(ch.html).slice(1, -1) // remove outer quotes
-      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)})`)
+      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)}, ${JSON.stringify(ch.slug)})`)
       wordCountRef.current += ch.wordCount || 0
       nextChapterRef.current = ch.next || null
       if (!ch.next) injectJs('disableInfiniteScroll()')
@@ -254,6 +292,7 @@ export default function ReaderScreen() {
   // ETF calculation
   const wordsLeft = wordCountRef.current * (1 - progress)
   const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
+  const etfDisplay = etfMinutes >= 60 ? `${Math.floor(etfMinutes / 60)}h ${etfMinutes % 60}m` : `${etfMinutes}m`
 
   if (loading || !chapter) {
     return (
@@ -270,7 +309,7 @@ export default function ReaderScreen() {
     textAlign: settings.textAlign,
     backgroundColor: resolvedTheme.backgroundColor,
     textColor: resolvedTheme.textColor,
-  })
+  }, chapterSlug)
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -280,32 +319,37 @@ export default function ReaderScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, { backgroundColor: barBg }]}>
         {/* Top bar */}
-        <View style={[styles.topBar, { borderBottomColor: barText + '20' }]}>
+        <Animated.View style={[styles.topBar, { backgroundColor: barBg, opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => { saveProgress(); router.back() }} style={styles.topBarBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            <Ionicons name="chevron-back" size={24} color={barText} />
           </TouchableOpacity>
-          <Text style={[styles.chapterTitle, { color: barText }]} numberOfLines={1}>
-            {chapter.title}
-          </Text>
+          <View style={styles.titleStack}>
+            {bookTitle ? (
+              <Text style={[styles.bookTitle, { color: barText }]} numberOfLines={1}>{bookTitle}</Text>
+            ) : null}
+            <Text style={[styles.chapterTitle, { color: barText + '99' }]} numberOfLines={1}>
+              {chapter.title}
+            </Text>
+          </View>
           <View style={styles.topBarRight}>
             <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
               <Ionicons name="search-outline" size={20} color={barText} />
             </TouchableOpacity>
-            {chapters.length > 0 && (
-              <TouchableOpacity onPress={() => setTocOpen(true)} style={styles.iconBtn}>
-                <Ionicons name="list-outline" size={20} color={barText} />
-              </TouchableOpacity>
-            )}
             {isAuthenticated && (
               <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
                 <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
               </TouchableOpacity>
             )}
+            {chapters.length > 0 && (
+              <TouchableOpacity onPress={() => setTocOpen(true)} style={styles.iconBtn}>
+                <Ionicons name="list-outline" size={20} color={barText} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
-              <Ionicons name="text-outline" size={20} color={barText} />
+              <Ionicons name="options-outline" size={20} color={barText} />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Search bar */}
         {searchOpen && (
@@ -345,43 +389,29 @@ export default function ReaderScreen() {
           />
         )}
 
-        {/* Progress bar + ETF */}
-        <View style={[styles.progressContainer, { borderTopColor: colors.border }]}>
+        {/* Footer — progress bar + info row */}
+        <Animated.View style={[styles.footer, { borderTopColor: barText + '15', opacity: barsAnim }]}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
+            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
-          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-            {Math.round(progress * 100)}% · ~{etfMinutes} min left
-          </Text>
-        </View>
+          <View style={styles.footerInfo}>
+            <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>
+              {chapter.title}
+            </Text>
+            <Text style={[styles.footerProgress, { color: barText + '99' }]}>
+              {Math.round(progress * 100)}% · ~{etfDisplay}
+            </Text>
+          </View>
+        </Animated.View>
 
         {/* Reading stats widget */}
-        {settings.showReaderStats && isAuthenticated && quickStats && (
+        {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
           <ReaderStatsWidget
             sessionStartedAt={sessionStartedAt}
             todaySeconds={quickStats.todaySeconds}
             dailyGoalMinutes={quickStats.dailyGoalMinutes}
           />
         )}
-
-        {/* Bottom navigation */}
-        <View style={[styles.bottomBar, { borderTopColor: barText + '20' }]}>
-          <TouchableOpacity
-            style={[styles.navButton, !chapter.prev && styles.navDisabled]}
-            disabled={!chapter.prev}
-            onPress={() => chapter.prev && navigateChapter(chapter.prev.slug)}
-          >
-            <Text style={[styles.navText, { color: colors.primary }]}>Prev</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.navButton, !chapter.next && styles.navDisabled]}
-            disabled={!chapter.next}
-            onPress={() => chapter.next && navigateChapter(chapter.next.slug)}
-          >
-            <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Settings drawer */}
         <ReaderSettingsDrawer
@@ -436,46 +466,44 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
+  // Top bar — matches PWA: 56px, blur bg, shadow
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    height: 56,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   topBarBtn: { minWidth: 44, minHeight: 44, justifyContent: 'center' as const },
-  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconBtn: { padding: 8, minWidth: 44, minHeight: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
-  chapterTitle: { flex: 1, textAlign: 'center' as const, fontSize: 14, fontWeight: '500' as const, fontFamily: fonts.sansMedium },
+  titleStack: { flex: 1, marginHorizontal: 8 },
+  bookTitle: { fontSize: 14, fontWeight: '600' as const, fontFamily: fonts.sansMedium },
+  chapterTitle: { fontSize: 12, fontFamily: fonts.sans },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  iconBtn: { padding: 8, minWidth: 40, minHeight: 40, justifyContent: 'center' as const, alignItems: 'center' as const, borderRadius: 4 },
   webview: { flex: 1 },
-  bottomBar: {
+  // Footer — matches PWA: progress bar + chapter title (left) + % ETF (right)
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  footerInfo: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderTopWidth: 1,
   },
-  navButton: { paddingVertical: 8, paddingHorizontal: 16 },
-  navDisabled: { opacity: 0.3 },
-  navText: { fontSize: 15, fontWeight: '500', fontFamily: fonts.sansMedium },
-  progressContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  progressBar: {
-    height: 3,
-    borderRadius: 2,
-  },
-  progressFill: {
-    height: 3,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 11,
-    textAlign: 'center' as const,
-    marginTop: 4,
-    fontFamily: fonts.sans,
-  },
+  footerChapter: { fontSize: 14, fontFamily: fonts.sans, maxWidth: '50%' },
+  footerProgress: { fontSize: 14, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  progressBar: { height: 4, borderRadius: 0 },
+  progressFill: { height: 4, borderRadius: 0 },
 })

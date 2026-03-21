@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  ActivityIndicator, RefreshControl,
+  RefreshControl,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack, useFocusEffect } from 'expo-router'
@@ -9,6 +9,7 @@ import { vocabularyApi } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -123,14 +124,30 @@ export default function VocabularyScreen() {
         />
 
         {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.primary} />
+          <View style={styles.listContent}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.wordHeader}>
+                  <View style={{ flex: 1 }}>
+                    <SkeletonLoader width={100} height={16} />
+                    <SkeletonLoader width={140} height={13} style={{ marginTop: 4 }} />
+                  </View>
+                  <SkeletonLoader width={60} height={20} borderRadius={4} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : words.length === 0 ? (
           <View style={styles.center}>
-            <Ionicons name="book-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+            <Ionicons name="book-outline" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
             <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>No words found</Text>
             <Text style={[styles.emptySubtext, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Save words while reading to build your vocabulary</Text>
+            <TouchableOpacity
+              style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8, borderWidth: 1, borderColor: colors.primary }}
+              onPress={() => router.push('/(tabs)/')}
+            >
+              <Text style={{ color: colors.primary, fontFamily: fonts.sansMedium, fontSize: 14 }}>Browse Books</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList

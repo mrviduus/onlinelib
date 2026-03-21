@@ -28,7 +28,7 @@ function buildFontFace(fontFamily: string): string {
   }`
 }
 
-export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme): string {
+export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string): string {
   const fontFace = buildFontFace(theme.fontFamily)
 
   return `<!DOCTYPE html>
@@ -50,6 +50,20 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       word-wrap: break-word;
       overflow-wrap: break-word;
       -webkit-text-size-adjust: none;
+    }
+    /* Aged book edge shadows — matches PWA */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 9999;
+      box-shadow:
+        inset 80px 0 60px -60px ${theme.backgroundColor.toUpperCase() === '#1A1A2E'
+          ? 'rgba(0,0,0,0.7), inset -80px 0 60px -60px rgba(0,0,0,0.7), inset 0 50px 40px -40px rgba(0,0,0,0.5), inset 0 -50px 40px -40px rgba(0,0,0,0.5)'
+          : theme.backgroundColor.toUpperCase() === '#F4ECD8'
+            ? 'rgba(50,25,10,0.6), inset -80px 0 60px -60px rgba(50,25,10,0.6), inset 0 50px 40px -40px rgba(50,25,10,0.4), inset 0 -50px 40px -40px rgba(50,25,10,0.4)'
+            : 'rgba(30,15,5,0.5), inset -80px 0 60px -60px rgba(30,15,5,0.5), inset 0 50px 40px -40px rgba(30,15,5,0.3), inset 0 -50px 40px -40px rgba(30,15,5,0.3)'};
     }
     img { max-width: 100%; height: auto; }
     h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.5em; }
@@ -77,9 +91,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       const progress = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 1;
       if (Math.abs(progress - lastProgress) > 0.005) {
         lastProgress = progress;
+        var currentSlug = getCurrentChapterSlug();
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'progress',
-          progress: progress
+          progress: progress,
+          chapterSlug: currentSlug
         }));
       }
     }
@@ -105,7 +121,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     window.addEventListener('scroll', checkInfiniteScroll, { passive: true });
 
-    function appendChapter(html, title) {
+    function appendChapter(html, title, slug) {
       var sep = document.createElement('div');
       sep.className = 'chapter-separator';
       sep.innerHTML = '<hr><span>' + title + '</span>';
@@ -113,6 +129,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var div = document.createElement('div');
       div.innerHTML = html;
       document.body.appendChild(div);
+      if (slug) registerChapter(slug);
       loadingNext = false;
     }
     function enableInfiniteScroll() { infiniteScrollEnabled = true; }
@@ -189,6 +206,50 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       }));
     }
 
+    // Tap detection for immersive mode (touchend, not click — click unreliable in RN WebView)
+    var lastTapTime = 0;
+    var tapTimeout = null;
+    var touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', function(e) {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return; // scroll, not tap
+      var target = e.target;
+      if (target.tagName === 'A' || target.closest('a')) return;
+      var sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      var now = Date.now();
+      if (now - lastTapTime < 300) {
+        if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; }
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+      if (tapTimeout) clearTimeout(tapTimeout);
+      tapTimeout = setTimeout(function() {
+        tapTimeout = null;
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tap' }));
+      }, 300);
+    }, { passive: true });
+
+    // Chapter tracking for progress
+    var chapterSlugs = [];
+    function registerChapter(slug) {
+      chapterSlugs.push({ slug: slug, top: document.body.lastElementChild ? document.body.lastElementChild.offsetTop : 0 });
+    }
+    function getCurrentChapterSlug() {
+      if (chapterSlugs.length === 0) return null;
+      var scrollTop = window.scrollY + window.innerHeight * 0.25;
+      for (var i = chapterSlugs.length - 1; i >= 0; i--) {
+        if (scrollTop >= chapterSlugs[i].top) return chapterSlugs[i].slug;
+      }
+      return chapterSlugs[0].slug;
+    }
+
     // Text selection
     function extractSentence(node) {
       if (!node) return '';
@@ -219,6 +280,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 </head>
 <body>
   ${chapterHtml}
+  ${initialChapterSlug ? `<script>registerChapter(${JSON.stringify(initialChapterSlug)});</script>` : ''}
 </body>
 </html>`
 }

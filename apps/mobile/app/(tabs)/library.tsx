@@ -62,7 +62,7 @@ export default function LibraryScreen() {
   if (!isAuthenticated) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Ionicons name="library-outline" size={56} color={colors.border} />
+        <Ionicons name="library-outline" size={56} color={colors.textSecondary} />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>My Library</Text>
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sign in to access your library</Text>
         <TouchableOpacity style={[styles.signInBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(auth)/login')}>
@@ -125,7 +125,7 @@ function SavedList({ library, progressMap, refreshing, onRefresh }: {
   if (library.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="book-outline" size={48} color={colors.border} />
+        <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No saved books yet</Text>
         <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Browse books and save them to your library</Text>
       </View>
@@ -212,7 +212,7 @@ function UploadsList({ books, refreshing, onRefresh }: {
 
       {books.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="cloud-upload-outline" size={48} color={colors.border} />
+          <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No uploaded books</Text>
           <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Upload EPUB or PDF files to read</Text>
         </View>

@@ -57,7 +57,11 @@
       "expo-secure-store",
       "expo-image",
       "expo-sqlite",
-      "@react-native-google-signin/google-signin"
-    ]
+      "@react-native-google-signin/google-signin",
+      ["expo-dev-launcher", { "launchModeExperimental": "most-recent" }]
+    ],
+    "developmentClient": {
+      "silentLaunch": true
+    }
   }
 }

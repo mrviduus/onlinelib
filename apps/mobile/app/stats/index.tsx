@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  RefreshControl,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
@@ -10,6 +10,7 @@ import type { ReadingStatsDto, DailyStatDto, AchievementDto } from '@textstack/s
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
 export default function StatsScreen() {
   const { colors } = useTheme()
@@ -49,14 +50,62 @@ export default function StatsScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
-        <View style={[styles.center, { backgroundColor: colors.background }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+          {/* Overview skeleton */}
+          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+            <SkeletonLoader width={100} height={18} style={{ marginBottom: 12 }} />
+            <View style={styles.statsGrid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <View key={i} style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width={40} height={18} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width={50} height={11} />
+                </View>
+              ))}
+            </View>
+          </View>
+          {/* Heatmap skeleton */}
+          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+            <SkeletonLoader width={100} height={18} style={{ marginBottom: 12 }} />
+            <SkeletonLoader height={80} borderRadius={6} />
+          </View>
+          {/* Achievements skeleton */}
+          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+            <SkeletonLoader width={140} height={18} style={{ marginBottom: 12 }} />
+            <View style={styles.achievementRow}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View key={i} style={[styles.achievementItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <SkeletonLoader width={22} height={22} borderRadius={4} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width="70%" height={13} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width="90%" height={11} />
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </>
     )
   }
 
   const unlockedSet = new Set(achievements.map(a => a.code))
+  const isEmpty = stats && stats.totalSeconds === 0 && daily.length === 0
+
+  if (isEmpty) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <Ionicons name="bar-chart-outline" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 16, color: colors.text, fontFamily: fonts.sansMedium, textAlign: 'center' }}>
+            No reading stats yet
+          </Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans, textAlign: 'center', marginTop: 4 }}>
+            Start reading a book to track your progress
+          </Text>
+        </View>
+      </>
+    )
+  }
 
   return (
     <>
