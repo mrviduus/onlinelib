@@ -1,6 +1,6 @@
 #!/bin/bash
 # Polls DB for Running codegen jobs and executes them on the host.
-# Requires: claude CLI (Max subscription), gh CLI, psql.
+# Requires: claude CLI (Max subscription), gh CLI, docker (for psql via db container).
 # Usage: ./infra/scripts/codegen-poll.sh
 # Run via: cron, systemd, or just in a tmux/screen session.
 
@@ -21,28 +21,37 @@ if [ -f "$REPO_DIR/.env" ]; then
   set +a
 fi
 
-DB_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
+# Add claude CLI to PATH (VS Code extension binary)
+for claude_dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary; do
+  [ -d "$claude_dir" ] && export PATH="$claude_dir:$PATH" && break
+done
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
+# Use docker psql (no need to install postgresql-client on host)
+db_query() {
+  docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1" 2>/dev/null
+}
+
+db_exec() {
+  docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1" 2>/dev/null
+}
+
 get_next_job() {
-  psql "$DB_URL" -tAc "
-    SELECT id FROM code_gen_jobs
-    WHERE status = 1
-    ORDER BY started_at
-    LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
+  db_query "SELECT id FROM code_gen_jobs WHERE status = 1 ORDER BY started_at LIMIT 1;" | tr -d '[:space:]'
 }
 
 get_job_field() {
   local job_id="$1" field="$2"
-  psql "$DB_URL" -tAc "
-    SELECT $field FROM code_gen_jobs WHERE id = '$job_id';" 2>/dev/null | head -1
+  db_query "SELECT $field FROM code_gen_jobs WHERE id = '$job_id';" | head -1
 }
 
 update_job() {
   local job_id="$1"
   shift
-  psql "$DB_URL" -c "UPDATE code_gen_jobs SET $* WHERE id = '$job_id';" 2>/dev/null
+  db_exec "UPDATE code_gen_jobs SET $* WHERE id = '$job_id';"
 }
 
 process_job() {
