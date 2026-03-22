@@ -82,7 +82,8 @@ process_job() {
     log "Iteration $i/$max_iterations"
 
     local output
-    output=$(bash "$REPO_DIR/infra/scripts/codegen-once.sh" "$description" "$progress_file" 2>&1) || true
+    local short_id="${job_id:0:8}"
+    output=$(bash "$REPO_DIR/infra/scripts/codegen-once.sh" "$description" "$progress_file" "$short_id" 2>&1) || true
 
     # Update progress
     local truncated

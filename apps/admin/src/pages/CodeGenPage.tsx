@@ -200,6 +200,18 @@ export function CodeGenPage() {
           {selectedJob.branchName && (
             <p><strong>Branch:</strong> {selectedJob.branchName}</p>
           )}
+          {(selectedJob.status === 'Running' || selectedJob.status === 'Completed') && (
+            <p>
+              <strong>PDD:</strong>{' '}
+              <a
+                href={`https://github.com/mrviduus/textstack/blob/${selectedJob.branchName || 'main'}/docs/05-features/codegen-${selectedJob.id.substring(0, 8)}.md`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                codegen-{selectedJob.id.substring(0, 8)}.md
+              </a>
+            </p>
+          )}
           {selectedJob.prUrl && (
             <p><strong>PR:</strong> <a href={selectedJob.prUrl} target="_blank" rel="noreferrer">{selectedJob.prUrl}</a></p>
           )}
