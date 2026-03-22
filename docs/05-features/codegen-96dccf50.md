@@ -19,13 +19,13 @@ Update the README.md to reflect the current state of the project, ensuring all i
 - [x] Ensure all tech stack items match CLAUDE.md
 - [x] Add Prerequisites line below Tech Stack table
 
-### Slice 2: Update Commands Section
-- [ ] Add missing commands from CLAUDE.md (migrations, mobile commands)
-- [ ] Ensure all existing commands are accurate
+### Slice 2: Update Commands Section ✅
+- [x] Add missing commands from CLAUDE.md (migrations, mobile commands)
+- [x] Ensure all existing commands are accurate
 
-### Slice 3: Update Features & Key Concepts
-- [ ] Verify feature list matches current capabilities
-- [ ] Add any missing features from CLAUDE.md
+### Slice 3: Update Features & Key Concepts ✅
+- [x] Verify feature list matches current capabilities
+- [x] Add any missing features from CLAUDE.md
 
 ### Slice 4: Final Review & Verification
 - [ ] Cross-check all sections against CLAUDE.md
