@@ -67,6 +67,8 @@ export interface HighlightListItem {
   userChapterId: string | null
   chapterTitle: string | null
   userChapterTitle: string | null
+  chapterSlug: string | null
+  userChapterSlug: string | null
 }
 
 export interface HighlightListResponse {

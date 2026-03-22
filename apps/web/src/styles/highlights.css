@@ -133,9 +133,6 @@
   display: block;
   font-weight: 600;
   font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .highlights-page__book-count {
@@ -175,16 +172,21 @@
 }
 
 .highlights-page__color-bar {
-  width: 4px;
+  width: 5px;
   border-radius: 2px;
   margin-right: 0.75rem;
   flex-shrink: 0;
 }
 
-.highlights-page__color-bar--yellow { background: #fbbf24; }
-.highlights-page__color-bar--green { background: #34d399; }
-.highlights-page__color-bar--pink { background: #f472b6; }
-.highlights-page__color-bar--blue { background: #60a5fa; }
+.highlights-page__color-bar--yellow { background: #f59e0b; }
+.highlights-page__color-bar--green { background: #10b981; }
+.highlights-page__color-bar--pink { background: #ec4899; }
+.highlights-page__color-bar--blue { background: #3b82f6; }
+
+html.dark .highlights-page__color-bar--yellow { background: #facc15; }
+html.dark .highlights-page__color-bar--green { background: #4ade80; }
+html.dark .highlights-page__color-bar--pink { background: #f472b6; }
+html.dark .highlights-page__color-bar--blue { background: #60a5fa; }
 
 .highlights-page__highlight-content {
   flex: 1;

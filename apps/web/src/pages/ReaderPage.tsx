@@ -1050,6 +1050,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                 settings={settings}
                 isLoadingMore={scrollReader.isLoadingMore}
                 onLoadMore={scrollReader.loadMore}
+                onLoadPrev={scrollReader.loadPrev}
                 chapterRefs={scrollReader.chapterRefs}
                 onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
                 onDoubleTap={isMobile ? toggleFullscreen : undefined}

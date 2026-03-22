@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, Fragment } from 'react'
+import { useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react'
 import type { ReaderSettings } from '../../hooks/useReaderSettings'
 import type { LoadedChapter } from '../../hooks/useScrollReader'
 import { sanitizeHtml } from '../../utils/sanitize'
@@ -10,6 +10,7 @@ interface Props {
   settings: ReaderSettings
   isLoadingMore: boolean
   onLoadMore: () => void
+  onLoadPrev?: () => void
   chapterRefs: React.MutableRefObject<Map<string, HTMLElement>>
   onTap?: () => void
   onDoubleTap?: () => void
@@ -31,14 +32,18 @@ export function ScrollReaderContent({
   settings,
   isLoadingMore,
   onLoadMore,
+  onLoadPrev,
   chapterRefs,
   onTap,
   onDoubleTap,
 }: Props) {
   const bottomSentinelRef = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
   const fontFamily = getFontFamily(settings.fontFamily)
   const lastTapRef = useRef<number>(0)
   const tapTimeoutRef = useRef<number | null>(null)
+  const prevScrollHeightRef = useRef<number>(0)
+  const prevFirstIndexRef = useRef<number>(-1)
 
   // Handle tap with double-tap detection for fullscreen
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -88,7 +93,7 @@ export function ScrollReaderContent({
     [chapterRefs]
   )
 
-  // IntersectionObserver for loading more chapters
+  // IntersectionObserver for loading more chapters (bottom)
   useEffect(() => {
     const sentinel = bottomSentinelRef.current
     if (!sentinel) return
@@ -101,7 +106,7 @@ export function ScrollReaderContent({
       },
       {
         root: null,
-        rootMargin: '200px', // Start loading 200px before reaching bottom
+        rootMargin: '200px',
         threshold: 0,
       }
     )
@@ -109,6 +114,50 @@ export function ScrollReaderContent({
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [onLoadMore, isLoadingMore])
+
+  // IntersectionObserver for loading previous chapters (top)
+  useEffect(() => {
+    const sentinel = topSentinelRef.current
+    if (!sentinel || !onLoadPrev) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isLoadingMore) {
+          // Snapshot scroll height before prepend
+          prevScrollHeightRef.current = document.documentElement.scrollHeight
+          prevFirstIndexRef.current = chapters[0]?.index ?? -1
+          onLoadPrev()
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0,
+      }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [onLoadPrev, isLoadingMore, chapters])
+
+  // Preserve scroll position after chapters are prepended
+  useLayoutEffect(() => {
+    const firstIndex = chapters[0]?.index ?? -1
+    if (
+      prevFirstIndexRef.current !== -1 &&
+      firstIndex !== -1 &&
+      firstIndex < prevFirstIndexRef.current &&
+      prevScrollHeightRef.current > 0
+    ) {
+      const newScrollHeight = document.documentElement.scrollHeight
+      const delta = newScrollHeight - prevScrollHeightRef.current
+      if (delta > 0) {
+        window.scrollTo({ top: window.scrollY + delta, behavior: 'instant' })
+      }
+      prevScrollHeightRef.current = 0
+      prevFirstIndexRef.current = -1
+    }
+  }, [chapters])
 
   if (chapters.length === 0) {
     return (
@@ -120,6 +169,18 @@ export function ScrollReaderContent({
 
   return (
     <div className="scroll-reader" onClick={handleClick}>
+      {/* Top sentinel for loading previous chapters */}
+      {onLoadPrev && chapters[0]?.index > 0 && (
+        <>
+          {isLoadingMore && (
+            <div className="scroll-reader__loading">
+              <span>Loading more...</span>
+            </div>
+          )}
+          <div ref={topSentinelRef} className="scroll-reader__sentinel" />
+        </>
+      )}
+
       {chapters.map((chapter, i) => (
         <Fragment key={chapter.identifier}>
           {/* Chapter separator (not for first chapter) */}

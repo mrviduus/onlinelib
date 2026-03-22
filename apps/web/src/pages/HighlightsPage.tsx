@@ -96,9 +96,12 @@ export function HighlightsPage() {
   }
 
   const navigateToHighlight = (h: HighlightListItem) => {
-    if (h.editionId && h.editionSlug) {
-      // For edition books, we'd need the chapter slug — for now navigate to book
+    if (h.editionId && h.editionSlug && h.chapterSlug) {
+      navigate(getLocalizedPath(`/books/${h.editionSlug}/read/${h.chapterSlug}?direct=1`))
+    } else if (h.editionId && h.editionSlug) {
       navigate(getLocalizedPath(`/books/${h.editionSlug}`))
+    } else if (h.userBookId && h.userChapterSlug) {
+      navigate(getLocalizedPath(`/library/my/${h.userBookId}/read/${h.userChapterSlug}?direct=1`))
     } else if (h.userBookId) {
       navigate(getLocalizedPath(`/library/my/${h.userBookId}`))
     }
@@ -188,7 +191,7 @@ export function HighlightsPage() {
                   {group.coverPath && (
                     <img
                       className="highlights-page__book-cover"
-                      src={group.isUserBook ? `/api/me/books/${group.bookId}/cover` : `/storage/${group.coverPath}`}
+                      src={`/storage/${group.coverPath}`}
                       alt=""
                     />
                   )}

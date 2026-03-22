@@ -135,7 +135,9 @@ public static class HighlightsEndpoints
                 h.ChapterId,
                 h.UserChapterId,
                 h.ChapterId != null ? h.Chapter!.Title : null,
-                h.UserChapterId != null ? h.UserChapter!.Title : null
+                h.UserChapterId != null ? h.UserChapter!.Title : null,
+                h.ChapterId != null ? h.Chapter!.Slug : null,
+                h.UserChapterId != null ? h.UserChapter!.Slug : null
             ))
             .ToListAsync(ct);
 
@@ -374,7 +376,9 @@ public record HighlightListItemDto(
     Guid? ChapterId,
     Guid? UserChapterId,
     string? ChapterTitle,
-    string? UserChapterTitle
+    string? UserChapterTitle,
+    string? ChapterSlug,
+    string? UserChapterSlug
 );
 
 public record HighlightReviewDto(
