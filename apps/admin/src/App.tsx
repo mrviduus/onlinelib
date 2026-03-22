@@ -24,6 +24,7 @@ import { SeoCrawlJobPage } from './pages/SeoCrawlJobPage'
 import { SsgRebuildPage } from './pages/SsgRebuildPage'
 import { SsgRebuildJobPage } from './pages/SsgRebuildJobPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { CodeGenPage } from './pages/CodeGenPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
 
@@ -61,6 +62,7 @@ function App() {
             <Route path="seo-crawl/:id" element={<SeoCrawlJobPage />} />
             <Route path="ssg-rebuild" element={<SsgRebuildPage />} />
             <Route path="ssg-rebuild/:id" element={<SsgRebuildJobPage />} />
+            <Route path="codegen" element={<CodeGenPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

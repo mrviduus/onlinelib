@@ -68,6 +68,8 @@ builder.Services.AddHttpClient("SeoCrawl");
 builder.Services.AddSingleton<SeoCrawlWorkerService>();
 builder.Services.AddHostedService<SeoCrawlWorker>();
 
+// Code Generation: runs on host via infra/scripts/codegen-poll.sh (uses Claude CLI Max subscription)
+
 // SSG Rebuild handled by dedicated ssg_worker container (apps/web/scripts/ssg-worker.mjs)
 
 // TextStack watcher (optional, enable via config)

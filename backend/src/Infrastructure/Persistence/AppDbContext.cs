@@ -31,6 +31,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<SeoCrawlResult> SeoCrawlResults => Set<SeoCrawlResult>();
     public DbSet<SsgRebuildJob> SsgRebuildJobs => Set<SsgRebuildJob>();
     public DbSet<SsgRebuildResult> SsgRebuildResults => Set<SsgRebuildResult>();
+    public DbSet<CodeGenJob> CodeGenJobs => Set<CodeGenJob>();
     public DbSet<BookAsset> BookAssets => Set<BookAsset>();
     public DbSet<LintResult> LintResults => Set<LintResult>();
     public DbSet<UserBook> UserBooks => Set<UserBook>();

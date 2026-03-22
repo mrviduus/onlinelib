@@ -2053,3 +2053,244 @@ body {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
+
+/* Hamburger — hidden on desktop */
+.admin-hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Overlay — hidden on desktop */
+.admin-overlay {
+  display: none;
+}
+
+/* ========================================
+   Mobile Responsive — max-width: 768px
+   ======================================== */
+@media (max-width: 768px) {
+  /* Hamburger visible */
+  .admin-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Overlay */
+  .admin-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  /* Sidebar — off-canvas drawer */
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Main content — full width */
+  .admin-main {
+    padding: 56px 16px 16px;
+    min-width: 0;
+  }
+
+  /* Page headers — stack on mobile */
+  .page-header,
+  .jobs-page__header,
+  .editions-page__header,
+  .authors-page__header,
+  .edit-edition-page__header,
+  .edit-chapter-page__header,
+  .genres-page__header,
+  .edit-genre-page__header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* Filters — wrap */
+  .filters,
+  .editions-page__filters,
+  .authors-page__filters,
+  .genres-page__filters {
+    flex-wrap: wrap;
+  }
+
+  .search-form input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .search-form {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Tables — horizontal scroll */
+  .data-table,
+  .jobs-table,
+  .editions-table,
+  .authors-table,
+  .genres-table,
+  .chapters-table,
+  .books-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Forms — full width */
+  .upload-form,
+  .edit-form,
+  .edit-author-form,
+  .settings-section,
+  .chapter-info,
+  .chapter-actions {
+    max-width: 100%;
+  }
+
+  .edit-chapter-page .edit-form {
+    max-width: 100%;
+  }
+
+  /* Create form grid — single column */
+  .create-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Form row with photo — stack */
+  .form-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Dashboard cards */
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* Stats cards — wrap tighter */
+  .stats-cards {
+    gap: 8px;
+  }
+
+  .stats-card {
+    min-width: 0;
+    flex: 1 1 calc(50% - 8px);
+    padding: 12px 16px;
+  }
+
+  .stats-card__value {
+    font-size: 22px;
+  }
+
+  /* Job overview — single column */
+  .job-overview {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stats grid — 2 columns */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* DL grids — single column */
+  .edition-info dl,
+  .chapter-info dl,
+  .overview-card dl {
+    grid-template-columns: 1fr;
+    gap: 4px 0;
+  }
+
+  .edition-info dt,
+  .chapter-info dt,
+  .overview-card dt {
+    margin-top: 8px;
+  }
+
+  /* Tools grid */
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Site card stats */
+  .site-card__stats {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  /* URL cell — allow wrapping */
+  .url-cell {
+    max-width: 180px;
+  }
+
+  /* Error cell */
+  .error-cell {
+    max-width: 120px;
+  }
+
+  /* Buttons — prevent squish */
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+
+  /* Progress bar in table */
+  .progress-cell {
+    min-width: 100px;
+  }
+
+  /* Cover/photo in edit forms */
+  .cover-preview,
+  .cover-placeholder {
+    width: 100px;
+    height: 143px;
+  }
+
+  /* Login — already responsive, just reduce padding */
+  .login-header {
+    padding: 24px;
+  }
+
+  .login-form {
+    padding: 24px;
+  }
+
+  /* 404 */
+  .not-found h1 {
+    font-size: 60px;
+  }
+
+  /* Tools page extra padding removal */
+  .tools-page,
+  .settings-page {
+    padding: 0;
+  }
+
+  /* Empty state */
+  .empty-state {
+    padding: 32px 16px;
+  }
+}

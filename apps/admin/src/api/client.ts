@@ -437,6 +437,27 @@ export interface CreateSsgRebuildJobRequest {
   genreSlugs?: string[]
 }
 
+// CodeGen
+export type CodeGenJobStatus = 'Queued' | 'Running' | 'Completed' | 'Failed' | 'Cancelled'
+
+export interface CodeGenJobListItem {
+  id: string
+  description: string
+  status: CodeGenJobStatus
+  maxIterations: number
+  completedIterations: number
+  branchName: string | null
+  prUrl: string | null
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+export interface CodeGenJobDetail extends CodeGenJobListItem {
+  logOutput: string | null
+}
+
 // Session Settings
 export interface SessionSettings {
   accessTokenExpiryMinutes: number
@@ -976,5 +997,34 @@ export const adminApi = {
 
   getBlogStats: async (): Promise<BlogStats> => {
     return fetchJson<BlogStats>(`/admin/blog/stats?siteId=${DEFAULT_SITE_ID}`)
+  },
+
+  // CodeGen
+  getCodeGenJobs: async (params?: { limit?: number; offset?: number }): Promise<PaginatedResult<CodeGenJobListItem>> => {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const qs = query.toString()
+    return fetchJson<PaginatedResult<CodeGenJobListItem>>(`/admin/codegen/jobs${qs ? `?${qs}` : ''}`)
+  },
+
+  getCodeGenJob: async (id: string): Promise<CodeGenJobDetail> => {
+    return fetchJson<CodeGenJobDetail>(`/admin/codegen/jobs/${id}`)
+  },
+
+  createCodeGenJob: async (data: { description: string; maxIterations?: number }): Promise<{ id: string }> => {
+    return fetchJson<{ id: string }>('/admin/codegen/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  startCodeGenJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/codegen/jobs/${id}/start`, { method: 'POST' })
+  },
+
+  cancelCodeGenJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/codegen/jobs/${id}/cancel`, { method: 'POST' })
   },
 }

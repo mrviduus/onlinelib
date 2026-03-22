@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
 
@@ -5,8 +6,14 @@ export function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAdminAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
+
+  // Close sidebar on route change
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
 
   const handleLogout = async () => {
     await logout()
@@ -15,7 +22,23 @@ export function Layout() {
 
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar">
+      {sidebarOpen && <div className="admin-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      <button className="admin-hamburger" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {sidebarOpen ? (
+            <path d="M18 6L6 18M6 6l12 12" />
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
+        </svg>
+      </button>
+
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar__header">
           <h2>TextStack</h2>
           <span>Admin</span>
@@ -103,6 +126,14 @@ export function Layout() {
               <path d="M21 3v5h-5" />
             </svg>
             SSG Rebuild
+          </Link>
+
+          <Link to="/codegen" className={`admin-nav__link ${location.pathname.startsWith('/codegen') ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            CodeGen
           </Link>
 
           <Link to="/settings" className={`admin-nav__link ${location.pathname.startsWith('/settings') ? 'active' : ''}`}>
