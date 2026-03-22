@@ -76,15 +76,26 @@ POST   /admin/codegen/jobs/{id}/cancel  # Cancel
 
 ## Running the Poller
 
+Poller runs as a systemd user service — auto-starts on boot, restarts on failure.
+
 ```bash
-# Requires: claude CLI (authenticated), gh CLI, psql
-# Run in tmux/screen on the server:
-./infra/scripts/codegen-poll.sh
+# First-time setup (on server):
+make codegen-setup
+
+# Management:
+make codegen-status    # Check if running
+make codegen-logs      # Tail logs
+make codegen-restart   # Restart after manual changes
+make codegen-stop      # Stop poller
+
+# Auto-restarts on `make deploy`
 ```
+
+Systemd unit: `infra/systemd/codegen-poller.service`
 
 ## Prerequisites
 
 - Claude Code CLI installed and authenticated (Max subscription)
 - `gh` CLI authenticated with repo access
-- `psql` available with access to the DB
+- Docker running (poller uses `docker compose exec db psql`)
 - `.env` file with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`

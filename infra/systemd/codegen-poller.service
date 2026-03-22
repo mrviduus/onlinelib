@@ -1,0 +1,14 @@
+[Unit]
+Description=TextStack CodeGen Poller
+After=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/vasyl/projects/onlinelib/textstack
+ExecStart=/home/vasyl/projects/onlinelib/textstack/infra/scripts/codegen-poll.sh
+Restart=always
+RestartSec=10
+Environment=HOME=/home/vasyl
+
+[Install]
+WantedBy=default.target

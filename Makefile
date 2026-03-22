@@ -1,4 +1,4 @@
-.PHONY: up down restart logs status backup restore rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search
+.PHONY: up down restart logs status backup restore rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search codegen-setup codegen-status codegen-logs codegen-restart codegen-stop
 
 # ============================================================
 # Docker Services
@@ -57,6 +57,7 @@ deploy: fix-permissions
 	sudo ln -sf /etc/nginx/sites-available/textstack /etc/nginx/sites-enabled/textstack
 	sudo nginx -t && sudo systemctl reload nginx
 	docker image prune -f
+	@systemctl --user restart codegen-poller 2>/dev/null && echo " CodeGen poller restarted" || echo " CodeGen poller not installed (run: make codegen-setup)"
 	@echo "=== Done ==="
 
 rebuild-ssg:
@@ -133,3 +134,28 @@ restore:
 
 backup-list:
 	@ls -lh $(BACKUP_DIR)/*.sql.gz 2>/dev/null || echo "No backups found"
+
+# ============================================================
+# CodeGen Poller (systemd user service)
+# ============================================================
+
+codegen-setup:
+	@mkdir -p ~/.config/systemd/user
+	@cp infra/systemd/codegen-poller.service ~/.config/systemd/user/
+	@systemctl --user daemon-reload
+	@systemctl --user enable codegen-poller
+	@systemctl --user start codegen-poller
+	@loginctl enable-linger $$(whoami)
+	@echo "CodeGen poller installed and started."
+
+codegen-status:
+	@systemctl --user status codegen-poller
+
+codegen-logs:
+	@journalctl --user -u codegen-poller -f
+
+codegen-restart:
+	@systemctl --user restart codegen-poller
+
+codegen-stop:
+	@systemctl --user stop codegen-poller
