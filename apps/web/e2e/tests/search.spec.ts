@@ -12,15 +12,14 @@ test.describe('Search', () => {
 
   test('search input works', async ({ page }) => {
     await page.goto('/en/search')
-    await page.waitForLoadState('networkidle')
 
-    const searchInput = page.locator('input[type="search"], input[type="text"], input[placeholder*="search" i]').first()
-    if (await searchInput.isVisible()) {
-      await searchInput.fill('test')
-      await searchInput.press('Enter')
-      await page.waitForURL(/q=test/, { timeout: 10_000 })
-      expect(page.url()).toContain('q=test')
-    }
+    const searchInput = page.locator('.search-page__input')
+    await expect(searchInput).toBeVisible({ timeout: 15_000 })
+
+    await searchInput.fill('test')
+    await searchInput.press('Enter')
+    await page.waitForURL(/q=test/, { timeout: 15_000 })
+    expect(page.url()).toContain('q=test')
   })
 
   test('search result links to book', async ({ page }) => {
