@@ -19,37 +19,37 @@
 
 **Reader**
 - Kindle-like reading experience — themes (light/sepia/dark), fonts, fullscreen, keyboard shortcuts
-- Text selection — dictionary lookup, translation (LibreTranslate), highlights
-- TTS — Edge TTS, 200+ voices, speed control, two-layer cache (server + IndexedDB)
+- Text selection — dictionary lookup (Free Dictionary API), translation (LibreTranslate), highlights
+- TTS — Edge TTS via direct WebSocket, 200+ voices, speed control (0.75x–2.0x), two-layer cache (server disk + IndexedDB)
 - Offline reading — PWA with IndexedDB caching, download manager, resume support
 
 **Vocabulary & SRS**
 - Save words while reading — sentence context, dictionary definition, translation
-- Spaced repetition — 5 stages, 3 review modes (multiple choice, typed recall, context fill-in-the-blank)
-- LLM-generated distractors & hints (Ollama)
+- Spaced repetition — 5 stages (New → Recognition → Recall → Context → Mastered), 3 review modes (multiple choice, typed recall, context fill-in-the-blank)
+- LLM-generated distractors & hints (Ollama gemma3:4b)
 
 **Library**
 - 1,500+ public domain books (English + Ukrainian)
-- User uploads — EPUB/PDF/FB2, auto-parsed with metadata enrichment
+- User uploads — EPUB/PDF/FB2, auto-parsed with metadata enrichment (Ollama generates genre, year, description)
 - Reading progress sync, bookmarks, highlights
-- Reading stats — heatmap calendar, weekly charts, goals, 20 achievements
+- Reading stats — heatmap calendar, weekly charts, daily/yearly goals, streak tracking, 20 achievements
 
 **Blog**
 - Admin-authored posts with comments, likes, share buttons
-- Per-language content (en/uk), threaded comments, SEO-optimized
+- Per-language content (en/uk), threaded comments (2-level max), SEO-optimized
 
 **Reviews & Social**
 - Star ratings (0–5, half-step), written reviews
 - Threaded review comments, upvotes
-- Reading mood tracking
+- Reading mood tagging for emotional tracking
 
 **SEO**
-- SSG prerendered pages (Puppeteer) — books, authors, genres, blog
+- SSG prerendered pages (Puppeteer worker, polls DB every 5s) — books, authors, genres, blog
 - Sitemap XML auto-generation, IndexNow (Bing/Yandex)
 - Article JSON-LD, FAQ schema markup
 
 **Admin Panel** ([textstack.dev](https://textstack.dev))
-- Book/author/genre CRUD, bulk import, chapter editor
+- Book/author/genre/mood CRUD, bulk import, chapter editor
 - Blog management — create, edit, publish, cover upload
 - SEO crawl, SSG rebuild, ingestion queue, settings
 
