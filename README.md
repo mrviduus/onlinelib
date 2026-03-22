@@ -62,7 +62,7 @@
 | API | ASP.NET Core (.NET 10), Minimal APIs |
 | Database | PostgreSQL 16, EF Core (snake_case) |
 | Search | PostgreSQL FTS / Meilisearch (swappable) |
-| Frontend | React 18, Vite, CSS Variables |
+| Frontend | React 18, Vite, pnpm, CSS Variables |
 | Admin | React (separate app), JWT auth |
 | Mobile | React Native (Expo) |
 | TTS | Edge TTS (WebSocket, no API key) |
@@ -71,6 +71,8 @@
 | SSG | Puppeteer prerender, nginx serves static first |
 | Telemetry | OpenTelemetry → .NET Aspire Dashboard |
 | Infra | Docker Compose, Cloudflare Tunnel, nginx |
+
+**Prerequisites**: Docker, .NET 10 SDK, Node.js 18+, pnpm
 
 ---
 
