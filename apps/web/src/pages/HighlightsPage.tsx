@@ -97,11 +97,11 @@ export function HighlightsPage() {
 
   const navigateToHighlight = (h: HighlightListItem) => {
     if (h.editionId && h.editionSlug && h.chapterSlug) {
-      navigate(getLocalizedPath(`/books/${h.editionSlug}/read/${h.chapterSlug}?direct=1`))
+      navigate(getLocalizedPath(`/books/${h.editionSlug}/read/${h.chapterSlug}?direct=1&highlight=${h.id}`))
     } else if (h.editionId && h.editionSlug) {
       navigate(getLocalizedPath(`/books/${h.editionSlug}`))
     } else if (h.userBookId && h.userChapterSlug) {
-      navigate(getLocalizedPath(`/library/my/${h.userBookId}/read/${h.userChapterSlug}?direct=1`))
+      navigate(getLocalizedPath(`/library/my/${h.userBookId}/read/${h.userChapterSlug}?direct=1&highlight=${h.id}`))
     } else if (h.userBookId) {
       navigate(getLocalizedPath(`/library/my/${h.userBookId}`))
     }

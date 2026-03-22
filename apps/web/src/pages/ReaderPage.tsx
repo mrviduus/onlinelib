@@ -100,6 +100,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
+  // Highlight ID from URL — scroll to this highlight after chapter loads
+  const [scrollToHighlightId] = useState(() => new URLSearchParams(window.location.search).get('highlight'))
+
   // Refs for pagination
   const contentRef = useRef<HTMLElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -1043,6 +1046,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             userBookId={mode === 'userbook' ? id : undefined}
             ttsSpeed={settings.ttsSpeed}
             autoLookup={settings.autoLookup}
+            scrollToHighlightId={scrollToHighlightId}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1068,6 +1072,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             userBookId={mode === 'userbook' ? id : undefined}
             ttsSpeed={settings.ttsSpeed}
             autoLookup={settings.autoLookup}
+            scrollToHighlightId={scrollToHighlightId}
           >
             <ReaderContent
               ref={contentRef}

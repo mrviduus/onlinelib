@@ -4,7 +4,7 @@ import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTts } from '../../hooks/useTts'
-import { createTextAnchor } from '../../lib/textAnchor'
+import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { saveWord as saveWordApi } from '../../api/vocabulary'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
@@ -26,6 +26,7 @@ interface ReaderHighlightsProps {
   userBookId?: string
   ttsSpeed?: number
   autoLookup?: boolean
+  scrollToHighlightId?: string | null
   children: React.ReactNode
 }
 
@@ -39,6 +40,7 @@ export function ReaderHighlights({
   userBookId,
   ttsSpeed = 1.0,
   autoLookup = true,
+  scrollToHighlightId,
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -69,6 +71,32 @@ export function ReaderHighlights({
     chapterId,
     isAuthenticated,
   })
+
+  // Scroll to a specific highlight when navigating from highlights page
+  const scrolledToHighlightRef = useRef(false)
+  useEffect(() => {
+    if (!scrollToHighlightId || scrolledToHighlightRef.current) return
+    if (highlights.length === 0 || !containerRef.current) return
+
+    const target = highlights.find(h => h.id === scrollToHighlightId)
+    if (!target) return
+
+    scrolledToHighlightRef.current = true
+
+    // Wait for DOM to settle before finding text position
+    requestAnimationFrame(() => {
+      const container = containerRef.current
+      if (!container) return
+
+      const range = findTextByAnchor(target.anchor, container)
+      if (!range) return
+
+      const el = range.startContainer.parentElement
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+  }, [scrollToHighlightId, highlights, containerRef])
 
   // Translation
   const {
