@@ -123,7 +123,8 @@ apps/
 # Docker
 make up / down / restart / logs / status
 make build                    # docker compose up -d --build
-make deploy                   # Full deploy (pull, build, restart)
+make rebuild                  # Full rebuild --no-cache
+make deploy                   # Full deploy (pull, build, restart, SSG)
 
 # SSG
 make rebuild-ssg              # Regenerate SEO pages
@@ -131,6 +132,7 @@ make clean-ssg                # Remove dist/ssg*
 
 # Database
 make backup                   # Backup to ~/backups/textstack/
+make backup-list              # List all backups
 make restore FILE=path.gz     # Restore from backup
 
 # Search
@@ -140,6 +142,22 @@ make reindex-search           # Rebuild search indexes
 dotnet test                   # All backend tests
 pnpm -C apps/web test         # Frontend unit tests
 pnpm -C apps/web test:e2e     # Playwright E2E
+
+# Lint
+dotnet format textstack.sln   # Backend
+
+# Local dev (no Docker)
+dotnet run --project backend/src/Api
+pnpm -C apps/web dev          # http://localhost:5173
+pnpm -C apps/admin dev        # http://localhost:81
+
+# Migrations
+dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api
+
+# Mobile (apps/mobile)
+npx expo start                # Dev server
+npx expo run:ios              # Local iOS build
+npx expo run:android          # Local Android build
 ```
 
 ---
