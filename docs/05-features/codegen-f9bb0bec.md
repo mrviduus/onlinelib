@@ -39,15 +39,15 @@ Unlike `useReadingProgress.ts`, the userbook progress hook doesn't have `visibil
 
 ## Plan
 
-### Slice 1: Fix scroll mode early-return guards
-- Remove the problematic `chapterRefs.current.size === 0` guard
-- Instead, only skip save if `visibleId` is undefined (already covered by line 479 check)
+### Slice 1: Fix scroll mode early-return guards [DONE]
+- Removed the problematic `chapterRefs.current.size === 0` guard
+- The `visibleId` check (line 479) already handles the case of no visible chapter
 - Reduces false-positive skips during render cycles
 
-### Slice 2: Improve scroll save threshold logic
-- Change 500px threshold to a time-based approach: only skip if same position saved within last 2s
+### Slice 2: Improve scroll save threshold logic [DONE]
+- Changed 500px threshold to a time-based approach: only skip if same position saved within last 2s
 - This aligns with the debounce timer (600ms) and provides smoother saves
-- Keep chapter-change detection as immediate trigger
+- Chapter changes still trigger immediate saves
 
 ### Slice 3: Fix scroll restore race condition
 - Move `scrollRestoredRef.current = true` to only set AFTER successful restore
