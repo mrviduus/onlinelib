@@ -478,10 +478,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const offset = scrollReader.scrollOffset
     if (!visibleId) return
 
-    // Skip save if scroll handler hasn't populated refs yet (offset would be stale)
-    if (scrollReader.chapterRefs.current.size === 0) return
-
     // Only save if position changed significantly (chapter change OR 500px scroll)
+    // Note: We don't check chapterRefs.size here because visibleId being set
+    // indicates scroll tracking is active. The offset may be 0 initially which is valid.
     const last = lastScrollSaveRef.current
     if (last && last.identifier === visibleId && Math.abs(last.offset - offset) < 500) return
 
