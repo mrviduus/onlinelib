@@ -469,7 +469,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [useScrollMode, currentPage, totalPages, overallProgress, book?.id, chapter?.id, updateProgress])
 
   // Sync progress when scroll position changes (scroll mode)
-  const lastScrollSaveRef = useRef<{ identifier: string; offset: number } | null>(null)
+  // Time-based skip: avoid redundant saves within 2s window (aligns with 600ms debounce)
+  const lastScrollSaveRef = useRef<{ identifier: string; offset: number; timestamp: number } | null>(null)
   const scrollSaveTimerRef = useRef<number | null>(null)
   useEffect(() => {
     if (!useScrollMode) return
@@ -478,14 +479,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const offset = scrollReader.scrollOffset
     if (!visibleId) return
 
-    // Only save if position changed significantly (chapter change OR 500px scroll)
-    // Note: We don't check chapterRefs.size here because visibleId being set
-    // indicates scroll tracking is active. The offset may be 0 initially which is valid.
+    const now = Date.now()
     const last = lastScrollSaveRef.current
-    if (last && last.identifier === visibleId && Math.abs(last.offset - offset) < 500) return
+
+    // Chapter change always triggers save (important for navigation tracking)
+    const chapterChanged = !last || last.identifier !== visibleId
+
+    // Within same chapter: skip if saved within last 2s (time-based, not distance-based)
+    // This avoids skipping important mid-chapter positions on slow scrolling or short chapters
+    if (!chapterChanged && last && (now - last.timestamp) < 2000) return
 
     // Update ref immediately to prevent duplicate saves
-    lastScrollSaveRef.current = { identifier: visibleId, offset }
+    lastScrollSaveRef.current = { identifier: visibleId, offset, timestamp: now }
 
     // Debounce the actual save (600ms per ADR-007 spec: 500-800ms)
     if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
