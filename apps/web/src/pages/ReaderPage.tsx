@@ -469,7 +469,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [useScrollMode, currentPage, totalPages, overallProgress, book?.id, chapter?.id, updateProgress])
 
   // Sync progress when scroll position changes (scroll mode)
-  const lastScrollSaveRef = useRef<{ identifier: string; offset: number } | null>(null)
+  // Time-based skip: avoid redundant saves within 2s window (aligns with 600ms debounce)
+  const lastScrollSaveRef = useRef<{ identifier: string; offset: number; timestamp: number } | null>(null)
   const scrollSaveTimerRef = useRef<number | null>(null)
   // Store pending scroll save data for flush on visibility/unload
   const pendingScrollSaveRef = useRef<{
@@ -511,15 +512,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const offset = scrollReader.scrollOffset
     if (!visibleId) return
 
-    // Skip save if scroll handler hasn't populated refs yet (offset would be stale)
-    if (scrollReader.chapterRefs.current.size === 0) return
-
-    // Only save if position changed significantly (chapter change OR 500px scroll)
+    const now = Date.now()
     const last = lastScrollSaveRef.current
-    if (last && last.identifier === visibleId && Math.abs(last.offset - offset) < 500) return
+
+    // Chapter change always triggers save (important for navigation tracking)
+    const chapterChanged = !last || last.identifier !== visibleId
+
+    // Within same chapter: skip if saved within last 2s (time-based, not distance-based)
+    // This avoids skipping important mid-chapter positions on slow scrolling or short chapters
+    if (!chapterChanged && last && (now - last.timestamp) < 2000) return
 
     // Update ref immediately to prevent duplicate saves
-    lastScrollSaveRef.current = { identifier: visibleId, offset }
+    lastScrollSaveRef.current = { identifier: visibleId, offset, timestamp: now }
 
     // Store pending save data for flush on visibility/unload
     pendingScrollSaveRef.current = { identifier: visibleId, offset, progress: overallProgress }
@@ -729,16 +733,36 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       return
     }
 
-    // Wait for chapter element to be rendered
-    const chapterEl = scrollReader.chapterRefs.current.get(savedSlug)
-    if (!chapterEl) return // Chapter not loaded/rendered yet
+    // Check if chapter is in the loaded list
+    const chapterLoaded = scrollReader.chapters.some(c => c.identifier === savedSlug)
+    if (!chapterLoaded) {
+      // Chapter not loaded yet - effect will re-run when chapters change
+      return
+    }
 
-    scrollRestoredRef.current = true
+    // Try to scroll with retry for DOM timing
+    let retries = 0
+    const maxRetries = 5
+    const tryScroll = () => {
+      const chapterEl = scrollReader.chapterRefs.current.get(savedSlug)
+      if (!chapterEl) {
+        if (retries < maxRetries) {
+          retries++
+          requestAnimationFrame(tryScroll)
+          return
+        }
+        // Max retries reached - give up
+        scrollRestoredRef.current = true
+        return
+      }
 
-    // Scroll to chapter position + offset (offsetTop gives absolute position in document)
-    requestAnimationFrame(() => {
+      // Scroll to chapter position + offset (offsetTop gives absolute position in document)
       window.scrollTo({ top: chapterEl.offsetTop + savedOffset, behavior: 'instant' })
-    })
+      // Only mark as restored AFTER successful scroll
+      scrollRestoredRef.current = true
+    }
+
+    requestAnimationFrame(tryScroll)
   }, [useScrollMode, effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
 
   // Reset restore refs on chapter change

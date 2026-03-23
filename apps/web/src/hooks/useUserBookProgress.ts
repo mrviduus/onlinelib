@@ -112,22 +112,59 @@ export function useUserBookProgress(bookId: string) {
     }, DEBOUNCE_MS)
   }, [bookId])
 
-  // Cleanup timer on unmount
+  // Flush pending sync immediately (bypasses debounce, uses keepalive for tab close reliability)
+  const flushSave = useCallback(() => {
+    const toSync = pendingSyncRef.current
+    if (!toSync || !bookId) return
+
+    // Cancel pending debounced sync
+    if (serverSyncTimerRef.current) {
+      clearTimeout(serverSyncTimerRef.current)
+      serverSyncTimerRef.current = null
+    }
+
+    const payload = JSON.stringify({
+      chapterSlug: toSync.chapterSlug,
+      locator: toSync.locator,
+      percent: toSync.percent,
+      updatedAt: new Date(toSync.updatedAt).toISOString(),
+    })
+    const url = `/api/me/books/${bookId}/progress`
+
+    // Use fetch with keepalive (survives page unload like sendBeacon, but supports PUT)
+    fetch(url, {
+      method: 'PUT',
+      body: payload,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {})
+
+    pendingSyncRef.current = null
+  }, [bookId])
+
+  // Lifecycle event triggers: flush pending sync on tab switch/close
   useEffect(() => {
-    return () => {
-      if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current)
-      // Flush pending sync immediately on unmount
-      const toSync = pendingSyncRef.current
-      if (toSync && bookId) {
-        saveUserBookProgress(bookId, {
-          chapterSlug: toSync.chapterSlug,
-          locator: toSync.locator,
-          percent: toSync.percent,
-          updatedAt: new Date(toSync.updatedAt).toISOString(),
-        }).catch(() => {})
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushSave()
       }
     }
-  }, [bookId])
+
+    const handleBeforeUnload = () => {
+      flushSave()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      flushSave()
+      if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current)
+    }
+  }, [flushSave])
 
   // Save progress - uses slug + locator
   const saveProgress = useCallback((chapterSlug: string, _page: number, percent: number, locator?: string) => {
