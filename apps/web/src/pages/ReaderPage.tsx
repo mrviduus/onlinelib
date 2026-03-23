@@ -644,16 +644,36 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       return
     }
 
-    // Wait for chapter element to be rendered
-    const chapterEl = scrollReader.chapterRefs.current.get(savedSlug)
-    if (!chapterEl) return // Chapter not loaded/rendered yet
+    // Check if chapter is in the loaded list
+    const chapterLoaded = scrollReader.chapters.some(c => c.identifier === savedSlug)
+    if (!chapterLoaded) {
+      // Chapter not loaded yet - effect will re-run when chapters change
+      return
+    }
 
-    scrollRestoredRef.current = true
+    // Try to scroll with retry for DOM timing
+    let retries = 0
+    const maxRetries = 5
+    const tryScroll = () => {
+      const chapterEl = scrollReader.chapterRefs.current.get(savedSlug)
+      if (!chapterEl) {
+        if (retries < maxRetries) {
+          retries++
+          requestAnimationFrame(tryScroll)
+          return
+        }
+        // Max retries reached - give up
+        scrollRestoredRef.current = true
+        return
+      }
 
-    // Scroll to chapter position + offset (offsetTop gives absolute position in document)
-    requestAnimationFrame(() => {
+      // Scroll to chapter position + offset (offsetTop gives absolute position in document)
       window.scrollTo({ top: chapterEl.offsetTop + savedOffset, behavior: 'instant' })
-    })
+      // Only mark as restored AFTER successful scroll
+      scrollRestoredRef.current = true
+    }
+
+    requestAnimationFrame(tryScroll)
   }, [useScrollMode, effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
 
   // Reset restore refs on chapter change
