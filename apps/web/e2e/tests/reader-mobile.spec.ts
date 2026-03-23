@@ -66,4 +66,140 @@ test.describe('Mobile Reader', () => {
     const progressText = await page.locator('.reader-top-bar__progress').textContent()
     expect(progressText).toContain('%')
   })
+
+  test('flush pending save on visibility hidden (mobile)', async ({ authedPage: page }) => {
+    const { enBook } = getTestData()
+
+    // Clear any existing progress
+    await page.goto('/')
+    await page.evaluate((id) => {
+      localStorage.removeItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+
+    // Small scroll (under 500px threshold) - normally wouldn't trigger save
+    await page.evaluate(() => window.scrollBy(0, 200))
+
+    // Wait a bit but NOT long enough for the 600ms debounce
+    await page.waitForTimeout(300)
+
+    // Simulate visibility hidden (e.g., tab switch)
+    // This should flush any pending save
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await page.waitForTimeout(100)
+
+    // Progress should be saved even though debounce didn't complete
+    const progress = await page.evaluate((id) => {
+      return localStorage.getItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    expect(progress).not.toBeNull()
+  })
+
+  test('small scroll saved by time-based auto-save (mobile)', async ({ authedPage: page }) => {
+    const { enBook } = getTestData()
+
+    // Clear any existing progress
+    await page.goto('/')
+    await page.evaluate((id) => {
+      localStorage.removeItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+
+    // Very small scroll (under 500px threshold) - won't trigger threshold save
+    await page.evaluate(() => window.scrollBy(0, 100))
+
+    // Wait for 600ms debounce - but this won't save because <500px threshold
+    await page.waitForTimeout(700)
+
+    // First check - small scroll may not have saved yet (threshold not met)
+    const progressBeforeInterval = await page.evaluate((id) => {
+      return localStorage.getItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    // Scroll a bit more but still small
+    await page.evaluate(() => window.scrollBy(0, 50))
+
+    // The 30-second auto-save will eventually catch this
+    // For test purposes, manually trigger the flush via visibility change
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await page.waitForTimeout(100)
+
+    const progressAfter = await page.evaluate((id) => {
+      return localStorage.getItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    // Progress should be saved now
+    expect(progressAfter).not.toBeNull()
+  })
+
+  test('debounced scroll save triggers after 600ms (mobile)', async ({ authedPage: page }) => {
+    const { enBook } = getTestData()
+
+    // Clear any existing progress
+    await page.goto('/')
+    await page.evaluate((id) => {
+      localStorage.removeItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+
+    // Large scroll (over 500px threshold)
+    await page.evaluate(() => window.scrollBy(0, 600))
+
+    // Wait for debounce (600ms + buffer)
+    await page.waitForTimeout(800)
+
+    // Progress should be saved
+    const progress = await page.evaluate((id) => {
+      return localStorage.getItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    expect(progress).not.toBeNull()
+
+    // Verify locator format contains scroll position
+    const parsed = JSON.parse(progress!)
+    expect(parsed.locator).toMatch(/^scroll:/)
+  })
+
+  test('progress includes scroll locator with offset (mobile)', async ({ authedPage: page }) => {
+    const { enBook } = getTestData()
+
+    // Clear any existing progress
+    await page.goto('/')
+    await page.evaluate((id) => {
+      localStorage.removeItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+
+    // Scroll to create progress
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(1000)
+
+    // Check localStorage for progress with scroll locator
+    const progress = await page.evaluate((id) => {
+      return localStorage.getItem(`reading.progress.${id}`)
+    }, enBook.editionId)
+
+    expect(progress).not.toBeNull()
+
+    const parsed = JSON.parse(progress!)
+    // Locator should be in format: scroll:{chapterSlug}:{offset}
+    expect(parsed.locator).toMatch(/^scroll:[^:]+:\d+$/)
+  })
 })

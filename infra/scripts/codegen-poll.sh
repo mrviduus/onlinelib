@@ -21,6 +21,14 @@ if [ -f "$REPO_DIR/.env" ]; then
   set +a
 fi
 
+# Validate required env vars
+for var in POSTGRES_USER POSTGRES_DB; do
+  if [ -z "${!var:-}" ]; then
+    echo "ERROR: $var not set. Check .env file." >&2
+    exit 1
+  fi
+done
+
 # Add claude CLI to PATH (VS Code extension binary)
 for claude_dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary; do
   [ -d "$claude_dir" ] && export PATH="$claude_dir:$PATH" && break
@@ -71,9 +79,37 @@ process_job() {
 
   cd "$REPO_DIR"
 
-  # Create branch
-  git checkout -b "$branch" main 2>/dev/null || git checkout "$branch"
+  # Ensure clean state before branch switch
+  git stash --include-untracked -q 2>/dev/null || true
+  git checkout main -q 2>/dev/null || true
+  git pull origin main -q 2>/dev/null || true
+
+  # Create or reset codegen branch (force-reset handles rerun with stale commits)
+  if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    git checkout "$branch" 2>/dev/null
+    git reset --hard main
+  else
+    git checkout -b "$branch" main 2>/dev/null
+  fi
+
+  # Verify we're on the right branch
+  local current_branch
+  current_branch=$(git branch --show-current)
+  if [ "$current_branch" != "$branch" ]; then
+    log "ERROR: Failed to checkout $branch (on $current_branch)"
+    update_job "$job_id" "status = $STATUS_FAILED, error = 'git checkout failed', finished_at = NOW()"
+    return 1
+  fi
   update_job "$job_id" "branch_name = '$branch'"
+
+  # Clean stale PDD from previous run (rerun scenario)
+  local short_id="${job_id:0:8}"
+  local pdd_file="docs/05-features/codegen-${short_id}.md"
+  if [ -f "$pdd_file" ]; then
+    rm "$pdd_file"
+    git add "$pdd_file"
+    git commit -m "reset: clean PDD for rerun" 2>/dev/null || true
+  fi
 
   # Progress file
   echo "" > "$progress_file"
@@ -91,7 +127,6 @@ process_job() {
     log "Iteration $i/$max_iterations"
 
     local output
-    local short_id="${job_id:0:8}"
     output=$(bash "$REPO_DIR/infra/scripts/codegen-once.sh" "$description" "$progress_file" "$short_id" 2>&1) || true
 
     # Update progress
@@ -117,7 +152,7 @@ process_job() {
   fi
 
   # Push and create PR
-  if ! git push -u origin "$branch" 2>&1; then
+  if ! git push -u origin "$branch" --force 2>&1; then
     log "Failed to push branch $branch"
     update_job "$job_id" "status = $STATUS_FAILED, error = 'git push failed', finished_at = NOW()"
     git checkout main 2>/dev/null || true
@@ -127,6 +162,8 @@ process_job() {
 
   local pr_title="${description:0:70}"
   local pr_url
+  local pr_stderr
+  pr_stderr=$(mktemp)
   pr_url=$(gh pr create \
     --title "$pr_title" \
     --body "$(cat <<EOF
@@ -137,13 +174,16 @@ $description
 🤖 Generated with Claude Code
 EOF
 )" \
-    --head "$branch" 2>&1) || {
+    --head "$branch" 2>"$pr_stderr") || {
     log "Failed to create PR, but code is pushed to $branch"
+    log "gh stderr: $(cat "$pr_stderr")"
+    rm -f "$pr_stderr"
     update_job "$job_id" "status = $STATUS_COMPLETED, error = 'PR creation failed, branch pushed', finished_at = NOW()"
     git checkout main 2>/dev/null || true
     rm -f "$progress_file"
     return
   }
+  rm -f "$pr_stderr"
 
   # Mark completed
   local escaped_url

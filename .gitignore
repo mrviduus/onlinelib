@@ -26,6 +26,7 @@ dist/
 .env.local
 .env.*.local
 .env.production
+.env.backup
 appsettings.Development.json
 appsettings.Local.json
 
@@ -51,8 +52,11 @@ TestResults/
 # Build
 publish/
 
-# Backups (keep .gitkeep)
-backups/*.sql.gz
+# Backups
+backups/
+
+# Claude Code
+.claude/
 
 # GitHub Actions Runner (if installed in project dir)
 .credentials

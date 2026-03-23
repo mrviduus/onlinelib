@@ -1,8 +1,8 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 DESCRIPTION="$1"
-PROGRESS_FILE="$2"
+PROGRESS_FILE="${2:-/dev/null}"
 JOB_ID="$3"
 
 if [ -z "$DESCRIPTION" ] || [ -z "$JOB_ID" ]; then
@@ -11,8 +11,9 @@ if [ -z "$DESCRIPTION" ] || [ -z "$JOB_ID" ]; then
 fi
 
 PLAN_FILE="docs/05-features/codegen-${JOB_ID}.md"
+TIMEOUT=1800  # 30 min per iteration
 
-claude -p --permission-mode acceptEdits \
+timeout "$TIMEOUT" claude -p --permission-mode acceptEdits \
   "You are working on the TextStack project.
 Task: $DESCRIPTION
 

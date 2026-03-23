@@ -1027,4 +1027,8 @@ export const adminApi = {
   cancelCodeGenJob: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/codegen/jobs/${id}/cancel`, { method: 'POST' })
   },
+
+  rerunCodeGenJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/codegen/jobs/${id}/rerun`, { method: 'POST' })
+  },
 }
