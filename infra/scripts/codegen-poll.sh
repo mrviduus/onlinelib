@@ -21,6 +21,14 @@ if [ -f "$REPO_DIR/.env" ]; then
   set +a
 fi
 
+# Validate required env vars
+for var in POSTGRES_USER POSTGRES_DB; do
+  if [ -z "${!var:-}" ]; then
+    echo "ERROR: $var not set. Check .env file." >&2
+    exit 1
+  fi
+done
+
 # Add claude CLI to PATH (VS Code extension binary)
 for claude_dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary; do
   [ -d "$claude_dir" ] && export PATH="$claude_dir:$PATH" && break

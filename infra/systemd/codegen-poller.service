@@ -6,8 +6,10 @@ After=docker.service
 Type=simple
 WorkingDirectory=/home/vasyl/projects/onlinelib/textstack
 ExecStart=/home/vasyl/projects/onlinelib/textstack/infra/scripts/codegen-poll.sh
-Restart=always
+Restart=on-failure
 RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
 Environment=HOME=/home/vasyl
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 

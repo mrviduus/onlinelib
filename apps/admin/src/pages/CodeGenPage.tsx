@@ -56,6 +56,7 @@ export function CodeGenPage() {
       setShowCreate(false)
       setDescription('')
       setMaxIterations(10)
+      setError(null)
       fetchJobs()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job')
@@ -64,18 +65,26 @@ export function CodeGenPage() {
     }
   }
 
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
   const handleStart = async (id: string) => {
+    setActionLoading(id)
     try {
       await adminApi.startCodeGenJob(id)
+      setError(null)
       fetchJobs()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start')
+    } finally {
+      setActionLoading(null)
     }
   }
 
   const handleCancel = async (id: string) => {
+    setActionLoading(id)
     try {
       await adminApi.cancelCodeGenJob(id)
+      setError(null)
       fetchJobs()
       if (selectedJob?.id === id) {
         const detail = await adminApi.getCodeGenJob(id)
@@ -83,6 +92,8 @@ export function CodeGenPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cancel')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -275,10 +286,10 @@ export function CodeGenPage() {
                 <td className="actions-cell">
                   <button onClick={() => handleViewDetail(job.id)} className="btn btn--small">View</button>
                   {job.status === 'Queued' && (
-                    <button onClick={() => handleStart(job.id)} className="btn btn--small btn--primary">Start</button>
+                    <button onClick={() => handleStart(job.id)} className="btn btn--small btn--primary" disabled={actionLoading === job.id}>Start</button>
                   )}
                   {(job.status === 'Queued' || job.status === 'Running') && (
-                    <button onClick={() => handleCancel(job.id)} className="btn btn--small btn--danger">Cancel</button>
+                    <button onClick={() => handleCancel(job.id)} className="btn btn--small btn--danger" disabled={actionLoading === job.id}>Cancel</button>
                   )}
                 </td>
               </tr>

@@ -30,6 +30,9 @@ public static class AdminCodeGenEndpoints
         if (string.IsNullOrWhiteSpace(request.Description))
             return Results.BadRequest(new { error = "Description is required" });
 
+        if (request.Description.Length > 5000)
+            return Results.BadRequest(new { error = "Description too long (max 5000 chars)" });
+
         var siteId = GeneralSiteId;
         var job = new CodeGenJob
         {
@@ -52,6 +55,9 @@ public static class AdminCodeGenEndpoints
         [FromQuery] int limit = 20,
         CancellationToken ct = default)
     {
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
+
         var query = db.CodeGenJobs.OrderByDescending(j => j.CreatedAt);
         var total = await query.CountAsync(ct);
         var items = await query.Skip(offset).Take(limit)
