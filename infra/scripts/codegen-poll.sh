@@ -127,6 +127,8 @@ process_job() {
 
   local pr_title="${description:0:70}"
   local pr_url
+  local pr_stderr
+  pr_stderr=$(mktemp)
   pr_url=$(gh pr create \
     --title "$pr_title" \
     --body "$(cat <<EOF
@@ -137,13 +139,16 @@ $description
 🤖 Generated with Claude Code
 EOF
 )" \
-    --head "$branch" 2>&1) || {
+    --head "$branch" 2>"$pr_stderr") || {
     log "Failed to create PR, but code is pushed to $branch"
+    log "gh stderr: $(cat "$pr_stderr")"
+    rm -f "$pr_stderr"
     update_job "$job_id" "status = $STATUS_COMPLETED, error = 'PR creation failed, branch pushed', finished_at = NOW()"
     git checkout main 2>/dev/null || true
     rm -f "$progress_file"
     return
   }
+  rm -f "$pr_stderr"
 
   # Mark completed
   local escaped_url
