@@ -71,8 +71,22 @@ process_job() {
 
   cd "$REPO_DIR"
 
-  # Create branch
-  git checkout -b "$branch" main 2>/dev/null || git checkout "$branch"
+  # Ensure clean state before branch switch
+  git stash --include-untracked -q 2>/dev/null || true
+  git checkout main -q 2>/dev/null || true
+  git pull origin main -q 2>/dev/null || true
+
+  # Create or switch to codegen branch
+  git checkout -b "$branch" main 2>/dev/null || git checkout "$branch" 2>/dev/null
+
+  # Verify we're on the right branch
+  local current_branch
+  current_branch=$(git branch --show-current)
+  if [ "$current_branch" != "$branch" ]; then
+    log "ERROR: Failed to checkout $branch (on $current_branch)"
+    update_job "$job_id" "status = $STATUS_FAILED, error = 'git checkout failed', finished_at = NOW()"
+    return 1
+  fi
   update_job "$job_id" "branch_name = '$branch'"
 
   # Progress file
