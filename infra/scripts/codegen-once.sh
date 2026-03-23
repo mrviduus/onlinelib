@@ -13,7 +13,7 @@ fi
 PLAN_FILE="docs/05-features/codegen-${JOB_ID}.md"
 TIMEOUT=1800  # 30 min per iteration
 
-timeout "$TIMEOUT" claude -p --permission-mode acceptEdits \
+timeout "$TIMEOUT" claude -p --model claude-opus-4-6 --permission-mode acceptEdits \
   "You are working on the TextStack project.
 Task: $DESCRIPTION
 
