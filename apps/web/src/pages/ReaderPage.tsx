@@ -471,6 +471,39 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Sync progress when scroll position changes (scroll mode)
   const lastScrollSaveRef = useRef<{ identifier: string; offset: number } | null>(null)
   const scrollSaveTimerRef = useRef<number | null>(null)
+  // Store pending scroll save data for flush on visibility/unload
+  const pendingScrollSaveRef = useRef<{
+    identifier: string
+    offset: number
+    progress: number
+  } | null>(null)
+
+  // Flush pending scroll save immediately (bypasses debounce)
+  const flushScrollSave = useCallback(() => {
+    const pending = pendingScrollSaveRef.current
+    if (!pending) return
+
+    // Cancel pending debounced save
+    if (scrollSaveTimerRef.current) {
+      clearTimeout(scrollSaveTimerRef.current)
+      scrollSaveTimerRef.current = null
+    }
+
+    const { identifier, offset, progress } = pending
+    const scrollLocator = `scroll:${identifier}:${Math.round(offset)}`
+
+    if (mode === 'public' && publicBook?.chapters) {
+      const bookChapter = publicBook.chapters.find(c => c.slug === identifier)
+      if (bookChapter) {
+        publicProgress.updateProgress(progress, undefined, scrollLocator, bookChapter.id, identifier)
+      }
+    } else if (mode === 'userbook') {
+      userProgress.saveProgress(identifier, 0, progress, scrollLocator)
+    }
+
+    pendingScrollSaveRef.current = null
+  }, [mode, publicBook?.chapters, publicProgress, userProgress])
+
   useEffect(() => {
     if (!useScrollMode) return
 
@@ -487,6 +520,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
     // Update ref immediately to prevent duplicate saves
     lastScrollSaveRef.current = { identifier: visibleId, offset }
+
+    // Store pending save data for flush on visibility/unload
+    pendingScrollSaveRef.current = { identifier: visibleId, offset, progress: overallProgress }
 
     // Debounce the actual save (600ms per ADR-007 spec: 500-800ms)
     if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
@@ -509,16 +545,35 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         const scrollLocator = `scroll:${saveId}:${Math.round(saveOffset)}`
         userProgress.saveProgress(saveId, 0, saveProgress, scrollLocator)
       }
+      pendingScrollSaveRef.current = null
       scrollSaveTimerRef.current = null
     }, 600)
   }, [useScrollMode, mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
 
-  // Cleanup scroll save timer on unmount
+  // Lifecycle handlers for scroll mode: flush pending save on visibility hidden or unload
   useEffect(() => {
-    return () => {
-      if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
+    if (!useScrollMode) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushScrollSave()
+      }
     }
-  }, [])
+
+    const handleBeforeUnload = () => {
+      flushScrollSave()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      // Flush on unmount as well
+      flushScrollSave()
+    }
+  }, [useScrollMode, flushScrollSave])
 
   // Time-on-position trigger (ADR-007 section 3.2): save if user stays at same position for 3s
   // Only for pagination mode - scroll mode has its own save effect
