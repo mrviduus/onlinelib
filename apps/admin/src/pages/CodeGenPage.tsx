@@ -97,6 +97,23 @@ export function CodeGenPage() {
     }
   }
 
+  const handleRerun = async (id: string) => {
+    setActionLoading(id)
+    try {
+      await adminApi.rerunCodeGenJob(id)
+      setError(null)
+      fetchJobs()
+      if (selectedJob?.id === id) {
+        const detail = await adminApi.getCodeGenJob(id)
+        setSelectedJob(detail)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rerun')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleViewDetail = async (id: string) => {
     setDetailLoading(true)
     try {
@@ -198,7 +215,12 @@ export function CodeGenPage() {
         <div className="create-form" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3>Job Detail</h3>
-            <button onClick={() => setSelectedJob(null)} className="btn btn--small">Close</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {(selectedJob.status === 'Completed' || selectedJob.status === 'Failed' || selectedJob.status === 'Cancelled') && (
+                <button onClick={() => handleRerun(selectedJob.id)} className="btn btn--small btn--primary" disabled={actionLoading === selectedJob.id}>Rerun</button>
+              )}
+              <button onClick={() => setSelectedJob(null)} className="btn btn--small">Close</button>
+            </div>
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             {getStatusBadge(selectedJob.status)}
@@ -290,6 +312,9 @@ export function CodeGenPage() {
                   )}
                   {(job.status === 'Queued' || job.status === 'Running') && (
                     <button onClick={() => handleCancel(job.id)} className="btn btn--small btn--danger" disabled={actionLoading === job.id}>Cancel</button>
+                  )}
+                  {(job.status === 'Completed' || job.status === 'Failed' || job.status === 'Cancelled') && (
+                    <button onClick={() => handleRerun(job.id)} className="btn btn--small btn--primary" disabled={actionLoading === job.id}>Rerun</button>
                   )}
                 </td>
               </tr>

@@ -84,8 +84,13 @@ process_job() {
   git checkout main -q 2>/dev/null || true
   git pull origin main -q 2>/dev/null || true
 
-  # Create or switch to codegen branch
-  git checkout -b "$branch" main 2>/dev/null || git checkout "$branch" 2>/dev/null
+  # Create or reset codegen branch (force-reset handles rerun with stale commits)
+  if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    git checkout "$branch" 2>/dev/null
+    git reset --hard main
+  else
+    git checkout -b "$branch" main 2>/dev/null
+  fi
 
   # Verify we're on the right branch
   local current_branch
@@ -96,6 +101,15 @@ process_job() {
     return 1
   fi
   update_job "$job_id" "branch_name = '$branch'"
+
+  # Clean stale PDD from previous run (rerun scenario)
+  local short_id="${job_id:0:8}"
+  local pdd_file="docs/05-features/codegen-${short_id}.md"
+  if [ -f "$pdd_file" ]; then
+    rm "$pdd_file"
+    git add "$pdd_file"
+    git commit -m "reset: clean PDD for rerun" 2>/dev/null || true
+  fi
 
   # Progress file
   echo "" > "$progress_file"
@@ -113,7 +127,6 @@ process_job() {
     log "Iteration $i/$max_iterations"
 
     local output
-    local short_id="${job_id:0:8}"
     output=$(bash "$REPO_DIR/infra/scripts/codegen-once.sh" "$description" "$progress_file" "$short_id" 2>&1) || true
 
     # Update progress
@@ -139,7 +152,7 @@ process_job() {
   fi
 
   # Push and create PR
-  if ! git push -u origin "$branch" 2>&1; then
+  if ! git push -u origin "$branch" --force 2>&1; then
     log "Failed to push branch $branch"
     update_job "$job_id" "status = $STATUS_FAILED, error = 'git push failed', finished_at = NOW()"
     git checkout main 2>/dev/null || true

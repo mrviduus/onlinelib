@@ -17,6 +17,7 @@ public static class AdminCodeGenEndpoints
         group.MapGet("/jobs/{id:guid}", GetJob);
         group.MapPost("/jobs/{id:guid}/start", StartJob);
         group.MapPost("/jobs/{id:guid}/cancel", CancelJob);
+        group.MapPost("/jobs/{id:guid}/rerun", RerunJob);
     }
 
     // Single-site: general site ID (seeded in migrations)
@@ -114,6 +115,29 @@ public static class AdminCodeGenEndpoints
 
         job.Status = CodeGenJobStatus.Cancelled;
         job.FinishedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> RerunJob(
+        Guid id,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var job = await db.CodeGenJobs.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return Results.NotFound();
+        if (job.Status is not (CodeGenJobStatus.Completed or CodeGenJobStatus.Failed or CodeGenJobStatus.Cancelled))
+            return Results.BadRequest(new { error = "Job is not in a terminal state" });
+
+        job.Status = CodeGenJobStatus.Running;
+        job.CompletedIterations = 0;
+        job.Error = null;
+        job.LogOutput = null;
+        job.PrUrl = null;
+        job.BranchName = null;
+        job.StartedAt = DateTimeOffset.UtcNow;
+        job.FinishedAt = null;
         await db.SaveChangesAsync(ct);
 
         return Results.Ok();
