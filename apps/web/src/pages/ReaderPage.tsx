@@ -575,6 +575,40 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
   }, [useScrollMode, flushScrollSave])
 
+  // Time-based auto-save for scroll mode: save every 30s if position changed at all
+  // This catches small scrolls (<500px) that bypass the threshold-based save
+  const lastAutoSavePositionRef = useRef<{ identifier: string; offset: number } | null>(null)
+  useEffect(() => {
+    if (!useScrollMode) return
+
+    const intervalId = setInterval(() => {
+      const visibleId = scrollReader.visibleIdentifier
+      const offset = scrollReader.scrollOffset
+      if (!visibleId) return
+
+      const lastPos = lastAutoSavePositionRef.current
+
+      // Skip if position hasn't changed since last auto-save
+      if (lastPos && lastPos.identifier === visibleId && lastPos.offset === offset) return
+
+      // Position changed - save immediately
+      lastAutoSavePositionRef.current = { identifier: visibleId, offset }
+
+      const scrollLocator = `scroll:${visibleId}:${Math.round(offset)}`
+
+      if (mode === 'public' && publicBook?.chapters) {
+        const bookChapter = publicBook.chapters.find(c => c.slug === visibleId)
+        if (bookChapter) {
+          publicProgress.updateProgress(overallProgress, undefined, scrollLocator, bookChapter.id, visibleId)
+        }
+      } else if (mode === 'userbook') {
+        userProgress.saveProgress(visibleId, 0, overallProgress, scrollLocator)
+      }
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(intervalId)
+  }, [useScrollMode, mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
+
   // Time-on-position trigger (ADR-007 section 3.2): save if user stays at same position for 3s
   // Only for pagination mode - scroll mode has its own save effect
   const stablePositionTimerRef = useRef<number | null>(null)
