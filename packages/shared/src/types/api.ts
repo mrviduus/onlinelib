@@ -58,6 +58,7 @@ export interface BookDetail {
   seoFaqsJson: string | null
   chapters: ChapterSummary[]
   otherEditions: { slug: string; language: string; title: string }[]
+  moreByAuthor: { id: string; slug: string; title: string; coverPath: string | null }[]
   authors: BookAuthor[]
 }
 
