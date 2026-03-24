@@ -2,6 +2,13 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../context/ThemeContext'
 
+const HIGHLIGHT_COLORS = [
+  { key: 'yellow', color: '#fef08a' },
+  { key: 'green', color: '#bbf7d0' },
+  { key: 'pink', color: '#fbcfe8' },
+  { key: 'blue', color: '#bfdbfe' },
+] as const
+
 interface SelectionActionBarProps {
   selectedText: string
   isMultiWord: boolean
@@ -9,19 +16,34 @@ interface SelectionActionBarProps {
   onTranslate: () => void
   onSpeak: () => void
   onSaveWord: () => void
+  onHighlight?: (color: string) => void
   isSpeaking?: boolean
   wordSaved?: boolean
   isAuthenticated?: boolean
 }
 
 export function SelectionActionBar({
-  isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord,
+  isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord, onHighlight,
   isSpeaking, wordSaved, isAuthenticated,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      {/* Highlight color buttons */}
+      {isAuthenticated && onHighlight && (
+        <>
+          {HIGHLIGHT_COLORS.map(h => (
+            <TouchableOpacity
+              key={h.key}
+              style={[styles.colorBtn, { backgroundColor: h.color }]}
+              onPress={() => onHighlight(h.key)}
+            />
+          ))}
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        </>
+      )}
+
       {!isMultiWord && (
         <TouchableOpacity style={styles.btn} onPress={onDictionary}>
           <Ionicons name="book-outline" size={18} color={colors.text} />
@@ -71,5 +93,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  colorBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  divider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 4,
   },
 })

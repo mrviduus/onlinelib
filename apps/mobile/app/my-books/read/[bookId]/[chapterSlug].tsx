@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { userBooksApi, vocabularyApi } from '@textstack/shared'
+import { userBooksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
 import { useAuth } from '../../../../src/context/AuthContext'
@@ -28,7 +28,7 @@ export default function UserBookReaderScreen() {
   const [chapter, setChapter] = useState<UserBookChapterDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [selection, setSelection] = useState<{ text: string; sentence: string } | null>(null)
+  const [selection, setSelection] = useState<{ text: string; sentence: string; anchor?: any } | null>(null)
   const [wordSaved, setWordSaved] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
@@ -135,7 +135,7 @@ export default function UserBookReaderScreen() {
         setSearchCurrentMatch(data.currentMatch || 0)
       } else if (data.type === 'selection') {
         if (data.text) {
-          setSelection({ text: data.text, sentence: data.sentence || '' })
+          setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
           setWordSaved(false)
           if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
             setDictOpen(true)
@@ -164,6 +164,37 @@ export default function UserBookReaderScreen() {
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
     } catch {}
   }
+
+  const handleHighlight = async (color: string) => {
+    if (!selection || !isAuthenticated || !bookId || !chapter) return
+    try {
+      const anchorJson = selection.anchor ? JSON.stringify(selection.anchor) : JSON.stringify({ exact: selection.text })
+      const hl = await highlightsApi.createHighlight({
+        userBookId: bookId,
+        userChapterId: chapter.id,
+        anchorJson,
+        color,
+        selectedText: selection.text,
+      })
+      injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(selection.text)}, ${JSON.stringify(color)})`)
+      setSelection(null)
+    } catch (e) {
+      console.error('Failed to create highlight:', e)
+    }
+  }
+
+  // Load existing highlights for user book
+  useEffect(() => {
+    if (!isAuthenticated || !bookId || !chapter) return
+    highlightsApi.getUserBookHighlights(bookId)
+      .then(highlights => {
+        const chapterHighlights = highlights.filter(h => h.userChapterId === chapter.id)
+        for (const h of chapterHighlights) {
+          injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
+        }
+      })
+      .catch(() => {})
+  }, [isAuthenticated, bookId, chapter])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
@@ -271,6 +302,7 @@ export default function UserBookReaderScreen() {
             onTranslate={() => setTranslateOpen(true)}
             onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
             onSaveWord={handleSaveWord}
+            onHighlight={handleHighlight}
             isSpeaking={isSpeaking}
             wordSaved={wordSaved}
             isAuthenticated={isAuthenticated}
