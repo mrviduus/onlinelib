@@ -493,6 +493,26 @@ function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null })
         </View>
       )}
 
+      {/* Books over time */}
+      {bookStats.booksOverTime.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Books Over Time</Text>
+          {bookStats.booksOverTime.map(b => (
+            <BarRow key={b.period} label={b.period} value={b.books} suffix={`(${formatNumber(b.pages)} pg)`} max={Math.max(...bookStats.booksOverTime.map(x => x.books))} />
+          ))}
+        </View>
+      )}
+
+      {/* Book length distribution */}
+      {bookStats.bookLengthDistribution.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Book Length</Text>
+          {bookStats.bookLengthDistribution.map(b => (
+            <BarRow key={b.bucket} label={b.bucket} value={b.count} max={Math.max(...bookStats.bookLengthDistribution.map(x => x.count))} />
+          ))}
+        </View>
+      )}
+
       {/* Rating distribution */}
       {bookStats.avgRating != null && (
         <View style={{ marginTop: 20 }}>
@@ -529,6 +549,16 @@ function TimeTabSection({ bookStats, stats }: { bookStats: BookStatsResponse | n
         <StatCard label="This Week" value={weekH > 0 ? `${weekH}h ${weekM}m` : `${weekM}m`} icon="calendar-outline" />
         <StatCard label="This Month" value={monthH > 0 ? `${monthH}h ${monthM}m` : `${monthM}m`} icon="today-outline" />
       </View>
+
+      {/* Pace distribution */}
+      {bookStats && bookStats.paceStats.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Reading Pace</Text>
+          {bookStats.paceStats.map(p => (
+            <BarRow key={p.pace} label={p.pace} value={p.count} max={Math.max(...bookStats.paceStats.map(x => x.count))} />
+          ))}
+        </View>
+      )}
 
       {/* Mood stats */}
       {bookStats && bookStats.moodStats.length > 0 && (

@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
+import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
-import { highlightsApi } from '@textstack/shared'
+import { highlightsApi, getStorageUrl } from '@textstack/shared'
 import type { HighlightListItem } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
@@ -34,6 +35,7 @@ const BOOK_TYPE_TABS: { key: BookType; label: string }[] = [
 interface BookSection {
   title: string
   count: number
+  coverPath: string | null
   data: HighlightListItem[]
 }
 
@@ -81,16 +83,18 @@ export default function HighlightsScreen() {
 
   // Group by book
   const sections = useMemo<BookSection[]>(() => {
-    const groups = new Map<string, { title: string; items: HighlightListItem[] }>()
+    const groups = new Map<string, { title: string; coverPath: string | null; items: HighlightListItem[] }>()
     for (const h of highlights) {
       const bookKey = h.editionId || h.userBookId || '_none'
       const bookTitle = h.editionTitle || h.userBookTitle || 'Unknown Book'
-      if (!groups.has(bookKey)) groups.set(bookKey, { title: bookTitle, items: [] })
+      const coverPath = h.editionCoverPath || h.userBookCoverPath || null
+      if (!groups.has(bookKey)) groups.set(bookKey, { title: bookTitle, coverPath, items: [] })
       groups.get(bookKey)!.items.push(h)
     }
     return Array.from(groups.values()).map(g => ({
       title: g.title,
       count: g.items.length,
+      coverPath: g.coverPath,
       data: collapsedBooks.has(g.title) ? [] : g.items,
     }))
   }, [highlights, collapsedBooks])
@@ -163,6 +167,9 @@ export default function HighlightsScreen() {
         activeOpacity={0.7}
       >
         <Ionicons name={isCollapsed ? 'chevron-forward' : 'chevron-down'} size={16} color={colors.textSecondary} />
+        {section.coverPath && (
+          <Image source={getStorageUrl(section.coverPath)} style={styles.sectionCover} contentFit="cover" />
+        )}
         <Text style={[styles.sectionTitle, { color: colors.text }]} numberOfLines={1}>{section.title}</Text>
         <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{section.count}</Text>
       </TouchableOpacity>
@@ -279,6 +286,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontFamily: fonts.sans, fontSize: 11, marginLeft: 'auto' },
   list: { paddingBottom: 40 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  sectionCover: { width: 24, height: 36, borderRadius: 3 },
   sectionTitle: { fontFamily: fonts.sansMedium, fontSize: 14, flex: 1 },
   sectionCount: { fontFamily: fonts.sans, fontSize: 12 },
   card: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginBottom: 10, marginHorizontal: 16 },

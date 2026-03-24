@@ -462,18 +462,27 @@ export default function ReaderScreen() {
           />
         )}
 
-        {/* Footer — progress bar + info row */}
+        {/* Footer — progress bar + nav + info row */}
         <Animated.View style={[styles.footer, { borderTopColor: barText + '15', opacity: barsAnim }]}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
           <View style={styles.footerInfo}>
-            <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>
-              {chapter.title}
-            </Text>
+            {chapter.prev ? (
+              <TouchableOpacity onPress={() => navigateChapter(chapter.prev!.slug)} style={styles.navBtn} hitSlop={8}>
+                <Ionicons name="chevron-back" size={18} color={barText + '99'} />
+                <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>Prev</Text>
+              </TouchableOpacity>
+            ) : <View style={{ width: 50 }} />}
             <Text style={[styles.footerProgress, { color: barText + '99' }]}>
               {Math.round(progress * 100)}% · ~{etfDisplay}
             </Text>
+            {chapter.next ? (
+              <TouchableOpacity onPress={() => navigateChapter(chapter.next!.slug)} style={styles.navBtn} hitSlop={8}>
+                <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>Next</Text>
+                <Ionicons name="chevron-forward" size={18} color={barText + '99'} />
+              </TouchableOpacity>
+            ) : <View style={{ width: 50 }} />}
           </View>
         </Animated.View>
 
@@ -579,4 +588,5 @@ const styles = StyleSheet.create({
   footerProgress: { fontSize: 14, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
+  navBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 4 },
 })
