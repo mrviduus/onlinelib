@@ -37,11 +37,14 @@ export function useReadingSession(config: SessionConfig) {
       Math.abs(currentPercentRef.current - startPercentRef.current) * config.wordCount
     )
 
+    const now = new Date()
     const data: Parameters<typeof readingTrackingApi.submitSession>[0] = {
       durationSeconds: Math.min(duration, 14400),
       wordsRead,
       startPercent: startPercentRef.current,
       endPercent: currentPercentRef.current,
+      startedAt: new Date(startTimeRef.current).toISOString(),
+      endedAt: now.toISOString(),
     }
     if (config.editionId) data.editionId = config.editionId
     if (config.userBookId) data.userBookId = config.userBookId
