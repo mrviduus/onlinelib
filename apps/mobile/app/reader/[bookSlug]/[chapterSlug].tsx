@@ -25,6 +25,11 @@ import { fonts } from '../../../src/theme/typography'
 
 const LANG = 'en'
 
+/** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
+function getSlugFromLocator(locator: string): string {
+  return locator.startsWith('chapter:') ? locator.slice(8) : locator
+}
+
 export default function ReaderScreen() {
   const { bookSlug, chapterSlug } = useLocalSearchParams<{ bookSlug: string; chapterSlug: string }>()
   const router = useRouter()
@@ -209,8 +214,11 @@ export default function ReaderScreen() {
             if (isAuthenticated) {
               vocabularyApi.saveWord({
                 word: data.text,
+                language: LANG,
                 sentence: data.sentence || null,
                 bookTitle: bookTitleRef.current || null,
+                editionId: editionIdRef.current || null,
+                chapterId: chapter?.id || null,
               }).catch(() => {})
             }
           }
@@ -226,11 +234,11 @@ export default function ReaderScreen() {
     router.replace(`/reader/${bookSlug}/${slug}`)
   }
 
-  const isCurrentBookmarked = bookmarks.some(b => b.chapterSlug === chapterSlug)
+  const isCurrentBookmarked = bookmarks.some(b => getSlugFromLocator(b.locator) === chapterSlug)
 
   const toggleBookmark = async () => {
     if (!isAuthenticated || !editionIdRef.current || !chapter || !chapterSlug) return
-    const existing = bookmarks.find(b => b.chapterSlug === chapterSlug)
+    const existing = bookmarks.find(b => getSlugFromLocator(b.locator) === chapterSlug)
     if (existing) {
       await bookmarksApi.deleteBookmark(existing.id).catch(() => {})
       setBookmarks(prev => prev.filter(b => b.id !== existing.id))
@@ -252,8 +260,11 @@ export default function ReaderScreen() {
     try {
       await vocabularyApi.saveWord({
         word: selection.text,
+        language: LANG,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
+        editionId: editionIdRef.current || null,
+        chapterId: chapter?.id || null,
       })
       setWordSaved(true)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
@@ -454,7 +465,7 @@ export default function ReaderScreen() {
           visible={tocOpen}
           chapters={chapters.map(c => ({ slug: c.slug, title: c.title, chapterNumber: c.chapterNumber }))}
           currentChapterSlug={chapterSlug || ''}
-          bookmarks={bookmarks.map(b => ({ chapterSlug: b.chapterSlug }))}
+          bookmarks={bookmarks.map(b => ({ chapterSlug: getSlugFromLocator(b.locator) }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />

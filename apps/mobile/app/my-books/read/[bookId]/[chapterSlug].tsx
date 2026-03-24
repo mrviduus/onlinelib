@@ -13,6 +13,7 @@ import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
 import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
 import { useTts } from '../../../../src/hooks/useTts'
+import { useReadingSession } from '../../../../src/hooks/useReadingSession'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
@@ -39,6 +40,12 @@ export default function UserBookReaderScreen() {
   const progressRef = useRef(0)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
+  const { updateProgress: updateSessionProgress } = useReadingSession({
+    editionId: null,
+    userBookId: bookId || null,
+    wordCount: wordCountRef.current,
+    isAuthenticated,
+  })
 
   useEffect(() => {
     if (!bookId || !chapterSlug) return
@@ -58,9 +65,10 @@ export default function UserBookReaderScreen() {
       if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
+        updateSessionProgress(data.progress)
         if (bookId && chapterSlug) {
           userBooksApi.updateUserBookProgress(bookId, {
-            progress: data.progress,
+            percent: data.progress,
             chapterSlug,
           }).catch(() => {})
         }
@@ -81,7 +89,7 @@ export default function UserBookReaderScreen() {
           if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
             setDictOpen(true)
             if (isAuthenticated) {
-              vocabularyApi.saveWord({ word: data.text, sentence: data.sentence || null, bookTitle: null }).catch(() => {})
+              vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null }).catch(() => {})
             }
           }
         } else {
@@ -96,8 +104,10 @@ export default function UserBookReaderScreen() {
     try {
       await vocabularyApi.saveWord({
         word: selection.text,
+        language: 'en',
         sentence: selection.sentence || null,
         bookTitle: null,
+        userBookId: bookId || null,
       })
       setWordSaved(true)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
