@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
   RefreshControl,
@@ -10,6 +10,7 @@ import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { useTts } from '../../src/hooks/useTts'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -21,44 +22,65 @@ const TABS = [
   { key: 'mastered', label: 'Mastered', filter: '4' },
 ] as const
 
+const SORT_OPTIONS = [
+  { key: 'recent', label: 'Recent' },
+  { key: 'alphabetical', label: 'A-Z' },
+  { key: 'due', label: 'Due' },
+  { key: 'stage', label: 'Stage' },
+] as const
+
 type TabKey = typeof TABS[number]['key']
+type SortKey = typeof SORT_OPTIONS[number]['key']
 
 export default function VocabularyScreen() {
   const { colors } = useTheme()
   const router = useRouter()
+  const { toggle: toggleTts } = useTts()
   const [words, setWords] = useState<VocabularyWordDto[]>([])
   const [stats, setStats] = useState<VocabularyStatsDto | null>(null)
   const [tab, setTab] = useState<TabKey>('all')
+  const [sort, setSort] = useState<SortKey>('recent')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [total, setTotal] = useState(0)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
-  const loadData = useCallback(async () => {
+  const offsetRef = useRef(0)
+
+  const loadData = useCallback(async (loadMore = false) => {
     try {
+      const currentOffset = loadMore ? offsetRef.current : 0
       const [res, st] = await Promise.all([
-        vocabularyApi.getWords({ filter: activeFilter, search: search || undefined, limit: 200 }),
-        vocabularyApi.getVocabularyStats(),
+        vocabularyApi.getWords({ stage: activeFilter, search: search || undefined, sort, limit: 50, offset: currentOffset }),
+        loadMore ? Promise.resolve(null) : vocabularyApi.getVocabularyStats(),
       ])
-      setWords(res.items)
-      setStats(st)
+      if (loadMore) {
+        setWords(prev => [...prev, ...res.items])
+      } else {
+        setWords(res.items)
+      }
+      setTotal(res.total)
+      offsetRef.current = currentOffset + res.items.length
+      if (!loadMore && st) setStats(st)
     } catch (e) {
       console.error('Vocab load error:', e)
     } finally {
       setLoading(false)
     }
-  }, [activeFilter, search])
+  }, [activeFilter, search, sort])
 
-  useEffect(() => { setLoading(true); loadData() }, [loadData])
+  useEffect(() => { setLoading(true); offsetRef.current = 0; loadData() }, [loadData])
 
   useFocusEffect(useCallback(() => {
-    if (!loading) loadData()
+    if (!loading) { offsetRef.current = 0; loadData() }
   }, [loading, loadData]))
 
   const onRefresh = async () => {
     setRefreshing(true)
+    offsetRef.current = 0
     await loadData()
     setRefreshing(false)
   }
@@ -67,11 +89,20 @@ export default function VocabularyScreen() {
     try {
       await vocabularyApi.deleteWord(id)
       setWords(prev => prev.filter(w => w.id !== id))
+      setTotal(prev => prev - 1)
       setExpandedId(null)
     } catch {}
   }
 
-  const dueCount = stats ? (stats.byStage[0] || 0) + (stats.byStage[1] || 0) + (stats.byStage[2] || 0) + (stats.byStage[3] || 0) : 0
+  const handleEdit = async (id: string, data: { translation?: string; definition?: string }) => {
+    try {
+      const updated = await vocabularyApi.updateWord(id, data)
+      setWords(prev => prev.map(w => w.id === id ? updated : w))
+    } catch {}
+  }
+
+  const dueCount = stats?.dueNow ?? 0
+  const hasMore = words.length < total
 
   return (
     <>
@@ -80,21 +111,34 @@ export default function VocabularyScreen() {
         {/* Stats bar */}
         {stats && (
           <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
-            <StatBox label="Total" value={stats.total} />
+            <StatBox label="Total" value={stats.totalWords} />
             <StatBox label="Due" value={dueCount} color={dueCount > 0 ? colors.primary : undefined} />
-            <StatBox label="Mastered" value={stats.byStage[4] || 0} color="#10B981" />
+            <StatBox label="Mastered" value={stats.byStage.mastered || 0} color="#10B981" />
+            <StatBox label="Streak" value={stats.streak || 0} color={stats.streak > 0 ? '#F59E0B' : undefined} />
+            {stats.practicedToday > 0 && <StatBox label="Practiced" value={stats.practicedToday} color={colors.primary} />}
           </View>
         )}
 
-        {/* Review button */}
-        {dueCount > 0 && (
-          <TouchableOpacity
-            style={[styles.reviewBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/vocabulary/review')}
-          >
-            <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Start Review ({dueCount})</Text>
-          </TouchableOpacity>
+        {/* Review + Practice buttons */}
+        {stats && stats.totalWords > 0 && (
+          <View style={styles.reviewRow}>
+            {dueCount > 0 && (
+              <TouchableOpacity
+                style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                onPress={() => router.push('/vocabulary/review')}
+              >
+                <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Review ({dueCount})</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.reviewBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
+              onPress={() => router.push('/vocabulary/review?mode=practice')}
+            >
+              <Ionicons name="refresh-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium, color: colors.primary }]}>Practice</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Filter tabs */}
@@ -112,16 +156,31 @@ export default function VocabularyScreen() {
           ))}
         </View>
 
-        {/* Search */}
-        <TextInput
-          style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
-          placeholder="Search words..."
-          placeholderTextColor={colors.textSecondary}
-          value={search}
-          onChangeText={setSearch}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        {/* Search + Sort row */}
+        <View style={styles.searchSortRow}>
+          <TextInput
+            style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+            placeholder="Search words..."
+            placeholderTextColor={colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.sortRow}>
+            {SORT_OPTIONS.map(s => (
+              <TouchableOpacity
+                key={s.key}
+                onPress={() => setSort(s.key)}
+                style={[styles.sortChip, sort === s.key && { backgroundColor: colors.primaryLight }]}
+              >
+                <Text style={[styles.sortText, { color: sort === s.key ? colors.primary : colors.textSecondary, fontFamily: fonts.sans }]}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         {loading ? (
           <View style={styles.listContent}>
@@ -155,12 +214,21 @@ export default function VocabularyScreen() {
             keyExtractor={item => item.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             contentContainerStyle={styles.listContent}
+            onEndReached={() => { if (hasMore && !loading) loadData(true) }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={hasMore ? (
+              <Text style={{ textAlign: 'center', padding: 12, fontSize: 12, color: colors.textSecondary, fontFamily: fonts.sans }}>
+                {words.length} of {total} words
+              </Text>
+            ) : null}
             renderItem={({ item }) => (
               <WordRow
                 word={item}
                 expanded={expandedId === item.id}
                 onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
                 onDelete={() => handleDelete(item.id)}
+                onEdit={(data) => handleEdit(item.id, data)}
+                onSpeak={(text) => toggleTts(text)}
               />
             )}
           />
@@ -181,23 +249,53 @@ function StatBox({ label, value, color }: { label: string; value: number; color?
 }
 
 function WordRow({
-  word, expanded, onToggle, onDelete,
+  word, expanded, onToggle, onDelete, onEdit, onSpeak,
 }: {
   word: VocabularyWordDto
   expanded: boolean
   onToggle: () => void
   onDelete: () => void
+  onEdit: (data: { translation?: string; definition?: string }) => void
+  onSpeak: (text: string) => void
 }) {
   const { colors } = useTheme()
+  const [editField, setEditField] = useState<'translation' | 'definition' | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleDeletePress = () => {
+    if (confirmingDelete) {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      onDelete()
+    } else {
+      setConfirmingDelete(true)
+      deleteTimerRef.current = setTimeout(() => setConfirmingDelete(false), 3000)
+    }
+  }
+
+  const startEdit = (field: 'translation' | 'definition') => {
+    setEditField(field)
+    setEditValue(field === 'translation' ? (word.translation || '') : (word.definition || ''))
+  }
+
+  const handleSaveEdit = () => {
+    if (!editField) return
+    onEdit({ [editField]: editValue.trim() || undefined })
+    setEditField(null)
+  }
   const stageLabel = STAGE_LABELS[word.stage] || 'Unknown'
   const stageColor = STAGE_COLORS[word.stage] || '#9CA3AF'
 
   return (
     <TouchableOpacity style={[styles.wordRow, { borderBottomColor: colors.border }]} onPress={onToggle} activeOpacity={0.7}>
       <View style={styles.wordHeader}>
+        <TouchableOpacity onPress={() => onSpeak(word.word)} hitSlop={8} style={{ padding: 2, marginRight: 6 }}>
+          <Ionicons name="volume-medium-outline" size={16} color={colors.primary} />
+        </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.wordText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{word.word}</Text>
-          {word.translation && (
+          {word.translation && !editField && (
             <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{word.translation}</Text>
           )}
         </View>
@@ -208,6 +306,48 @@ function WordRow({
 
       {expanded && (
         <View style={[styles.wordDetail, { borderTopColor: colors.border }]}>
+          {/* Edit translation / definition */}
+          {editField ? (
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <TextInput
+                style={[styles.editInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+                value={editValue}
+                onChangeText={setEditValue}
+                autoFocus
+                onSubmitEditing={handleSaveEdit}
+                placeholder={editField === 'translation' ? 'Translation...' : 'Definition...'}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity style={[styles.editSaveBtn, { backgroundColor: colors.primary }]} onPress={handleSaveEdit}>
+                <Text style={{ color: '#fff', fontFamily: fonts.sansMedium, fontSize: 13 }}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditField(null)}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                onPress={() => startEdit('translation')}
+              >
+                <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: fonts.sansMedium }}>
+                  {word.translation ? 'Edit translation' : 'Add translation'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                onPress={() => startEdit('definition')}
+              >
+                <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: fonts.sansMedium }}>
+                  {word.definition ? 'Edit definition' : 'Add definition'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {word.definition && (
             <Text style={[styles.detailText, { color: colors.text, fontFamily: fonts.sans }]}>Definition: {word.definition}</Text>
           )}
@@ -222,11 +362,14 @@ function WordRow({
           )}
           <Text style={[styles.detailDate, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
             Added {new Date(word.createdAt).toLocaleDateString()}
-            {word.nextReviewAt && ` · Review: ${new Date(word.nextReviewAt).toLocaleDateString()}`}
+            {word.totalReviews > 0 && ` · ${word.totalReviews} reviews (${word.correctReviews > 0 ? Math.round(word.correctReviews / word.totalReviews * 100) : 0}%)`}
+            {word.nextReviewAt && ` · Due: ${new Date(word.nextReviewAt).toLocaleDateString()}`}
           </Text>
-          <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-            <Ionicons name="trash-outline" size={14} color="#DC2626" style={{ marginRight: 4 }} />
-            <Text style={[styles.deleteBtnText, { fontFamily: fonts.sansMedium }]}>Delete Word</Text>
+          <TouchableOpacity style={[styles.deleteBtn, confirmingDelete && { backgroundColor: '#DC2626' }]} onPress={handleDeletePress}>
+            <Ionicons name="trash-outline" size={14} color={confirmingDelete ? '#fff' : '#DC2626'} style={{ marginRight: 4 }} />
+            <Text style={[styles.deleteBtnText, { fontFamily: fonts.sansMedium }, confirmingDelete && { color: '#fff' }]}>
+              {confirmingDelete ? 'Confirm Delete' : 'Delete Word'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -251,10 +394,14 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20 },
   statLabel: { fontSize: 11, marginTop: 2 },
 
-  // Review button
-  reviewBtn: {
-    marginHorizontal: 16,
+  // Review buttons
+  reviewRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
     marginTop: 12,
+    gap: 8,
+  },
+  reviewBtn: {
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -279,16 +426,18 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 13 },
 
-  // Search
+  // Search + Sort
+  searchSortRow: { paddingHorizontal: 16, marginTop: 12 },
   searchInput: {
-    margin: 16,
-    marginBottom: 8,
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
     fontSize: 14,
   },
+  sortRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  sortChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  sortText: { fontSize: 12 },
 
   // List
   listContent: { paddingBottom: 20 },
@@ -313,6 +462,20 @@ const styles = StyleSheet.create({
   detailSource: { fontSize: 12, marginBottom: 4 },
   detailHint: { fontSize: 12, marginBottom: 4, fontStyle: 'italic' },
   detailDate: { fontSize: 11, marginBottom: 8 },
+  editInput: {
+    flex: 1,
+    height: 36,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    fontSize: 13,
+  },
+  editSaveBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    justifyContent: 'center',
+  },
   deleteBtn: {
     alignSelf: 'flex-start',
     paddingVertical: 6,
