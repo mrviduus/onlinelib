@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, FlatList } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, FlatList, Share, TouchableOpacity } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -77,6 +77,16 @@ export default function AuthorScreen() {
         {author.bio && (
           <Text style={[styles.bio, { color: colors.text }]}>{author.bio}</Text>
         )}
+
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10 }}
+            onPress={() => Share.share({ message: `${author.name} — Read on TextStack: https://textstack.app/en/authors/${slug}` }).catch(() => {})}
+          >
+            <Ionicons name="share-outline" size={18} color={colors.text} />
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.text }}>Share</Text>
+          </TouchableOpacity>
+        </View>
 
         {author.editions.length > 0 && (
           <>

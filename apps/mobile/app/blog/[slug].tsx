@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Share } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -110,7 +110,7 @@ export default function BlogPostScreen() {
             {post.content.replace(/<[^>]*>/g, '')}
           </Text>
 
-          {/* Like */}
+          {/* Like + Share */}
           <View style={styles.likeRow}>
             <TouchableOpacity
               style={[styles.likeButton, { borderColor: liked ? colors.primary : colors.border }]}
@@ -120,6 +120,13 @@ export default function BlogPostScreen() {
             >
               <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color={liked ? colors.primary : colors.textSecondary} />
               <Text style={[styles.likeText, { color: liked ? colors.primary : colors.textSecondary }]}>{likeCount}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.likeButton, { borderColor: colors.border }]}
+              onPress={() => Share.share({ message: `${post.title} — Read on TextStack: https://textstack.app/en/blog/${slug}` }).catch(() => {})}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
