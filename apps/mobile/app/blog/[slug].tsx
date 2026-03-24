@@ -7,12 +7,14 @@ import { blogApi, getStorageUrl } from '@textstack/shared'
 import type { BlogPostDetailDto, BlogCommentDto } from '@textstack/shared/api/blog'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 
 export default function BlogPostScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [post, setPost] = useState<BlogPostDetailDto | null>(null)
   const [comments, setComments] = useState<BlogCommentDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +26,7 @@ export default function BlogPostScreen() {
   useEffect(() => {
     if (!slug) return
     Promise.all([
-      blogApi.getBlogPost(slug, 'en'),
+      blogApi.getBlogPost(slug, language),
     ]).then(([p]) => {
       setPost(p)
       setLiked(p.isLikedByMe)
@@ -34,7 +36,7 @@ export default function BlogPostScreen() {
       setComments(c.items)
     }).catch(e => console.error('Failed to load blog post:', e))
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, language])
 
   const handleLike = async () => {
     if (!post) return

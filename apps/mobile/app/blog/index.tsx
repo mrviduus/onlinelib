@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { blogApi, getStorageUrl } from '@textstack/shared'
 import type { BlogPostListItemDto } from '@textstack/shared/api/blog'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 
 const PAGE_SIZE = 10
@@ -13,6 +14,7 @@ const PAGE_SIZE = 10
 export default function BlogScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [posts, setPosts] = useState<BlogPostListItemDto[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -28,7 +30,7 @@ export default function BlogScreen() {
 
   const fetchPosts = useCallback(async (offset = 0, filterTag = '') => {
     try {
-      const res = await blogApi.getBlogPosts({ language: 'en', limit: PAGE_SIZE, offset, tag: filterTag || undefined })
+      const res = await blogApi.getBlogPosts({ language, limit: PAGE_SIZE, offset, tag: filterTag || undefined })
       if (offset === 0) {
         setPosts(res.items)
       } else {
@@ -39,9 +41,9 @@ export default function BlogScreen() {
       console.error('Failed to load blog posts:', e)
     }
     setLoading(false)
-  }, [])
+  }, [language])
 
-  useEffect(() => { fetchPosts() }, [])
+  useEffect(() => { fetchPosts() }, [language])
 
   const handleTagFilter = (newTag: string) => {
     const t = tag === newTag ? '' : newTag
@@ -70,6 +72,15 @@ export default function BlogScreen() {
             <Text style={[styles.metaText, { color: colors.textSecondary }]}>{item.authorName}</Text>
             {date && <Text style={[styles.metaText, { color: colors.textSecondary }]}>{date}</Text>}
           </View>
+          {item.tags && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+              {item.tags.split(',').map(t => t.trim()).filter(Boolean).map((t, i) => (
+                <View key={i} style={[styles.cardTag, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.primary }}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Ionicons name="heart-outline" size={14} color={colors.textSecondary} />
@@ -145,4 +156,5 @@ const styles = StyleSheet.create({
   statText: { fontFamily: fonts.sans, fontSize: 12 },
   emptyText: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', paddingVertical: 40 },
   tagChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 6 },
+  cardTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
 })

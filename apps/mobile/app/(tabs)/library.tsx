@@ -6,7 +6,7 @@ import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi, reviewsApi, getStorageUrl,
+  libraryApi, readingProgressApi, userBooksApi, reviewsApi, getStorageUrl, createBooksApi,
 } from '@textstack/shared'
 import type { UserLibraryItem, UserBookDto, ReadingProgressDto, UserRatingDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
@@ -144,7 +144,7 @@ export default function LibraryScreen() {
       </View>
 
       {tab === 'saved' ? (
-        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} refreshing={refreshing} onRefresh={onRefresh} />
+        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} />
       ) : tab === 'uploads' ? (
         <UploadsList books={userBooks} progressMap={userBookProgressMap} refreshing={refreshing} onRefresh={onRefresh} />
       ) : (
@@ -166,25 +166,51 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-function SavedList({ library, setLibrary, progressMap, refreshing, onRefresh }: {
-  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; refreshing: boolean; onRefresh: () => void
+function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshing, onRefresh }: {
+  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>; refreshing: boolean; onRefresh: () => void
 }) {
   const router = useRouter()
   const { colors } = useTheme()
   const [sort, setSort] = useState<SavedSort>('recent')
 
-  const handleRemove = (item: UserLibraryItem) => {
-    Alert.alert('Remove from Library', `Remove "${item.title}" from your library?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive', onPress: async () => {
-          try {
-            await libraryApi.removeFromLibrary(item.editionId)
-            setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
-          } catch {}
-        },
+  const handleAction = (item: UserLibraryItem) => {
+    const progress = progressMap[item.editionId]
+    const isRead = progress?.percent === 1
+    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = []
+
+    buttons.push({
+      text: isRead ? 'Mark as unread' : 'Mark as read',
+      onPress: async () => {
+        try {
+          const api = createBooksApi('en')
+          const book = await api.getBook(item.slug)
+          if (book.chapters.length === 0) return
+          const ch = isRead ? book.chapters[0] : book.chapters[book.chapters.length - 1]
+          await readingProgressApi.updateProgress(item.editionId, {
+            chapterId: ch.id,
+            chapterSlug: ch.slug,
+            progress: isRead ? 0 : 1,
+          })
+          setProgressMap(prev => ({
+            ...prev,
+            [item.editionId]: { ...prev[item.editionId], editionId: item.editionId, percent: isRead ? 0 : 1, chapterSlug: ch.slug, updatedAt: new Date().toISOString() },
+          }))
+        } catch {}
       },
-    ])
+    })
+
+    buttons.push({
+      text: 'Remove from Library', style: 'destructive',
+      onPress: async () => {
+        try {
+          await libraryApi.removeFromLibrary(item.editionId)
+          setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
+        } catch {}
+      },
+    })
+
+    buttons.push({ text: 'Cancel', style: 'cancel' })
+    Alert.alert(item.title, undefined, buttons)
   }
 
   if (library.length === 0) {
@@ -238,7 +264,7 @@ function SavedList({ library, setLibrary, progressMap, refreshing, onRefresh }: 
             <TouchableOpacity
               style={[styles.bookRow, { borderBottomColor: colors.border }]}
               onPress={() => router.push(`/book/${item.slug}`)}
-              onLongPress={() => handleRemove(item)}
+              onLongPress={() => handleAction(item)}
               activeOpacity={0.85}
             >
               <View style={styles.coverWrapper}>
@@ -250,14 +276,19 @@ function SavedList({ library, setLibrary, progressMap, refreshing, onRefresh }: 
               </View>
               <View style={styles.bookInfo}>
                 <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
-                {pct > 0 && (
+                {pct >= 100 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                    <Text style={{ fontSize: 12, color: colors.success, fontFamily: fonts.sansMedium }}>Read</Text>
+                  </View>
+                ) : pct > 0 ? (
                   <View style={styles.progressRow}>
                     <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                       <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
                     </View>
                     <Text style={[styles.progressText, { color: colors.textSecondary }]}>{pct}%</Text>
                   </View>
-                )}
+                ) : null}
                 {lastRead && (
                   <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
                     Last read {formatTimeAgo(lastRead)}
