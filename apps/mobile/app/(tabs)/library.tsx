@@ -19,7 +19,7 @@ type Tab = 'saved' | 'uploads' | 'reviews'
 type UserBookProgress = { chapterSlug: string | null; percent: number | null }
 
 export default function LibraryScreen() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { colors } = useTheme()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
@@ -128,6 +128,9 @@ export default function LibraryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {user?.email && (
+        <Text style={[styles.emailText, { color: colors.textSecondary }]}>{user.email}</Text>
+      )}
       <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`], ['reviews', `Reviews (${reviews.length})`]] as [Tab, string][]).map(([t, label]) => (
           <TouchableOpacity
@@ -598,6 +601,7 @@ function StatusBadge({ status, chapterCount, createdAt }: { status: string; chap
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  emailText: { fontFamily: fonts.sans, fontSize: 12, textAlign: 'center', paddingTop: 8, paddingBottom: 2 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, gap: 8 },
   emptyTitle: { fontFamily: fonts.serifBold, fontSize: 22, marginTop: 8 },
   emptyText: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center' },
