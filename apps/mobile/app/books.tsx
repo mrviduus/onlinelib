@@ -1,15 +1,20 @@
-import { useEffect, useState, useCallback } from 'react'
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
-import type { Edition } from '@textstack/shared'
+import type { Edition, Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
 import { fonts } from '../src/theme/typography'
 import { BookCard } from '../src/components/ui/BookCard'
 
 const LANG = 'en'
 const PAGE_SIZE = 20
+const SORT_OPTIONS = [
+  { key: '', label: 'Recent' },
+  { key: 'title', label: 'Title' },
+  { key: 'oldest', label: 'Oldest' },
+] as const
 
 export default function BooksScreen() {
   const router = useRouter()
@@ -20,18 +25,32 @@ export default function BooksScreen() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('')
+  const [genre, setGenre] = useState('')
+  const [genres, setGenres] = useState<Genre[]>([])
+  const lastFetchRef = useRef(0)
+
+  useEffect(() => {
+    createBooksApi(LANG).getGenres()
+      .then(res => setGenres(res.items))
+      .catch(() => {})
+  }, [])
 
   const fetchBooks = useCallback(async (reset = true) => {
     const api = createBooksApi(LANG)
     const offset = reset ? 0 : books.length
     if (reset) setLoading(true)
     else setLoadingMore(true)
+    const id = ++lastFetchRef.current
     try {
       const res = await api.getBooks({
         limit: PAGE_SIZE,
         offset,
         search: query || undefined,
+        genre: genre || undefined,
+        sort: sort || undefined,
       })
+      if (id !== lastFetchRef.current) return
       setBooks(prev => reset ? res.items : [...prev, ...res.items])
       setTotal(res.total)
     } catch (e) {
@@ -40,13 +59,15 @@ export default function BooksScreen() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [query, books.length])
+  }, [query, sort, genre, books.length])
 
-  useEffect(() => { fetchBooks(true) }, [query])
+  useEffect(() => { fetchBooks(true) }, [query, sort, genre])
 
   const loadMore = () => {
     if (!loadingMore && books.length < total) fetchBooks(false)
   }
+
+  const hasFilters = !!(query || genre || sort)
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgWarm }]}>
@@ -59,7 +80,7 @@ export default function BooksScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Search */}
+      {/* Search + Sort */}
       <View style={styles.controls}>
         <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
@@ -76,7 +97,39 @@ export default function BooksScreen() {
             </TouchableOpacity>
           )}
         </View>
+        <View style={styles.sortRow}>
+          {SORT_OPTIONS.map(s => (
+            <TouchableOpacity
+              key={s.key}
+              onPress={() => setSort(s.key)}
+              style={[styles.sortChip, { backgroundColor: sort === s.key ? colors.primary + '18' : colors.surface, borderColor: sort === s.key ? colors.primary : colors.border }]}
+            >
+              <Text style={[styles.sortChipText, { color: sort === s.key ? colors.primary : colors.textSecondary }]}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
+
+      {/* Genre chips */}
+      {genres.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreRow}>
+          <TouchableOpacity
+            onPress={() => setGenre('')}
+            style={[styles.genreChip, { backgroundColor: !genre ? colors.primary : colors.surface, borderColor: !genre ? colors.primary : colors.border }]}
+          >
+            <Text style={[styles.genreChipText, { color: !genre ? '#fff' : colors.textSecondary }]}>All</Text>
+          </TouchableOpacity>
+          {genres.map(g => (
+            <TouchableOpacity
+              key={g.slug}
+              onPress={() => setGenre(genre === g.slug ? '' : g.slug)}
+              style={[styles.genreChip, { backgroundColor: genre === g.slug ? colors.primary : colors.surface, borderColor: genre === g.slug ? colors.primary : colors.border }]}
+            >
+              <Text style={[styles.genreChipText, { color: genre === g.slug ? '#fff' : colors.textSecondary }]}>{g.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Books grid */}
       <FlatList
@@ -89,9 +142,16 @@ export default function BooksScreen() {
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
           !loading ? (
-            <Text style={[styles.empty, { color: colors.textSecondary }]}>
-              {query ? 'No books found' : 'No books yet'}
-            </Text>
+            <View style={styles.emptyBox}>
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                {hasFilters ? 'No books found' : 'No books yet'}
+              </Text>
+              {hasFilters && (
+                <TouchableOpacity onPress={() => { setQuery(''); setGenre(''); setSort('') }}>
+                  <Text style={[styles.clearBtn, { color: colors.primary }]}>Clear filters</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null
         }
         ListFooterComponent={
@@ -136,8 +196,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontFamily: fonts.sans, fontSize: 15, padding: 0 },
+  sortRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  sortChipText: { fontFamily: fonts.sansMedium, fontSize: 13 },
+  genreRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
+  genreChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  genreChipText: { fontFamily: fonts.sansMedium, fontSize: 12 },
   grid: { padding: 16 },
   gridRow: { justifyContent: 'space-between' },
-  empty: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center', marginTop: 40 },
+  emptyBox: { alignItems: 'center', marginTop: 40, gap: 12 },
+  empty: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center' },
+  clearBtn: { fontFamily: fonts.sansMedium, fontSize: 14 },
   loadingMore: { fontFamily: fonts.sans, fontSize: 13, textAlign: 'center', padding: 16 },
 })
