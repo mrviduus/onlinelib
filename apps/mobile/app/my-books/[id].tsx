@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Share, Linking } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
@@ -84,6 +84,21 @@ export default function UserBookDetailScreen() {
         await userBooksApi.markUserBookComplete(id!)
         setBook({ ...book, completedAt: new Date().toISOString() })
       }
+    } catch {}
+  }
+
+  const handleDownloadEpub = async () => {
+    try {
+      const { baseUrl } = getApiConfig()
+      await Linking.openURL(`${baseUrl}/me/books/${id}/export/epub`)
+    } catch {}
+  }
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `${book?.title || 'Book'}${book?.author ? ` — ${book.author}` : ''}`,
+      })
     } catch {}
   }
 
@@ -217,6 +232,14 @@ export default function UserBookDetailScreen() {
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
                 {book.completedAt ? 'Mark as unread' : 'Mark as read'}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleDownloadEpub}>
+              <Ionicons name="download-outline" size={18} color={colors.text} />
+              <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Download EPUB</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleShare}>
+              <Ionicons name="share-outline" size={18} color={colors.text} />
+              <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Share</Text>
             </TouchableOpacity>
           </View>
         )}
