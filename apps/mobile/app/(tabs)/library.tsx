@@ -6,15 +6,15 @@ import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi, getStorageUrl,
+  libraryApi, readingProgressApi, userBooksApi, reviewsApi, getStorageUrl,
 } from '@textstack/shared'
-import type { UserLibraryItem, UserBookDto, ReadingProgressDto } from '@textstack/shared'
+import type { UserLibraryItem, UserBookDto, ReadingProgressDto, UserRatingDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
-type Tab = 'saved' | 'uploads'
+type Tab = 'saved' | 'uploads' | 'reviews'
 
 type UserBookProgress = { chapterSlug: string | null; percent: number | null }
 
@@ -27,6 +27,7 @@ export default function LibraryScreen() {
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
   const [userBookProgressMap, setUserBookProgressMap] = useState<Record<string, UserBookProgress>>({})
+  const [reviews, setReviews] = useState<UserRatingDto[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -34,13 +35,15 @@ export default function LibraryScreen() {
   const loadData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const [lib, progress, books] = await Promise.all([
+      const [lib, progress, books, ratings] = await Promise.all([
         libraryApi.getLibrary(),
         readingProgressApi.getAllProgress(),
         userBooksApi.getUserBooks(),
+        reviewsApi.getAllRatings().catch(() => [] as UserRatingDto[]),
       ])
       setLibrary(lib)
       setUserBooks(books)
+      setReviews(ratings.filter(r => r.reviewText))
       const map: Record<string, ReadingProgressDto> = {}
       for (const p of progress) map[p.editionId] = p
       setProgressMap(map)
@@ -126,23 +129,23 @@ export default function LibraryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-        {(['saved', 'uploads'] as Tab[]).map(t => (
+        {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`], ['reviews', `Reviews (${reviews.length})`]] as [Tab, string][]).map(([t, label]) => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
             onPress={() => setTab(t)}
           >
-            <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>
-              {t === 'saved' ? `Saved (${library.length})` : `Uploads (${userBooks.length})`}
-            </Text>
+            <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {tab === 'saved' ? (
         <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} refreshing={refreshing} onRefresh={onRefresh} />
-      ) : (
+      ) : tab === 'uploads' ? (
         <UploadsList books={userBooks} progressMap={userBookProgressMap} refreshing={refreshing} onRefresh={onRefresh} />
+      ) : (
+        <ReviewsList reviews={reviews} refreshing={refreshing} onRefresh={onRefresh} />
       )}
     </View>
   )
@@ -372,6 +375,81 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
         />
       )}
     </View>
+  )
+}
+
+function ReviewsList({ reviews, refreshing, onRefresh }: {
+  reviews: UserRatingDto[]; refreshing: boolean; onRefresh: () => void
+}) {
+  const router = useRouter()
+  const { colors } = useTheme()
+
+  if (reviews.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Ionicons name="star-outline" size={48} color={colors.textSecondary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No reviews yet</Text>
+        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Rate and review books you've read</Text>
+      </View>
+    )
+  }
+
+  return (
+    <FlatList
+      data={reviews}
+      keyExtractor={item => item.id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      contentContainerStyle={styles.listContent}
+      renderItem={({ item }) => {
+        const stars = '★'.repeat(Math.round(item.rating)) + '☆'.repeat(5 - Math.round(item.rating))
+        return (
+          <TouchableOpacity
+            style={[styles.bookRow, { borderBottomColor: colors.border }]}
+            onPress={() => {
+              if (item.editionSlug && item.editionLanguage) router.push(`/book/${item.editionSlug}`)
+            }}
+            activeOpacity={0.85}
+          >
+            <View style={styles.coverWrapper}>
+              <Image
+                source={item.editionCoverPath ? getStorageUrl(item.editionCoverPath) : undefined}
+                style={[styles.cover, { backgroundColor: colors.border }]}
+                contentFit="cover"
+              />
+            </View>
+            <View style={styles.bookInfo}>
+              <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
+                {item.editionTitle || item.userBookTitle || 'Unknown Book'}
+              </Text>
+              <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: '#F59E0B', marginTop: 4 }}>{stars}</Text>
+              {item.title && (
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text, marginTop: 4 }} numberOfLines={1}>
+                  {item.title}
+                </Text>
+              )}
+              {item.reviewText && (
+                <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 4, lineHeight: 18 }} numberOfLines={3}>
+                  {item.reviewText}
+                </Text>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="thumbs-up-outline" size={12} color={colors.textSecondary} />
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>{item.helpfulCount}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="chatbubble-outline" size={12} color={colors.textSecondary} />
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>{item.commentCount}</Text>
+                </View>
+                <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>
+                  {new Date(item.updatedAt).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )
+      }}
+    />
   )
 }
 
