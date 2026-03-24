@@ -279,6 +279,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         mark.style.backgroundColor = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
         mark.style.borderRadius = '2px';
         mark.style.cursor = 'pointer';
+        mark.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
+        });
         try { range.surroundContents(mark); } catch(e) {}
         break;
       }

@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
-import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
+import type { UserBookChapterDto, BookmarkDto, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
 import { useAuth } from '../../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../../src/hooks/useReaderSettings'
@@ -46,6 +46,7 @@ export default function UserBookReaderScreen() {
   const progressRef = useRef(0)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
+  const highlightsRef = useRef<PublicHighlight[]>([])
   const { updateProgress: updateSessionProgress } = useReadingSession({
     editionId: null,
     userBookId: bookId || null,
@@ -133,6 +134,32 @@ export default function UserBookReaderScreen() {
       } else if (data.type === 'search') {
         setSearchMatchCount(data.matchCount || 0)
         setSearchCurrentMatch(data.currentMatch || 0)
+      } else if (data.type === 'highlightTap') {
+        const hl = highlightsRef.current.find(h => h.id === data.highlightId)
+        if (hl) {
+          Alert.prompt(
+            'Highlight Note',
+            `"${hl.selectedText.substring(0, 60)}${hl.selectedText.length > 60 ? '...' : ''}"`,
+            [
+              { text: 'Delete', style: 'destructive', onPress: async () => {
+                try {
+                  await highlightsApi.deleteHighlight(hl.id)
+                  injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
+                  highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
+                } catch {}
+              }},
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Save', onPress: async (noteText?: string) => {
+                try {
+                  const updated = await highlightsApi.updateHighlight(hl.id, { noteText: noteText?.trim() || null })
+                  highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+                } catch {}
+              }},
+            ],
+            'plain-text',
+            hl.noteText || '',
+          )
+        }
       } else if (data.type === 'selection') {
         if (data.text) {
           setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
@@ -177,6 +204,7 @@ export default function UserBookReaderScreen() {
         selectedText: selection.text,
       })
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(selection.text)}, ${JSON.stringify(color)})`)
+      highlightsRef.current = [...highlightsRef.current, hl]
       setSelection(null)
     } catch (e) {
       console.error('Failed to create highlight:', e)
@@ -189,6 +217,7 @@ export default function UserBookReaderScreen() {
     highlightsApi.getUserBookHighlights(bookId)
       .then(highlights => {
         const chapterHighlights = highlights.filter(h => h.userChapterId === chapter.id)
+        highlightsRef.current = chapterHighlights
         for (const h of chapterHighlights) {
           injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
         }

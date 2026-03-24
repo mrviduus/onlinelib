@@ -1,4 +1,5 @@
 import { View, TouchableOpacity, StyleSheet } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../context/ThemeContext'
 
@@ -23,10 +24,14 @@ interface SelectionActionBarProps {
 }
 
 export function SelectionActionBar({
-  isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord, onHighlight,
+  selectedText, isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord, onHighlight,
   isSpeaking, wordSaved, isAuthenticated,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
+
+  const handleCopy = () => {
+    if (selectedText) Clipboard.setStringAsync(selectedText)
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -44,6 +49,9 @@ export function SelectionActionBar({
         </>
       )}
 
+      <TouchableOpacity style={styles.btn} onPress={handleCopy}>
+        <Ionicons name="copy-outline" size={18} color={colors.text} />
+      </TouchableOpacity>
       {!isMultiWord && (
         <TouchableOpacity style={styles.btn} onPress={onDictionary}>
           <Ionicons name="book-outline" size={18} color={colors.text} />
