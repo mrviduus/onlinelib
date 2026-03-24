@@ -285,6 +285,7 @@ export interface UserBookDto {
   status: string
   chapterCount: number
   createdAt: string
+  completedAt: string | null
   errorMessage: string | null
 }
 

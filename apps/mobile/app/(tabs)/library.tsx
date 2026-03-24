@@ -278,11 +278,79 @@ function SavedList({ library, setLibrary, progressMap, refreshing, onRefresh }: 
   )
 }
 
+type UploadSort = 'recent' | 'title' | 'progress'
+
 function UploadsList({ books, progressMap, refreshing, onRefresh }: {
   books: UserBookDto[]; progressMap: Record<string, UserBookProgress>; refreshing: boolean; onRefresh: () => void
 }) {
   const router = useRouter()
   const { colors } = useTheme()
+  const [sort, setSort] = useState<UploadSort>('recent')
+
+  const handleBookAction = (item: UserBookDto) => {
+    const s = item.status.toLowerCase()
+    const isReady = s === 'ready' || s === 'completed'
+    const isFailed = s === 'failed'
+    const isProcessing = !isReady && !isFailed
+
+    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = []
+
+    if (isReady) {
+      buttons.push({ text: 'View Details', onPress: () => router.push(`/my-books/${item.id}`) })
+      if (!item.completedAt) {
+        buttons.push({
+          text: 'Mark as Read', onPress: async () => {
+            try { await userBooksApi.markUserBookComplete(item.id); onRefresh() } catch {}
+          },
+        })
+      } else {
+        buttons.push({
+          text: 'Mark as Unread', onPress: async () => {
+            try { await userBooksApi.unmarkUserBookComplete(item.id); onRefresh() } catch {}
+          },
+        })
+      }
+    }
+    if (isFailed) {
+      buttons.push({
+        text: 'Retry', onPress: async () => {
+          try { await userBooksApi.retryUserBook(item.id); onRefresh() } catch {}
+        },
+      })
+    }
+    if (isProcessing) {
+      buttons.push({
+        text: 'Cancel', style: 'destructive', onPress: async () => {
+          try { await userBooksApi.cancelUserBook(item.id); onRefresh() } catch {}
+        },
+      })
+    }
+    buttons.push({
+      text: 'Delete', style: 'destructive', onPress: () => {
+        Alert.alert('Delete Book', `Delete "${item.title || 'Untitled'}"? This cannot be undone.`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete', style: 'destructive', onPress: async () => {
+              try { await userBooksApi.deleteUserBook(item.id); onRefresh() } catch {}
+            },
+          },
+        ])
+      },
+    })
+    buttons.push({ text: 'Cancel', style: 'cancel' })
+
+    Alert.alert(item.title || 'Untitled', undefined, buttons)
+  }
+
+  const sorted = [...books].sort((a, b) => {
+    if (sort === 'title') return (a.title || '').localeCompare(b.title || '')
+    if (sort === 'progress') {
+      const pa = progressMap[a.id]?.percent || 0
+      const pb = progressMap[b.id]?.percent || 0
+      return (pb ?? 0) - (pa ?? 0)
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
 
   return (
     <View style={{ flex: 1 }}>
@@ -294,7 +362,21 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
         <Text style={[styles.uploadBtnText, { color: colors.primary }]}>Upload Book</Text>
       </TouchableOpacity>
 
-      {books.length === 0 ? (
+      {books.length > 1 && (
+        <View style={styles.savedSortRow}>
+          {([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setSort(key)}
+              style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
+            >
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {sorted.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No uploaded books</Text>
@@ -302,7 +384,7 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
         </View>
       ) : (
         <FlatList
-          data={books}
+          data={sorted}
           keyExtractor={item => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={styles.listContent}
@@ -318,7 +400,7 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
               <TouchableOpacity
                 style={[styles.bookRow, { borderBottomColor: colors.border }]}
                 onPress={() => { if (isReady) router.push(`/my-books/${item.id}`) }}
-                disabled={!isReady}
+                onLongPress={() => handleBookAction(item)}
                 activeOpacity={0.85}
               >
                 <View style={styles.coverWrapper}>
@@ -339,7 +421,14 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
                   </Text>
                   {item.author && <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{item.author}</Text>}
 
-                  {isReady && pct > 0 && (
+                  {isReady && item.completedAt && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                      <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.success }}>Read</Text>
+                    </View>
+                  )}
+
+                  {isReady && !item.completedAt && pct > 0 && (
                     <View style={styles.progressRow}>
                       <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                         <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
@@ -348,7 +437,7 @@ function UploadsList({ books, progressMap, refreshing, onRefresh }: {
                     </View>
                   )}
 
-                  <StatusBadge status={item.status} chapterCount={item.chapterCount} createdAt={item.createdAt} />
+                  {!item.completedAt && <StatusBadge status={item.status} chapterCount={item.chapterCount} createdAt={item.createdAt} />}
                   {isFailed && item.errorMessage && (
                     <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.error, marginTop: 4 }} numberOfLines={2}>
                       {item.errorMessage.substring(0, 80)}{item.errorMessage.length > 80 ? '...' : ''}
