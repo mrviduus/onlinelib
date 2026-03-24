@@ -23,8 +23,12 @@ const STAGE_NAMES = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
   const router = useRouter()
-  const params = useLocalSearchParams<{ mode?: string }>()
+  const params = useLocalSearchParams<{ mode?: string; limit?: string }>()
   const mode = params.mode === 'practice' ? 'practice' : 'srs'
+  const batchSize = (() => {
+    const v = parseInt(params.limit || '20', 10)
+    return [10, 20, 50].includes(v) ? v : 20
+  })()
   const [state, setState] = useState<SessionState>('loading')
   const [cards, setCards] = useState<ReviewCardDto[]>([])
   const [index, setIndex] = useState(0)
@@ -39,7 +43,7 @@ export default function VocabularyReviewScreen() {
     setState('loading')
     setIndex(0)
     setStats({ reviewed: 0, correct: 0 })
-    vocabularyApi.getReviewQueue(20, mode)
+    vocabularyApi.getReviewQueue(batchSize, mode)
       .then(res => {
         setCards(res.cards)
         setDueCount(res.totalDue)

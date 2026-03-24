@@ -1,15 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
 import * as DocumentPicker from 'expo-document-picker'
 import { userBooksApi } from '@textstack/shared'
 import { colors } from '../../src/theme/colors'
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
 export default function UploadScreen() {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
+
+  useEffect(() => {
+    userBooksApi.getStorageQuota()
+      .then(setQuota)
+      .catch(() => {})
+  }, [])
 
   const pickAndUpload = async () => {
     setError(null)
@@ -46,6 +60,10 @@ export default function UploadScreen() {
     }
   }
 
+  const usedPercent = quota && quota.limitBytes > 0
+    ? Math.min((quota.usedBytes / quota.limitBytes) * 100, 100)
+    : 0
+
   return (
     <>
       <Stack.Screen options={{ headerShown: true, title: 'Upload Book' }} />
@@ -53,6 +71,17 @@ export default function UploadScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Upload a Book</Text>
           <Text style={styles.subtitle}>Supported formats: EPUB, PDF, FB2</Text>
+
+          {quota && (
+            <View style={styles.quotaBox}>
+              <View style={styles.quotaBar}>
+                <View style={[styles.quotaFill, { width: `${usedPercent}%` as any }]} />
+              </View>
+              <Text style={styles.quotaText}>
+                {formatBytes(quota.usedBytes)} / {formatBytes(quota.limitBytes)} used
+              </Text>
+            </View>
+          )}
 
           {uploading ? (
             <View style={styles.uploadingBox}>
@@ -77,6 +106,17 @@ const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8 },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 32 },
+  quotaBox: { alignItems: 'center', marginBottom: 24, width: '100%', maxWidth: 240 },
+  quotaBar: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.textSecondary + '33',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  quotaFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
+  quotaText: { fontSize: 12, color: colors.textSecondary },
   pickBtn: {
     backgroundColor: colors.primary,
     paddingVertical: 16,
