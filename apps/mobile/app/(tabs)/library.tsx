@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -140,7 +140,7 @@ export default function LibraryScreen() {
       </View>
 
       {tab === 'saved' ? (
-        <SavedList library={library} progressMap={progressMap} refreshing={refreshing} onRefresh={onRefresh} />
+        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} refreshing={refreshing} onRefresh={onRefresh} />
       ) : (
         <UploadsList books={userBooks} progressMap={userBookProgressMap} refreshing={refreshing} onRefresh={onRefresh} />
       )}
@@ -160,12 +160,26 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-function SavedList({ library, progressMap, refreshing, onRefresh }: {
-  library: UserLibraryItem[]; progressMap: Record<string, ReadingProgressDto>; refreshing: boolean; onRefresh: () => void
+function SavedList({ library, setLibrary, progressMap, refreshing, onRefresh }: {
+  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; refreshing: boolean; onRefresh: () => void
 }) {
   const router = useRouter()
   const { colors } = useTheme()
   const [sort, setSort] = useState<SavedSort>('recent')
+
+  const handleRemove = (item: UserLibraryItem) => {
+    Alert.alert('Remove from Library', `Remove "${item.title}" from your library?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          try {
+            await libraryApi.removeFromLibrary(item.editionId)
+            setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
+          } catch {}
+        },
+      },
+    ])
+  }
 
   if (library.length === 0) {
     return (
@@ -218,6 +232,7 @@ function SavedList({ library, progressMap, refreshing, onRefresh }: {
             <TouchableOpacity
               style={[styles.bookRow, { borderBottomColor: colors.border }]}
               onPress={() => router.push(`/book/${item.slug}`)}
+              onLongPress={() => handleRemove(item)}
               activeOpacity={0.85}
             >
               <View style={styles.coverWrapper}>
