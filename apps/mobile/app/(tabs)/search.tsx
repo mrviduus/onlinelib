@@ -10,6 +10,25 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
+/** Renders HTML search highlights with <b> tags as bold Text spans */
+function HighlightText({ html, style, boldStyle, numberOfLines }: {
+  html: string; style: any; boldStyle?: any; numberOfLines?: number
+}) {
+  const parts = html.split(/(<b>.*?<\/b>)/g)
+  return (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {parts.map((part, i) => {
+        if (part.startsWith('<b>') && part.endsWith('</b>')) {
+          const text = part.slice(3, -4)
+          return <Text key={i} style={[{ fontWeight: '700' }, boldStyle]}>{text}</Text>
+        }
+        // Strip any remaining tags
+        return part.replace(/<[^>]+>/g, '')
+      })}
+    </Text>
+  )
+}
+
 const LANG = 'en'
 const RECENT_KEY = 'textstack_recent_searches'
 const MAX_RECENT = 8
@@ -131,7 +150,7 @@ export default function SearchScreen() {
 
   const renderGroup = ({ item }: { item: EditionGroup }) => {
     const isExpanded = expandedEditions.has(item.editionId)
-    const highlight = item.bestMatch.highlights?.[0]?.replace(/<[^>]+>/g, '') || ''
+    const highlightHtml = item.bestMatch.highlights?.[0] || ''
 
     return (
       <TouchableOpacity
@@ -149,8 +168,8 @@ export default function SearchScreen() {
           <Text style={[styles.chapter, { color: colors.textSecondary }]} numberOfLines={1}>
             Ch. {item.bestMatch.chapterNumber}: {item.bestMatch.chapterTitle}
           </Text>
-          {highlight ? (
-            <Text style={[styles.highlight, { color: colors.textSecondary }]} numberOfLines={2}>{highlight}</Text>
+          {highlightHtml ? (
+            <HighlightText html={highlightHtml} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
           ) : null}
 
           {item.otherMatches.length > 0 && (
@@ -172,9 +191,7 @@ export default function SearchScreen() {
                 Ch. {m.chapterNumber}: {m.chapterTitle}
               </Text>
               {m.highlights?.[0] && (
-                <Text style={[styles.highlight, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {m.highlights[0].replace(/<[^>]+>/g, '')}
-                </Text>
+                <HighlightText html={m.highlights[0]} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
               )}
             </View>
           ))}
