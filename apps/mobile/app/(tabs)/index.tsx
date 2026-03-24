@@ -81,17 +81,23 @@ export default function HomeScreen() {
       {/* Stats Bar */}
       {catalogStats && (
         <View style={[styles.statsBar, { borderColor: colors.border }]}>
-          <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-            {catalogStats.books} books
-          </Text>
+          <TouchableOpacity onPress={() => router.push('/books')}>
+            <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+              {catalogStats.books} books
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
-          <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-            {catalogStats.authors} authors
-          </Text>
+          <TouchableOpacity onPress={() => router.push('/authors')}>
+            <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+              {catalogStats.authors} authors
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
-          <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-            {catalogStats.genres} genres
-          </Text>
+          <TouchableOpacity onPress={() => router.push('/genres')}>
+            <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+              {catalogStats.genres} genres
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
