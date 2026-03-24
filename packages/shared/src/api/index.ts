@@ -1,4 +1,4 @@
-export { initApi, getStorageUrl, authFetch, publicFetch, ApiError } from './client'
+export { initApi, getApiConfig, getStorageUrl, authFetch, publicFetch, ApiError } from './client'
 export type { ApiConfig } from './client'
 
 export { createBooksApi } from './books'

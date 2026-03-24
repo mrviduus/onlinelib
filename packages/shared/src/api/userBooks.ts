@@ -64,6 +64,18 @@ export function getUserBookBookmarks(bookId: string) {
   return authFetch<BookmarkDto[]>(`/me/books/${bookId}/bookmarks`)
 }
 
+export function createUserBookBookmark(bookId: string, data: { chapterId: string; locator: string; title?: string }) {
+  return authFetch<BookmarkDto>(`/me/books/${bookId}/bookmarks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteUserBookBookmark(bookId: string, bookmarkId: string) {
+  return authFetch<void>(`/me/books/${bookId}/bookmarks/${bookmarkId}`, { method: 'DELETE' })
+}
+
 export function getStorageQuota() {
   return authFetch<{ usedBytes: number; limitBytes: number }>('/me/books/quota')
 }
