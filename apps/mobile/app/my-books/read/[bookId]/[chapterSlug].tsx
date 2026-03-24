@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaVi
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi } from '@textstack/shared'
-import type { UserBookChapterDto } from '@textstack/shared'
+import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
 import { useAuth } from '../../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../../src/hooks/useReaderSettings'
@@ -12,6 +12,8 @@ import { SelectionActionBar } from '../../../../src/components/SelectionActionBa
 import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
 import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
+import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
+import { TocSheet } from '../../../../src/components/TocSheet'
 import { useTts } from '../../../../src/hooks/useTts'
 import { useReadingSession } from '../../../../src/hooks/useReadingSession'
 import { Ionicons } from '@expo/vector-icons'
@@ -34,6 +36,10 @@ export default function UserBookReaderScreen() {
   const [searchMatchCount, setSearchMatchCount] = useState(0)
   const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [bookmarksOpen, setBookmarksOpen] = useState(false)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
+  const [chapters, setChapters] = useState<{ slug: string; title: string; chapterNumber?: number }[]>([])
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const webViewRef = useRef<WebView>(null)
@@ -58,6 +64,51 @@ export default function UserBookReaderScreen() {
       .catch(e => console.error('Failed to load user book chapter:', e))
       .finally(() => setLoading(false))
   }, [bookId, chapterSlug])
+
+  // Load bookmarks + chapter list for TOC
+  useEffect(() => {
+    if (!bookId) return
+    userBooksApi.getUserBookBookmarks(bookId).then(setBookmarks).catch(() => {})
+    userBooksApi.getUserBook(bookId).then(b => {
+      setChapters(b.chapters.map(ch => ({
+        slug: ch.slug || `chapter-${ch.chapterNumber}`,
+        title: ch.title,
+        chapterNumber: ch.chapterNumber,
+      })))
+    }).catch(() => {})
+  }, [bookId])
+
+  const isCurrentBookmarked = bookmarks.some(b => {
+    const slug = b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator
+    return slug === chapterSlug
+  })
+
+  const handleToggleBookmark = async () => {
+    if (!bookId || !chapterSlug || !chapter) return
+    const existing = bookmarks.find(b => {
+      const slug = b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator
+      return slug === chapterSlug
+    })
+    if (existing) {
+      await userBooksApi.deleteUserBookBookmark(bookId, existing.id).catch(() => {})
+      setBookmarks(prev => prev.filter(b => b.id !== existing.id))
+    } else {
+      try {
+        const bm = await userBooksApi.createUserBookBookmark(bookId, {
+          chapterId: chapter.id,
+          locator: `chapter:${chapterSlug}`,
+          title: chapter.title,
+        })
+        setBookmarks(prev => [...prev, bm])
+      } catch {}
+    }
+  }
+
+  const handleDeleteBookmark = async (bmId: string) => {
+    if (!bookId) return
+    await userBooksApi.deleteUserBookBookmark(bookId, bmId).catch(() => {})
+    setBookmarks(prev => prev.filter(b => b.id !== bmId))
+  }
 
   const handleMessage = useCallback((event: any) => {
     try {
@@ -176,6 +227,12 @@ export default function UserBookReaderScreen() {
             {chapter.title}
           </Text>
           <View style={styles.topBarRight}>
+            <TouchableOpacity onPress={() => setTocOpen(true)} style={styles.iconBtn}>
+              <Ionicons name="list-outline" size={20} color={barText} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleToggleBookmark} style={styles.iconBtn}>
+              <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={isCurrentBookmarked ? colors.primary : barText} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
               <Ionicons name="search-outline" size={20} color={barText} />
             </TouchableOpacity>
@@ -237,6 +294,9 @@ export default function UserBookReaderScreen() {
           >
             <Text style={[styles.navText, { color: colors.primary }]}>Prev</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
+            <Ionicons name="bookmarks-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.navButton, !chapter.next && styles.navDisabled]}
             disabled={!chapter.next}
@@ -265,6 +325,29 @@ export default function UserBookReaderScreen() {
           text={selection?.text || ''}
           onClose={() => setTranslateOpen(false)}
           onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+        />
+
+        <BookmarksSheet
+          visible={bookmarksOpen}
+          onClose={() => setBookmarksOpen(false)}
+          bookmarks={bookmarks}
+          currentChapterSlug={chapterSlug || ''}
+          onNavigate={navigateChapter}
+          onDelete={handleDeleteBookmark}
+          onToggleCurrent={handleToggleBookmark}
+          isCurrentBookmarked={isCurrentBookmarked}
+        />
+
+        <TocSheet
+          visible={tocOpen}
+          chapters={chapters}
+          currentChapterSlug={chapterSlug || ''}
+          bookmarks={bookmarks.map(b => ({
+            chapterSlug: b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator,
+            title: b.title || undefined,
+          }))}
+          onNavigate={navigateChapter}
+          onClose={() => setTocOpen(false)}
         />
       </SafeAreaView>
     </>
