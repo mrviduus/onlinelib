@@ -23,6 +23,7 @@ export default function StatsScreen() {
   const [achievements, setAchievements] = useState<AchievementDto[]>([])
   const [goals, setGoals] = useState<GoalDto[]>([])
   const [bookStats, setBookStats] = useState<BookStatsResponse | null>(null)
+  const [year, setYear] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -33,7 +34,7 @@ export default function StatsScreen() {
         readingTrackingApi.getDailyStats(),
         readingTrackingApi.getAchievements(),
         readingTrackingApi.getGoals().catch(() => [] as GoalDto[]),
-        readingTrackingApi.getBookStats().catch(() => null as BookStatsResponse | null),
+        readingTrackingApi.getBookStats(year).catch(() => null as BookStatsResponse | null),
       ])
       setStats(s)
       setDaily(d)
@@ -45,7 +46,7 @@ export default function StatsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [year])
 
   useEffect(() => { loadData() }, [loadData])
   useFocusEffect(useCallback(() => { if (!loading) loadData() }, [loading, loadData]))
@@ -133,6 +134,27 @@ export default function StatsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Year filter for books/time tabs */}
+        {(tab === 'books' || tab === 'time') && bookStats?.availableYears && bookStats.availableYears.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.yearRow}>
+            <TouchableOpacity
+              onPress={() => setYear(undefined)}
+              style={[styles.yearChip, { backgroundColor: !year ? colors.primary : colors.surface, borderColor: !year ? colors.primary : colors.border }]}
+            >
+              <Text style={[styles.yearChipText, { color: !year ? '#fff' : colors.textSecondary }]}>All Time</Text>
+            </TouchableOpacity>
+            {bookStats.availableYears.map(y => (
+              <TouchableOpacity
+                key={y}
+                onPress={() => setYear(year === y ? undefined : y)}
+                style={[styles.yearChip, { backgroundColor: year === y ? colors.primary : colors.surface, borderColor: year === y ? colors.primary : colors.border }]}
+              >
+                <Text style={[styles.yearChipText, { color: year === y ? '#fff' : colors.textSecondary }]}>{y}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         <ScrollView
           style={{ flex: 1 }}
@@ -572,6 +594,11 @@ const styles = StyleSheet.create({
   tabRow: { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabLabel: { fontFamily: fonts.sansMedium, fontSize: 13 },
+
+  // Year filter
+  yearRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
+  yearChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  yearChipText: { fontFamily: fonts.sansMedium, fontSize: 12 },
 
   // Sections
   section: { padding: 16, borderBottomWidth: 1 },
