@@ -8,6 +8,7 @@ import { useRouter, Stack, useLocalSearchParams } from 'expo-router'
 import { vocabularyApi, dictionaryApi } from '@textstack/shared'
 import type { ReviewCardDto, SubmitReviewResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { useTts } from '../../src/hooks/useTts'
 
@@ -22,6 +23,7 @@ const STAGE_NAMES = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 
 export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const router = useRouter()
   const params = useLocalSearchParams<{ mode?: string; limit?: string }>()
   const mode = params.mode === 'practice' ? 'practice' : 'srs'
@@ -134,6 +136,25 @@ export default function VocabularyReviewScreen() {
             </>
           )}
 
+          {/* Batch size selector */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+            {[10, 20, 50].map(n => (
+              <TouchableOpacity
+                key={n}
+                style={{
+                  paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12,
+                  backgroundColor: batchSize === n ? colors.primaryLight : 'transparent',
+                  borderWidth: 1, borderColor: batchSize === n ? colors.primary : colors.border,
+                }}
+                onPress={() => router.replace(`/vocabulary/review?mode=${mode}&limit=${n}`)}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: batchSize === n ? colors.primary : colors.textSecondary }}>
+                  {n} words
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <View style={styles.summaryBtns}>
             <TouchableOpacity
               style={[styles.summaryBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
@@ -200,6 +221,7 @@ export default function VocabularyReviewScreen() {
               result={lastResult}
               onNext={nextCard}
               onSpeak={(t) => toggleTts(t)}
+              language={language}
             />
           )}
         </KeyboardAvoidingView>
@@ -376,12 +398,13 @@ function ContextCard({ card, onSubmit, onSpeak }: { card: ReviewCardDto; onSubmi
 
 // --- Feedback ---
 
-function FeedbackView({ card, isCorrect, result, onNext, onSpeak }: {
+function FeedbackView({ card, isCorrect, result, onNext, onSpeak, language }: {
   card: ReviewCardDto
   isCorrect: boolean
   result: SubmitReviewResponse | null
   onNext: () => void
   onSpeak: (text: string) => void
+  language: string
 }) {
   const { colors } = useTheme()
   const [fetchedDef, setFetchedDef] = useState<string | null>(null)
@@ -389,7 +412,7 @@ function FeedbackView({ card, isCorrect, result, onNext, onSpeak }: {
   // Lookup definition if missing
   useEffect(() => {
     if (card.definition) return
-    dictionaryApi.lookupWord('en', card.word)
+    dictionaryApi.lookupWord(language, card.word)
       .then(entry => {
         if (entry.meanings?.length) {
           const parts = entry.meanings.slice(0, 3).map(m => {

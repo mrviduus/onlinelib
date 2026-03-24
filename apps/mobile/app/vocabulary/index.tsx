@@ -298,6 +298,9 @@ function WordRow({
           {word.translation && !editField && (
             <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{word.translation}</Text>
           )}
+          {word.bookTitle && !expanded && (
+            <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: fonts.sans, marginTop: 1 }} numberOfLines={1}>{word.bookTitle}</Text>
+          )}
         </View>
         <View style={[styles.stageBadge, { backgroundColor: stageColor + '20' }]}>
           <Text style={[styles.stageText, { color: stageColor, fontFamily: fonts.sansMedium }]}>{stageLabel}</Text>

@@ -4,6 +4,8 @@ import { readingTrackingApi } from '@textstack/shared'
 
 const HEARTBEAT_MS = 30_000
 const MIN_SECONDS = 10
+const IDLE_THRESHOLD_MS = 3 * 60 * 1000 // 3 min — stop counting
+const AUTO_END_MS = 5 * 60 * 1000 // 5 min — auto-end session
 
 interface SessionConfig {
   editionId: string | null
@@ -13,16 +15,19 @@ interface SessionConfig {
 }
 
 /**
- * Tracks reading session duration. Submits to API on end.
- * Session starts on mount, ends on unmount or app background.
+ * Tracks reading session duration with idle detection.
+ * Session starts on mount, ends on unmount, app background, or 5min idle.
+ * Stops counting after 3min without activity (scroll/progress update).
  */
 export function useReadingSession(config: SessionConfig) {
   const startTimeRef = useRef(Date.now())
   const activeSecondsRef = useRef(0)
   const lastTickRef = useRef(Date.now())
+  const lastActivityRef = useRef(Date.now())
   const startPercentRef = useRef(0)
   const currentPercentRef = useRef(0)
   const submittedRef = useRef(false)
+  const autoEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const submit = useCallback(() => {
     if (submittedRef.current) return
@@ -52,13 +57,23 @@ export function useReadingSession(config: SessionConfig) {
     readingTrackingApi.submitSession(data).catch(() => {})
   }, [config.isAuthenticated, config.editionId, config.userBookId, config.wordCount])
 
-  // Heartbeat: increment active seconds
+  const resetAutoEndTimer = useCallback(() => {
+    if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+    autoEndTimerRef.current = setTimeout(() => {
+      submit() // auto-end after 5min idle
+    }, AUTO_END_MS)
+  }, [submit])
+
+  // Heartbeat: increment active seconds only if not idle
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
-      const elapsed = Math.round((now - lastTickRef.current) / 1000)
+      const sinceActivity = now - lastActivityRef.current
+      if (sinceActivity < IDLE_THRESHOLD_MS) {
+        const elapsed = Math.round((now - lastTickRef.current) / 1000)
+        activeSecondsRef.current += Math.min(elapsed, 60)
+      }
       lastTickRef.current = now
-      activeSecondsRef.current += Math.min(elapsed, 60) // cap to avoid huge jumps
     }, HEARTBEAT_MS)
     return () => clearInterval(interval)
   }, [])
@@ -68,29 +83,43 @@ export function useReadingSession(config: SessionConfig) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') {
         submit()
+        if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
       } else if (state === 'active' && submittedRef.current) {
         // Resuming — start new session
         submittedRef.current = false
         startTimeRef.current = Date.now()
         lastTickRef.current = Date.now()
+        lastActivityRef.current = Date.now()
         activeSecondsRef.current = 0
         startPercentRef.current = currentPercentRef.current
+        resetAutoEndTimer()
       }
     })
     return () => sub.remove()
-  }, [submit])
+  }, [submit, resetAutoEndTimer])
 
   // Submit on unmount
   useEffect(() => {
-    return () => { submit() }
-  }, [submit])
+    resetAutoEndTimer()
+    return () => {
+      submit()
+      if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+    }
+  }, [submit, resetAutoEndTimer])
 
   const updateProgress = useCallback((progress: number) => {
+    lastActivityRef.current = Date.now() // user is active (scrolling)
     if (startPercentRef.current === 0 && currentPercentRef.current === 0) {
       startPercentRef.current = progress
     }
     currentPercentRef.current = progress
-  }, [])
+
+    // Reset auto-end timer on activity
+    if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+    autoEndTimerRef.current = setTimeout(() => {
+      submit()
+    }, AUTO_END_MS)
+  }, [submit])
 
   return { updateProgress, sessionStartedAt: startTimeRef.current }
 }

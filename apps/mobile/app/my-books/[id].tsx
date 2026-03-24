@@ -7,6 +7,7 @@ import { userBooksApi, getStorageUrl, getApiConfig } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { MoodSelector } from '../../src/components/MoodSelector'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -241,6 +242,13 @@ export default function UserBookDetailScreen() {
               <Ionicons name="share-outline" size={18} color={colors.text} />
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Share</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Moods */}
+        {isReady && (
+          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+            <MoodSelector userBookId={id!} />
           </View>
         )}
 
