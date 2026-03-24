@@ -134,12 +134,13 @@ export interface MobileAuthResponse {
   refreshToken: string
 }
 
-// Reading Progress
+// Reading Progress (matches backend ReadingProgressDto)
 export interface ReadingProgressDto {
   editionId: string
   chapterId: string
-  chapterSlug: string
-  progress: number
+  chapterSlug: string | null
+  locator: string
+  percent: number | null
   updatedAt: string
 }
 
@@ -148,28 +149,57 @@ export interface BookmarkDto {
   id: string
   editionId: string
   chapterId: string
-  chapterSlug: string
-  title: string
+  locator: string
+  title: string | null
   createdAt: string
+  /** Derived from locator for convenience — not from backend */
+  chapterSlug?: string
 }
 
 // Vocabulary
 export interface VocabularyWordDto {
   id: string
   word: string
+  language: string
   translation: string | null
   definition: string | null
+  editionId: string | null
+  chapterId: string | null
+  userBookId: string | null
   sentence: string | null
   bookTitle: string | null
   hint: string | null
   stage: number
-  nextReviewAt: string | null
+  intervalDays: number
+  consecutiveCorrect: number
+  nextReviewAt: string
+  lastReviewedAt: string | null
+  totalReviews: number
+  correctReviews: number
   createdAt: string
+  updatedAt: string
 }
 
 export interface VocabularyStatsDto {
-  total: number
-  byStage: Record<number, number>
+  totalWords: number
+  byStage: {
+    new: number
+    recognition: number
+    recall: number
+    context: number
+    mastered: number
+  }
+  dueNow: number
+  reviewedToday: number
+  correctRateToday: number
+  srsReviewedToday: number
+  srsCorrectRateToday: number
+  practicedToday: number
+  practiceCorrectRateToday: number
+  totalReviews: number
+  overallCorrectRate: number
+  streak: number
+  wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
 }
 
 export interface ReviewCardDto {
@@ -177,10 +207,24 @@ export interface ReviewCardDto {
   word: string
   translation: string | null
   definition: string | null
-  sentence: string | null
-  hint: string | null
   reviewMode: 'multiple_choice' | 'typed_recall' | 'context'
+  blankSentence: string | null
+  originalSentence: string | null
+  bookTitle: string | null
+  hint: string | null
   options: string[] | null
+  correctOptionIndex: number | null
+}
+
+export interface SubmitReviewResponse {
+  wordId: string
+  previousStage: number
+  newStage: number
+  stageChanged: boolean
+  nextIntervalDays: number
+  nextReviewAt: string
+  totalReviews: number
+  correctReviews: number
 }
 
 // Reading Stats
@@ -219,12 +263,14 @@ export interface GoalDto {
   updatedAt: string
 }
 
-// Library
+// Library (matches backend LibraryItemDto)
 export interface UserLibraryItem {
   editionId: string
-  edition: Edition
-  progress: ReadingProgressDto | null
-  addedAt: string
+  slug: string
+  title: string
+  language: string
+  coverPath: string | null
+  createdAt: string
 }
 
 // User Books
@@ -235,9 +281,10 @@ export interface UserBookDto {
   coverPath: string | null
   genre: string | null
   totalWordCount: number | null
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: string
   chapterCount: number
   createdAt: string
+  errorMessage: string | null
 }
 
 export interface UserBookChapterDto {

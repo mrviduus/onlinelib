@@ -17,7 +17,9 @@ export function getApiConfig(): ApiConfig {
 
 export function getStorageUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined
-  return `${getApiConfig().baseUrl}/storage/${path}`
+  // baseUrl is like "https://textstack.app/api" — storage is at origin, not under /api
+  const base = getApiConfig().baseUrl.replace(/\/api\/?$/, '')
+  return `${base}/storage/${path}`
 }
 
 export async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {

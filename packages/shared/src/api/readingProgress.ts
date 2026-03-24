@@ -9,10 +9,15 @@ export function updateProgress(editionId: string, data: { chapterId: string; cha
   return authFetch<void>(`/me/progress/${editionId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      chapterId: data.chapterId,
+      locator: JSON.stringify({ type: 'chapter', slug: data.chapterSlug }),
+      percent: data.progress,
+    }),
   })
 }
 
-export function getAllProgress() {
-  return authFetch<ReadingProgressDto[]>('/me/progress')
+export async function getAllProgress() {
+  const res = await authFetch<{ total: number; items: ReadingProgressDto[] }>('/me/progress')
+  return res.items
 }
