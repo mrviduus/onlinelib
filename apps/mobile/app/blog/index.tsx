@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { View, Text, FlatList, ScrollView as HScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -16,10 +16,19 @@ export default function BlogScreen() {
   const [posts, setPosts] = useState<BlogPostListItemDto[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [tag, setTag] = useState('')
 
-  const fetchPosts = useCallback(async (offset = 0) => {
+  const allTags = useMemo(() => {
+    const tags = new Set<string>()
+    for (const p of posts) {
+      if (p.tags) p.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tags.add(t))
+    }
+    return [...tags]
+  }, [posts])
+
+  const fetchPosts = useCallback(async (offset = 0, filterTag = '') => {
     try {
-      const res = await blogApi.getBlogPosts({ language: 'en', limit: PAGE_SIZE, offset })
+      const res = await blogApi.getBlogPosts({ language: 'en', limit: PAGE_SIZE, offset, tag: filterTag || undefined })
       if (offset === 0) {
         setPosts(res.items)
       } else {
@@ -33,6 +42,13 @@ export default function BlogScreen() {
   }, [])
 
   useEffect(() => { fetchPosts() }, [])
+
+  const handleTagFilter = (newTag: string) => {
+    const t = tag === newTag ? '' : newTag
+    setTag(t)
+    setLoading(true)
+    fetchPosts(0, t)
+  }
 
   const renderPost = ({ item }: { item: BlogPostListItemDto }) => {
     const date = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString() : ''
@@ -85,8 +101,27 @@ export default function BlogScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={[styles.list, { backgroundColor: colors.background }]}
         style={{ backgroundColor: colors.background }}
-        onEndReached={() => { if (posts.length < total) fetchPosts(posts.length) }}
+        onEndReached={() => { if (posts.length < total) fetchPosts(posts.length, tag) }}
         onEndReachedThreshold={0.5}
+        ListHeaderComponent={allTags.length > 0 ? (
+          <HScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => handleTagFilter('')}
+              style={[styles.tagChip, !tag && { backgroundColor: colors.primary }]}
+            >
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: !tag ? '#fff' : colors.textSecondary }}>All</Text>
+            </TouchableOpacity>
+            {allTags.map(t => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => handleTagFilter(t)}
+                style={[styles.tagChip, tag === t && { backgroundColor: colors.primary }]}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: tag === t ? '#fff' : colors.textSecondary }}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </HScrollView>
+        ) : null}
         ListEmptyComponent={
           loading ? <ActivityIndicator style={{ padding: 40 }} color={colors.primary} /> :
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No blog posts yet</Text>
@@ -109,4 +144,5 @@ const styles = StyleSheet.create({
   stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontFamily: fonts.sans, fontSize: 12 },
   emptyText: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', paddingVertical: 40 },
+  tagChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 6 },
 })
