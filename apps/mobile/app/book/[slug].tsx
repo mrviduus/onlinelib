@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -27,6 +27,7 @@ export default function BookDetailScreen() {
   const [cached, setCached] = useState(false)
   const [inLibrary, setInLibrary] = useState(false)
   const [continueSlug, setContinueSlug] = useState<string | null>(null)
+  const [showAllChapters, setShowAllChapters] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -171,8 +172,8 @@ export default function BookDetailScreen() {
         {/* Reviews */}
         <ReviewsSection editionId={book.id} />
 
-        {/* EPUB Download */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+        {/* EPUB Download + Share */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 16, gap: 10 }}>
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: colors.border }]}
             onPress={() => {
@@ -184,10 +185,18 @@ export default function BookDetailScreen() {
             <Ionicons name="download-outline" size={18} color={colors.text} />
             <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download EPUB</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={() => Share.share({ message: `${book.title} — Read on TextStack: https://textstack.app/en/books/${slug}` }).catch(() => {})}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="share-outline" size={18} color={colors.text} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Share</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
-        {book.chapters.map((ch) => (
+        {(showAllChapters ? book.chapters : book.chapters.slice(0, 10)).map((ch) => (
           <TouchableOpacity
             key={ch.id}
             style={[styles.chapterItem, { borderBottomColor: colors.border }]}
@@ -195,10 +204,27 @@ export default function BookDetailScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.chapterNumber, { color: colors.textSecondary }]}>{ch.chapterNumber}</Text>
-            <Text style={[styles.chapterTitle, { color: colors.text }]} numberOfLines={1}>{ch.title}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chapterTitle, { color: colors.text }]} numberOfLines={1}>{ch.title}</Text>
+              {ch.wordCount != null && ch.wordCount > 0 && (
+                <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                  {Math.round(ch.wordCount / 1000)}k words · ~{Math.ceil(ch.wordCount / 250)} min
+                </Text>
+              )}
+            </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
+        {book.chapters.length > 10 && !showAllChapters && (
+          <TouchableOpacity
+            style={{ paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center' }}
+            onPress={() => setShowAllChapters(true)}
+          >
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.primary }}>
+              View all {book.chapters.length} chapters
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Author section */}
         {book.authors.length > 0 && (
