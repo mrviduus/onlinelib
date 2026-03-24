@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl,
+  RefreshControl, TextInput as TextInputNative,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
 import { readingTrackingApi } from '@textstack/shared'
-import type { ReadingStatsDto, DailyStatDto, AchievementDto } from '@textstack/shared'
+import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
@@ -17,19 +17,22 @@ export default function StatsScreen() {
   const [stats, setStats] = useState<ReadingStatsDto | null>(null)
   const [daily, setDaily] = useState<DailyStatDto[]>([])
   const [achievements, setAchievements] = useState<AchievementDto[]>([])
+  const [goals, setGoals] = useState<GoalDto[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d, a] = await Promise.all([
+      const [s, d, a, g] = await Promise.all([
         readingTrackingApi.getStats(),
         readingTrackingApi.getDailyStats(),
         readingTrackingApi.getAchievements(),
+        readingTrackingApi.getGoals().catch(() => [] as GoalDto[]),
       ])
       setStats(s)
       setDaily(d)
       setAchievements(a)
+      setGoals(g)
     } catch (e) {
       console.error('Stats load error:', e)
     } finally {
@@ -119,6 +122,9 @@ export default function StatsScreen() {
 
         {/* Daily goal */}
         {stats?.dailyGoal && <DailyGoalSection goal={stats.dailyGoal} />}
+
+        {/* Goals management */}
+        <GoalsSection goals={goals} onUpdate={loadData} />
 
         {/* Heatmap */}
         <HeatmapSection daily={daily} />
@@ -265,6 +271,7 @@ function AchievementsSection({
               {codes.map(code => {
                 const def = ACHIEVEMENTS[code]
                 const unlocked = unlockedSet.has(code)
+                const unlockedAt = achievements.find(a => a.code === code)?.unlockedAt
                 return (
                   <View key={code} style={[styles.achievementItem, { backgroundColor: colors.surface, borderColor: colors.border }, !unlocked && styles.achievementLocked]}>
                     <Text style={styles.achievementEmoji}>{def.emoji}</Text>
@@ -274,6 +281,11 @@ function AchievementsSection({
                     <Text style={[styles.achievementDesc, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={2}>
                       {def.description}
                     </Text>
+                    {unlocked && unlockedAt && (
+                      <Text style={{ fontSize: 10, color: colors.textSecondary, fontFamily: fonts.sans, marginTop: 4 }}>
+                        {new Date(unlockedAt).toLocaleDateString()}
+                      </Text>
+                    )}
                   </View>
                 )
               })}
@@ -281,6 +293,113 @@ function AchievementsSection({
           </View>
         )
       })}
+    </View>
+  )
+}
+
+// --- Goals ---
+
+function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => void }) {
+  const { colors } = useTheme()
+  const [showForm, setShowForm] = useState(false)
+  const [goalType, setGoalType] = useState<'daily_minutes' | 'books_per_year'>('daily_minutes')
+  const [target, setTarget] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleCreate = async () => {
+    const val = parseInt(target)
+    if (!val || val <= 0) return
+    setSaving(true)
+    try {
+      await readingTrackingApi.createGoal({ type: goalType, target: val })
+      setShowForm(false)
+      setTarget('')
+      onUpdate()
+    } catch {}
+    setSaving(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await readingTrackingApi.deleteGoal(id)
+      onUpdate()
+    } catch {}
+  }
+
+  return (
+    <View style={[styles.section, { borderBottomColor: colors.border }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold, marginBottom: 0 }]}>Goals</Text>
+        {!showForm && (
+          <TouchableOpacity onPress={() => setShowForm(true)}>
+            <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {goals.map(g => (
+        <View key={g.id} style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 8 }]}>
+          <View style={styles.goalRow}>
+            <Text style={[styles.goalText, { color: colors.text, fontFamily: fonts.sansMedium }]}>
+              {g.goalType === 'daily_minutes' ? `${g.targetValue} min/day` : `${g.targetValue} books/year`}
+            </Text>
+            <TouchableOpacity onPress={() => handleDelete(g.id)}>
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+
+      {goals.length === 0 && !showForm && (
+        <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans }}>
+          No goals set. Tap + to create one.
+        </Text>
+      )}
+
+      {showForm && (
+        <View style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {(['daily_minutes', 'books_per_year'] as const).map(t => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setGoalType(t)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: goalType === t ? colors.primaryLight : 'transparent' }}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: goalType === t ? colors.primary : colors.textSecondary }}>
+                  {t === 'daily_minutes' ? 'Daily Minutes' : 'Books/Year'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+              <Text style={{ position: 'absolute', right: 12, top: 10, fontSize: 12, color: colors.textSecondary, fontFamily: fonts.sans }}>
+                {goalType === 'daily_minutes' ? 'min' : 'books'}
+              </Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TextInputNative
+                  style={{ flex: 1, fontFamily: fonts.sans, fontSize: 14, color: colors.text }}
+                  value={target}
+                  onChangeText={setTarget}
+                  keyboardType="numeric"
+                  placeholder={goalType === 'daily_minutes' ? '30' : '12'}
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={handleCreate}
+              disabled={saving}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
+            >
+              <Text style={{ color: '#fff', fontFamily: fonts.sansMedium, fontSize: 14 }}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowForm(false)}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
