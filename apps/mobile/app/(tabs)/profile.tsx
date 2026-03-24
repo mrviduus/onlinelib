@@ -4,16 +4,21 @@ import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
+import { supportedLanguages, type Language } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
   { label: 'Reading Stats', icon: 'stats-chart-outline' as const, route: '/stats/' },
   { label: 'Vocabulary', icon: 'book-outline' as const, route: '/vocabulary/' },
+  { label: 'Highlights', icon: 'color-wand-outline' as const, route: '/highlights/' },
+  { label: 'Blog', icon: 'newspaper-outline' as const, route: '/blog/' },
 ]
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, signOut } = useAuth()
   const { colors } = useTheme()
+  const { language, switchLanguage } = useLanguage()
   const router = useRouter()
 
   if (!isAuthenticated) {
@@ -50,6 +55,50 @@ export default function ProfileScreen() {
 
       <View style={styles.menu}>
         {MENU_ITEMS.map(item => (
+          <TouchableOpacity
+            key={item.route}
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => router.push(item.route)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={item.icon} size={20} color={colors.textSecondary} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: colors.text }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        ))}
+
+        {/* Language switcher */}
+        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
+          <Ionicons name="language-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
+          <Text style={[styles.menuText, { color: colors.text }]}>Language</Text>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {supportedLanguages.map(lang => (
+              <TouchableOpacity
+                key={lang}
+                onPress={() => switchLanguage(lang)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: language === lang ? colors.primaryLight : 'transparent',
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: language === lang ? colors.primary : colors.textSecondary }}>
+                  {lang.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Info pages */}
+        {[
+          { label: 'About', icon: 'information-circle-outline' as const, route: '/about' },
+          { label: 'Privacy', icon: 'shield-outline' as const, route: '/privacy' },
+          { label: 'Terms', icon: 'document-text-outline' as const, route: '/terms' },
+          { label: 'Contact', icon: 'mail-outline' as const, route: '/contact' },
+        ].map(item => (
           <TouchableOpacity
             key={item.route}
             style={[styles.menuItem, { borderBottomColor: colors.border }]}

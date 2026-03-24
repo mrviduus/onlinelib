@@ -16,7 +16,10 @@
     "build:prod": "eas build --profile production --platform all",
     "submit:ios": "eas submit --platform ios --profile production",
     "submit:android": "eas submit --platform android --profile production",
-    "update": "eas update"
+    "update": "eas update",
+    "test:e2e": "npx playwright test --config=e2e/playwright.config.ts --project=android",
+    "test:e2e:ios": "npx playwright test --config=e2e/playwright.config.ts --project=ios",
+    "test:e2e:ui": "npx playwright test --config=e2e/playwright.config.ts --project=android --ui"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -50,6 +53,7 @@
     "@types/react": "~19.2.2",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
+    "@playwright/test": "^1.52.0",
     "typescript": "~5.9.2"
   },
   "private": true

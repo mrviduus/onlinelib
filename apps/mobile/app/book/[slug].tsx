@@ -11,6 +11,8 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { isBookFullyCached } from '../../src/lib/offlineDb'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { ReviewsSection } from '../../src/components/reviews/ReviewsSection'
+import { MoodSelector } from '../../src/components/MoodSelector'
 
 const LANG = 'en'
 
@@ -160,6 +162,14 @@ export default function BookDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Moods */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <MoodSelector editionId={book.id} />
+        </View>
+
+        {/* Reviews */}
+        <ReviewsSection editionId={book.id} />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
         {book.chapters.map((ch) => (

@@ -3,9 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Pla
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { authApi } from '@textstack/shared'
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+
+GoogleSignin.configure({
+  webClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
+})
 
 // Dynamic import — expo-apple-authentication crashes on web
 const AppleAuthentication = Platform.OS === 'ios'
@@ -21,11 +26,18 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     try {
-      // Google Sign-In will be configured with @react-native-google-signin/google-signin
-      // For now, show placeholder
-      Alert.alert('Google Sign-In', 'Configure GOOGLE_WEB_CLIENT_ID in .env to enable')
-    } catch (e) {
-      Alert.alert('Error', 'Google sign-in failed')
+      await GoogleSignin.hasPlayServices()
+      const response = await GoogleSignin.signIn()
+      const idToken = response.data?.idToken
+      if (!idToken) throw new Error('No ID token')
+
+      const result = await authApi.loginWithGoogle(idToken)
+      await signInWithTokens(result.accessToken, result.refreshToken, result.user)
+      router.back()
+    } catch (e: any) {
+      if (e.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Error', 'Google sign-in failed')
+      }
     } finally {
       setLoading(false)
     }

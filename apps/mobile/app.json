@@ -45,7 +45,10 @@
               "pathPrefix": "/uk/books"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -58,10 +61,22 @@
       "expo-image",
       "expo-sqlite",
       "@react-native-google-signin/google-signin",
-      ["expo-dev-launcher", { "launchModeExperimental": "most-recent" }]
+      [
+        "expo-dev-launcher",
+        {
+          "launchModeExperimental": "most-recent"
+        }
+      ]
     ],
     "developmentClient": {
       "silentLaunch": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "204518f7-24cf-4984-962d-f636508be861"
+      }
+    },
+    "owner": "textstack"
   }
 }

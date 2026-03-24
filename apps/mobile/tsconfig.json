@@ -6,5 +6,6 @@
       "@textstack/shared": ["../../packages/shared/src/index"],
       "@textstack/shared/*": ["../../packages/shared/src/*"]
     }
-  }
+  },
+  "exclude": ["e2e"]
 }
