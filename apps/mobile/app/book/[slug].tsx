@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, libraryApi, readingProgressApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, getApiConfig, libraryApi, readingProgressApi } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
@@ -171,6 +171,21 @@ export default function BookDetailScreen() {
         {/* Reviews */}
         <ReviewsSection editionId={book.id} />
 
+        {/* EPUB Download */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={() => {
+              const { baseUrl } = getApiConfig()
+              Linking.openURL(`${baseUrl}/${LANG}/books/${slug}/export/epub`).catch(() => {})
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="download-outline" size={18} color={colors.text} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download EPUB</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
         {book.chapters.map((ch) => (
           <TouchableOpacity
@@ -184,6 +199,67 @@ export default function BookDetailScreen() {
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
+
+        {/* Author section */}
+        {book.authors.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>About the Author</Text>
+            {book.authors.map(a => (
+              <TouchableOpacity
+                key={a.slug}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}
+                onPress={() => router.push(`/author/${a.slug}`)}
+              >
+                <Ionicons name="person-outline" size={18} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 15, color: colors.primary }}>{a.name}</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* More by Author */}
+        {book.moreByAuthor && book.moreByAuthor.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>More by Author</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {book.moreByAuthor.map(b => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={{ width: 100, marginRight: 12 }}
+                  onPress={() => router.push(`/book/${b.slug}`)}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={b.coverPath ? getStorageUrl(b.coverPath) : undefined}
+                    style={{ width: 100, height: 150, borderRadius: 6, backgroundColor: colors.border }}
+                    contentFit="cover"
+                  />
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.text, marginTop: 6 }} numberOfLines={2}>{b.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Other Editions */}
+        {book.otherEditions.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>Other Editions</Text>
+            {book.otherEditions.map(ed => (
+              <TouchableOpacity
+                key={ed.slug}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}
+                onPress={() => router.push(`/book/${ed.slug}`)}
+              >
+                <Ionicons name="globe-outline" size={16} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.primary }}>
+                  {ed.title} ({ed.language.toUpperCase()})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
