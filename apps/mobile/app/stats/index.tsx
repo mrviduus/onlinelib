@@ -7,32 +7,39 @@ import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
 import { readingTrackingApi } from '@textstack/shared'
 import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto } from '@textstack/shared'
+import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
+type StatsTab = 'overview' | 'books' | 'time' | 'achievements'
+
 export default function StatsScreen() {
   const { colors } = useTheme()
+  const [tab, setTab] = useState<StatsTab>('overview')
   const [stats, setStats] = useState<ReadingStatsDto | null>(null)
   const [daily, setDaily] = useState<DailyStatDto[]>([])
   const [achievements, setAchievements] = useState<AchievementDto[]>([])
   const [goals, setGoals] = useState<GoalDto[]>([])
+  const [bookStats, setBookStats] = useState<BookStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d, a, g] = await Promise.all([
+      const [s, d, a, g, bs] = await Promise.all([
         readingTrackingApi.getStats(),
         readingTrackingApi.getDailyStats(),
         readingTrackingApi.getAchievements(),
         readingTrackingApi.getGoals().catch(() => [] as GoalDto[]),
+        readingTrackingApi.getBookStats().catch(() => null as BookStatsResponse | null),
       ])
       setStats(s)
       setDaily(d)
       setAchievements(a)
       setGoals(g)
+      setBookStats(bs)
     } catch (e) {
       console.error('Stats load error:', e)
     } finally {
@@ -113,27 +120,42 @@ export default function StatsScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
-      <ScrollView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Overview cards */}
-        {stats && <OverviewSection stats={stats} />}
+      <View style={{ backgroundColor: colors.background, flex: 1 }}>
+        {/* Tabs */}
+        <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+          {([['overview', 'Overview'], ['books', 'Books'], ['time', 'Time'], ['achievements', 'Achievements']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.tabItem, tab === key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+              onPress={() => setTab(key)}
+            >
+              <Text style={[styles.tabLabel, { color: tab === key ? colors.primary : colors.textSecondary }]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        {/* Daily goal */}
-        {stats?.dailyGoal && <DailyGoalSection goal={stats.dailyGoal} />}
+        <ScrollView
+          style={{ flex: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {tab === 'overview' && (
+            <>
+              {stats && <OverviewSection stats={stats} />}
+              {stats?.dailyGoal && <DailyGoalSection goal={stats.dailyGoal} />}
+              <GoalsSection goals={goals} onUpdate={loadData} />
+              <HeatmapSection daily={daily} />
+            </>
+          )}
 
-        {/* Goals management */}
-        <GoalsSection goals={goals} onUpdate={loadData} />
+          {tab === 'books' && <BooksTabSection bookStats={bookStats} />}
 
-        {/* Heatmap */}
-        <HeatmapSection daily={daily} />
+          {tab === 'time' && <TimeTabSection bookStats={bookStats} stats={stats} />}
 
-        {/* Achievements */}
-        <AchievementsSection unlockedSet={unlockedSet} achievements={achievements} />
+          {tab === 'achievements' && <AchievementsSection unlockedSet={unlockedSet} achievements={achievements} />}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
     </>
   )
 }
@@ -404,6 +426,139 @@ function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => v
   )
 }
 
+// --- Books Tab ---
+
+function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null }) {
+  const { colors } = useTheme()
+  if (!bookStats) return <Text style={{ padding: 16, color: colors.textSecondary, fontFamily: fonts.sans }}>No book stats yet</Text>
+
+  return (
+    <View style={{ padding: 16 }}>
+      {/* Summary */}
+      <View style={styles.statsGrid}>
+        <StatCard label="Books Finished" value={String(bookStats.booksFinished)} icon="checkmark-done-outline" />
+        <StatCard label="Total Pages" value={formatNumber(bookStats.totalPages)} icon="document-text-outline" />
+        <StatCard label="Avg Days/Book" value={String(bookStats.avgDaysToFinish)} icon="calendar-outline" />
+      </View>
+
+      {/* Genre breakdown */}
+      {bookStats.genreStats.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>By Genre</Text>
+          {bookStats.genreStats.map(g => (
+            <BarRow key={g.slug} label={g.name} value={g.count} max={bookStats.genreStats[0].count} />
+          ))}
+        </View>
+      )}
+
+      {/* Author breakdown */}
+      {bookStats.authorStats.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>By Author</Text>
+          {bookStats.authorStats.slice(0, 10).map(a => (
+            <BarRow key={a.slug} label={a.name} value={a.count} max={bookStats.authorStats[0].count} />
+          ))}
+        </View>
+      )}
+
+      {/* Language breakdown */}
+      {bookStats.languageStats.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>By Language</Text>
+          {bookStats.languageStats.map(l => (
+            <BarRow key={l.language} label={l.language.toUpperCase()} value={l.count} max={bookStats.languageStats[0].count} />
+          ))}
+        </View>
+      )}
+
+      {/* Rating distribution */}
+      {bookStats.avgRating != null && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Ratings</Text>
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>
+            Average: {bookStats.avgRating.toFixed(1)} / 5
+          </Text>
+          {bookStats.ratingDistribution.sort((a, b) => b.rating - a.rating).map(r => (
+            <BarRow key={r.rating} label={`${'★'.repeat(r.rating)}`} value={r.count} max={Math.max(...bookStats.ratingDistribution.map(x => x.count))} />
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
+// --- Time Tab ---
+
+function TimeTabSection({ bookStats, stats }: { bookStats: BookStatsResponse | null; stats: ReadingStatsDto | null }) {
+  const { colors } = useTheme()
+
+  const totalH = stats ? Math.floor(stats.totalSeconds / 3600) : 0
+  const totalM = stats ? Math.round((stats.totalSeconds % 3600) / 60) : 0
+  const weekH = stats ? Math.floor((stats.weekSeconds || 0) / 3600) : 0
+  const weekM = stats ? Math.round(((stats.weekSeconds || 0) % 3600) / 60) : 0
+  const monthH = stats ? Math.floor((stats.monthSeconds || 0) / 3600) : 0
+  const monthM = stats ? Math.round(((stats.monthSeconds || 0) % 3600) / 60) : 0
+
+  return (
+    <View style={{ padding: 16 }}>
+      {/* Time summary */}
+      <View style={styles.statsGrid}>
+        <StatCard label="Total Time" value={totalH > 0 ? `${totalH}h ${totalM}m` : `${totalM}m`} icon="time-outline" />
+        <StatCard label="This Week" value={weekH > 0 ? `${weekH}h ${weekM}m` : `${weekM}m`} icon="calendar-outline" />
+        <StatCard label="This Month" value={monthH > 0 ? `${monthH}h ${monthM}m` : `${monthM}m`} icon="today-outline" />
+      </View>
+
+      {/* Mood stats */}
+      {bookStats && bookStats.moodStats.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Reading Moods</Text>
+          {bookStats.moodStats.map(m => (
+            <BarRow key={m.name} label={`${m.emoji || ''} ${m.name}`} value={m.count} max={bookStats.moodStats[0].count} />
+          ))}
+        </View>
+      )}
+
+      {/* Reading time by genre */}
+      {bookStats && bookStats.readingTimeByGenre.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Time by Genre</Text>
+          {bookStats.readingTimeByGenre.map(g => (
+            <BarRow key={g.slug} label={g.name} value={Math.round(g.seconds / 60)} suffix="min" max={Math.round(bookStats.readingTimeByGenre[0].seconds / 60)} />
+          ))}
+        </View>
+      )}
+
+      {/* Reading time by author */}
+      {bookStats && bookStats.readingTimeByAuthor.length > 0 && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Time by Author</Text>
+          {bookStats.readingTimeByAuthor.slice(0, 10).map(a => (
+            <BarRow key={a.slug} label={a.name} value={Math.round(a.seconds / 60)} suffix="min" max={Math.round(bookStats.readingTimeByAuthor[0].seconds / 60)} />
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
+// --- Bar Row (reusable chart row) ---
+
+function BarRow({ label, value, max, suffix }: { label: string; value: number; max: number; suffix?: string }) {
+  const { colors } = useTheme()
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+        <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.text, flex: 1 }} numberOfLines={1}>{label}</Text>
+        <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.primary }}>{value}{suffix ? ` ${suffix}` : ''}</Text>
+      </View>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' }}>
+        <View style={{ height: '100%', width: `${pct}%`, backgroundColor: colors.primary, borderRadius: 3 }} />
+      </View>
+    </View>
+  )
+}
+
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
@@ -412,6 +567,11 @@ function formatNumber(n: number): string {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Tabs
+  tabRow: { flexDirection: 'row', borderBottomWidth: 1 },
+  tabItem: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabLabel: { fontFamily: fonts.sansMedium, fontSize: 13 },
 
   // Sections
   section: { padding: 16, borderBottomWidth: 1 },
