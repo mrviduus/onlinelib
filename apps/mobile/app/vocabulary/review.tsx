@@ -39,12 +39,14 @@ export default function VocabularyReviewScreen() {
   const [stats, setStats] = useState<SessionStats>({ reviewed: 0, correct: 0 })
   const [dueCount, setDueCount] = useState(0)
   const startTimeRef = useRef(0)
+  const sessionStartRef = useRef(Date.now())
   const { toggle: toggleTts, isSpeaking } = useTts()
 
   const loadCards = () => {
     setState('loading')
     setIndex(0)
     setStats({ reviewed: 0, correct: 0 })
+    sessionStartRef.current = Date.now()
     vocabularyApi.getReviewQueue(batchSize, mode)
       .then(res => {
         setCards(res.cards)
@@ -76,6 +78,7 @@ export default function VocabularyReviewScreen() {
         isCorrect,
         responseTimeMs,
         reviewMode: currentCard.reviewMode,
+        mode: mode === 'practice' ? 'practice' : undefined,
       })
       setLastResult(result)
     } catch {
@@ -108,6 +111,10 @@ export default function VocabularyReviewScreen() {
   if (state === 'summary') {
     const rate = stats.reviewed > 0 ? Math.round((stats.correct / stats.reviewed) * 100) : 0
     const isEmpty = stats.reviewed === 0
+    const elapsedSec = Math.round((Date.now() - sessionStartRef.current) / 1000)
+    const elapsedMin = Math.floor(elapsedSec / 60)
+    const elapsedRemSec = elapsedSec % 60
+    const elapsedText = elapsedMin > 0 ? `${elapsedMin}m ${elapsedRemSec}s` : `${elapsedSec}s`
     return (
       <>
         <Stack.Screen options={{ title: isEmpty ? (mode === 'practice' ? 'Practice' : 'Review') : 'Session Complete', headerShown: true }} />
@@ -132,6 +139,7 @@ export default function VocabularyReviewScreen() {
               <View style={styles.summaryStats}>
                 <Text style={[styles.summaryStatText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Reviewed: {stats.reviewed}</Text>
                 <Text style={[styles.summaryStatText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Correct: {rate}%</Text>
+                <Text style={[styles.summaryStatText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Time: {elapsedText}</Text>
               </View>
             </>
           )}

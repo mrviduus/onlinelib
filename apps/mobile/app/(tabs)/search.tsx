@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { SearchResult } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
@@ -29,7 +30,6 @@ function HighlightText({ html, style, boldStyle, numberOfLines }: {
   )
 }
 
-const LANG = 'en'
 const RECENT_KEY = 'textstack_recent_searches'
 const MAX_RECENT = 8
 const RESULTS_PER_PAGE = 10
@@ -72,6 +72,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function SearchScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -114,7 +115,7 @@ export default function SearchScreen() {
     setPage(1)
     setExpandedEditions(new Set())
     try {
-      const api = createBooksApi(LANG)
+      const api = createBooksApi(language)
       const { items } = await api.search(q, { limit: 100, highlight: true })
       setResults(items)
       saveRecent(q)
@@ -123,7 +124,7 @@ export default function SearchScreen() {
     } finally {
       setLoading(false)
     }
-  }, [recentSearches])
+  }, [recentSearches, language])
 
   // Auto-search on debounced query change
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function SearchScreen() {
 
   const renderGroup = ({ item }: { item: EditionGroup }) => {
     const isExpanded = expandedEditions.has(item.editionId)
-    const highlightHtml = item.bestMatch.highlights?.[0] || ''
+    const highlights = (item.bestMatch.highlights || []).slice(0, 2)
 
     return (
       <TouchableOpacity
@@ -168,9 +169,9 @@ export default function SearchScreen() {
           <Text style={[styles.chapter, { color: colors.textSecondary }]} numberOfLines={1}>
             Ch. {item.bestMatch.chapterNumber}: {item.bestMatch.chapterTitle}
           </Text>
-          {highlightHtml ? (
-            <HighlightText html={highlightHtml} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
-          ) : null}
+          {highlights.map((h, i) => (
+            <HighlightText key={i} html={h} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
+          ))}
 
           {item.otherMatches.length > 0 && (
             <TouchableOpacity
@@ -190,9 +191,9 @@ export default function SearchScreen() {
               <Text style={[styles.chapter, { color: colors.textSecondary }]} numberOfLines={1}>
                 Ch. {m.chapterNumber}: {m.chapterTitle}
               </Text>
-              {m.highlights?.[0] && (
-                <HighlightText html={m.highlights[0]} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
-              )}
+              {(m.highlights || []).slice(0, 2).map((h, hi) => (
+                <HighlightText key={hi} html={h} style={[styles.highlight, { color: colors.textSecondary }]} boldStyle={{ color: colors.text }} numberOfLines={2} />
+              ))}
             </View>
           ))}
         </View>

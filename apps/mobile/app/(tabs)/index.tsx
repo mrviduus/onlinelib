@@ -10,18 +10,19 @@ import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { Edition, Author } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
 import { useQuickStats } from '../../src/hooks/useQuickStats'
 
-const LANG = 'en'
 const BOOK_LIMIT = 12
 const AUTHOR_LIMIT = 8
 
 export default function HomeScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const { isAuthenticated } = useAuth()
   const quickStats = useQuickStats(isAuthenticated)
 
@@ -32,7 +33,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchAll = useCallback(async () => {
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     try {
       const [booksRes, authorsRes, genresRes] = await Promise.all([
         api.getBooks({ limit: BOOK_LIMIT }),
@@ -54,7 +55,7 @@ export default function HomeScreen() {
     }
   }, [])
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchAll() }, [language])
 
   const onRefresh = () => {
     setRefreshing(true)

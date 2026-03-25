@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
@@ -16,6 +16,8 @@ import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
 import { TocSheet } from '../../../../src/components/TocSheet'
 import { useTts } from '../../../../src/hooks/useTts'
 import { useReadingSession } from '../../../../src/hooks/useReadingSession'
+import { useQuickStats } from '../../../../src/hooks/useQuickStats'
+import { ReaderStatsWidget } from '../../../../src/components/ReaderStatsWidget'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
@@ -42,12 +44,40 @@ export default function UserBookReaderScreen() {
   const [chapters, setChapters] = useState<{ slug: string; title: string; chapterNumber?: number }[]>([])
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
+  const quickStats = useQuickStats(isAuthenticated)
   const webViewRef = useRef<WebView>(null)
   const progressRef = useRef(0)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
   const highlightsRef = useRef<PublicHighlight[]>([])
-  const { updateProgress: updateSessionProgress } = useReadingSession({
+
+  // Immersive mode — auto-hide bars
+  const [barsVisible, setBarsVisible] = useState(true)
+  const barsAnim = useRef(new Animated.Value(1)).current
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const startHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => {
+      setBarsVisible(false)
+      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+    }, 3000)
+  }, [barsAnim])
+
+  const toggleBars = useCallback(() => {
+    if (barsVisible) {
+      setBarsVisible(false)
+      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+    } else {
+      setBarsVisible(true)
+      Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
+      startHideTimer()
+    }
+  }, [barsVisible, barsAnim, startHideTimer])
+
+  useEffect(() => { if (chapter) startHideTimer() }, [chapter])
+
+  const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: null,
     userBookId: bookId || null,
     wordCount: wordCountRef.current,
@@ -114,7 +144,9 @@ export default function UserBookReaderScreen() {
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
-      if (data.type === 'progress') {
+      if (data.type === 'tap') {
+        toggleBars()
+      } else if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
         updateSessionProgress(data.progress)
@@ -279,7 +311,7 @@ export default function UserBookReaderScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, { backgroundColor: barBg }]}>
-        <View style={[styles.topBar, { borderBottomColor: barText + '20' }]}>
+        <Animated.View style={[styles.topBar, { backgroundColor: barBg, borderBottomColor: barText + '20', opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => router.back()} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -300,7 +332,7 @@ export default function UserBookReaderScreen() {
               <Ionicons name="text-outline" size={20} color={barText} />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
         {searchOpen && (
           <ReaderSearchBar
@@ -347,7 +379,16 @@ export default function UserBookReaderScreen() {
           </Text>
         </View>
 
-        <View style={[styles.bottomBar, { borderTopColor: barText + '20' }]}>
+        {/* Reading stats widget */}
+        {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
+          <ReaderStatsWidget
+            sessionStartedAt={sessionStartedAt}
+            todaySeconds={quickStats.todaySeconds}
+            dailyGoalMinutes={quickStats.dailyGoalMinutes}
+          />
+        )}
+
+        <Animated.View style={[styles.bottomBar, { borderTopColor: barText + '20', opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity
             style={[styles.navButton, !chapter.prev && styles.navDisabled]}
             disabled={!chapter.prev}
@@ -365,7 +406,7 @@ export default function UserBookReaderScreen() {
           >
             <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         <ReaderSettingsDrawer
           visible={settingsOpen}

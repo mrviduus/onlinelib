@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Share } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Share, Alert } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -12,7 +12,7 @@ import { fonts } from '../../src/theme/typography'
 
 export default function BlogPostScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { colors } = useTheme()
   const { language } = useLanguage()
   const [post, setPost] = useState<BlogPostDetailDto | null>(null)
@@ -21,6 +21,8 @@ export default function BlogPostScreen() {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [commentText, setCommentText] = useState('')
+  const [replyTo, setReplyTo] = useState<{ id: string; userName: string } | null>(null)
+  const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -64,6 +66,40 @@ export default function BlogPostScreen() {
     setSubmitting(false)
   }
 
+  const handleReply = async (parentId: string) => {
+    if (!post || !replyText.trim()) return
+    setSubmitting(true)
+    try {
+      const r = await blogApi.addBlogComment(post.id, replyText.trim(), parentId)
+      setComments(prev => prev.map(c =>
+        c.id === parentId ? { ...c, replies: [...(c.replies || []), r] } : c
+      ))
+      setReplyText('')
+      setReplyTo(null)
+    } catch {}
+    setSubmitting(false)
+  }
+
+  const handleDeleteComment = async (commentId: string, parentId?: string) => {
+    Alert.alert('Delete Comment', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await blogApi.deleteBlogComment(commentId)
+            if (parentId) {
+              setComments(prev => prev.map(c =>
+                c.id === parentId ? { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) } : c
+              ))
+            } else {
+              setComments(prev => prev.filter(c => c.id !== commentId))
+            }
+          } catch {}
+        },
+      },
+    ])
+  }
+
   if (loading || !post) {
     return (
       <>
@@ -93,7 +129,15 @@ export default function BlogPostScreen() {
           <Text style={[styles.title, { color: colors.text }]}>{post.title}</Text>
           <View style={styles.metaRow}>
             <Text style={[styles.metaText, { color: colors.textSecondary }]}>{post.authorName}</Text>
-            {date && <Text style={[styles.metaText, { color: colors.textSecondary }]}>{date}</Text>}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {post.viewCount > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="eye-outline" size={13} color={colors.textSecondary} />
+                  <Text style={[styles.metaText, { color: colors.textSecondary }]}>{post.viewCount}</Text>
+                </View>
+              )}
+              {date ? <Text style={[styles.metaText, { color: colors.textSecondary }]}>{date}</Text> : null}
+            </View>
           </View>
 
           {/* Tags */}
@@ -107,7 +151,7 @@ export default function BlogPostScreen() {
             </View>
           )}
 
-          {/* Body — render as plain text for now (HTML rendering would need a WebView) */}
+          {/* Body */}
           <Text style={[styles.body, { color: colors.text }]}>
             {post.content.replace(/<[^>]*>/g, '')}
           </Text>
@@ -154,42 +198,121 @@ export default function BlogPostScreen() {
           )}
 
           {comments.map(c => (
-            <View key={c.id} style={[styles.commentCard, { borderColor: colors.border }]}>
-              <View style={styles.commentHeader}>
-                {c.userPicture ? (
-                  <Image source={{ uri: c.userPicture }} style={styles.commentAvatar} />
-                ) : (
-                  <View style={[styles.commentAvatar, { backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' }]}>
-                    <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.primary }}>
-                      {(c.userName || 'A').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <Text style={[styles.commentUser, { color: colors.text }]}>{c.userName || 'Anonymous'}</Text>
-                <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
-                  {new Date(c.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-              <Text style={[styles.commentText, { color: colors.text }]}>{c.text}</Text>
-
-              {/* Replies */}
-              {c.replies?.map(r => (
-                <View key={r.id} style={[styles.replyCard, { borderColor: colors.border }]}>
-                  <View style={styles.commentHeader}>
-                    <Text style={[styles.commentUser, { color: colors.text }]}>{r.userName || 'Anonymous'}</Text>
-                    <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
-                      {new Date(r.createdAt).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <Text style={[styles.commentText, { color: colors.text }]}>{r.text}</Text>
-                </View>
-              ))}
-            </View>
+            <CommentItem
+              key={c.id}
+              comment={c}
+              userId={user?.id}
+              isAuthenticated={isAuthenticated}
+              replyTo={replyTo}
+              replyText={replyText}
+              submitting={submitting}
+              onSetReplyTo={setReplyTo}
+              onSetReplyText={setReplyText}
+              onReply={handleReply}
+              onDelete={handleDeleteComment}
+              colors={colors}
+            />
           ))}
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
     </>
+  )
+}
+
+function CommentItem({
+  comment: c, userId, isAuthenticated, replyTo, replyText, submitting,
+  onSetReplyTo, onSetReplyText, onReply, onDelete, colors,
+}: {
+  comment: BlogCommentDto
+  userId?: string
+  isAuthenticated: boolean
+  replyTo: { id: string; userName: string } | null
+  replyText: string
+  submitting: boolean
+  onSetReplyTo: (v: { id: string; userName: string } | null) => void
+  onSetReplyText: (v: string) => void
+  onReply: (parentId: string) => void
+  onDelete: (commentId: string, parentId?: string) => void
+  colors: any
+}) {
+  const isOwner = userId && c.userId === userId
+
+  return (
+    <View style={[styles.commentCard, { borderColor: colors.border }]}>
+      <View style={styles.commentHeader}>
+        {c.userPicture ? (
+          <Image source={{ uri: c.userPicture }} style={styles.commentAvatar} />
+        ) : (
+          <View style={[styles.commentAvatar, { backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' }]}>
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.primary }}>
+              {(c.userName || 'A').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <Text style={[styles.commentUser, { color: colors.text }]}>{c.userName || 'Anonymous'}</Text>
+        <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
+          {new Date(c.createdAt).toLocaleDateString()}
+        </Text>
+      </View>
+      <Text style={[styles.commentText, { color: colors.text }]}>{c.text}</Text>
+
+      {/* Actions: Reply + Delete */}
+      <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+        {isAuthenticated && (
+          <TouchableOpacity
+            onPress={() => onSetReplyTo(replyTo?.id === c.id ? null : { id: c.id, userName: c.userName || 'Anonymous' })}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.primary }}>Reply</Text>
+          </TouchableOpacity>
+        )}
+        {isOwner && (
+          <TouchableOpacity onPress={() => onDelete(c.id)} activeOpacity={0.7}>
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.error || '#DC2626' }}>Delete</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Reply form */}
+      {replyTo?.id === c.id && (
+        <View style={[styles.commentInput, { borderColor: colors.border, marginTop: 10 }]}>
+          <TextInput
+            style={[styles.commentField, { color: colors.text }]}
+            value={replyText}
+            onChangeText={onSetReplyText}
+            placeholder={`Reply to ${replyTo.userName}...`}
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            autoFocus
+          />
+          <TouchableOpacity onPress={() => onReply(c.id)} disabled={submitting || !replyText.trim()} activeOpacity={0.7}>
+            <Ionicons name="send" size={18} color={replyText.trim() ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Replies */}
+      {c.replies?.map(r => {
+        const replyIsOwner = userId && r.userId === userId
+        return (
+          <View key={r.id} style={[styles.replyCard, { borderColor: colors.border }]}>
+            <View style={styles.commentHeader}>
+              <Text style={[styles.commentUser, { color: colors.text }]}>{r.userName || 'Anonymous'}</Text>
+              <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
+                {new Date(r.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+            <Text style={[styles.commentText, { color: colors.text }]}>{r.text}</Text>
+            {replyIsOwner && (
+              <TouchableOpacity onPress={() => onDelete(r.id, c.id)} activeOpacity={0.7} style={{ marginTop: 6 }}>
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.error || '#DC2626' }}>Delete</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )
+      })}
+    </View>
   )
 }
 
@@ -204,8 +327,8 @@ const styles = StyleSheet.create({
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   tagText: { fontFamily: fonts.sansMedium, fontSize: 12 },
   body: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 24, marginBottom: 20 },
-  likeRow: { marginBottom: 24 },
-  likeButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  likeRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  likeButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   likeText: { fontFamily: fonts.sansMedium, fontSize: 14 },
   sectionTitle: { fontFamily: fonts.serifBold, fontSize: 20, marginBottom: 12 },
   commentInput: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 16 },

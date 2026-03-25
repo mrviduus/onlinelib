@@ -6,27 +6,27 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { AuthorDetail } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
-
-const LANG = 'en'
 
 export default function AuthorScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [author, setAuthor] = useState<AuthorDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!slug) return
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getAuthor(slug)
       .then(setAuthor)
       .catch(e => console.error('Failed to load author:', e))
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, language])
 
   if (loading || !author) {
     return (

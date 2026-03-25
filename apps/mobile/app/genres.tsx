@@ -7,24 +7,24 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi } from '@textstack/shared'
 import type { Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
+import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 import { SkeletonLoader } from '../src/components/ui/SkeletonLoader'
-
-const LANG = 'en'
 
 export default function GenresScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [genres, setGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getGenres()
       .then(res => setGenres(Array.isArray(res) ? res : res.items))
       .catch(e => console.error('Failed to fetch genres:', e))
       .finally(() => setLoading(false))
-  }, [])
+  }, [language])
 
   return (
     <>

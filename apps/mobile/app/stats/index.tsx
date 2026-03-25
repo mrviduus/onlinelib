@@ -162,9 +162,11 @@ export default function StatsScreen() {
         >
           {tab === 'overview' && (
             <>
+              {stats && <TodaySummary stats={stats} daily={daily} />}
               {stats && <OverviewSection stats={stats} />}
               {stats?.dailyGoal && <DailyGoalSection goal={stats.dailyGoal} />}
               <GoalsSection goals={goals} onUpdate={loadData} />
+              <WeeklyChartSection daily={daily} />
               <HeatmapSection daily={daily} />
             </>
           )}
@@ -179,6 +181,38 @@ export default function StatsScreen() {
         </ScrollView>
       </View>
     </>
+  )
+}
+
+// --- Today Summary ---
+
+function TodaySummary({ stats, daily }: { stats: ReadingStatsDto; daily: DailyStatDto[] }) {
+  const { colors } = useTheme()
+  const todayKey = new Date().toISOString().split('T')[0]
+  const todayData = daily.find(d => d.date.substring(0, 10) === todayKey)
+  const todaySec = stats.todaySeconds || 0
+  const todayWords = todayData?.totalWords || 0
+  const h = Math.floor(todaySec / 3600)
+  const m = Math.round((todaySec % 3600) / 60)
+  const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`
+
+  return (
+    <View style={[styles.section, { borderBottomColor: colors.border }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.textSecondary }}>Today</Text>
+        <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.text }}>
+          {timeStr}
+          {todayWords > 0 && ` · ${formatNumber(todayWords)} words`}
+          {stats.dailyGoal && ` · ${Math.round((stats.dailyGoal.today / Math.max(stats.dailyGoal.target, 1)) * 100)}%`}
+        </Text>
+      </View>
+      {(stats.currentStreak || 0) > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+          <Ionicons name="flame-outline" size={14} color={colors.primary} />
+          <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.primary }}>{stats.currentStreak} day streak</Text>
+        </View>
+      )}
+    </View>
   )
 }
 
@@ -237,6 +271,53 @@ function DailyGoalSection({ goal }: { goal: NonNullable<ReadingStatsDto['dailyGo
             <Text style={{ fontSize: 13, color: colors.success, fontFamily: fonts.sansMedium }}>Goal met today!</Text>
           </View>
         )}
+      </View>
+    </View>
+  )
+}
+
+// --- Weekly Chart ---
+
+function WeeklyChartSection({ daily }: { daily: DailyStatDto[] }) {
+  const { colors } = useTheme()
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayMap = new Map<string, number>()
+  for (const d of daily) dayMap.set(d.date.substring(0, 10), d.totalSeconds)
+
+  const bars: { label: string; seconds: number }[] = []
+  const today = new Date()
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().substring(0, 10)
+    bars.push({ label: days[d.getDay()], seconds: dayMap.get(key) || 0 })
+  }
+
+  const maxSeconds = Math.max(...bars.map(b => b.seconds), 1)
+  const chartHeight = 100
+
+  return (
+    <View style={[styles.section, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>This Week</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: chartHeight, paddingHorizontal: 4 }}>
+        {bars.map((b, i) => {
+          const pct = b.seconds / maxSeconds
+          const barH = Math.max(pct * (chartHeight - 20), b.seconds > 0 ? 4 : 0)
+          const mins = Math.round(b.seconds / 60)
+          return (
+            <View key={i} style={{ alignItems: 'center', flex: 1 }}>
+              {mins > 0 && (
+                <Text style={{ fontFamily: fonts.sans, fontSize: 9, color: colors.textSecondary, marginBottom: 2 }}>
+                  {mins}m
+                </Text>
+              )}
+              <View style={{ width: '60%', height: barH, backgroundColor: colors.primary, borderRadius: 3 }} />
+              <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
+                {b.label}
+              </Text>
+            </View>
+          )
+        })}
       </View>
     </View>
   )
@@ -348,16 +429,19 @@ function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => v
   const [showForm, setShowForm] = useState(false)
   const [goalType, setGoalType] = useState<'daily_minutes' | 'books_per_year'>('daily_minutes')
   const [target, setTarget] = useState('')
+  const [streakMin, setStreakMin] = useState('')
   const [saving, setSaving] = useState(false)
 
   const handleCreate = async () => {
     const val = parseInt(target)
     if (!val || val <= 0) return
     setSaving(true)
+    const smm = parseInt(streakMin)
     try {
-      await readingTrackingApi.createGoal({ type: goalType, target: val })
+      await readingTrackingApi.createGoal({ type: goalType, target: val, streakMinMinutes: smm > 0 ? smm : undefined })
       setShowForm(false)
       setTarget('')
+      setStreakMin('')
       onUpdate()
     } catch {}
     setSaving(false)
@@ -442,6 +526,22 @@ function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => v
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
+          {goalType === 'daily_minutes' && (
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8 }}>
+              <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary }}>Streak threshold:</Text>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, maxWidth: 100 }}>
+                <TextInputNative
+                  style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.text }}
+                  value={streakMin}
+                  onChangeText={setStreakMin}
+                  keyboardType="numeric"
+                  placeholder="5"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+              <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary }}>min</Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -477,7 +577,7 @@ function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null })
       {bookStats.authorStats.length > 0 && (
         <View style={{ marginTop: 20 }}>
           <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>By Author</Text>
-          {bookStats.authorStats.slice(0, 10).map(a => (
+          {bookStats.authorStats.map(a => (
             <BarRow key={a.slug} label={a.name} value={a.count} max={bookStats.authorStats[0].count} />
           ))}
         </View>
@@ -584,7 +684,7 @@ function TimeTabSection({ bookStats, stats }: { bookStats: BookStatsResponse | n
       {bookStats && bookStats.readingTimeByAuthor.length > 0 && (
         <View style={{ marginTop: 20 }}>
           <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Time by Author</Text>
-          {bookStats.readingTimeByAuthor.slice(0, 10).map(a => (
+          {bookStats.readingTimeByAuthor.map(a => (
             <BarRow key={a.slug} label={a.name} value={Math.round(a.seconds / 60)} suffix="min" max={Math.round(bookStats.readingTimeByAuthor[0].seconds / 60)} />
           ))}
         </View>

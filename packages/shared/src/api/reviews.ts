@@ -149,3 +149,24 @@ export async function addReviewComment(
 export async function deleteReviewComment(commentId: string): Promise<void> {
   await authFetch<void>(`/me/reviews/comments/${commentId}`, { method: 'DELETE' })
 }
+
+// User book ratings
+export async function getUserBookRating(userBookId: string): Promise<UserRatingDto | null> {
+  try {
+    return await authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`)
+  } catch {
+    return null
+  }
+}
+
+export async function upsertUserBookRating(userBookId: string, data: { rating: number }): Promise<UserRatingDto> {
+  return authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteUserBookRating(userBookId: string): Promise<void> {
+  await authFetch<void>(`/me/ratings/userbook/${userBookId}`, { method: 'DELETE' })
+}

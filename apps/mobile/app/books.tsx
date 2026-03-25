@@ -5,10 +5,10 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { Edition, Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
+import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 import { BookCard } from '../src/components/ui/BookCard'
 
-const LANG = 'en'
 const PAGE_SIZE = 20
 const SORT_OPTIONS = [
   { key: '', label: 'Recent' },
@@ -19,6 +19,7 @@ const SORT_OPTIONS = [
 export default function BooksScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
 
   const [books, setBooks] = useState<Edition[]>([])
   const [total, setTotal] = useState(0)
@@ -31,13 +32,13 @@ export default function BooksScreen() {
   const lastFetchRef = useRef(0)
 
   useEffect(() => {
-    createBooksApi(LANG).getGenres()
+    createBooksApi(language).getGenres()
       .then(res => setGenres(res.items))
       .catch(() => {})
-  }, [])
+  }, [language])
 
   const fetchBooks = useCallback(async (reset = true) => {
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     const offset = reset ? 0 : books.length
     if (reset) setLoading(true)
     else setLoadingMore(true)
@@ -59,9 +60,9 @@ export default function BooksScreen() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [query, sort, genre, books.length])
+  }, [query, sort, genre, books.length, language])
 
-  useEffect(() => { fetchBooks(true) }, [query, sort, genre])
+  useEffect(() => { fetchBooks(true) }, [query, sort, genre, language])
 
   const loadMore = () => {
     if (!loadingMore && books.length < total) fetchBooks(false)

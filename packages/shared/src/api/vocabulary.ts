@@ -52,7 +52,7 @@ export function getReviewQueue(limit?: number, mode?: 'srs' | 'practice') {
   return authFetch<{ cards: ReviewCardDto[]; totalDue: number }>(`/me/vocabulary/review${qs ? `?${qs}` : ''}`)
 }
 
-export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; reviewMode: string }) {
+export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; reviewMode?: string; mode?: string }) {
   return authFetch<SubmitReviewResponse>('/me/vocabulary/review', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

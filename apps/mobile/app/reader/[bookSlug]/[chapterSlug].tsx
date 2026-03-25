@@ -21,9 +21,8 @@ import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
+import { useLanguage } from '../../../src/context/LanguageContext'
 import { fonts } from '../../../src/theme/typography'
-
-const LANG = 'en'
 
 /** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
 function getSlugFromLocator(locator: string): string {
@@ -61,6 +60,7 @@ export default function ReaderScreen() {
   const totalWordCountRef = useRef(0)
 
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const quickStats = useQuickStats(isAuthenticated)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
 
@@ -106,7 +106,7 @@ export default function ReaderScreen() {
   // Resolve editionId from bookSlug (needed for progress + bookmarks)
   useEffect(() => {
     if (!bookSlug) return
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getBook(bookSlug)
       .then(b => {
         editionIdRef.current = b.id
@@ -128,14 +128,14 @@ export default function ReaderScreen() {
           if (match) editionIdRef.current = match.editionId
         }).catch(() => {})
       })
-  }, [bookSlug, isAuthenticated])
+  }, [bookSlug, isAuthenticated, language])
 
   useEffect(() => {
     if (!bookSlug || !chapterSlug) return
 
     ;(async () => {
       try {
-        const api = createBooksApi(LANG)
+        const api = createBooksApi(language)
         const ch = await api.getChapter(bookSlug, chapterSlug)
         setChapter(ch)
         wordCountRef.current = ch.wordCount || 0
@@ -241,7 +241,7 @@ export default function ReaderScreen() {
             if (isAuthenticated) {
               vocabularyApi.saveWord({
                 word: data.text,
-                language: LANG,
+                language,
                 sentence: data.sentence || null,
                 bookTitle: bookTitleRef.current || null,
                 editionId: editionIdRef.current || null,
@@ -287,7 +287,7 @@ export default function ReaderScreen() {
     try {
       await vocabularyApi.saveWord({
         word: selection.text,
-        language: LANG,
+        language,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
         editionId: editionIdRef.current || null,
@@ -349,7 +349,7 @@ export default function ReaderScreen() {
     const next = nextChapterRef.current
     if (!next || !bookSlug) return
     try {
-      const api = createBooksApi(LANG)
+      const api = createBooksApi(language)
       const ch = await api.getChapter(bookSlug, next.slug)
       const escaped = JSON.stringify(ch.html).slice(1, -1) // remove outer quotes
       injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)}, ${JSON.stringify(ch.slug)})`)

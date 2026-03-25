@@ -8,14 +8,15 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { Author } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
+import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 
-const LANG = 'en'
 const PAGE_SIZE = 20
 
 export default function AuthorsScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
 
   const [authors, setAuthors] = useState<Author[]>([])
   const [total, setTotal] = useState(0)
@@ -25,7 +26,7 @@ export default function AuthorsScreen() {
   const [sort, setSort] = useState<'' | 'recent'>('')
 
   const fetchAuthors = useCallback(async (reset = true) => {
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     const offset = reset ? 0 : authors.length
     if (reset) setLoading(true)
     else setLoadingMore(true)
@@ -44,9 +45,9 @@ export default function AuthorsScreen() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [query, sort, authors.length])
+  }, [query, sort, authors.length, language])
 
-  useEffect(() => { fetchAuthors(true) }, [query, sort])
+  useEffect(() => { fetchAuthors(true) }, [query, sort, language])
 
   const loadMore = () => {
     if (!loadingMore && authors.length < total) fetchAuthors(false)

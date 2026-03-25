@@ -90,6 +90,12 @@ export default function BlogScreen() {
               <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
               <Text style={[styles.statText, { color: colors.textSecondary }]}>{item.commentCount}</Text>
             </View>
+            {item.viewCount > 0 && (
+              <View style={styles.stat}>
+                <Ionicons name="eye-outline" size={14} color={colors.textSecondary} />
+                <Text style={[styles.statText, { color: colors.textSecondary }]}>{item.viewCount}</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>

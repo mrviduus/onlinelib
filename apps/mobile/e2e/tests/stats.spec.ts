@@ -55,4 +55,16 @@ test.describe('Stats', () => {
       await page.waitForTimeout(1000)
     }
   })
+
+  test('weekly chart and today summary visible', async ({ page }) => {
+    await page.goto('/stats')
+    await page.waitForLoadState('networkidle')
+
+    const hasOverview = await page.locator('text=Overview').first().isVisible({ timeout: 10000 }).catch(() => false)
+    if (hasOverview) {
+      // Today summary or This Week chart section should be visible
+      const hasSummary = await page.locator('text=/Today|This Week|No reading stats/').first().isVisible({ timeout: 5000 }).catch(() => false)
+      expect(hasSummary).toBeTruthy()
+    }
+  })
 })

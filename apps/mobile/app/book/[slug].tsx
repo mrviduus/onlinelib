@@ -8,19 +8,20 @@ import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { isBookFullyCached } from '../../src/lib/offlineDb'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { ReviewsSection } from '../../src/components/reviews/ReviewsSection'
 import { MoodSelector } from '../../src/components/MoodSelector'
-
-const LANG = 'en'
+import { StarRating } from '../../src/components/StarRating'
 
 export default function BookDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const { downloads, startDownload, cancelDownload, removeDownload } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,7 +32,7 @@ export default function BookDetailScreen() {
 
   useEffect(() => {
     if (!slug) return
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getBook(slug)
       .then(async (b) => {
         setBook(b)
@@ -49,7 +50,7 @@ export default function BookDetailScreen() {
       })
       .catch(e => console.error('Failed to load book:', e))
       .finally(() => setLoading(false))
-  }, [slug, isAuthenticated])
+  }, [slug, isAuthenticated, language])
 
   const dl = book ? downloads.get(book.id) : undefined
   const isDownloading = dl?.status === 'downloading'
@@ -157,15 +158,16 @@ export default function BookDetailScreen() {
               <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Downloading {progress}% — Cancel</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, LANG)} activeOpacity={0.85}>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, language)} activeOpacity={0.85}>
               <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
               <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download for Offline</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Moods */}
-        <View style={{ paddingHorizontal: 16 }}>
+        {/* Rating + Moods */}
+        <View style={{ paddingHorizontal: 16, gap: 12 }}>
+          <StarRating editionId={book.id} />
           <MoodSelector editionId={book.id} />
         </View>
 
@@ -178,7 +180,7 @@ export default function BookDetailScreen() {
             style={[styles.secondaryButton, { borderColor: colors.border }]}
             onPress={() => {
               const { baseUrl } = getApiConfig()
-              Linking.openURL(`${baseUrl}/${LANG}/books/${slug}/export/epub`).catch(() => {})
+              Linking.openURL(`${baseUrl}/${language}/books/${slug}/export/epub`).catch(() => {})
             }}
             activeOpacity={0.85}
           >

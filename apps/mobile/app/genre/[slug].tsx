@@ -5,27 +5,27 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
 import type { GenreDetail } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
-
-const LANG = 'en'
 
 export default function GenreScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const router = useRouter()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const [genre, setGenre] = useState<GenreDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!slug) return
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getGenre(slug)
       .then(setGenre)
       .catch(e => console.error('Failed to load genre:', e))
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, language])
 
   if (loading || !genre) {
     return (

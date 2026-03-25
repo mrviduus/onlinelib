@@ -8,6 +8,7 @@ import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { MoodSelector } from '../../src/components/MoodSelector'
+import { StarRating } from '../../src/components/StarRating'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -245,9 +246,10 @@ export default function UserBookDetailScreen() {
           </View>
         )}
 
-        {/* Moods */}
+        {/* Rating + Moods */}
         {isReady && (
-          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
+            <StarRating userBookId={id!} />
             <MoodSelector userBookId={id!} />
           </View>
         )}

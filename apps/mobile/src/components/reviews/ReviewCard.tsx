@@ -1,24 +1,53 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+import { reviewsApi } from '@textstack/shared'
 import { StarRatingDisplay } from './StarRatingInput'
 import { useTheme } from '../../context/ThemeContext'
 import { fonts } from '../../theme/typography'
-import type { PublicReviewDto } from '@textstack/shared/api/reviews'
+import type { PublicReviewDto, ReviewCommentDto } from '@textstack/shared/api/reviews'
 
 interface ReviewCardProps {
   review: PublicReviewDto
+  editionId?: string
   onLike?: () => void
   onUnlike?: () => void
   isAuthenticated?: boolean
 }
 
-export function ReviewCard({ review, onLike, onUnlike, isAuthenticated }: ReviewCardProps) {
+export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticated }: ReviewCardProps) {
   const { colors } = useTheme()
   const [showSpoiler, setShowSpoiler] = useState(false)
   const [liked, setLiked] = useState(review.isLikedByMe)
   const [helpfulCount, setHelpfulCount] = useState(review.helpfulCount)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [comments, setComments] = useState<ReviewCommentDto[]>([])
+  const [commentText, setCommentText] = useState('')
+  const [loadingComments, setLoadingComments] = useState(false)
+
+  const toggleComments = async () => {
+    if (commentsOpen) { setCommentsOpen(false); return }
+    if (!editionId) return
+    setCommentsOpen(true)
+    if (comments.length === 0) {
+      setLoadingComments(true)
+      try {
+        const res = await reviewsApi.getReviewComments(editionId, review.id)
+        setComments(res.items)
+      } catch {}
+      setLoadingComments(false)
+    }
+  }
+
+  const submitComment = async () => {
+    if (!commentText.trim()) return
+    try {
+      const c = await reviewsApi.addReviewComment(review.id, commentText.trim())
+      setComments(prev => [...prev, c])
+      setCommentText('')
+    } catch {}
+  }
 
   const handleLike = () => {
     if (liked) {
@@ -90,7 +119,51 @@ export function ReviewCard({ review, onLike, onUnlike, isAuthenticated }: Review
             )}
           </TouchableOpacity>
         )}
+        {review.commentCount > 0 || isAuthenticated ? (
+          <TouchableOpacity style={styles.actionButton} onPress={toggleComments} activeOpacity={0.7}>
+            <Ionicons name="chatbubble-outline" size={16} color={colors.textSecondary} />
+            {review.commentCount > 0 && (
+              <Text style={[styles.actionText, { color: colors.textSecondary }]}>{review.commentCount}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
+
+      {/* Comments */}
+      {commentsOpen && (
+        <View style={[styles.commentsSection, { borderTopColor: colors.border }]}>
+          {loadingComments ? (
+            <Text style={[styles.commentMeta, { color: colors.textSecondary }]}>Loading...</Text>
+          ) : (
+            <>
+              {comments.map(c => (
+                <View key={c.id} style={styles.commentRow}>
+                  <Text style={[styles.commentUser, { color: colors.text }]}>{c.userName || 'Anonymous'}</Text>
+                  <Text style={[styles.commentBody, { color: colors.text }]}>{c.text}</Text>
+                  <Text style={[styles.commentMeta, { color: colors.textSecondary }]}>
+                    {new Date(c.createdAt).toLocaleDateString()}
+                  </Text>
+                </View>
+              ))}
+              {isAuthenticated && (
+                <View style={[styles.commentInput, { borderColor: colors.border }]}>
+                  <TextInput
+                    style={[styles.commentField, { color: colors.text }]}
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    placeholder="Add a comment..."
+                    placeholderTextColor={colors.textSecondary}
+                    multiline
+                  />
+                  <TouchableOpacity onPress={submitComment} disabled={!commentText.trim()} activeOpacity={0.7}>
+                    <Ionicons name="send" size={18} color={commentText.trim() ? colors.primary : colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      )}
     </View>
   )
 }
@@ -110,4 +183,11 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', marginTop: 10, gap: 16 },
   actionButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actionText: { fontFamily: fonts.sans, fontSize: 13 },
+  commentsSection: { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  commentRow: { marginBottom: 10 },
+  commentUser: { fontFamily: fonts.sansMedium, fontSize: 13 },
+  commentBody: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  commentMeta: { fontFamily: fonts.sans, fontSize: 11, marginTop: 2 },
+  commentInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 8 },
+  commentField: { flex: 1, fontFamily: fonts.sans, fontSize: 13, maxHeight: 60, padding: 0 },
 })

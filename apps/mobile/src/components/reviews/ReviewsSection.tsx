@@ -24,14 +24,15 @@ export function ReviewsSection({ editionId }: Props) {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [sort, setSort] = useState<'popular' | 'newest'>('popular')
+  const [sort, setSort] = useState<'popular' | 'newest' | 'oldest'>('popular')
+  const [ratingFilter, setRatingFilter] = useState<number | null>(null)
 
   const fetchAll = async () => {
     setLoading(true)
     try {
       const [s, r] = await Promise.all([
         reviewsApi.getBookReviewStats(editionId),
-        reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE }),
+        reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE, rating: ratingFilter || undefined }),
       ])
       setStats(s)
       setReviews(r.items)
@@ -40,13 +41,17 @@ export function ReviewsSection({ editionId }: Props) {
     setLoading(false)
   }
 
-  useEffect(() => { fetchAll() }, [editionId, sort])
+  useEffect(() => { fetchAll() }, [editionId, sort, ratingFilter])
 
   const loadMore = async () => {
     try {
-      const r = await reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE, offset: reviews.length })
+      const r = await reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE, offset: reviews.length, rating: ratingFilter || undefined })
       setReviews(prev => [...prev, ...r.items])
     } catch {}
+  }
+
+  const handleRatingFilter = (r: number) => {
+    setRatingFilter(ratingFilter === r ? null : r)
   }
 
   if (loading) {
@@ -74,10 +79,28 @@ export function ReviewsSection({ editionId }: Props) {
         />
       )}
 
+      {/* Rating filter */}
+      {stats && stats.totalRatings > 0 && (
+        <View style={styles.sortRow}>
+          {[5, 4, 3, 2, 1].map(r => (
+            <TouchableOpacity
+              key={r}
+              onPress={() => handleRatingFilter(r)}
+              style={[styles.sortChip, ratingFilter === r && { backgroundColor: colors.primaryLight }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.sortText, { color: ratingFilter === r ? colors.primary : colors.textSecondary }]}>
+                {r}★
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Sort */}
       {reviews.length > 0 && (
         <View style={styles.sortRow}>
-          {(['popular', 'newest'] as const).map(s => (
+          {([['popular', 'Most Helpful'], ['newest', 'Newest'], ['oldest', 'Oldest']] as const).map(([s, label]) => (
             <TouchableOpacity
               key={s}
               onPress={() => setSort(s)}
@@ -85,7 +108,7 @@ export function ReviewsSection({ editionId }: Props) {
               activeOpacity={0.7}
             >
               <Text style={[styles.sortText, { color: sort === s ? colors.primary : colors.textSecondary }]}>
-                {s === 'popular' ? 'Most Helpful' : 'Newest'}
+                {label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -96,6 +119,7 @@ export function ReviewsSection({ editionId }: Props) {
         <ReviewCard
           key={r.id}
           review={r}
+          editionId={editionId}
           isAuthenticated={isAuthenticated}
           onLike={() => reviewsApi.likeReview(r.id).catch(() => {})}
           onUnlike={() => reviewsApi.unlikeReview(r.id).catch(() => {})}
