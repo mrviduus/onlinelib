@@ -107,6 +107,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         type: 'loaded',
         scrollHeight: document.documentElement.scrollHeight
       }));
+      setTimeout(checkInfiniteScroll, 100);
     });
 
     // Infinite scroll
@@ -133,6 +134,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       document.body.appendChild(div);
       if (slug) registerChapter(slug);
       loadingNext = false;
+      setTimeout(checkInfiniteScroll, 100);
     }
     function enableInfiniteScroll() { infiniteScrollEnabled = true; }
     function disableInfiniteScroll() { infiniteScrollEnabled = false; loadingNext = false; }

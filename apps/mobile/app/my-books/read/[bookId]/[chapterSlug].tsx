@@ -55,6 +55,8 @@ export default function UserBookReaderScreen() {
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
   const highlightsRef = useRef<PublicHighlight[]>([])
+  const currentChapterSlugRef = useRef<string | null>(null)
+  const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
 
   // Immersive mode — auto-hide bars
   const [barsVisible, setBarsVisible] = useState(true)
@@ -116,16 +118,17 @@ export default function UserBookReaderScreen() {
     }).catch(() => {})
   }, [bookId])
 
+  const activeSlug = visibleChapterSlug ?? chapterSlug
   const isCurrentBookmarked = bookmarks.some(b => {
     const slug = b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator
-    return slug === chapterSlug
+    return slug === activeSlug
   })
 
   const handleToggleBookmark = async () => {
-    if (!bookId || !chapterSlug || !chapter) return
+    if (!bookId || !activeSlug || !chapter) return
     const existing = bookmarks.find(b => {
       const slug = b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator
-      return slug === chapterSlug
+      return slug === activeSlug
     })
     if (existing) {
       await userBooksApi.deleteUserBookBookmark(bookId, existing.id).catch(() => {})
@@ -134,7 +137,7 @@ export default function UserBookReaderScreen() {
       try {
         const bm = await userBooksApi.createUserBookBookmark(bookId, {
           chapterId: chapter.id,
-          locator: `chapter:${chapterSlug}`,
+          locator: `chapter:${activeSlug}`,
           title: chapter.title,
         })
         setBookmarks(prev => [...prev, bm])
@@ -157,10 +160,14 @@ export default function UserBookReaderScreen() {
         progressRef.current = data.progress
         setProgress(data.progress)
         updateSessionProgress(data.progress)
-        if (bookId && chapterSlug) {
+        if (data.chapterSlug) {
+          currentChapterSlugRef.current = data.chapterSlug
+          setVisibleChapterSlug(data.chapterSlug)
+        }
+        if (bookId) {
           userBooksApi.updateUserBookProgress(bookId, {
             percent: data.progress,
-            chapterSlug,
+            chapterSlug: data.chapterSlug || chapterSlug,
           }).catch(() => {})
         }
       } else if (data.type === 'loaded') {
@@ -214,7 +221,7 @@ export default function UserBookReaderScreen() {
         }
       }
     } catch {}
-  }, [bookId, chapterSlug, settings.autoLookup, isAuthenticated])
+  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated])
 
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
@@ -398,25 +405,6 @@ export default function UserBookReaderScreen() {
               {Math.round(progress * 100)}% · ~{etfMinutes} min left
             </Text>
           </View>
-          <View style={[styles.bottomBar, { borderTopColor: barText + '20' }]}>
-          <TouchableOpacity
-            style={[styles.navButton, !chapter.prev && styles.navDisabled]}
-            disabled={!chapter.prev}
-            onPress={() => chapter.prev && navigateChapter(chapter.prev.slug)}
-          >
-            <Text style={[styles.navText, { color: colors.primary }]}>Prev</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
-            <Ionicons name="bookmarks-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.navButton, !chapter.next && styles.navDisabled]}
-            disabled={!chapter.next}
-            onPress={() => chapter.next && navigateChapter(chapter.next.slug)}
-          >
-            <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
-          </TouchableOpacity>
-          </View>
         </Animated.View>
 
         <ReaderSettingsDrawer
@@ -444,7 +432,7 @@ export default function UserBookReaderScreen() {
           visible={bookmarksOpen}
           onClose={() => setBookmarksOpen(false)}
           bookmarks={bookmarks}
-          currentChapterSlug={chapterSlug || ''}
+          currentChapterSlug={activeSlug || ''}
           onNavigate={navigateChapter}
           onDelete={handleDeleteBookmark}
           onToggleCurrent={handleToggleBookmark}
@@ -454,7 +442,7 @@ export default function UserBookReaderScreen() {
         <TocSheet
           visible={tocOpen}
           chapters={chapters}
-          currentChapterSlug={chapterSlug || ''}
+          currentChapterSlug={activeSlug || ''}
           bookmarks={bookmarks.map(b => ({
             chapterSlug: b.locator.startsWith('chapter:') ? b.locator.slice(8) : b.locator,
             title: b.title || undefined,
@@ -495,15 +483,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
   },
-  bottomBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  navButton: { paddingVertical: 8, paddingHorizontal: 16 },
-  navDisabled: { opacity: 0.3 },
-  navText: { fontSize: 15, fontWeight: '500' as const, fontFamily: fonts.sansMedium },
   progressContainer: {
     paddingHorizontal: 16,
     paddingVertical: 6,

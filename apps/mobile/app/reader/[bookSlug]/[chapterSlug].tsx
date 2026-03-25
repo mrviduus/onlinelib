@@ -76,6 +76,7 @@ export default function ReaderScreen() {
   const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentChapterSlugRef = useRef<string | null>(null)
+  const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
 
   // Reading session tracking
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
@@ -200,7 +201,10 @@ export default function ReaderScreen() {
         progressRef.current = data.progress
         setProgress(data.progress)
         updateSessionProgress(data.progress)
-        if (data.chapterSlug) currentChapterSlugRef.current = data.chapterSlug
+        if (data.chapterSlug) {
+          currentChapterSlugRef.current = data.chapterSlug
+          setVisibleChapterSlug(data.chapterSlug)
+        }
       } else if (data.type === 'search') {
         setSearchMatchCount(data.matchCount || 0)
         setSearchCurrentMatch(data.currentMatch || 0)
@@ -261,18 +265,19 @@ export default function ReaderScreen() {
         }
       }
     } catch {}
-  }, [settings.autoLookup, isAuthenticated, toggleBars])
+  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
     router.replace(`/reader/${bookSlug}/${slug}`)
   }
 
-  const isCurrentBookmarked = bookmarks.some(b => getSlugFromLocator(b.locator) === chapterSlug)
+  const activeSlug = visibleChapterSlug ?? chapterSlug
+  const isCurrentBookmarked = bookmarks.some(b => getSlugFromLocator(b.locator) === activeSlug)
 
   const toggleBookmark = async () => {
-    if (!isAuthenticated || !editionIdRef.current || !chapter || !chapterSlug) return
-    const existing = bookmarks.find(b => getSlugFromLocator(b.locator) === chapterSlug)
+    if (!isAuthenticated || !editionIdRef.current || !chapter || !activeSlug) return
+    const existing = bookmarks.find(b => getSlugFromLocator(b.locator) === activeSlug)
     if (existing) {
       await bookmarksApi.deleteBookmark(existing.id).catch(() => {})
       setBookmarks(prev => prev.filter(b => b.id !== existing.id))
@@ -281,7 +286,7 @@ export default function ReaderScreen() {
         const bm = await bookmarksApi.createBookmark({
           editionId: editionIdRef.current,
           chapterId: chapter.id,
-          locator: `chapter:${chapterSlug}`,
+          locator: `chapter:${activeSlug}`,
           title: chapter.title,
         })
         setBookmarks(prev => [...prev, bm])
@@ -472,28 +477,14 @@ export default function ReaderScreen() {
           />
         )}
 
-        {/* Footer — progress bar + nav + info row */}
+        {/* Footer — progress bar + info */}
         <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
-          <View style={styles.footerInfo}>
-            {chapter.prev ? (
-              <TouchableOpacity onPress={() => navigateChapter(chapter.prev!.slug)} style={styles.navBtn} hitSlop={8}>
-                <Ionicons name="chevron-back" size={18} color={barText + '99'} />
-                <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>Prev</Text>
-              </TouchableOpacity>
-            ) : <View style={{ width: 50 }} />}
-            <Text style={[styles.footerProgress, { color: barText + '99' }]}>
-              {Math.round(progress * 100)}% · ~{etfDisplay}
-            </Text>
-            {chapter.next ? (
-              <TouchableOpacity onPress={() => navigateChapter(chapter.next!.slug)} style={styles.navBtn} hitSlop={8}>
-                <Text style={[styles.footerChapter, { color: barText + '99' }]} numberOfLines={1}>Next</Text>
-                <Ionicons name="chevron-forward" size={18} color={barText + '99'} />
-              </TouchableOpacity>
-            ) : <View style={{ width: 50 }} />}
-          </View>
+          <Text style={[styles.footerProgress, { color: barText + '99', textAlign: 'center', paddingVertical: 8, paddingHorizontal: 16 }]}>
+            {Math.round(progress * 100)}% · ~{etfDisplay}
+          </Text>
         </Animated.View>
 
         {/* Reading stats widget */}
@@ -518,7 +509,7 @@ export default function ReaderScreen() {
           visible={bookmarksOpen}
           onClose={() => setBookmarksOpen(false)}
           bookmarks={bookmarks}
-          currentChapterSlug={chapterSlug || ''}
+          currentChapterSlug={activeSlug || ''}
           onNavigate={navigateChapter}
           onDelete={deleteBookmark}
           onToggleCurrent={toggleBookmark}
@@ -545,7 +536,7 @@ export default function ReaderScreen() {
         <TocSheet
           visible={tocOpen}
           chapters={chapters.map(c => ({ slug: c.slug, title: c.title, chapterNumber: c.chapterNumber }))}
-          currentChapterSlug={chapterSlug || ''}
+          currentChapterSlug={activeSlug || ''}
           bookmarks={bookmarks.map(b => ({ chapterSlug: getSlugFromLocator(b.locator) }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
@@ -597,16 +588,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  footerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  footerChapter: { fontSize: 14, fontFamily: fonts.sans, maxWidth: '50%' },
   footerProgress: { fontSize: 14, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
-  navBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 4 },
 })
