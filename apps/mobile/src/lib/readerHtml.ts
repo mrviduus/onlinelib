@@ -28,8 +28,10 @@ function buildFontFace(fontFamily: string): string {
   }`
 }
 
-export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string): string {
+export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string, safeArea?: { top: number; bottom: number }): string {
   const fontFace = buildFontFace(theme.fontFamily)
+  const padTop = (safeArea?.top ?? 0) + 16
+  const padBottom = (safeArea?.bottom ?? 0) + 16
 
   return `<!DOCTYPE html>
 <html>
@@ -46,7 +48,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       color: ${theme.textColor};
       background: ${theme.backgroundColor};
       text-align: ${theme.textAlign};
-      padding: 16px;
+      padding: ${padTop}px 16px ${padBottom}px 16px;
       word-wrap: break-word;
       overflow-wrap: break-word;
       -webkit-text-size-adjust: none;

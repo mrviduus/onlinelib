@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Animated, Alert } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
@@ -23,6 +23,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
 import { fonts } from '../../../src/theme/typography'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { StatusBar } from 'expo-status-bar'
 
 /** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
 function getSlugFromLocator(locator: string): string {
@@ -63,10 +65,15 @@ export default function ReaderScreen() {
   const { language } = useLanguage()
   const quickStats = useQuickStats(isAuthenticated)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
+  const insets = useSafeAreaInsets()
+  const topBarHeight = 56 + insets.top
+  const footerHeight = 60 + insets.bottom
 
   // Immersive mode — auto-hide bars
   const [barsVisible, setBarsVisible] = useState(true)
   const barsAnim = useRef(new Animated.Value(1)).current
+  const topBarTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [-topBarHeight, 0] })
+  const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentChapterSlugRef = useRef<string | null>(null)
 
@@ -381,7 +388,7 @@ export default function ReaderScreen() {
     textAlign: settings.textAlign,
     backgroundColor: resolvedTheme.backgroundColor,
     textColor: resolvedTheme.textColor,
-  }, chapterSlug)
+  }, chapterSlug, { top: insets.top, bottom: insets.bottom })
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -389,9 +396,10 @@ export default function ReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: barBg }]}>
+      <StatusBar hidden={!barsVisible} />
+      <View style={[styles.container, { backgroundColor: barBg }]}>
         {/* Top bar */}
-        <Animated.View style={[styles.topBar, { backgroundColor: barBg, opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
+        <Animated.View style={[styles.topBar, { backgroundColor: barBg, paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => { saveProgress(); router.back() }} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={barText} />
           </TouchableOpacity>
@@ -425,14 +433,16 @@ export default function ReaderScreen() {
 
         {/* Search bar */}
         {searchOpen && (
-          <ReaderSearchBar
-            onSearch={handleSearch}
-            onNext={handleSearchNext}
-            onPrev={handleSearchPrev}
-            onClose={handleSearchClose}
-            matchCount={searchMatchCount}
-            currentMatch={searchCurrentMatch}
-          />
+          <View style={{ position: 'absolute', top: topBarHeight, left: 0, right: 0, zIndex: 10 }}>
+            <ReaderSearchBar
+              onSearch={handleSearch}
+              onNext={handleSearchNext}
+              onPrev={handleSearchPrev}
+              onClose={handleSearchClose}
+              matchCount={searchMatchCount}
+              currentMatch={searchCurrentMatch}
+            />
+          </View>
         )}
 
         {/* Reader WebView */}
@@ -463,7 +473,7 @@ export default function ReaderScreen() {
         )}
 
         {/* Footer — progress bar + nav + info row */}
-        <Animated.View style={[styles.footer, { borderTopColor: barText + '15', opacity: barsAnim }]}>
+        <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
@@ -540,7 +550,7 @@ export default function ReaderScreen() {
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />
-      </SafeAreaView>
+      </View>
     </>
   )
 }
@@ -548,12 +558,17 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
-  // Top bar — matches PWA: 56px, blur bg, shadow
+  // Top bar — absolute overlay, slides down on tap
   topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 56,
+    minHeight: 56,
     paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -568,8 +583,13 @@ const styles = StyleSheet.create({
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   iconBtn: { padding: 8, minWidth: 40, minHeight: 40, justifyContent: 'center' as const, alignItems: 'center' as const, borderRadius: 4 },
   webview: { flex: 1 },
-  // Footer — matches PWA: progress bar + chapter title (left) + % ETF (right)
+  // Footer — absolute overlay, slides up on tap
   footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -1 },

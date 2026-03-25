@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
@@ -21,6 +21,8 @@ import { ReaderStatsWidget } from '../../../../src/components/ReaderStatsWidget'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { StatusBar } from 'expo-status-bar'
 
 export default function UserBookReaderScreen() {
   const { bookId, chapterSlug } = useLocalSearchParams<{ bookId: string; chapterSlug: string }>()
@@ -45,6 +47,9 @@ export default function UserBookReaderScreen() {
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const quickStats = useQuickStats(isAuthenticated)
+  const insets = useSafeAreaInsets()
+  const topBarHeight = 56 + insets.top
+  const footerHeight = 80 + insets.bottom
   const webViewRef = useRef<WebView>(null)
   const progressRef = useRef(0)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
@@ -54,6 +59,8 @@ export default function UserBookReaderScreen() {
   // Immersive mode — auto-hide bars
   const [barsVisible, setBarsVisible] = useState(true)
   const barsAnim = useRef(new Animated.Value(1)).current
+  const topBarTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [-topBarHeight, 0] })
+  const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const startHideTimer = useCallback(() => {
@@ -302,7 +309,7 @@ export default function UserBookReaderScreen() {
     textAlign: settings.textAlign,
     backgroundColor: resolvedTheme.backgroundColor,
     textColor: resolvedTheme.textColor,
-  })
+  }, undefined, { top: insets.top, bottom: insets.bottom })
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -310,8 +317,9 @@ export default function UserBookReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: barBg }]}>
-        <Animated.View style={[styles.topBar, { backgroundColor: barBg, borderBottomColor: barText + '20', opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
+      <StatusBar hidden={!barsVisible} />
+      <View style={[styles.container, { backgroundColor: barBg }]}>
+        <Animated.View style={[styles.topBar, { backgroundColor: barBg, borderBottomColor: barText + '20', paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => router.back()} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -335,14 +343,16 @@ export default function UserBookReaderScreen() {
         </Animated.View>
 
         {searchOpen && (
-          <ReaderSearchBar
-            onSearch={handleSearch}
-            onNext={handleSearchNext}
-            onPrev={handleSearchPrev}
-            onClose={handleSearchClose}
-            matchCount={searchMatchCount}
-            currentMatch={searchCurrentMatch}
-          />
+          <View style={{ position: 'absolute', top: topBarHeight, left: 0, right: 0, zIndex: 10 }}>
+            <ReaderSearchBar
+              onSearch={handleSearch}
+              onNext={handleSearchNext}
+              onPrev={handleSearchPrev}
+              onClose={handleSearchClose}
+              matchCount={searchMatchCount}
+              currentMatch={searchCurrentMatch}
+            />
+          </View>
         )}
 
         <WebView
@@ -370,15 +380,6 @@ export default function UserBookReaderScreen() {
           />
         )}
 
-        <View style={[styles.progressContainer, { borderTopColor: colors.border }]}>
-          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
-          </View>
-          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-            {Math.round(progress * 100)}% · ~{etfMinutes} min left
-          </Text>
-        </View>
-
         {/* Reading stats widget */}
         {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
           <ReaderStatsWidget
@@ -388,7 +389,16 @@ export default function UserBookReaderScreen() {
           />
         )}
 
-        <Animated.View style={[styles.bottomBar, { borderTopColor: barText + '20', opacity: barsAnim }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
+        <Animated.View style={[styles.footerOverlay, { backgroundColor: barBg, paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
+          <View style={[styles.progressContainer, { borderTopColor: colors.border }]}>
+            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
+            </View>
+            <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+              {Math.round(progress * 100)}% · ~{etfMinutes} min left
+            </Text>
+          </View>
+          <View style={[styles.bottomBar, { borderTopColor: barText + '20' }]}>
           <TouchableOpacity
             style={[styles.navButton, !chapter.prev && styles.navDisabled]}
             disabled={!chapter.prev}
@@ -406,6 +416,7 @@ export default function UserBookReaderScreen() {
           >
             <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
           </TouchableOpacity>
+          </View>
         </Animated.View>
 
         <ReaderSettingsDrawer
@@ -451,7 +462,7 @@ export default function UserBookReaderScreen() {
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />
-      </SafeAreaView>
+      </View>
     </>
   )
 }
@@ -460,6 +471,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
   topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -472,12 +488,18 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 8, minWidth: 44, minHeight: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
   chapterTitle: { flex: 1, textAlign: 'center' as const, fontSize: 14, fontWeight: '500' as const, fontFamily: fonts.sansMedium },
   webview: { flex: 1 },
+  footerOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
   bottomBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderTopWidth: 1,
   },
   navButton: { paddingVertical: 8, paddingHorizontal: 16 },
   navDisabled: { opacity: 0.3 },
