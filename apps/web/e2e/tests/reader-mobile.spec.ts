@@ -25,15 +25,14 @@ test.describe('Mobile Reader', () => {
 
     // Scroll down
     await page.evaluate(() => window.scrollBy(0, 500))
-    await page.waitForTimeout(1000) // 600ms debounce + buffer
 
-    // Check localStorage for progress
-    const progress = await page.evaluate((id) => {
-      return localStorage.getItem(`reading.progress.${id}`)
-    }, enBook.editionId)
-
-    // Progress should be saved after scroll
-    expect(progress).not.toBeNull()
+    // Wait for progress to appear in localStorage (debounce + save)
+    await expect(async () => {
+      const progress = await page.evaluate((id) => {
+        return localStorage.getItem(`reading.progress.${id}`)
+      }, enBook.editionId)
+      expect(progress).not.toBeNull()
+    }).toPass({ timeout: 5000 })
   })
 
   test('sendBeacon on navigate away (mobile)', async ({ authedPage: page }) => {

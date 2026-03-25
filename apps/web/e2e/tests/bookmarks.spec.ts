@@ -166,17 +166,9 @@ test.describe('QA-004: Autosave', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    // Only click if the button is visible AND enabled
-    if (await nextBtn.isEnabled({ timeout: 3000 }).catch(() => false)) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
-      // Second click only if still enabled (might be last page now)
-      if (await nextBtn.isEnabled({ timeout: 1000 }).catch(() => false)) {
-        await nextBtn.click()
-      }
-      await page.waitForTimeout(4000) // auto-save
-    }
+    // Create progress by scrolling (works in both scroll & paginated mode)
+    await page.evaluate(() => window.scrollBy(0, 600))
+    await page.waitForTimeout(2000) // debounce + auto-save
 
     // Navigate away and back
     await page.goto('/en/books')
