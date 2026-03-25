@@ -1,18 +1,35 @@
-import { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native'
+import { useState, useEffect, useRef } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
 import * as DocumentPicker from 'expo-document-picker'
-import { userBooksApi } from '@textstack/shared'
+import { userBooksApi, getApiConfig } from '@textstack/shared'
 import { colors } from '../../src/theme/colors'
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
 
 export default function UploadScreen() {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
+  const xhrRef = useRef<XMLHttpRequest | null>(null)
+
+  useEffect(() => {
+    userBooksApi.getStorageQuota()
+      .then(setQuota)
+      .catch(() => {})
+  }, [])
 
   const pickAndUpload = async () => {
     setError(null)
+    setUploadProgress(0)
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
@@ -30,6 +47,9 @@ export default function UploadScreen() {
       setFileName(file.name)
       setUploading(true)
 
+      const { baseUrl, getAccessToken } = getApiConfig()
+      const token = await getAccessToken()
+
       const formData = new FormData()
       formData.append('file', {
         uri: file.uri,
@@ -37,14 +57,34 @@ export default function UploadScreen() {
         type: file.mimeType || 'application/octet-stream',
       } as any)
 
-      await userBooksApi.uploadUserBook(formData)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhrRef.current = xhr
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress((e.loaded / e.total) * 100)
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload failed (${xhr.status})`))
+        }
+        xhr.onerror = () => reject(new Error('Upload failed'))
+        xhr.open('POST', `${baseUrl}/me/books/upload`)
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+        xhr.send(formData)
+      })
+
       router.back()
     } catch (e: any) {
       setError(e?.message || 'Upload failed')
     } finally {
       setUploading(false)
+      xhrRef.current = null
     }
   }
+
+  const usedPercent = quota && quota.limitBytes > 0
+    ? Math.min((quota.usedBytes / quota.limitBytes) * 100, 100)
+    : 0
 
   return (
     <>
@@ -54,10 +94,23 @@ export default function UploadScreen() {
           <Text style={styles.title}>Upload a Book</Text>
           <Text style={styles.subtitle}>Supported formats: EPUB, PDF, FB2</Text>
 
+          {quota && (
+            <View style={styles.quotaBox}>
+              <View style={styles.quotaBar}>
+                <View style={[styles.quotaFill, { width: `${usedPercent}%` as any }]} />
+              </View>
+              <Text style={styles.quotaText}>
+                {formatBytes(quota.usedBytes)} / {formatBytes(quota.limitBytes)} used
+              </Text>
+            </View>
+          )}
+
           {uploading ? (
             <View style={styles.uploadingBox}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.uploadingText}>Uploading {fileName}...</Text>
+              <View style={styles.uploadProgressBar}>
+                <View style={[styles.uploadProgressFill, { width: `${Math.round(uploadProgress)}%` as any }]} />
+              </View>
+              <Text style={styles.uploadingText}>{Math.round(uploadProgress)}% uploading {fileName}...</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.pickBtn} onPress={pickAndUpload}>
@@ -77,6 +130,17 @@ const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8 },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 32 },
+  quotaBox: { alignItems: 'center', marginBottom: 24, width: '100%', maxWidth: 240 },
+  quotaBar: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.textSecondary + '33',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  quotaFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
+  quotaText: { fontSize: 12, color: colors.textSecondary },
   pickBtn: {
     backgroundColor: colors.primary,
     paddingVertical: 16,
@@ -84,7 +148,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   pickBtnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  uploadingBox: { alignItems: 'center', gap: 12 },
+  uploadingBox: { alignItems: 'center', gap: 12, width: '100%', maxWidth: 280 },
+  uploadProgressBar: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.textSecondary + '33',
+    overflow: 'hidden',
+  },
+  uploadProgressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
   uploadingText: { fontSize: 14, color: colors.textSecondary },
   error: { color: '#DC2626', fontSize: 14, marginTop: 16, textAlign: 'center' },
 })

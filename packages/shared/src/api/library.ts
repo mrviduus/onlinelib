@@ -1,8 +1,9 @@
 import { authFetch } from './client'
 import type { UserLibraryItem } from '../types/api'
 
-export function getLibrary() {
-  return authFetch<UserLibraryItem[]>('/me/library')
+export async function getLibrary() {
+  const res = await authFetch<{ total: number; items: UserLibraryItem[] }>('/me/library')
+  return res.items
 }
 
 export function addToLibrary(editionId: string) {

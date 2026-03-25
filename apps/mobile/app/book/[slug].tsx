@@ -1,34 +1,38 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, libraryApi, readingProgressApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, getApiConfig, libraryApi, readingProgressApi } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { isBookFullyCached } from '../../src/lib/offlineDb'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
-
-const LANG = 'en'
+import { ReviewsSection } from '../../src/components/reviews/ReviewsSection'
+import { MoodSelector } from '../../src/components/MoodSelector'
+import { StarRating } from '../../src/components/StarRating'
 
 export default function BookDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
+  const { language } = useLanguage()
   const { downloads, startDownload, cancelDownload, removeDownload } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [cached, setCached] = useState(false)
   const [inLibrary, setInLibrary] = useState(false)
   const [continueSlug, setContinueSlug] = useState<string | null>(null)
+  const [showAllChapters, setShowAllChapters] = useState(false)
 
   useEffect(() => {
     if (!slug) return
-    const api = createBooksApi(LANG)
+    const api = createBooksApi(language)
     api.getBook(slug)
       .then(async (b) => {
         setBook(b)
@@ -46,7 +50,7 @@ export default function BookDetailScreen() {
       })
       .catch(e => console.error('Failed to load book:', e))
       .finally(() => setLoading(false))
-  }, [slug, isAuthenticated])
+  }, [slug, isAuthenticated, language])
 
   const dl = book ? downloads.get(book.id) : undefined
   const isDownloading = dl?.status === 'downloading'
@@ -154,15 +158,47 @@ export default function BookDetailScreen() {
               <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Downloading {progress}% — Cancel</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, LANG)} activeOpacity={0.85}>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, language)} activeOpacity={0.85}>
               <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
               <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download for Offline</Text>
             </TouchableOpacity>
           )}
         </View>
 
+        {/* Rating + Moods */}
+        <View style={{ paddingHorizontal: 16, gap: 12 }}>
+          <StarRating editionId={book.id} />
+          <MoodSelector editionId={book.id} />
+        </View>
+
+        {/* Reviews */}
+        <ReviewsSection editionId={book.id} />
+
+        {/* EPUB Download + Share */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 16, gap: 10 }}>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={() => {
+              const { baseUrl } = getApiConfig()
+              Linking.openURL(`${baseUrl}/${language}/books/${slug}/export/epub`).catch(() => {})
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="download-outline" size={18} color={colors.text} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download EPUB</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={() => Share.share({ message: `${book.title} — Read on TextStack: https://textstack.app/en/books/${slug}` }).catch(() => {})}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="share-outline" size={18} color={colors.text} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Share</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
-        {book.chapters.map((ch) => (
+        {(showAllChapters ? book.chapters : book.chapters.slice(0, 10)).map((ch) => (
           <TouchableOpacity
             key={ch.id}
             style={[styles.chapterItem, { borderBottomColor: colors.border }]}
@@ -170,10 +206,88 @@ export default function BookDetailScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.chapterNumber, { color: colors.textSecondary }]}>{ch.chapterNumber}</Text>
-            <Text style={[styles.chapterTitle, { color: colors.text }]} numberOfLines={1}>{ch.title}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chapterTitle, { color: colors.text }]} numberOfLines={1}>{ch.title}</Text>
+              {ch.wordCount != null && ch.wordCount > 0 && (
+                <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                  {Math.round(ch.wordCount / 1000)}k words · ~{Math.ceil(ch.wordCount / 250)} min
+                </Text>
+              )}
+            </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
+        {book.chapters.length > 10 && !showAllChapters && (
+          <TouchableOpacity
+            style={{ paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center' }}
+            onPress={() => setShowAllChapters(true)}
+          >
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.primary }}>
+              View all {book.chapters.length} chapters
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Author section */}
+        {book.authors.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>About the Author</Text>
+            {book.authors.map(a => (
+              <TouchableOpacity
+                key={a.slug}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}
+                onPress={() => router.push(`/author/${a.slug}`)}
+              >
+                <Ionicons name="person-outline" size={18} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 15, color: colors.primary }}>{a.name}</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* More by Author */}
+        {book.moreByAuthor && book.moreByAuthor.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>More by Author</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {book.moreByAuthor.map(b => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={{ width: 100, marginRight: 12 }}
+                  onPress={() => router.push(`/book/${b.slug}`)}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={b.coverPath ? getStorageUrl(b.coverPath) : undefined}
+                    style={{ width: 100, height: 150, borderRadius: 6, backgroundColor: colors.border }}
+                    contentFit="cover"
+                  />
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.text, marginTop: 6 }} numberOfLines={2}>{b.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Other Editions */}
+        {book.otherEditions.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, paddingHorizontal: 0 }]}>Other Editions</Text>
+            {book.otherEditions.map(ed => (
+              <TouchableOpacity
+                key={ed.slug}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}
+                onPress={() => router.push(`/book/${ed.slug}`)}
+              >
+                <Ionicons name="globe-outline" size={16} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.primary }}>
+                  {ed.title} ({ed.language.toUpperCase()})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>

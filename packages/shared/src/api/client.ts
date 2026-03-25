@@ -17,7 +17,9 @@ export function getApiConfig(): ApiConfig {
 
 export function getStorageUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined
-  return `${getApiConfig().baseUrl}/storage/${path}`
+  // baseUrl is like "https://textstack.app/api" — storage is at origin, not under /api
+  const base = getApiConfig().baseUrl.replace(/\/api\/?$/, '')
+  return `${base}/storage/${path}`
 }
 
 export async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -78,6 +80,25 @@ export async function publicFetch<T>(path: string, options?: RequestInit): Promi
   const text = await res.text()
   if (!text) return {} as T
   return JSON.parse(text)
+}
+
+/** Converts an object to a query string, skipping undefined/null values. */
+export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== '') qs.set(key, String(value))
+  }
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
+/** Returns RequestInit for a JSON POST/PUT/PATCH body. */
+export function jsonBody(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', data: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }
 }
 
 export class ApiError extends Error {

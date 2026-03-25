@@ -10,6 +10,7 @@ LogBox.ignoreLogs(['Calling the \'getRegistrationInfoAsync\'', 'Calling the \'se
 import { AuthProvider } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
+import { LanguageProvider } from '../src/context/LanguageContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { useAppFonts } from '../src/theme/fonts'
 
@@ -36,13 +37,27 @@ function AppContent() {
         <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-books/[id]" />
         <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" />
+        <Stack.Screen name="blog/index" />
+        <Stack.Screen name="blog/[slug]" />
+        <Stack.Screen name="highlights/index" />
+        <Stack.Screen name="highlights/review" />
+        <Stack.Screen name="about" />
+        <Stack.Screen name="privacy" />
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="contact" />
+        <Stack.Screen name="books" />
+        <Stack.Screen name="authors" />
       </Stack>
     </>
   )
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useAppFonts()
+  const [fontsLoaded, fontError] = useAppFonts()
+
+  useEffect(() => {
+    console.log('[TextStack] RootLayout mounted, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
+  }, [fontsLoaded, fontError])
 
   useEffect(() => {
     try { setupNotifications() } catch {}
@@ -53,19 +68,24 @@ export default function RootLayout() {
   }, [])
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync()
-  }, [fontsLoaded])
+    if (fontsLoaded || fontError) {
+      console.log('[TextStack] Hiding splash, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
+      SplashScreen.hideAsync()
+    }
+  }, [fontsLoaded, fontError])
 
-  if (!fontsLoaded) return null
+  if (!fontsLoaded && !fontError) return null
 
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <DownloadProvider>
-            <AppContent />
-          </DownloadProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <DownloadProvider>
+              <AppContent />
+            </DownloadProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

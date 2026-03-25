@@ -28,8 +28,10 @@ function buildFontFace(fontFamily: string): string {
   }`
 }
 
-export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string): string {
+export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string, safeArea?: { top: number; bottom: number }): string {
   const fontFace = buildFontFace(theme.fontFamily)
+  const padTop = (safeArea?.top ?? 0) + 16
+  const padBottom = (safeArea?.bottom ?? 0) + 16
 
   return `<!DOCTYPE html>
 <html>
@@ -46,7 +48,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       color: ${theme.textColor};
       background: ${theme.backgroundColor};
       text-align: ${theme.textAlign};
-      padding: 16px;
+      padding: ${padTop}px 16px ${padBottom}px 16px;
       word-wrap: break-word;
       overflow-wrap: break-word;
       -webkit-text-size-adjust: none;
@@ -105,6 +107,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         type: 'loaded',
         scrollHeight: document.documentElement.scrollHeight
       }));
+      setTimeout(checkInfiniteScroll, 100);
     });
 
     // Infinite scroll
@@ -131,6 +134,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       document.body.appendChild(div);
       if (slug) registerChapter(slug);
       loadingNext = false;
+      setTimeout(checkInfiniteScroll, 100);
     }
     function enableInfiniteScroll() { infiniteScrollEnabled = true; }
     function disableInfiniteScroll() { infiniteScrollEnabled = false; loadingNext = false; }
@@ -260,6 +264,62 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       return el ? el.textContent.trim().substring(0, 500) : '';
     }
 
+    // Highlight rendering
+    var HIGHLIGHT_BG = { yellow: 'rgba(254,240,138,0.5)', green: 'rgba(187,247,208,0.5)', pink: 'rgba(251,207,232,0.5)', blue: 'rgba(191,219,254,0.5)' };
+
+    function renderHighlight(id, text, color) {
+      if (!text || !color) return;
+      var body = document.body;
+      var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+      var node;
+      while (node = walker.nextNode()) {
+        var idx = node.textContent.indexOf(text);
+        if (idx === -1) continue;
+        var range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        var mark = document.createElement('mark');
+        mark.dataset.highlightId = id;
+        mark.style.backgroundColor = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
+        mark.style.borderRadius = '2px';
+        mark.style.cursor = 'pointer';
+        mark.addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
+        });
+        try { range.surroundContents(mark); } catch(e) {}
+        break;
+      }
+    }
+
+    function removeHighlight(id) {
+      var marks = document.querySelectorAll('mark[data-highlight-id="' + id + '"]');
+      marks.forEach(function(mark) {
+        var parent = mark.parentNode;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+        parent.normalize();
+      });
+    }
+
+    function getSelectionAnchor() {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+      var range = sel.getRangeAt(0);
+      var text = sel.toString().trim();
+      // Get prefix (up to 50 chars before selection)
+      var preRange = document.createRange();
+      preRange.setStart(document.body, 0);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      var prefix = preRange.toString().slice(-50);
+      // Get suffix (up to 50 chars after selection)
+      var sufRange = document.createRange();
+      sufRange.setStart(range.endContainer, range.endOffset);
+      sufRange.setEnd(document.body, document.body.childNodes.length);
+      var suffix = sufRange.toString().substring(0, 50);
+      return { prefix: prefix, exact: text, suffix: suffix };
+    }
+
     document.addEventListener('selectionchange', function() {
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -270,10 +330,13 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (text.length > 300) return;
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
+      var anchor = null;
+      try { anchor = getSelectionAnchor(); } catch(e) {}
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,
-        sentence: sentence
+        sentence: sentence,
+        anchor: anchor
       }));
     });
   </script>

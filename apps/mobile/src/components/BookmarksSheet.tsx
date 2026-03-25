@@ -4,6 +4,10 @@ import type { BookmarkDto } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 
+function getSlugFromLocator(locator: string): string {
+  return locator.startsWith('chapter:') ? locator.slice(8) : locator
+}
+
 interface Props {
   visible: boolean
   onClose: () => void
@@ -46,12 +50,12 @@ export function BookmarksSheet({
                 <View style={[styles.row, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.rowContent}
-                    onPress={() => { onNavigate(item.chapterSlug); onClose() }}
+                    onPress={() => { onNavigate(getSlugFromLocator(item.locator)); onClose() }}
                   >
                     <Text style={[
                       styles.rowTitle,
                       { color: colors.text },
-                      item.chapterSlug === currentChapterSlug && { color: colors.primary, fontWeight: '600' },
+                      getSlugFromLocator(item.locator) === currentChapterSlug && { color: colors.primary, fontWeight: '600' },
                     ]} numberOfLines={1}>
                       {item.title}
                     </Text>
