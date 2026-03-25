@@ -1,4 +1,4 @@
-import { authFetch, publicFetch } from './client'
+import { authFetch, publicFetch, buildQuery, jsonBody } from './client'
 
 export interface PublicReviewDto {
   id: string
@@ -78,18 +78,11 @@ export async function getBookReviews(
   editionId: string,
   params?: { sort?: string; rating?: number; limit?: number; offset?: number }
 ): Promise<ReviewListResponse> {
-  const qs = new URLSearchParams()
-  if (params?.sort) qs.set('sort', params.sort)
-  if (params?.rating) qs.set('rating', String(params.rating))
-  if (params?.limit) qs.set('limit', String(params.limit))
-  if (params?.offset) qs.set('offset', String(params.offset))
-  const query = qs.toString()
+  const path = `/books/${editionId}/reviews${buildQuery({ sort: params?.sort, rating: params?.rating, limit: params?.limit, offset: params?.offset })}`
   try {
-    return await authFetch<ReviewListResponse>(
-      `/books/${editionId}/reviews${query ? `?${query}` : ''}`)
+    return await authFetch<ReviewListResponse>(path)
   } catch {
-    return publicFetch<ReviewListResponse>(
-      `/books/${editionId}/reviews${query ? `?${query}` : ''}`)
+    return publicFetch<ReviewListResponse>(path)
   }
 }
 
@@ -103,11 +96,7 @@ export async function submitReview(editionId: string, data: {
   reviewText?: string
   isSpoiler?: boolean
 }): Promise<PublicReviewDto> {
-  return authFetch<PublicReviewDto>(`/me/ratings/${editionId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<PublicReviewDto>(`/me/ratings/${editionId}`, jsonBody('PUT', data))
 }
 
 export async function deleteReview(editionId: string): Promise<void> {
@@ -127,23 +116,15 @@ export async function getReviewComments(
   reviewId: string,
   params?: { limit?: number; offset?: number }
 ): Promise<CommentListResponse> {
-  const qs = new URLSearchParams()
-  if (params?.limit) qs.set('limit', String(params.limit))
-  if (params?.offset) qs.set('offset', String(params.offset))
-  const query = qs.toString()
   return publicFetch<CommentListResponse>(
-    `/books/${editionId}/reviews/${reviewId}/comments${query ? `?${query}` : ''}`)
+    `/books/${editionId}/reviews/${reviewId}/comments${buildQuery({ limit: params?.limit, offset: params?.offset })}`)
 }
 
 export async function addReviewComment(
   reviewId: string,
   text: string
 ): Promise<ReviewCommentDto> {
-  return authFetch<ReviewCommentDto>(`/me/reviews/${reviewId}/comments`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
+  return authFetch<ReviewCommentDto>(`/me/reviews/${reviewId}/comments`, jsonBody('POST', { text }))
 }
 
 export async function deleteReviewComment(commentId: string): Promise<void> {
@@ -160,11 +141,7 @@ export async function getUserBookRating(userBookId: string): Promise<UserRatingD
 }
 
 export async function upsertUserBookRating(userBookId: string, data: { rating: number }): Promise<UserRatingDto> {
-  return authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<UserRatingDto>(`/me/ratings/userbook/${userBookId}`, jsonBody('PUT', data))
 }
 
 export async function deleteUserBookRating(userBookId: string): Promise<void> {

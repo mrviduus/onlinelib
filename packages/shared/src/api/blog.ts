@@ -1,4 +1,4 @@
-import { authFetch, publicFetch } from './client'
+import { authFetch, publicFetch, buildQuery, jsonBody } from './client'
 
 export interface BlogPostListItemDto {
   id: string
@@ -63,13 +63,9 @@ export interface BlogLikeResponse {
 export async function getBlogPosts(
   params?: { language?: string; tag?: string; limit?: number; offset?: number }
 ): Promise<BlogPostListResponse> {
-  const qs = new URLSearchParams()
-  if (params?.language) qs.set('language', params.language)
-  if (params?.tag) qs.set('tag', params.tag)
-  if (params?.limit) qs.set('limit', String(params.limit))
-  if (params?.offset) qs.set('offset', String(params.offset))
-  const query = qs.toString()
-  return publicFetch<BlogPostListResponse>(`/blog${query ? `?${query}` : ''}`)
+  return publicFetch<BlogPostListResponse>(
+    `/blog${buildQuery({ language: params?.language, tag: params?.tag, limit: params?.limit, offset: params?.offset })}`
+  )
 }
 
 export async function getBlogPost(slug: string, language?: string): Promise<BlogPostDetailDto> {
@@ -85,12 +81,8 @@ export async function getBlogPostComments(
   postId: string,
   params?: { limit?: number; offset?: number }
 ): Promise<BlogCommentListResponse> {
-  const qs = new URLSearchParams()
-  if (params?.limit) qs.set('limit', String(params.limit))
-  if (params?.offset) qs.set('offset', String(params.offset))
-  const query = qs.toString()
   return publicFetch<BlogCommentListResponse>(
-    `/blog/${postId}/comments${query ? `?${query}` : ''}`)
+    `/blog/${postId}/comments${buildQuery({ limit: params?.limit, offset: params?.offset })}`)
 }
 
 export async function likeBlogPost(postId: string): Promise<BlogLikeResponse> {
@@ -106,11 +98,7 @@ export async function addBlogComment(
   text: string,
   parentCommentId?: string
 ): Promise<BlogCommentDto> {
-  return authFetch<BlogCommentDto>(`/me/blog/${postId}/comments`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, parentCommentId: parentCommentId || null }),
-  })
+  return authFetch<BlogCommentDto>(`/me/blog/${postId}/comments`, jsonBody('POST', { text, parentCommentId: parentCommentId || null }))
 }
 
 export async function deleteBlogComment(commentId: string): Promise<void> {

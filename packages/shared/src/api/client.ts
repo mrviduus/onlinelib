@@ -82,6 +82,25 @@ export async function publicFetch<T>(path: string, options?: RequestInit): Promi
   return JSON.parse(text)
 }
 
+/** Converts an object to a query string, skipping undefined/null values. */
+export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== '') qs.set(key, String(value))
+  }
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
+/** Returns RequestInit for a JSON POST/PUT/PATCH body. */
+export function jsonBody(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', data: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,

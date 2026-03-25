@@ -1,4 +1,4 @@
-import { authFetch } from './client'
+import { authFetch, jsonBody } from './client'
 import type { UserBookDto, UserBookChapterDto, BookmarkDto } from '../types/api'
 
 export function getUserBooks() {
@@ -53,11 +53,7 @@ export function getUserBookProgress(bookId: string) {
 }
 
 export function updateUserBookProgress(bookId: string, data: { chapterSlug: string; locator?: string; percent?: number }) {
-  return authFetch<void>(`/me/books/${bookId}/progress`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<void>(`/me/books/${bookId}/progress`, jsonBody('PUT', data))
 }
 
 export function getUserBookBookmarks(bookId: string) {
@@ -65,11 +61,7 @@ export function getUserBookBookmarks(bookId: string) {
 }
 
 export function createUserBookBookmark(bookId: string, data: { chapterId: string; locator: string; title?: string }) {
-  return authFetch<BookmarkDto>(`/me/books/${bookId}/bookmarks`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<BookmarkDto>(`/me/books/${bookId}/bookmarks`, jsonBody('POST', data))
 }
 
 export function deleteUserBookBookmark(bookId: string, bookmarkId: string) {

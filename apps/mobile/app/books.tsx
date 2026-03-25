@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native'
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
@@ -8,6 +8,7 @@ import { useTheme } from '../src/context/ThemeContext'
 import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 import { BookCard } from '../src/components/ui/BookCard'
+import { FilterChips } from '../src/components/ui/FilterChips'
 
 const PAGE_SIZE = 20
 const SORT_OPTIONS = [
@@ -113,23 +114,11 @@ export default function BooksScreen() {
 
       {/* Genre chips */}
       {genres.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreRow}>
-          <TouchableOpacity
-            onPress={() => setGenre('')}
-            style={[styles.genreChip, { backgroundColor: !genre ? colors.primary : colors.surface, borderColor: !genre ? colors.primary : colors.border }]}
-          >
-            <Text style={[styles.genreChipText, { color: !genre ? '#fff' : colors.textSecondary }]}>All</Text>
-          </TouchableOpacity>
-          {genres.map(g => (
-            <TouchableOpacity
-              key={g.slug}
-              onPress={() => setGenre(genre === g.slug ? '' : g.slug)}
-              style={[styles.genreChip, { backgroundColor: genre === g.slug ? colors.primary : colors.surface, borderColor: genre === g.slug ? colors.primary : colors.border }]}
-            >
-              <Text style={[styles.genreChipText, { color: genre === g.slug ? '#fff' : colors.textSecondary }]}>{g.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <FilterChips
+          options={[{ key: '', label: 'All' }, ...genres.map(g => ({ key: g.slug, label: g.name }))]}
+          selected={genre}
+          onSelect={(key) => setGenre(genre === key ? '' : key)}
+        />
       )}
 
       {/* Books grid */}

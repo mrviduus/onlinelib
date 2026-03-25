@@ -1,4 +1,4 @@
-import { authFetch } from './client'
+import { authFetch, jsonBody } from './client'
 import type { ReadingProgressDto } from '../types/api'
 
 export function getProgress(editionId: string) {
@@ -6,15 +6,11 @@ export function getProgress(editionId: string) {
 }
 
 export function updateProgress(editionId: string, data: { chapterId: string; chapterSlug: string; progress: number }) {
-  return authFetch<void>(`/me/progress/${editionId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chapterId: data.chapterId,
-      locator: JSON.stringify({ type: 'chapter', slug: data.chapterSlug }),
-      percent: data.progress,
-    }),
-  })
+  return authFetch<void>(`/me/progress/${editionId}`, jsonBody('PUT', {
+    chapterId: data.chapterId,
+    locator: JSON.stringify({ type: 'chapter', slug: data.chapterSlug }),
+    percent: data.progress,
+  }))
 }
 
 export async function getAllProgress() {

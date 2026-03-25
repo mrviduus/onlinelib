@@ -12,6 +12,9 @@ import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { EmptyState } from '../../src/components/ui/EmptyState'
+import { FilterChips } from '../../src/components/ui/FilterChips'
+import { TabBar } from '../../src/components/ui/TabBar'
 
 type StatsTab = 'overview' | 'books' | 'time' | 'achievements'
 
@@ -105,15 +108,11 @@ export default function StatsScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
-        <View style={[styles.center, { backgroundColor: colors.background }]}>
-          <Ionicons name="bar-chart-outline" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 16, color: colors.text, fontFamily: fonts.sansMedium, textAlign: 'center' }}>
-            No reading stats yet
-          </Text>
-          <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans, textAlign: 'center', marginTop: 4 }}>
-            Start reading a book to track your progress
-          </Text>
-        </View>
+        <EmptyState
+          icon="bar-chart-outline"
+          title="No reading stats yet"
+          subtitle="Start reading a book to track your progress"
+        />
       </>
     )
   }
@@ -123,37 +122,27 @@ export default function StatsScreen() {
       <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
       <View style={{ backgroundColor: colors.background, flex: 1 }}>
         {/* Tabs */}
-        <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-          {([['overview', 'Overview'], ['books', 'Books'], ['time', 'Time'], ['achievements', 'Achievements']] as const).map(([key, label]) => (
-            <TouchableOpacity
-              key={key}
-              style={[styles.tabItem, tab === key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-              onPress={() => setTab(key)}
-            >
-              <Text style={[styles.tabLabel, { color: tab === key ? colors.primary : colors.textSecondary }]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TabBar
+          tabs={[
+            { key: 'overview', label: 'Overview' },
+            { key: 'books', label: 'Books' },
+            { key: 'time', label: 'Time' },
+            { key: 'achievements', label: 'Achievements' },
+          ]}
+          activeTab={tab}
+          onTabChange={(key) => setTab(key as StatsTab)}
+        />
 
         {/* Year filter for books/time tabs */}
         {(tab === 'books' || tab === 'time') && bookStats?.availableYears && bookStats.availableYears.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.yearRow}>
-            <TouchableOpacity
-              onPress={() => setYear(undefined)}
-              style={[styles.yearChip, { backgroundColor: !year ? colors.primary : colors.surface, borderColor: !year ? colors.primary : colors.border }]}
-            >
-              <Text style={[styles.yearChipText, { color: !year ? '#fff' : colors.textSecondary }]}>All Time</Text>
-            </TouchableOpacity>
-            {bookStats.availableYears.map(y => (
-              <TouchableOpacity
-                key={y}
-                onPress={() => setYear(year === y ? undefined : y)}
-                style={[styles.yearChip, { backgroundColor: year === y ? colors.primary : colors.surface, borderColor: year === y ? colors.primary : colors.border }]}
-              >
-                <Text style={[styles.yearChipText, { color: year === y ? '#fff' : colors.textSecondary }]}>{y}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <FilterChips
+            options={[
+              { key: '', label: 'All Time' },
+              ...bookStats.availableYears.map(y => ({ key: String(y), label: String(y) })),
+            ]}
+            selected={year != null ? String(year) : ''}
+            onSelect={(key) => setYear(key ? (year === Number(key) ? undefined : Number(key)) : undefined)}
+          />
         )}
 
         <ScrollView

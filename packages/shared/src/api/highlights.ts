@@ -1,4 +1,4 @@
-import { authFetch } from './client'
+import { authFetch, buildQuery, jsonBody } from './client'
 
 export interface PublicHighlight {
   id: string
@@ -67,15 +67,9 @@ export async function getAllHighlights(params?: {
   search?: string
   color?: string
 }): Promise<HighlightListResponse> {
-  const qs = new URLSearchParams()
-  if (params?.limit) qs.set('limit', String(params.limit))
-  if (params?.offset) qs.set('offset', String(params.offset))
-  if (params?.bookType) qs.set('bookType', params.bookType)
-  if (params?.sort) qs.set('sort', params.sort)
-  if (params?.search) qs.set('search', params.search)
-  if (params?.color) qs.set('color', params.color)
-  const query = qs.toString()
-  return authFetch<HighlightListResponse>(`/me/highlights/all${query ? `?${query}` : ''}`)
+  return authFetch<HighlightListResponse>(
+    `/me/highlights/all${buildQuery({ limit: params?.limit, offset: params?.offset, bookType: params?.bookType, sort: params?.sort, search: params?.search, color: params?.color })}`
+  )
 }
 
 export async function getHighlightsForReview(limit = 10): Promise<HighlightReviewItem[]> {
@@ -83,11 +77,7 @@ export async function getHighlightsForReview(limit = 10): Promise<HighlightRevie
 }
 
 export async function markHighlightReviewed(highlightId: string): Promise<void> {
-  await authFetch<void>('/me/highlights/review', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ highlightId }),
-  })
+  await authFetch<void>('/me/highlights/review', jsonBody('POST', { highlightId }))
 }
 
 export async function createHighlight(data: {
@@ -100,11 +90,7 @@ export async function createHighlight(data: {
   selectedText: string
   noteText?: string
 }): Promise<PublicHighlight> {
-  return authFetch<PublicHighlight>('/me/highlights', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<PublicHighlight>('/me/highlights', jsonBody('POST', data))
 }
 
 export async function updateHighlight(
@@ -117,11 +103,7 @@ export async function updateHighlight(
     version?: number
   }
 ): Promise<PublicHighlight> {
-  return authFetch<PublicHighlight>(`/me/highlights/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  return authFetch<PublicHighlight>(`/me/highlights/${id}`, jsonBody('PUT', data))
 }
 
 export async function deleteHighlight(id: string): Promise<void> {

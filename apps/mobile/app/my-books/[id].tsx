@@ -9,6 +9,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { MoodSelector } from '../../src/components/MoodSelector'
 import { StarRating } from '../../src/components/StarRating'
+import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -105,11 +106,7 @@ export default function UserBookDetailScreen() {
   }
 
   if (loading || !book) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    )
+    return <LoadingScreen />
   }
 
   const estPages = book.totalWordCount ? Math.round(book.totalWordCount / 250) : null

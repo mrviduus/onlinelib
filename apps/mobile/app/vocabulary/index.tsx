@@ -10,6 +10,7 @@ import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 import { useTts } from '../../src/hooks/useTts'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
@@ -197,17 +198,13 @@ export default function VocabularyScreen() {
             ))}
           </View>
         ) : words.length === 0 ? (
-          <View style={styles.center}>
-            <Ionicons name="book-outline" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>No words found</Text>
-            <Text style={[styles.emptySubtext, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Save words while reading to build your vocabulary</Text>
-            <TouchableOpacity
-              style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8, borderWidth: 1, borderColor: colors.primary }}
-              onPress={() => router.push('/(tabs)/')}
-            >
-              <Text style={{ color: colors.primary, fontFamily: fonts.sansMedium, fontSize: 14 }}>Browse Books</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="book-outline"
+            title="No words found"
+            subtitle="Save words while reading to build your vocabulary"
+            buttonLabel="Browse Books"
+            onButtonPress={() => router.push('/(tabs)/')}
+          />
         ) : (
           <FlatList
             data={words}

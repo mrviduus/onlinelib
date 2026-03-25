@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform,
+  SafeAreaView, KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router'
@@ -11,6 +11,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { useTts } from '../../src/hooks/useTts'
+import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 
 type SessionState = 'loading' | 'card' | 'feedback' | 'summary'
 
@@ -101,9 +102,7 @@ export default function VocabularyReviewScreen() {
     return (
       <>
         <Stack.Screen options={{ title: mode === 'practice' ? 'Practice' : 'Review', headerShown: true }} />
-        <View style={[styles.center, { backgroundColor: colors.background }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingScreen />
       </>
     )
   }

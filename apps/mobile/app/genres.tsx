@@ -3,13 +3,13 @@ import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
 } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi } from '@textstack/shared'
 import type { Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
 import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 import { SkeletonLoader } from '../src/components/ui/SkeletonLoader'
+import { EmptyState } from '../src/components/ui/EmptyState'
 
 export default function GenresScreen() {
   const router = useRouter()
@@ -40,10 +40,7 @@ export default function GenresScreen() {
             ))}
           </View>
         ) : genres.length === 0 ? (
-          <View style={styles.center}>
-            <Ionicons name="library-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No genres found</Text>
-          </View>
+          <EmptyState icon="library-outline" title="No genres found" />
         ) : (
           <FlatList
             data={genres}
