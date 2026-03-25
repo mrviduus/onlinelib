@@ -326,6 +326,18 @@ export default function UserBookReaderScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden={!barsVisible} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
+        {/* WebView first — overlay bars rendered after so they sit on top of native layer */}
+        <WebView
+          ref={webViewRef}
+          source={{ html }}
+          style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
+          onMessage={handleMessage}
+          originWhitelist={['*']}
+          scrollEnabled
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* Top bar — after WebView so it renders on top */}
         <Animated.View style={[styles.topBar, { backgroundColor: barBg, borderBottomColor: barText + '20', paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => router.back()} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.primary} />
@@ -361,16 +373,6 @@ export default function UserBookReaderScreen() {
             />
           </View>
         )}
-
-        <WebView
-          ref={webViewRef}
-          source={{ html }}
-          style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
-          onMessage={handleMessage}
-          originWhitelist={['*']}
-          scrollEnabled
-          showsVerticalScrollIndicator={false}
-        />
 
         {selection && (
           <SelectionActionBar

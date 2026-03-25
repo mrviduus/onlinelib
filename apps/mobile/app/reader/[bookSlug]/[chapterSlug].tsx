@@ -403,7 +403,18 @@ export default function ReaderScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden={!barsVisible} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
-        {/* Top bar */}
+        {/* Reader WebView — rendered first so overlay bars sit on top */}
+        <WebView
+          ref={webViewRef}
+          source={{ html }}
+          style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
+          onMessage={handleMessage}
+          originWhitelist={['*']}
+          scrollEnabled
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* Top bar — rendered after WebView so it's on top of native layer */}
         <Animated.View style={[styles.topBar, { backgroundColor: barBg, paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <TouchableOpacity onPress={() => { saveProgress(); router.back() }} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={barText} />
@@ -449,17 +460,6 @@ export default function ReaderScreen() {
             />
           </View>
         )}
-
-        {/* Reader WebView */}
-        <WebView
-          ref={webViewRef}
-          source={{ html }}
-          style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
-          onMessage={handleMessage}
-          originWhitelist={['*']}
-          scrollEnabled
-          showsVerticalScrollIndicator={false}
-        />
 
         {/* Selection action bar */}
         {selection && (
