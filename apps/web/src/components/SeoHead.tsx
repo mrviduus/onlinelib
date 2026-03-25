@@ -139,10 +139,10 @@ export function SeoHead({
     if (description) {
       setMeta('og:description', description, 'property')
     }
-    if (image) {
-      const imageUrl = image.startsWith('http') ? image : `${origin}${image}`
-      setMeta('og:image', imageUrl, 'property')
-    }
+    const ogImage = image
+      ? (image.startsWith('http') ? image : `${origin}${image}`)
+      : `${origin}/web-app-manifest-512x512.png`
+    setMeta('og:image', ogImage, 'property')
 
     // Twitter Card tags
     setMeta('twitter:card', image ? 'summary_large_image' : 'summary', 'name')
@@ -150,10 +150,7 @@ export function SeoHead({
     if (description) {
       setMeta('twitter:description', description, 'name')
     }
-    if (image) {
-      const imageUrl = image.startsWith('http') ? image : `${origin}${image}`
-      setMeta('twitter:image', imageUrl, 'name')
-    }
+    setMeta('twitter:image', ogImage, 'name')
 
     // Set hreflang tags
     document.querySelectorAll(`link[${HREFLANG_DATA_ATTR}]`).forEach((el) => el.remove())
