@@ -289,7 +289,7 @@ export default function UserBookReaderScreen() {
     try {
       const ch = await userBooksApi.getUserBookChapter(bookId, next.slug)
       const escaped = JSON.stringify(ch.html).slice(1, -1)
-      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)})`)
+      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)}, ${JSON.stringify(ch.slug)})`)
       wordCountRef.current += ch.wordCount || 0
       nextChapterRef.current = ch.next || null
       if (!ch.next) injectJs('disableInfiniteScroll()')
