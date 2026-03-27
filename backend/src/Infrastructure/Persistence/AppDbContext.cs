@@ -54,6 +54,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
     public DbSet<BlogComment> BlogComments => Set<BlogComment>();
     public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -143,11 +144,12 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<User>(e =>
         {
             e.HasIndex(x => x.Email).IsUnique();
-            e.HasIndex(x => x.GoogleSubject).IsUnique();
+            e.HasIndex(x => x.GoogleSubject).IsUnique().HasFilter("google_subject IS NOT NULL");
             e.HasIndex(x => x.AppleSubject).IsUnique().HasFilter("apple_subject IS NOT NULL");
             e.Property(x => x.Email).HasMaxLength(255);
             e.Property(x => x.GoogleSubject).HasMaxLength(255);
             e.Property(x => x.AppleSubject).HasMaxLength(255);
+            e.Property(x => x.PasswordHash).HasMaxLength(255);
             e.Property(x => x.Name).HasMaxLength(255);
         });
 
@@ -592,6 +594,14 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.BlogPostId);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // PasswordResetToken
+        modelBuilder.Entity<PasswordResetToken>(e =>
+        {
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.Property(x => x.TokenHash).HasMaxLength(128);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

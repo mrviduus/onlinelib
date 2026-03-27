@@ -42,7 +42,7 @@ public class AuthService
                 Id = Guid.NewGuid(),
                 Email = email,
                 Name = email.Split('@')[0],
-                GoogleSubject = $"test_{Guid.NewGuid()}",
+                GoogleSubject = null,
                 CreatedAt = DateTimeOffset.UtcNow
             };
             _db.Users.Add(user);
@@ -137,6 +137,118 @@ public class AuthService
     public async Task<User?> GetUserByIdAsync(Guid userId, CancellationToken ct)
     {
         return await _db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
+    }
+
+    public async Task<(User user, string accessToken, string refreshToken)?> RegisterWithEmailAsync(
+        string email, string password, string? name, CancellationToken ct)
+    {
+        email = email.Trim().ToLowerInvariant();
+
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _))
+            return null;
+
+        if (password.Length < 8 || password.Length > 128)
+            return null;
+
+        var exists = await _db.Users.AnyAsync(x => x.Email == email, ct);
+        if (exists)
+            return null;
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            Name = name?.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        var accessToken = GenerateAccessToken(user);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+        return (user, accessToken, refreshToken);
+    }
+
+    public async Task<(User user, string accessToken, string refreshToken)?> LoginWithEmailAsync(
+        string email, string password, CancellationToken ct)
+    {
+        email = email.Trim().ToLowerInvariant();
+
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
+        if (user == null || user.PasswordHash == null)
+            return null;
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            return null;
+
+        var accessToken = GenerateAccessToken(user);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+        return (user, accessToken, refreshToken);
+    }
+
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct)
+    {
+        return await _db.Users.AnyAsync(x => x.Email == email.Trim().ToLowerInvariant(), ct);
+    }
+
+    public async Task<string?> RequestPasswordResetAsync(string email, CancellationToken ct)
+    {
+        email = email.Trim().ToLowerInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email && x.PasswordHash != null, ct);
+        if (user == null)
+            return null; // Don't reveal if email exists
+
+        var rawToken = GenerateSecureToken();
+        var tokenHash = HashToken(rawToken);
+
+        var resetToken = new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = tokenHash,
+            ExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
+            CreatedAt = DateTimeOffset.UtcNow,
+            Used = false
+        };
+
+        _db.PasswordResetTokens.Add(resetToken);
+        await _db.SaveChangesAsync(ct);
+
+        return rawToken;
+    }
+
+    public async Task<bool> ResetPasswordAsync(string token, string newPassword, CancellationToken ct)
+    {
+        if (newPassword.Length < 8 || newPassword.Length > 128)
+            return false;
+
+        var tokenHash = HashToken(token);
+        var resetToken = await _db.PasswordResetTokens
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && !x.Used && x.ExpiresAt > DateTimeOffset.UtcNow, ct);
+
+        if (resetToken == null)
+            return false;
+
+        resetToken.Used = true;
+        resetToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+        // Invalidate all refresh tokens for this user
+        var refreshTokens = await _db.UserRefreshTokens
+            .Where(x => x.UserId == resetToken.UserId)
+            .ToListAsync(ct);
+        _db.UserRefreshTokens.RemoveRange(refreshTokens);
+
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private static string HashToken(string token)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexStringLower(bytes);
     }
 
     public Guid? ValidateAccessToken(string accessToken)
@@ -294,7 +406,7 @@ public class AuthService
             Id = Guid.NewGuid(),
             Email = resolvedEmail,
             Name = fullName,
-            GoogleSubject = $"apple_{appleSubject}",
+            GoogleSubject = null,
             AppleSubject = appleSubject,
             CreatedAt = DateTimeOffset.UtcNow
         };

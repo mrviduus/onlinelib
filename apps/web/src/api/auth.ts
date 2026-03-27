@@ -23,16 +23,52 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   })
 
   if (!res.ok) {
-    if (res.status === 401) {
-      throw new Error('Unauthorized')
-    }
-    throw new Error(`API error: ${res.status}`)
+    const data = await res.json().catch(() => null)
+    throw Object.assign(new Error(data?.error || `API error: ${res.status}`), { status: res.status })
   }
 
-  // Handle empty response (logout)
   const text = await res.text()
   if (!text) return {} as T
   return JSON.parse(text)
+}
+
+export async function registerWithEmail(email: string, password: string, name?: string): Promise<AuthResponse> {
+  try {
+    return await authFetch<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name: name || null }),
+    })
+  } catch (e: any) {
+    if (e.status === 409) throw new Error('An account with this email already exists.')
+    if (e.status === 400) throw new Error(e.message || 'Invalid email or password.')
+    throw new Error(`Registration failed: ${e.status}`)
+  }
+}
+
+export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
+  try {
+    return await authFetch<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+  } catch (e: any) {
+    if (e.status === 401) throw new Error('Invalid email or password.')
+    throw new Error(`Login failed: ${e.status}`)
+  }
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await authFetch<void>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export async function resetPassword(token: string, password: string): Promise<void> {
+  await authFetch<void>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  })
 }
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {

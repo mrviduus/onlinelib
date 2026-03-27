@@ -1,11 +1,19 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken } from '../api/auth'
+import {
+  User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
+  loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
+} from '../api/auth'
 
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
   googleReady: boolean
+  showAuthModal: boolean
+  openAuthModal: () => void
+  closeAuthModal: () => void
+  loginWithEmail: (email: string, password: string) => Promise<void>
+  registerWithEmail: (email: string, password: string, name?: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -14,6 +22,11 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   isAuthenticated: false,
   googleReady: false,
+  showAuthModal: false,
+  openAuthModal: () => {},
+  closeAuthModal: () => {},
+  loginWithEmail: async () => {},
+  registerWithEmail: async () => {},
   logout: async () => {},
 })
 
@@ -23,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [googleReady, setGoogleReady] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   // Google callback - stable ref to avoid stale closures
   const handleGoogleCallback = useCallback(async (response: google.accounts.id.CredentialResponse) => {
@@ -30,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       const authResponse = await loginWithGoogle(response.credential)
       setUser(authResponse.user)
+      setShowAuthModal(false)
     } catch (error) {
       console.error('Login failed:', error)
     } finally {
@@ -97,6 +112,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initGoogle().catch(err => console.error('[Auth] Failed to init Google:', err))
   }, [handleGoogleCallback, googleReady])
 
+  const openAuthModal = useCallback(() => setShowAuthModal(true), [])
+  const closeAuthModal = useCallback(() => setShowAuthModal(false), [])
+
+  const authenticateAndClose = useCallback(async (apiCall: () => Promise<{ user: User }>) => {
+    const response = await apiCall()
+    setUser(response.user)
+    setShowAuthModal(false)
+  }, [])
+
+  const loginWithEmail = useCallback(
+    (email: string, password: string) => authenticateAndClose(() => loginWithEmailApi(email, password)),
+    [authenticateAndClose],
+  )
+
+  const registerWithEmail = useCallback(
+    (email: string, password: string, name?: string) => authenticateAndClose(() => registerWithEmailApi(email, password, name)),
+    [authenticateAndClose],
+  )
+
   const logout = useCallback(async () => {
     try {
       await logoutApi()
@@ -116,6 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         googleReady,
+        showAuthModal,
+        openAuthModal,
+        closeAuthModal,
+        loginWithEmail,
+        registerWithEmail,
         logout,
       }}
     >

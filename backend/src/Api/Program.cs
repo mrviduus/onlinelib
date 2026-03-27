@@ -23,6 +23,7 @@ using TextStack.Search.Meilisearch;
 using TextStack.Tts;
 using TextStack.Vocabulary;
 using Api.Services;
+using Application.Auth;
 using Application.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
@@ -121,6 +122,15 @@ builder.Services.AddScoped<Application.UserBooks.UserBookService>();
 builder.Services.AddHttpClient<StandardEbooksSyncService>();
 builder.Services.AddScoped<StandardEbooksSyncService>();
 
+// Email (Resend)
+builder.Services.Configure<EmailSettings>(options =>
+{
+    options.ResendApiKey = builder.Configuration["Resend:ApiKey"] ?? "";
+    options.FromEmail = builder.Configuration["Resend:FromEmail"] ?? "noreply@textstack.app";
+    options.BaseUrl = builder.Configuration["App:BaseUrl"] ?? "https://textstack.app";
+});
+builder.Services.AddHttpClient<IEmailService, ResendEmailService>();
+
 // HttpClient for translation proxy
 builder.Services.AddHttpClient();
 
@@ -133,13 +143,19 @@ builder.Services.AddHostedService(sp => (EdgeTtsService)sp.GetRequiredService<IT
 // SSG periodic rebuild
 builder.Services.AddHostedService<SsgPeriodicRebuildWorker>();
 
-// Rate limiting for admin login
+// Rate limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("admin-login", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
         opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("user-login", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 10;
         opt.QueueLimit = 0;
     });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

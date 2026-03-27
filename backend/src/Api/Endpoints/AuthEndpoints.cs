@@ -1,5 +1,6 @@
 using Api.Extensions;
 using Application.Auth;
+using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -13,11 +14,15 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/auth").WithTags("Auth");
 
+        group.MapPost("/register", Register).WithName("RegisterWithEmail").RequireRateLimiting("user-login");
+        group.MapPost("/login", LoginWithEmail).WithName("LoginWithEmail").RequireRateLimiting("user-login");
         group.MapPost("/google", LoginWithGoogle).WithName("LoginWithGoogle");
         group.MapPost("/apple", LoginWithApple).WithName("LoginWithApple");
         group.MapPost("/refresh", RefreshToken).WithName("RefreshToken");
         group.MapPost("/refresh-mobile", RefreshTokenMobile).WithName("RefreshTokenMobile");
         group.MapPost("/logout", Logout).WithName("Logout");
+        group.MapPost("/forgot-password", ForgotPassword).WithName("ForgotPassword").RequireRateLimiting("user-login");
+        group.MapPost("/reset-password", ResetPassword).WithName("ResetPassword").RequireRateLimiting("user-login");
         group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
 
         if (app.Environment.IsDevelopment()
@@ -33,9 +38,49 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        var (user, accessToken, refreshToken) = await authService.TestLoginAsync(request.Email, ct);
-        SetAuthCookies(httpContext, accessToken, refreshToken);
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+        var result = await authService.TestLoginAsync(request.Email, ct);
+        return ReturnAuthResult(result, httpContext);
+    }
+
+    private static async Task<IResult> Register(
+        [FromBody] EmailRegisterRequest request,
+        AuthService authService,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            return Results.BadRequest(new { error = "Email and password are required." });
+
+        if (request.Password.Length < 8)
+            return Results.BadRequest(new { error = "Password must be at least 8 characters." });
+
+        if (request.Password.Length > 128)
+            return Results.BadRequest(new { error = "Password must be at most 128 characters." });
+
+        if (await authService.EmailExistsAsync(request.Email, ct))
+            return Results.Conflict(new { error = "An account with this email already exists." });
+
+        var result = await authService.RegisterWithEmailAsync(request.Email, request.Password, request.Name, ct);
+        if (result == null)
+            return Results.BadRequest(new { error = "Invalid email or password." });
+
+        return ReturnAuthResult(result.Value, httpContext);
+    }
+
+    private static async Task<IResult> LoginWithEmail(
+        [FromBody] EmailLoginRequest request,
+        AuthService authService,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            return Results.Unauthorized();
+
+        var result = await authService.LoginWithEmailAsync(request.Email, request.Password, ct);
+        if (result == null)
+            return Results.Unauthorized();
+
+        return ReturnAuthResult(result.Value, httpContext);
     }
 
     private static async Task<IResult> LoginWithGoogle(
@@ -45,18 +90,10 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var result = await authService.LoginWithGoogleAsync(request.IdToken, ct);
-
         if (result == null)
             return Results.Unauthorized();
 
-        var (user, accessToken, refreshToken) = result.Value;
-        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
-
-        if (IsMobileClient(httpContext))
-            return Results.Ok(new MobileAuthResponse(userDto, accessToken, refreshToken));
-
-        SetAuthCookies(httpContext, accessToken, refreshToken);
-        return Results.Ok(new AuthResponse(userDto));
+        return ReturnAuthResult(result.Value, httpContext);
     }
 
     private static async Task<IResult> LoginWithApple(
@@ -67,18 +104,10 @@ public static class AuthEndpoints
     {
         var result = await authService.LoginWithAppleAsync(
             request.IdentityToken, request.FullName, request.Email, ct);
-
         if (result == null)
             return Results.Unauthorized();
 
-        var (user, accessToken, refreshToken) = result.Value;
-        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
-
-        if (IsMobileClient(httpContext))
-            return Results.Ok(new MobileAuthResponse(userDto, accessToken, refreshToken));
-
-        SetAuthCookies(httpContext, accessToken, refreshToken);
-        return Results.Ok(new AuthResponse(userDto));
+        return ReturnAuthResult(result.Value, httpContext);
     }
 
     private static async Task<IResult> RefreshToken(
@@ -87,23 +116,17 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var refreshToken = httpContext.Request.Cookies[RefreshTokenCookie];
-
         if (string.IsNullOrEmpty(refreshToken))
             return Results.Unauthorized();
 
         var result = await authService.RefreshTokenAsync(refreshToken, ct);
-
         if (result == null)
         {
             ClearAuthCookies(httpContext);
             return Results.Unauthorized();
         }
 
-        var (user, newAccessToken, newRefreshToken) = result.Value;
-
-        SetAuthCookies(httpContext, newAccessToken, newRefreshToken);
-
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+        return ReturnAuthResult(result.Value, httpContext);
     }
 
     private static async Task<IResult> RefreshTokenMobile(
@@ -112,14 +135,11 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var result = await authService.RefreshTokenAsync(request.RefreshToken, ct);
-
         if (result == null)
             return Results.Unauthorized();
 
         var (user, newAccessToken, newRefreshToken) = result.Value;
-        var userDto = new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
-
-        return Results.Ok(new MobileAuthResponse(userDto, newAccessToken, newRefreshToken));
+        return Results.Ok(new MobileAuthResponse(ToDto(user), newAccessToken, newRefreshToken));
     }
 
     private static async Task<IResult> Logout(
@@ -128,12 +148,10 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var refreshToken = httpContext.Request.Cookies[RefreshTokenCookie];
-
         if (!string.IsNullOrEmpty(refreshToken))
             await authService.LogoutAsync(refreshToken, ct);
 
         ClearAuthCookies(httpContext);
-
         return Results.Ok();
     }
 
@@ -143,16 +161,67 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
-
         if (userId == null)
             return Results.Unauthorized();
 
         var user = await authService.GetUserByIdAsync(userId.Value, ct);
-
         if (user == null)
             return Results.Unauthorized();
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+        return Results.Ok(new AuthResponse(ToDto(user)));
+    }
+
+    private static async Task<IResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        AuthService authService,
+        IEmailService emailService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return Results.Ok(); // Don't reveal anything
+
+        var rawToken = await authService.RequestPasswordResetAsync(request.Email, ct);
+        if (rawToken != null)
+        {
+            await emailService.SendPasswordResetEmailAsync(request.Email.Trim(), rawToken, ct);
+        }
+
+        return Results.Ok(); // Always 200 to prevent email enumeration
+    }
+
+    private static async Task<IResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        AuthService authService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.Password))
+            return Results.BadRequest(new { error = "Token and password are required." });
+
+        if (request.Password.Length < 8)
+            return Results.BadRequest(new { error = "Password must be at least 8 characters." });
+
+        var success = await authService.ResetPasswordAsync(request.Token, request.Password, ct);
+        if (!success)
+            return Results.BadRequest(new { error = "Invalid or expired reset link." });
+
+        return Results.Ok();
+    }
+
+    private static UserDto ToDto(User user) =>
+        new(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
+
+    private static IResult ReturnAuthResult(
+        (User user, string accessToken, string refreshToken) result,
+        HttpContext httpContext)
+    {
+        var (user, accessToken, refreshToken) = result;
+        var dto = ToDto(user);
+
+        if (IsMobileClient(httpContext))
+            return Results.Ok(new MobileAuthResponse(dto, accessToken, refreshToken));
+
+        SetAuthCookies(httpContext, accessToken, refreshToken);
+        return Results.Ok(new AuthResponse(dto));
     }
 
     private static void SetAuthCookies(HttpContext httpContext, string accessToken, string refreshToken)
@@ -161,23 +230,17 @@ public static class AuthEndpoints
             .GetRequiredService<IWebHostEnvironment>()
             .IsDevelopment();
 
-        httpContext.Response.Cookies.Append(AccessTokenCookie, accessToken, new CookieOptions
+        var options = new CookieOptions
         {
             HttpOnly = true,
             Secure = isProduction,
             SameSite = SameSiteMode.Lax,
             MaxAge = TimeSpan.FromDays(30),
             Path = "/"
-        });
+        };
 
-        httpContext.Response.Cookies.Append(RefreshTokenCookie, refreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = isProduction,
-            SameSite = SameSiteMode.Lax,
-            MaxAge = TimeSpan.FromDays(30),
-            Path = "/"
-        });
+        httpContext.Response.Cookies.Append(AccessTokenCookie, accessToken, options);
+        httpContext.Response.Cookies.Append(RefreshTokenCookie, refreshToken, options);
     }
 
     private static void ClearAuthCookies(HttpContext httpContext)
