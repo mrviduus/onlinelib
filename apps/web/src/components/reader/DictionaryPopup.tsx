@@ -13,6 +13,8 @@ interface DictionaryPopupProps {
   onSaveWord?: (word: string, definition: string) => void
   onSpeak?: (text: string) => void
   wordSaved?: boolean
+  vocabStage?: number | null
+  onMarkKnown?: () => void
 }
 
 export function DictionaryPopup({
@@ -26,6 +28,8 @@ export function DictionaryPopup({
   onSaveWord,
   onSpeak,
   wordSaved,
+  vocabStage,
+  onMarkKnown,
 }: DictionaryPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -149,18 +153,28 @@ export function DictionaryPopup({
                 </div>
               ))}
             </div>
-            {onSaveWord && (
-              <button
-                className="dictionary-popup__save-word"
-                onClick={() => {
-                  const def = entry.definitions[0]?.definitions[0]?.definition || ''
-                  onSaveWord(word, def)
-                }}
-                disabled={wordSaved}
-              >
-                {wordSaved ? 'Saved' : '+ Save to vocabulary'}
-              </button>
-            )}
+            <div className="dictionary-popup__actions">
+              {onSaveWord && (
+                <button
+                  className="dictionary-popup__save-word"
+                  onClick={() => {
+                    const def = entry.definitions[0]?.definitions[0]?.definition || ''
+                    onSaveWord(word, def)
+                  }}
+                  disabled={wordSaved}
+                >
+                  {wordSaved ? 'Saved' : '+ Save to vocabulary'}
+                </button>
+              )}
+              {onMarkKnown && vocabStage != null && vocabStage < 4 && (
+                <button
+                  className="dictionary-card__know-btn"
+                  onClick={onMarkKnown}
+                >
+                  I know this ✓
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>

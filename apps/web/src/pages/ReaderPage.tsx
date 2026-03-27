@@ -40,6 +40,7 @@ import { ReaderShortcutsModal } from '../components/reader/ReaderShortcutsModal'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
+import { useReviewPrompt } from '../hooks/useReviewPrompt'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { calculateETF, calculateChapterETF } from '../lib/etf'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
@@ -403,6 +404,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // Force 100% when book is completed
   const overallProgress = bookCompleted ? 1 : calculatedProgress
+
+  // Review prompt on reader exit
+  useReviewPrompt()
 
   // Reading session tracking (time, words)
   const readingSession = useReadingSession({

@@ -6,7 +6,7 @@ import {
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, vocabularyApi } from '@textstack/shared'
 import type { Edition, Author } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -31,6 +31,7 @@ export default function HomeScreen() {
   const [catalogStats, setCatalogStats] = useState<{ books: number; authors: number; genres: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [vocabDueCount, setVocabDueCount] = useState(0)
 
   const fetchAll = useCallback(async () => {
     const api = createBooksApi(language)
@@ -56,6 +57,13 @@ export default function HomeScreen() {
   }, [])
 
   useEffect(() => { fetchAll() }, [language])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    vocabularyApi.getVocabularyStats()
+      .then(stats => setVocabDueCount(stats.dueNow))
+      .catch(() => {})
+  }, [isAuthenticated])
 
   const onRefresh = () => {
     setRefreshing(true)
@@ -135,6 +143,23 @@ export default function HomeScreen() {
             </View>
           )}
           <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+
+      {/* Vocab Review Card */}
+      {vocabDueCount > 0 && (
+        <TouchableOpacity
+          style={[styles.reviewCard, { backgroundColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.15)' }]}
+          onPress={() => router.push('/vocabulary/review')}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 18, marginRight: 8 }}>📚</Text>
+          <Text style={[styles.reviewCardText, { color: colors.text }]}>
+            {vocabDueCount} word{vocabDueCount === 1 ? '' : 's'} due for review
+          </Text>
+          <View style={[styles.reviewCardBtn, { backgroundColor: colors.primary }]}>
+            <Text style={{ color: '#fff', fontSize: 13, fontFamily: fonts.sansMedium }}>Review</Text>
+          </View>
         </TouchableOpacity>
       )}
 
@@ -323,4 +348,17 @@ const styles = StyleSheet.create({
   authorPlaceholder: { justifyContent: 'center', alignItems: 'center' },
   authorInitial: { fontFamily: fonts.serif, fontSize: 24 },
   authorName: { fontFamily: fonts.sans, fontSize: 12, textAlign: 'center' },
+
+  // Review card
+  reviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  reviewCardText: { flex: 1, fontSize: 14, fontFamily: fonts.sans },
+  reviewCardBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
 })

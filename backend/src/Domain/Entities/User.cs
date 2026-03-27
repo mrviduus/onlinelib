@@ -8,7 +8,8 @@ public class User
     public required string Email { get; set; }
     public string? Name { get; set; }
     public string? Picture { get; set; }
-    public required string GoogleSubject { get; set; }
+    public string? PasswordHash { get; set; }
+    public string? GoogleSubject { get; set; }
     public string? AppleSubject { get; set; }
     public long StorageUsedBytes { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

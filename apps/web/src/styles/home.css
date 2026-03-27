@@ -471,3 +471,36 @@
   font-size: 12px;
   color: var(--color-text-secondary);
 }
+
+/* Vocab review card */
+.vocab-review-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  margin: 16px 0;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 12px;
+}
+.vocab-review-card__icon {
+  font-size: 20px;
+}
+.vocab-review-card__text {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text);
+}
+.vocab-review-card__btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--color-primary, #3b82f6);
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.vocab-review-card__btn:hover {
+  opacity: 0.9;
+}

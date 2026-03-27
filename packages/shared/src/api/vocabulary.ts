@@ -44,3 +44,11 @@ export function submitReview(data: { wordId: string; isCorrect: boolean; respons
 export function getVocabularyStats() {
   return authFetch<VocabularyStatsDto>('/me/vocabulary/stats')
 }
+
+export function getReaderVocab() {
+  return authFetch<{ id: string; word: string; stage: number }[]>('/me/vocabulary/words/reader')
+}
+
+export function markAsKnown(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}/known`, { method: 'PUT' })
+}

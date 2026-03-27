@@ -51,6 +51,7 @@ public interface IAppDbContext
     DbSet<BlogComment> BlogComments { get; }
     DbSet<BlogLike> BlogLikes { get; }
     DbSet<CodeGenJob> CodeGenJobs { get; }
+    DbSet<PasswordResetToken> PasswordResetTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

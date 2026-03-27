@@ -4,6 +4,14 @@ import { SpeakButton } from '../vocabulary/SpeakButton'
 
 export type AutoSaveState = 'idle' | 'saving' | 'saved'
 
+const STAGE_LABELS: Record<number, { label: string; className: string }> = {
+  0: { label: 'New', className: 'vocab-stage--new' },
+  1: { label: 'Learning ★1', className: 'vocab-stage--recognition' },
+  2: { label: 'Learning ★2', className: 'vocab-stage--recall' },
+  3: { label: 'Learning ★3', className: 'vocab-stage--context' },
+  4: { label: 'Mastered ✓', className: 'vocab-stage--mastered' },
+}
+
 interface DictionaryCardProps {
   word: string
   entry: DictionaryEntry | null
@@ -15,6 +23,8 @@ interface DictionaryCardProps {
   onSpeak?: (text: string) => void
   savedState: AutoSaveState
   isAuthenticated?: boolean
+  vocabStage?: number | null
+  onMarkKnown?: () => void
 }
 
 export function DictionaryCard({
@@ -28,6 +38,8 @@ export function DictionaryCard({
   onSpeak,
   savedState,
   isAuthenticated,
+  vocabStage,
+  onMarkKnown,
 }: DictionaryCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -83,6 +95,11 @@ export function DictionaryCard({
         {entry?.phonetic && (
           <span className="dictionary-card__phonetic">{entry.phonetic}</span>
         )}
+        {vocabStage != null && STAGE_LABELS[vocabStage] && (
+          <span className={`dictionary-card__stage ${STAGE_LABELS[vocabStage].className}`}>
+            {STAGE_LABELS[vocabStage].label}
+          </span>
+        )}
         {isAuthenticated && (
           <span className={`dictionary-card__saved ${savedState === 'saved' ? 'dictionary-card__saved--visible' : ''}`}>
             <CheckIcon />
@@ -118,13 +135,24 @@ export function DictionaryCard({
       )}
 
       {entry && !isLoading && (
-        <button
-          className="dictionary-card__expand"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onExpand}
-        >
-          More &#9656;
-        </button>
+        <div className="dictionary-card__footer">
+          {onMarkKnown && vocabStage != null && vocabStage < 4 && (
+            <button
+              className="dictionary-card__know-btn"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onMarkKnown}
+            >
+              I know this ✓
+            </button>
+          )}
+          <button
+            className="dictionary-card__expand"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onExpand}
+          >
+            More &#9656;
+          </button>
+        </div>
       )}
     </div>
   )

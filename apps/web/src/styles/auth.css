@@ -1,0 +1,212 @@
+/* Auth modal overlay */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+}
+
+.auth-modal {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: auth-modal-in 0.2s ease-out;
+}
+
+@keyframes auth-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.auth-modal__close:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+}
+
+.auth-modal__body {
+  padding: 2rem;
+}
+
+.auth-modal__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.auth-modal__text {
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+}
+
+/* Tabs */
+.auth-modal__tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-modal__tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0.65rem 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.auth-modal__tab:hover {
+  color: var(--color-text);
+}
+
+.auth-modal__tab--active {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+}
+
+/* Form */
+.auth-modal__input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.15s;
+}
+
+.auth-modal__input:focus {
+  border-color: var(--color-brand);
+}
+
+.auth-modal__input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.auth-modal__error {
+  color: #ef4444;
+  font-size: 0.82rem;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.auth-modal__btn {
+  width: 100%;
+  padding: 0.7rem;
+  background: var(--color-brand);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.auth-modal__btn:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+
+.auth-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Link button */
+.auth-modal__link {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.75rem 0 0;
+  text-align: center;
+  transition: color 0.15s;
+}
+
+.auth-modal__link:hover {
+  color: var(--color-brand);
+}
+
+/* Divider */
+.auth-modal__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.auth-modal__divider::before,
+.auth-modal__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Google button container */
+.auth-modal__google {
+  display: flex;
+  justify-content: center;
+}
+
+/* Reset password standalone page */
+.auth-page {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.auth-page__card {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}

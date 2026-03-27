@@ -383,12 +383,17 @@
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+.dictionary-popup__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
 /* Dictionary popup save button */
 .dictionary-popup__save-word {
   display: block;
-  width: 100%;
+  flex: 1;
   padding: 0.5rem;
-  margin-top: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-surface);

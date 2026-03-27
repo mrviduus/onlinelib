@@ -25,9 +25,11 @@ import { HighlightsPage } from './pages/HighlightsPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
 import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
+import { AuthModal } from './components/auth/AuthModal'
 import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
@@ -36,6 +38,7 @@ import './styles/vocabulary.css'
 import './styles/reviews.css'
 import './styles/blog.css'
 import './styles/highlights.css'
+import './styles/auth.css'
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
@@ -77,6 +80,7 @@ function LanguageRoutes() {
         <Route path="/highlights/review" element={<HighlightReviewPage />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </LanguageProvider>
@@ -131,6 +135,7 @@ function App() {
             <AppRoutes />
             <DownloadProgressBar />
           </DownloadProvider>
+          <AuthModal />
         </AuthProvider>
       </SiteProvider>
     </BrowserRouter>

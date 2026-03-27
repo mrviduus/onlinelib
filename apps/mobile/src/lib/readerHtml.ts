@@ -320,6 +320,79 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       return { prefix: prefix, exact: text, suffix: suffix };
     }
 
+    // Vocab word marking by SRS stage
+    var VOCAB_STAGE_COLORS = {
+      0: 'rgba(59,130,246,0.5)',   // new — blue
+      1: 'rgba(234,179,8,0.5)',    // recognition — yellow
+      2: 'rgba(234,179,8,0.4)',    // recall
+      3: 'rgba(34,197,94,0.4)',    // context — green
+      4: 'rgba(34,197,94,0.25)'    // mastered — faint green
+    };
+    var VOCAB_ATTR = 'data-vocab-mark';
+
+    function markVocabWords(vocabMap) {
+      // vocabMap: {word: {stage, id}}
+      _currentVocabMap = vocabMap || {};
+      removeVocabMarks();
+      if (!vocabMap || Object.keys(vocabMap).length === 0) return;
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(n) {
+          var p = n.parentElement;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          if (p.tagName === 'MARK' || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var textNodes = [];
+      var node;
+      while (node = walker.nextNode()) textNodes.push(node);
+      var re = /[\p{L}\p{N}'-]+/gu;
+      for (var i = 0; i < textNodes.length; i++) {
+        var tn = textNodes[i];
+        var text = tn.textContent;
+        if (!text || !text.trim()) continue;
+        re.lastIndex = 0;
+        var match;
+        var matches = [];
+        while (match = re.exec(text)) {
+          var lower = match[0].toLowerCase();
+          if (vocabMap[lower]) matches.push({ start: match.index, end: match.index + match[0].length, word: lower });
+        }
+        if (matches.length === 0) continue;
+        var frag = document.createDocumentFragment();
+        var lastEnd = 0;
+        for (var j = 0; j < matches.length; j++) {
+          var m = matches[j];
+          if (m.start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, m.start)));
+          var mark = document.createElement('mark');
+          mark.setAttribute(VOCAB_ATTR, 'true');
+          var stage = vocabMap[m.word].stage;
+          mark.style.cssText = 'background:none;color:inherit;padding:0;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
+          mark.textContent = text.slice(m.start, m.end);
+          frag.appendChild(mark);
+          lastEnd = m.end;
+        }
+        if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+        tn.parentNode.replaceChild(frag, tn);
+      }
+    }
+
+    var _currentVocabMap = {};
+    function addVocabWord(word, stage) {
+      _currentVocabMap[word.toLowerCase()] = { stage: stage };
+      markVocabWords(_currentVocabMap);
+    }
+
+    function removeVocabMarks() {
+      var marks = document.querySelectorAll('mark[' + VOCAB_ATTR + ']');
+      marks.forEach(function(mark) {
+        var parent = mark.parentNode;
+        var text = document.createTextNode(mark.textContent || '');
+        parent.replaceChild(text, mark);
+        parent.normalize();
+      });
+    }
+
     document.addEventListener('selectionchange', function() {
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {

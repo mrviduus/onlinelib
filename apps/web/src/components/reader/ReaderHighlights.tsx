@@ -4,12 +4,14 @@ import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTts } from '../../hooks/useTts'
+import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { saveWord as saveWordApi } from '../../api/vocabulary'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
+import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { DictionaryPopup } from './DictionaryPopup'
 import { DictionaryCard } from './DictionaryCard'
@@ -44,6 +46,7 @@ export function ReaderHighlights({
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown } = useReaderVocabulary()
   const [showTranslation, setShowTranslation] = useState(false)
   const [translationText, setTranslationText] = useState('')
   const [translationRect, setTranslationRect] = useState<DOMRect | null>(null)
@@ -160,7 +163,7 @@ export function ReaderHighlights({
       ? extractSentence(selection.range, containerRef.current)
       : undefined
 
-    saveWordApi({
+    addVocabWord({
       word: selectedWord,
       language: bookLanguage,
       definition: def,
@@ -172,7 +175,7 @@ export function ReaderHighlights({
     })
       .then(() => setAutoSaveState('saved'))
       .catch(() => setAutoSaveState('idle'))
-  }, [autoLookup, isAuthenticated, hasSelection, isSingleWord, selectedWord, isDictionaryLoading, dictionaryEntry, selection.range, containerRef, bookLanguage, editionId, chapterId, userBookId, bookTitle])
+  }, [autoLookup, isAuthenticated, hasSelection, isSingleWord, selectedWord, isDictionaryLoading, dictionaryEntry, selection.range, containerRef, bookLanguage, editionId, chapterId, userBookId, bookTitle, addVocabWord])
 
   // Reset auto-save state when selection clears
   useEffect(() => {
@@ -363,6 +366,11 @@ export function ReaderHighlights({
         onHighlightClick={handleHighlightClick}
       />
 
+      <VocabWordLayer
+        containerRef={containerRef}
+        vocabMap={vocabMap}
+      />
+
       {hasSelection && !showTranslation && !showDictionary && (
         <SelectionToolbar
           rect={selection.rect}
@@ -377,20 +385,25 @@ export function ReaderHighlights({
         />
       )}
 
-      {hasSelection && isSingleWord && autoLookup && !showDictionary && !showTranslation && (
-        <DictionaryCard
-          word={selectedWord}
-          entry={dictionaryEntry}
-          isLoading={isDictionaryLoading}
-          error={dictionaryError}
-          rect={selection.rect}
-          containerRef={containerRef}
-          onExpand={handleExpandDictionary}
-          onSpeak={(text) => handleSpeak(text)}
-          savedState={autoSaveState}
-          isAuthenticated={isAuthenticated}
-        />
-      )}
+      {hasSelection && isSingleWord && autoLookup && !showDictionary && !showTranslation && (() => {
+        const vocabEntry = vocabMap.get(selectedWord.toLowerCase())
+        return (
+          <DictionaryCard
+            word={selectedWord}
+            entry={dictionaryEntry}
+            isLoading={isDictionaryLoading}
+            error={dictionaryError}
+            rect={selection.rect}
+            containerRef={containerRef}
+            onExpand={handleExpandDictionary}
+            onSpeak={(text) => handleSpeak(text)}
+            savedState={autoSaveState}
+            isAuthenticated={isAuthenticated}
+            vocabStage={vocabEntry?.stage ?? null}
+            onMarkKnown={vocabEntry?.id ? () => markVocabKnown(vocabEntry.id!, selectedWord) : undefined}
+          />
+        )
+      })()}
 
       {showTranslation && (
         <TranslationPopup
@@ -410,20 +423,25 @@ export function ReaderHighlights({
         />
       )}
 
-      {showDictionary && (
-        <DictionaryPopup
-          word={dictionaryWord}
-          entry={dictionaryEntry}
-          isLoading={isDictionaryLoading}
-          error={dictionaryError}
-          rect={dictionaryRect}
-          containerRef={containerRef}
-          onClose={handleCloseDictionary}
-          onSaveWord={isAuthenticated ? handleSaveWordFromDict : undefined}
-          onSpeak={(text) => handleSpeak(text)}
-          wordSaved={vocabSaved}
-        />
-      )}
+      {showDictionary && (() => {
+        const ve = vocabMap.get(dictionaryWord.toLowerCase())
+        return (
+          <DictionaryPopup
+            word={dictionaryWord}
+            entry={dictionaryEntry}
+            isLoading={isDictionaryLoading}
+            error={dictionaryError}
+            rect={dictionaryRect}
+            containerRef={containerRef}
+            onClose={handleCloseDictionary}
+            onSaveWord={isAuthenticated ? handleSaveWordFromDict : undefined}
+            onSpeak={(text) => handleSpeak(text)}
+            wordSaved={vocabSaved}
+            vocabStage={ve?.stage ?? null}
+            onMarkKnown={ve?.id ? () => markVocabKnown(ve.id!, dictionaryWord) : undefined}
+          />
+        )
+      })()}
 
       {editingHighlight && (
         <NoteEditor
