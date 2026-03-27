@@ -34,6 +34,7 @@
     "expo-document-picker": "~55.0.9",
     "expo-font": "~55.0.4",
     "expo-image": "~55.0.6",
+    "expo-image-picker": "~55.0.14",
     "expo-linking": "~55.0.9",
     "expo-notifications": "~55.0.14",
     "expo-router": "~55.0.8",

@@ -1,5 +1,5 @@
 import { getApiConfig } from './client'
-import type { MobileAuthResponse } from '../types/api'
+import type { MobileAuthResponse, AuthResponse } from '../types/api'
 
 async function mobilePost<T>(path: string, body: unknown): Promise<T> {
   const { baseUrl } = getApiConfig()
@@ -79,4 +79,44 @@ export async function logout(accessToken: string): Promise<void> {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
+}
+
+// Profile
+export async function updateProfile(name: string | null, accessToken: string): Promise<AuthResponse> {
+  const { baseUrl } = getApiConfig()
+  const res = await fetch(`${baseUrl}/me/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error('Failed to update profile')
+  return res.json()
+}
+
+export async function uploadAvatar(imageUri: string, accessToken: string): Promise<AuthResponse> {
+  const { baseUrl } = getApiConfig()
+  const formData = new FormData()
+  const filename = imageUri.split('/').pop() || 'avatar.jpg'
+  const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
+  const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
+  formData.append('file', { uri: imageUri, name: filename, type: mimeType } as any)
+  const res = await fetch(`${baseUrl}/me/profile/avatar`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error || 'Upload failed')
+  }
+  return res.json()
+}
+
+export async function deleteAvatar(accessToken: string): Promise<void> {
+  const { baseUrl } = getApiConfig()
+  const res = await fetch(`${baseUrl}/me/profile/avatar`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error('Failed to delete avatar')
 }

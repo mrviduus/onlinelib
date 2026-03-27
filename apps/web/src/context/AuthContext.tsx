@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import {
   User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
   loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
+  updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, deleteAvatar as deleteAvatarApi,
 } from '../api/auth'
 
 interface AuthContextValue {
@@ -15,6 +16,9 @@ interface AuthContextValue {
   loginWithEmail: (email: string, password: string) => Promise<void>
   registerWithEmail: (email: string, password: string, name?: string) => Promise<void>
   logout: () => Promise<void>
+  updateProfile: (name: string | null) => Promise<void>
+  updateAvatar: (file: File) => Promise<void>
+  deleteAvatar: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -28,6 +32,9 @@ const AuthContext = createContext<AuthContextValue>({
   loginWithEmail: async () => {},
   registerWithEmail: async () => {},
   logout: async () => {},
+  updateProfile: async () => {},
+  updateAvatar: async () => {},
+  deleteAvatar: async () => {},
 })
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -131,6 +138,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [authenticateAndClose],
   )
 
+  const updateProfile = useCallback(async (name: string | null) => {
+    const response = await updateProfileApi(name)
+    setUser(response.user)
+  }, [])
+
+  const updateAvatar = useCallback(async (file: File) => {
+    const response = await uploadAvatarApi(file)
+    setUser(response.user)
+  }, [])
+
+  const deleteAvatar = useCallback(async () => {
+    await deleteAvatarApi()
+    setUser(prev => prev ? { ...prev, picture: null } : null)
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await logoutApi()
@@ -156,6 +178,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithEmail,
         registerWithEmail,
         logout,
+        updateProfile,
+        updateAvatar,
+        deleteAvatar,
       }}
     >
       {children}

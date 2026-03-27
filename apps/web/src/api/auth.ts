@@ -94,6 +94,33 @@ export async function getCurrentUser(): Promise<AuthResponse> {
   return authFetch<AuthResponse>('/auth/me')
 }
 
+// Profile API
+export async function updateProfile(name: string | null): Promise<AuthResponse> {
+  return authFetch<AuthResponse>('/me/profile', {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function uploadAvatar(file: File): Promise<AuthResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API_BASE}/me/profile/avatar`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error || 'Upload failed')
+  }
+  return res.json()
+}
+
+export async function deleteAvatar(): Promise<void> {
+  await authFetch<void>('/me/profile/avatar', { method: 'DELETE' })
+}
+
 // Reading Progress API
 export interface ReadingProgressDto {
   editionId: string
