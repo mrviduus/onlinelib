@@ -1,11 +1,15 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { useState } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+// Lazy-loaded — requires native build
+let ImagePicker: typeof import('expo-image-picker') | null = null
+try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
-import { supportedLanguages, type Language } from '@textstack/shared'
+import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
@@ -22,10 +26,52 @@ const BROWSE_ITEMS = [
 ]
 
 export default function ProfileScreen() {
-  const { user, isAuthenticated, signOut } = useAuth()
+  const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
   const { colors, themeMode, setThemeMode } = useTheme()
   const { language, switchLanguage } = useLanguage()
   const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
+
+  const saveProfile = async () => {
+    setSaving(true)
+    try {
+      const token = await getAccessToken()
+      if (!token) return
+      const res = await authApi.updateProfile(editName.trim() || null, token)
+      await updateUser(res.user)
+      setEditing(false)
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const pickAvatar = async () => {
+    if (!ImagePicker) { Alert.alert('Not available', 'Image picker requires a native build'); return }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    })
+    if (result.canceled || !result.assets[0]) return
+    setSaving(true)
+    try {
+      const token = await getAccessToken()
+      if (!token) return
+      const res = await authApi.uploadAvatar(result.assets[0].uri, token)
+      await updateUser(res.user)
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Upload failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (!isAuthenticated) {
     return (
@@ -46,16 +92,41 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <View style={[styles.avatarWrapper, { backgroundColor: colors.primary }]}>
+        <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
           {user?.picture ? (
-            <Image source={user.picture} style={styles.avatar} contentFit="cover" />
+            <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
           ) : (
             <Text style={styles.avatarLetter}>
               {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
             </Text>
           )}
-        </View>
-        <Text style={[styles.name, { color: colors.text }]}>{user?.name || user?.email}</Text>
+          <View style={styles.avatarBadge}>
+            <Ionicons name="camera" size={14} color="#fff" />
+          </View>
+        </TouchableOpacity>
+        {editing ? (
+          <View style={styles.editRow}>
+            <TextInput
+              style={[styles.editInput, { color: colors.text, borderColor: colors.border, fontFamily: fonts.sans }]}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Name"
+              placeholderTextColor={colors.textSecondary}
+              autoFocus
+            />
+            <TouchableOpacity onPress={saveProfile} disabled={saving} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
+              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: fonts.sansMedium }}>Save</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setEditing(false)}>
+              <Text style={{ color: colors.textSecondary, fontFamily: fonts.sans }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={startEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.name, { color: colors.text }]}>{user?.name || user?.email}</Text>
+            <Ionicons name="pencil" size={14} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
         <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
       </View>
 
@@ -211,4 +282,30 @@ const styles = StyleSheet.create({
   menuIcon: { marginRight: 12 },
   menuText: { flex: 1, fontFamily: fonts.sans, fontSize: 16 },
   sectionLabel: { fontFamily: fonts.sansMedium, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 4 },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editRow: { alignItems: 'center', gap: 8, width: '80%' },
+  editInput: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  saveBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
 })

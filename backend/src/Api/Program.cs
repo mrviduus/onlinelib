@@ -260,6 +260,7 @@ app.MapSiteEndpoints();
 app.MapSeoEndpoints();
 app.MapSsgEndpoints();
 app.MapAuthEndpoints();
+app.MapProfileEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();
 app.MapTranslationEndpoints();

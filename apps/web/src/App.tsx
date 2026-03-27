@@ -39,6 +39,7 @@ import './styles/reviews.css'
 import './styles/blog.css'
 import './styles/highlights.css'
 import './styles/auth.css'
+import './styles/profile.css'
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()

@@ -26,6 +26,8 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   signInWithTokens: (accessToken: string, refreshToken: string, user: UserDto) => Promise<void>
+  updateUser: (user: UserDto) => Promise<void>
+  getAccessToken: () => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -34,6 +36,8 @@ const AuthContext = createContext<AuthState>({
   isAuthenticated: false,
   isLoading: true,
   signInWithTokens: async () => {},
+  updateUser: async () => {},
+  getAccessToken: async () => null,
   signOut: async () => {},
 })
 
@@ -71,6 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const updateUser = useCallback(async (userData: UserDto) => {
+    await SecureStore.setItemAsync('user', JSON.stringify(userData))
+    setUser(userData)
+  }, [])
+
+  const getAccessToken = useCallback(async () => {
+    return SecureStore.getItemAsync('access_token')
+  }, [])
+
   const signOut = useCallback(async () => {
     await SecureStore.deleteItemAsync('access_token')
     await SecureStore.deleteItemAsync('refresh_token')
@@ -85,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: user !== null,
         isLoading,
         signInWithTokens,
+        updateUser,
+        getAccessToken,
         signOut,
       }}
     >
