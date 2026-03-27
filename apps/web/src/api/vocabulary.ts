@@ -163,3 +163,19 @@ export async function submitReview(data: SubmitReviewRequest): Promise<SubmitRev
 export async function getVocabStats(): Promise<VocabStatsDto> {
   return authFetch<VocabStatsDto>('/me/vocabulary/stats')
 }
+
+// --- Reader vocab (lightweight) ---
+
+export interface ReaderVocabWordDto {
+  id: string
+  word: string
+  stage: number
+}
+
+export async function getReaderVocab(): Promise<ReaderVocabWordDto[]> {
+  return authFetch<ReaderVocabWordDto[]>('/me/vocabulary/words/reader')
+}
+
+export async function markAsKnown(id: string): Promise<VocabWordDto> {
+  return authFetch<VocabWordDto>(`/me/vocabulary/words/${id}/known`, { method: 'PUT' })
+}

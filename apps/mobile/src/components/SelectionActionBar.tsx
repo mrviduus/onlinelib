@@ -1,7 +1,16 @@
-import { View, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../context/ThemeContext'
+import { fonts } from '../theme/typography'
+
+const STAGE_LABELS: Record<number, { label: string; color: string }> = {
+  0: { label: 'New', color: '#3b82f6' },
+  1: { label: '★1', color: '#eab308' },
+  2: { label: '★2', color: '#eab308' },
+  3: { label: '★3', color: '#22c55e' },
+  4: { label: '✓', color: '#22c55e' },
+}
 
 const HIGHLIGHT_COLORS = [
   { key: 'yellow', color: '#fef08a' },
@@ -18,14 +27,16 @@ interface SelectionActionBarProps {
   onSpeak: () => void
   onSaveWord: () => void
   onHighlight?: (color: string) => void
+  onMarkKnown?: () => void
   isSpeaking?: boolean
   wordSaved?: boolean
+  vocabStage?: number | null
   isAuthenticated?: boolean
 }
 
 export function SelectionActionBar({
   selectedText, isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord, onHighlight,
-  isSpeaking, wordSaved, isAuthenticated,
+  onMarkKnown, isSpeaking, wordSaved, vocabStage, isAuthenticated,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
 
@@ -63,19 +74,36 @@ export function SelectionActionBar({
       <TouchableOpacity style={styles.btn} onPress={onSpeak}>
         <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={18} color={colors.text} />
       </TouchableOpacity>
-      {isAuthenticated && !isMultiWord && (
-        <TouchableOpacity
-          style={[styles.btn, wordSaved && { opacity: 0.5 }]}
-          onPress={onSaveWord}
-          disabled={wordSaved}
-        >
-          <Ionicons
-            name={wordSaved ? 'checkmark-circle' : 'add-circle-outline'}
-            size={18}
-            color={wordSaved ? colors.success : colors.text}
-          />
-        </TouchableOpacity>
-      )}
+      {isAuthenticated && !isMultiWord && (() => {
+        const stage = vocabStage != null ? STAGE_LABELS[vocabStage] : null
+        return (
+          <>
+            {stage && (
+              <View style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}>
+                <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.label}</Text>
+              </View>
+            )}
+            {stage && vocabStage !== 4 && onMarkKnown && (
+              <TouchableOpacity style={styles.btn} onPress={onMarkKnown}>
+                <Ionicons name="checkmark-done" size={18} color="#22c55e" />
+              </TouchableOpacity>
+            )}
+            {!stage && (
+              <TouchableOpacity
+                style={[styles.btn, wordSaved && { opacity: 0.5 }]}
+                onPress={onSaveWord}
+                disabled={wordSaved}
+              >
+                <Ionicons
+                  name={wordSaved ? 'checkmark-circle' : 'add-circle-outline'}
+                  size={18}
+                  color={wordSaved ? colors.success : colors.text}
+                />
+              </TouchableOpacity>
+            )}
+          </>
+        )
+      })()}
     </View>
   )
 }
@@ -113,5 +141,15 @@ const styles = StyleSheet.create({
     width: 1,
     height: 20,
     marginHorizontal: 4,
+  },
+  stageBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  stageBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.sansMedium,
   },
 })

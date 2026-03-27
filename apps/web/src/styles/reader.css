@@ -1891,3 +1891,63 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   flex-shrink: 0;
   margin-right: 2px;
 }
+
+/* Vocab stage badges in DictionaryCard */
+.dictionary-card__stage {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.vocab-stage--new { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.vocab-stage--recognition { background: rgba(234, 179, 8, 0.15); color: #b8860b; }
+.vocab-stage--recall { background: rgba(234, 179, 8, 0.15); color: #b8860b; }
+.vocab-stage--context { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.vocab-stage--mastered { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+
+.dictionary-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dictionary-card__know-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.08);
+  color: #16a34a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dictionary-card__know-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+/* Vocab word underlines in reader */
+.vocab-underline {
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+.vocab-underline--new {
+  border-bottom-color: rgba(59, 130, 246, 0.5); /* blue */
+}
+.vocab-underline--recognition {
+  border-bottom-color: rgba(234, 179, 8, 0.5); /* yellow */
+}
+.vocab-underline--recall {
+  border-bottom-color: rgba(234, 179, 8, 0.4);
+}
+.vocab-underline--context {
+  border-bottom-color: rgba(34, 197, 94, 0.4); /* green */
+}
+.vocab-underline--mastered {
+  border-bottom-color: rgba(34, 197, 94, 0.25); /* faint green */
+}

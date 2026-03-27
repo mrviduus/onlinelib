@@ -297,7 +297,7 @@ export default function ReaderScreen() {
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
     try {
-      await vocabularyApi.saveWord({
+      const saved = await vocabularyApi.saveWord({
         word: selection.text,
         language,
         sentence: selection.sentence || null,
@@ -305,8 +305,25 @@ export default function ReaderScreen() {
         editionId: editionIdRef.current || null,
         chapterId: chapter?.id || null,
       })
+      // Update local vocab map + WebView underlines
+      const key = saved.word.toLowerCase()
+      vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
+      injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
+    } catch {}
+  }
+
+  const handleMarkKnown = async () => {
+    if (!selection || !isAuthenticated) return
+    const key = selection.text.toLowerCase()
+    const entry = vocabMapRef.current[key]
+    if (!entry) return
+    try {
+      await vocabularyApi.markAsKnown(entry.id)
+      vocabMapRef.current[key] = { ...entry, stage: 4 }
+      injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
+      setSelection(null)
     } catch {}
   }
 
@@ -340,6 +357,23 @@ export default function ReaderScreen() {
         for (const h of chapterHighlights) {
           injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
         }
+      })
+      .catch(() => {})
+  }, [isAuthenticated, chapter])
+
+  // Vocab map ref for selection lookups
+  const vocabMapRef = useRef<Record<string, { stage: number; id: string }>>({})
+
+  // Load and render vocab word underlines
+  useEffect(() => {
+    if (!isAuthenticated || !chapter) return
+    vocabularyApi.getReaderVocab()
+      .then(words => {
+        if (words.length === 0) return
+        const map: Record<string, { stage: number; id: string }> = {}
+        for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
+        vocabMapRef.current = map
+        injectJs(`markVocabWords(${JSON.stringify(map)})`)
       })
       .catch(() => {})
   }, [isAuthenticated, chapter])
@@ -471,8 +505,10 @@ export default function ReaderScreen() {
             onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
             onSaveWord={handleSaveWord}
             onHighlight={handleHighlight}
+            onMarkKnown={handleMarkKnown}
             isSpeaking={isSpeaking}
             wordSaved={wordSaved}
+            vocabStage={selection ? (vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null) : null}
             isAuthenticated={isAuthenticated}
           />
         )}

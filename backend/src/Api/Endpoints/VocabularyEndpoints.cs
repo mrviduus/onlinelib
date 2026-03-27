@@ -27,6 +27,8 @@ public static class VocabularyEndpoints
         group.MapGet("/review", GetReviewQueue).WithName("GetVocabularyReview");
         group.MapPost("/review", SubmitReview).WithName("SubmitVocabularyReview");
         group.MapGet("/stats", GetStats).WithName("GetVocabularyStats");
+        group.MapGet("/words/reader", GetReaderVocab).WithName("GetReaderVocabulary");
+        group.MapPut("/words/{id:guid}/known", MarkAsKnown).WithName("MarkVocabularyWordKnown");
 
         // Admin: backfill definitions for words missing them
         app.MapPost("/admin/vocabulary/backfill-definitions", BackfillDefinitions)
@@ -585,6 +587,56 @@ public static class VocabularyEndpoints
         return Results.Ok(new { total = words.Count, enriched, failed });
     }
 
+    // --- Reader Vocab (lightweight word+stage list) ---
+
+    private static async Task<IResult> GetReaderVocab(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var words = await db.VocabularyWords
+            .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+            .OrderBy(w => w.Word)
+            .Take(MaxWordsPerUser)
+            .Select(w => new ReaderVocabWordDto(w.Id, w.Word, w.Stage))
+            .ToListAsync(ct);
+
+        return Results.Ok(words);
+    }
+
+    // --- Mark word as Known (stage 4) ---
+
+    private static async Task<IResult> MarkAsKnown(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var word = await db.VocabularyWords
+            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+
+        if (word == null) return Results.NotFound();
+
+        word.Stage = 4;
+        word.IntervalDays = 30;
+        word.NextReviewAt = DateTimeOffset.UtcNow.AddDays(30);
+        word.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(ToDto(word));
+    }
+
     private static VocabWordDto ToDto(VocabularyWord w) => new(
         w.Id, w.Word, w.Language, w.Translation, w.Definition,
         w.EditionId, w.ChapterId, w.UserBookId,
@@ -629,3 +681,5 @@ public record SubmitReviewResponse(
     Guid WordId, int PreviousStage, int NewStage, bool StageChanged,
     double NextIntervalDays, DateTimeOffset NextReviewAt,
     int TotalReviews, int CorrectReviews);
+
+public record ReaderVocabWordDto(Guid Id, string Word, int Stage);
