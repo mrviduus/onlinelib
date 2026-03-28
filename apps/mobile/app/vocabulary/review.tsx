@@ -243,9 +243,6 @@ function CardRenderer({ card, onSubmit, onSpeak }: { card: ReviewCardDto; onSubm
   if (card.reviewMode === 'multiple_choice') {
     return <MultipleChoiceCard card={card} onSubmit={onSubmit} onSpeak={onSpeak} />
   }
-  if (card.reviewMode === 'typed_recall') {
-    return <TypedRecallCard card={card} onSubmit={onSubmit} onSpeak={onSpeak} />
-  }
   return <ContextCard card={card} onSubmit={onSubmit} onSpeak={onSpeak} />
 }
 
@@ -306,53 +303,6 @@ function MultipleChoiceCard({ card, onSubmit, onSpeak }: { card: ReviewCardDto; 
           )
         })}
       </View>
-    </View>
-  )
-}
-
-// --- Typed Recall ---
-
-function TypedRecallCard({ card, onSubmit, onSpeak }: { card: ReviewCardDto; onSubmit: (correct: boolean) => void; onSpeak: (text: string) => void }) {
-  const { colors } = useTheme()
-  const [input, setInput] = useState('')
-  const prompt = card.definition || card.translation || 'Type the word'
-
-  const handleSubmit = () => {
-    const correct = fuzzyMatch(input.trim(), card.word)
-    onSubmit(correct)
-  }
-
-  return (
-    <View style={styles.cardContainer}>
-      <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>Type the word</Text>
-      <View style={styles.promptRow}>
-        <Text style={[styles.cardPrompt, { color: colors.text, fontFamily: fonts.serifBold }]}>{prompt}</Text>
-        <SpeakBtn text={card.definition || card.translation || card.word} onSpeak={onSpeak} />
-      </View>
-      {card.bookTitle && <Text style={[styles.cardSource, { color: colors.textSecondary, fontFamily: fonts.sans }]}>From: {card.bookTitle}</Text>}
-      {card.hint && <Text style={[styles.cardHint, { color: colors.primary, fontFamily: fonts.sans }]}>Hint: {card.hint}</Text>}
-      {card.originalSentence && (
-        <Text style={[styles.cardSentence, { color: colors.textSecondary, fontFamily: fonts.sans }]}>"{card.originalSentence}"</Text>
-      )}
-
-      <TextInput
-        style={[styles.typedInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
-        value={input}
-        onChangeText={setInput}
-        placeholder="Type your answer..."
-        placeholderTextColor={colors.textSecondary}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus
-        onSubmitEditing={handleSubmit}
-      />
-      <TouchableOpacity
-        style={[styles.submitBtn, { backgroundColor: colors.primary }, !input.trim() && styles.submitBtnDisabled]}
-        onPress={handleSubmit}
-        disabled={!input.trim()}
-      >
-        <Text style={[styles.submitBtnText, { fontFamily: fonts.sansMedium }]}>Check</Text>
-      </TouchableOpacity>
     </View>
   )
 }
@@ -531,7 +481,6 @@ const styles = StyleSheet.create({
   cardPrompt: { fontSize: 20, textAlign: 'center', lineHeight: 28, flexShrink: 1 },
   cardSource: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
   cardHint: { fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 },
-  cardSentence: { fontSize: 14, textAlign: 'center', fontStyle: 'italic', marginBottom: 12 },
   speakBtn: { padding: 4 },
 
   // MC options
