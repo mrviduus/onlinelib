@@ -1,7 +1,7 @@
 # PDD: Remove typed_recall review mode from Vocabulary SRS
 
 ## Status
-In Progress
+Completed
 
 ## Goal
 Remove the `typed_recall` (type-the-word) review mode from vocabulary SRS. Users should only see `multiple_choice` and `context` (fill-in-the-blank) cards — no free-form typing of the word.
@@ -31,7 +31,7 @@ Remove the `typed_recall` (type-the-word) review mode from vocabulary SRS. Users
 - `apps/web/e2e/tests/vocabulary.spec.ts` — Remove typed_recall handling from E2E
 - `packages/shared/src/types/api.ts` — Remove `typed_recall` from type union
 
-### Slice 3: Mobile — Remove TypedRecallCard from mobile app
+### Slice 3: Mobile — Remove TypedRecallCard from mobile app ✅
 **Files:**
 - `apps/mobile/app/vocabulary/review.tsx` — Remove TypedRecallCard function and `typed_recall` branch in CardRenderer
 
