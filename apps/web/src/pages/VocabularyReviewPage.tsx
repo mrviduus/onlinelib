@@ -6,7 +6,6 @@ import { useTranslation } from '../hooks/useTranslation'
 import { useVocabularyReview } from '../hooks/useVocabularyReview'
 import { useTts } from '../hooks/useTts'
 import { MultipleChoiceCard } from '../components/vocabulary/MultipleChoiceCard'
-import { TypedRecallCard } from '../components/vocabulary/TypedRecallCard'
 import { ContextCard } from '../components/vocabulary/ContextCard'
 import { ReviewFeedback } from '../components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../components/vocabulary/SessionSummary'
@@ -132,9 +131,6 @@ export function VocabularyReviewPage() {
         <>
           {currentCard.reviewMode === 'multiple_choice' && (
             <MultipleChoiceCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />
-          )}
-          {currentCard.reviewMode === 'typed_recall' && (
-            <TypedRecallCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />
           )}
           {currentCard.reviewMode === 'context' && (
             <ContextCard card={currentCard} onAnswer={submitAnswer} onSpeak={handleSpeak} t={t} disabled={submitting} />

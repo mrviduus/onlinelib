@@ -69,16 +69,10 @@ test.describe('TTS', () => {
     if (await mcOption.isVisible({ timeout: 1000 }).catch(() => false)) {
       await mcOption.click()
     } else {
-      const typedInput = page.locator('.review-typed__input')
-      if (await typedInput.isVisible({ timeout: 500 }).catch(() => false)) {
-        await typedInput.fill('test')
-        await page.locator('.review-typed__submit').click()
-      } else {
-        const contextInput = page.locator('.review-context__input')
-        if (await contextInput.isVisible({ timeout: 500 }).catch(() => false)) {
-          await contextInput.fill('test')
-          await page.locator('.review-context__submit').click()
-        }
+      const contextInput = page.locator('.review-context__input')
+      if (await contextInput.isVisible({ timeout: 500 }).catch(() => false)) {
+        await contextInput.fill('test')
+        await page.locator('.review-context__submit').click()
       }
     }
 

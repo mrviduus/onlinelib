@@ -131,13 +131,6 @@ test.describe('Vocabulary', () => {
         await mcOption.click()
       }
 
-      // If typed recall visible, type and submit
-      const typedInput = page.locator('.review-typed__input')
-      if (await typedInput.isVisible({ timeout: 500 }).catch(() => false)) {
-        await typedInput.fill('test')
-        await page.locator('.review-typed__submit').click()
-      }
-
       // If context card visible, type and submit
       const contextInput = page.locator('.review-context__input')
       if (await contextInput.isVisible({ timeout: 500 }).catch(() => false)) {
