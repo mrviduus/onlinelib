@@ -166,9 +166,10 @@ public class SrsEngineTests
     [InlineData(0, true, "multiple_choice")]
     [InlineData(1, false, "multiple_choice")]
     [InlineData(1, true, "multiple_choice")]
-    [InlineData(2, false, "typed_recall")]
-    [InlineData(2, true, "typed_recall")]
-    [InlineData(3, false, "typed_recall")]
+    [InlineData(2, false, "multiple_choice")]
+    [InlineData(2, true, "multiple_choice")]
+    [InlineData(3, false, "multiple_choice")]
+    [InlineData(4, false, "multiple_choice")]
     public void GetReviewMode_ReturnsExpected(int stage, bool hasSentence, string expected)
     {
         Assert.Equal(expected, _srs.GetReviewMode(stage, hasSentence));
@@ -181,21 +182,9 @@ public class SrsEngineTests
     }
 
     [Fact]
-    public void GetReviewMode_Stage4_WithoutSentence_ReturnsTypedRecall()
+    public void GetReviewMode_Stage4_WithSentence_ReturnsContext()
     {
-        Assert.Equal("typed_recall", _srs.GetReviewMode(4, false));
-    }
-
-    [Fact]
-    public void GetReviewMode_Stage4_WithSentence_ReturnsContextOrTypedRecall()
-    {
-        var results = new HashSet<string>();
-        for (var i = 0; i < 50; i++)
-            results.Add(_srs.GetReviewMode(4, true));
-
-        Assert.Contains("context", results);
-        Assert.Contains("typed_recall", results);
-        Assert.Equal(2, results.Count);
+        Assert.Equal("context", _srs.GetReviewMode(4, true));
     }
 
     [Fact]

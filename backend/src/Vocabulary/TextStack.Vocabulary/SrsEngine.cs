@@ -46,10 +46,8 @@ public sealed class SrsEngine : ISrsEngine
     {
         return stage switch
         {
-            0 or 1 => "multiple_choice",
-            2 => "typed_recall",
-            3 => hasSentence ? "context" : "typed_recall",
-            MaxStage => hasSentence && Random.Shared.Next(2) == 0 ? "context" : "typed_recall",
+            0 or 1 or 2 => "multiple_choice",
+            3 or MaxStage => hasSentence ? "context" : "multiple_choice",
             _ => "multiple_choice",
         };
     }
