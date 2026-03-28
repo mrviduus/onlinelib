@@ -14,13 +14,13 @@ Remove the `typed_recall` (type-the-word) review mode from vocabulary SRS. Users
 
 ## Plan
 
-### Slice 1: Backend — Remove typed_recall from SRS engine and card builder
+### Slice 1: Backend — Remove typed_recall from SRS engine and card builder ✅
 **Files:**
 - `backend/src/Vocabulary/TextStack.Vocabulary/SrsEngine.cs` — Replace `typed_recall` with `multiple_choice` (stages 2, 3 without sentence, 4 without sentence) and `context` (stages 3-4 with sentence)
 - `backend/src/Vocabulary/TextStack.Vocabulary/ReviewCardBuilder.cs` — Remove MC→typed_recall fallback (line 40); when MC can't build proper options, still return MC with whatever distractors available
 - `tests/TextStack.UnitTests/SrsEngineTests.cs` — Update expected review modes
 
-### Slice 2: Frontend web — Remove TypedRecallCard and references
+### Slice 2: Frontend web — Remove TypedRecallCard and references ✅
 **Files:**
 - `apps/web/src/pages/VocabularyReviewPage.tsx` — Remove TypedRecallCard import and render branch
 - `apps/web/src/components/vocabulary/TypedRecallCard.tsx` — Delete file
