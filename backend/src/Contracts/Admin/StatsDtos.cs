@@ -5,5 +5,6 @@ public record AdminStatsDto(
     int PublishedEditions,
     int DraftEditions,
     int TotalChapters,
-    int TotalAuthors
+    int TotalAuthors,
+    int TotalUsers
 );

@@ -112,7 +112,7 @@ body {
 
 /* Dashboard */
 .dashboard-page h1 {
-  margin: 0 0 8px;
+  margin: 0 0 24px;
 }
 
 .dashboard-page__subtitle {
@@ -120,48 +120,194 @@ body {
   margin: 0 0 32px;
 }
 
-.dashboard-cards {
+/* Stats Grid */
+.dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
-.dashboard-card {
+.dashboard-stat-card {
   background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.dashboard-stat-card__icon {
+  margin-bottom: 8px;
+}
+
+.dashboard-stat-card__icon svg {
+  opacity: 0.85;
+}
+
+.dashboard-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
+}
+
+.dashboard-stat-card__label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Two-column sections */
+.dashboard-sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.dashboard-section-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 24px;
-  border-radius: 12px;
+}
+
+.dashboard-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dashboard-section-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dashboard-section-link {
+  font-size: 13px;
+  color: #4f46e5;
   text-decoration: none;
-  color: inherit;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: 500;
 }
 
-.dashboard-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+.dashboard-section-link:hover {
+  text-decoration: underline;
 }
 
-.dashboard-card__icon {
-  width: 48px;
-  height: 48px;
-  background: #f0f0ff;
-  border-radius: 12px;
+.dashboard-empty {
+  color: #999;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Job List */
+.dashboard-job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboard-job-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  color: #4f46e5;
-}
-
-.dashboard-card h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-}
-
-.dashboard-card p {
-  margin: 0;
-  color: #666;
+  gap: 10px;
   font-size: 14px;
+}
+
+.dashboard-job-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashboard-job-status--succeeded { background: #059669; }
+.dashboard-job-status--failed { background: #dc2626; }
+.dashboard-job-status--processing { background: #d97706; }
+.dashboard-job-status--queued { background: #9ca3af; }
+
+.dashboard-job-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #333;
+}
+
+.dashboard-job-time {
+  color: #999;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Blog Stats Grid */
+.dashboard-blog-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.dashboard-blog-metric {
+  text-align: center;
+  padding: 16px 8px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.dashboard-blog-metric__value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111;
+}
+
+.dashboard-blog-metric__label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Quick Actions */
+.dashboard-actions-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.dashboard-action:hover {
+  background: #f0f0ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-action svg {
+  color: #4f46e5;
 }
 
 /* Upload Page */
@@ -2186,10 +2332,13 @@ body {
     gap: 16px;
   }
 
-  /* Dashboard cards */
-  .dashboard-cards {
+  /* Dashboard */
+  .dashboard-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .dashboard-sections {
     grid-template-columns: 1fr;
-    gap: 16px;
   }
 
   /* Stats cards — wrap tighter */

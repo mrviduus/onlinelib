@@ -426,13 +426,15 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         var draftEditions = await editionQuery.Where(e => e.Status == EditionStatus.Draft).CountAsync(ct);
         var totalChapters = await chapterQuery.CountAsync(ct);
         var totalAuthors = await authorQuery.CountAsync(ct);
+        var totalUsers = await db.Users.CountAsync(ct);
 
         return new AdminStatsDto(
             TotalEditions: totalEditions,
             PublishedEditions: publishedEditions,
             DraftEditions: draftEditions,
             TotalChapters: totalChapters,
-            TotalAuthors: totalAuthors
+            TotalAuthors: totalAuthors,
+            TotalUsers: totalUsers
         );
     }
 

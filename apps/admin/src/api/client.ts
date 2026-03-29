@@ -37,6 +37,7 @@ export interface AdminStats {
   draftEditions: number
   totalChapters: number
   totalAuthors: number
+  totalUsers: number
 }
 
 export interface EditionDetail {
