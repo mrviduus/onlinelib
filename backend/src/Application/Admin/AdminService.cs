@@ -439,7 +439,7 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
     }
 
     public async Task<PaginatedResult<AdminEditionListDto>> GetEditionsAsync(
-        Guid? siteId, int offset, int limit, EditionStatus? status, string? search, string? language, bool? indexable, string? sort, string? sortOrder, CancellationToken ct)
+        Guid? siteId, int offset, int limit, EditionStatus? status, string? search, string? language, bool? indexable, bool? seoReady, string? sort, string? sortOrder, CancellationToken ct)
     {
         var query = db.Editions.AsQueryable();
 
@@ -458,11 +458,27 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         if (indexable.HasValue)
         {
             if (indexable.Value)
-                // "Indexed" = indexable AND published
                 query = query.Where(e => e.Indexable && e.Status == EditionStatus.Published);
             else
-                // "Not indexed" = not indexable OR not published
                 query = query.Where(e => !e.Indexable || e.Status != EditionStatus.Published);
+        }
+
+        if (seoReady.HasValue)
+        {
+            if (seoReady.Value)
+                query = query.Where(e =>
+                    e.Description != null && e.Description != "" &&
+                    e.SeoRelevanceText != null && e.SeoRelevanceText != "" &&
+                    e.SeoThemesJson != null && e.SeoThemesJson != "" &&
+                    e.SeoFaqsJson != null && e.SeoFaqsJson != "" &&
+                    e.Chapters.Any());
+            else
+                query = query.Where(e =>
+                    e.Description == null || e.Description == "" ||
+                    e.SeoRelevanceText == null || e.SeoRelevanceText == "" ||
+                    e.SeoThemesJson == null || e.SeoThemesJson == "" ||
+                    e.SeoFaqsJson == null || e.SeoFaqsJson == "" ||
+                    !e.Chapters.Any());
         }
 
         var total = await query.CountAsync(ct);
@@ -490,7 +506,12 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
                 e.Chapters.Count,
                 e.CreatedAt,
                 e.PublishedAt,
-                string.Join(", ", e.EditionAuthors.OrderBy(ea => ea.Order).Select(ea => ea.Author.Name))
+                string.Join(", ", e.EditionAuthors.OrderBy(ea => ea.Order).Select(ea => ea.Author.Name)),
+                e.Description != null && e.Description != "" &&
+                e.SeoRelevanceText != null && e.SeoRelevanceText != "" &&
+                e.SeoThemesJson != null && e.SeoThemesJson != "" &&
+                e.SeoFaqsJson != null && e.SeoFaqsJson != "" &&
+                e.Chapters.Any()
             ))
             .ToListAsync(ct);
 

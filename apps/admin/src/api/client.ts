@@ -29,6 +29,7 @@ export interface Edition {
   createdAt: string
   publishedAt: string | null
   authors: string
+  seoReady: boolean
 }
 
 export interface AdminStats {
@@ -179,6 +180,7 @@ export interface AuthorListItem {
   bookCount: number
   hasPublishedBooks: boolean
   createdAt: string
+  seoReady: boolean
 }
 
 export interface AuthorDetail {
@@ -586,12 +588,13 @@ export const adminApi = {
   },
 
   // Editions
-  getEditions: async (params?: { status?: string; search?: string; language?: string; indexable?: boolean; limit?: number; offset?: number; sort?: string; sortOrder?: string }): Promise<PaginatedResult<Edition>> => {
+  getEditions: async (params?: { status?: string; search?: string; language?: string; indexable?: boolean; seoReady?: boolean; limit?: number; offset?: number; sort?: string; sortOrder?: string }): Promise<PaginatedResult<Edition>> => {
     const query = new URLSearchParams()
     if (params?.status) query.set('status', params.status)
     if (params?.search) query.set('search', params.search)
     if (params?.language) query.set('language', params.language)
     if (params?.indexable !== undefined) query.set('indexable', String(params.indexable))
+    if (params?.seoReady !== undefined) query.set('seoReady', String(params.seoReady))
     if (params?.limit) query.set('limit', String(params.limit))
     if (params?.offset) query.set('offset', String(params.offset))
     if (params?.sort) query.set('sort', params.sort)
@@ -666,10 +669,11 @@ export const adminApi = {
     })
   },
 
-  getAuthors: async (params: { siteId: string; search?: string; hasPublishedBooks?: boolean; offset?: number; limit?: number; sort?: string; sortOrder?: string }): Promise<PaginatedResult<AuthorListItem>> => {
+  getAuthors: async (params: { siteId: string; search?: string; hasPublishedBooks?: boolean; seoReady?: boolean; offset?: number; limit?: number; sort?: string; sortOrder?: string }): Promise<PaginatedResult<AuthorListItem>> => {
     const query = new URLSearchParams({ siteId: params.siteId })
     if (params.search) query.set('search', params.search)
     if (params.hasPublishedBooks !== undefined) query.set('hasPublishedBooks', String(params.hasPublishedBooks))
+    if (params.seoReady !== undefined) query.set('seoReady', String(params.seoReady))
     if (params.offset) query.set('offset', String(params.offset))
     if (params.limit) query.set('limit', String(params.limit))
     if (params.sort) query.set('sort', params.sort)

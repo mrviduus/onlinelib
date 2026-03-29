@@ -9,7 +9,8 @@ public record AdminEditionListDto(
     int ChapterCount,
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt,
-    string Authors
+    string Authors,
+    bool SeoReady
 );
 
 public record AdminEditionDetailDto(

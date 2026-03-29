@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { adminApi, AuthorListItem, AuthorStats, DEFAULT_SITE_ID } from '../api/client'
 
 type PublishedFilter = 'all' | 'published' | 'unpublished'
+type SeoFilter = '' | 'true' | 'false'
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
 
 export function AuthorsPage() {
@@ -13,6 +14,7 @@ export function AuthorsPage() {
   const [search, setSearch] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [publishedFilter, setPublishedFilter] = useState<PublishedFilter>('all')
+  const [seoFilter, setSeoFilter] = useState<SeoFilter>('')
   const [sortOption, setSortOption] = useState<SortOption>('newest')
   const [offset, setOffset] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -42,6 +44,7 @@ export function AuthorsPage() {
       siteId: DEFAULT_SITE_ID,
       search: searchQuery || undefined,
       hasPublishedBooks,
+      seoReady: seoFilter === '' ? undefined : seoFilter === 'true',
       offset,
       limit,
       ...sortParams,
@@ -61,7 +64,7 @@ export function AuthorsPage() {
       })
 
     return () => { cancelled = true }
-  }, [offset, searchQuery, publishedFilter, sortOption, refreshKey])
+  }, [offset, searchQuery, publishedFilter, seoFilter, sortOption, refreshKey])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,6 +141,18 @@ export function AuthorsPage() {
           <option value="unpublished">Unpublished</option>
         </select>
         <select
+          value={seoFilter}
+          onChange={(e) => {
+            setSeoFilter(e.target.value as SeoFilter)
+            setOffset(0)
+          }}
+          className="status-filter"
+        >
+          <option value="">All readiness</option>
+          <option value="true">SEO Ready</option>
+          <option value="false">SEO Incomplete</option>
+        </select>
+        <select
           value={sortOption}
           onChange={(e) => {
             setSortOption(e.target.value as SortOption)
@@ -167,6 +182,7 @@ export function AuthorsPage() {
                 <th>Name</th>
                 <th>Books</th>
                 <th>Status</th>
+                <th>SEO</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -192,6 +208,12 @@ export function AuthorsPage() {
                   <td>
                     <span className={author.hasPublishedBooks ? 'badge badge--success' : 'badge badge--draft'}>
                       {author.hasPublishedBooks ? 'Published' : 'Unpublished'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`seo-badge ${author.seoReady ? 'seo-badge--ready' : 'seo-badge--incomplete'}`}
+                      title={author.seoReady ? 'All SEO fields filled' : 'Missing SEO fields'}>
+                      {author.seoReady ? '✓' : '✗'}
                     </span>
                   </td>
                   <td>{formatDate(author.createdAt)}</td>

@@ -169,6 +169,7 @@ public static class AdminAuthorsEndpoints
         [FromQuery] int? limit,
         [FromQuery] string? search,
         [FromQuery] bool? hasPublishedBooks,
+        [FromQuery] bool? seoReady,
         [FromQuery] string? sort,
         [FromQuery] string? sortOrder,
         CancellationToken ct)
@@ -190,6 +191,22 @@ public static class AdminAuthorsEndpoints
                 query = query.Where(a => a.EditionAuthors.Any(ea => ea.Edition.Status == EditionStatus.Published));
             else
                 query = query.Where(a => !a.EditionAuthors.Any(ea => ea.Edition.Status == EditionStatus.Published));
+        }
+
+        if (seoReady.HasValue)
+        {
+            if (seoReady.Value)
+                query = query.Where(a =>
+                    a.Bio != null && a.Bio != "" &&
+                    a.SeoRelevanceText != null && a.SeoRelevanceText != "" &&
+                    a.SeoThemesJson != null && a.SeoThemesJson != "" &&
+                    a.SeoFaqsJson != null && a.SeoFaqsJson != "");
+            else
+                query = query.Where(a =>
+                    a.Bio == null || a.Bio == "" ||
+                    a.SeoRelevanceText == null || a.SeoRelevanceText == "" ||
+                    a.SeoThemesJson == null || a.SeoThemesJson == "" ||
+                    a.SeoFaqsJson == null || a.SeoFaqsJson == "");
         }
 
         var total = await query.CountAsync(ct);
@@ -215,7 +232,11 @@ public static class AdminAuthorsEndpoints
                 a.PhotoPath,
                 a.EditionAuthors.Count,
                 a.EditionAuthors.Any(ea => ea.Edition.Status == EditionStatus.Published),
-                a.CreatedAt
+                a.CreatedAt,
+                a.Bio != null && a.Bio != "" &&
+                a.SeoRelevanceText != null && a.SeoRelevanceText != "" &&
+                a.SeoThemesJson != null && a.SeoThemesJson != "" &&
+                a.SeoFaqsJson != null && a.SeoFaqsJson != ""
             ))
             .ToListAsync(ct);
 

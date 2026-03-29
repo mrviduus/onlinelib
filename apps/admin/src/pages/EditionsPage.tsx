@@ -15,6 +15,7 @@ export function EditionsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [stats, setStats] = useState<AdminStats | null>(null)
+  const [seoReadyFilter, setSeoReadyFilter] = useState<string>('')
   const [sortOption, setSortOption] = useState<string>('newest')
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -43,6 +44,7 @@ export function EditionsPage() {
         search: search || undefined,
         language: languageFilter || undefined,
         indexable: indexableFilter === '' ? undefined : indexableFilter === 'true',
+        seoReady: seoReadyFilter === '' ? undefined : seoReadyFilter === 'true',
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
         sort,
@@ -64,7 +66,7 @@ export function EditionsPage() {
 
   useEffect(() => {
     fetchEditions()
-  }, [statusFilter, languageFilter, indexableFilter, sortOption, page])
+  }, [statusFilter, languageFilter, indexableFilter, seoReadyFilter, sortOption, page])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,6 +86,11 @@ export function EditionsPage() {
 
   const handleIndexableChange = (value: string) => {
     setIndexableFilter(value)
+    setPage(1)
+  }
+
+  const handleSeoReadyChange = (value: string) => {
+    setSeoReadyFilter(value)
     setPage(1)
   }
 
@@ -208,6 +215,16 @@ export function EditionsPage() {
         </select>
 
         <select
+          value={seoReadyFilter}
+          onChange={(e) => handleSeoReadyChange(e.target.value)}
+          className="status-filter"
+        >
+          <option value="">All readiness</option>
+          <option value="true">SEO Ready</option>
+          <option value="false">SEO Incomplete</option>
+        </select>
+
+        <select
           value={sortOption}
           onChange={(e) => handleSortChange(e.target.value)}
           className="status-filter"
@@ -233,6 +250,7 @@ export function EditionsPage() {
               <th>Authors</th>
               <th>Lang</th>
               <th>Status</th>
+              <th>SEO</th>
               <th>Chapters</th>
               <th>Created</th>
               <th>Actions</th>
@@ -247,6 +265,12 @@ export function EditionsPage() {
                 <td>{edition.authors || '-'}</td>
                 <td>{edition.language}</td>
                 <td>{getStatusBadge(edition.status)}</td>
+                <td>
+                  <span className={`seo-badge ${edition.seoReady ? 'seo-badge--ready' : 'seo-badge--incomplete'}`}
+                    title={edition.seoReady ? 'All SEO fields filled' : 'Missing SEO fields'}>
+                    {edition.seoReady ? '✓' : '✗'}
+                  </span>
+                </td>
                 <td>{edition.chapterCount}</td>
                 <td>{formatDate(edition.createdAt)}</td>
                 <td className="actions-cell">

@@ -518,6 +518,28 @@ body {
   color: #065f46;
 }
 
+/* SEO Badge */
+.seo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.seo-badge--ready {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.seo-badge--incomplete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 /* Stats Cards */
 .stats-cards {
   display: flex;

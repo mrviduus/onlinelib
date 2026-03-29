@@ -240,6 +240,7 @@ public static class AdminEndpoints
         [FromQuery] string? search,
         [FromQuery] string? language,
         [FromQuery] bool? indexable,
+        [FromQuery] bool? seoReady,
         [FromQuery] string? sort,
         [FromQuery] string? sortOrder,
         CancellationToken ct)
@@ -248,7 +249,7 @@ public static class AdminEndpoints
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<EditionStatus>(status, true, out var parsed))
             statusEnum = parsed;
 
-        var result = await adminService.GetEditionsAsync(siteId, offset ?? 0, limit ?? 20, statusEnum, search, language, indexable, sort, sortOrder, ct);
+        var result = await adminService.GetEditionsAsync(siteId, offset ?? 0, limit ?? 20, statusEnum, search, language, indexable, seoReady, sort, sortOrder, ct);
         return Results.Ok(result);
     }
 

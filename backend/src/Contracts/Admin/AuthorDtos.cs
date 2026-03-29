@@ -14,7 +14,8 @@ public record AdminAuthorListDto(
     string? PhotoPath,
     int BookCount,
     bool HasPublishedBooks,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    bool SeoReady
 );
 
 public record AdminAuthorDetailDto(
