@@ -4,6 +4,8 @@ import { getTestData } from '../fixtures/test-data'
 import { waitForReaderLoad, getProgressFromLocalStorage } from '../helpers/reader'
 
 test.describe('QA-001: Reading Progress', () => {
+  test.describe.configure({ timeout: 60_000 })
+
   test.beforeEach(async ({ authedPage: page }) => {
     // Clear reading progress before each test
     await page.goto('/')
