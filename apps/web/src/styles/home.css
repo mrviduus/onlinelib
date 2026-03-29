@@ -498,7 +498,7 @@
   padding: 8px 20px;
   font-size: 13px;
   font-weight: 600;
-  background: var(--color-primary, #3b82f6);
+  background: #3b82f6;
   color: #fff;
   border-radius: 8px;
   text-decoration: none;
