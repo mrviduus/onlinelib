@@ -482,19 +482,22 @@
   background: rgba(59, 130, 246, 0.06);
   border: 1px solid rgba(59, 130, 246, 0.15);
   border-radius: 12px;
+  flex-wrap: wrap;
 }
 .vocab-review-card__icon {
   font-size: 20px;
 }
 .vocab-review-card__text {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--color-text);
 }
 .vocab-review-card__btn {
-  padding: 6px 16px;
+  flex-shrink: 0;
+  padding: 8px 20px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   background: var(--color-primary, #3b82f6);
   color: #fff;
   border-radius: 8px;
