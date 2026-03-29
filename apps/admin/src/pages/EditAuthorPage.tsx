@@ -113,6 +113,26 @@ export function EditAuthorPage() {
     }
   }
 
+  const handlePublishBook = async (editionId: string) => {
+    try {
+      await adminApi.publishEdition(editionId)
+      const updated = await adminApi.getAuthor(id!)
+      setAuthor(updated)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to publish')
+    }
+  }
+
+  const handleUnpublishBook = async (editionId: string) => {
+    try {
+      await adminApi.unpublishEdition(editionId)
+      const updated = await adminApi.getAuthor(id!)
+      setAuthor(updated)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to unpublish')
+    }
+  }
+
   const handleDelete = async () => {
     if (!id || !author) return
     if (author.bookCount > 0) {
@@ -275,6 +295,7 @@ export function EditAuthorPage() {
                 <th>Title</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -288,6 +309,26 @@ export function EditAuthorPage() {
                     <span className={`badge badge--${book.status.toLowerCase()}`}>
                       {book.status}
                     </span>
+                  </td>
+                  <td className="actions-cell">
+                    {book.status === 'Draft' && (
+                      <button
+                        type="button"
+                        onClick={() => handlePublishBook(book.editionId)}
+                        className="btn btn--small btn--success"
+                      >
+                        Publish
+                      </button>
+                    )}
+                    {book.status === 'Published' && (
+                      <button
+                        type="button"
+                        onClick={() => handleUnpublishBook(book.editionId)}
+                        className="btn btn--small btn--warning"
+                      >
+                        Unpublish
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
