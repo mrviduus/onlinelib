@@ -32,53 +32,44 @@ public sealed class ReviewCardBuilder : IReviewCardBuilder
             if (reviewMode == "multiple_choice")
             {
                 var llmDistractors = ParseDistractors(w.DistractorsJson);
-                var hasPrompt = !string.IsNullOrWhiteSpace(w.Definition)
-                    || !string.IsNullOrWhiteSpace(w.Translation);
 
-                if (w.Sentence == null && !hasPrompt)
+                if (w.Sentence != null)
+                    blankSentence = SentenceHelper.ReplaceWordInSentence(w.Sentence, w.Word);
+
+                var correct = w.Word;
+                List<string> distractors;
+
+                if (llmDistractors?.Count >= 3)
                 {
-                    reviewMode = "typed_recall";
+                    distractors = llmDistractors
+                        .Where(d => !d.Equals(w.Word, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(_ => Random.Shared.Next())
+                        .Take(3)
+                        .ToList();
                 }
                 else
                 {
-                    if (w.Sentence != null)
-                        blankSentence = SentenceHelper.ReplaceWordInSentence(w.Sentence, w.Word);
-
-                    var correct = w.Word;
-                    List<string> distractors;
-
-                    if (llmDistractors?.Count >= 3)
-                    {
-                        distractors = llmDistractors
-                            .Where(d => !d.Equals(w.Word, StringComparison.OrdinalIgnoreCase))
-                            .OrderBy(_ => Random.Shared.Next())
-                            .Take(3)
-                            .ToList();
-                    }
-                    else
-                    {
-                        var pool = poolByLang.GetValueOrDefault(w.Language, []);
-                        distractors = pool
-                            .Where(d => d.Word != w.Word)
-                            .OrderBy(_ => Random.Shared.Next())
-                            .Take(3)
-                            .Select(d => d.Word)
-                            .ToList();
-                    }
-
-                    if (distractors.Count < 3)
-                    {
-                        foreach (var fb in DistractorWords.ForLanguage(w.Language).OrderBy(_ => Random.Shared.Next()))
-                        {
-                            if (distractors.Count >= 3) break;
-                            if (fb != correct && !distractors.Contains(fb))
-                                distractors.Add(fb);
-                        }
-                    }
-
-                    options = distractors.Take(3).Append(correct).OrderBy(_ => Random.Shared.Next()).ToList();
-                    correctIndex = options.IndexOf(correct);
+                    var pool = poolByLang.GetValueOrDefault(w.Language, []);
+                    distractors = pool
+                        .Where(d => d.Word != w.Word)
+                        .OrderBy(_ => Random.Shared.Next())
+                        .Take(3)
+                        .Select(d => d.Word)
+                        .ToList();
                 }
+
+                if (distractors.Count < 3)
+                {
+                    foreach (var fb in DistractorWords.ForLanguage(w.Language).OrderBy(_ => Random.Shared.Next()))
+                    {
+                        if (distractors.Count >= 3) break;
+                        if (fb != correct && !distractors.Contains(fb))
+                            distractors.Add(fb);
+                    }
+                }
+
+                options = distractors.Take(3).Append(correct).OrderBy(_ => Random.Shared.Next()).ToList();
+                correctIndex = options.IndexOf(correct);
             }
 
             if (reviewMode == "context" && w.Sentence != null)

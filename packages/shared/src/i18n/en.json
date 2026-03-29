@@ -338,7 +338,6 @@
     "review": {
       "title": "Vocabulary Review",
       "chooseTranslation": "Choose the correct translation",
-      "typeWord": "Type the word",
       "fillBlank": "What word fills the blank?",
       "correct": "Correct!",
       "closeEnough": "Close enough!",

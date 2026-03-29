@@ -519,20 +519,6 @@
   margin-right: auto;
 }
 
-/* Review sentence (typed recall) */
-.review-typed__sentence {
-  color: var(--color-text);
-  font-size: 0.95rem;
-  margin-bottom: 1rem;
-  line-height: 1.5;
-}
-
-.review-typed__book {
-  font-weight: 400;
-  font-style: normal;
-  opacity: 0.7;
-}
-
 /* Review hint (shared across all card types) */
 .review-card__hint {
   font-size: 0.85rem;
@@ -545,76 +531,6 @@
   max-width: 450px;
   margin-left: auto;
   margin-right: auto;
-}
-
-/* Typed recall card */
-.review-typed {
-  text-align: center;
-}
-
-.review-typed__prompt {
-  margin-bottom: 1.5rem;
-}
-
-.review-typed__translation {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.review-typed__definition {
-  font-size: 1rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.review-typed__label {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.review-typed__input-row {
-  display: flex;
-  gap: 0.5rem;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-.review-typed__input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 1.1rem;
-  text-align: center;
-}
-
-.review-typed__input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.review-typed__submit {
-  padding: 0.75rem 1.25rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--color-primary);
-  color: var(--color-bg);
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.review-typed__submit:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.review-typed__submit:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 /* Context card */

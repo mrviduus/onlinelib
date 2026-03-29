@@ -208,7 +208,7 @@ export interface ReviewCardDto {
   word: string
   translation: string | null
   definition: string | null
-  reviewMode: 'multiple_choice' | 'typed_recall' | 'context'
+  reviewMode: 'multiple_choice' | 'context'
   blankSentence: string | null
   originalSentence: string | null
   bookTitle: string | null
