@@ -1,7 +1,7 @@
 # PDD: Fix Vocabulary Word Re-Selection in Reader
 
 ## Status
-In Progress
+Completed
 
 ## Goal
 Fix a bug where re-selecting a word already saved to vocabulary doesn't show the DictionaryCard popup. Users expect to see the dictionary popup with an option to remove the word from their vocabulary.
@@ -16,17 +16,18 @@ When a word is auto-saved to vocabulary, `addVocabWord` updates `vocabMap` (new 
 
 ## Plan
 
-### Slice 1: Prevent VocabWordLayer from destroying active selection
-- [ ] In `useReaderVocabulary.ts`: Don't create a new Map ref in `addWord` if the word already exists with the same stage (skip no-op updates)
-- [ ] In `VocabWordLayer.tsx`: Skip re-marking if the word being selected is already marked (don't destroy DOM during active selection)
-- [ ] In `ReaderHighlights.tsx`: For already-saved words, skip the auto-save call entirely and immediately show `autoSaveState = 'saved'`
-- [ ] Add `removeWord` callback to `useReaderVocabulary` hook
-- [ ] Pass `onRemoveWord` to `DictionaryCard` and show a remove button for already-saved words
+### Slice 1: Prevent VocabWordLayer from destroying active selection ✅
+- [x] In `useReaderVocabulary.ts`: Don't create a new Map ref in `addWord` if the word already exists with the same stage (skip no-op updates)
+- [x] In `ReaderHighlights.tsx`: For already-saved words, skip the auto-save call entirely and immediately show `autoSaveState = 'saved'`
+- [x] Add `removeWord` callback to `useReaderVocabulary` hook
+- [x] Pass `onRemoveWord` to `DictionaryCard` and show a remove button for already-saved words
+- [x] Add CSS styles for remove button
 
-### Slice 2: Add "Remove from vocabulary" to DictionaryPopup (expanded view)
-- [ ] Add `onRemoveWord` prop to `DictionaryPopup`
-- [ ] Show remove button when word is already in vocabulary
-- [ ] Wire up in `ReaderHighlights.tsx`
+### Slice 2: Add "Remove from vocabulary" to DictionaryPopup (expanded view) ✅
+- [x] Add `onRemoveWord` prop to `DictionaryPopup`
+- [x] Show remove button when word is already in vocabulary
+- [x] Wire up in `ReaderHighlights.tsx`
+- [x] Clean up dictionary popup state on word removal
 
 ## Files to Change
 - `apps/web/src/hooks/useReaderVocabulary.ts` — add `removeWord`, skip no-op in `addWord`
