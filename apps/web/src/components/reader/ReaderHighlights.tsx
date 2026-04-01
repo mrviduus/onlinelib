@@ -46,7 +46,7 @@ export function ReaderHighlights({
   children,
 }: ReaderHighlightsProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown } = useReaderVocabulary()
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord } = useReaderVocabulary()
   const [showTranslation, setShowTranslation] = useState(false)
   const [translationText, setTranslationText] = useState('')
   const [translationRect, setTranslationRect] = useState<DOMRect | null>(null)
@@ -155,6 +155,14 @@ export function ReaderHighlights({
     if (isDictionaryLoading) return
     if (autoSaveRef.current === selectedWord) return
 
+    // If word is already in vocabulary, skip saving and show as saved immediately
+    const existingEntry = vocabMap.get(selectedWord.toLowerCase())
+    if (existingEntry) {
+      autoSaveRef.current = selectedWord
+      setAutoSaveState('saved')
+      return
+    }
+
     autoSaveRef.current = selectedWord
     setAutoSaveState('saving')
 
@@ -175,7 +183,7 @@ export function ReaderHighlights({
     })
       .then(() => setAutoSaveState('saved'))
       .catch(() => setAutoSaveState('idle'))
-  }, [autoLookup, isAuthenticated, hasSelection, isSingleWord, selectedWord, isDictionaryLoading, dictionaryEntry, selection.range, containerRef, bookLanguage, editionId, chapterId, userBookId, bookTitle, addVocabWord])
+  }, [autoLookup, isAuthenticated, hasSelection, isSingleWord, selectedWord, isDictionaryLoading, dictionaryEntry, selection.range, containerRef, bookLanguage, editionId, chapterId, userBookId, bookTitle, addVocabWord, vocabMap])
 
   // Reset auto-save state when selection clears
   useEffect(() => {
@@ -356,6 +364,22 @@ export function ReaderHighlights({
     }
   }, [isAuthenticated, selection.range, containerRef, bookLanguage, translatedText, editionId, chapterId, userBookId, bookTitle])
 
+  // Remove word from vocabulary
+  const handleRemoveWord = useCallback(async (id: string, word: string) => {
+    try {
+      await removeVocabWord(id, word)
+      autoSaveRef.current = ''
+      setAutoSaveState('idle')
+      setShowDictionary(false)
+      setDictionaryWord('')
+      setDictionaryRect(null)
+      setVocabSaved(false)
+      clearSelection()
+    } catch {
+      // ignore
+    }
+  }, [removeVocabWord, clearSelection])
+
   return (
     <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
       {children}
@@ -401,6 +425,7 @@ export function ReaderHighlights({
             isAuthenticated={isAuthenticated}
             vocabStage={vocabEntry?.stage ?? null}
             onMarkKnown={vocabEntry?.id ? () => markVocabKnown(vocabEntry.id!, selectedWord) : undefined}
+            onRemoveWord={vocabEntry?.id ? () => handleRemoveWord(vocabEntry.id!, selectedWord) : undefined}
           />
         )
       })()}
@@ -439,6 +464,7 @@ export function ReaderHighlights({
             wordSaved={vocabSaved}
             vocabStage={ve?.stage ?? null}
             onMarkKnown={ve?.id ? () => markVocabKnown(ve.id!, dictionaryWord) : undefined}
+            onRemoveWord={ve?.id ? () => handleRemoveWord(ve.id!, dictionaryWord) : undefined}
           />
         )
       })()}

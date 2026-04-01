@@ -15,6 +15,7 @@ interface DictionaryPopupProps {
   wordSaved?: boolean
   vocabStage?: number | null
   onMarkKnown?: () => void
+  onRemoveWord?: () => void
 }
 
 export function DictionaryPopup({
@@ -30,6 +31,7 @@ export function DictionaryPopup({
   wordSaved,
   vocabStage,
   onMarkKnown,
+  onRemoveWord,
 }: DictionaryPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -164,6 +166,14 @@ export function DictionaryPopup({
                   disabled={wordSaved}
                 >
                   {wordSaved ? 'Saved' : '+ Save to vocabulary'}
+                </button>
+              )}
+              {onRemoveWord && (
+                <button
+                  className="dictionary-card__remove-btn"
+                  onClick={onRemoveWord}
+                >
+                  Remove ✕
                 </button>
               )}
               {onMarkKnown && vocabStage != null && vocabStage < 4 && (
