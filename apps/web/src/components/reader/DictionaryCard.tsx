@@ -25,6 +25,7 @@ interface DictionaryCardProps {
   isAuthenticated?: boolean
   vocabStage?: number | null
   onMarkKnown?: () => void
+  onRemoveWord?: () => void
 }
 
 export function DictionaryCard({
@@ -40,6 +41,7 @@ export function DictionaryCard({
   isAuthenticated,
   vocabStage,
   onMarkKnown,
+  onRemoveWord,
 }: DictionaryCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -136,6 +138,15 @@ export function DictionaryCard({
 
       {entry && !isLoading && (
         <div className="dictionary-card__footer">
+          {onRemoveWord && (
+            <button
+              className="dictionary-card__remove-btn"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onRemoveWord}
+            >
+              Remove ✕
+            </button>
+          )}
           {onMarkKnown && vocabStage != null && vocabStage < 4 && (
             <button
               className="dictionary-card__know-btn"
