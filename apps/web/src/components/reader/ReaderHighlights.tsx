@@ -370,6 +370,10 @@ export function ReaderHighlights({
       await removeVocabWord(id, word)
       autoSaveRef.current = ''
       setAutoSaveState('idle')
+      setShowDictionary(false)
+      setDictionaryWord('')
+      setDictionaryRect(null)
+      setVocabSaved(false)
       clearSelection()
     } catch {
       // ignore
@@ -460,6 +464,7 @@ export function ReaderHighlights({
             wordSaved={vocabSaved}
             vocabStage={ve?.stage ?? null}
             onMarkKnown={ve?.id ? () => markVocabKnown(ve.id!, dictionaryWord) : undefined}
+            onRemoveWord={ve?.id ? () => handleRemoveWord(ve.id!, dictionaryWord) : undefined}
           />
         )
       })()}
