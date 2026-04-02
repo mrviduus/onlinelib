@@ -364,6 +364,11 @@ export interface CreateSeoCrawlJobRequest {
 }
 
 // SSG Rebuild
+export interface SsgPeriodicSettings {
+  enabled: boolean
+  intervalHours: number
+}
+
 export type SsgRebuildJobStatus = 'Queued' | 'Running' | 'Completed' | 'Failed' | 'Cancelled'
 export type SsgRebuildMode = 'Full' | 'Incremental' | 'Specific'
 
@@ -922,6 +927,18 @@ export const adminApi = {
   },
 
   // SSG Rebuild
+  getSsgSettings: async (): Promise<SsgPeriodicSettings> => {
+    return fetchJson<SsgPeriodicSettings>('/admin/ssg/settings')
+  },
+
+  updateSsgSettings: async (data: SsgPeriodicSettings): Promise<void> => {
+    await fetchVoid('/admin/ssg/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
   getSsgRebuildPreview: async (siteId: string, mode?: SsgRebuildMode): Promise<SsgRebuildPreview> => {
     const query = new URLSearchParams({ siteId })
     if (mode) query.set('mode', mode)

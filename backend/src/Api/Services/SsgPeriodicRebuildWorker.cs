@@ -1,3 +1,4 @@
+using Application.AdminSettings;
 using Application.Common.Interfaces;
 using Application.SsgRebuild;
 using Contracts.Admin;
@@ -8,25 +9,31 @@ namespace Api.Services;
 
 public class SsgPeriodicRebuildWorker(
     IServiceScopeFactory scopeFactory,
-    IConfiguration config,
     ILogger<SsgPeriodicRebuildWorker> logger) : BackgroundService
 {
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var intervalHours = config.GetValue("Ssg:PeriodicRebuildIntervalHours", 24);
-        var interval = TimeSpan.FromHours(intervalHours);
-
-        logger.LogInformation("SSG periodic rebuild: every {Hours}h", intervalHours);
+        logger.LogInformation("SSG periodic rebuild worker started (checks every 5min)");
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(interval, stoppingToken);
+            await Task.Delay(CheckInterval, stoppingToken);
 
             try
             {
                 using var scope = scopeFactory.CreateScope();
+                var settings = scope.ServiceProvider.GetRequiredService<AdminSettingsService>();
                 var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
                 var ssgService = scope.ServiceProvider.GetRequiredService<ISsgJobService>();
+
+                var enabled = await settings.GetBoolAsync("ssg.periodicRebuildEnabled", true, stoppingToken);
+                if (!enabled)
+                    continue;
+
+                var intervalHours = await settings.GetIntAsync("ssg.periodicRebuildIntervalHours", 24, stoppingToken);
+                var interval = TimeSpan.FromHours(Math.Max(intervalHours, 1));
 
                 // Skip if a Full job completed recently
                 var cutoff = DateTimeOffset.UtcNow.Add(-interval);
@@ -48,7 +55,7 @@ public class SsgPeriodicRebuildWorker(
                     stoppingToken);
 
                 if (job is not null)
-                    logger.LogInformation("Periodic SSG rebuild queued: {JobId}", job.Id);
+                    logger.LogInformation("Periodic SSG rebuild queued: {JobId} (interval: {Hours}h)", job.Id, intervalHours);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

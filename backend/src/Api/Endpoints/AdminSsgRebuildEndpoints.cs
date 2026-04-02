@@ -1,3 +1,4 @@
+using Application.AdminSettings;
 using Application.SsgRebuild;
 using Contracts.Admin;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,10 @@ public static class AdminSsgRebuildEndpoints
     public static void MapAdminSsgRebuildEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/admin/ssg").WithTags("SSG Rebuild");
+
+        // Settings
+        group.MapGet("/settings", GetSettings);
+        group.MapPut("/settings", UpdateSettings);
 
         // Preview
         group.MapGet("/preview", GetPreview)
@@ -144,6 +149,25 @@ public static class AdminSsgRebuildEndpoints
         return Results.Ok(new { total, items });
     }
 
+    private static async Task<IResult> GetSettings(AdminSettingsService settings, CancellationToken ct)
+    {
+        return Results.Ok(new
+        {
+            enabled = await settings.GetBoolAsync("ssg.periodicRebuildEnabled", true, ct),
+            intervalHours = await settings.GetIntAsync("ssg.periodicRebuildIntervalHours", 24, ct)
+        });
+    }
+
+    private static async Task<IResult> UpdateSettings(
+        [FromBody] SsgPeriodicSettingsDto request,
+        AdminSettingsService settings,
+        CancellationToken ct)
+    {
+        await settings.SetAsync("ssg.periodicRebuildEnabled", request.Enabled.ToString().ToLower(), ct);
+        await settings.SetAsync("ssg.periodicRebuildIntervalHours", Math.Clamp(request.IntervalHours, 1, 168).ToString(), ct);
+        return Results.Ok();
+    }
+
     private static string[]? ParseSlugs(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -151,3 +175,5 @@ public static class AdminSsgRebuildEndpoints
         return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 }
+
+public record SsgPeriodicSettingsDto(bool Enabled, int IntervalHours);
