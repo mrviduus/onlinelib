@@ -67,6 +67,41 @@ public class AdminSettingsService
         return (access, refresh);
     }
 
+    public async Task<string?> GetAsync(string key, CancellationToken ct = default)
+    {
+        var cacheKey = $"admin_settings:{key}";
+        if (_cache.TryGetValue(cacheKey, out string? cached))
+            return cached;
+
+        var setting = await _db.AdminSettings.FirstOrDefaultAsync(s => s.Key == key, ct);
+        var value = setting?.Value;
+        _cache.Set(cacheKey, value, CacheDuration);
+        return value;
+    }
+
+    public async Task<string> GetAsync(string key, string defaultValue, CancellationToken ct = default)
+    {
+        return await GetAsync(key, ct) ?? defaultValue;
+    }
+
+    public async Task<int> GetIntAsync(string key, int defaultValue, CancellationToken ct = default)
+    {
+        var raw = await GetAsync(key, ct);
+        return raw != null && int.TryParse(raw, out var parsed) ? parsed : defaultValue;
+    }
+
+    public async Task<bool> GetBoolAsync(string key, bool defaultValue, CancellationToken ct = default)
+    {
+        var raw = await GetAsync(key, ct);
+        return raw != null && bool.TryParse(raw, out var parsed) ? parsed : defaultValue;
+    }
+
+    public async Task SetAsync(string key, string value, CancellationToken ct = default)
+    {
+        await SetSettingAsync(key, value, ct);
+        _cache.Remove($"admin_settings:{key}");
+    }
+
     private async Task SetSettingAsync(string key, string value, CancellationToken ct)
     {
         var setting = await _db.AdminSettings.FirstOrDefaultAsync(s => s.Key == key, ct);

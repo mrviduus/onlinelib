@@ -461,6 +461,47 @@ export interface CodeGenJobDetail extends CodeGenJobListItem {
   logOutput: string | null
 }
 
+// Auto Publish
+export type AutoPublishJobStatus = 'Queued' | 'Running' | 'GeneratingSeo' | 'AwaitingReview' | 'Publishing' | 'Completed' | 'Failed' | 'Cancelled'
+
+export interface AutoPublishSettings {
+  enabled: boolean
+  booksPerDay: number
+  hourUtc: number
+  requireReview: boolean
+  language: string
+}
+
+export interface AutoPublishJobListItem {
+  id: string
+  editionId: string
+  editionTitle: string
+  status: AutoPublishJobStatus
+  generatedEditionSeo: boolean
+  generatedAuthorSeo: boolean
+  priority: boolean
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+export interface AutoPublishJobDetail extends AutoPublishJobListItem {
+  logOutput: string | null
+}
+
+export interface CandidateEdition {
+  id: string
+  title: string
+  language: string | null
+  chapterCount: number
+  hasDescription: boolean
+  hasRelevance: boolean
+  hasThemes: boolean
+  hasFaqs: boolean
+  createdAt: string
+}
+
 // Session Settings
 export interface SessionSettings {
   accessTokenExpiryMinutes: number
@@ -1035,5 +1076,56 @@ export const adminApi = {
 
   rerunCodeGenJob: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/codegen/jobs/${id}/rerun`, { method: 'POST' })
+  },
+
+  // Auto Publish
+  getAutoPublishSettings: async (): Promise<AutoPublishSettings> => {
+    return fetchJson<AutoPublishSettings>('/admin/autopublish/settings')
+  },
+
+  updateAutoPublishSettings: async (data: AutoPublishSettings): Promise<void> => {
+    await fetchVoid('/admin/autopublish/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  getAutoPublishJobs: async (params?: { limit?: number; offset?: number; status?: string }): Promise<PaginatedResult<AutoPublishJobListItem>> => {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.status) query.set('status', params.status)
+    const qs = query.toString()
+    return fetchJson<PaginatedResult<AutoPublishJobListItem>>(`/admin/autopublish/jobs${qs ? `?${qs}` : ''}`)
+  },
+
+  getAutoPublishJob: async (id: string): Promise<AutoPublishJobDetail> => {
+    return fetchJson<AutoPublishJobDetail>(`/admin/autopublish/jobs/${id}`)
+  },
+
+  approveAutoPublishJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/autopublish/jobs/${id}/approve`, { method: 'POST' })
+  },
+
+  rejectAutoPublishJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/autopublish/jobs/${id}/reject`, { method: 'POST' })
+  },
+
+  retryAutoPublishJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/autopublish/jobs/${id}/retry`, { method: 'POST' })
+  },
+
+  triggerAutoPublish: async (): Promise<{ id: string }> => {
+    return fetchJson<{ id: string }>('/admin/autopublish/trigger', { method: 'POST' })
+  },
+
+  queueAutoPublishEdition: async (editionId: string): Promise<{ id: string }> => {
+    return fetchJson<{ id: string }>(`/admin/autopublish/queue/${editionId}`, { method: 'POST' })
+  },
+
+  getAutoPublishCandidates: async (limit?: number): Promise<CandidateEdition[]> => {
+    const qs = limit ? `?limit=${limit}` : ''
+    return fetchJson<CandidateEdition[]>(`/admin/autopublish/candidates${qs}`)
   },
 }

@@ -1,4 +1,5 @@
 using System.Net;
+using Application.Admin;
 using Application.Common.Interfaces;
 using Application.SsgRebuild;
 using Contracts.Admin;
@@ -12,6 +13,10 @@ public static class InternalEndpoints
     {
         app.MapPost("/internal/ssg/rebuild-all", RebuildAll)
             .WithName("InternalSsgRebuildAll")
+            .ExcludeFromDescription();
+
+        app.MapPost("/internal/editions/{id:guid}/publish", PublishEdition)
+            .WithName("InternalPublishEdition")
             .ExcludeFromDescription();
     }
 
@@ -37,5 +42,19 @@ public static class InternalEndpoints
         return job is not null
             ? Results.Ok(new { jobId = job.Id, status = "queued" })
             : Results.Ok(new { status = "skipped", reason = "rebuild already in progress" });
+    }
+
+    private static async Task<IResult> PublishEdition(
+        Guid id,
+        HttpContext ctx,
+        AdminService adminService,
+        CancellationToken ct)
+    {
+        var remote = ctx.Connection.RemoteIpAddress;
+        if (remote != null && !IPAddress.IsLoopback(remote))
+            return Results.StatusCode(403);
+
+        var (success, error) = await adminService.PublishEditionAsync(id, ct);
+        return success ? Results.Ok() : Results.BadRequest(new { error });
     }
 }

@@ -54,6 +54,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
     public DbSet<BlogComment> BlogComments => Set<BlogComment>();
     public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
+    public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

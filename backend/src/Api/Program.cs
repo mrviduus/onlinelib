@@ -250,6 +250,7 @@ app.MapAdminGenresEndpoints();
 app.MapAdminSeoCrawlEndpoints();
 app.MapAdminSsgRebuildEndpoints();
 app.MapAdminCodeGenEndpoints();
+app.MapAdminAutoPublishEndpoints();
 app.MapAdminLintEndpoints();
 app.MapAdminSettingsEndpoints();
 app.MapBooksEndpoints();

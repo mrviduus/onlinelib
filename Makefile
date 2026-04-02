@@ -1,4 +1,4 @@
-.PHONY: up down restart logs status backup restore rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search codegen-setup codegen-status codegen-logs codegen-restart codegen-stop
+.PHONY: up down restart logs status backup restore rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search codegen-setup codegen-status codegen-logs codegen-restart codegen-stop seo-publish-setup seo-publish-status seo-publish-logs seo-publish-restart seo-publish-stop
 
 # ============================================================
 # Docker Services
@@ -159,3 +159,28 @@ codegen-restart:
 
 codegen-stop:
 	@systemctl --user stop codegen-poller
+
+# ============================================================
+# SEO Auto-Publish
+# ============================================================
+
+seo-publish-setup:
+	@mkdir -p ~/.config/systemd/user
+	@cp infra/systemd/seo-publish-poller.service ~/.config/systemd/user/
+	@systemctl --user daemon-reload
+	@systemctl --user enable seo-publish-poller
+	@systemctl --user start seo-publish-poller
+	@loginctl enable-linger $$(whoami)
+	@echo "SEO Auto-Publish poller installed and started."
+
+seo-publish-status:
+	@systemctl --user status seo-publish-poller
+
+seo-publish-logs:
+	@journalctl --user -u seo-publish-poller -f
+
+seo-publish-restart:
+	@systemctl --user restart seo-publish-poller
+
+seo-publish-stop:
+	@systemctl --user stop seo-publish-poller
