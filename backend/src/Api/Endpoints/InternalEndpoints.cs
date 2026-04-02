@@ -26,9 +26,7 @@ public static class InternalEndpoints
         ISsgJobService ssgService,
         CancellationToken ct)
     {
-        // Localhost-only
-        var remote = ctx.Connection.RemoteIpAddress;
-        if (remote != null && !IPAddress.IsLoopback(remote))
+        if (!IsLocalRequest(ctx))
             return Results.StatusCode(403);
 
         var site = await db.Sites.FirstOrDefaultAsync(ct);
@@ -50,11 +48,27 @@ public static class InternalEndpoints
         AdminService adminService,
         CancellationToken ct)
     {
-        var remote = ctx.Connection.RemoteIpAddress;
-        if (remote != null && !IPAddress.IsLoopback(remote))
+        if (!IsLocalRequest(ctx))
             return Results.StatusCode(403);
 
         var (success, error) = await adminService.PublishEditionAsync(id, ct);
         return success ? Results.Ok() : Results.BadRequest(new { error });
+    }
+
+    /// <summary>
+    /// Allow loopback + Docker bridge (172.x) + Docker internal (10.x) networks.
+    /// </summary>
+    private static bool IsLocalRequest(HttpContext ctx)
+    {
+        var remote = ctx.Connection.RemoteIpAddress;
+        if (remote == null) return true;
+        if (IPAddress.IsLoopback(remote)) return true;
+
+        // Docker bridge networks (172.16-31.x.x, 10.x.x.x)
+        var bytes = remote.MapToIPv4().GetAddressBytes();
+        if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) return true;
+        if (bytes[0] == 10) return true;
+
+        return false;
     }
 }

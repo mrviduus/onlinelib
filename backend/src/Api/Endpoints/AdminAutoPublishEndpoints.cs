@@ -164,6 +164,7 @@ public static class AdminAutoPublishEndpoints
             Id = Guid.NewGuid(),
             SiteId = GeneralSiteId,
             EditionId = edition.Id,
+            Priority = true,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
