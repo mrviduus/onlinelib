@@ -2,11 +2,46 @@
 
 ## [Unreleased]
 
+### Auto Publish — Automated Book Publishing Pipeline (2026-04-02)
+- **Auto-publish admin page** — configurable pipeline: Draft → SEO generation → publish, fully managed from admin panel
+- **SEO generation via Claude CLI** — `seo-generate.sh` calls `claude-sonnet-4-6` to generate description, relevance, themes, FAQs for editions and authors
+- **Polling daemon** — `seo-publish-poll.sh` (systemd) polls DB every 60s, processes queued jobs
+- **Settings** — books/day (1–10), hour UTC, require review gate, language filter, enable/disable toggle
+- **Priority queue** — admin can queue specific editions with priority, processed first regardless of schedule
+- **Candidates view** — shows Draft editions ready to publish with SEO readiness indicators (D/R/T/F)
+- **Internal publish endpoint** — `POST /internal/editions/{id}/publish` (Docker network only), triggers SSG automatically
+- **SSG periodic rebuild settings** — moved from `appsettings.json` to admin panel (enable/disable, interval hours)
+- **Integration tests** — 10 auth tests for all admin autopublish endpoints
+
+### Admin Improvements (2026-04-01)
+- **Publish/unpublish buttons** on author detail page
+- **SEO readiness filter + badge** for editions & authors lists
+- **Dashboard** — live stats, recent jobs, blog metrics
+- **Default og:image fallback** for pages without cover
+
+### User Features (2026-03-28)
+- **Email/password auth** — register, login, forgot password flow
+- **User profile** — avatar upload + name edit
+- **Vocabulary fix** — typed recall mode no longer requires exact word typing
+- **Selection toolbar fix** — word selection works correctly in reader
+
+### Mobile App (2026-03-25)
+- **Full PWA parity** — shared API refactor, offline reading, progress sync
+- **Top bar fix** — render after WebView so icons visible
+- **User book reader fix** — missing slug param in appendChapter
+
 ### CodeGen — AI Code Generation (2026-03-22)
 - **CodeGen admin page** — describe a task, Claude Code implements it in iterative loop (Ralph pattern), creates PR
 - **PDD auto-generation** — each job creates a Product Design Doc in `docs/05-features/codegen-{id}.md` on first iteration
 - **Host-based execution** — uses Claude Code CLI with Max subscription (OAuth), runs on host via `codegen-poll.sh`
+- **Rerun support** — restart terminal jobs with clean state
+- **Hardening** — input validation, timeouts, double-click guard, branch checkout verification
 - **Mobile-responsive admin** — hamburger menu, off-canvas sidebar, responsive tables/forms for all admin pages
+
+### Vocabulary
+- **Vocab review card** removed from homepage
+- **Dark mode fix** — vocab review button invisible in dark mode
+- **Button overflow fix** — vocab review card button on narrow screens
 
 ### SSG / SEO — Critical Fix (2026-03-12)
 - **Fix: SSG saved error pages as permanent static files** — if API failed during prerender (timeout, 499), broken HTML with `noindex` was saved and served to Google. Now skips saving pages with `noindex` meta tag

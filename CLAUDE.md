@@ -145,7 +145,7 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 
 **Reader hooks** (`apps/web/src/hooks/`): Reading session tracking (`useReadingSession`), progress sync (`useReadingProgress`), fullscreen (`useFullscreen`, `useImmersiveMode`), keyboard nav (`useReaderKeyboard`), in-book search (`useInBookSearch`), text selection (`useTextSelection`, `useDictionary`, `useTextTranslation`), dark mode (`useReaderSettings`, `useDarkMode`).
 
-**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild, SEO crawl, Tools, Settings.
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild, SEO crawl, CodeGen, Auto Publish, Tools, Settings.
 
 ## Key Concepts
 
@@ -220,10 +220,19 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
 - Admin: `MapAdminMoodEndpoints()` in `Api/Endpoints/AdminMoodEndpoints.cs`
 
+**Auto Publish**: Automated pipeline for publishing Draft books with SEO content.
+- Admin page at `/autopublish` — settings, candidates, jobs history
+- `seo-publish-poll.sh` (systemd) polls DB every 60s for queued jobs
+- `seo-generate.sh` calls Claude CLI (`claude-sonnet-4-6`) to generate SEO fields (description, relevance, themes, FAQs)
+- Publishes via `POST /internal/editions/{id}/publish` (Docker network only)
+- Settings: books/day, hour UTC, require review, language filter, priority queue
+- Auto-triggers Specific SSG rebuild per published book via `PublishEditionAsync() → EnqueueSsgSafe()`
+
 **SSG**: Puppeteer prerenders SEO pages to static HTML
 - nginx serves SSG first, falls back to SPA
 - Run `make rebuild-ssg` after content changes
 - SSG worker: separate always-running container polling DB every 5s. Supports IndexNow (Bing/Yandex) via `INDEXNOW_KEY`
+- Periodic rebuild: configurable from admin panel (SSG Rebuild → Settings: enable/disable, interval hours)
 
 **When to rebuild SSG**:
 - After adding/publishing new books
@@ -252,7 +261,11 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`
+
+**Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
+
+**Internal**: `POST /internal/editions/{id}/publish`, `POST /internal/ssg/rebuild-all` (Docker network only)
 
 ## Key Files
 
@@ -303,6 +316,13 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
 | FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |
+| Auto Publish API | `backend/src/Api/Endpoints/AdminAutoPublishEndpoints.cs` |
+| Auto Publish Entity | `backend/src/Domain/Entities/AutoPublishJob.cs` |
+| Auto Publish Admin | `apps/admin/src/pages/AutoPublishPage.tsx` |
+| SEO Generate Script | `infra/scripts/seo-generate.sh` |
+| SEO Publish Poller | `infra/scripts/seo-publish-poll.sh` |
+| Internal Endpoints | `backend/src/Api/Endpoints/InternalEndpoints.cs` |
+| SSG Periodic Worker | `backend/src/Api/Services/SsgPeriodicRebuildWorker.cs` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
 
