@@ -97,6 +97,51 @@
   font-size: 22px;
 }
 
+.site-header__badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  transition: background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.site-header__badge:hover {
+  background: var(--color-border);
+}
+
+.site-header__badge-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.site-header__badge-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .site-header__badge {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+
+  .site-header__badge-icon {
+    font-size: 12px;
+  }
+
+  .site-header__badge-value {
+    font-size: 12px;
+  }
+}
+
 /* Legacy search button support */
 .search-btn {
   display: flex;

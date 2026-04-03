@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import { useScrolled } from '../hooks/useScrolled'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { useTranslation } from '../hooks/useTranslation'
+import { useQuickStats } from '../hooks/useQuickStats'
+import { useVocabLevel } from '../hooks/useVocabLevel'
 
 export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -15,6 +17,8 @@ export function Header() {
   const isScrolled = useScrolled(50)
   const { isDark, toggleTheme } = useDarkMode()
   const { t } = useTranslation()
+  const quickStats = useQuickStats()
+  const vocabLevel = useVocabLevel()
 
   return (
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
@@ -73,6 +77,18 @@ export function Header() {
         >
           <span className="material-icons-outlined">search</span>
         </button>
+        {isAuthenticated && quickStats && quickStats.currentStreak > 0 && (
+          <LocalizedLink to="/stats" className="site-header__badge" title={t('nav.stats')}>
+            <span className="site-header__badge-icon">🔥</span>
+            <span className="site-header__badge-value">{quickStats.currentStreak}</span>
+          </LocalizedLink>
+        )}
+        {isAuthenticated && vocabLevel && vocabLevel.level > 0 && (
+          <LocalizedLink to="/vocabulary" className="site-header__badge" title={t('nav.vocabulary')}>
+            <span className="site-header__badge-icon">📚</span>
+            <span className="site-header__badge-value">{vocabLevel.label}</span>
+          </LocalizedLink>
+        )}
         {!isLoading && (isAuthenticated ? <UserMenu /> : <LoginButton />)}
       </div>
       {searchOpen && <MobileSearchOverlay onClose={() => setSearchOpen(false)} />}

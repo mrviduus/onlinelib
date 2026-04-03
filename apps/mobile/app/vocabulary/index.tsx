@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack, useFocusEffect } from 'expo-router'
-import { vocabularyApi } from '@textstack/shared'
+import { vocabularyApi, getVocabLevel } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
@@ -116,6 +116,9 @@ export default function VocabularyScreen() {
             <StatBox label="Due" value={dueCount} color={dueCount > 0 ? colors.primary : undefined} />
             <StatBox label="Mastered" value={stats.byStage.mastered || 0} color="#10B981" />
             <StatBox label="Streak" value={stats.streak || 0} color={stats.streak > 0 ? '#F59E0B' : undefined} />
+            {getVocabLevel(stats.byStage.mastered).level > 0 && (
+              <StatBox label="Level" value={getVocabLevel(stats.byStage.mastered).label} color="#8B5CF6" />
+            )}
             {stats.practicedToday > 0 && <StatBox label="Practiced" value={stats.practicedToday} color={colors.primary} />}
           </View>
         )}
@@ -235,7 +238,7 @@ export default function VocabularyScreen() {
   )
 }
 
-function StatBox({ label, value, color }: { label: string; value: number; color?: string }) {
+function StatBox({ label, value, color }: { label: string; value: number | string; color?: string }) {
   const { colors } = useTheme()
   return (
     <View style={styles.statBox}>

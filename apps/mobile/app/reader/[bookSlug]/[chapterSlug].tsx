@@ -71,6 +71,7 @@ export default function ReaderScreen() {
 
   // Immersive mode — auto-hide bars
   const [barsVisible, setBarsVisible] = useState(true)
+  const barsVisibleRef = useRef(true)
   const barsAnim = useRef(new Animated.Value(1)).current
   const topBarTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [-topBarHeight, 0] })
   const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
@@ -88,22 +89,26 @@ export default function ReaderScreen() {
   const startHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => {
+      barsVisibleRef.current = false
       setBarsVisible(false)
       Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
     }, 3000)
   }, [barsAnim])
 
   const toggleBars = useCallback(() => {
-    if (barsVisible) {
+    const visible = barsVisibleRef.current
+    if (visible) {
+      barsVisibleRef.current = false
       setBarsVisible(false)
       Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     } else {
+      barsVisibleRef.current = true
       setBarsVisible(true)
       Animated.timing(barsAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start()
       startHideTimer()
     }
-  }, [barsVisible, barsAnim, startHideTimer])
+  }, [barsAnim, startHideTimer])
 
   // Start hide timer when chapter loads
   useEffect(() => {

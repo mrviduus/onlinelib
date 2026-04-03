@@ -271,23 +271,24 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   })
 
   return (
-    <>
-      <View style={styles.savedSortRow}>
-        {([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']] as const).map(([key, label]) => (
-          <TouchableOpacity
-            key={key}
-            onPress={() => setSort(key)}
-            style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
-          >
-            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <FlatList
         key={viewMode}
         data={sorted}
         numColumns={viewMode === 'grid' ? numColumns : 1}
         keyExtractor={item => item.editionId}
+        ListHeaderComponent={
+          <View style={styles.savedSortRow}>
+            {([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']] as const).map(([key, label]) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setSort(key)}
+                style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
         columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
@@ -374,7 +375,6 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
           )
         }}
       />
-    </>
   )
 }
 
@@ -466,8 +466,8 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
-  return (
-    <View style={{ flex: 1 }}>
+  const listHeader = (
+    <>
       <TouchableOpacity
         style={[styles.uploadBtn, { borderColor: colors.primary }]}
         onPress={() => router.push('/my-books/upload')}
@@ -500,22 +500,33 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
           ))}
         </View>
       )}
+    </>
+  )
 
-      {sorted.length === 0 ? (
+  if (sorted.length === 0) {
+    return (
+      <View style={{ flex: 1 }}>
+        {listHeader}
         <View style={styles.center}>
           <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No uploaded books</Text>
           <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Upload EPUB or PDF files to read</Text>
         </View>
-      ) : (
-        <FlatList
-          key={viewMode}
-          data={sorted}
-          numColumns={viewMode === 'grid' ? numColumns : 1}
-          keyExtractor={item => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
-          columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
+      </View>
+    )
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        key={viewMode}
+        data={sorted}
+        numColumns={viewMode === 'grid' ? numColumns : 1}
+        keyExtractor={item => item.id}
+        ListHeaderComponent={listHeader}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
+        columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
           renderItem={({ item }) => {
             const s = item.status.toLowerCase()
             const isReady = s === 'ready' || s === 'completed'
@@ -633,7 +644,6 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
             )
           }}
         />
-      )}
     </View>
   )
 }

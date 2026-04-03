@@ -225,7 +225,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var target = e.target;
       if (target.tagName === 'A' || target.closest('a')) return;
       var sel = window.getSelection();
-      if (sel && !sel.isCollapsed) return;
+      if (sel && !sel.isCollapsed) {
+        sel.removeAllRanges();
+        return;
+      }
       var now = Date.now();
       if (now - lastTapTime < 300) {
         if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; }

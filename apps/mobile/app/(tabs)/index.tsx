@@ -6,7 +6,7 @@ import {
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, vocabularyApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, vocabularyApi, getVocabLevel } from '@textstack/shared'
 import type { Edition, Author } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [vocabDueCount, setVocabDueCount] = useState(0)
+  const [vocabLevel, setVocabLevel] = useState(0)
 
   const fetchAll = useCallback(async () => {
     const api = createBooksApi(language)
@@ -61,7 +62,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!isAuthenticated) return
     vocabularyApi.getVocabularyStats()
-      .then(stats => setVocabDueCount(stats.dueNow))
+      .then(stats => {
+        setVocabDueCount(stats.dueNow)
+        setVocabLevel(getVocabLevel(stats.byStage.mastered).level)
+      })
       .catch(() => {})
   }, [isAuthenticated])
 
@@ -131,6 +135,15 @@ export default function HomeScreen() {
                 {quickStats.currentStreak}d
               </Text>
               <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>streak</Text>
+            </View>
+          )}
+          {vocabLevel > 0 && (
+            <View style={styles.quickStatItem}>
+              <Text style={{ fontSize: 14 }}>📚</Text>
+              <Text style={[styles.quickStatValue, { color: colors.text }]}>
+                Lv.{vocabLevel}
+              </Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>vocab</Text>
             </View>
           )}
           {quickStats.dailyGoalMinutes && (
