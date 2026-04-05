@@ -327,6 +327,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Refs for restore logic
   const hasNavigatedRef = useRef(false)
   const restoredRef = useRef(false)
+  const scrollRestoredRef = useRef(false)
 
   // Calculate overall book progress based on word counts
   const calculatedProgress = useMemo(() => {
@@ -466,6 +467,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Sync progress when page changes (pagination mode only)
   useEffect(() => {
     if (useScrollMode) return // Scroll mode has its own save effect
+    if (!restoredRef.current) return // Don't save until position is restored
     if (totalPages > 0 && book?.id && chapter?.id) {
       const locator = `page:${currentPage}`
       updateProgress(overallProgress, currentPage, locator)
@@ -511,6 +513,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   useEffect(() => {
     if (!useScrollMode) return
+    if (!scrollRestoredRef.current) return // Don't save until scroll position is restored
 
     const visibleId = scrollReader.visibleIdentifier
     const offset = scrollReader.scrollOffset
@@ -590,6 +593,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     if (!useScrollMode) return
 
     const intervalId = setInterval(() => {
+      if (!scrollRestoredRef.current) return // Don't save until scroll position is restored
       const visibleId = scrollReader.visibleIdentifier
       const offset = scrollReader.scrollOffset
       if (!visibleId) return
@@ -625,6 +629,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   useScrollModeRef.current = useScrollMode // Keep ref in sync
   useEffect(() => {
     if (useScrollMode) return // Scroll mode has its own save effect
+    if (!restoredRef.current) return // Don't save until position is restored
     if (!book?.id || !chapter?.id) return
 
     const currentPosition = { page: currentPage, progress: overallProgress }
@@ -712,7 +717,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [useScrollMode, totalPages, effectiveProgress, effectiveLoading, shouldNavigate, goToPage, book?.id])
 
   // Restore scroll position (scroll mode)
-  const scrollRestoredRef = useRef(false)
   useEffect(() => {
     if (!useScrollMode) return // Only for scroll mode
     if (scrollRestoredRef.current || effectiveLoading || shouldNavigate) return
