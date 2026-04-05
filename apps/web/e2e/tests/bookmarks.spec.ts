@@ -54,12 +54,18 @@ test.describe('QA-004: Bookmarks', () => {
   test('bookmarks persist across sessions', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
 
-    // Add bookmark
+    // Add bookmark and wait for server sync
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
     const topBarBtns = page.locator('.reader-top-bar__btn')
+
+    // Wait for bookmark API call to complete after click
+    const bookmarkResponse = page.waitForResponse(
+      resp => resp.url().includes('/me/bookmarks') && resp.status() < 400,
+      { timeout: 5000 }
+    ).catch(() => null)
     await topBarBtns.nth(1).click()
-    await page.waitForTimeout(500)
+    await bookmarkResponse
 
     // Navigate away and come back
     await page.goto('/en/books')
@@ -68,12 +74,14 @@ test.describe('QA-004: Bookmarks', () => {
     await waitForReaderLoad(page)
 
     // Check bookmark is still there via TOC drawer
-    await topBarBtns.nth(2).click()
+    const topBarBtns2 = page.locator('.reader-top-bar__btn')
+    await topBarBtns2.nth(2).click()
     await expect(page.locator('.reader-toc-drawer')).toBeVisible()
 
     const bookmarksTab = page.locator('.reader-toc-drawer__tab').filter({ hasText: /bookmark/i })
     if (await bookmarksTab.isVisible()) {
       await bookmarksTab.click()
+      await page.waitForTimeout(500)
       const bookmarkItems = page.locator('.reader-toc-drawer__bookmark-item')
       const count = await bookmarkItems.count()
       expect(count).toBeGreaterThan(0)

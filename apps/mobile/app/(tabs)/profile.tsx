@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
           {user?.picture ? (
@@ -237,13 +237,14 @@ export default function ProfileScreen() {
           <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
   container: { flex: 1 },
+  contentContainer: { paddingBottom: 40 },
   title: { fontFamily: fonts.serifBold, fontSize: 22, marginTop: 8 },
   subtitle: { fontFamily: fonts.sans, fontSize: 14 },
   loginButton: {
