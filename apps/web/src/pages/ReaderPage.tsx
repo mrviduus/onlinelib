@@ -629,7 +629,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   useScrollModeRef.current = useScrollMode // Keep ref in sync
   useEffect(() => {
     if (useScrollMode) return // Scroll mode has its own save effect
-    if (!restoredRef.current) return // Don't save until position is restored
     if (!book?.id || !chapter?.id) return
 
     const currentPosition = { page: currentPage, progress: overallProgress }
@@ -652,6 +651,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     stablePositionTimerRef.current = window.setTimeout(() => {
       // Double-check scroll mode hasn't changed since timer was set
       if (useScrollModeRef.current) return
+      // Don't save until position is restored (check at execution time, not effect time)
+      if (!restoredRef.current) return
       // User has been at same position for 3s - trigger save
       const locator = `page:${currentPage}`
       updateProgress(overallProgress, currentPage, locator)
