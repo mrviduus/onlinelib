@@ -168,8 +168,8 @@ public static class ReadingTrackingEndpoints
 
         // Streak
         var streakMinMinutes = await GetStreakMinMinutes(db, userId.Value, siteId, ct);
-        var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, now, ct);
-        var longestStreak = await CalculateLongestStreak(db, userId.Value, siteId, streakMinMinutes, ct);
+        var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, now, ct, tzOffset);
+        var longestStreak = await CalculateLongestStreak(db, userId.Value, siteId, streakMinMinutes, ct, tzOffset);
 
         // Averages
         double avgDailyMinutes = 0;
@@ -642,16 +642,20 @@ public static class ReadingTrackingEndpoints
 
     internal static async Task<int> CalculateStreak(
         IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes,
-        DateTimeOffset now, CancellationToken ct)
+        DateTimeOffset now, CancellationToken ct, TimeSpan tzOffset = default)
     {
-        // Get daily totals for last 365 days, ordered descending
+        // Get sessions for last 365 days, group by user's local date
         var since = now.AddDays(-365);
-        var dailyTotals = await db.ReadingSessions
+        var sessions = await db.ReadingSessions
             .Where(s => s.UserId == userId && s.SiteId == siteId && s.StartedAt >= since)
-            .GroupBy(s => s.StartedAt.Date)
+            .Select(s => new { s.StartedAt, s.DurationSeconds })
+            .ToListAsync(ct);
+
+        var dailyTotals = sessions
+            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
             .Select(g => new { Date = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds) })
             .OrderByDescending(d => d.Date)
-            .ToListAsync(ct);
+            .ToList();
 
         if (dailyTotals.Count == 0) return 0;
 
@@ -661,7 +665,7 @@ public static class ReadingTrackingEndpoints
             .Select(d => d.Date)
             .ToHashSet();
 
-        var today = now.Date;
+        var today = now.ToOffset(tzOffset).Date;
         var streak = 0;
         var checkDate = today;
 
@@ -679,14 +683,18 @@ public static class ReadingTrackingEndpoints
     }
 
     private static async Task<int> CalculateLongestStreak(
-        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes, CancellationToken ct)
+        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes, CancellationToken ct, TimeSpan tzOffset = default)
     {
-        var dailyTotals = await db.ReadingSessions
+        var sessions = await db.ReadingSessions
             .Where(s => s.UserId == userId && s.SiteId == siteId)
-            .GroupBy(s => s.StartedAt.Date)
+            .Select(s => new { s.StartedAt, s.DurationSeconds })
+            .ToListAsync(ct);
+
+        var dailyTotals = sessions
+            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
             .Select(g => new { Date = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds) })
             .OrderBy(d => d.Date)
-            .ToListAsync(ct);
+            .ToList();
 
         if (dailyTotals.Count == 0) return 0;
 
