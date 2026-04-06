@@ -6,8 +6,8 @@ test.describe('Ukrainian i18n — public pages', () => {
     await page.goto('/uk/books')
     await page.waitForLoadState('domcontentloaded')
     const header = page.locator('header.site-header')
-    await expect(header).toContainText('Каталог')
-    await expect(header).not.toContainText('Catalog')
+    await expect(header).toContainText('Бібліотека')
+    await expect(header).not.toContainText('Library')
   })
 
   test('footer shows Ukrainian text on /uk/books', async ({ page }) => {
