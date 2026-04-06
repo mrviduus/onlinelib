@@ -82,6 +82,16 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       margin-bottom: 12px;
     }
 
+    /* Tap pulse animation for word selection */
+    @keyframes tap-pulse {
+      0% { background-color: rgba(196,112,75,0.35); }
+      100% { background-color: transparent; }
+    }
+    .tap-pulse {
+      animation: tap-pulse 0.6s ease-out;
+      border-radius: 2px;
+    }
+
     /* Progress tracking via scroll */
     html { scroll-behavior: smooth; }
   </style>
@@ -396,6 +406,25 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       });
     }
 
+    // Tap pulse: wrap selection in temporary span with animation
+    function applyTapPulse(sel) {
+      try {
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+        var range = sel.getRangeAt(0);
+        var span = document.createElement('span');
+        span.className = 'tap-pulse';
+        range.surroundContents(span);
+        setTimeout(function() {
+          if (span.parentNode) {
+            var parent = span.parentNode;
+            while (span.firstChild) parent.insertBefore(span.firstChild, span);
+            parent.removeChild(span);
+            parent.normalize();
+          }
+        }, 650);
+      } catch(e) {}
+    }
+
     document.addEventListener('selectionchange', function() {
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -404,6 +433,8 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       }
       var text = sel.toString().trim();
       if (text.length > 300) return;
+      // Single word pulse
+      if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
       var anchor = null;

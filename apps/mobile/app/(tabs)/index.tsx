@@ -15,6 +15,7 @@ import { fonts } from '../../src/theme/typography'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
 import { useQuickStats } from '../../src/hooks/useQuickStats'
+import { ContinueReadingCard } from '../../src/components/ContinueReadingCard'
 
 const BOOK_LIMIT = 12
 const AUTHOR_LIMIT = 8
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [vocabDueCount, setVocabDueCount] = useState(0)
   const [vocabLevel, setVocabLevel] = useState(0)
+  const [wordsReviewedToday, setWordsReviewedToday] = useState(0)
 
   const fetchAll = useCallback(async () => {
     const api = createBooksApi(language)
@@ -65,6 +67,7 @@ export default function HomeScreen() {
       .then(stats => {
         setVocabDueCount(stats.dueNow)
         setVocabLevel(getVocabLevel(stats.byStage.mastered).level)
+        setWordsReviewedToday(stats.reviewedToday)
       })
       .catch(() => {})
   }, [isAuthenticated])
@@ -90,6 +93,21 @@ export default function HomeScreen() {
     >
       {/* Hero */}
       <HeroSection colors={colors} router={router} />
+
+      {/* Continue Reading or Start Reading CTA */}
+      {isAuthenticated ? (
+        <ContinueReadingCard />
+      ) : (
+        <TouchableOpacity
+          style={[styles.startReadingCta, { backgroundColor: colors.primary }]}
+          onPress={() => router.push('/books')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="book-outline" size={20} color="#fff" />
+          <Text style={styles.startReadingText}>Start Reading</Text>
+          <Ionicons name="arrow-forward" size={16} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Stats Bar */}
       {catalogStats && (
@@ -144,6 +162,15 @@ export default function HomeScreen() {
                 Lv.{vocabLevel}
               </Text>
               <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>vocab</Text>
+            </View>
+          )}
+          {wordsReviewedToday > 0 && (
+            <View style={styles.quickStatItem}>
+              <Ionicons name="school-outline" size={16} color={colors.primary} />
+              <Text style={[styles.quickStatValue, { color: colors.text }]}>
+                {wordsReviewedToday}
+              </Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>reviewed</Text>
             </View>
           )}
           {quickStats.dailyGoalMinutes && (
@@ -374,4 +401,21 @@ const styles = StyleSheet.create({
   },
   reviewCardText: { flex: 1, fontSize: 14, fontFamily: fonts.sans },
   reviewCardBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
+
+  // Start reading CTA
+  startReadingCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  startReadingText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 16,
+    color: '#fff',
+  },
 })

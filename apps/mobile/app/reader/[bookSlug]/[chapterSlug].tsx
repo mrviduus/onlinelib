@@ -11,11 +11,13 @@ import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
+import { WordCard } from '../../../src/components/WordCard'
 import { DictionarySheet } from '../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
+import { OnboardingOverlay, shouldShowOnboarding } from '../../../src/components/OnboardingOverlay'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
@@ -43,6 +45,8 @@ export default function ReaderScreen() {
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
   const [selection, setSelection] = useState<{ text: string; sentence: string; anchor?: any } | null>(null)
   const [wordSaved, setWordSaved] = useState(false)
+  const [sessionWordCount, setSessionWordCount] = useState(0)
+  const [exitSummary, setExitSummary] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
@@ -78,6 +82,12 @@ export default function ReaderScreen() {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  // Check onboarding flag
+  useEffect(() => {
+    shouldShowOnboarding().then(show => { if (show) setShowOnboarding(true) })
+  }, [])
 
   // Reading session tracking
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
@@ -251,20 +261,8 @@ export default function ReaderScreen() {
         if (data.text) {
           setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
           setWordSaved(false)
-          // Auto-lookup: open dictionary for single words
-          if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
-            setDictOpen(true)
-            if (isAuthenticated) {
-              vocabularyApi.saveWord({
-                word: data.text,
-                language,
-                sentence: data.sentence || null,
-                bookTitle: bookTitleRef.current || null,
-                editionId: editionIdRef.current || null,
-                chapterId: chapter?.id || null,
-              }).catch(() => {})
-            }
-          }
+          // Auto-lookup: single words now show WordCard (with auto-translation)
+          // No longer auto-opens DictionarySheet or auto-saves — user taps Save explicitly
         } else {
           setSelection(null)
         }
@@ -315,6 +313,7 @@ export default function ReaderScreen() {
       vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
+      setSessionWordCount(c => c + 1)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
     } catch {}
   }
@@ -330,6 +329,16 @@ export default function ReaderScreen() {
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
       setSelection(null)
     } catch {}
+  }
+
+  const handleExit = () => {
+    saveProgress()
+    if (sessionWordCount > 0) {
+      setExitSummary(true)
+      setTimeout(() => router.back(), 1800)
+    } else {
+      router.back()
+    }
   }
 
   const handleHighlight = async (color: string) => {
@@ -455,7 +464,7 @@ export default function ReaderScreen() {
 
         {/* Top bar — rendered after WebView so it's on top of native layer */}
         <Animated.View style={[styles.topBar, { backgroundColor: barBg, paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
-          <TouchableOpacity onPress={() => { saveProgress(); router.back() }} style={styles.topBarBtn}>
+          <TouchableOpacity onPress={handleExit} style={styles.topBarBtn}>
             <Ionicons name="chevron-back" size={24} color={barText} />
           </TouchableOpacity>
           <View style={styles.titleStack}>
@@ -466,6 +475,12 @@ export default function ReaderScreen() {
               {chapter.title}
             </Text>
           </View>
+          {sessionWordCount > 0 && (
+            <View style={styles.wordsBadge}>
+              <Ionicons name="school" size={12} color="#10B981" />
+              <Text style={styles.wordsBadgeText}>{sessionWordCount}</Text>
+            </View>
+          )}
           <View style={styles.topBarRight}>
             <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
               <Ionicons name="search-outline" size={20} color={barText} />
@@ -500,22 +515,40 @@ export default function ReaderScreen() {
           </View>
         )}
 
-        {/* Selection action bar */}
+        {/* Selection: WordCard for single words, ActionBar for multi-word */}
         {selection && (
-          <SelectionActionBar
-            selectedText={selection.text}
-            isMultiWord={isMultiWord}
-            onDictionary={() => setDictOpen(true)}
-            onTranslate={() => setTranslateOpen(true)}
-            onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
-            onSaveWord={handleSaveWord}
-            onHighlight={handleHighlight}
-            onMarkKnown={handleMarkKnown}
-            isSpeaking={isSpeaking}
-            wordSaved={wordSaved}
-            vocabStage={selection ? (vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null) : null}
-            isAuthenticated={isAuthenticated}
-          />
+          isMultiWord ? (
+            <SelectionActionBar
+              selectedText={selection.text}
+              isMultiWord
+              onDictionary={() => setDictOpen(true)}
+              onTranslate={() => setTranslateOpen(true)}
+              onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+              onSaveWord={handleSaveWord}
+              onHighlight={handleHighlight}
+              onMarkKnown={handleMarkKnown}
+              isSpeaking={isSpeaking}
+              wordSaved={wordSaved}
+              vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
+              isAuthenticated={isAuthenticated}
+            />
+          ) : (
+            <WordCard
+              word={selection.text}
+              onSave={handleSaveWord}
+              onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+              onDictionary={() => setDictOpen(true)}
+              onHighlight={handleHighlight}
+              onMarkKnown={handleMarkKnown}
+              onDismiss={() => { setSelection(null); setWordSaved(false) }}
+              isSpeaking={isSpeaking}
+              wordSaved={wordSaved}
+              vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
+              isAuthenticated={isAuthenticated}
+              language={language}
+              sessionWordCount={sessionWordCount}
+            />
+          )
         )}
 
         {/* Footer — progress bar + info */}
@@ -582,6 +615,23 @@ export default function ReaderScreen() {
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />
+
+        {/* Onboarding overlay — first-time reader */}
+        {showOnboarding && (
+          <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
+        )}
+
+        {/* Exit summary — words saved this session */}
+        {exitSummary && (
+          <View style={styles.exitSummaryOverlay}>
+            <View style={styles.exitSummaryCard}>
+              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
+              <Text style={styles.exitSummaryText}>
+                {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
     </>
   )
@@ -632,4 +682,40 @@ const styles = StyleSheet.create({
   footerProgress: { fontSize: 14, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
+  // Exit summary
+  exitSummaryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  exitSummaryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 8,
+  },
+  exitSummaryText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 18,
+    color: '#111827',
+  },
+  // Words badge in top bar
+  wordsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  wordsBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: '#10B981',
+  },
 })
