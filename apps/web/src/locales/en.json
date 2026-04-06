@@ -27,6 +27,9 @@
       "label": "Continue Reading"
     }
   },
+  "reader": {
+    "clickToTranslate": "Click on a word to translate it"
+  },
   "guestBanner": {
     "message": "You're browsing as a guest.",
     "signIn": "Sign in",

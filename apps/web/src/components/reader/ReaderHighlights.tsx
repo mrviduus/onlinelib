@@ -18,6 +18,7 @@ import { DictionaryPopup } from './DictionaryPopup'
 import { DictionaryCard } from './DictionaryCard'
 import type { AutoSaveState } from './DictionaryCard'
 import { NoteEditor } from './NoteEditor'
+import { ClickToTranslate } from './ClickToTranslate'
 
 interface ReaderHighlightsProps {
   editionId: string
@@ -395,6 +396,13 @@ export function ReaderHighlights({
       <VocabWordLayer
         containerRef={containerRef}
         vocabMap={vocabMap}
+      />
+
+      <ClickToTranslate
+        containerRef={containerRef}
+        wrapperRef={wrapperRef}
+        sourceLang={bookLanguage}
+        targetLang={targetLang}
       />
 
       {hasSelection && !showTranslation && !showDictionary && (

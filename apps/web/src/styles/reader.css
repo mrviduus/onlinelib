@@ -1965,3 +1965,70 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 .vocab-underline--mastered {
   border-bottom-color: rgba(34, 197, 94, 0.25); /* faint green */
 }
+
+/* Click-to-translate */
+.click-translate-word {
+  background: var(--color-brand-light, rgba(201, 162, 39, 0.25));
+  border-radius: 2px;
+  padding: 0 1px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.click-translate-label {
+  position: fixed;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-brand, #c9a227);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  line-height: 1.2;
+}
+
+.click-translate-hint {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: var(--color-brand, #c9a227);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.click-translate-hint__close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 0;
+  line-height: 1;
+}
+
+.click-translate-hint__close:hover {
+  opacity: 1;
+}
+
+@media (max-width: 899px) {
+  .click-translate-hint {
+    top: 60px;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  .click-translate-label {
+    font-size: 11px;
+  }
+}
