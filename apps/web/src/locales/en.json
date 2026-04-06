@@ -28,7 +28,11 @@
     }
   },
   "reader": {
-    "clickToTranslate": "Click on a word to translate it"
+    "wordPopup": {
+      "known": "Known",
+      "ignore": "Ignore",
+      "loading": "..."
+    }
   },
   "guestBanner": {
     "message": "You're browsing as a guest.",
@@ -49,7 +53,9 @@
   },
   "nav": {
     "catalog": "Catalog",
-    "library": "My Library",
+    "library": "Library",
+    "words": "Words",
+    "practice": "Practice",
     "stats": "Stats",
     "vocabulary": "Vocabulary",
     "highlights": "Highlights",
@@ -346,6 +352,22 @@
     "backToHighlights": "Back to Highlights",
     "filterByColor": "Filter by color",
     "loadMore": "Load more"
+  },
+  "words": {
+    "tabs": {
+      "vocabulary": "Vocabulary",
+      "highlights": "Highlights"
+    }
+  },
+  "practice": {
+    "title": "Practice",
+    "vocabReview": "Vocabulary Review",
+    "highlightReview": "Highlight Review",
+    "wordsDue": "{count} words due for review",
+    "noWordsDue": "No words due right now",
+    "startReview": "Start Review",
+    "practiceMode": "Practice All Words",
+    "highlightDesc": "Review your highlighted passages"
   },
   "vocabulary": {
     "title": "Vocabulary",

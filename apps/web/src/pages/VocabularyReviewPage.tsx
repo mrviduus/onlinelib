@@ -80,7 +80,7 @@ export function VocabularyReviewPage() {
           icon="📝"
           title={mode === 'practice' ? t('vocabulary.review.noPracticeWords') : t('vocabulary.noReviewDue')}
           buttonLabel={t('vocabulary.review.backToVocab')}
-          onButtonClick={() => navigate(`/${language}/vocabulary`)}
+          onButtonClick={() => navigate(`/${language}/words`)}
         />
       </div>
     )
@@ -94,7 +94,7 @@ export function VocabularyReviewPage() {
           correct={sessionStats.correct}
           mode={mode}
           t={t}
-          onBack={() => navigate(`/${language}/vocabulary`)}
+          onBack={() => navigate(`/${language}/words`)}
           onPracticeAgain={() => startSession(batchSize, 'practice')}
           onStartSrs={() => startSession(batchSize, 'srs')}
           dueCount={totalDue}

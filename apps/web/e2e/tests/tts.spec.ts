@@ -23,7 +23,7 @@ test.describe('TTS', () => {
   })
 
   test('vocabulary page has speak buttons', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     const speakBtns = page.locator('.vocab-word .speak-btn')
@@ -31,7 +31,7 @@ test.describe('TTS', () => {
   })
 
   test('speak button click triggers TTS API call', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     // Listen for TTS API request
@@ -52,7 +52,7 @@ test.describe('TTS', () => {
   })
 
   test('review cards have speak buttons', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/review')
+    await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
     // Should see a speak button on the card
@@ -61,7 +61,7 @@ test.describe('TTS', () => {
   })
 
   test('review feedback has speak button', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/review')
+    await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
     // Answer the card (MC: click first option; typed/context: type and submit)

@@ -19,7 +19,7 @@ interface BookGroup {
   highlights: HighlightListItem[]
 }
 
-export function HighlightsPage() {
+export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
   const { language, getLocalizedPath } = useLanguage()
@@ -108,7 +108,7 @@ export function HighlightsPage() {
     }
   }
 
-  if (!isAuthenticated) {
+  if (!embedded && !isAuthenticated) {
     return (
       <>
         <div className="highlights-page">
@@ -120,13 +120,12 @@ export function HighlightsPage() {
     )
   }
 
-  return (
-    <>
+  const highlightsContent = (
       <div className="highlights-page">
-        <SeoHead title={t('highlights.title')} noindex />
+        {!embedded && <SeoHead title={t('highlights.title')} noindex />}
 
         <div className="highlights-page__header">
-          <h1>{t('highlights.title')}</h1>
+          {!embedded && <h1>{t('highlights.title')}</h1>}
           <div className="highlights-page__actions">
             <button
               className="highlights-page__review-btn"
@@ -243,6 +242,13 @@ export function HighlightsPage() {
           </div>
         )}
       </div>
+  )
+
+  if (embedded) return highlightsContent
+
+  return (
+    <>
+      {highlightsContent}
       <Footer />
     </>
   )

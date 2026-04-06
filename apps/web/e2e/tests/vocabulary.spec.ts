@@ -21,7 +21,7 @@ test.describe('Vocabulary', () => {
     await deleteAllTestWords(ctx.request)
     await ctx.close()
 
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('.empty-state')).toBeVisible()
   })
@@ -31,7 +31,7 @@ test.describe('Vocabulary', () => {
     await saveTestWords(ctx.request)
     await ctx.close()
 
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     for (const w of TEST_WORDS) {
@@ -40,7 +40,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('filter tabs work', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     // All words are stage 0 (new) — click "New" tab
@@ -56,7 +56,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('search filters words', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     await page.locator('.vocab-search').fill('castle')
@@ -68,7 +68,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('start review → MC card renders with definition + word options', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     // Click Start Review (not Practice)
@@ -76,7 +76,7 @@ test.describe('Vocabulary', () => {
     await page.waitForLoadState('networkidle')
 
     // Should be on review page
-    expect(page.url()).toContain('/vocabulary/review')
+    expect(page.url()).toContain('/words/review')
 
     // MC card: definition prompt + 4 option buttons
     const prompt = page.locator('.review-mc__prompt')
@@ -94,7 +94,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('correct MC answer → green feedback', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/review')
+    await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
     // Find the correct option
@@ -116,7 +116,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('complete session → summary screen', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/review')
+    await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
     // Answer all cards until session complete
@@ -155,7 +155,7 @@ test.describe('Vocabulary', () => {
 
   test('back to vocabulary from summary', async ({ authedPage: page }) => {
     // Summary should still be visible from previous test or we navigate to review
-    await page.goto('/en/vocabulary/review')
+    await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
     // If no words due, we'll see "No words due" with back button
@@ -163,13 +163,13 @@ test.describe('Vocabulary', () => {
     if (await backBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await backBtn.click()
       await page.waitForLoadState('networkidle')
-      expect(page.url()).toContain('/vocabulary')
+      expect(page.url()).toContain('/words')
       expect(page.url()).not.toContain('/review')
     }
   })
 
   test('expand word shows details', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     // Click first word row to expand
@@ -181,7 +181,7 @@ test.describe('Vocabulary', () => {
   })
 
   test('delete word removes it', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary')
+    await page.goto('/en/words')
     await page.waitForLoadState('networkidle')
 
     const initialCount = await page.locator('.vocab-word').count()

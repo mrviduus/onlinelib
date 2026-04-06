@@ -20,10 +20,10 @@ import { ContactPage } from './pages/ContactPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { UserBookDetailPage } from './pages/UserBookDetailPage'
 import { StatsPage } from './pages/StatsPage'
-import { VocabularyPage } from './pages/VocabularyPage'
 import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
-import { HighlightsPage } from './pages/HighlightsPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
+import { WordsPage } from './pages/WordsPage'
+import { PracticePage } from './pages/PracticePage'
 import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -83,10 +83,14 @@ function LanguageRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/stats" element={<StatsPage />} />
-        <Route path="/vocabulary" element={<VocabularyPage />} />
-        <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
-        <Route path="/highlights" element={<HighlightsPage />} />
+        <Route path="/words" element={<WordsPage />} />
+        <Route path="/words/review" element={<VocabularyReviewPage />} />
+        <Route path="/practice" element={<PracticePage />} />
         <Route path="/highlights/review" element={<HighlightReviewPage />} />
+        {/* Redirects from old URLs */}
+        <Route path="/vocabulary" element={<Navigate to="../words" replace />} />
+        <Route path="/vocabulary/review" element={<Navigate to="../words/review" replace />} />
+        <Route path="/highlights" element={<Navigate to="../words?tab=highlights" replace />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

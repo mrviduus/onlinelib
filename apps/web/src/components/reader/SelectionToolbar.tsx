@@ -14,8 +14,6 @@ interface SelectionToolbarProps {
   containerRef: React.RefObject<HTMLElement | null>
   onHighlight: (color: HighlightColor) => void
   onTranslate?: () => void
-  onDictionary?: () => void
-  onSaveWord?: () => void
   onSpeak?: () => void
   onCopy?: () => void
 }
@@ -26,8 +24,6 @@ export function SelectionToolbar({
   containerRef,
   onHighlight,
   onTranslate,
-  onDictionary,
-  onSaveWord,
   onSpeak,
   onCopy,
 }: SelectionToolbarProps) {
@@ -68,12 +64,6 @@ export function SelectionToolbar({
   if (!rect || !text) {
     return null
   }
-
-  // Check if selection is a single word (allow hyphens, no spaces)
-  const trimmed = text.trim()
-  const isSingleWord = trimmed.length > 0 &&
-    trimmed.length <= 50 &&
-    /^[^\s]+$/.test(trimmed)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text)
@@ -116,30 +106,6 @@ export function SelectionToolbar({
           aria-label="Translate selected text"
         >
           <TranslateIcon />
-        </button>
-      )}
-      {onDictionary && isSingleWord && (
-        <button
-          className="selection-toolbar__action"
-          onMouseDown={(e) => e.preventDefault()}
-          onTouchStart={(e) => e.preventDefault()}
-          onClick={onDictionary}
-          title="Dictionary"
-          aria-label="Look up word in dictionary"
-        >
-          <DictionaryIcon />
-        </button>
-      )}
-      {onSaveWord && isSingleWord && (
-        <button
-          className="selection-toolbar__action"
-          onMouseDown={(e) => e.preventDefault()}
-          onTouchStart={(e) => e.preventDefault()}
-          onClick={onSaveWord}
-          title="Save to vocabulary"
-          aria-label="Save word to vocabulary"
-        >
-          <VocabIcon />
         </button>
       )}
       {onSpeak && text.trim().length <= 500 && (
@@ -190,25 +156,6 @@ function TranslateIcon() {
   )
 }
 
-function DictionaryIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-      <path d="M8 7h8" />
-      <path d="M8 11h6" />
-    </svg>
-  )
-}
-
-function VocabIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  )
-}
 
 function SpeakIcon() {
   return (

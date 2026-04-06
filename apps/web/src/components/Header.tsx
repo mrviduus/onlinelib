@@ -26,35 +26,22 @@ export function Header() {
         </LocalizedLink>
         <nav className="site-header__nav-links">
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
-            {t('nav.catalog')}
-          </LocalizedLink>
-          <LocalizedLink to="/genres" className="site-header__nav-link" title={t('nav.browseGenres')}>
-            {t('nav.genres')}
+            {t('nav.library')}
           </LocalizedLink>
           {isAuthenticated && (
-            <LocalizedLink to="/library" className="site-header__nav-link" title={t('nav.library')}>
-              {t('nav.library')}
+            <LocalizedLink to="/words" className="site-header__nav-link" title={t('nav.words')}>
+              {t('nav.words')}
             </LocalizedLink>
           )}
           {isAuthenticated && (
-            <LocalizedLink to="/stats" className="site-header__nav-link" title={t('nav.stats')}>
-              {t('nav.stats')}
+            <LocalizedLink to="/practice" className="site-header__nav-link" title={t('nav.practice')}>
+              {t('nav.practice')}
             </LocalizedLink>
           )}
-          {isAuthenticated && (
-            <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
-              {t('nav.vocabulary')}
-            </LocalizedLink>
-          )}
-          {isAuthenticated && (
-            <LocalizedLink to="/highlights" className="site-header__nav-link" title={t('nav.highlights')}>
-              {t('nav.highlights')}
-            </LocalizedLink>
-          )}
-          <LocalizedLink to="/blog" className="site-header__nav-link" title={t('blog.title')}>
+          <LocalizedLink to="/blog" className="site-header__nav-link site-header__nav-link--secondary" title={t('blog.title')}>
             {t('blog.title')}
           </LocalizedLink>
-          <LocalizedLink to="/about" className="site-header__nav-link" title={t('nav.aboutTextStack')}>
+          <LocalizedLink to="/about" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.aboutTextStack')}>
             {t('nav.about')}
           </LocalizedLink>
         </nav>

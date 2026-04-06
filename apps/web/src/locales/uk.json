@@ -28,7 +28,11 @@
     }
   },
   "reader": {
-    "clickToTranslate": "Натисніть на слово, щоб перекласти"
+    "wordPopup": {
+      "known": "Знаю",
+      "ignore": "Видалити",
+      "loading": "..."
+    }
   },
   "guestBanner": {
     "message": "Ви переглядаєте як гість.",
@@ -49,7 +53,9 @@
   },
   "nav": {
     "catalog": "Каталог",
-    "library": "Моя бібліотека",
+    "library": "Бібліотека",
+    "words": "Слова",
+    "practice": "Практика",
     "stats": "Статистика",
     "vocabulary": "Словник",
     "highlights": "Виділення",
@@ -346,6 +352,22 @@
     "backToHighlights": "Назад до виділень",
     "filterByColor": "Фільтр за кольором",
     "loadMore": "Завантажити ще"
+  },
+  "words": {
+    "tabs": {
+      "vocabulary": "Словник",
+      "highlights": "Виділення"
+    }
+  },
+  "practice": {
+    "title": "Практика",
+    "vocabReview": "Повторення слів",
+    "highlightReview": "Огляд виділень",
+    "wordsDue": "{count} слів для повторення",
+    "noWordsDue": "Немає слів для повторення",
+    "startReview": "Почати",
+    "practiceMode": "Практикувати всі слова",
+    "highlightDesc": "Переглядайте виділені уривки"
   },
   "vocabulary": {
     "title": "Словник",

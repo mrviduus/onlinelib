@@ -18,7 +18,7 @@ function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
   )
 }
 
-export function VocabularyPage() {
+export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
   const { getLocalizedPath } = useLanguage()
@@ -37,7 +37,7 @@ export function VocabularyPage() {
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  if (!isAuthenticated) {
+  if (!embedded && !isAuthenticated) {
     return (
       <div className="page-container">
         <SeoHead title={t('vocabulary.title')} noindex />
@@ -51,6 +51,7 @@ export function VocabularyPage() {
   }
 
   if (loading && words.length === 0) {
+    if (embedded) return <div className="vocab-loading">{t('common.loading')}</div>
     return (
       <div className="page-container">
         <SeoHead title={t('vocabulary.title')} noindex />
@@ -103,13 +104,11 @@ export function VocabularyPage() {
     }
   }
 
-  return (
-    <div className="page-container">
-      <SeoHead title={t('vocabulary.title')} noindex />
-      <div className="vocab-page">
-        <h1>{t('vocabulary.title')}</h1>
+  const vocabContent = (
+    <div className="vocab-page">
+      {!embedded && <h1>{t('vocabulary.title')}</h1>}
 
-        {error && (
+      {error && (
           <div className="vocab-error">{error}</div>
         )}
 
@@ -147,7 +146,7 @@ export function VocabularyPage() {
             {stats.dueNow > 0 && (
               <button
                 className="vocab-review-btn"
-                onClick={() => navigate(getLocalizedPath('/vocabulary/review'))}
+                onClick={() => navigate(getLocalizedPath('/words/review'))}
               >
                 {t('vocabulary.startReview')} ({stats.dueNow})
               </button>
@@ -155,7 +154,7 @@ export function VocabularyPage() {
             {stats.totalWords > 0 && (
               <button
                 className="vocab-review-btn vocab-review-btn--practice"
-                onClick={() => navigate(getLocalizedPath('/vocabulary/review') + '?mode=practice')}
+                onClick={() => navigate(getLocalizedPath('/words/review') + '?mode=practice')}
               >
                 {t('vocabulary.startPractice')}
               </button>
@@ -289,6 +288,14 @@ export function VocabularyPage() {
           </button>
         )}
       </div>
+  )
+
+  if (embedded) return vocabContent
+
+  return (
+    <div className="page-container">
+      <SeoHead title={t('vocabulary.title')} noindex />
+      {vocabContent}
       <Footer />
     </div>
   )

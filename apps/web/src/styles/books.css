@@ -97,6 +97,12 @@
   color: var(--color-text);
 }
 
+.site-header__nav-link--secondary {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
 .site-header__right {
   display: flex;
   align-items: center;

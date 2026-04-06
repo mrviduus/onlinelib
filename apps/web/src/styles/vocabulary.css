@@ -1,3 +1,113 @@
+/* Words Page (Vocabulary + Highlights tabs) */
+.words-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.words-page__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  margin-bottom: 0;
+}
+
+.words-page__tab {
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.words-page__tab:hover {
+  color: var(--color-text, #191919);
+}
+
+.words-page__tab--active {
+  color: var(--color-brand, #c9a227);
+  border-bottom-color: var(--color-brand, #c9a227);
+}
+
+/* Practice Page */
+.practice-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.practice-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--color-text, #191919);
+}
+
+.practice-page__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.practice-card {
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--color-surface, #fff);
+}
+
+.practice-card__icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.practice-card__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--color-text, #191919);
+}
+
+.practice-card__desc {
+  font-size: 14px;
+  color: var(--color-text-secondary, #666);
+  margin: 0 0 16px;
+}
+
+.practice-card__btn {
+  display: inline-block;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-brand, #c9a227);
+  color: #fff;
+  margin-right: 8px;
+  transition: opacity 0.15s;
+}
+
+.practice-card__btn:hover {
+  opacity: 0.85;
+}
+
+.practice-card__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.practice-card__btn--secondary {
+  background: none;
+  color: var(--color-brand, #c9a227);
+  border: 1px solid var(--color-brand, #c9a227);
+}
+
 /* Vocabulary Page */
 .vocab-page {
   max-width: 800px;

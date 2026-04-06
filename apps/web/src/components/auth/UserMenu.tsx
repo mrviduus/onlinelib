@@ -70,18 +70,18 @@ export function UserMenu() {
               My Library
             </LocalizedLink>
             <LocalizedLink
-              to="/vocabulary"
+              to="/words"
               className="user-menu__item"
               onClick={() => setOpen(false)}
             >
-              Vocabulary
+              Words
             </LocalizedLink>
             <LocalizedLink
-              to="/highlights"
+              to="/practice"
               className="user-menu__item"
               onClick={() => setOpen(false)}
             >
-              Highlights
+              Practice
             </LocalizedLink>
             <LocalizedLink
               to="/stats"
