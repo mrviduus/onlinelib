@@ -1,6 +1,7 @@
 import { SeoHead } from '../components/SeoHead'
 import { HeroSection } from '../components/home/HeroSection'
 import { StatsBar } from '../components/home/StatsBar'
+import { ContinueReadingSection } from '../components/home/ContinueReadingSection'
 import { RecentAuthorsSection } from '../components/home/RecentAuthorsSection'
 import { RecentBooksSection } from '../components/home/RecentBooksSection'
 import { Footer } from '../components/Footer'
@@ -19,6 +20,7 @@ export function HomePage() {
         />
         <HeroSection />
         <StatsBar />
+        <ContinueReadingSection />
         <RecentBooksSection />
         <RecentAuthorsSection />
       </div>

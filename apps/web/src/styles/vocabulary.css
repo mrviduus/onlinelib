@@ -703,7 +703,14 @@
 }
 
 .review-summary h2 {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.review-summary__motivation {
+  font-size: 1.125rem;
+  color: var(--color-brand);
+  font-weight: 600;
+  margin: 0 0 1.5rem;
 }
 
 .review-summary__stats {

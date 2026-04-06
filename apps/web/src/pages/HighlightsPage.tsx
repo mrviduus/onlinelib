@@ -6,6 +6,7 @@ import { useTranslation } from '../hooks/useTranslation'
 import { getAllHighlights, type HighlightListItem } from '../api/userData'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { EmptyState } from '../components/EmptyState'
 
 const COLORS = ['yellow', 'green', 'pink', 'blue'] as const
 const PAGE_SIZE = 50
@@ -112,9 +113,7 @@ export function HighlightsPage() {
       <>
         <div className="highlights-page">
           <SeoHead title={t('highlights.title')} noindex />
-          <div className="highlights-page__empty">
-            <p>{t('highlights.signInPrompt')}</p>
-          </div>
+          <EmptyState icon="🎨" title={t('highlights.signInPrompt')} />
         </div>
         <Footer />
       </>
@@ -177,9 +176,7 @@ export function HighlightsPage() {
         {loading && highlights.length === 0 ? (
           <div className="highlights-page__loading">{t('common.loading')}</div>
         ) : highlights.length === 0 ? (
-          <div className="highlights-page__empty">
-            <p>{t('highlights.empty')}</p>
-          </div>
+          <EmptyState icon="🎨" title={t('highlights.empty')} />
         ) : (
           <div className="highlights-page__groups">
             {groups.map(group => (

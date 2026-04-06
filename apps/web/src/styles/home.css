@@ -472,3 +472,109 @@
   color: var(--color-text-secondary);
 }
 
+/* Continue Reading */
+.continue-reading {
+  padding: 0 0 2rem;
+}
+
+.continue-reading__card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.continue-reading__card:hover {
+  border-color: var(--color-brand);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.continue-reading__cover {
+  width: 48px;
+  height: 68px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.continue-reading__cover-placeholder {
+  width: 48px;
+  height: 68px;
+  border-radius: 6px;
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.continue-reading__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.continue-reading__label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
+
+.continue-reading__title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue-reading__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.continue-reading__progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.continue-reading__progress-fill {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-brand);
+  transition: width 0.3s;
+}
+
+.continue-reading__percent {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.continue-reading__btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+

@@ -4,6 +4,7 @@ import { getBlogPosts, type BlogPostListItemDto } from '../api/blog'
 import { BlogCard } from '../components/blog/BlogCard'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { EmptyState } from '../components/EmptyState'
 import { useTranslation } from '../hooks/useTranslation'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -101,9 +102,7 @@ export function BlogPage() {
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <div className="blog-page__empty">
-            <p>{t('blog.noPostsYet')}</p>
-          </div>
+          <EmptyState icon="📰" title={t('blog.noPostsYet')} />
         ) : (
           <>
             <div className="blog-page__grid">

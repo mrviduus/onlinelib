@@ -8,6 +8,7 @@ import { useTts } from '../hooks/useTts'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
+import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
   return (
@@ -202,7 +203,7 @@ export function VocabularyPage() {
 
         {/* Word list */}
         {words.length === 0 ? (
-          <div className="vocab-empty">{t('vocabulary.empty')}</div>
+          <EmptyState icon="📝" title={t('vocabulary.empty')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
         ) : (
           <div className="vocab-list">
             {words.map(w => (

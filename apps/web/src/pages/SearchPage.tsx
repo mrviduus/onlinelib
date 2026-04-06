@@ -7,6 +7,7 @@ import { useTranslation } from '../hooks/useTranslation'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { EmptyState } from '../components/EmptyState'
 import type { SearchResult } from '../types/api'
 import { sanitizeHtml } from '../utils/sanitize'
 import {
@@ -258,7 +259,7 @@ export function SearchPage() {
         )}
 
         {!query && recentSearches.length === 0 && (
-          <p className="search-page__empty">{t('search.enterQuery')}</p>
+          <EmptyState icon="🔍" title={t('search.enterQuery')} />
         )}
 
         {query && loading && (
@@ -280,7 +281,7 @@ export function SearchPage() {
         )}
 
         {query && !loading && !error && results.length === 0 && (
-          <p className="search-page__empty">{t('search.noResults')}</p>
+          <EmptyState icon="📭" title={t('search.noResults')} />
         )}
 
         {query && !loading && !error && grouped.length > 0 && (

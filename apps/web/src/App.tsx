@@ -30,6 +30,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
+import { ReviewPromptBanner } from './components/ReviewPromptBanner'
 import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
@@ -84,6 +85,7 @@ function LanguageRoutes() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <ReviewPromptBanner />
     </LanguageProvider>
   )
 }

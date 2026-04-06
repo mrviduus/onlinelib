@@ -22,7 +22,15 @@
     },
     "seo": {
       "content": "TextStack is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
+    },
+    "continueReading": {
+      "label": "Continue Reading"
     }
+  },
+  "reviewPrompt": {
+    "message": "You have {count} words due for review",
+    "reviewNow": "Review Now",
+    "later": "Later"
   },
   "common": {
     "loading": "Loading...",
@@ -396,7 +404,10 @@
       "keepPracticing": "Keep Practicing",
       "reviewDue": "Review Due Words",
       "practiceNote": "Correct answers don't change your review schedule.",
-      "noPracticeWords": "Save some words while reading to practice them."
+      "noPracticeWords": "Save some words while reading to practice them.",
+      "excellent": "Excellent!",
+      "greatWork": "Great work!",
+      "keepPracticingMsg": "Keep practicing!"
     },
     "stats": {
       "reviewedToday": "Reviewed today",

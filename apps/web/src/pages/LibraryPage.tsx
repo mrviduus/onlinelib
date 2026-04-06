@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { useLibrary } from '../hooks/useLibrary'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
-import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { OfflineBadge } from '../components/OfflineBadge'
@@ -12,6 +11,7 @@ import { BookCardMenu } from '../components/library/BookCardMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
+import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
 import { getUserBooks, getUserBookCoverUrl, getUserBookProgress, type UserBook, type UserBookProgress } from '../api/userBooks'
 import { getAllRatings, type UserRatingDto } from '../api/userRatings'
@@ -187,10 +187,7 @@ export function LibraryPage() {
       <>
       <div className="library-page">
         <SeoHead title={t('library.title')} noindex />
-        <div className="library-page__empty">
-          <h1>{t('library.title')}</h1>
-          <p>{t('library.signInPrompt')}</p>
-        </div>
+        <EmptyState icon="📚" title={t('library.title')} subtitle={t('library.signInPrompt')} />
       </div>
       <Footer />
       </>
@@ -290,12 +287,7 @@ export function LibraryPage() {
             {loading ? (
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : sortedItems.length === 0 ? (
-              <div className="library-page__empty">
-                <p>{t('library.emptyLibrary')}</p>
-                <LocalizedLink to="/books" className="library-page__browse-btn" title={t('nav.browseBooks')}>
-                  {t('library.browseBooks')}
-                </LocalizedLink>
-              </div>
+              <EmptyState icon="📖" title={t('library.emptyLibrary')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
             ) : viewMode === 'list' ? (
               <div className="library-list">
                 {sortedItems.map((item) => {
@@ -487,12 +479,7 @@ export function LibraryPage() {
             {userBooksLoading && userBooks.length === 0 ? (
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : userBooks.length === 0 ? (
-              <div className="library-page__empty">
-                <p>{t('library.noUploads')}</p>
-                <p className="library-page__empty-hint">
-                  {t('library.uploadHint')}
-                </p>
-              </div>
+              <EmptyState icon="☁️" title={t('library.noUploads')} subtitle={t('library.uploadHint')} />
             ) : viewMode === 'list' ? (
               <div className="library-list">
                 {sortedUserBooks.map((book) => {
@@ -625,12 +612,7 @@ export function LibraryPage() {
             {reviewsLoading ? (
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : myReviews.length === 0 ? (
-              <div className="library-page__empty">
-                <p>{t('reviews.noMyReviews')}</p>
-                <LocalizedLink to="/books" className="library-page__browse-btn">
-                  {t('library.browseBooks')}
-                </LocalizedLink>
-              </div>
+              <EmptyState icon="⭐" title={t('reviews.noMyReviews')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
             ) : (
               <div className="library-list">
                 {myReviews.map((review) => {
