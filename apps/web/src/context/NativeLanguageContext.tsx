@@ -7,13 +7,13 @@ export interface NativeLang {
 }
 
 export const NATIVE_LANGUAGES: NativeLang[] = [
-  { code: 'en', flag: '\u{1F1EC}\u{1F1E7}', label: 'EN' },
-  { code: 'uk', flag: '\u{1F1FA}\u{1F1E6}', label: 'UA' },
-  { code: 'ru', flag: '\u{1F1F7}\u{1F1FA}', label: 'RU' },
-  { code: 'de', flag: '\u{1F1E9}\u{1F1EA}', label: 'DE' },
-  { code: 'fr', flag: '\u{1F1EB}\u{1F1F7}', label: 'FR' },
-  { code: 'es', flag: '\u{1F1EA}\u{1F1F8}', label: 'ES' },
-  { code: 'pl', flag: '\u{1F1F5}\u{1F1F1}', label: 'PL' },
+  { code: 'en', flag: '\u{1F1EC}\u{1F1E7}', label: 'English' },
+  { code: 'uk', flag: '\u{1F1FA}\u{1F1E6}', label: 'Ukrainian' },
+  { code: 'ru', flag: '\u{1F1F7}\u{1F1FA}', label: 'Russian' },
+  { code: 'de', flag: '\u{1F1E9}\u{1F1EA}', label: 'German' },
+  { code: 'fr', flag: '\u{1F1EB}\u{1F1F7}', label: 'French' },
+  { code: 'es', flag: '\u{1F1EA}\u{1F1F8}', label: 'Spanish' },
+  { code: 'pl', flag: '\u{1F1F5}\u{1F1F1}', label: 'Polish' },
 ]
 
 const STORAGE_KEY = 'textstack_native_language'
