@@ -54,7 +54,7 @@ export function LanguageSwitcher() {
         )}
       </div>
 
-      <span className="lang-ctx__arrow">\u2192</span>
+      <span className="lang-ctx__arrow">→</span>
 
       {/* Target language */}
       <div className="lang-ctx__side">
