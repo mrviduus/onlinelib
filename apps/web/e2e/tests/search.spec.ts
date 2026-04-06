@@ -6,7 +6,7 @@ test.describe('Search', () => {
     await page.waitForLoadState('networkidle')
 
     // Wait for results or empty state
-    const results = page.locator('.search-page__results, .search-page__empty')
+    const results = page.locator('.search-page__results, .empty-state')
     await expect(results).toBeVisible({ timeout: 10_000 })
   })
 

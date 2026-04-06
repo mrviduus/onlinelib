@@ -9,6 +9,7 @@ import { MultipleChoiceCard } from '../components/vocabulary/MultipleChoiceCard'
 import { ContextCard } from '../components/vocabulary/ContextCard'
 import { ReviewFeedback } from '../components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../components/vocabulary/SessionSummary'
+import { EmptyState } from '../components/EmptyState'
 
 export function VocabularyReviewPage() {
   const { user } = useAuth()
@@ -75,16 +76,12 @@ export function VocabularyReviewPage() {
   if (!hasCards) {
     return (
       <div className="vocab-page">
-        <div className="vocab-empty">
-          <p>{mode === 'practice' ? t('vocabulary.review.noPracticeWords') : t('vocabulary.noReviewDue')}</p>
-          <button
-            className="vocab-review-btn"
-            style={{ marginTop: '1rem' }}
-            onClick={() => navigate(`/${language}/vocabulary`)}
-          >
-            {t('vocabulary.review.backToVocab')}
-          </button>
-        </div>
+        <EmptyState
+          icon="📝"
+          title={mode === 'practice' ? t('vocabulary.review.noPracticeWords') : t('vocabulary.noReviewDue')}
+          buttonLabel={t('vocabulary.review.backToVocab')}
+          onButtonClick={() => navigate(`/${language}/vocabulary`)}
+        />
       </div>
     )
   }

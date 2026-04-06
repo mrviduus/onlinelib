@@ -23,7 +23,7 @@ test.describe('Vocabulary', () => {
 
     await page.goto('/en/vocabulary')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('.vocab-empty')).toBeVisible()
+    await expect(page.locator('.empty-state')).toBeVisible()
   })
 
   test('save words via API, page shows them', async ({ authedPage: page, browser }) => {
@@ -52,7 +52,7 @@ test.describe('Vocabulary', () => {
     // Click "Mastered" tab — should be empty
     await page.locator('.vocab-tab', { hasText: 'Mastered' }).click()
     await page.waitForTimeout(500)
-    await expect(page.locator('.vocab-empty')).toBeVisible()
+    await expect(page.locator('.empty-state')).toBeVisible()
   })
 
   test('search filters words', async ({ authedPage: page }) => {
