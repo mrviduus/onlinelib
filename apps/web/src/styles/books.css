@@ -444,9 +444,31 @@
   transition: color 0.1s, background 0.1s;
 }
 
+.lang-ctx__arrow {
+  font-size: 12px;
+  color: var(--color-text-secondary, #666);
+  opacity: 0.5;
+  user-select: none;
+}
+
 .lang-ctx__option:hover {
   color: var(--color-text, #191919);
   background: var(--color-bg-warm, #FAF8F5);
+}
+
+/* Mobile: flags + arrow only, hide text */
+@media (max-width: 768px) {
+  .lang-ctx__prefix,
+  .lang-ctx__lang,
+  .lang-ctx__chevron {
+    display: none;
+  }
+  .lang-ctx__flag {
+    font-size: 18px;
+  }
+  .lang-ctx__trigger {
+    padding: 4px;
+  }
 }
 
 /* Catalogue filters (shared between books & authors) */

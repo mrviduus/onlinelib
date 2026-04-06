@@ -33,6 +33,7 @@ export function LanguageSwitcher() {
           aria-expanded={openMenu === 'native'}
           aria-haspopup="listbox"
         >
+          <span className="lang-ctx__flag">{nativeLang.flag}</span>
           <span className="lang-ctx__prefix">I know</span>
           <span className="lang-ctx__lang">{nativeLang.label}</span>
           <Chevron />
@@ -54,6 +55,8 @@ export function LanguageSwitcher() {
         )}
       </div>
 
+      <span className="lang-ctx__arrow">→</span>
+
       {/* Target language */}
       <div className="lang-ctx__side">
         <button
@@ -62,6 +65,7 @@ export function LanguageSwitcher() {
           aria-expanded={openMenu === 'target'}
           aria-haspopup="listbox"
         >
+          <span className="lang-ctx__flag">{targetLang.flag}</span>
           <span className="lang-ctx__prefix">I'm learning</span>
           <span className="lang-ctx__lang">{targetLang.label}</span>
           <Chevron />
