@@ -126,9 +126,9 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
 
         <div className="highlights-page__header">
           {!embedded && <h1>{t('highlights.title')}</h1>}
-          <div className="highlights-page__actions">
+          <div className="vocab-review-actions">
             <button
-              className="highlights-page__review-btn"
+              className="vocab-review-btn"
               onClick={() => navigate(getLocalizedPath('/highlights/review'))}
               disabled={totalCount === 0}
             >
