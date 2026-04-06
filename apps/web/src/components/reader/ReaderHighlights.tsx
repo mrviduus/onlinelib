@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
 import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
+import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
@@ -45,6 +46,7 @@ export function ReaderHighlights({
   scrollToHighlightId,
   children,
 }: ReaderHighlightsProps) {
+  const { nativeLanguage } = useNativeLanguage()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord } = useReaderVocabulary()
   const [showTranslation, setShowTranslation] = useState(false)
@@ -115,7 +117,7 @@ export function ReaderHighlights({
     setTargetLang,
   } = useTextTranslation({
     defaultSourceLang: bookLanguage,
-    defaultTargetLang: bookLanguage === 'uk' ? 'en' : 'uk',
+    defaultTargetLang: nativeLanguage === bookLanguage ? (bookLanguage === 'uk' ? 'en' : 'uk') : nativeLanguage,
   })
 
   // TTS

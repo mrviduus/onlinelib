@@ -3,6 +3,7 @@ import { SiteProvider, useSite } from './context/SiteContext'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
+import { NativeLanguageProvider } from './context/NativeLanguageContext'
 import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
@@ -134,10 +135,12 @@ function App() {
     <BrowserRouter>
       <SiteProvider>
         <AuthProvider>
+          <NativeLanguageProvider>
           <DownloadProvider>
             <AppRoutes />
             <DownloadProgressBar />
           </DownloadProvider>
+          </NativeLanguageProvider>
           <AuthModal />
         </AuthProvider>
       </SiteProvider>
