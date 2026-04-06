@@ -15,6 +15,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 
 type Tab = 'saved' | 'uploads' | 'reviews'
 type ViewMode = 'list' | 'grid'
@@ -26,6 +27,7 @@ const VIEW_MODE_KEY = 'textstack_library_view'
 export default function LibraryScreen() {
   const { isAuthenticated, user } = useAuth()
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -109,12 +111,13 @@ export default function LibraryScreen() {
   if (!isAuthenticated) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Ionicons name="library-outline" size={56} color={colors.textSecondary} />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>My Library</Text>
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Sign in to access your library</Text>
-        <TouchableOpacity style={[styles.signInBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.signInText}>Sign In</Text>
-        </TouchableOpacity>
+        <EmptyState
+          icon="library-outline"
+          title={t('library.title')}
+          subtitle={t('library.signInPrompt')}
+          buttonLabel="Sign In"
+          onButtonPress={() => router.push('/(auth)/login')}
+        />
       </View>
     )
   }
@@ -195,7 +198,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
 }) {
   const router = useRouter()
   const { colors } = useTheme()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const { width } = useWindowDimensions()
   const [sort, setSort] = useState<SavedSort>('recent')
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
@@ -243,16 +246,13 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   if (library.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No saved books yet</Text>
-        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Browse books and save them to your library</Text>
-        <TouchableOpacity
-          style={[styles.browseButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/(tabs)/')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.browseButtonText}>Browse Books</Text>
-        </TouchableOpacity>
+        <EmptyState
+          icon="book-outline"
+          title={t('library.emptyLibrary')}
+          subtitle={t('library.browseBooks')}
+          buttonLabel={t('library.browseBooks')}
+          onButtonPress={() => router.push('/(tabs)/search')}
+        />
       </View>
     )
   }
@@ -392,6 +392,7 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
 }) {
   const router = useRouter()
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const { width } = useWindowDimensions()
   const [sort, setSort] = useState<UploadSort>('recent')
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
@@ -508,9 +509,11 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
       <View style={{ flex: 1 }}>
         {listHeader}
         <View style={styles.center}>
-          <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No uploaded books</Text>
-          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Upload EPUB or PDF files to read</Text>
+          <EmptyState
+            icon="cloud-upload-outline"
+            title={t('library.noUploads')}
+            subtitle={t('library.uploadHint')}
+          />
         </View>
       </View>
     )
@@ -653,6 +656,7 @@ function ReviewsList({ reviews, refreshing, onRefresh }: {
 }) {
   const router = useRouter()
   const { colors } = useTheme()
+  const { t } = useLanguage()
 
   const handleLongPress = (item: UserRatingDto) => {
     const editionId = item.editionId
@@ -686,16 +690,13 @@ function ReviewsList({ reviews, refreshing, onRefresh }: {
   if (reviews.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="star-outline" size={48} color={colors.textSecondary} />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No reviews yet</Text>
-        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Rate and review books you've read</Text>
-        <TouchableOpacity
-          style={[styles.browseButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/(tabs)/')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.browseButtonText}>Browse Books</Text>
-        </TouchableOpacity>
+        <EmptyState
+          icon="star-outline"
+          title={t('library.noReviews')}
+          subtitle={t('library.browseBooks')}
+          buttonLabel={t('library.browseBooks')}
+          onButtonPress={() => router.push('/(tabs)/search')}
+        />
       </View>
     )
   }

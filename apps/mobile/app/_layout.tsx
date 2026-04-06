@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { setupApi } from '../src/lib/api'
-import { setupNotifications, requestPermissions, scheduleReviewReminder } from '../src/lib/notifications'
+import { setupNotifications, requestPermissions, scheduleSmartReminder } from '../src/lib/notifications'
 
 LogBox.ignoreLogs(['Calling the \'getRegistrationInfoAsync\'', 'Calling the \'setBadgeCountAsync\''])
 import { AuthProvider } from '../src/context/AuthContext'
@@ -28,7 +28,7 @@ function AppContent() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)/login" options={{ presentation: 'modal' }} />
         <Stack.Screen name="book/[slug]" />
-        <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" />
+        <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="vocabulary/index" />
         <Stack.Screen name="vocabulary/review" />
         <Stack.Screen name="stats/index" />
@@ -36,7 +36,7 @@ function AppContent() {
         <Stack.Screen name="genre/[slug]" />
         <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-books/[id]" />
-        <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" />
+        <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="blog/index" />
         <Stack.Screen name="blog/[slug]" />
         <Stack.Screen name="highlights/index" />
@@ -63,7 +63,7 @@ export default function RootLayout() {
     try { setupNotifications() } catch {}
 
     requestPermissions()
-      .then(granted => { if (granted) return scheduleReviewReminder() })
+      .then(granted => { if (granted) return scheduleSmartReminder() })
       .catch(() => {})
   }, [])
 

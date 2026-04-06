@@ -331,14 +331,26 @@ export default function ReaderScreen() {
     } catch {}
   }
 
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const handleExit = () => {
     saveProgress()
     if (sessionWordCount > 0) {
       setExitSummary(true)
-      setTimeout(() => router.back(), 1800)
+      exitTimerRef.current = setTimeout(() => router.back(), 5000)
     } else {
       router.back()
     }
+  }
+
+  const handleExitReview = () => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+    router.replace('/vocabulary/review')
+  }
+
+  const handleExitLater = () => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+    router.back()
   }
 
   const handleHighlight = async (color: string) => {
@@ -621,7 +633,7 @@ export default function ReaderScreen() {
           <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
         )}
 
-        {/* Exit summary — words saved this session */}
+        {/* Exit summary — words saved + review prompt */}
         {exitSummary && (
           <View style={styles.exitSummaryOverlay}>
             <View style={styles.exitSummaryCard}>
@@ -629,6 +641,20 @@ export default function ReaderScreen() {
               <Text style={styles.exitSummaryText}>
                 {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
               </Text>
+              <View style={styles.exitSummaryButtons}>
+                <TouchableOpacity
+                  style={[styles.exitSummaryBtn, { backgroundColor: '#C4704B' }]}
+                  onPress={handleExitReview}
+                >
+                  <Text style={styles.exitSummaryBtnText}>Review Now</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.exitSummaryBtn, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+                  onPress={handleExitLater}
+                >
+                  <Text style={styles.exitSummaryBtnText}>Later</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -702,6 +728,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 18,
     color: '#111827',
+  },
+  exitSummaryButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  exitSummaryBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  exitSummaryBtnText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: '#fff',
   },
   // Words badge in top bar
   wordsBadge: {

@@ -62,6 +62,34 @@ export async function cancelReviewReminder() {
   } catch {}
 }
 
+/** Schedule smart reminder only when words are actually due. */
+export async function scheduleSmartReminder(hour = 19) {
+  try {
+    const { vocabularyApi } = require('@textstack/shared')
+    const stats = await vocabularyApi.getVocabularyStats()
+    if (stats.dueNow > 0) {
+      const Notifications = getNotifications()
+      if (!Notifications) return
+      await cancelReviewReminder()
+      await Notifications.scheduleNotificationAsync({
+        identifier: REVIEW_REMINDER_ID,
+        content: {
+          title: 'Time to review!',
+          body: `You have ${stats.dueNow} word${stats.dueNow === 1 ? '' : 's'} ready for review.`,
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute: 0,
+        },
+      })
+    } else {
+      await cancelReviewReminder()
+    }
+  } catch {}
+}
+
 /** Setup notification handler (foreground behavior). Call in root layout. */
 export function setupNotifications() {
   try {

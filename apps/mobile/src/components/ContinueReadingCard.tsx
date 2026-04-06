@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -7,6 +7,7 @@ import { libraryApi, readingProgressApi, getStorageUrl } from '@textstack/shared
 import type { UserLibraryItem, ReadingProgressDto } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
+import { PressableScale } from './ui/PressableScale'
 
 interface ContinueBook {
   slug: string
@@ -63,7 +64,7 @@ export function ContinueReadingCard() {
   const percentDisplay = Math.round(book.percent * 100)
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => {
         if (book.chapterSlug) {
@@ -72,7 +73,6 @@ export function ContinueReadingCard() {
           router.push(`/book/${book.slug}`)
         }
       }}
-      activeOpacity={0.7}
     >
       {book.coverPath ? (
         <Image
@@ -98,7 +98,7 @@ export function ContinueReadingCard() {
       <View style={[styles.playBtn, { backgroundColor: colors.primary }]}>
         <Ionicons name="play" size={18} color="#fff" />
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   )
 }
 

@@ -1,4 +1,4 @@
-# UX Redesign — Mobile (Slices 1-5)
+# UX Redesign — Mobile (Slices 1-10)
 
 **Goal:** Transform from "reader with translation" → "learning system through reading"
 **Priority:** Mobile (Play Store release)
@@ -96,11 +96,76 @@ Unauthenticated users:
 | `backend/src/Api/Endpoints/TranslationEndpoints.cs` | Compat route |
 | `packages/shared/src/api/translation.ts` | Field name fix |
 
-## Future Slices (Not Implemented)
+## Slice 6 — Language Selection in Onboarding
 
-- Slice 6: Language selection during onboarding
-- Slice 7: Navigation restructure (Read/Discover/Library/Profile)
-- Slice 8: Empty states
-- Slice 9: Micro-animations (Apple-style)
-- Slice 10: Full learning loop
+**Files:** `packages/shared/src/i18n/{en,uk}.json`, `OnboardingOverlay.tsx`, `(tabs)/_layout.tsx`
+
+- Step 0 (new): Language picker — 🇬🇧 English / 🇺🇦 Українська card buttons
+- Calls `switchLanguage()`, auto-advances to step 1
+- Steps 1-3: existing steps with `t()` instead of hardcoded English
+- Tab labels use `t('nav.read')`, `t('nav.discover')`, etc.
+- i18n keys added: `onboarding.*`, `nav.*`
+
+## Slice 7 — Navigation Restructure
+
+**Files:** `(tabs)/index.tsx`, `(tabs)/search.tsx`, `(tabs)/profile.tsx`, `(tabs)/_layout.tsx`
+
+- **Home → Read tab**: icon `book`, stripped catalog (Hero, StatsBar, RecentBooks, Authors). Keeps: ContinueReadingCard, QuickStats, VocabReview, StartCTA
+- **Search → Discover tab**: icon `compass`, catalog below search bar when no query (StatsBar, RecentBooks grid with stagger animation, Authors scroll)
+- **Profile simplified**: removed Browse section (All Books, Authors, Genres) — now in Discover
+
+## Slice 8 — Empty States
+
+**Files:** `library.tsx`, `search.tsx`, `vocabulary/index.tsx`, `stats/index.tsx`, `highlights/index.tsx`, `blog/index.tsx`
+
+- All hardcoded empty state markup replaced with `<EmptyState>` component + `t()` calls
+- Library: not authed, no saved books, no uploads, no reviews
+- Search: no results
+- Vocab/Stats/Highlights/Blog: styled EmptyState with i18n
+
+## Slice 9 — Micro-animations
+
+**Files:** `(tabs)/_layout.tsx`, `BookCard.tsx`, `PressableScale.tsx` (new), `ContinueReadingCard.tsx`, `_layout.tsx`
+
+- **Tab icon bounce**: `AnimatedTabIcon` — scale 1→1.15→1 via spring on focus
+- **Book card stagger**: fade-in + slide-up with `animationDelay` prop (400ms timing, 80ms stagger)
+- **PressableScale**: reusable press feedback (scale 0.96 on press, spring back)
+- **Reader entry**: `slide_from_bottom` animation on Stack.Screen
+
+## Slice 10 — Full Learning Loop
+
+**Files:** `reader/[bookSlug]/[chapterSlug].tsx`, `notifications.ts`, `_layout.tsx`, `vocabulary/review.tsx`
+
+- **Post-reading review prompt**: "Review Now" / "Later" buttons in exit summary when `sessionWordCount > 0`. Auto-dismiss 5s
+- **Smart notifications**: `scheduleSmartReminder()` checks `vocabularyApi.getVocabularyStats()` for `dueNow`, shows personalized count
+- **Review celebration**: motivational message based on accuracy (≥90% Excellent, 70-89% Great, <70% Keep practicing) + streak badge
+- **Skipped**: 10C (vocab badge on library cards — no per-book endpoint), 10E (streak widget — already in QuickStats)
+
+## Files Changed (Slices 6-10)
+
+| File | Change |
+|------|--------|
+| `packages/shared/src/i18n/{en,uk}.json` | i18n keys for onboarding, nav, empty states, review |
+| `apps/mobile/src/components/OnboardingOverlay.tsx` | 4-step onboarding with language selection |
+| `apps/mobile/app/(tabs)/_layout.tsx` | Tab icons, labels, AnimatedTabIcon |
+| `apps/mobile/app/(tabs)/index.tsx` | Rewritten as Read tab (~150 lines) |
+| `apps/mobile/app/(tabs)/search.tsx` | Discover tab with catalog + stagger |
+| `apps/mobile/app/(tabs)/profile.tsx` | Removed Browse section |
+| `apps/mobile/app/(tabs)/library.tsx` | EmptyState + i18n |
+| `apps/mobile/app/vocabulary/index.tsx` | EmptyState + i18n |
+| `apps/mobile/app/stats/index.tsx` | EmptyState + i18n |
+| `apps/mobile/app/highlights/index.tsx` | EmptyState + i18n |
+| `apps/mobile/app/blog/index.tsx` | EmptyState + i18n |
+| `apps/mobile/src/components/ui/BookCard.tsx` | animationDelay + badge props |
+| `apps/mobile/src/components/ui/PressableScale.tsx` | New — press feedback component |
+| `apps/mobile/src/components/ContinueReadingCard.tsx` | PressableScale adoption |
+| `apps/mobile/app/_layout.tsx` | slide_from_bottom, smart notifications |
+| `apps/mobile/app/reader/[bookSlug]/[chapterSlug].tsx` | Review prompt on exit |
+| `apps/mobile/src/lib/notifications.ts` | scheduleSmartReminder() |
+| `apps/mobile/app/vocabulary/review.tsx` | Celebration + streak in summary |
+
+## Future
+
 - Web parity (after mobile validation)
+- 10C: per-book vocab badge (needs backend endpoint)
+- 10E: dedicated streak widget (if QuickStats proves insufficient)

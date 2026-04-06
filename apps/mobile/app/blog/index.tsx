@@ -8,13 +8,14 @@ import type { BlogPostListItemDto } from '@textstack/shared/api/blog'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 
 const PAGE_SIZE = 10
 
 export default function BlogScreen() {
   const router = useRouter()
   const { colors } = useTheme()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const [posts, setPosts] = useState<BlogPostListItemDto[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -141,7 +142,7 @@ export default function BlogScreen() {
         ) : null}
         ListEmptyComponent={
           loading ? <ActivityIndicator style={{ padding: 40 }} color={colors.primary} /> :
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No blog posts yet</Text>
+          <EmptyState icon="newspaper-outline" title={t('blog.empty')} />
         }
       />
     </>

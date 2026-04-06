@@ -130,8 +130,10 @@ export default function VocabularyReviewScreen() {
             </>
           ) : (
             <>
-              <Text style={{ fontSize: 40, marginBottom: 12 }}>🎉</Text>
-              <Text style={[styles.summaryTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Session Complete!</Text>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>{rate >= 90 ? '🎉' : rate >= 70 ? '👏' : '💪'}</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>
+                {rate >= 90 ? 'Excellent!' : rate >= 70 ? 'Great work!' : 'Keep practicing!'}
+              </Text>
               {mode === 'practice' && (
                 <Text style={{ fontSize: 12, color: colors.primary, fontFamily: fonts.sansMedium, marginBottom: 8 }}>Practice Mode</Text>
               )}

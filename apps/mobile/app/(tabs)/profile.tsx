@@ -19,11 +19,6 @@ const MENU_ITEMS = [
   { label: 'Blog', icon: 'newspaper-outline' as const, route: '/blog/' },
 ]
 
-const BROWSE_ITEMS = [
-  { label: 'All Books', icon: 'library-outline' as const, route: '/books' },
-  { label: 'Authors', icon: 'people-outline' as const, route: '/authors' },
-  { label: 'Genres', icon: 'pricetags-outline' as const, route: '/genres' },
-]
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
@@ -132,21 +127,6 @@ export default function ProfileScreen() {
 
       <View style={styles.menu}>
         {MENU_ITEMS.map(item => (
-          <TouchableOpacity
-            key={item.route}
-            style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => router.push(item.route)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={item.icon} size={20} color={colors.textSecondary} style={styles.menuIcon} />
-            <Text style={[styles.menuText, { color: colors.text }]}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        ))}
-
-        {/* Browse section */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Browse</Text>
-        {BROWSE_ITEMS.map(item => (
           <TouchableOpacity
             key={item.route}
             style={[styles.menuItem, { borderBottomColor: colors.border }]}

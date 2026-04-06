@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from '
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
 import { fonts } from '../theme/typography'
+import { useLanguage } from '../context/LanguageContext'
 
 const STORAGE_KEY = 'onboarding_reader_done'
 const { width: SCREEN_W } = Dimensions.get('window')
@@ -15,6 +16,7 @@ export function OnboardingOverlay({ onDismiss }: Props) {
   const [step, setStep] = useState(0)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const tapAnim = useRef(new Animated.Value(0)).current
+  const { t, switchLanguage, language } = useLanguage()
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start()
@@ -34,8 +36,13 @@ export function OnboardingOverlay({ onDismiss }: Props) {
 
   const tapScale = tapAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.1] })
 
+  const selectLanguage = (lang: 'en' | 'uk') => {
+    switchLanguage(lang)
+    setStep(1)
+  }
+
   const next = () => {
-    if (step < 2) {
+    if (step < 3) {
       setStep(s => s + 1)
     } else {
       dismiss()
@@ -51,61 +58,84 @@ export function OnboardingOverlay({ onDismiss }: Props) {
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={next} />
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={step > 0 ? next : undefined} />
 
       <View style={styles.content}>
         {step === 0 && (
           <>
-            <Text style={styles.title}>Learn by reading</Text>
-            <Text style={styles.subtitle}>Tap any word to see its translation</Text>
+            <Text style={styles.title}>{t('onboarding.chooseLanguage')}</Text>
+            <Text style={styles.subtitle}>{t('onboarding.chooseLanguageSubtitle')}</Text>
+            <View style={styles.langRow}>
+              <TouchableOpacity
+                style={[styles.langCard, language === 'en' && styles.langCardActive]}
+                onPress={() => selectLanguage('en')}
+              >
+                <Text style={styles.langFlag}>🇬🇧</Text>
+                <Text style={styles.langLabel}>English</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.langCard, language === 'uk' && styles.langCardActive]}
+                onPress={() => selectLanguage('uk')}
+              >
+                <Text style={styles.langFlag}>🇺🇦</Text>
+                <Text style={styles.langLabel}>Українська</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <Text style={styles.title}>{t('onboarding.learnByReading')}</Text>
+            <Text style={styles.subtitle}>{t('onboarding.tapToTranslate')}</Text>
             <Animated.View style={[styles.tapIcon, { transform: [{ scale: tapScale }] }]}>
               <Ionicons name="hand-left-outline" size={48} color="#fff" />
             </Animated.View>
           </>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <>
             <View style={styles.mockCard}>
               <Text style={styles.mockWord}>amorphous</Text>
               <Text style={styles.mockTranslation}>аморфний, безформний</Text>
               <View style={styles.mockSaveBtn}>
                 <Ionicons name="add-circle" size={20} color="#fff" />
-                <Text style={styles.mockSaveBtnText}>Save</Text>
+                <Text style={styles.mockSaveBtnText}>{t('onboarding.save')}</Text>
               </View>
             </View>
-            <Text style={styles.subtitle}>Save words to build your vocabulary</Text>
+            <Text style={styles.subtitle}>{t('onboarding.saveWords')}</Text>
             <View style={styles.arrowContainer}>
               <Ionicons name="arrow-up" size={24} color="#fff" />
             </View>
           </>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <>
             <Ionicons name="checkmark-circle" size={64} color="#10B981" />
-            <Text style={styles.title}>You're ready!</Text>
-            <Text style={styles.subtitle}>
-              Saved words appear in your vocabulary{'\n'}for spaced repetition review
-            </Text>
+            <Text style={styles.title}>{t('onboarding.ready')}</Text>
+            <Text style={styles.subtitle}>{t('onboarding.readySubtitle')}</Text>
           </>
         )}
 
-        <View style={styles.footer}>
-          <View style={styles.dots}>
-            {[0, 1, 2].map(i => (
-              <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
-            ))}
-          </View>
-          <TouchableOpacity style={styles.btn} onPress={next}>
-            <Text style={styles.btnText}>{step === 2 ? 'Got it' : 'Next'}</Text>
-          </TouchableOpacity>
-          {step < 2 && (
-            <TouchableOpacity onPress={dismiss} style={styles.skipBtn}>
-              <Text style={styles.skipText}>Skip</Text>
+        {step > 0 && (
+          <View style={styles.footer}>
+            <View style={styles.dots}>
+              {[0, 1, 2, 3].map(i => (
+                <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
+              ))}
+            </View>
+            <TouchableOpacity style={styles.btn} onPress={next}>
+              <Text style={styles.btnText}>{step === 3 ? t('onboarding.gotIt') : t('onboarding.next')}</Text>
             </TouchableOpacity>
-          )}
-        </View>
+            {step < 3 && (
+              <TouchableOpacity onPress={dismiss} style={styles.skipBtn}>
+                <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     </Animated.View>
   )
@@ -149,6 +179,34 @@ const styles = StyleSheet.create({
   },
   tapIcon: {
     marginBottom: 32,
+  },
+  // Language selection
+  langRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  langCard: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  langCardActive: {
+    borderColor: '#C4704B',
+    backgroundColor: 'rgba(196,112,75,0.15)',
+  },
+  langFlag: {
+    fontSize: 40,
+  },
+  langLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 16,
+    color: '#fff',
   },
   // Mock card for step 2
   mockCard: {

@@ -6,7 +6,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { highlightsApi, getStorageUrl } from '@textstack/shared'
 import type { HighlightListItem } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 
 const PAGE_SIZE = 50
 const HIGHLIGHT_COLORS: Record<string, string> = {
@@ -42,6 +44,7 @@ interface BookSection {
 export default function HighlightsScreen() {
   const router = useRouter()
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const [highlights, setHighlights] = useState<HighlightListItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -255,7 +258,7 @@ export default function HighlightsScreen() {
         {loading ? (
           <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
         ) : highlights.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No highlights yet. Select text while reading to highlight it.</Text>
+          <EmptyState icon="color-wand-outline" title={t('highlights.empty')} subtitle={t('highlights.emptySubtitle')} />
         ) : (
           <SectionList
             sections={sections}

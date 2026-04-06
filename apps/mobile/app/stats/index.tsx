@@ -10,6 +10,7 @@ import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto } from '@te
 import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -20,6 +21,7 @@ type StatsTab = 'overview' | 'books' | 'time' | 'achievements'
 
 export default function StatsScreen() {
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const [tab, setTab] = useState<StatsTab>('overview')
   const [stats, setStats] = useState<ReadingStatsDto | null>(null)
   const [daily, setDaily] = useState<DailyStatDto[]>([])
@@ -110,8 +112,8 @@ export default function StatsScreen() {
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
         <EmptyState
           icon="bar-chart-outline"
-          title="No reading stats yet"
-          subtitle="Start reading a book to track your progress"
+          title={t('stats.emptyTitle')}
+          subtitle={t('stats.emptySubtitle')}
         />
       </>
     )
@@ -541,7 +543,8 @@ function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => v
 
 function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null }) {
   const { colors } = useTheme()
-  if (!bookStats) return <Text style={{ padding: 16, color: colors.textSecondary, fontFamily: fonts.sans }}>No book stats yet</Text>
+  const { t } = useLanguage()
+  if (!bookStats) return <Text style={{ padding: 16, color: colors.textSecondary, fontFamily: fonts.sans }}>{t('stats.noBookStats')}</Text>
 
   return (
     <View style={{ padding: 16 }}>

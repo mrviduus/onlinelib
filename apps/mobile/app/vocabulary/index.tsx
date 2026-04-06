@@ -8,6 +8,7 @@ import { useRouter, Stack, useFocusEffect } from 'expo-router'
 import { vocabularyApi, getVocabLevel } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -35,6 +36,7 @@ type SortKey = typeof SORT_OPTIONS[number]['key']
 
 export default function VocabularyScreen() {
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const router = useRouter()
   const { toggle: toggleTts } = useTts()
   const [words, setWords] = useState<VocabularyWordDto[]>([])
@@ -203,10 +205,9 @@ export default function VocabularyScreen() {
         ) : words.length === 0 ? (
           <EmptyState
             icon="book-outline"
-            title="No words found"
-            subtitle="Save words while reading to build your vocabulary"
-            buttonLabel="Browse Books"
-            onButtonPress={() => router.push('/(tabs)/')}
+            title={t('vocabulary.empty')}
+            buttonLabel={t('library.browseBooks')}
+            onButtonPress={() => router.push('/(tabs)/search')}
           />
         ) : (
           <FlatList

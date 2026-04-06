@@ -32,7 +32,23 @@
     "about": "About",
     "brandTitle": "TextStack - Learn languages through reading",
     "browseBooks": "Browse all books",
-    "aboutTextStack": "About TextStack"
+    "aboutTextStack": "About TextStack",
+    "read": "Read",
+    "discover": "Discover",
+    "profile": "Profile"
+  },
+  "onboarding": {
+    "chooseLanguage": "Choose your language",
+    "chooseLanguageSubtitle": "You can change this later in settings",
+    "learnByReading": "Learn by reading",
+    "tapToTranslate": "Tap any word to see its translation",
+    "saveWords": "Save words to build your vocabulary",
+    "save": "Save",
+    "ready": "You're ready!",
+    "readySubtitle": "Saved words appear in your vocabulary\nfor spaced repetition review",
+    "next": "Next",
+    "skip": "Skip",
+    "gotIt": "Got it"
   },
   "footer": {
     "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
@@ -97,7 +113,8 @@
     "timeHoursAgo": "hours ago",
     "timeYesterday": "yesterday",
     "timeDaysAgo": "days ago",
-    "failedToProcess": "Failed to process"
+    "failedToProcess": "Failed to process",
+    "noReviews": "No reviews yet"
   },
   "books": {
     "title": "Books",
@@ -264,7 +281,17 @@
     "fast": "Fast",
     "short": "Short",
     "long": "Long",
-    "noData": "No data yet"
+    "noData": "No data yet",
+    "emptyTitle": "No reading stats yet",
+    "emptySubtitle": "Start reading a book to track your progress",
+    "noBookStats": "No book stats yet"
+  },
+  "highlights": {
+    "empty": "No highlights yet",
+    "emptySubtitle": "Select text while reading to highlight it"
+  },
+  "blog": {
+    "empty": "No blog posts yet"
   },
   "terms": {
     "seoTitle": "Terms of Service - TextStack",
@@ -293,6 +320,17 @@
     "changesBody": "We may update these terms from time to time. Significant changes will be communicated through the website. Your continued use of TextStack after changes constitutes acceptance of the new terms.",
     "contactHeading": "Contact",
     "contactBody": "Questions about these terms? Reach out at"
+  },
+  "reader": {
+    "reviewNow": "Review Now",
+    "later": "Later",
+    "wordsSaved": "{count} word(s) saved"
+  },
+  "review": {
+    "excellent": "Excellent!",
+    "greatWork": "Great work!",
+    "keepPracticing": "Keep practicing!",
+    "dayStreak": "{count} day streak"
   },
   "vocabulary": {
     "title": "Vocabulary",

@@ -1,15 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, TextInput, FlatList, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
-import type { SearchResult } from '@textstack/shared'
+import type { SearchResult, Edition, Author } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
-import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
+import { SkeletonLoader, BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
+import { BookCard } from '../../src/components/ui/BookCard'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 
 /** Renders HTML search highlights with <b> tags as bold Text spans */
 function HighlightText({ html, style, boldStyle, numberOfLines }: {
@@ -23,7 +25,6 @@ function HighlightText({ html, style, boldStyle, numberOfLines }: {
           const text = part.slice(3, -4)
           return <Text key={i} style={[{ fontWeight: '700' }, boldStyle]}>{text}</Text>
         }
-        // Strip any remaining tags
         return part.replace(/<[^>]+>/g, '')
       })}
     </Text>
@@ -33,6 +34,8 @@ function HighlightText({ html, style, boldStyle, numberOfLines }: {
 const RECENT_KEY = 'textstack_recent_searches'
 const MAX_RECENT = 8
 const RESULTS_PER_PAGE = 10
+const BOOK_LIMIT = 12
+const AUTHOR_LIMIT = 8
 
 interface EditionGroup {
   editionId: string
@@ -69,10 +72,10 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
-export default function SearchScreen() {
+export default function DiscoverScreen() {
   const router = useRouter()
   const { colors } = useTheme()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -82,6 +85,12 @@ export default function SearchScreen() {
   const [expandedEditions, setExpandedEditions] = useState<Set<string>>(new Set())
   const inputRef = useRef<TextInput>(null)
 
+  // Catalog data
+  const [books, setBooks] = useState<Edition[]>([])
+  const [authors, setAuthors] = useState<Author[]>([])
+  const [catalogStats, setCatalogStats] = useState<{ books: number; authors: number; genres: number } | null>(null)
+  const [catalogLoading, setCatalogLoading] = useState(true)
+
   const debouncedQuery = useDebounce(query.trim(), 300)
 
   // Load recent searches
@@ -90,6 +99,21 @@ export default function SearchScreen() {
       if (v) try { setRecentSearches(JSON.parse(v)) } catch {}
     })
   }, [])
+
+  // Fetch catalog data
+  useEffect(() => {
+    const api = createBooksApi(language)
+    Promise.all([
+      api.getBooks({ limit: BOOK_LIMIT }),
+      api.getAuthors({ limit: AUTHOR_LIMIT, sort: 'recent' }),
+      api.getGenres(),
+    ]).then(([booksRes, authorsRes, genresRes]) => {
+      setBooks(booksRes.items)
+      setAuthors(authorsRes.items)
+      setCatalogStats({ books: booksRes.total, authors: authorsRes.total, genres: genresRes.total })
+    }).catch(e => console.error('Catalog fetch failed:', e))
+      .finally(() => setCatalogLoading(false))
+  }, [language])
 
   const saveRecent = async (q: string) => {
     const updated = [q, ...recentSearches.filter(s => s !== q)].slice(0, MAX_RECENT)
@@ -180,7 +204,7 @@ export default function SearchScreen() {
               hitSlop={8}
             >
               <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.primary }}>
-                {isExpanded ? 'Hide' : `+${item.otherMatches.length} more match${item.otherMatches.length > 1 ? 'es' : ''}`}
+                {isExpanded ? t('search.hideChapters') : `+${item.otherMatches.length} more match${item.otherMatches.length > 1 ? 'es' : ''}`}
               </Text>
               <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
             </TouchableOpacity>
@@ -201,8 +225,8 @@ export default function SearchScreen() {
     )
   }
 
-  // Show recent searches when no query
   const showRecent = !searched && !loading && query.length === 0 && recentSearches.length > 0
+  const showCatalog = !searched && !loading
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -214,7 +238,7 @@ export default function SearchScreen() {
             style={[styles.input, { color: colors.text }]}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search books..."
+            placeholder={t('search.searchPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             returnKeyType="search"
             onSubmitEditing={() => doSearch(query.trim())}
@@ -241,40 +265,12 @@ export default function SearchScreen() {
             </View>
           ))}
         </View>
-      ) : showRecent ? (
-        <View style={styles.recentSection}>
-          <View style={styles.recentHeader}>
-            <Text style={[styles.recentTitle, { color: colors.text }]}>Recent Searches</Text>
-            <TouchableOpacity onPress={clearRecent}>
-              <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.primary }}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-          {recentSearches.map((q, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.recentRow, { borderBottomColor: colors.border }]}
-              onPress={() => { setQuery(q); doSearch(q) }}
-            >
-              <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.recentText, { color: colors.text }]}>{q}</Text>
-              <TouchableOpacity onPress={() => removeRecent(q)} hitSlop={8}>
-                <Ionicons name="close" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View>
       ) : results.length === 0 && searched ? (
-        <View style={styles.center}>
-          <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No results for "{query}"</Text>
-          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Try a different search term</Text>
-        </View>
-      ) : !searched ? (
-        <View style={styles.center}>
-          <Ionicons name="book-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Search across all books</Text>
-        </View>
-      ) : (
+        <EmptyState
+          icon="search-outline"
+          title={`${t('search.noResults')} "${query}"`}
+        />
+      ) : searched ? (
         <FlatList
           data={paged}
           renderItem={renderGroup}
@@ -288,6 +284,128 @@ export default function SearchScreen() {
             </Text>
           }
         />
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* Recent Searches */}
+          {showRecent && (
+            <View style={styles.recentSection}>
+              <View style={styles.recentHeader}>
+                <Text style={[styles.recentTitle, { color: colors.text }]}>{t('search.recentSearches')}</Text>
+                <TouchableOpacity onPress={clearRecent}>
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.primary }}>{t('search.clearAll')}</Text>
+                </TouchableOpacity>
+              </View>
+              {recentSearches.map((q, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.recentRow, { borderBottomColor: colors.border }]}
+                  onPress={() => { setQuery(q); doSearch(q) }}
+                >
+                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.recentText, { color: colors.text }]}>{q}</Text>
+                  <TouchableOpacity onPress={() => removeRecent(q)} hitSlop={8}>
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Catalog Stats Bar */}
+          {catalogStats && (
+            <View style={[styles.statsBar, { borderColor: colors.border }]}>
+              <TouchableOpacity onPress={() => router.push('/books')}>
+                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                  {catalogStats.books} books
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
+              <TouchableOpacity onPress={() => router.push('/authors')}>
+                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                  {catalogStats.authors} authors
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
+              <TouchableOpacity onPress={() => router.push('/genres')}>
+                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                  {catalogStats.genres} genres
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Recent Books */}
+          {catalogLoading ? (
+            <BookGridSkeleton count={6} />
+          ) : books.length > 0 ? (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('home.recentBooks.title')}</Text>
+                <TouchableOpacity onPress={() => router.push('/books')} activeOpacity={0.7}>
+                  <View style={styles.viewAllRow}>
+                    <Text style={[styles.viewAllText, { color: colors.primary }]}>{t('home.recentBooks.viewAll')}</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.booksGrid}>
+                {books.map((book, index) => (
+                  <BookCard
+                    key={book.id}
+                    title={book.title}
+                    author={book.authors.map(a => a.name).join(', ')}
+                    coverUrl={getStorageUrl(book.coverPath)}
+                    onPress={() => router.push(`/book/${book.slug}`)}
+                    animationDelay={index * 80}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Authors */}
+          {authors.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('home.recentAuthors.title')}</Text>
+                <TouchableOpacity onPress={() => router.push('/authors')} activeOpacity={0.7}>
+                  <View style={styles.viewAllRow}>
+                    <Text style={[styles.viewAllText, { color: colors.primary }]}>{t('home.recentAuthors.viewAll')}</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={authors}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.authorsScroll}
+                keyExtractor={item => item.id}
+                scrollEnabled
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.authorCard}
+                    onPress={() => router.push(`/author/${item.slug}`)}
+                    activeOpacity={0.7}
+                  >
+                    {item.photoPath ? (
+                      <Image source={getStorageUrl(item.photoPath)} style={styles.authorPhoto} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.authorPhoto, styles.authorPlaceholder, { backgroundColor: colors.primaryLight }]}>
+                        <Text style={[styles.authorInitial, { color: colors.primary }]}>
+                          {item.name?.[0] || '?'}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={2}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+        </ScrollView>
       )}
     </View>
   )
@@ -326,11 +444,12 @@ const styles = StyleSheet.create({
   chapter: { fontFamily: fonts.sans, fontSize: 13, marginTop: 2 },
   highlight: { fontFamily: fonts.sans, fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   emptyText: { fontFamily: fonts.sans, fontSize: 15, textAlign: 'center' },
-  emptySubtext: { fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
   resultCount: { fontFamily: fonts.sans, fontSize: 12, marginBottom: 8 },
   moreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   subMatch: { paddingTop: 8, marginTop: 8, borderTopWidth: 1 },
-  recentSection: { paddingHorizontal: 16 },
+
+  // Recent searches
+  recentSection: { paddingHorizontal: 16, marginBottom: 16 },
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   recentTitle: { fontFamily: fonts.sansMedium, fontSize: 16 },
   recentRow: {
@@ -341,4 +460,48 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   recentText: { fontFamily: fonts.sans, fontSize: 14, flex: 1 },
+
+  // Catalog stats bar
+  statsBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  statItem: { fontFamily: fonts.sansMedium, fontSize: 13 },
+  statDot: { fontSize: 16 },
+
+  // Sections
+  section: { marginTop: 16 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionTitle: { fontFamily: fonts.serifBold, fontSize: 20 },
+  viewAllRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  viewAllText: { fontFamily: fonts.sansMedium, fontSize: 14 },
+
+  // Books grid
+  booksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+  },
+
+  // Authors horizontal scroll
+  authorsScroll: { paddingHorizontal: 16, gap: 14 },
+  authorCard: { alignItems: 'center', width: 80 },
+  authorPhoto: { width: 64, height: 64, borderRadius: 32, marginBottom: 6 },
+  authorPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  authorInitial: { fontFamily: fonts.serif, fontSize: 24 },
+  authorName: { fontFamily: fonts.sans, fontSize: 12, textAlign: 'center' },
 })
