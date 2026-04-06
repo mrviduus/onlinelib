@@ -1,3 +1,31 @@
+/* Guest banner */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  background: var(--color-brand, #c9a227);
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+}
+
+.guest-banner__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.guest-banner__link:hover {
+  opacity: 0.85;
+}
+
 /* Header - Stitch design */
 .site-header {
   display: flex;

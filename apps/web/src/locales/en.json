@@ -27,6 +27,11 @@
       "label": "Continue Reading"
     }
   },
+  "guestBanner": {
+    "message": "You're browsing as a guest.",
+    "signIn": "Sign in",
+    "suffix": "to save your progress"
+  },
   "reviewPrompt": {
     "message": "You have {count} words due for review",
     "reviewNow": "Review Now",

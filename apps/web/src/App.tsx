@@ -32,6 +32,7 @@ import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
 import { ReviewPromptBanner } from './components/ReviewPromptBanner'
+import { GuestBanner } from './components/GuestBanner'
 import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
@@ -58,7 +59,12 @@ function LanguageRoutes() {
 
   return (
     <LanguageProvider>
-      {!isReaderPage && !isUserBookReaderPage && <Header />}
+      {!isReaderPage && !isUserBookReaderPage && (
+        <>
+          <GuestBanner />
+          <Header />
+        </>
+      )}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
