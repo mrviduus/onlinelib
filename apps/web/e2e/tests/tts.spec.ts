@@ -55,8 +55,15 @@ test.describe('TTS', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
-    // Should see a speak button on the card
-    const speakBtn = page.locator('.review-card__speak')
+    // Dismiss NewWordCard if visible (new words show intro first)
+    const continueBtn = page.locator('.new-word-card__continue')
+    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await continueBtn.click()
+      await page.waitForTimeout(300)
+    }
+
+    // Should see a speak button on the card (MC or FlashCard)
+    const speakBtn = page.locator('.speak-btn')
     await expect(speakBtn).toBeVisible({ timeout: 5000 })
   })
 
@@ -64,23 +71,24 @@ test.describe('TTS', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
-    // Answer the card (MC: click first option; typed/context: type and submit)
+    // Dismiss NewWordCard if visible
+    const continueBtn = page.locator('.new-word-card__continue')
+    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await continueBtn.click()
+      await page.waitForTimeout(300)
+    }
+
+    // Answer the card (MC: click first option)
     const mcOption = page.locator('.review-mc__option').first()
     if (await mcOption.isVisible({ timeout: 1000 }).catch(() => false)) {
       await mcOption.click()
-    } else {
-      const contextInput = page.locator('.review-context__input')
-      if (await contextInput.isVisible({ timeout: 500 }).catch(() => false)) {
-        await contextInput.fill('test')
-        await page.locator('.review-context__submit').click()
-      }
     }
 
     // Wait for feedback
     await page.waitForTimeout(500)
 
     // Feedback should have a speak button
-    const feedbackSpeak = page.locator('.review-feedback .review-card__speak')
+    const feedbackSpeak = page.locator('.review-feedback .speak-btn')
     await expect(feedbackSpeak).toBeVisible({ timeout: 3000 })
   })
 

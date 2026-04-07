@@ -35,7 +35,9 @@ test.describe('Vocabulary', () => {
     await page.waitForLoadState('networkidle')
 
     for (const w of TEST_WORDS) {
-      await expect(page.locator('.vocab-word__text', { hasText: w.word })).toBeVisible()
+      // Words with sentences show as context snippet, words without show as plain text
+      const wordVisible = page.locator('.vocab-word__row', { hasText: w.word })
+      await expect(wordVisible).toBeVisible()
     }
   })
 
@@ -46,7 +48,7 @@ test.describe('Vocabulary', () => {
     // All words are stage 0 (new) — click "New" tab
     await page.locator('.vocab-tab', { hasText: 'New' }).click()
     await page.waitForTimeout(500)
-    const words = page.locator('.vocab-word__text')
+    const words = page.locator('.vocab-word')
     expect(await words.count()).toBe(TEST_WORDS.length)
 
     // Click "Mastered" tab — should be empty
@@ -62,9 +64,9 @@ test.describe('Vocabulary', () => {
     await page.locator('.vocab-search').fill('castle')
     await page.waitForTimeout(500)
 
-    const words = page.locator('.vocab-word__text')
+    const words = page.locator('.vocab-word')
     expect(await words.count()).toBe(1)
-    await expect(words.first()).toHaveText('castle')
+    await expect(page.locator('.vocab-word__row', { hasText: 'castle' })).toBeVisible()
   })
 
   test('start review → MC card renders with definition + word options', async ({ authedPage: page }) => {
@@ -77,6 +79,13 @@ test.describe('Vocabulary', () => {
 
     // Should be on review page
     expect(page.url()).toContain('/words/review')
+
+    // Dismiss NewWordCard if visible (new words show intro first)
+    const continueBtn = page.locator('.new-word-card__continue')
+    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await continueBtn.click()
+      await page.waitForTimeout(300)
+    }
 
     // MC card: definition prompt + 4 option buttons
     const prompt = page.locator('.review-mc__prompt')
@@ -97,20 +106,24 @@ test.describe('Vocabulary', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
+    // Dismiss NewWordCard if visible
+    const continueBtn = page.locator('.new-word-card__continue')
+    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await continueBtn.click()
+      await page.waitForTimeout(300)
+    }
+
     // Find the correct option
     const options = page.locator('.review-mc__option')
     await expect(options.first()).toBeVisible()
 
-    // Click first option to trigger answer (may or may not be correct)
-    // Instead, let's find the correct index from the DOM state after clicking
-    // We'll click any option and check the feedback
-    const correctOption = page.locator('.review-mc__option').first()
-    await correctOption.click()
+    // Click first option to trigger answer
+    await options.first().click()
 
     // Wait for feedback
     await page.waitForTimeout(500)
 
-    // Check if correct or wrong feedback appeared
+    // Check if feedback appeared
     const feedback = page.locator('.review-feedback')
     await expect(feedback).toBeVisible()
   })
@@ -120,22 +133,23 @@ test.describe('Vocabulary', () => {
     await page.waitForLoadState('networkidle')
 
     // Answer all cards until session complete
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       // Check if session complete
       const summary = page.locator('.review-summary')
       if (await summary.isVisible()) break
+
+      // Dismiss NewWordCard if visible
+      const continueBtn = page.locator('.new-word-card__continue')
+      if (await continueBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+        await continueBtn.click()
+        await page.waitForTimeout(300)
+        continue
+      }
 
       // If MC card visible, click first option
       const mcOption = page.locator('.review-mc__option').first()
       if (await mcOption.isVisible({ timeout: 500 }).catch(() => false)) {
         await mcOption.click()
-      }
-
-      // If context card visible, type and submit
-      const contextInput = page.locator('.review-context__input')
-      if (await contextInput.isVisible({ timeout: 500 }).catch(() => false)) {
-        await contextInput.fill('test')
-        await page.locator('.review-context__submit').click()
       }
 
       // Click next if feedback visible
@@ -150,7 +164,7 @@ test.describe('Vocabulary', () => {
     // Should see summary
     const summary = page.locator('.review-summary')
     await expect(summary).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('.review-summary__value').first()).toBeVisible()
+    await expect(page.locator('.review-summary__stat-big').first()).toBeVisible()
   })
 
   test('back to vocabulary from summary', async ({ authedPage: page }) => {
@@ -158,8 +172,8 @@ test.describe('Vocabulary', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
-    // If no words due, we'll see "No words due" with back button
-    const backBtn = page.locator('.review-summary__btn, .vocab-review-btn')
+    // If no words due, we'll see empty state or summary with back button
+    const backBtn = page.locator('.review-summary__btn, .empty-state__btn')
     if (await backBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await backBtn.click()
       await page.waitForLoadState('networkidle')
