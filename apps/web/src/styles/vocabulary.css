@@ -390,26 +390,41 @@
 .vocab-word__main {
   display: flex;
   gap: 0.75rem;
-  align-items: baseline;
+  align-items: center;
   min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .vocab-word__text {
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
-.vocab-word__translation {
-  color: var(--color-text-secondary);
+.vocab-word__context {
   font-size: 0.875rem;
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.vocab-word__context strong {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.vocab-word__translation {
+  color: var(--color-brand);
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 .vocab-word__meta {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: center;
   flex-shrink: 0;
 }
@@ -445,6 +460,19 @@
   padding: 0.75rem 1rem 1rem;
   border-top: 1px solid var(--color-border);
   font-size: 0.875rem;
+}
+
+.vocab-word__detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.vocab-word__detail-word {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-text);
 }
 
 .vocab-word__definition {

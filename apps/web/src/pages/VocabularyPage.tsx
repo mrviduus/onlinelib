@@ -18,6 +18,28 @@ function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
   )
 }
 
+function ContextSnippet({ word, sentence }: { word: string; sentence?: string | null }) {
+  if (!sentence) return <span className="vocab-word__text">{word}</span>
+
+  const idx = sentence.toLowerCase().indexOf(word.toLowerCase())
+  if (idx === -1) return <span className="vocab-word__context">{sentence}</span>
+
+  const before = sentence.slice(0, idx)
+  const match = sentence.slice(idx, idx + word.length)
+  const after = sentence.slice(idx + word.length)
+
+  // Trim to ~80 chars around the word
+  const maxSide = 35
+  const trimBefore = before.length > maxSide ? '…' + before.slice(-maxSide) : before
+  const trimAfter = after.length > maxSide ? after.slice(0, maxSide) + '…' : after
+
+  return (
+    <span className="vocab-word__context">
+      {trimBefore}<strong>{match}</strong>{trimAfter}
+    </span>
+  )
+}
+
 export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
@@ -219,13 +241,12 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
                       onClick={() => speak(w.word, w.language)}
                       isPlaying={isPlaying}
                     />
-                    <span className="vocab-word__text">{w.word}</span>
+                    <ContextSnippet word={w.word} sentence={w.sentence} />
+                  </div>
+                  <div className="vocab-word__meta">
                     {w.translation && (
                       <span className="vocab-word__translation">{w.translation}</span>
                     )}
-                  </div>
-                  <div className="vocab-word__meta">
-                    <StageBadge stage={w.stage} t={t} />
                     {w.bookTitle && (
                       <span className="vocab-word__book">{w.bookTitle}</span>
                     )}
@@ -234,6 +255,10 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
 
                 {expandedId === w.id && (
                   <div className="vocab-word__detail">
+                    <div className="vocab-word__detail-header">
+                      <span className="vocab-word__detail-word">{w.word}</span>
+                      <StageBadge stage={w.stage} t={t} />
+                    </div>
                     {w.definition && (
                       <p className="vocab-word__definition">{w.definition}</p>
                     )}
