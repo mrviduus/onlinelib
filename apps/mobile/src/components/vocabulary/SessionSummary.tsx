@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Animated } from 'react-native'
 import { useTheme } from '../../context/ThemeContext'
 import { PressableScale } from '../ui/PressableScale'
 import { Ionicons } from '@expo/vector-icons'
-import type { ReviewMode } from '../../hooks/useVocabularyReview'
+import { REVIEW_BATCH_SIZES } from '@textstack/shared'
+import type { ReviewMode } from '@textstack/shared'
 
 type RewardTier = 'perfect' | 'great' | 'good' | 'keep'
 
@@ -18,20 +19,18 @@ interface Props {
   reviewed: number
   correct: number
   elapsedMs: number
-  mode: 'srs' | 'practice'
   reviewMode: ReviewMode
   dueCount: number
   batchSize: number
   onAgain: () => void
-  onReviewDue?: () => void
   onBack: () => void
   onBatchChange: (size: number) => void
   onModeChange: (mode: ReviewMode) => void
 }
 
 export function SessionSummary({
-  reviewed, correct, elapsedMs, mode, reviewMode, dueCount, batchSize,
-  onAgain, onReviewDue, onBack, onBatchChange, onModeChange,
+  reviewed, correct, elapsedMs, reviewMode, dueCount, batchSize,
+  onAgain, onBack, onBatchChange, onModeChange,
 }: Props) {
   const { colors } = useTheme()
   const translateY = useRef(new Animated.Value(-30)).current
@@ -60,12 +59,8 @@ export function SessionSummary({
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Ionicons name="checkmark-circle-outline" size={56} color={colors.success} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          {mode === 'practice' ? 'No words to practice' : 'All caught up!'}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {mode === 'practice' ? 'Add more words while reading.' : 'No words due for review.'}
-        </Text>
+        <Text style={[styles.title, { color: colors.text }]}>All caught up!</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>No words due for review.</Text>
         <PressableScale onPress={onBack} style={[styles.primaryBtn, { backgroundColor: colors.primary }]}>
           <Text style={styles.primaryBtnText}>Back to Vocabulary</Text>
         </PressableScale>
@@ -98,10 +93,6 @@ export function SessionSummary({
         </View>
       </View>
 
-      {mode === 'practice' && (
-        <Text style={[styles.practiceNote, { color: colors.primary }]}>Practice mode — no SRS effect</Text>
-      )}
-
       {/* Mode toggle */}
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Review Style</Text>
@@ -118,7 +109,7 @@ export function SessionSummary({
                 color={reviewMode === m ? '#fff' : colors.textSecondary}
               />
               <Text style={[styles.toggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
-                {m === 'blitz' ? 'Blitz' : 'Classic'}
+                {m === 'blitz' ? 'Blitz' : 'Flashcards'}
               </Text>
             </PressableScale>
           ))}
@@ -129,7 +120,7 @@ export function SessionSummary({
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Batch Size</Text>
         <View style={styles.batchRow}>
-          {[10, 20, 50].map(n => (
+          {REVIEW_BATCH_SIZES.map(n => (
             <PressableScale
               key={n}
               onPress={() => onBatchChange(n)}
@@ -152,16 +143,9 @@ export function SessionSummary({
         <PressableScale onPress={onAgain} style={[styles.actionBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
           <Ionicons name="refresh-outline" size={18} color={colors.primary} />
           <Text style={[styles.actionBtnText, { color: colors.primary }]}>
-            {mode === 'practice' ? 'Practice Again' : 'Review Again'}
+            Practice Again{dueCount > 0 ? ` (${dueCount} due)` : ''}
           </Text>
         </PressableScale>
-
-        {mode === 'practice' && dueCount > 0 && onReviewDue && (
-          <PressableScale onPress={onReviewDue} style={[styles.actionBtn, { backgroundColor: colors.primary }]}>
-            <Ionicons name="school-outline" size={18} color="#fff" />
-            <Text style={[styles.actionBtnText, { color: '#fff' }]}>Review Due ({dueCount})</Text>
-          </PressableScale>
-        )}
 
         <PressableScale onPress={onBack} style={[styles.actionBtn, { backgroundColor: colors.primary }]}>
           <Text style={[styles.actionBtnText, { color: '#fff' }]}>Back to Vocabulary</Text>

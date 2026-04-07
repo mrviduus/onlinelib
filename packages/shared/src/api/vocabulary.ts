@@ -31,13 +31,13 @@ export function deleteWord(id: string) {
   return authFetch<void>(`/me/vocabulary/words/${id}`, { method: 'DELETE' })
 }
 
-export function getReviewQueue(limit?: number, mode?: 'srs' | 'practice') {
+export function getReviewQueue(limit?: number) {
   return authFetch<{ cards: ReviewCardDto[]; totalDue: number }>(
-    `/me/vocabulary/review${buildQuery({ limit, mode: mode !== 'srs' ? mode : undefined })}`
+    `/me/vocabulary/review${buildQuery({ limit })}`
   )
 }
 
-export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; reviewMode?: string; mode?: string; selfAssessment?: string }) {
+export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; selfAssessment?: string }) {
   return authFetch<SubmitReviewResponse>('/me/vocabulary/review', jsonBody('POST', data))
 }
 

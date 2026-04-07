@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { translationApi } from '@textstack/shared'
@@ -49,6 +49,17 @@ export function WordCard({
   const slideAnim = useRef(new Animated.Value(0)).current
   const saveAnim = useRef(new Animated.Value(1)).current
   const savedTextOpacity = useRef(new Animated.Value(0)).current
+  const dismissTimerRef = useRef<NodeJS.Timeout | number | null>(null)
+
+  const cancelAutoDismiss = useCallback(() => {
+    if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
+  }, [])
+
+  // Auto-dismiss after 3s unless user interacts
+  useEffect(() => {
+    dismissTimerRef.current = setTimeout(onDismiss, 3000)
+    return () => { if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number) }
+  }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch translation on mount
   useEffect(() => {
@@ -90,7 +101,7 @@ export function WordCard({
       { backgroundColor: colors.surface, borderColor: colors.border, transform: [{ translateY }], opacity: slideAnim },
     ]}>
       {/* Level 1: Word + translation + save */}
-      <TouchableOpacity activeOpacity={0.9} onPress={() => setExpanded(!expanded)} style={styles.mainRow}>
+      <TouchableOpacity activeOpacity={0.9} onPress={() => { cancelAutoDismiss(); setExpanded(!expanded) }} style={styles.mainRow}>
         <View style={styles.wordCol}>
           <View style={styles.wordRow}>
             <Text style={[styles.word, { color: colors.text }]}>{word}</Text>
@@ -108,7 +119,7 @@ export function WordCard({
         </View>
 
         {/* TTS button */}
-        <TouchableOpacity style={styles.iconBtn} onPress={onSpeak}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => { cancelAutoDismiss(); onSpeak() }}>
           <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.primary} />
         </TouchableOpacity>
 

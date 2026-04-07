@@ -24,6 +24,7 @@ import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
 import { WordsPage } from './pages/WordsPage'
 import { PracticePage } from './pages/PracticePage'
+import { HighlightsPage } from './pages/HighlightsPage'
 import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -86,11 +87,11 @@ function LanguageRoutes() {
         <Route path="/words" element={<WordsPage />} />
         <Route path="/words/review" element={<VocabularyReviewPage />} />
         <Route path="/practice" element={<PracticePage />} />
+        <Route path="/highlights" element={<HighlightsPage />} />
         <Route path="/highlights/review" element={<HighlightReviewPage />} />
         {/* Redirects from old URLs */}
         <Route path="/vocabulary" element={<Navigate to="../words" replace />} />
         <Route path="/vocabulary/review" element={<Navigate to="../words/review" replace />} />
-        <Route path="/highlights" element={<Navigate to="../words?tab=highlights" replace />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

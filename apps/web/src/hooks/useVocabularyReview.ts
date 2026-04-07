@@ -6,8 +6,9 @@ import {
   type SelfAssessment,
   type SubmitReviewResponse,
 } from '../api/vocabulary'
+import { type ReviewMode } from '../lib/vocabularyConstants'
 
-export type ReviewMode = 'blitz' | 'classic'
+export type { ReviewMode }
 
 interface SessionStats {
   total: number
@@ -28,7 +29,6 @@ export function useVocabularyReview() {
   const [lastResult, setLastResult] = useState<SubmitReviewResponse | null>(null)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
   const [answerRevealed, setAnswerRevealed] = useState(false)
-  const [mode, setMode] = useState<'srs' | 'practice'>('srs')
   const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
   const [showingNewWord, setShowingNewWord] = useState(false)
 
@@ -45,16 +45,14 @@ export function useVocabularyReview() {
     }
   }, [])
 
-  const startSession = useCallback(async (limit?: number, sessionMode?: 'srs' | 'practice', rMode?: ReviewMode) => {
-    const m = sessionMode || 'srs'
-    setMode(m)
+  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode) => {
     if (rMode) setReviewMode(rMode)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
     resetAnswerState()
     try {
-      const queue = await getReviewQueue(limit, m)
+      const queue = await getReviewQueue(limit)
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
       setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
@@ -84,7 +82,6 @@ export function useVocabularyReview() {
         wordId: card.wordId,
         isCorrect,
         responseTimeMs,
-        mode: mode === 'practice' ? 'practice' : undefined,
         selfAssessment,
       })
       setLastResult(result)
@@ -100,7 +97,7 @@ export function useVocabularyReview() {
     } finally {
       setSubmitting(false)
     }
-  }, [cards, currentIndex, mode, submitting])
+  }, [cards, currentIndex, submitting])
 
   const nextCard = useCallback(() => {
     const nextIdx = currentIndex + 1
@@ -127,7 +124,6 @@ export function useVocabularyReview() {
     answerRevealed,
     isSessionComplete,
     hasCards,
-    mode,
     reviewMode,
     showingNewWord,
     startSession,

@@ -509,6 +509,20 @@
   border-radius: 12px;
   padding: 20px;
   color: var(--color-text);
+
+  --heatmap-empty: #f3f4f6;
+  --heatmap-l1: #d4a574;
+  --heatmap-l2: #c4884e;
+  --heatmap-l3: var(--color-brand, #C4704B);
+  --heatmap-l4: #8b4513;
+}
+
+html.dark .vocab-heatmap {
+  --heatmap-empty: #2a2a2a;
+  --heatmap-l1: #6b4a2e;
+  --heatmap-l2: #8b5e3c;
+  --heatmap-l3: #c4704b;
+  --heatmap-l4: #e8945a;
 }
 
 .vocab-heatmap h3 {

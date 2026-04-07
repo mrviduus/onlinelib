@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -7,6 +7,7 @@ import type { SelfAssessment } from '../api/vocabulary'
 import { useVocabularyReview, type ReviewMode } from '../hooks/useVocabularyReview'
 import { useTts } from '../hooks/useTts'
 import { useSoundEffects } from '../hooks/useSoundEffects'
+import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE } from '../lib/vocabularyConstants'
 import { MultipleChoiceCard } from '../components/vocabulary/MultipleChoiceCard'
 import { FlashCard } from '../components/vocabulary/FlashCard'
 import { NewWordCard } from '../components/vocabulary/NewWordCard'
@@ -20,12 +21,13 @@ export function VocabularyReviewPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const sessionMode = searchParams.get('mode') === 'practice' ? 'practice' as const : 'srs' as const
   const initialReviewMode = (searchParams.get('reviewMode') as ReviewMode) || 'blitz'
-  const batchSize = useMemo(() => {
-    const v = parseInt(searchParams.get('limit') || '20', 10)
-    return [10, 20, 50].includes(v) ? v : 20
+  const initialBatchSize = useMemo(() => {
+    const v = parseInt(searchParams.get('limit') || String(DEFAULT_BATCH_SIZE), 10)
+    return (REVIEW_BATCH_SIZES as readonly number[]).includes(v) ? v : DEFAULT_BATCH_SIZE
   }, [searchParams])
+  const [batchSize, setBatchSize] = useState(initialBatchSize)
+  const sessionStartRef = useRef(Date.now())
 
   const review = useVocabularyReview()
   const { speak } = useTts()
@@ -35,8 +37,11 @@ export function VocabularyReviewPage() {
   const goToWords = () => navigate(`/${language}/words`)
 
   useEffect(() => {
-    if (user) review.startSession(batchSize, sessionMode, initialReviewMode)
-  }, [user, batchSize, sessionMode, initialReviewMode]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (user) {
+      sessionStartRef.current = Date.now()
+      review.startSession(initialBatchSize, initialReviewMode)
+    }
+  }, [user, initialReviewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (isCorrect: boolean, responseTimeMs: number, selfAssessment?: SelfAssessment) => {
     playSound(isCorrect ? 'correct' : 'wrong')
@@ -77,8 +82,8 @@ export function VocabularyReviewPage() {
     return (
       <div className="vocab-page">
         <EmptyState
-          icon="📝"
-          title={review.mode === 'practice' ? t('vocabulary.review.noPracticeWords') : t('vocabulary.noReviewDue')}
+          icon="✅"
+          title={t('vocabulary.noReviewDue')}
           buttonLabel={t('vocabulary.review.backToVocab')}
           onButtonClick={goToWords}
         />
@@ -92,25 +97,28 @@ export function VocabularyReviewPage() {
         <SessionSummary
           reviewed={review.sessionStats.reviewed}
           correct={review.sessionStats.correct}
-          mode={review.mode}
+          elapsedMs={Date.now() - sessionStartRef.current}
+          reviewMode={review.reviewMode}
+          batchSize={batchSize}
           t={t}
           onBack={goToWords}
-          onPracticeAgain={() => review.startSession(batchSize, 'practice', review.reviewMode)}
-          onStartSrs={() => review.startSession(batchSize, 'srs', review.reviewMode)}
+          onAgain={() => {
+            sessionStartRef.current = Date.now()
+            review.startSession(batchSize, review.reviewMode)
+          }}
+          onBatchChange={setBatchSize}
+          onModeChange={(m: ReviewMode) => review.setReviewMode(m)}
           dueCount={review.totalDue}
         />
       </div>
     )
   }
 
-  const { currentCard, currentIndex, cards, reviewMode, showingNewWord, answerRevealed, lastResult, lastAnswerCorrect, submitting, mode } = review
+  const { currentCard, currentIndex, cards, reviewMode, showingNewWord, answerRevealed, lastResult, lastAnswerCorrect, submitting } = review
 
   return (
     <div className="vocab-page">
       <div className="review-header">
-        {mode === 'practice' && (
-          <span className="review-mode-badge">{t('vocabulary.review.practiceMode')}</span>
-        )}
         <button className="review-sound-toggle" onClick={handleToggleSound} title={soundOn ? t('vocabulary.review.soundOff') : t('vocabulary.review.soundOn')}>
           <SoundIcon on={soundOn} />
         </button>

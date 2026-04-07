@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { useVocabulary } from '../hooks/useVocabulary'
 import { useTts } from '../hooks/useTts'
@@ -43,8 +41,6 @@ function ContextSnippet({ word, sentence }: { word: string; sentence?: string | 
 export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
-  const { getLocalizedPath } = useLanguage()
-  const navigate = useNavigate()
   const {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
@@ -169,28 +165,6 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
                 <span className="vocab-stat__value">{stats.practicedToday}</span>
                 <span className="vocab-stat__label">{t('vocabulary.stats.practicedToday')}</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Review / Practice buttons */}
-        {stats && (stats.dueNow > 0 || stats.totalWords > 0) && (
-          <div className="vocab-review-actions">
-            {stats.dueNow > 0 && (
-              <button
-                className="vocab-review-btn"
-                onClick={() => navigate(getLocalizedPath('/words/review'))}
-              >
-                {t('vocabulary.startReview')} ({stats.dueNow})
-              </button>
-            )}
-            {stats.totalWords > 0 && (
-              <button
-                className="vocab-review-btn vocab-review-btn--practice"
-                onClick={() => navigate(getLocalizedPath('/words/review') + '?mode=practice')}
-              >
-                {t('vocabulary.startPractice')}
-              </button>
             )}
           </div>
         )}

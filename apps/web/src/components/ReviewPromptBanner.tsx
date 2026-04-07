@@ -30,7 +30,7 @@ export function ReviewPromptBanner() {
       <span className="review-prompt__text">{message}</span>
       <div className="review-prompt__actions">
         <Link
-          to={getLocalizedPath('/words/review')}
+          to={getLocalizedPath('/practice')}
           className="review-prompt__btn review-prompt__btn--primary"
           onClick={() => setCount(0)}
         >

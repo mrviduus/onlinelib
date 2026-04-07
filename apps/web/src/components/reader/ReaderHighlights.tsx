@@ -78,6 +78,11 @@ export function ReaderHighlights({
     if (hasSelection && tap.word) closeTapPopup()
   }, [hasSelection, tap.word, closeTapPopup])
 
+  // Auto-play TTS when word is tapped
+  useEffect(() => {
+    if (tap.word) handleSpeak(tap.word)
+  }, [tap.word]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // --- Highlights ---
   const {
     highlights, addHighlight, updateHighlight, removeHighlight,

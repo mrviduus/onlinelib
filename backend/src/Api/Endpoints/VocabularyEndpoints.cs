@@ -328,31 +328,17 @@ public static class VocabularyEndpoints
         var siteId = httpContext.GetSiteId();
 
         var now = DateTimeOffset.UtcNow;
-        var batchSize = Math.Min(limit ?? 20, 50);
-        var isPractice = string.Equals(mode, "practice", StringComparison.OrdinalIgnoreCase);
+        var batchSize = Math.Min(limit ?? 10, 50);
 
         var totalDue = await db.VocabularyWords
             .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now, ct);
 
-        List<VocabularyWord> dueWords;
-        if (isPractice)
-        {
-            dueWords = await db.VocabularyWords
-                .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
-                .OrderBy(w => w.TotalReviews == 0 ? 0.0 : (double)w.CorrectReviews / w.TotalReviews)
-                .ThenBy(w => w.Stage)
-                .ThenBy(_ => EF.Functions.Random())
-                .Take(batchSize)
-                .ToListAsync(ct);
-        }
-        else
-        {
-            dueWords = await db.VocabularyWords
-                .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
-                .OrderBy(w => w.NextReviewAt)
-                .Take(batchSize)
-                .ToListAsync(ct);
-        }
+        // Always SRS: return only due words
+        var dueWords = await db.VocabularyWords
+            .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
+            .OrderBy(w => w.NextReviewAt)
+            .Take(batchSize)
+            .ToListAsync(ct);
 
         if (dueWords.Count == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue));
@@ -406,30 +392,16 @@ public static class VocabularyEndpoints
             .FirstOrDefaultAsync(w => w.Id == request.WordId && w.UserId == userId.Value && w.SiteId == siteId, ct);
         if (word == null) return Results.NotFound();
 
-        var isPractice = string.Equals(request.Mode, "practice", StringComparison.OrdinalIgnoreCase);
         var prevStage = word.Stage;
         var now = DateTimeOffset.UtcNow;
-        int newStage;
-        double newInterval;
-        int newConsecutive;
 
-        if (isPractice && request.IsCorrect)
-        {
-            // Practice correct: don't change SRS schedule
-            newStage = prevStage;
-            newInterval = word.IntervalDays;
-            newConsecutive = word.ConsecutiveCorrect;
-        }
-        else
-        {
-            // SRS review OR practice incorrect: full SRS calculation
-            (newStage, newInterval, newConsecutive) = srsEngine.Calculate(
-                word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
-            word.Stage = newStage;
-            word.IntervalDays = newInterval;
-            word.ConsecutiveCorrect = newConsecutive;
-            word.NextReviewAt = now.AddDays(newInterval);
-        }
+        // Always full SRS calculation
+        var (newStage, newInterval, newConsecutive) = srsEngine.Calculate(
+            word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
+        word.Stage = newStage;
+        word.IntervalDays = newInterval;
+        word.ConsecutiveCorrect = newConsecutive;
+        word.NextReviewAt = now.AddDays(newInterval);
 
         word.LastReviewedAt = now;
         word.TotalReviews++;
@@ -443,7 +415,7 @@ public static class VocabularyEndpoints
             VocabularyWordId = word.Id,
             UserId = userId.Value,
             SiteId = siteId,
-            ReviewMode = isPractice ? $"practice_{reviewMode}" : reviewMode,
+            ReviewMode = reviewMode,
             IsCorrect = request.IsCorrect,
             ResponseTimeMs = request.ResponseTimeMs,
             StageBefore = prevStage,
