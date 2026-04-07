@@ -540,6 +540,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Sentence).HasMaxLength(1000);
             e.Property(x => x.BookTitle).HasMaxLength(500);
             e.Property(x => x.Hint).HasMaxLength(500);
+            e.Property(x => x.Explanation).HasMaxLength(1000);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);

@@ -72,13 +72,60 @@ public sealed class ReviewCardBuilder : IReviewCardBuilder
                 correctIndex = options.IndexOf(correct);
             }
 
-            if (reviewMode == "context" && w.Sentence != null)
-                blankSentence = SentenceHelper.ReplaceWordInSentence(w.Sentence, w.Word);
+            if (reviewMode == "context")
+            {
+                // Context mode now uses MC instead of typing
+                if (w.Sentence != null)
+                    blankSentence = SentenceHelper.ReplaceWordInSentence(w.Sentence, w.Word);
+
+                if (options == null)
+                {
+                    // Build MC options for context cloze
+                    var llmDistractors = ParseDistractors(w.DistractorsJson);
+                    var correct = w.Word;
+                    List<string> distractors;
+
+                    if (llmDistractors?.Count >= 3)
+                    {
+                        distractors = llmDistractors
+                            .Where(d => !d.Equals(w.Word, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(_ => Random.Shared.Next())
+                            .Take(3)
+                            .ToList();
+                    }
+                    else
+                    {
+                        var pool = poolByLang.GetValueOrDefault(w.Language, []);
+                        distractors = pool
+                            .Where(d => d.Word != w.Word)
+                            .OrderBy(_ => Random.Shared.Next())
+                            .Take(3)
+                            .Select(d => d.Word)
+                            .ToList();
+                    }
+
+                    if (distractors.Count < 3)
+                    {
+                        foreach (var fb in DistractorWords.ForLanguage(w.Language).OrderBy(_ => Random.Shared.Next()))
+                        {
+                            if (distractors.Count >= 3) break;
+                            if (fb != correct && !distractors.Contains(fb))
+                                distractors.Add(fb);
+                        }
+                    }
+
+                    options = distractors.Take(3).Append(correct).OrderBy(_ => Random.Shared.Next()).ToList();
+                    correctIndex = options.IndexOf(correct);
+                    reviewMode = "multiple_choice"; // Context cloze uses MC UI
+                }
+            }
+
+            var isNew = w.Stage == 0 && w.TotalReviews == 0;
 
             cards.Add(new ReviewCard(
                 w.Id, w.Word, w.Translation, w.Definition,
                 reviewMode, blankSentence, w.Sentence, w.BookTitle,
-                w.Hint, options, correctIndex));
+                w.Hint, w.Explanation, isNew, options, correctIndex));
         }
 
         return cards;

@@ -347,7 +347,8 @@ public static class VocabularyEndpoints
             w.Id, w.Word, w.Language,
             w.Translation, w.Definition,
             w.Sentence, w.BookTitle, w.Hint,
-            w.Distractors, w.Stage)).ToList();
+            w.Explanation, w.Distractors,
+            w.Stage, w.TotalReviews)).ToList();
 
         var cards = cardBuilder.BuildCards(wordsForReview, distractorPool);
 
@@ -355,7 +356,7 @@ public static class VocabularyEndpoints
         var cardDtos = cards.Select(c => new ReviewCardDto(
             c.WordId, c.Word, c.Translation, c.Definition,
             c.ReviewMode, c.BlankSentence, c.OriginalSentence, c.BookTitle,
-            c.Hint, c.Options, c.CorrectOptionIndex)).ToList();
+            c.Hint, c.Explanation, c.IsNew, c.Options, c.CorrectOptionIndex)).ToList();
 
         return Results.Ok(new ReviewQueueResponse(cardDtos, totalDue));
     }
@@ -678,10 +679,10 @@ public record ReviewCardDto(
     Guid WordId, string Word, string? Translation, string? Definition,
     string ReviewMode,
     string? BlankSentence, string? OriginalSentence, string? BookTitle,
-    string? Hint,
+    string? Hint, string? Explanation, bool IsNew,
     List<string>? Options, int? CorrectOptionIndex);
 
-public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs, string? Mode = null);
+public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs, string? Mode = null, string? SelfAssessment = null);
 
 public record SubmitReviewResponse(
     Guid WordId, int PreviousStage, int NewStage, bool StageChanged,

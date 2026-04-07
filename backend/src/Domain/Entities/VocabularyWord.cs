@@ -25,6 +25,9 @@ public class VocabularyWord
     // LLM-generated hint — describes the word without saying it
     public string? Hint { get; set; }
 
+    // LLM-generated explanation — contextual explanation of the word for New Word intro card
+    public string? Explanation { get; set; }
+
     // SRS fields
     public int Stage { get; set; }
     public double IntervalDays { get; set; }
