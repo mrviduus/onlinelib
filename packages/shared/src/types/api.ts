@@ -213,9 +213,13 @@ export interface ReviewCardDto {
   originalSentence: string | null
   bookTitle: string | null
   hint: string | null
+  explanation: string | null
+  isNew: boolean
   options: string[] | null
   correctOptionIndex: number | null
 }
+
+export type SelfAssessment = 'forgot' | 'almost' | 'knew'
 
 export interface SubmitReviewResponse {
   wordId: string

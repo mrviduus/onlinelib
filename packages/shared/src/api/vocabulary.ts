@@ -37,7 +37,7 @@ export function getReviewQueue(limit?: number, mode?: 'srs' | 'practice') {
   )
 }
 
-export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; reviewMode?: string; mode?: string }) {
+export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; reviewMode?: string; mode?: string; selfAssessment?: string }) {
   return authFetch<SubmitReviewResponse>('/me/vocabulary/review', jsonBody('POST', data))
 }
 

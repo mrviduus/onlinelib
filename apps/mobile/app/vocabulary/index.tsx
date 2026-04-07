@@ -12,7 +12,9 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { PressableScale } from '../../src/components/ui/PressableScale'
 import { useTts } from '../../src/hooks/useTts'
+import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -48,6 +50,7 @@ export default function VocabularyScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -125,26 +128,46 @@ export default function VocabularyScreen() {
           </View>
         )}
 
-        {/* Review + Practice buttons */}
+        {/* Mode selector + Review/Practice buttons */}
         {stats && stats.totalWords > 0 && (
-          <View style={styles.reviewRow}>
-            {dueCount > 0 && (
+          <>
+            <View style={[styles.modeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {(['blitz', 'classic'] as ReviewMode[]).map(m => (
+                <PressableScale
+                  key={m}
+                  onPress={() => setReviewMode(m)}
+                  style={[styles.modeToggleItem, reviewMode === m && { backgroundColor: colors.primary }]}
+                >
+                  <Ionicons
+                    name={m === 'blitz' ? 'flash' : 'layers'}
+                    size={14}
+                    color={reviewMode === m ? '#fff' : colors.textSecondary}
+                  />
+                  <Text style={[styles.modeToggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
+                    {m === 'blitz' ? 'Blitz' : 'Classic'}
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
+            <View style={styles.reviewRow}>
+              {dueCount > 0 && (
+                <TouchableOpacity
+                  style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                  onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
+                >
+                  <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Review ({dueCount})</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
-                onPress={() => router.push('/vocabulary/review')}
+                style={[styles.reviewBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
+                onPress={() => router.push(`/vocabulary/review?mode=practice&reviewMode=${reviewMode}`)}
               >
-                <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Review ({dueCount})</Text>
+                <Ionicons name="refresh-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium, color: colors.primary }]}>Practice</Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.reviewBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
-              onPress={() => router.push('/vocabulary/review?mode=practice')}
-            >
-              <Ionicons name="refresh-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium, color: colors.primary }]}>Practice</Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+          </>
         )}
 
         {/* Filter tabs */}
@@ -249,6 +272,26 @@ function StatBox({ label, value, color }: { label: string; value: number | strin
   )
 }
 
+function ContextSnippet({ sentence, word }: { sentence: string; word: string }) {
+  const { colors } = useTheme()
+  const lower = sentence.toLowerCase()
+  const idx = lower.indexOf(word.toLowerCase())
+  if (idx === -1) {
+    return <Text style={[styles.contextText, { color: colors.textSecondary }]} numberOfLines={1}>{sentence}</Text>
+  }
+  const before = sentence.slice(0, idx)
+  const match = sentence.slice(idx, idx + word.length)
+  const after = sentence.slice(idx + word.length)
+  // Trim to ~35 chars each side
+  const trimBefore = before.length > 35 ? '...' + before.slice(-35) : before
+  const trimAfter = after.length > 35 ? after.slice(0, 35) + '...' : after
+  return (
+    <Text style={[styles.contextText, { color: colors.textSecondary }]} numberOfLines={1}>
+      {trimBefore}<Text style={{ fontFamily: fonts.sansBold, color: colors.text }}>{match}</Text>{trimAfter}
+    </Text>
+  )
+}
+
 function WordRow({
   word, expanded, onToggle, onDelete, onEdit, onSpeak,
 }: {
@@ -296,20 +339,25 @@ function WordRow({
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.wordText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{word.word}</Text>
-          {word.translation && !editField && (
+          {word.sentence && !expanded ? (
+            <ContextSnippet sentence={word.sentence} word={word.word} />
+          ) : word.translation && !editField ? (
             <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{word.translation}</Text>
-          )}
-          {word.bookTitle && !expanded && (
-            <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: fonts.sans, marginTop: 1 }} numberOfLines={1}>{word.bookTitle}</Text>
-          )}
+          ) : null}
         </View>
-        <View style={[styles.stageBadge, { backgroundColor: stageColor + '20' }]}>
-          <Text style={[styles.stageText, { color: stageColor, fontFamily: fonts.sansMedium }]}>{stageLabel}</Text>
-        </View>
+        {!expanded && (
+          <View style={[styles.stageBadge, { backgroundColor: stageColor + '20' }]}>
+            <Text style={[styles.stageText, { color: stageColor, fontFamily: fonts.sansMedium }]}>{stageLabel}</Text>
+          </View>
+        )}
       </View>
 
       {expanded && (
         <View style={[styles.wordDetail, { borderTopColor: colors.border }]}>
+          {/* Stage badge in expanded view */}
+          <View style={[styles.stageBadge, { backgroundColor: stageColor + '20', alignSelf: 'flex-start', marginBottom: 8 }]}>
+            <Text style={[styles.stageText, { color: stageColor, fontFamily: fonts.sansMedium }]}>{stageLabel}</Text>
+          </View>
           {/* Edit translation / definition */}
           {editField ? (
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
@@ -398,11 +446,17 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20 },
   statLabel: { fontSize: 11, marginTop: 2 },
 
+  // Mode toggle
+  modeToggle: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  modeToggleItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 9 },
+  modeToggleText: { fontSize: 14, fontFamily: 'Inter-Medium' },
+  // Context snippet
+  contextText: { fontSize: 12, fontFamily: 'Inter-Regular', marginTop: 2 },
   // Review buttons
   reviewRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginTop: 12,
+    marginTop: 8,
     gap: 8,
   },
   reviewBtn: {

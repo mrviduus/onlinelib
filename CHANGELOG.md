@@ -13,6 +13,14 @@
 - **Dark mode fix** — replaced undefined CSS vars (`--color-surface`, `--color-hover`) with proper theme vars
 - **Removed typing mode** — ContextCard deleted, context cloze now uses MC (backend returns `multiple_choice`)
 - **Ollama model upgrade** — switched from `gemma3:4b` to `qwen3:8b` for better multilingual quality
+- **Mobile: vocab review overhaul** — ported all web review changes to React Native
+  - Blitz (MC) + Classic (FlashCard with 3D flip) modes
+  - Haptic feedback (expo-haptics): correct/wrong/flip/complete
+  - NewWordCard for stage=0 words, ReviewFeedback (mini/full), SessionSummary with reward tiers
+  - Mode selector (Blitz/Classic toggle) on vocabulary index
+  - Word list context snippets with bold word in sentence
+  - MC fix: `correctOptionIndex` instead of string comparison
+  - Removed dead code: ContextCard, fuzzyMatch, levenshtein, inline feedback/summary
 
 ### Auto Publish — Automated Book Publishing Pipeline (2026-04-02)
 - **Auto-publish admin page** — configurable pipeline: Draft → SEO generation → publish, fully managed from admin panel
