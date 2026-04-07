@@ -40,6 +40,7 @@ export interface ReadingStats {
   avgDailyMinutes: number
   avgWordsPerMinute: number
   todaySeconds: number
+  todayVocabReviews: number
   weekSeconds: number
   monthSeconds: number
   dailyGoal: { target: number; today: number; met: boolean } | null

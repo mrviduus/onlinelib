@@ -6,6 +6,7 @@ const CACHE_KEY = 'reading.quickStats'
 
 export interface QuickStats {
   todaySeconds: number
+  todayVocabReviews: number
   dailyGoal: { target: number; today: number; met: boolean } | null
   currentStreak: number
   wpm: number | null
@@ -31,6 +32,7 @@ export function useQuickStats(): QuickStats | null {
       .then((s) => {
         const qs: QuickStats = {
           todaySeconds: s.todaySeconds,
+          todayVocabReviews: s.todayVocabReviews,
           dailyGoal: s.dailyGoal,
           currentStreak: s.currentStreak,
           wpm: s.avgWordsPerMinute > 0 ? s.avgWordsPerMinute : null,

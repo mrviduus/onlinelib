@@ -1268,22 +1268,6 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   opacity: 0.7;
 }
 
-.reader-stats-widget__dots {
-  display: inline-flex;
-  gap: 2px;
-}
-
-.reader-stats-widget__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--reader-border);
-}
-
-.reader-stats-widget__dot--filled {
-  background: var(--color-success, #22c55e);
-}
-
 .reader-stats-widget__goal-text {
   font-variant-numeric: tabular-nums;
 }

@@ -9,6 +9,7 @@ import { useScrolled } from '../hooks/useScrolled'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { useTranslation } from '../hooks/useTranslation'
 import { useQuickStats } from '../hooks/useQuickStats'
+import { StreakBadge } from './StreakBadge'
 
 export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -62,10 +63,14 @@ export function Header() {
         >
           <span className="material-icons-outlined">search</span>
         </button>
-        {isAuthenticated && quickStats && quickStats.currentStreak > 0 && (
-          <LocalizedLink to="/stats" className="site-header__badge" title={t('nav.stats')}>
-            <span className="site-header__badge-icon">🔥</span>
-            <span className="site-header__badge-value">{quickStats.currentStreak}</span>
+        {isAuthenticated && quickStats && (
+          <LocalizedLink to="/stats" className="streak-badge" title={t('nav.stats')}>
+            <StreakBadge
+              streak={quickStats.currentStreak}
+              progress={quickStats.dailyGoal
+                ? quickStats.dailyGoal.today / quickStats.dailyGoal.target
+                : 0}
+            />
           </LocalizedLink>
         )}
         {!isLoading && (isAuthenticated ? <UserMenu /> : <LoginButton />)}

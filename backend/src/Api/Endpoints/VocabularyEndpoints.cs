@@ -6,6 +6,7 @@ using Application.Common.Interfaces;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Application.ReadingTracking;
 using TextStack.Vocabulary;
 using TextStack.Vocabulary.Contracts;
 
@@ -424,6 +425,11 @@ public static class VocabularyEndpoints
 
         db.VocabularyReviews.Add(review);
         await db.SaveChangesAsync(ct);
+
+        // Check streak achievements (vocab reviews now count toward streak)
+        var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId.Value, siteId, ct);
+        var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId.Value, siteId, streakMinMinutes, now, ct);
+        await new AchievementChecker(db).CheckAfterReview(userId.Value, siteId, currentStreak, ct);
 
         return Results.Ok(new SubmitReviewResponse(
             word.Id, prevStage, newStage, prevStage != newStage,

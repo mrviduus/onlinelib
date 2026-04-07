@@ -187,7 +187,12 @@ public static class ReadingTrackingEndpoints
                 avgWordsPerMinute = totalWords / (totalSeconds / 60.0);
         }
 
-        // Daily goal
+        // Vocab reviews today
+        var todayVocabReviews = await db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart)
+            .CountAsync(ct);
+
+        // Daily goal (reading + vocab reviews as effective minutes)
         var dailyGoal = await db.ReadingGoals
             .Where(g => g.UserId == userId.Value && g.SiteId == siteId
                 && g.GoalType == "daily_minutes" && g.IsActive)
@@ -196,12 +201,12 @@ public static class ReadingTrackingEndpoints
         object? dailyGoalObj = null;
         if (dailyGoal != null)
         {
-            var todayMinutes = todaySeconds / 60.0;
+            var effectiveTodayMinutes = todaySeconds / 60.0 + todayVocabReviews * 0.5;
             dailyGoalObj = new
             {
                 target = dailyGoal.TargetValue,
-                today = Math.Round(todayMinutes, 1),
-                met = todayMinutes >= dailyGoal.TargetValue,
+                today = Math.Round(effectiveTodayMinutes, 1),
+                met = effectiveTodayMinutes >= dailyGoal.TargetValue,
             };
         }
 
@@ -216,6 +221,7 @@ public static class ReadingTrackingEndpoints
             avgDailyMinutes = Math.Round(avgDailyMinutes, 1),
             avgWordsPerMinute = Math.Round(avgWordsPerMinute, 1),
             todaySeconds,
+            todayVocabReviews,
             weekSeconds,
             monthSeconds,
             dailyGoal = dailyGoalObj,
@@ -631,7 +637,7 @@ public static class ReadingTrackingEndpoints
         return new DateTimeOffset(local.Year, local.Month, local.Day, 0, 0, 0, tzOffset);
     }
 
-    private static async Task<int> GetStreakMinMinutes(IAppDbContext db, Guid userId, Guid siteId, CancellationToken ct)
+    internal static async Task<int> GetStreakMinMinutes(IAppDbContext db, Guid userId, Guid siteId, CancellationToken ct)
     {
         var goal = await db.ReadingGoals
             .Where(g => g.UserId == userId && g.SiteId == siteId && g.GoalType == "daily_minutes" && g.IsActive)
@@ -640,29 +646,48 @@ public static class ReadingTrackingEndpoints
         return goal ?? 5;
     }
 
-    internal static async Task<int> CalculateStreak(
-        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes,
-        DateTimeOffset now, CancellationToken ct, TimeSpan tzOffset = default)
+    /// Combines reading sessions + vocab reviews into effective seconds per local date.
+    /// Each vocab review counts as 30 equivalent seconds (0.5 min).
+    private static async Task<Dictionary<DateTime, int>> GetDailyEffectiveSeconds(
+        IAppDbContext db, Guid userId, Guid siteId,
+        DateTimeOffset since, TimeSpan tzOffset, CancellationToken ct)
     {
-        // Get sessions for last 365 days, group by user's local date
-        var since = now.AddDays(-365);
         var sessions = await db.ReadingSessions
             .Where(s => s.UserId == userId && s.SiteId == siteId && s.StartedAt >= since)
             .Select(s => new { s.StartedAt, s.DurationSeconds })
             .ToListAsync(ct);
 
-        var dailyTotals = sessions
+        var daily = sessions
             .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
-            .Select(g => new { Date = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds) })
-            .OrderByDescending(d => d.Date)
-            .ToList();
+            .ToDictionary(g => g.Key, g => g.Sum(s => s.DurationSeconds));
 
-        if (dailyTotals.Count == 0) return 0;
+        var reviews = await db.VocabularyReviews
+            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= since)
+            .Select(r => r.CreatedAt)
+            .ToListAsync(ct);
+
+        foreach (var g in reviews.GroupBy(r => r.ToOffset(tzOffset).Date))
+        {
+            daily.TryGetValue(g.Key, out var existing);
+            daily[g.Key] = existing + g.Count() * 30;
+        }
+
+        return daily;
+    }
+
+    internal static async Task<int> CalculateStreak(
+        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes,
+        DateTimeOffset now, CancellationToken ct, TimeSpan tzOffset = default)
+    {
+        var since = now.AddDays(-365);
+        var daily = await GetDailyEffectiveSeconds(db, userId, siteId, since, tzOffset, ct);
+
+        if (daily.Count == 0) return 0;
 
         var thresholdSeconds = streakMinMinutes * 60;
-        var qualifyingDates = dailyTotals
-            .Where(d => d.TotalSeconds >= thresholdSeconds)
-            .Select(d => d.Date)
+        var qualifyingDates = daily
+            .Where(d => d.Value >= thresholdSeconds)
+            .Select(d => d.Key)
             .ToHashSet();
 
         var today = now.ToOffset(tzOffset).Date;
@@ -685,39 +710,25 @@ public static class ReadingTrackingEndpoints
     private static async Task<int> CalculateLongestStreak(
         IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes, CancellationToken ct, TimeSpan tzOffset = default)
     {
-        var sessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId && s.SiteId == siteId)
-            .Select(s => new { s.StartedAt, s.DurationSeconds })
-            .ToListAsync(ct);
+        var daily = await GetDailyEffectiveSeconds(db, userId, siteId, DateTimeOffset.MinValue, tzOffset, ct);
 
-        var dailyTotals = sessions
-            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
-            .Select(g => new { Date = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds) })
-            .OrderBy(d => d.Date)
-            .ToList();
-
-        if (dailyTotals.Count == 0) return 0;
+        if (daily.Count == 0) return 0;
 
         var thresholdSeconds = streakMinMinutes * 60;
-        var longest = 0;
-        var current = 0;
-        DateTime? lastDate = null;
+        var sorted = daily.Where(d => d.Value >= thresholdSeconds).Select(d => d.Key).OrderBy(d => d).ToList();
 
-        foreach (var day in dailyTotals)
+        if (sorted.Count == 0) return 0;
+
+        var longest = 1;
+        var current = 1;
+
+        for (var i = 1; i < sorted.Count; i++)
         {
-            if (day.TotalSeconds < thresholdSeconds)
-            {
-                current = 0;
-                lastDate = null;
-                continue;
-            }
-
-            if (lastDate.HasValue && (day.Date - lastDate.Value).Days == 1)
+            if ((sorted[i] - sorted[i - 1]).Days == 1)
                 current++;
             else
                 current = 1;
 
-            lastDate = day.Date;
             if (current > longest) longest = current;
         }
 

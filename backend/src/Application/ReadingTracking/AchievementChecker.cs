@@ -58,11 +58,7 @@ public class AchievementChecker
         if (booksFinished >= 50) TryUnlock("books_50");
 
         // Streak
-        if (currentStreak >= 3) TryUnlock("streak_3");
-        if (currentStreak >= 7) TryUnlock("streak_7");
-        if (currentStreak >= 14) TryUnlock("streak_14");
-        if (currentStreak >= 30) TryUnlock("streak_30");
-        if (currentStreak >= 100) TryUnlock("streak_100");
+        CheckStreakAchievements(currentStreak, TryUnlock);
 
         // Total hours
         var totalSeconds = await _db.ReadingSessions
@@ -94,5 +90,48 @@ public class AchievementChecker
             await _db.SaveChangesAsync(ct);
 
         return newAchievements;
+    }
+
+    /// Check streak achievements after a vocab review (no session-specific checks).
+    public async Task<List<string>> CheckAfterReview(
+        Guid userId, Guid siteId, int currentStreak, CancellationToken ct)
+    {
+        var unlocked = await _db.UserAchievements
+            .Where(a => a.UserId == userId && a.SiteId == siteId)
+            .Select(a => a.AchievementCode)
+            .ToHashSetAsync(ct);
+
+        var newAchievements = new List<string>();
+
+        void TryUnlock(string code)
+        {
+            if (unlocked.Contains(code)) return;
+            unlocked.Add(code);
+            newAchievements.Add(code);
+            _db.UserAchievements.Add(new UserAchievement
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                SiteId = siteId,
+                AchievementCode = code,
+                UnlockedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        CheckStreakAchievements(currentStreak, TryUnlock);
+
+        if (newAchievements.Count > 0)
+            await _db.SaveChangesAsync(ct);
+
+        return newAchievements;
+    }
+
+    private static void CheckStreakAchievements(int currentStreak, Action<string> tryUnlock)
+    {
+        if (currentStreak >= 3) tryUnlock("streak_3");
+        if (currentStreak >= 7) tryUnlock("streak_7");
+        if (currentStreak >= 14) tryUnlock("streak_14");
+        if (currentStreak >= 30) tryUnlock("streak_30");
+        if (currentStreak >= 100) tryUnlock("streak_100");
     }
 }

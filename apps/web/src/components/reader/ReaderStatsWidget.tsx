@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { QuickStats } from '../../hooks/useQuickStats'
+import { StreakBadge } from '../StreakBadge'
 
 interface Props {
   sessionStartedAt: number | null
@@ -32,22 +33,11 @@ export function ReaderStatsWidget({ sessionStartedAt, quickStats, bookEtf }: Pro
       {elapsed > 0 && <span className="reader-stats-widget__item">{elapsed}m</span>}
       {goalTarget > 0 && (
         <span className="reader-stats-widget__item">
-          <GoalDots pct={goalPct} />
+          <StreakBadge streak={quickStats?.currentStreak || 0} progress={goalPct} size={24} />
           <span className="reader-stats-widget__goal-text">{todayMin}/{goalTarget}m</span>
         </span>
       )}
       {bookEtf && <span className="reader-stats-widget__item reader-stats-widget__etf">{bookEtf}</span>}
     </div>
-  )
-}
-
-function GoalDots({ pct }: { pct: number }) {
-  const filled = Math.round(pct * 4)
-  return (
-    <span className="reader-stats-widget__dots">
-      {[0, 1, 2, 3].map(i => (
-        <span key={i} className={`reader-stats-widget__dot ${i < filled ? 'reader-stats-widget__dot--filled' : ''}`} />
-      ))}
-    </span>
   )
 }
