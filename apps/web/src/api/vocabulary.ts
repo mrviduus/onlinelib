@@ -170,6 +170,22 @@ export async function getVocabStats(): Promise<VocabStatsDto> {
   return authFetch<VocabStatsDto>('/me/vocabulary/stats')
 }
 
+export interface VocabDailyStatDto {
+  date: string
+  wordsAdded: number
+  reviewCount: number
+  correctCount: number
+  practiceCount: number
+  srsCount: number
+}
+
+export async function getVocabDailyStats(tz?: number): Promise<VocabDailyStatDto[]> {
+  const params = new URLSearchParams()
+  if (tz != null) params.set('tz', String(tz))
+  const qs = params.toString()
+  return authFetch<VocabDailyStatDto[]>(`/me/vocabulary/stats/daily${qs ? `?${qs}` : ''}`)
+}
+
 // --- Reader vocab (lightweight) ---
 
 export interface ReaderVocabWordDto {

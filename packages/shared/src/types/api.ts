@@ -203,6 +203,15 @@ export interface VocabularyStatsDto {
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
 }
 
+export interface VocabDailyStatDto {
+  date: string
+  wordsAdded: number
+  reviewCount: number
+  correctCount: number
+  practiceCount: number
+  srsCount: number
+}
+
 export interface ReviewCardDto {
   wordId: string
   word: string

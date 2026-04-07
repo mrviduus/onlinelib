@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, ReviewCardDto, SubmitReviewResponse } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -43,6 +43,11 @@ export function submitReview(data: { wordId: string; isCorrect: boolean; respons
 
 export function getVocabularyStats() {
   return authFetch<VocabularyStatsDto>('/me/vocabulary/stats')
+}
+
+export function getVocabularyDailyStats(tz?: number, from?: string, to?: string) {
+  const params = buildQuery({ tz, from, to })
+  return authFetch<VocabDailyStatDto[]>(`/me/vocabulary/stats/daily${params}`)
 }
 
 export function getReaderVocab() {

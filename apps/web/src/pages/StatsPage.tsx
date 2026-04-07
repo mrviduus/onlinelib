@@ -12,6 +12,8 @@ import { StatsOverviewTab } from '../components/stats/StatsOverviewTab'
 import { StatsBooksTab } from '../components/stats/StatsBooksTab'
 import { StatsTimeTab } from '../components/stats/StatsTimeTab'
 import { StatsAchievementsTab } from '../components/stats/StatsAchievementsTab'
+import { VocabStreakSection } from '../components/stats/VocabStreakSection'
+import { useVocabDailyStats } from '../hooks/useVocabDailyStats'
 
 type Tab = 'overview' | 'books' | 'time' | 'achievements'
 
@@ -29,6 +31,7 @@ export function StatsPage() {
   const { goals, upsert: upsertGoal } = useReadingGoals()
   const { achievements } = useAchievements()
   const { bookStats, loading: bookStatsLoading, year, setYear } = useBookStats()
+  const { vocabStats, dailyStats: vocabDailyStats } = useVocabDailyStats()
   const [tab, setTab] = useState<Tab>('overview')
 
   if (!isAuthenticated) {
@@ -62,6 +65,11 @@ export function StatsPage() {
       <SeoHead title={t('stats.title')} noindex />
       <div className="stats-page">
         <h1>{t('stats.title')}</h1>
+
+        {/* Vocab streak dashboard — first section */}
+        {vocabStats && vocabStats.totalWords > 0 && (
+          <VocabStreakSection vocabStats={vocabStats} dailyStats={vocabDailyStats} />
+        )}
 
         {/* Year filter (for books/time tabs) */}
         {(tab === 'books' || tab === 'time') && (

@@ -28,6 +28,7 @@ public static class VocabularyEndpoints
         group.MapGet("/review", GetReviewQueue).WithName("GetVocabularyReview");
         group.MapPost("/review", SubmitReview).WithName("SubmitVocabularyReview");
         group.MapGet("/stats", GetStats).WithName("GetVocabularyStats");
+        group.MapGet("/stats/daily", GetDailyStats).WithName("GetDailyVocabularyStats");
         group.MapGet("/words/reader", GetReaderVocab).WithName("GetReaderVocabulary");
         group.MapPut("/words/{id:guid}/known", MarkAsKnown).WithName("MarkVocabularyWordKnown");
 
@@ -549,6 +550,84 @@ public static class VocabularyEndpoints
             streak,
             wordsByBook,
         });
+    }
+
+    // --- Daily Stats ---
+
+    private static TimeSpan ParseTzOffset(string? tz)
+    {
+        if (string.IsNullOrEmpty(tz)) return TimeSpan.Zero;
+        if (int.TryParse(tz, out var minutes))
+            return TimeSpan.FromMinutes(minutes);
+        return TimeSpan.Zero;
+    }
+
+    private static async Task<IResult> GetDailyStats(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        [FromQuery] string? tz,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var tzOffset = ParseTzOffset(tz);
+        var now = DateTimeOffset.UtcNow;
+        var start = from ?? now.AddDays(-365);
+        var end = to ?? now;
+
+        // Reviews per day
+        var reviews = await db.VocabularyReviews
+            .Where(r => r.UserId == userId.Value && r.SiteId == siteId
+                && r.CreatedAt >= start && r.CreatedAt <= end)
+            .Select(r => new { r.CreatedAt, r.IsCorrect, r.ReviewMode })
+            .ToListAsync(ct);
+
+        var reviewsByDay = reviews
+            .GroupBy(r => r.CreatedAt.ToOffset(tzOffset).Date)
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    ReviewCount = g.Count(),
+                    CorrectCount = g.Count(r => r.IsCorrect),
+                    PracticeCount = g.Count(r => r.ReviewMode.StartsWith("practice_")),
+                    SrsCount = g.Count(r => !r.ReviewMode.StartsWith("practice_")),
+                });
+
+        // Words added per day
+        var words = await db.VocabularyWords
+            .Where(w => w.UserId == userId.Value && w.SiteId == siteId
+                && w.CreatedAt >= start && w.CreatedAt <= end)
+            .Select(w => w.CreatedAt)
+            .ToListAsync(ct);
+
+        var wordsByDay = words
+            .GroupBy(d => d.ToOffset(tzOffset).Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        // Merge all dates
+        var allDates = reviewsByDay.Keys.Union(wordsByDay.Keys).OrderBy(d => d);
+
+        var result = allDates.Select(date =>
+        {
+            reviewsByDay.TryGetValue(date, out var r);
+            return new
+            {
+                date,
+                wordsAdded = wordsByDay.GetValueOrDefault(date, 0),
+                reviewCount = r?.ReviewCount ?? 0,
+                correctCount = r?.CorrectCount ?? 0,
+                practiceCount = r?.PracticeCount ?? 0,
+                srsCount = r?.SrsCount ?? 0,
+            };
+        }).ToList();
+
+        return Results.Ok(result);
     }
 
     // --- Admin: Backfill Definitions ---
