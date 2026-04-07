@@ -24,6 +24,7 @@ import { useQuickStats } from '../../../src/hooks/useQuickStats'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
+import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
@@ -67,6 +68,7 @@ export default function ReaderScreen() {
 
   const { colors } = useTheme()
   const { language } = useLanguage()
+  const { nativeLanguage } = useNativeLanguage()
   const quickStats = useQuickStats(isAuthenticated)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const insets = useSafeAreaInsets()
@@ -316,8 +318,8 @@ export default function ReaderScreen() {
       setSessionWordCount(c => c + 1)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
       // Persist translation to saved word (fire-and-forget)
-      const nativeLang = language === 'uk' ? 'en' : 'uk'
-      translationApi.translate(selection.text, language, nativeLang)
+      const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+      translationApi.translate(selection.text, language, targetLang)
         .then(res => {
           if (res.translatedText && saved.id) {
             vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
