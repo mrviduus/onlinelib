@@ -1283,6 +1283,40 @@
   .review-summary__banner { animation: none; }
 }
 
+/* Delete all */
+.vocab-delete-all-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.vocab-delete-all {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--color-error, #ef4444);
+  border-radius: 6px;
+  background: none;
+  color: var(--color-error, #ef4444);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.vocab-delete-all:hover {
+  background: var(--color-error, #ef4444);
+  color: #fff;
+}
+
+.vocab-delete-all--confirming {
+  background: var(--color-error, #ef4444);
+  color: #fff;
+  animation: vocab-popup-pulse 0.3s ease;
+}
+
+@keyframes vocab-popup-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .vocab-stats-bar {
@@ -1303,6 +1337,15 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+
+  .vocab-word__main {
+    width: 100%;
+  }
+
+  .vocab-word__context {
+    white-space: normal;
+    overflow: visible;
   }
 
   .vocab-word__meta {

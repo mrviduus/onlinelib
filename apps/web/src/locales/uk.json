@@ -391,6 +391,8 @@
     "noReviewDue": "Немає слів для повторення!",
     "deleteConfirm": "Видалити",
     "deleteConfirmAction": "Точно?",
+    "deleteAll": "Видалити всі слова",
+    "deleteAllConfirm": "Натисніть для підтвердження — не можна скасувати",
     "editTranslation": "Редагувати переклад",
     "loadMore": "Завантажити ще",
     "stages": {

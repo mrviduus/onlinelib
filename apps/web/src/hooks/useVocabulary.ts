@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   getWords,
   deleteWord as deleteWordApi,
+  deleteAllWords as deleteAllWordsApi,
   updateWord as updateWordApi,
   getVocabStats,
   type VocabWordDto,
@@ -71,6 +72,17 @@ export function useVocabulary() {
     }
   }, [])
 
+  const removeAll = useCallback(async () => {
+    try {
+      await deleteAllWordsApi()
+      setWords([])
+      setTotal(0)
+      fetchStats()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete all')
+    }
+  }, [fetchStats])
+
   const editWord = useCallback(async (id: string, data: { translation?: string; definition?: string }) => {
     try {
       const updated = await updateWordApi(id, data)
@@ -95,7 +107,7 @@ export function useVocabulary() {
   return {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
-    removeWord, editWord,
+    removeWord, removeAll, editWord,
     refresh: () => { fetchWords(); fetchStats() },
   }
 }

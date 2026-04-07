@@ -142,6 +142,10 @@ export async function deleteWord(id: string): Promise<void> {
   await authFetch<void>(`/me/vocabulary/words/${id}`, { method: 'DELETE' })
 }
 
+export async function deleteAllWords(): Promise<{ deleted: number }> {
+  return authFetch<{ deleted: number }>('/me/vocabulary/words', { method: 'DELETE' })
+}
+
 export async function updateWord(id: string, data: UpdateWordRequest): Promise<VocabWordDto> {
   return authFetch<VocabWordDto>(`/me/vocabulary/words/${id}`, {
     method: 'PATCH',

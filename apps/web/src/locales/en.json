@@ -391,6 +391,8 @@
     "noReviewDue": "No words due for review!",
     "deleteConfirm": "Remove",
     "deleteConfirmAction": "Confirm?",
+    "deleteAll": "Delete all words",
+    "deleteAllConfirm": "Click to confirm — cannot be undone",
     "editTranslation": "Edit translation",
     "loadMore": "Load more",
     "stages": {

@@ -24,6 +24,7 @@ public static class VocabularyEndpoints
         group.MapPost("/words", SaveWord).WithName("SaveVocabularyWord");
         group.MapGet("/words", GetWords).WithName("GetVocabularyWords");
         group.MapDelete("/words/{id:guid}", DeleteWord).WithName("DeleteVocabularyWord");
+        group.MapDelete("/words", DeleteAllWords).WithName("DeleteAllVocabularyWords");
         group.MapPatch("/words/{id:guid}", UpdateWord).WithName("UpdateVocabularyWord");
         group.MapGet("/review", GetReviewQueue).WithName("GetVocabularyReview");
         group.MapPost("/review", SubmitReview).WithName("SubmitVocabularyReview");
@@ -260,6 +261,28 @@ public static class VocabularyEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.NoContent();
+    }
+
+    // --- Delete All Words ---
+
+    private static async Task<IResult> DeleteAllWords(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var words = await db.VocabularyWords
+            .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+            .ToListAsync(ct);
+
+        db.VocabularyWords.RemoveRange(words);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { deleted = words.Count });
     }
 
     // --- Update Word ---

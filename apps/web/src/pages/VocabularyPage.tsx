@@ -48,7 +48,7 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
-    removeWord, editWord,
+    removeWord, removeAll, editWord,
   } = useVocabulary()
   const { speak, isPlaying } = useTts()
 
@@ -58,6 +58,7 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState('all')
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
   if (!embedded && !isAuthenticated) {
     return (
@@ -126,6 +127,16 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
     }
   }
 
+  const handleDeleteAll = async () => {
+    if (confirmDeleteAll) {
+      await removeAll()
+      setConfirmDeleteAll(false)
+    } else {
+      setConfirmDeleteAll(true)
+      setTimeout(() => setConfirmDeleteAll(false), 5000)
+    }
+  }
+
   const vocabContent = (
     <div className="vocab-page">
       {!embedded && <h1>{t('vocabulary.title')}</h1>}
@@ -181,6 +192,18 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
                 {t('vocabulary.startPractice')}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Delete all */}
+        {stats && stats.totalWords > 0 && (
+          <div className="vocab-delete-all-row">
+            <button
+              className={`vocab-delete-all ${confirmDeleteAll ? 'vocab-delete-all--confirming' : ''}`}
+              onClick={handleDeleteAll}
+            >
+              {confirmDeleteAll ? t('vocabulary.deleteAllConfirm') : t('vocabulary.deleteAll')}
+            </button>
           </div>
         )}
 
