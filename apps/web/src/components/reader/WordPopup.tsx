@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
+
+const AUTO_DISMISS_MS = 3000
 
 interface WordPopupProps {
   word: string
@@ -36,6 +38,22 @@ export function WordPopup({
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const cancelAutoDismiss = useCallback(() => {
+    clearTimeout(dismissTimerRef.current)
+  }, [])
+
+  const scheduleAutoDismiss = useCallback(() => {
+    clearTimeout(dismissTimerRef.current)
+    dismissTimerRef.current = setTimeout(onClose, AUTO_DISMISS_MS)
+  }, [onClose])
+
+  // Start auto-dismiss timer on open / word change
+  useEffect(() => {
+    scheduleAutoDismiss()
+    return () => clearTimeout(dismissTimerRef.current)
+  }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Position popup relative to word rect
   useEffect(() => {
@@ -101,6 +119,10 @@ export function WordPopup({
       }}
       onMouseDown={(e) => e.preventDefault()}
       onTouchStart={(e) => e.preventDefault()}
+      onMouseEnter={cancelAutoDismiss}
+      onPointerEnter={cancelAutoDismiss}
+      onClick={cancelAutoDismiss}
+      onFocus={cancelAutoDismiss}
     >
       <div className="word-popup__header">
         <span className="word-popup__word">{word}</span>

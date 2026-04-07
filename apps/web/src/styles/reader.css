@@ -1592,8 +1592,9 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 
 /* Word highlight in text when popup is open */
 .word-popup-highlight {
-  background: rgba(255, 213, 79, 0.25);
-  border-radius: 2px;
+  background: none;
+  border-bottom: 1.5px solid rgba(59, 130, 246, 0.4);
+  border-radius: 0;
   color: inherit;
   padding: 0;
 }

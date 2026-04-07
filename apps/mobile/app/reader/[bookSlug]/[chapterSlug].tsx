@@ -263,8 +263,35 @@ export default function ReaderScreen() {
         if (data.text) {
           setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
           setWordSaved(false)
-          // Auto-lookup: single words now show WordCard (with auto-translation)
-          // No longer auto-opens DictionarySheet or auto-saves — user taps Save explicitly
+          // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
+          if (!data.text.includes(' ')) {
+            toggleTts(data.text, settings.ttsSpeed)
+            if (isAuthenticated && !vocabMapRef.current[data.text.toLowerCase()]) {
+              vocabularyApi.saveWord({
+                word: data.text,
+                language,
+                sentence: data.sentence || null,
+                bookTitle: bookTitleRef.current || null,
+                editionId: editionIdRef.current || null,
+                chapterId: chapter?.id || null,
+              }).then(saved => {
+                const key = saved.word.toLowerCase()
+                vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
+                injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
+                setWordSaved(true)
+                setSessionWordCount(c => c + 1)
+                // Persist translation
+                const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+                translationApi.translate(data.text, language, targetLang)
+                  .then(res => {
+                    if (res.translatedText && saved.id) {
+                      vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+                      vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+                    }
+                  }).catch(() => {})
+              }).catch(() => {})
+            }
+          }
         } else {
           setSelection(null)
         }
@@ -316,7 +343,6 @@ export default function ReaderScreen() {
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
-      setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
       // Persist translation to saved word (fire-and-forget)
       const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
       translationApi.translate(selection.text, language, targetLang)
