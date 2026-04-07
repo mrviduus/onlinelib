@@ -196,6 +196,7 @@ export interface ReaderVocabWordDto {
   id: string
   word: string
   stage: number
+  translation?: string
 }
 
 export async function getReaderVocab(): Promise<ReaderVocabWordDto[]> {

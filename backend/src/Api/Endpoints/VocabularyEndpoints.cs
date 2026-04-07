@@ -715,7 +715,7 @@ public static class VocabularyEndpoints
             .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
             .OrderBy(w => w.Word)
             .Take(MaxWordsPerUser)
-            .Select(w => new ReaderVocabWordDto(w.Id, w.Word, w.Stage))
+            .Select(w => new ReaderVocabWordDto(w.Id, w.Word, w.Stage, w.Translation))
             .ToListAsync(ct);
 
         return Results.Ok(words);
@@ -795,4 +795,4 @@ public record SubmitReviewResponse(
     double NextIntervalDays, DateTimeOffset NextReviewAt,
     int TotalReviews, int CorrectReviews);
 
-public record ReaderVocabWordDto(Guid Id, string Word, int Stage);
+public record ReaderVocabWordDto(Guid Id, string Word, int Stage, string? Translation);

@@ -1167,7 +1167,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             bookTitle={book?.title}
             userBookId={mode === 'userbook' ? id : undefined}
             ttsSpeed={settings.ttsSpeed}
-
+            showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
           >
             <div ref={scrollContainerRef}>
@@ -1193,7 +1193,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             bookTitle={book.title}
             userBookId={mode === 'userbook' ? id : undefined}
             ttsSpeed={settings.ttsSpeed}
-
+            showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
           >
             <ReaderContent

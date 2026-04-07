@@ -14,6 +14,7 @@ export interface ReaderSettings {
   ttsVoiceEn: string
   ttsVoiceUk: string
   showReaderStats: boolean
+  showInlineTranslations: boolean
 }
 
 const STORAGE_KEY = 'reader.settings.v1'
@@ -28,6 +29,7 @@ const defaults: ReaderSettings = {
   ttsVoiceEn: 'en-US-AriaNeural',
   ttsVoiceUk: 'uk-UA-PolinaNeural',
   showReaderStats: true,
+  showInlineTranslations: true,
 }
 
 function load(): ReaderSettings {

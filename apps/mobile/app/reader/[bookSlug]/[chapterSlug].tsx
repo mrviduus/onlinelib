@@ -388,7 +388,7 @@ export default function ReaderScreen() {
   }, [isAuthenticated, chapter])
 
   // Vocab map ref for selection lookups
-  const vocabMapRef = useRef<Record<string, { stage: number; id: string }>>({})
+  const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
 
   // Load and render vocab word underlines
   useEffect(() => {
@@ -396,13 +396,18 @@ export default function ReaderScreen() {
     vocabularyApi.getReaderVocab()
       .then(words => {
         if (words.length === 0) return
-        const map: Record<string, { stage: number; id: string }> = {}
-        for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
+        const map: Record<string, { stage: number; id: string; translation?: string }> = {}
+        for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id, translation: w.translation }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
       })
       .catch(() => {})
   }, [isAuthenticated, chapter])
+
+  // Sync inline translations setting to WebView
+  useEffect(() => {
+    injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
+  }, [settings.showInlineTranslations])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 

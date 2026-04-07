@@ -51,7 +51,7 @@ export function getVocabularyDailyStats(tz?: number, from?: string, to?: string)
 }
 
 export function getReaderVocab() {
-  return authFetch<{ id: string; word: string; stage: number }[]>('/me/vocabulary/words/reader')
+  return authFetch<{ id: string; word: string; stage: number; translation?: string }[]>('/me/vocabulary/words/reader')
 }
 
 export function markAsKnown(id: string) {

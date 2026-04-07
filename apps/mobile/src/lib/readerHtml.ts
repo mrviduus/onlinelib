@@ -343,8 +343,15 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     };
     var VOCAB_ATTR = 'data-vocab-mark';
 
+    var _showInlineTranslations = false;
+
+    function setShowInlineTranslations(val) {
+      _showInlineTranslations = !!val;
+      if (Object.keys(_currentVocabMap).length > 0) markVocabWords(_currentVocabMap);
+    }
+
     function markVocabWords(vocabMap) {
-      // vocabMap: {word: {stage, id}}
+      // vocabMap: {word: {stage, id, translation?}}
       _currentVocabMap = vocabMap || {};
       removeVocabMarks();
       if (!vocabMap || Object.keys(vocabMap).length === 0) return;
@@ -353,6 +360,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           var p = n.parentElement;
           if (!p) return NodeFilter.FILTER_REJECT;
           if (p.tagName === 'MARK' || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
+          if (p.classList && p.classList.contains('vocab-inline-translation')) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_ACCEPT;
         }
       });
@@ -379,10 +387,18 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           if (m.start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, m.start)));
           var mark = document.createElement('mark');
           mark.setAttribute(VOCAB_ATTR, 'true');
-          var stage = vocabMap[m.word].stage;
+          var entry = vocabMap[m.word];
+          var stage = entry.stage;
           mark.style.cssText = 'background:none;color:inherit;padding:0;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
           mark.textContent = text.slice(m.start, m.end);
           frag.appendChild(mark);
+          if (_showInlineTranslations && entry.translation) {
+            var span = document.createElement('span');
+            span.className = 'vocab-inline-translation';
+            span.style.cssText = 'font-size:0.75em;font-style:italic;opacity:0.5;margin-left:1px;pointer-events:none;user-select:none;';
+            span.textContent = ' (' + entry.translation + ')';
+            frag.appendChild(span);
+          }
           lastEnd = m.end;
         }
         if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
@@ -397,6 +413,8 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     function removeVocabMarks() {
+      var translations = document.querySelectorAll('.vocab-inline-translation');
+      translations.forEach(function(el) { el.remove(); });
       var marks = document.querySelectorAll('mark[' + VOCAB_ATTR + ']');
       marks.forEach(function(mark) {
         var parent = mark.parentNode;
