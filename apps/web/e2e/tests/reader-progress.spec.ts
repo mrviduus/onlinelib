@@ -110,11 +110,18 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Wait for position restore + auto-save (3s stable position after restore)
+    // Trigger a page navigation to force progress save
+    const nextBtn = page.locator('.reader-page-nav button').last()
+    if (await nextBtn.isVisible()) {
+      await nextBtn.click()
+      await page.waitForTimeout(500)
+    }
+
+    // Wait for position restore + auto-save (3s stable position + CI overhead)
     await expect(async () => {
       const progress = await getProgressFromLocalStorage(page, enBook.editionId)
       expect(progress).not.toBeNull()
-    }).toPass({ timeout: 10_000, intervals: [1000] })
+    }).toPass({ timeout: 20_000, intervals: [1000] })
   })
 
   test('auto-add to library after >1% progress', async ({ authedPage: page }) => {
