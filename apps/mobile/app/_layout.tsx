@@ -11,6 +11,7 @@ import { AuthProvider } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { LanguageProvider } from '../src/context/LanguageContext'
+import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { useAppFonts } from '../src/theme/fonts'
 
@@ -80,11 +81,13 @@ export default function RootLayout() {
     <ErrorBoundary>
       <ThemeProvider>
         <LanguageProvider>
-          <AuthProvider>
-            <DownloadProvider>
-              <AppContent />
-            </DownloadProvider>
-          </AuthProvider>
+          <NativeLanguageProvider>
+            <AuthProvider>
+              <DownloadProvider>
+                <AppContent />
+              </DownloadProvider>
+            </AuthProvider>
+          </NativeLanguageProvider>
         </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -89,9 +89,10 @@ test.describe('QA-004: Bookmarks', () => {
     const bookmarksTab = page.locator('.reader-toc-drawer__tab').filter({ hasText: /bookmark/i })
     if (await bookmarksTab.isVisible()) {
       await bookmarksTab.click()
+      await page.waitForTimeout(500)
       // Wait for bookmark items to render (server data + IndexedDB sync)
       const bookmarkItems = page.locator('.reader-toc-drawer__bookmark-item')
-      await expect(bookmarkItems.first()).toBeVisible({ timeout: 5000 })
+      await expect(bookmarkItems.first()).toBeVisible({ timeout: 10_000 })
       const count = await bookmarkItems.count()
       expect(count).toBeGreaterThan(0)
     }

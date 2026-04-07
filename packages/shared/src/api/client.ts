@@ -22,6 +22,15 @@ export function getStorageUrl(path: string | null | undefined): string | undefin
   return `${base}/storage/${path}`
 }
 
+function parseJsonSafe<T>(text: string, status: number): T {
+  if (!text) return {} as T
+  // Reject HTML responses (e.g. from redirect landing on SPA page)
+  if (text.trimStart().startsWith('<')) {
+    throw new ApiError(status, 'Unexpected HTML response from API')
+  }
+  return JSON.parse(text)
+}
+
 export async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const { baseUrl, getAccessToken, onUnauthorized } = getApiConfig()
 
@@ -41,8 +50,7 @@ export async function authFetch<T>(path: string, options?: RequestInit): Promise
       headers['Authorization'] = `Bearer ${newToken}`
       const retry = await fetch(`${baseUrl}${path}`, { ...options, headers })
       if (!retry.ok) throw new ApiError(retry.status, 'Unauthorized')
-      const text = await retry.text()
-      return text ? JSON.parse(text) : ({} as T)
+      return parseJsonSafe<T>(await retry.text(), retry.status)
     }
     throw new ApiError(401, 'Unauthorized')
   }
@@ -57,9 +65,7 @@ export async function authFetch<T>(path: string, options?: RequestInit): Promise
     throw new ApiError(res.status, message)
   }
 
-  const text = await res.text()
-  if (!text) return {} as T
-  return JSON.parse(text)
+  return parseJsonSafe<T>(await res.text(), res.status)
 }
 
 export async function publicFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -77,9 +83,7 @@ export async function publicFetch<T>(path: string, options?: RequestInit): Promi
     throw new ApiError(res.status, message)
   }
 
-  const text = await res.text()
-  if (!text) return {} as T
-  return JSON.parse(text)
+  return parseJsonSafe<T>(await res.text(), res.status)
 }
 
 /** Converts an object to a query string, skipping undefined/null values. */

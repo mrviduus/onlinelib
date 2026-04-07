@@ -9,6 +9,7 @@ try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useNativeLanguage, NATIVE_LANGUAGES, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
 import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
   const { colors, themeMode, setThemeMode } = useTheme()
   const { language, switchLanguage } = useLanguage()
+  const { nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage } = useNativeLanguage()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState('')
@@ -158,6 +160,56 @@ export default function ProfileScreen() {
               >
                 <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: language === lang ? colors.primary : colors.textSecondary }}>
                   {lang.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* I know (native language) */}
+        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
+          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
+          <Text style={[styles.menuText, { color: colors.text }]}>I know</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+            {NATIVE_LANGUAGES.map(lang => (
+              <TouchableOpacity
+                key={lang.code}
+                onPress={() => setNativeLanguage(lang.code)}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: nativeLanguage === lang.code ? colors.primaryLight : 'transparent',
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: nativeLanguage === lang.code ? colors.primary : colors.textSecondary }}>
+                  {lang.flag} {lang.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* I'm learning (target language) */}
+        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
+          <Ionicons name="school-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
+          <Text style={[styles.menuText, { color: colors.text }]}>Learning</Text>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {TARGET_LANGUAGES.map(lang => (
+              <TouchableOpacity
+                key={lang.code}
+                onPress={() => setTargetLanguage(lang.code)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: targetLanguage === lang.code ? colors.primaryLight : 'transparent',
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: targetLanguage === lang.code ? colors.primary : colors.textSecondary }}>
+                  {lang.flag} {lang.label}
                 </Text>
               </TouchableOpacity>
             ))}

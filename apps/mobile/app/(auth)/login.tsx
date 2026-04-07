@@ -12,6 +12,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 
 GoogleSignin.configure({
+  iosClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
   webClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
 })
 

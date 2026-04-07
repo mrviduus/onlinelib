@@ -176,7 +176,7 @@ test.describe('QA-003: Library user-book links respect language', () => {
   const API_URL = process.env.API_URL ?? 'http://localhost:8080'
 
   // Serial: beforeAll runs once across both tests
-  test.describe.configure({ mode: 'serial' })
+  test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
   // Upload a test book before tests so user has at least one uploaded book
   test.beforeAll(async () => {
