@@ -233,7 +233,7 @@
 
 /* Practice Page */
 .practice-page {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 2rem 1rem;
 }
@@ -241,6 +241,50 @@
 .practice-page h1 {
   font-size: 1.75rem;
   margin-bottom: 1.5rem;
+}
+
+/* Motivational banner */
+.practice-page__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.practice-page__banner-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.practice-page__banner-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin-top: 0.2rem;
+}
+
+.practice-page__banner-streak {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 56px;
+}
+
+.practice-page__banner-streak-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.practice-page__banner-streak-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
 }
 
 .practice-page__stats {
@@ -325,6 +369,161 @@
 .practice-page__start-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Sections */
+.practice-page__section {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.practice-page__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.practice-page__section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: var(--color-text);
+}
+
+.practice-page__section-link {
+  font-size: 0.8rem;
+  color: var(--color-brand);
+  text-decoration: none;
+}
+
+.practice-page__section-link:hover {
+  text-decoration: underline;
+}
+
+.practice-page__empty {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Reviewed today table */
+.practice-page__table {
+  display: flex;
+  flex-direction: column;
+}
+
+.practice-page__table-header {
+  display: flex;
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.25rem;
+}
+
+.practice-page__table-header .practice-page__table-col {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.practice-page__table-row {
+  display: flex;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.practice-page__table-row:last-child {
+  border-bottom: none;
+}
+
+.practice-page__table-col--word {
+  flex: 2;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-page__table-col--translation {
+  flex: 2;
+  color: var(--color-brand);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-page__table-col--progress {
+  flex: 2.5;
+  display: flex;
+  align-items: center;
+}
+
+.practice-page__table-col--due {
+  flex: 1.2;
+  color: var(--color-text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* SRS progress indicator */
+.practice-page__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  max-width: 140px;
+}
+
+.practice-page__progress-bar {
+  display: flex;
+  gap: 3px;
+}
+
+.practice-page__progress-step {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.practice-page__progress-step--filled:nth-child(1) { background: #94a3b8; }
+.practice-page__progress-step--filled:nth-child(2) { background: #60a5fa; }
+.practice-page__progress-step--filled:nth-child(3) { background: #f59e0b; }
+.practice-page__progress-step--filled:nth-child(4) { background: #a78bfa; }
+.practice-page__progress-step--filled:nth-child(5) { background: #22c55e; }
+
+.practice-page__progress-step--current {
+  height: 5px;
+}
+
+.practice-page__progress-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .practice-page__banner {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .practice-page__table-col--progress {
+    display: none;
+  }
+
+  .practice-page__table-header .practice-page__table-col--progress {
+    display: none;
+  }
 }
 
 .vocab-mode-toggle {

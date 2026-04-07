@@ -122,6 +122,7 @@ export async function getWords(params?: {
   editionId?: string
   search?: string
   sort?: string
+  reviewedSince?: string
   limit?: number
   offset?: number
 }): Promise<{ total: number; items: VocabWordDto[] }> {
@@ -131,6 +132,7 @@ export async function getWords(params?: {
   if (params?.editionId) query.set('editionId', params.editionId)
   if (params?.search) query.set('search', params.search)
   if (params?.sort) query.set('sort', params.sort)
+  if (params?.reviewedSince) query.set('reviewedSince', params.reviewedSince)
   if (params?.limit) query.set('limit', String(params.limit))
   if (params?.offset) query.set('offset', String(params.offset))
   const qs = query.toString()

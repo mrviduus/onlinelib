@@ -181,6 +181,7 @@ public static class VocabularyEndpoints
         [FromQuery] Guid? editionId,
         [FromQuery] string? search,
         [FromQuery] string? sort,
+        [FromQuery] DateTimeOffset? reviewedSince,
         [FromQuery] int? limit,
         [FromQuery] int? offset,
         CancellationToken ct)
@@ -214,6 +215,9 @@ public static class VocabularyEndpoints
             query = query.Where(w => w.Word.Contains(s) || (w.Translation != null && w.Translation.Contains(s)));
         }
 
+        if (reviewedSince.HasValue)
+            query = query.Where(w => w.LastReviewedAt != null && w.LastReviewedAt >= reviewedSince.Value);
+
         var total = await query.CountAsync(ct);
 
         query = sort switch
@@ -221,6 +225,7 @@ public static class VocabularyEndpoints
             "alphabetical" => query.OrderBy(w => w.Word),
             "due" => query.OrderBy(w => w.NextReviewAt),
             "stage" => query.OrderByDescending(w => w.Stage).ThenByDescending(w => w.UpdatedAt),
+            "lastReviewed" => query.OrderByDescending(w => w.LastReviewedAt),
             _ => query.OrderByDescending(w => w.CreatedAt),
         };
 
