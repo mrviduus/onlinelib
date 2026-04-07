@@ -17,9 +17,11 @@ test.describe('Search', () => {
     await expect(searchInput).toBeVisible({ timeout: 15_000 })
 
     await searchInput.fill('test')
+    // Wait for debounce (300ms) + buffer before pressing Enter
+    await page.waitForTimeout(500)
     await searchInput.press('Enter')
-    await page.waitForURL(/q=test/, { timeout: 15_000 })
-    expect(page.url()).toContain('q=test')
+    // URL updates via setSearchParams — wait for it
+    await expect(page).toHaveURL(/q=test/, { timeout: 10_000 })
   })
 
   test('search result links to book', async ({ page }) => {

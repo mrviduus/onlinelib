@@ -55,9 +55,13 @@ test.describe('TTS', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
+    // Wait for cards to load from API
+    const cardOrNewWord = page.locator('.review-mc__prompt, .new-word-card__continue, .speak-btn')
+    await expect(cardOrNewWord.first()).toBeVisible({ timeout: 10_000 })
+
     // Dismiss NewWordCard if visible (new words show intro first)
     const continueBtn = page.locator('.new-word-card__continue')
-    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await continueBtn.click()
       await page.waitForTimeout(300)
     }
@@ -71,18 +75,21 @@ test.describe('TTS', () => {
     await page.goto('/en/words/review')
     await page.waitForLoadState('networkidle')
 
+    // Wait for cards to load from API
+    const cardOrNewWord = page.locator('.review-mc__prompt, .new-word-card__continue')
+    await expect(cardOrNewWord.first()).toBeVisible({ timeout: 10_000 })
+
     // Dismiss NewWordCard if visible
     const continueBtn = page.locator('.new-word-card__continue')
-    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await continueBtn.click()
       await page.waitForTimeout(300)
     }
 
     // Answer the card (MC: click first option)
     const mcOption = page.locator('.review-mc__option').first()
-    if (await mcOption.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await mcOption.click()
-    }
+    await expect(mcOption).toBeVisible({ timeout: 5000 })
+    await mcOption.click()
 
     // Wait for feedback
     await page.waitForTimeout(500)

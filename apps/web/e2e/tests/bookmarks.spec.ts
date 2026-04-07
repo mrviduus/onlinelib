@@ -66,12 +66,20 @@ test.describe('QA-004: Bookmarks', () => {
     ).catch(() => null)
     await topBarBtns.nth(1).click()
     await bookmarkResponse
+    // Extra wait for server to persist
+    await page.waitForTimeout(1000)
 
     // Navigate away and come back
     await page.goto('/en/books')
     await page.waitForLoadState('networkidle')
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
+
+    // Wait for bookmarks to load from server (useBookmarks effect)
+    await page.waitForResponse(
+      resp => resp.url().includes('/me/bookmarks') && resp.status() < 400,
+      { timeout: 5000 }
+    ).catch(() => null)
 
     // Check bookmark is still there via TOC drawer
     const topBarBtns2 = page.locator('.reader-top-bar__btn')
@@ -81,8 +89,9 @@ test.describe('QA-004: Bookmarks', () => {
     const bookmarksTab = page.locator('.reader-toc-drawer__tab').filter({ hasText: /bookmark/i })
     if (await bookmarksTab.isVisible()) {
       await bookmarksTab.click()
-      await page.waitForTimeout(500)
+      // Wait for bookmark items to render (server data + IndexedDB sync)
       const bookmarkItems = page.locator('.reader-toc-drawer__bookmark-item')
+      await expect(bookmarkItems.first()).toBeVisible({ timeout: 5000 })
       const count = await bookmarkItems.count()
       expect(count).toBeGreaterThan(0)
     }

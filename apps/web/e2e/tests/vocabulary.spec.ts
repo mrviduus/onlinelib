@@ -80,16 +80,20 @@ test.describe('Vocabulary', () => {
     // Should be on review page
     expect(page.url()).toContain('/words/review')
 
+    // Wait for cards to load from API (startSession fires after mount)
+    const cardOrNewWord = page.locator('.review-mc__prompt, .new-word-card__continue')
+    await expect(cardOrNewWord.first()).toBeVisible({ timeout: 10_000 })
+
     // Dismiss NewWordCard if visible (new words show intro first)
     const continueBtn = page.locator('.new-word-card__continue')
-    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await continueBtn.click()
       await page.waitForTimeout(300)
     }
 
     // MC card: definition prompt + 4 option buttons
     const prompt = page.locator('.review-mc__prompt')
-    await expect(prompt).toBeVisible()
+    await expect(prompt).toBeVisible({ timeout: 5000 })
 
     const options = page.locator('.review-mc__option')
     expect(await options.count()).toBe(4)
