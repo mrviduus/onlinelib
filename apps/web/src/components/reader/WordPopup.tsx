@@ -107,6 +107,14 @@ export function WordPopup({
         {phonetic && (
           <span className="word-popup__phonetic">{phonetic}</span>
         )}
+        <button
+          className="word-popup__close"
+          onClick={onClose}
+          onMouseDown={(e) => e.preventDefault()}
+          aria-label="Close"
+        >
+          ×
+        </button>
       </div>
 
       {/* Translation - primary content */}

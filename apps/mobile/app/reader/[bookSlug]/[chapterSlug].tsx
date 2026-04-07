@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
+import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi } from '@textstack/shared'
 import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
@@ -24,6 +24,7 @@ import { useQuickStats } from '../../../src/hooks/useQuickStats'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
+import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
@@ -67,6 +68,7 @@ export default function ReaderScreen() {
 
   const { colors } = useTheme()
   const { language } = useLanguage()
+  const { nativeLanguage } = useNativeLanguage()
   const quickStats = useQuickStats(isAuthenticated)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const insets = useSafeAreaInsets()
@@ -315,6 +317,16 @@ export default function ReaderScreen() {
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
+      // Persist translation to saved word (fire-and-forget)
+      const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+      translationApi.translate(selection.text, language, targetLang)
+        .then(res => {
+          if (res.translatedText && saved.id) {
+            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+            vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+          }
+        })
+        .catch(() => {})
     } catch {}
   }
 
