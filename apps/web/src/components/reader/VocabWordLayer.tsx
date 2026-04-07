@@ -4,6 +4,7 @@ import type { VocabMap } from '../../hooks/useReaderVocabulary'
 interface VocabWordLayerProps {
   containerRef: React.RefObject<HTMLElement | null>
   vocabMap: VocabMap
+  showInlineTranslations?: boolean
 }
 
 const STAGE_CLASSES: Record<number, string> = {
@@ -28,25 +29,29 @@ function tokenize(text: string): { word: string; start: number; end: number }[] 
   return tokens
 }
 
-export function VocabWordLayer({ containerRef, vocabMap }: VocabWordLayerProps) {
+export function VocabWordLayer({ containerRef, vocabMap, showInlineTranslations = false }: VocabWordLayerProps) {
   useEffect(() => {
     const container = containerRef.current
     if (!container || vocabMap.size === 0) return
 
     // Debounce to avoid marking during rapid DOM changes
-    const timer = setTimeout(() => markWords(container, vocabMap), 150)
+    const timer = setTimeout(() => markWords(container, vocabMap, showInlineTranslations), 150)
 
     return () => {
       clearTimeout(timer)
       // Clean up marks on unmount or vocab change
       removeMarks(container)
     }
-  }, [containerRef, vocabMap])
+  }, [containerRef, vocabMap, showInlineTranslations])
 
   return null
 }
 
 function removeMarks(container: HTMLElement) {
+  // Remove inline translation spans first
+  const translations = container.querySelectorAll('.vocab-inline-translation')
+  translations.forEach((el) => el.remove())
+
   const marks = container.querySelectorAll(`mark[${MARK_ATTR}]`)
   marks.forEach((mark) => {
     const parent = mark.parentNode
@@ -58,7 +63,7 @@ function removeMarks(container: HTMLElement) {
   })
 }
 
-function markWords(container: HTMLElement, vocabMap: VocabMap) {
+function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTranslations: boolean) {
   // First remove existing marks
   removeMarks(container)
 
@@ -110,6 +115,15 @@ function markWords(container: HTMLElement, vocabMap: VocabMap) {
       mark.className = `vocab-underline ${STAGE_CLASSES[entry.stage] || STAGE_CLASSES[0]}`
       mark.textContent = text.slice(token.start, token.end)
       frag.appendChild(mark)
+
+      // Append inline translation if enabled and translation exists
+      if (showInlineTranslations && entry.translation) {
+        const span = document.createElement('span')
+        span.className = 'vocab-inline-translation'
+        span.textContent = ` (${entry.translation})`
+        span.setAttribute('aria-hidden', 'true')
+        frag.appendChild(span)
+      }
 
       lastEnd = token.end
     }

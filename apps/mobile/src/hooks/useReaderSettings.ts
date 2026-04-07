@@ -10,6 +10,7 @@ export interface ReaderSettings {
   ttsSpeed: number
   autoLookup: boolean
   showReaderStats: boolean
+  showInlineTranslations: boolean
 }
 
 const STORAGE_KEY = 'reader.settings.v2'
@@ -24,6 +25,7 @@ const defaults: ReaderSettings = {
   ttsSpeed: 1.0,
   autoLookup: false,
   showReaderStats: true,
+  showInlineTranslations: true,
 }
 
 const fontFamilyMap: Record<string, string> = {

@@ -153,6 +153,13 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               <Switch value={settings.autoLookup} onValueChange={v => onUpdate({ autoLookup: v })} trackColor={{ true: colors.primary }} />
             </View>
 
+            {/* Inline Translations */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INLINE TRANSLATIONS</Text>
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Show translations for saved words</Text>
+              <Switch value={settings.showInlineTranslations} onValueChange={v => onUpdate({ showInlineTranslations: v })} trackColor={{ true: colors.primary }} />
+            </View>
+
             {/* Reading Stats */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>READING STATS</Text>
             <View style={styles.toggleRow}>

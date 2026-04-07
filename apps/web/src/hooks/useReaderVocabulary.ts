@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, type SaveWordRequest } from '../api/vocabulary'
 
-export type VocabMap = Map<string, { stage: number; id?: string }>
+export type VocabMap = Map<string, { stage: number; id?: string; translation?: string }>
 
 export function useReaderVocabulary() {
   const { isAuthenticated } = useAuth()
@@ -17,9 +17,9 @@ export function useReaderVocabulary() {
     getReaderVocab()
       .then((words) => {
         if (cancelled) return
-        const m = new Map<string, { stage: number; id?: string }>()
+        const m = new Map<string, { stage: number; id?: string; translation?: string }>()
         for (const w of words) {
-          m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id })
+          m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id, translation: w.translation })
         }
         mapRef.current = m
         setVocabMap(m)

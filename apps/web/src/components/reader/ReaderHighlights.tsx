@@ -25,6 +25,7 @@ interface ReaderHighlightsProps {
   userBookId?: string
   ttsSpeed?: number
   scrollToHighlightId?: string | null
+  showInlineTranslations?: boolean
   children: React.ReactNode
 }
 
@@ -44,6 +45,7 @@ export function ReaderHighlights({
   userBookId,
   ttsSpeed = 1.0,
   scrollToHighlightId,
+  showInlineTranslations = false,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage } = useNativeLanguage()
@@ -206,7 +208,7 @@ export function ReaderHighlights({
         onHighlightClick={handleHighlightClick}
       />
 
-      <VocabWordLayer containerRef={containerRef} vocabMap={vocabMap} />
+      <VocabWordLayer containerRef={containerRef} vocabMap={vocabMap} showInlineTranslations={showInlineTranslations} />
 
       {hasSelection && !showTranslation && (
         <SelectionToolbar
