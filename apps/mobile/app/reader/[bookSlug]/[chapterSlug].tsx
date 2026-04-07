@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
+import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi } from '@textstack/shared'
 import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
@@ -315,6 +315,16 @@ export default function ReaderScreen() {
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
+      // Persist translation to saved word (fire-and-forget)
+      const nativeLang = language === 'uk' ? 'en' : 'uk'
+      translationApi.translate(selection.text, language, nativeLang)
+        .then(res => {
+          if (res.translatedText && saved.id) {
+            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+            vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+          }
+        })
+        .catch(() => {})
     } catch {}
   }
 
