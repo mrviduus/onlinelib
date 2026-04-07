@@ -54,7 +54,7 @@ export function useWordTap({
   bookTitle,
   clearSelection,
 }: UseWordTapOptions) {
-  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord } = useReaderVocabulary()
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation } = useReaderVocabulary()
   const { lookup: lookupWord } = useDictionary()
 
   const [tap, setTap] = useState<TapPopupState>(INITIAL_TAP)
@@ -163,6 +163,7 @@ export function useWordTap({
         translationPromise.then(translation => {
           if (translation && saved?.id) {
             updateWord(saved.id, { translation }).catch(() => {})
+            updateTranslation(saved.word, translation)
           }
         })
       }).catch(() => {})

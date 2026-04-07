@@ -63,5 +63,15 @@ export function useReaderVocabulary() {
     setVocabMap(next)
   }, [])
 
-  return { vocabMap, loading, addWord, markAsKnown, removeWord }
+  const updateTranslation = useCallback((word: string, translation: string) => {
+    const key = word.toLowerCase()
+    const entry = mapRef.current.get(key)
+    if (!entry) return
+    const next = new Map(mapRef.current)
+    next.set(key, { ...entry, translation })
+    mapRef.current = next
+    setVocabMap(next)
+  }, [])
+
+  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation }
 }
