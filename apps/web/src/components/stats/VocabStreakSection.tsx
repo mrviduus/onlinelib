@@ -113,12 +113,12 @@ function YearlyHeatmap({ dailyStats }: { dailyStats: VocabDailyStatDto[] }) {
   const maxVal = Math.max(...cells.map(c => c.value), 1)
 
   const getColor = (value: number): string => {
-    if (value === 0) return 'var(--color-bg-secondary, #f3f4f6)'
+    if (value === 0) return 'var(--heatmap-empty)'
     const ratio = value / maxVal
-    if (ratio < 0.25) return '#d4a574'
-    if (ratio < 0.5) return '#c4884e'
-    if (ratio < 0.75) return 'var(--color-brand, #C4704B)'
-    return '#8b4513'
+    if (ratio < 0.25) return 'var(--heatmap-l1)'
+    if (ratio < 0.5) return 'var(--heatmap-l2)'
+    if (ratio < 0.75) return 'var(--heatmap-l3)'
+    return 'var(--heatmap-l4)'
   }
 
   const totalAdded = dailyStats.reduce((s, d) => s + d.wordsAdded, 0)

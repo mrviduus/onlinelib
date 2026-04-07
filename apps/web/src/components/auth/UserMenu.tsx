@@ -84,6 +84,13 @@ export function UserMenu() {
               Practice
             </LocalizedLink>
             <LocalizedLink
+              to="/highlights"
+              className="user-menu__item"
+              onClick={() => setOpen(false)}
+            >
+              Highlights
+            </LocalizedLink>
+            <LocalizedLink
               to="/stats"
               className="user-menu__item"
               onClick={() => setOpen(false)}

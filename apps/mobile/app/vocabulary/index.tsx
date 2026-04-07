@@ -144,29 +144,22 @@ export default function VocabularyScreen() {
                     color={reviewMode === m ? '#fff' : colors.textSecondary}
                   />
                   <Text style={[styles.modeToggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
-                    {m === 'blitz' ? 'Blitz' : 'Classic'}
+                    {m === 'blitz' ? 'Blitz' : 'Flashcards'}
                   </Text>
                 </PressableScale>
               ))}
             </View>
-            <View style={styles.reviewRow}>
-              {dueCount > 0 && (
+            {dueCount > 0 && (
+              <View style={styles.reviewRow}>
                 <TouchableOpacity
                   style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
                   onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
                 >
                   <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Review ({dueCount})</Text>
+                  <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Practice ({dueCount})</Text>
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.reviewBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
-                onPress={() => router.push(`/vocabulary/review?mode=practice&reviewMode=${reviewMode}`)}
-              >
-                <Ionicons name="refresh-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium, color: colors.primary }]}>Practice</Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+            )}
           </>
         )}
 

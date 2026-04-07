@@ -70,7 +70,6 @@ export interface SubmitReviewRequest {
   wordId: string
   isCorrect: boolean
   responseTimeMs: number
-  mode?: string
   selfAssessment?: SelfAssessment
 }
 
@@ -154,10 +153,9 @@ export async function updateWord(id: string, data: UpdateWordRequest): Promise<V
   })
 }
 
-export async function getReviewQueue(limit?: number, mode?: 'srs' | 'practice'): Promise<ReviewQueueResponse> {
+export async function getReviewQueue(limit?: number): Promise<ReviewQueueResponse> {
   const params = new URLSearchParams()
   if (limit) params.set('limit', String(limit))
-  if (mode && mode !== 'srs') params.set('mode', mode)
   const qs = params.toString()
   return authFetch<ReviewQueueResponse>(`/me/vocabulary/review${qs ? `?${qs}` : ''}`)
 }

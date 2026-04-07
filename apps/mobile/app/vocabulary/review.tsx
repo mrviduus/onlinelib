@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router'
+import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE } from '@textstack/shared'
+import type { SelfAssessment, ReviewMode } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useTts } from '../../src/hooks/useTts'
 import { useHaptics } from '../../src/hooks/useHaptics'
 import { useVocabularyReview } from '../../src/hooks/useVocabularyReview'
-import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
-import type { SelfAssessment } from '@textstack/shared'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { PressableScale } from '../../src/components/ui/PressableScale'
 import { MultipleChoiceCard } from '../../src/components/vocabulary/MultipleChoiceCard'
@@ -21,12 +21,11 @@ export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
   const { language } = useLanguage()
   const router = useRouter()
-  const params = useLocalSearchParams<{ mode?: string; limit?: string; reviewMode?: string }>()
+  const params = useLocalSearchParams<{ limit?: string; reviewMode?: string }>()
 
-  const mode = (params.mode === 'practice' ? 'practice' : 'srs') as 'srs' | 'practice'
   const [batchSize, setBatchSize] = useState(() => {
-    const v = parseInt(params.limit || '20', 10)
-    return [10, 20, 50].includes(v) ? v : 20
+    const v = parseInt(params.limit || String(DEFAULT_BATCH_SIZE), 10)
+    return (REVIEW_BATCH_SIZES as readonly number[]).includes(v) ? v : DEFAULT_BATCH_SIZE
   })
 
   const review = useVocabularyReview()
@@ -44,8 +43,8 @@ export default function VocabularyReviewScreen() {
   // Start session
   useEffect(() => {
     sessionStartRef.current = Date.now()
-    review.startSession(batchSize, mode, review.reviewMode)
-  }, [mode, batchSize])
+    review.startSession(batchSize, review.reviewMode)
+  }, [batchSize])
 
   const handleAnswer = async (isCorrect: boolean, responseTimeMs: number, selfAssessment?: SelfAssessment) => {
     haptics.play(isCorrect ? 'correct' : 'wrong')
@@ -56,21 +55,14 @@ export default function VocabularyReviewScreen() {
 
   const handleAgain = () => {
     sessionStartRef.current = Date.now()
-    review.startSession(batchSize, mode, review.reviewMode)
+    review.startSession(batchSize, review.reviewMode)
   }
-
-  const handleReviewDue = () => {
-    sessionStartRef.current = Date.now()
-    review.startSession(batchSize, 'srs', review.reviewMode)
-  }
-
-  const title = mode === 'practice' ? 'Practice' : 'Review'
 
   // Loading
   if (review.loading) {
     return (
       <>
-        <Stack.Screen options={{ title, headerShown: true }} />
+        <Stack.Screen options={{ title: 'Practice', headerShown: true }} />
         <LoadingScreen />
       </>
     )
@@ -81,17 +73,15 @@ export default function VocabularyReviewScreen() {
     haptics.play('complete')
     return (
       <>
-        <Stack.Screen options={{ title: review.hasCards ? 'Session Complete' : title, headerShown: true }} />
+        <Stack.Screen options={{ title: review.hasCards ? 'Session Complete' : 'Practice', headerShown: true }} />
         <SessionSummary
           reviewed={review.sessionStats.reviewed}
           correct={review.sessionStats.correct}
           elapsedMs={Date.now() - sessionStartRef.current}
-          mode={mode}
           reviewMode={review.reviewMode}
           dueCount={review.totalDue}
           batchSize={batchSize}
           onAgain={handleAgain}
-          onReviewDue={mode === 'practice' ? handleReviewDue : undefined}
           onBack={() => router.back()}
           onBatchChange={setBatchSize}
           onModeChange={(m: ReviewMode) => review.setReviewMode(m)}
@@ -106,7 +96,7 @@ export default function VocabularyReviewScreen() {
   return (
     <>
       <Stack.Screen options={{
-        title: `${title} (${review.currentIndex + 1}/${review.cards.length})`,
+        title: `Practice (${review.currentIndex + 1}/${review.cards.length})`,
         headerShown: true,
         headerRight: () => (
           <View style={styles.headerRight}>
@@ -127,17 +117,12 @@ export default function VocabularyReviewScreen() {
             <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
           </View>
 
-          {/* Mode badge row */}
+          {/* Mode badge */}
           <View style={styles.badgeRow}>
-            {mode === 'practice' && (
-              <View style={[styles.modeBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.modeBadgeText, { color: colors.primary }]}>Practice</Text>
-              </View>
-            )}
             <View style={[styles.modeBadge, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
               <Ionicons name={review.reviewMode === 'blitz' ? 'flash' : 'layers'} size={12} color={colors.textSecondary} />
               <Text style={[styles.modeBadgeText, { color: colors.textSecondary }]}>
-                {review.reviewMode === 'blitz' ? 'Blitz' : 'Classic'}
+                {review.reviewMode === 'blitz' ? 'Blitz' : 'Flashcards'}
               </Text>
             </View>
           </View>
