@@ -21,7 +21,7 @@ const STORAGE_KEY = 'reader.settings.v1'
 
 const defaults: ReaderSettings = {
   fontSize: 18,
-  lineHeight: 1.65,
+  lineHeight: 1.8,
   textAlign: 'center',
   theme: 'light',
   fontFamily: 'serif',
