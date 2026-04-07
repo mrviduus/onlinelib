@@ -5,8 +5,8 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
-import { readingTrackingApi } from '@textstack/shared'
-import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto } from '@textstack/shared'
+import { readingTrackingApi, vocabularyApi } from '@textstack/shared'
+import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto, VocabularyStatsDto, VocabDailyStatDto } from '@textstack/shared'
 import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -28,24 +28,31 @@ export default function StatsScreen() {
   const [achievements, setAchievements] = useState<AchievementDto[]>([])
   const [goals, setGoals] = useState<GoalDto[]>([])
   const [bookStats, setBookStats] = useState<BookStatsResponse | null>(null)
+  const [vocabStats, setVocabStats] = useState<VocabularyStatsDto | null>(null)
+  const [vocabDaily, setVocabDaily] = useState<VocabDailyStatDto[]>([])
   const [year, setYear] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d, a, g, bs] = await Promise.all([
+      const tz = -new Date().getTimezoneOffset()
+      const [s, d, a, g, bs, vs, vd] = await Promise.all([
         readingTrackingApi.getStats(),
         readingTrackingApi.getDailyStats(),
         readingTrackingApi.getAchievements(),
         readingTrackingApi.getGoals().catch(() => [] as GoalDto[]),
         readingTrackingApi.getBookStats(year).catch(() => null as BookStatsResponse | null),
+        vocabularyApi.getVocabularyStats().catch(() => null as VocabularyStatsDto | null),
+        vocabularyApi.getVocabularyDailyStats(tz).catch(() => [] as VocabDailyStatDto[]),
       ])
       setStats(s)
       setDaily(d)
       setAchievements(a)
       setGoals(g)
       setBookStats(bs)
+      setVocabStats(vs)
+      setVocabDaily(vd)
     } catch (e) {
       console.error('Stats load error:', e)
     } finally {
@@ -151,6 +158,11 @@ export default function StatsScreen() {
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
+          {/* Vocab streak — always visible above tabs */}
+          {vocabStats && vocabStats.totalWords > 0 && (
+            <VocabStreakCard vocabStats={vocabStats} dailyStats={vocabDaily} />
+          )}
+
           {tab === 'overview' && (
             <>
               {stats && <TodaySummary stats={stats} daily={daily} />}
@@ -702,6 +714,248 @@ function BarRow({ label, value, max, suffix }: { label: string; value: number; m
     </View>
   )
 }
+
+// --- Vocab Streak Card ---
+
+const VOCAB_DAILY_GOAL = 10
+
+function getLast7VocabDays(dailyStats: VocabDailyStatDto[]): VocabDailyStatDto[] {
+  const today = new Date()
+  const result: VocabDailyStatDto[] = []
+  const statsMap = new Map(dailyStats.map(d => [d.date.split('T')[0], d]))
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().split('T')[0]
+    result.push(statsMap.get(key) || { date: key, wordsAdded: 0, reviewCount: 0, correctCount: 0, practiceCount: 0, srsCount: 0 })
+  }
+  return result
+}
+
+function VocabStreakCard({ vocabStats, dailyStats }: { vocabStats: VocabularyStatsDto; dailyStats: VocabDailyStatDto[] }) {
+  const { colors } = useTheme()
+  const streak = vocabStats.streak
+  const last7 = getLast7VocabDays(dailyStats)
+  const maxVal = Math.max(...last7.map(d => d.wordsAdded + d.reviewCount), VOCAB_DAILY_GOAL, 1)
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const [heatMode, setHeatMode] = useState<'combined' | 'added' | 'reviewed'>('combined')
+  const statsMap = new Map(dailyStats.map(d => [d.date.split('T')[0], d]))
+  const today = new Date()
+  const cells: { date: string; value: number }[] = []
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().split('T')[0]
+    const stat = statsMap.get(key)
+    let value = 0
+    if (stat) {
+      if (heatMode === 'added') value = stat.wordsAdded
+      else if (heatMode === 'reviewed') value = stat.reviewCount
+      else value = stat.wordsAdded + stat.reviewCount
+    }
+    cells.push({ date: key, value })
+  }
+  const heatMax = Math.max(...cells.map(c => c.value), 1)
+  const getHeatColor = (v: number) => {
+    if (v === 0) return colors.border
+    const r = v / heatMax
+    if (r < 0.25) return '#d4a574'
+    if (r < 0.5) return '#c4884e'
+    if (r < 0.75) return colors.primary
+    return '#8b4513'
+  }
+
+  const totalAdded = dailyStats.reduce((s, d) => s + d.wordsAdded, 0)
+  const totalReviewed = dailyStats.reduce((s, d) => s + d.reviewCount, 0)
+
+  return (
+    <View style={[vocabStyles.container, { backgroundColor: colors.primary }]}>
+      {/* Header */}
+      <Text style={vocabStyles.title}>
+        {streak > 0 ? `Keep Up Your ${streak} Day Streak` : 'Start Your Streak!'}
+      </Text>
+      <Text style={vocabStyles.subtitle}>
+        Review {VOCAB_DAILY_GOAL} flashcards every day to keep your streak going.
+      </Text>
+
+      {/* Legend */}
+      <View style={vocabStyles.legend}>
+        <View style={vocabStyles.legendItem}>
+          <View style={[vocabStyles.legendDot, { backgroundColor: '#22c55e' }]} />
+          <Text style={vocabStyles.legendText}>Added</Text>
+        </View>
+        <View style={vocabStyles.legendItem}>
+          <View style={[vocabStyles.legendDot, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
+          <Text style={vocabStyles.legendText}>Reviewed</Text>
+        </View>
+      </View>
+
+      {/* Weekly chart */}
+      <View style={vocabStyles.chartRow}>
+        {last7.map((day, i) => {
+          const addedH = maxVal > 0 ? (day.wordsAdded / maxVal) * 80 : 0
+          const reviewedH = maxVal > 0 ? (day.reviewCount / maxVal) * 80 : 0
+          const date = new Date(day.date)
+          const active = day.reviewCount > 0 || day.wordsAdded > 0
+          return (
+            <View key={i} style={vocabStyles.barCol}>
+              <View style={vocabStyles.barWrapper}>
+                <View style={[vocabStyles.bar, { height: Math.max(reviewedH, reviewedH > 0 ? 3 : 0), backgroundColor: 'rgba(255,255,255,0.7)' }]} />
+                <View style={[vocabStyles.bar, { height: Math.max(addedH, addedH > 0 ? 3 : 0), backgroundColor: '#22c55e' }]} />
+              </View>
+              <Text style={vocabStyles.dayLabel}>{days[date.getDay()]}</Text>
+              <Ionicons name={active ? 'flame' : 'flame-outline'} size={14} color={active ? '#fff' : 'rgba(255,255,255,0.3)'} />
+            </View>
+          )
+        })}
+      </View>
+
+      {/* Goal line label */}
+      <Text style={vocabStyles.goalLabel}>Goal: {VOCAB_DAILY_GOAL}/day</Text>
+
+      {/* Yearly heatmap */}
+      <View style={[vocabStyles.heatmapCard, { backgroundColor: colors.surface }]}>
+        <Text style={[vocabStyles.heatmapTitle, { color: colors.text }]}>Long Term Progress</Text>
+        <View style={vocabStyles.heatmapTabs}>
+          {(['combined', 'added', 'reviewed'] as const).map(m => (
+            <TouchableOpacity
+              key={m}
+              style={[vocabStyles.heatmapTab, heatMode === m && { backgroundColor: colors.primary }]}
+              onPress={() => setHeatMode(m)}
+            >
+              <Text style={[vocabStyles.heatmapTabText, { color: heatMode === m ? '#fff' : colors.textSecondary }]}>
+                {m === 'combined' ? 'Combined' : m === 'added' ? 'Added' : 'Reviewed'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={vocabStyles.heatmapGrid}>
+          {cells.map((cell, i) => (
+            <View key={i} style={[vocabStyles.heatmapCell, { backgroundColor: getHeatColor(cell.value) }]} />
+          ))}
+        </View>
+        <Text style={[vocabStyles.heatmapSummary, { color: colors.textSecondary }]}>
+          {totalAdded} words added · {totalReviewed} words reviewed
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+const vocabStyles = StyleSheet.create({
+  container: {
+    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: fonts.serifBold,
+    color: '#fff',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: fonts.sans,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 16,
+  },
+  legend: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 10,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  chartRow: {
+    flexDirection: 'row',
+    gap: 6,
+    height: 120,
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  barCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  barWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-end',
+    gap: 1,
+  },
+  bar: {
+    width: '100%',
+    borderRadius: 3,
+  },
+  dayLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sansMedium,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  goalLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'right',
+    marginBottom: 16,
+  },
+  heatmapCard: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  heatmapTitle: {
+    fontSize: 17,
+    fontFamily: fonts.serifBold,
+    marginBottom: 10,
+  },
+  heatmapTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  heatmapTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  heatmapTabText: {
+    fontSize: 12,
+    fontFamily: fonts.sansMedium,
+  },
+  heatmapGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+  },
+  heatmapCell: {
+    width: 8,
+    height: 8,
+    borderRadius: 1.5,
+  },
+  heatmapSummary: {
+    fontSize: 12,
+    fontFamily: fonts.sans,
+    marginTop: 10,
+  },
+})
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
