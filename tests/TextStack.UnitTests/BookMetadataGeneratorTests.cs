@@ -13,7 +13,7 @@ public class BookMetadataGeneratorTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Ollama:BaseUrl"] = "http://localhost:11434",
-                ["Ollama:Model"] = "gemma3:4b",
+                ["Ollama:Model"] = "qwen3:8b",
                 ["Ollama:TimeoutSeconds"] = "5"
             })
             .Build();

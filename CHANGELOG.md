@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Vocabulary Review Overhaul (2026-04-06)
+- **Blitz + Classic modes** — segmented control on Practice page, Blitz (MC cards) and Classic (3D flip flashcards with self-assessment)
+- **Classic Flashcards** — CSS 3D flip animation, self-assessment buttons (Forgot/Almost/Knew), maps to SRS isCorrect
+- **New Word intro card** — shown for stage=0 words before quiz: word, sentence, translation, AI explanation
+- **AI explanation** — Ollama generates 2-3 sentence explanation in native language when word saved, shown on NewWordCard
+- **Sound effects** — Web Audio API synthesized sounds (correct/wrong/flip/complete), toggle in review header
+- **Session summary redesign** — reward banner (4 tiers), stats row, action buttons
+- **Practice page redesign** — removed emoji icons, Apple-like card sections, mode selector
+- **Dark mode fix** — replaced undefined CSS vars (`--color-surface`, `--color-hover`) with proper theme vars
+- **Removed typing mode** — ContextCard deleted, context cloze now uses MC (backend returns `multiple_choice`)
+- **Ollama model upgrade** — switched from `gemma3:4b` to `qwen3:8b` for better multilingual quality
+
 ### Auto Publish — Automated Book Publishing Pipeline (2026-04-02)
 - **Auto-publish admin page** — configurable pipeline: Draft → SEO generation → publish, fully managed from admin panel
 - **SEO generation via Claude CLI** — `seo-generate.sh` calls `claude-sonnet-4-6` to generate description, relevance, themes, FAQs for editions and authors

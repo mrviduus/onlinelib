@@ -11,7 +11,7 @@ public static class BookMetadataGenerator
         CancellationToken ct)
     {
         var baseUrl = config.GetValue<string>("Ollama:BaseUrl") ?? "http://localhost:11434";
-        var model = config.GetValue<string>("Ollama:Model") ?? "gemma3:4b";
+        var model = config.GetValue<string>("Ollama:Model") ?? "qwen3:8b";
         var timeout = config.GetValue("Ollama:TimeoutSeconds", 30);
 
         var prompt = BuildPrompt(title, author, needsDescription);

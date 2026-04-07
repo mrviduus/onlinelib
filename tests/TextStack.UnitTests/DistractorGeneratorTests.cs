@@ -22,7 +22,7 @@ public class DistractorGeneratorTests
         Options.Create(new VocabularyOptions
         {
             OllamaBaseUrl = "http://localhost:11434",
-            OllamaModel = "gemma3:4b",
+            OllamaModel = "qwen3:8b",
             OllamaTimeoutSeconds = 5,
         });
 
