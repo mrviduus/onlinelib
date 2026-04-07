@@ -10,9 +10,11 @@ import { useDarkMode } from '../hooks/useDarkMode'
 import { useTranslation } from '../hooks/useTranslation'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { StreakBadge } from './StreakBadge'
+import { VocabBadgePopup } from './VocabBadgePopup'
 
 export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
+  const [badgePopup, setBadgePopup] = useState(false)
   const { isAuthenticated, isLoading } = useAuth()
   const isScrolled = useScrolled(50)
   const { isDark, toggleTheme } = useDarkMode()
@@ -63,15 +65,28 @@ export function Header() {
         >
           <span className="material-icons-outlined">search</span>
         </button>
-        {isAuthenticated && quickStats && (
-          <LocalizedLink to="/stats" className="streak-badge" title={t('nav.stats')}>
-            <StreakBadge
-              streak={quickStats.currentStreak}
-              progress={quickStats.dailyGoal
-                ? quickStats.dailyGoal.today / quickStats.dailyGoal.target
-                : 0}
-            />
-          </LocalizedLink>
+        {isAuthenticated && quickStats && (quickStats.vocabDueNow > 0 || quickStats.vocabReviewedToday > 0) && (
+          <div className="streak-badge-wrapper">
+            <button
+              className="streak-badge"
+              onClick={() => setBadgePopup(v => !v)}
+              title={t('nav.words')}
+            >
+              <StreakBadge
+                reviewed={quickStats.vocabReviewedToday}
+                due={quickStats.vocabDueNow}
+                streak={quickStats.vocabStreak}
+              />
+            </button>
+            {badgePopup && (
+              <VocabBadgePopup
+                reviewed={quickStats.vocabReviewedToday}
+                due={quickStats.vocabDueNow}
+                streak={quickStats.vocabStreak}
+                onClose={() => setBadgePopup(false)}
+              />
+            )}
+          </div>
         )}
         {!isLoading && (isAuthenticated ? <UserMenu /> : <LoginButton />)}
       </div>

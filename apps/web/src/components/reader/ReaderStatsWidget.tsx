@@ -24,7 +24,6 @@ export function ReaderStatsWidget({ sessionStartedAt, quickStats, bookEtf }: Pro
   const goal = quickStats?.dailyGoal
   const todayMin = Math.round((quickStats?.todaySeconds || 0) / 60) + elapsed
   const goalTarget = goal?.target || 0
-  const goalPct = goalTarget > 0 ? Math.min(1, todayMin / goalTarget) : 0
 
   if (elapsed === 0 && goalTarget === 0 && !bookEtf) return null
 
@@ -33,7 +32,12 @@ export function ReaderStatsWidget({ sessionStartedAt, quickStats, bookEtf }: Pro
       {elapsed > 0 && <span className="reader-stats-widget__item">{elapsed}m</span>}
       {goalTarget > 0 && (
         <span className="reader-stats-widget__item">
-          <StreakBadge streak={quickStats?.currentStreak || 0} progress={goalPct} size={24} />
+          <StreakBadge
+            reviewed={quickStats?.vocabReviewedToday || 0}
+            due={quickStats?.vocabDueNow || 0}
+            streak={quickStats?.vocabStreak || 0}
+            size={24}
+          />
           <span className="reader-stats-widget__goal-text">{todayMin}/{goalTarget}m</span>
         </span>
       )}

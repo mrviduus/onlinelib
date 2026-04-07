@@ -131,11 +131,18 @@
   font-size: 22px;
 }
 
+.streak-badge-wrapper {
+  position: relative;
+}
+
 .streak-badge {
   display: flex;
   align-items: center;
-  gap: 2px;
-  text-decoration: none;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   color: var(--color-text);
   white-space: nowrap;
 }
@@ -150,19 +157,81 @@
   transition: stroke-dashoffset 0.4s ease;
 }
 
-@keyframes streak-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+/* Vocab badge popup */
+.vocab-badge-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  animation: vocab-popup-in 0.15s ease-out;
 }
 
-.streak-badge__pulse {
-  animation: streak-pulse 2s ease-in-out infinite;
+@keyframes vocab-popup-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 600px) {
-  .streak-badge__count {
-    font-size: 12px;
-  }
+.vocab-badge-popup__header {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.vocab-badge-popup__status {
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748b);
+  margin-bottom: 12px;
+}
+
+.vocab-badge-popup__stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.vocab-badge-popup__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.vocab-badge-popup__stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.vocab-badge-popup__stat-label {
+  font-size: 11px;
+  color: var(--color-text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vocab-badge-popup__btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 8px 0;
+  border-radius: 8px;
+  background: var(--color-brand, #C4704B);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.vocab-badge-popup__btn:hover {
+  opacity: 0.9;
 }
 
 /* Legacy search button support */
