@@ -48,17 +48,13 @@ export function VocabWordLayer({ containerRef, vocabMap, showInlineTranslations 
 }
 
 function removeMarks(container: HTMLElement) {
-  // Remove inline translation spans first
-  const translations = container.querySelectorAll('.vocab-inline-translation')
-  translations.forEach((el) => el.remove())
-
   const marks = container.querySelectorAll(`mark[${MARK_ATTR}]`)
   marks.forEach((mark) => {
     const parent = mark.parentNode
     if (!parent) return
-    // Replace mark with its text content
-    const text = document.createTextNode(mark.textContent || '')
-    parent.replaceChild(text, mark)
+    // Get only the word text (first child text node), not the translation span
+    const wordText = mark.firstChild?.nodeType === Node.TEXT_NODE ? mark.firstChild.textContent : mark.textContent
+    parent.replaceChild(document.createTextNode(wordText || ''), mark)
     parent.normalize()
   })
 }
@@ -114,16 +110,17 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
       mark.setAttribute(MARK_ATTR, 'true')
       mark.className = `vocab-underline ${STAGE_CLASSES[entry.stage] || STAGE_CLASSES[0]}`
       mark.textContent = text.slice(token.start, token.end)
-      frag.appendChild(mark)
 
-      // Append inline translation if enabled and translation exists
+      // Translation positioned absolutely inside mark — no text reflow
       if (showInlineTranslations && entry.translation) {
         const span = document.createElement('span')
         span.className = 'vocab-inline-translation'
-        span.textContent = ` (${entry.translation})`
+        span.textContent = entry.translation
         span.setAttribute('aria-hidden', 'true')
-        frag.appendChild(span)
+        mark.appendChild(span)
       }
+
+      frag.appendChild(mark)
 
       lastEnd = token.end
     }

@@ -1790,6 +1790,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   border-bottom: 2px solid transparent;
   transition: border-color 0.2s;
   animation: vocab-underline-in 0.4s ease-out;
+  position: relative;
 }
 .vocab-underline--new {
   border-bottom-color: rgba(59, 130, 246, 0.5); /* blue */
@@ -1813,11 +1814,19 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 }
 
 .vocab-inline-translation {
-  font-size: 0.75em;
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.5em;
   font-style: italic;
-  opacity: 0.5;
-  margin-left: 1px;
+  opacity: 0.4;
+  line-height: 1;
   pointer-events: none;
   user-select: none;
   animation: vocab-fade-in 0.4s ease-out;
+  max-width: 150%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

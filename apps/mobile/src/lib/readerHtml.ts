@@ -360,7 +360,6 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           var p = n.parentElement;
           if (!p) return NodeFilter.FILTER_REJECT;
           if (p.tagName === 'MARK' || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
-          if (p.classList && p.classList.contains('vocab-inline-translation')) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_ACCEPT;
         }
       });
@@ -389,16 +388,16 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           mark.setAttribute(VOCAB_ATTR, 'true');
           var entry = vocabMap[m.word];
           var stage = entry.stage;
-          mark.style.cssText = 'background:none;color:inherit;padding:0;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
+          mark.style.cssText = 'background:none;color:inherit;padding:0;position:relative;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
           mark.textContent = text.slice(m.start, m.end);
-          frag.appendChild(mark);
           if (_showInlineTranslations && entry.translation) {
             var span = document.createElement('span');
             span.className = 'vocab-inline-translation';
-            span.style.cssText = 'font-size:0.75em;font-style:italic;opacity:0.5;margin-left:1px;pointer-events:none;user-select:none;';
-            span.textContent = ' (' + entry.translation + ')';
-            frag.appendChild(span);
+            span.style.cssText = 'position:absolute;left:50%;bottom:100%;transform:translateX(-50%);white-space:nowrap;font-size:0.5em;font-style:italic;opacity:0.4;line-height:1;pointer-events:none;user-select:none;max-width:150%;overflow:hidden;text-overflow:ellipsis;';
+            span.textContent = entry.translation;
+            mark.appendChild(span);
           }
+          frag.appendChild(mark);
           lastEnd = m.end;
         }
         if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
@@ -413,13 +412,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     function removeVocabMarks() {
-      var translations = document.querySelectorAll('.vocab-inline-translation');
-      translations.forEach(function(el) { el.remove(); });
       var marks = document.querySelectorAll('mark[' + VOCAB_ATTR + ']');
       marks.forEach(function(mark) {
         var parent = mark.parentNode;
-        var text = document.createTextNode(mark.textContent || '');
-        parent.replaceChild(text, mark);
+        var wordText = mark.firstChild && mark.firstChild.nodeType === 3 ? mark.firstChild.textContent : mark.textContent;
+        parent.replaceChild(document.createTextNode(wordText || ''), mark);
         parent.normalize();
       });
     }
