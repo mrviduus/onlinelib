@@ -37,8 +37,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: fuzzy, bright, sharp, narrow, gentle\nHINT: Moving quickly without delay.");
 
-        var (distractors, hint) = await gen.GenerateAsync(
-            "fast", "en", "Quick", null, CancellationToken.None);
+        var (distractors, hint, _) = await gen.GenerateAsync(
+            "fast", "en", "Quick", null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Equal(5, distractors!.Count);
@@ -53,8 +53,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: a, b, c, d, e\nHINT: The word fast means quick.");
 
-        var (_, hint) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (_, hint, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.Null(hint);
     }
@@ -65,8 +65,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: fast, bright, sharp, narrow, gentle");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain("fast", distractors!);
@@ -78,8 +78,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: bright, bright, sharp, narrow, gentle");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Equal(distractors!.Count, distractors.Distinct().Count());
@@ -91,8 +91,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: one, two");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.Null(distractors);
     }
@@ -103,8 +103,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: very bright, sharp, narrow, gentle, bold");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain("very bright", distractors!);
@@ -118,8 +118,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "bright, sharp, narrow, gentle, bold");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.True(distractors!.Count >= 3);
@@ -131,12 +131,24 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: 1. bright, 2. sharp, 3. narrow, 4. gentle, 5. bold");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Contains("bright", distractors!);
         Assert.DoesNotContain("1. bright", distractors!);
+    }
+
+    [Fact]
+    public async Task Generate_StructuredResponse_ParsesExplanation()
+    {
+        var gen = CreateGenerator(HttpStatusCode.OK,
+            "DISTRACTORS: fuzzy, bright, sharp, narrow, gentle\nHINT: Moving quickly.\nEXPLANATION: Слово означает быстрый, скорый.");
+
+        var (_, _, explanation) = await gen.GenerateAsync(
+            "fast", "en", null, null, "ru", CancellationToken.None);
+
+        Assert.Equal("Слово означает быстрый, скорый.", explanation);
     }
 
     // === API failure ===
@@ -146,8 +158,8 @@ public class DistractorGeneratorTests
     {
         var gen = CreateGenerator(HttpStatusCode.InternalServerError, "");
 
-        var (distractors, hint) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, hint, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.Null(distractors);
         Assert.Null(hint);
@@ -158,8 +170,8 @@ public class DistractorGeneratorTests
     {
         var gen = CreateGenerator(HttpStatusCode.OK, "");
 
-        var (distractors, hint) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, hint, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.Null(distractors);
         Assert.Null(hint);
@@ -171,8 +183,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: Bright, SHARP, Narrow, Gentle, Bold");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.All(distractors!, d => Assert.Equal(d, d.ToLowerInvariant()));
@@ -184,8 +196,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             "DISTRACTORS: a, b, c, d, e, f, g, h");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.True(distractors!.Count <= 5);
@@ -198,8 +210,8 @@ public class DistractorGeneratorTests
         var gen = CreateGenerator(HttpStatusCode.OK,
             $"DISTRACTORS: {longWord}, bright, sharp, narrow, gentle");
 
-        var (distractors, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, CancellationToken.None);
+        var (distractors, _, _) = await gen.GenerateAsync(
+            "fast", "en", null, null, null, CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain(longWord, distractors!);

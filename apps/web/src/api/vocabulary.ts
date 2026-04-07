@@ -35,6 +35,7 @@ export interface SaveWordRequest {
   userBookId?: string | null
   sentence?: string | null
   bookTitle?: string | null
+  nativeLanguage?: string | null
 }
 
 export interface UpdateWordRequest {

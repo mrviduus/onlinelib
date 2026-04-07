@@ -104,6 +104,7 @@ public static class VocabularyEndpoints
         var lang = request.Language;
         var def = request.Definition;
         var sent = request.Sentence;
+        var nativeLang = request.NativeLanguage;
         _ = Task.Run(async () =>
         {
             try
@@ -131,10 +132,10 @@ public static class VocabularyEndpoints
                     }
                 }
 
-                // Generate distractors + hint via Ollama
-                var (distractors, hint) = await generator.GenerateAsync(
-                    wordText, lang, enrichedDef ?? def, sent, CancellationToken.None);
-                if (distractors?.Count > 0 || hint != null)
+                // Generate distractors + hint + explanation via Ollama
+                var (distractors, hint, explanation) = await generator.GenerateAsync(
+                    wordText, lang, enrichedDef ?? def, sent, nativeLang, CancellationToken.None);
+                if (distractors?.Count > 0 || hint != null || explanation != null)
                 {
                     var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
                         x => x.Id == wordId, CancellationToken.None);
@@ -144,6 +145,8 @@ public static class VocabularyEndpoints
                             w.Distractors = JsonSerializer.Serialize(distractors);
                         if (hint != null)
                             w.Hint = hint;
+                        if (explanation != null)
+                            w.Explanation = explanation;
                         await bgDb.SaveChangesAsync(CancellationToken.None);
                     }
                 }
@@ -660,7 +663,8 @@ public record SaveWordRequest(
     string Word, string Language,
     string? Translation, string? Definition,
     Guid? EditionId, Guid? ChapterId, Guid? UserBookId,
-    string? Sentence, string? BookTitle);
+    string? Sentence, string? BookTitle,
+    string? NativeLanguage = null);
 
 public record UpdateWordRequest(string? Translation, string? Definition);
 

@@ -154,6 +154,7 @@ export function useWordTap({
         userBookId: userBookId || undefined,
         sentence: sentence || undefined,
         bookTitle: bookTitle || undefined,
+        nativeLanguage: targetLang || undefined,
       }).catch(() => {})
     }
   }, [containerRef, clearSelection, clearHighlight, close, bookLanguage, targetLang, lookupWord, isAuthenticated, vocabMap, addVocabWord, editionId, chapterId, userBookId, bookTitle])

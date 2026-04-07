@@ -15,11 +15,11 @@ public sealed class DistractorGenerator : IDistractorGenerator
         _options = options.Value;
     }
 
-    public async Task<(List<string>? Distractors, string? Hint)> GenerateAsync(
+    public async Task<(List<string>? Distractors, string? Hint, string? Explanation)> GenerateAsync(
         string word, string language, string? definition, string? sentence,
-        CancellationToken ct)
+        string? nativeLanguage, CancellationToken ct)
     {
-        var prompt = BuildPrompt(word, language, definition, sentence);
+        var prompt = BuildPrompt(word, language, definition, sentence, nativeLanguage);
 
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(_options.OllamaTimeoutSeconds);
@@ -28,16 +28,16 @@ public sealed class DistractorGenerator : IDistractorGenerator
         var response = await client.PostAsJsonAsync($"{_options.OllamaBaseUrl}/api/generate", request, ct);
 
         if (!response.IsSuccessStatusCode)
-            return (null, null);
+            return (null, null, null);
 
         var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(ct);
         if (string.IsNullOrWhiteSpace(result?.Response))
-            return (null, null);
+            return (null, null, null);
 
         return ParseStructuredResponse(result.Response, word);
     }
 
-    private static string BuildPrompt(string word, string language, string? definition, string? sentence)
+    private static string BuildPrompt(string word, string language, string? definition, string? sentence, string? nativeLanguage)
     {
         var parts = new List<string>
         {
@@ -61,19 +61,28 @@ public sealed class DistractorGenerator : IDistractorGenerator
         parts.Add("");
         parts.Add("Task 2 - Hint: Write ONE short sentence (under 15 words) describing what this word means.");
         parts.Add($"Do NOT use the word \"{word}\" or direct synonyms in the hint.");
+
+        var explainLang = !string.IsNullOrWhiteSpace(nativeLanguage) ? nativeLanguage : language;
+        parts.Add("");
+        parts.Add($"Task 3 - Explanation: Write 2-3 sentences in {explainLang} explaining the meaning of \"{word}\".");
+        if (!string.IsNullOrWhiteSpace(sentence))
+            parts.Add($"Include how it is used in this context: \"{sentence}\"");
+
         parts.Add("");
         parts.Add("Reply in this EXACT format (no other text):");
         parts.Add("DISTRACTORS: word1, word2, word3, word4, word5");
         parts.Add("HINT: your hint sentence here");
+        parts.Add("EXPLANATION: your explanation here");
 
         return string.Join("\n", parts);
     }
 
-    private static (List<string>? Distractors, string? Hint) ParseStructuredResponse(string raw, string originalWord)
+    private static (List<string>? Distractors, string? Hint, string? Explanation) ParseStructuredResponse(string raw, string originalWord)
     {
         var lines = raw.Split('\n', StringSplitOptions.TrimEntries);
         string? distractorLine = null;
         string? hintLine = null;
+        string? explanationLine = null;
 
         foreach (var line in lines)
         {
@@ -81,6 +90,8 @@ public sealed class DistractorGenerator : IDistractorGenerator
                 distractorLine = line["DISTRACTORS:".Length..].Trim();
             else if (line.StartsWith("HINT:", StringComparison.OrdinalIgnoreCase))
                 hintLine = line["HINT:".Length..].Trim();
+            else if (line.StartsWith("EXPLANATION:", StringComparison.OrdinalIgnoreCase))
+                explanationLine = line["EXPLANATION:".Length..].Trim();
         }
 
         // Parse distractors from structured line, or fall back to old comma parsing
@@ -97,7 +108,12 @@ public sealed class DistractorGenerator : IDistractorGenerator
             hint = hintLine;
         }
 
-        return (distractors, hint);
+        // Validate explanation
+        string? explanation = null;
+        if (!string.IsNullOrWhiteSpace(explanationLine) && explanationLine.Length < 1000)
+            explanation = explanationLine;
+
+        return (distractors, hint, explanation);
     }
 
     private static List<string>? ParseWordList(string raw, string originalWord)
