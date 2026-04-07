@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import { getWordAtPoint } from '../lib/wordAtPoint'
 import { extractSentence } from '../lib/sentenceExtractor'
 import { translate as translateWord } from '../api/translation'
+import { updateWord } from '../api/vocabulary'
 import { useDictionary } from './useDictionary'
 import { useReaderVocabulary } from './useReaderVocabulary'
 
@@ -121,9 +122,12 @@ export function useWordTap({
     // Show popup immediately, load data in parallel
     setTap({ word, rect, translation: null, translationLoading: true, phonetic: undefined, definition: null, definitionLoading: true })
 
-    translateWord(word, bookLanguage, targetLang)
-      .then(res => setTap(prev => ({ ...prev, translation: res.translatedText })))
-      .catch(() => {})
+    const translationPromise = translateWord(word, bookLanguage, targetLang)
+      .then(res => {
+        setTap(prev => ({ ...prev, translation: res.translatedText }))
+        return res.translatedText
+      })
+      .catch(() => null as string | null)
       .finally(() => setTap(prev => ({ ...prev, translationLoading: false })))
 
     lookupWord(word, bookLanguage)
@@ -139,7 +143,7 @@ export function useWordTap({
       .catch(() => {})
       .finally(() => setTap(prev => ({ ...prev, definitionLoading: false })))
 
-    // Auto-save to vocabulary
+    // Auto-save to vocabulary, then patch translation once it resolves
     if (isAuthenticated && !vocabMap.get(word.toLowerCase())) {
       let sentence: string | undefined
       try {
@@ -155,6 +159,12 @@ export function useWordTap({
         sentence: sentence || undefined,
         bookTitle: bookTitle || undefined,
         nativeLanguage: targetLang || undefined,
+      }).then(saved => {
+        translationPromise.then(translation => {
+          if (translation && saved?.id) {
+            updateWord(saved.id, { translation }).catch(() => {})
+          }
+        })
       }).catch(() => {})
     }
   }, [containerRef, clearSelection, clearHighlight, close, bookLanguage, targetLang, lookupWord, isAuthenticated, vocabMap, addVocabWord, editionId, chapterId, userBookId, bookTitle])
