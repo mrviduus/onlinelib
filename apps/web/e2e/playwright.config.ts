@@ -2,7 +2,6 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = process.env.BASE_URL ?? 'http://localhost:5173'
 const apiURL = process.env.API_URL ?? 'http://localhost:8080'
-const adminURL = process.env.ADMIN_URL ?? 'http://localhost:81'
 const isCI = !!process.env.CI
 
 export default defineConfig({
@@ -38,14 +37,6 @@ export default defineConfig({
       },
       testMatch: /.*mobile.*/,
     },
-    {
-      name: 'admin',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: adminURL,
-      },
-      testMatch: /.*admin.*/,
-    },
   ],
 
   webServer: [
@@ -57,4 +48,4 @@ export default defineConfig({
   ],
 })
 
-export { apiURL, adminURL, baseURL }
+export { apiURL, baseURL }
