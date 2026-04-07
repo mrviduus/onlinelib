@@ -1497,6 +1497,22 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   gap: 6px;
 }
 
+.word-popup__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.5;
+  color: inherit;
+  align-self: center;
+}
+.word-popup__close:hover {
+  opacity: 1;
+}
+
 .word-popup__word {
   font-weight: 600;
   font-size: 18px;

@@ -38,7 +38,7 @@ export function useReaderVocabulary() {
       return saved
     }
     const next = new Map(mapRef.current)
-    next.set(key, { stage: saved.stage, id: saved.id })
+    next.set(key, { stage: saved.stage, id: saved.id, translation: existing?.translation || saved.translation || undefined })
     mapRef.current = next
     setVocabMap(next)
     return saved
@@ -73,5 +73,9 @@ export function useReaderVocabulary() {
     setVocabMap(next)
   }, [])
 
-  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation }
+  const refreshMarks = useCallback(() => {
+    setVocabMap(new Map(mapRef.current))
+  }, [])
+
+  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks }
 }

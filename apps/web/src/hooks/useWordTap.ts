@@ -54,7 +54,7 @@ export function useWordTap({
   bookTitle,
   clearSelection,
 }: UseWordTapOptions) {
-  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation } = useReaderVocabulary()
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation, refreshMarks } = useReaderVocabulary()
   const { lookup: lookupWord } = useDictionary()
 
   const [tap, setTap] = useState<TapPopupState>(INITIAL_TAP)
@@ -79,7 +79,10 @@ export function useWordTap({
   const close = useCallback(() => {
     clearHighlight()
     setTap(INITIAL_TAP)
-  }, [clearHighlight])
+    // Force VocabWordLayer to re-mark — the tapped word was inside
+    // word-popup-highlight (skipped by TreeWalker), now it's a text node again
+    refreshMarks()
+  }, [clearHighlight, refreshMarks])
 
   // --- Core tap handler ---
 
@@ -143,14 +146,14 @@ export function useWordTap({
       .catch(() => {})
       .finally(() => setTap(prev => ({ ...prev, definitionLoading: false })))
 
-    // Auto-save to vocabulary, then patch translation once it resolves
+    // Auto-save to vocabulary + persist translation; update vocabMap once both resolve
     if (isAuthenticated && !vocabMap.get(word.toLowerCase())) {
       let sentence: string | undefined
       try {
         if (container) sentence = extractSentence(result.range, container)
       } catch {}
 
-      addVocabWord({
+      const savePromise = addVocabWord({
         word,
         language: bookLanguage,
         editionId: userBookId ? undefined : editionId || undefined,
@@ -159,16 +162,24 @@ export function useWordTap({
         sentence: sentence || undefined,
         bookTitle: bookTitle || undefined,
         nativeLanguage: targetLang || undefined,
-      }).then(saved => {
-        translationPromise.then(translation => {
-          if (translation && saved?.id) {
-            updateWord(saved.id, { translation }).catch(() => {})
-            updateTranslation(saved.word, translation)
-          }
-        })
-      }).catch(() => {})
+      }).catch(() => null)
+
+      // Wait for both save + translation, then patch backend and update vocabMap in one go
+      Promise.all([savePromise, translationPromise]).then(([saved, translation]) => {
+        if (saved && translation) {
+          updateWord(saved.id, { translation }).catch(() => {})
+        }
+        if (translation) {
+          updateTranslation(word, translation)
+        }
+      })
+    } else {
+      // Word already in vocabMap (re-tap) — just update translation when it arrives
+      translationPromise.then(translation => {
+        if (translation) updateTranslation(word, translation)
+      })
     }
-  }, [containerRef, clearSelection, clearHighlight, close, bookLanguage, targetLang, lookupWord, isAuthenticated, vocabMap, addVocabWord, editionId, chapterId, userBookId, bookTitle])
+  }, [containerRef, clearSelection, clearHighlight, close, bookLanguage, targetLang, lookupWord, isAuthenticated, vocabMap, addVocabWord, updateTranslation, editionId, chapterId, userBookId, bookTitle])
 
   // --- Attach pointer listeners ---
 
