@@ -63,12 +63,14 @@ export interface ReviewQueueResponse {
   totalDue: number
 }
 
+export type SelfAssessment = 'forgot' | 'almost' | 'knew'
+
 export interface SubmitReviewRequest {
   wordId: string
   isCorrect: boolean
   responseTimeMs: number
   mode?: string
-  selfAssessment?: 'forgot' | 'almost' | 'knew'
+  selfAssessment?: SelfAssessment
 }
 
 export interface SubmitReviewResponse {

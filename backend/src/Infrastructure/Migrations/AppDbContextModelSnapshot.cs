@@ -2890,6 +2890,11 @@ namespace Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("edition_id");
 
+                    b.Property<string>("Explanation")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("explanation");
+
                     b.Property<string>("Hint")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")

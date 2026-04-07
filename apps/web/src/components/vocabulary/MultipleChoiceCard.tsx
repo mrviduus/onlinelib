@@ -3,6 +3,14 @@ import type { ReviewCardDto } from '../../api/vocabulary'
 import { useCardAnswer } from '../../hooks/useCardAnswer'
 import { SpeakButton } from './SpeakButton'
 
+function optionClass(idx: number, selected: number | null, correctIdx: number | null): string {
+  const base = 'review-mc__option'
+  if (selected === null) return base
+  if (idx === correctIdx) return `${base} ${base}--correct`
+  if (idx === selected) return `${base} ${base}--wrong`
+  return `${base} ${base}--dimmed`
+}
+
 interface Props {
   card: ReviewCardDto
   onAnswer: (isCorrect: boolean, responseTimeMs: number) => void
@@ -12,7 +20,7 @@ interface Props {
 }
 
 export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Props) {
-  const { submitted, submitChoice } = useCardAnswer(card.word, onAnswer, disabled)
+  const { submitted, submitChoice } = useCardAnswer(onAnswer, disabled)
   const [selected, setSelected] = useState<number | null>(null)
 
   if (!card.options) return null
@@ -24,37 +32,38 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, t, disabled }: Pro
   }
 
   const prompt = card.blankSentence || card.definition || card.translation
+  const isCloze = !!card.blankSentence
 
   return (
     <div className="review-mc">
-      <div className="review-mc__prompt">
-        {onSpeak && <SpeakButton onClick={() => onSpeak(card.blankSentence || card.word)} size={14} className="review-card__speak" />}
-        {prompt}
+      <div className="review-mc__card">
+        <div className="review-mc__prompt-row">
+          {onSpeak && <SpeakButton onClick={() => onSpeak(card.blankSentence || card.word)} size={18} />}
+          <span className={`review-mc__prompt ${isCloze ? 'review-mc__prompt--cloze' : ''}`}>
+            {prompt}
+          </span>
+        </div>
+
+        {card.bookTitle && (
+          <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle)}</div>
+        )}
+
+        {card.hint && (
+          <div className="review-mc__hint">{card.hint}</div>
+        )}
       </div>
-      {card.bookTitle && (
-        <div className="review-mc__book">{t('vocabulary.review.fromBook').replace('{title}', card.bookTitle)}</div>
-      )}
-      {card.hint && (
-        <div className="review-card__hint">{card.hint}</div>
-      )}
+
       <div className="review-mc__options">
-        {card.options.map((option, idx) => {
-          let cls = 'review-mc__option'
-          if (selected !== null) {
-            if (idx === card.correctOptionIndex) cls += ' review-mc__option--correct'
-            else if (idx === selected) cls += ' review-mc__option--wrong'
-          }
-          return (
-            <button
-              key={idx}
-              className={cls}
-              onClick={() => handleSelect(idx)}
-              disabled={submitted}
-            >
-              {option}
-            </button>
-          )
-        })}
+        {card.options.map((option, idx) => (
+          <button
+            key={idx}
+            className={optionClass(idx, selected, card.correctOptionIndex)}
+            onClick={() => handleSelect(idx)}
+            disabled={submitted}
+          >
+            {option}
+          </button>
+        ))}
       </div>
     </div>
   )

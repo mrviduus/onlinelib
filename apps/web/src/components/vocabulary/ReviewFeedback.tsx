@@ -44,41 +44,47 @@ export function ReviewFeedback({ card, result, isCorrect, onSpeak, t, onNext, la
   const definition = card.definition || fetchedDef
 
   return (
-    <div className={`review-feedback ${isCorrect ? 'review-feedback--correct' : 'review-feedback--wrong'}`}>
-      <div className="review-feedback__icon" aria-hidden="true">
-        {isCorrect ? '✓' : '✗'}
-      </div>
-      <div className="review-feedback__message">
-        {onSpeak && <SpeakButton onClick={() => onSpeak(card.word)} size={18} className="review-card__speak" />}
-        {isCorrect ? t('vocabulary.review.correct') : t('vocabulary.review.wrong')}
+    <div className={`review-feedback review-feedback--${isCorrect ? 'correct' : 'wrong'}`}>
+      <div className="review-feedback__badge">
+        <span className="review-feedback__icon">{isCorrect ? '✓' : '✗'}</span>
+        <span className="review-feedback__message">
+          {isCorrect ? t('vocabulary.review.correct') : t('vocabulary.review.wrong')}
+        </span>
       </div>
 
-      {!isCorrect && (
-        <div className="review-feedback__answer">
-          <span className="review-feedback__label">{t('vocabulary.review.correctAnswer')}:</span>
+      <div className="review-feedback__body">
+        <div className="review-feedback__word-row">
+          {onSpeak && <SpeakButton onClick={() => onSpeak(card.word)} size={18} />}
           <span className="review-feedback__word">{card.word}</span>
           {card.translation && (
-            <span className="review-feedback__translation">= {card.translation}</span>
+            <span className="review-feedback__translation">— {card.translation}</span>
           )}
         </div>
-      )}
 
-      {card.originalSentence && (
-        <div className="review-feedback__sentence">
-          "{card.originalSentence}"
-          {card.bookTitle && <span className="review-feedback__book"> — {card.bookTitle}</span>}
-        </div>
-      )}
+        {!isCorrect && (
+          <div className="review-feedback__answer">
+            <span className="review-feedback__label">{t('vocabulary.review.correctAnswer')}:</span>{' '}
+            <span className="review-feedback__correct-word">{card.word}</span>
+          </div>
+        )}
 
-      {definition && (
-        <div className="review-card__definition">{definition}</div>
-      )}
+        {card.originalSentence && (
+          <p className="review-feedback__sentence">
+            {card.originalSentence}
+            {card.bookTitle && <span className="review-feedback__book"> — {card.bookTitle}</span>}
+          </p>
+        )}
 
-      {result.stageChanged && (
-        <div className="review-feedback__stage">
-          {stageName(result.previousStage)} → {stageName(result.newStage)}
-        </div>
-      )}
+        {definition && (
+          <p className="review-feedback__definition">{definition}</p>
+        )}
+
+        {result.stageChanged && (
+          <div className="review-feedback__stage">
+            {stageName(result.previousStage)} → {stageName(result.newStage)}
+          </div>
+        )}
+      </div>
 
       <button className="review-feedback__next" onClick={onNext}>
         {t('vocabulary.review.next')}

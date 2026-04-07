@@ -34,78 +34,103 @@
   border-bottom-color: var(--color-brand, #c9a227);
 }
 
-/* Practice Page */
+/* Practice Page — Apple-like */
 .practice-page {
-  max-width: 600px;
+  max-width: 520px;
   margin: 0 auto;
   padding: 2rem 1rem;
 }
 
 .practice-page h1 {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 24px;
   color: var(--color-text, #191919);
 }
 
-.practice-page__cards {
+/* Mode selector */
+.practice-mode-selector {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  gap: 0;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 24px;
 }
 
-.practice-card {
+.practice-mode-selector__btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.practice-mode-selector__btn--active {
+  background: var(--color-bg-card, #fff);
+  color: var(--color-text, #191919);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+}
+
+/* Practice sections */
+.practice-section {
+  background: var(--color-bg-card, #fff);
   border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 24px;
-  background: var(--color-surface, #fff);
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
-.practice-card__icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-
-.practice-card__title {
-  font-size: 18px;
+.practice-section__title {
+  font-size: 17px;
   font-weight: 600;
   margin: 0 0 6px;
   color: var(--color-text, #191919);
 }
 
-.practice-card__desc {
+.practice-section__desc {
   font-size: 14px;
   color: var(--color-text-secondary, #666);
   margin: 0 0 16px;
 }
 
-.practice-card__btn {
-  display: inline-block;
-  padding: 8px 20px;
+.practice-section__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.practice-section__btn {
+  padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  background: var(--color-brand, #c9a227);
-  color: #fff;
-  margin-right: 8px;
+  background: var(--color-primary, #c9a227);
+  color: var(--color-bg, #fff);
   transition: opacity 0.15s;
 }
 
-.practice-card__btn:hover {
-  opacity: 0.85;
+.practice-section__btn:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
-.practice-card__btn:disabled {
-  opacity: 0.5;
+.practice-section__btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.practice-card__btn--secondary {
-  background: none;
-  color: var(--color-brand, #c9a227);
-  border: 1px solid var(--color-brand, #c9a227);
+.practice-section__btn--secondary {
+  background: transparent;
+  color: var(--color-primary, #c9a227);
+  border: 1.5px solid var(--color-primary, #c9a227);
 }
 
 /* Vocabulary Page */
@@ -121,7 +146,7 @@
 }
 
 .vocab-loading {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   padding: 2rem 0;
 }
 
@@ -142,7 +167,7 @@
   gap: 1.5rem;
   margin-bottom: 1.5rem;
   padding: 1rem 1.5rem;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: 12px;
 }
@@ -162,7 +187,7 @@
 
 .vocab-stat__label {
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -204,24 +229,79 @@
   margin-bottom: 0;
 }
 
+/* Review header */
+.review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .review-mode-badge {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: var(--color-text-muted);
+  padding: 4px 12px;
+  background: var(--color-text-secondary);
   color: white;
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 1rem;
 }
 
-.review-practice-note {
+.review-sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+  margin-left: auto;
+}
+
+.review-sound-toggle:hover {
+  color: var(--color-text);
+}
+
+/* Classic mode mini feedback */
+.review-feedback-mini {
+  max-width: 480px;
+  margin: 20px auto 0;
   text-align: center;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-feedback-mini__badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.review-feedback-mini__badge--correct {
+  background: #22c55e;
+}
+
+.review-feedback-mini__badge--wrong {
+  background: #ef4444;
+}
+
+.review-feedback-mini__stage {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }
 
 /* Filters */
@@ -243,7 +323,7 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 500;
@@ -265,7 +345,7 @@
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-text);
   font-size: 0.875rem;
 }
@@ -274,7 +354,7 @@
   padding: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-text);
   font-size: 0.875rem;
 }
@@ -290,7 +370,7 @@
 }
 
 .vocab-word {
-  background: var(--color-surface);
+  background: var(--color-bg-card);
 }
 
 .vocab-word__row {
@@ -304,7 +384,7 @@
 }
 
 .vocab-word__row:hover {
-  background: var(--color-hover);
+  background: var(--color-bg-secondary);
 }
 
 .vocab-word__main {
@@ -320,7 +400,7 @@
 }
 
 .vocab-word__translation {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -353,7 +433,7 @@
 
 .vocab-word__book {
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -373,24 +453,24 @@
 }
 
 .vocab-word__sentence {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-style: italic;
   margin-bottom: 0.5rem;
 }
 
 .vocab-word__hint {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.6rem;
-  background: var(--color-hover, rgba(0,0,0,0.03));
+  background: var(--color-bg-secondary, rgba(0,0,0,0.03));
   border-radius: 6px;
 }
 
 .vocab-word__stats {
   display: flex;
   gap: 1rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   margin-bottom: 0.75rem;
 }
@@ -405,7 +485,7 @@
   padding: 0.25rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-text);
   font-size: 0.75rem;
   cursor: pointer;
@@ -428,7 +508,7 @@
   margin-top: 1rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-primary);
   font-size: 0.9rem;
   font-weight: 500;
@@ -437,7 +517,7 @@
 }
 
 .vocab-load-more:hover {
-  background: var(--color-hover);
+  background: var(--color-bg-secondary);
   border-color: var(--color-primary);
 }
 
@@ -452,7 +532,7 @@
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-text);
   font-size: 0.875rem;
 }
@@ -460,13 +540,13 @@
 /* Empty state */
 .vocab-empty {
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   padding: 3rem 1rem;
 }
 
 .vocab-total {
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   padding: 1rem;
   font-size: 0.875rem;
 }
@@ -506,7 +586,7 @@
   padding: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: var(--color-surface);
+  background: var(--color-bg-card);
   color: var(--color-primary);
   font-size: 0.8rem;
   font-weight: 600;
@@ -522,83 +602,116 @@
 .dictionary-popup__save-word:disabled {
   opacity: 0.6;
   cursor: default;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 /* ====== Review UI ====== */
 
-/* Progress bar */
+/* Progress bar — Apple-like */
 .review-progress {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 12px;
+  margin-bottom: 24px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .review-progress__bar {
   flex: 1;
-  height: 6px;
+  height: 8px;
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .review-progress__fill {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  border-radius: 4px;
+  transition: width 0.4s ease;
 }
 
 .review-progress__text {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Multiple choice card */
+/* Multiple choice card — Apple-like */
 .review-mc {
   text-align: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.review-mc__card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.review-mc__prompt-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .review-mc__prompt {
-  font-size: 1.1rem;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
-  max-width: 500px;
-  margin-left: auto;
-  margin-right: auto;
+  font-size: 1.15rem;
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+.review-mc__prompt--cloze {
+  font-size: 1.25rem;
+  font-weight: 500;
 }
 
 .review-mc__book {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-bottom: 2rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.review-mc__hint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  margin-top: 12px;
 }
 
 .review-mc__options {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-width: 400px;
-  margin: 0 auto;
+  gap: 10px;
 }
 
 .review-mc__option {
-  padding: 0.85rem 1.25rem;
-  border: 2px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-surface);
+  padding: 14px 20px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-card);
   color: var(--color-text);
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .review-mc__option:hover:not(:disabled) {
+  transform: scale(1.02);
   border-color: var(--color-primary);
-  background: var(--color-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .review-mc__option:disabled {
@@ -606,189 +719,370 @@
 }
 
 .review-mc__option--correct {
-  border-color: var(--color-success, #22c55e);
-  background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
-  color: var(--color-success-text, #16a34a);
+  border-color: #22c55e;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.06));
+  color: #16a34a;
   font-weight: 600;
 }
 
 .review-mc__option--wrong {
-  border-color: var(--color-error, #ef4444);
-  background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  color: var(--color-error-text, #dc2626);
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.06));
+  color: #dc2626;
 }
 
-/* Review definition (shared across all card types) */
-.review-card__definition {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin-bottom: 1rem;
-  max-width: 450px;
-  margin-left: auto;
-  margin-right: auto;
+.review-mc__option--dimmed {
+  opacity: 0.45;
 }
 
-/* Review hint (shared across all card types) */
-.review-card__hint {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--color-hover, rgba(0,0,0,0.03));
-  border-radius: 6px;
-  max-width: 450px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* Context card */
-.review-context {
-  text-align: center;
-}
-
-.review-context__sentence {
-  font-size: 1.25rem;
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
-  padding: 1rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-}
-
-.review-context__book {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1.5rem;
-}
-
-.review-context__label {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.review-context__input-row {
-  display: flex;
-  gap: 0.5rem;
-  max-width: 400px;
+/* FlashCard — 3D flip */
+.flash-card-wrapper {
+  max-width: 480px;
   margin: 0 auto;
+  perspective: 1000px;
+  cursor: pointer;
 }
 
-.review-context__input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
+.flash-card {
+  position: relative;
+  min-height: 240px;
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+.flash-card--flipped {
+  transform: rotateY(180deg);
+}
+
+.flash-card__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.flash-card__back {
+  transform: rotateY(180deg);
+}
+
+.flash-card__word-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.flash-card__word {
+  font-size: 1.75rem;
+  font-weight: 700;
   color: var(--color-text);
-  font-size: 1.1rem;
+}
+
+.flash-card__sentence {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 8px;
   text-align: center;
 }
 
-.review-context__input:focus {
-  outline: none;
-  border-color: var(--color-primary);
+.flash-card__book {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  margin: 0;
 }
 
-.review-context__submit {
-  padding: 0.75rem 1.25rem;
-  border: none;
+.flash-card__tap-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.flash-card__translation {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.flash-card__definition {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.flash-card__hint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
   border-radius: 8px;
+}
+
+.flash-card__assessment {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.flash-card__assessment-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.flash-card__assessment-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.flash-card__assess {
+  flex: 1;
+  max-width: 140px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.flash-card__assess:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+
+.flash-card__assess:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.flash-card__assess--forgot { background: #ef4444; }
+.flash-card__assess--almost { background: #f59e0b; }
+.flash-card__assess--knew { background: #22c55e; }
+
+/* New Word intro card */
+.new-word-card {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.new-word-card__label {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+  margin-bottom: 16px;
+}
+
+.new-word-card__word-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.new-word-card__word {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.new-word-card__sentence {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.new-word-card__meaning {
+  font-size: 1rem;
+  color: var(--color-text);
+  margin: 0 0 12px;
+}
+
+.new-word-card__meaning-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.new-word-card__explanation {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  text-align: left;
+}
+
+.new-word-card__continue {
+  display: inline-block;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 12px;
   background: var(--color-primary);
   color: var(--color-bg);
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
 }
 
-.review-context__submit:hover:not(:disabled) {
+.new-word-card__continue:hover {
   opacity: 0.9;
 }
 
-.review-context__submit:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* Review feedback — Apple-like */
+.review-feedback {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
 }
 
-/* Review feedback */
-.review-feedback {
-  text-align: center;
-  padding: 2rem 1rem;
+.review-feedback__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .review-feedback__icon {
-  font-size: 3rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  color: #fff;
 }
 
-.review-feedback--correct .review-feedback__icon,
-.review-feedback--correct .review-feedback__message {
-  color: var(--color-success, #22c55e);
+.review-feedback--correct .review-feedback__icon {
+  background: #22c55e;
 }
 
-.review-feedback--wrong .review-feedback__icon,
-.review-feedback--wrong .review-feedback__message {
-  color: var(--color-error, #ef4444);
+.review-feedback--wrong .review-feedback__icon {
+  background: #ef4444;
 }
 
 .review-feedback__message {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
 }
 
-.review-feedback__answer {
-  margin-bottom: 1rem;
-  font-size: 1rem;
+.review-feedback--correct .review-feedback__message {
+  color: #16a34a;
 }
 
-.review-feedback__label {
-  color: var(--color-text-muted);
-  margin-right: 0.5rem;
+.review-feedback--wrong .review-feedback__message {
+  color: #dc2626;
+}
+
+.review-feedback__body {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.review-feedback__word-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .review-feedback__word {
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-text);
 }
 
 .review-feedback__translation {
-  color: var(--color-text-muted);
-  margin-left: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.review-feedback__answer {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.review-feedback__label {
+  color: var(--color-text-secondary);
+}
+
+.review-feedback__correct-word {
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .review-feedback__sentence {
-  font-style: italic;
-  color: var(--color-text-muted);
   font-size: 0.9rem;
-  margin-bottom: 1rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 12px;
 }
 
 .review-feedback__book {
-  font-style: normal;
-  color: var(--color-text-muted);
   opacity: 0.7;
+}
+
+.review-feedback__definition {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0 0 12px;
 }
 
 .review-feedback__stage {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
+  padding: 4px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }
 
 .review-feedback__next {
   display: inline-block;
-  padding: 0.75rem 2rem;
+  padding: 12px 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--color-primary);
   color: var(--color-bg);
   font-size: 1rem;
@@ -801,59 +1095,97 @@
   opacity: 0.9;
 }
 
-/* Session summary */
+/* Session summary — Apple-like */
 .review-summary {
+  max-width: 480px;
+  margin: 0 auto;
   text-align: center;
-  padding: 3rem 1rem;
 }
 
-.review-summary__icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.review-summary__banner {
+  border-radius: 16px;
+  padding: 32px 24px;
+  margin-bottom: 24px;
+  animation: summary-banner-in 0.6s ease;
 }
 
-.review-summary h2 {
-  margin-bottom: 0.5rem;
+.review-summary__banner--perfect {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
 }
 
-.review-summary__motivation {
-  font-size: 1.125rem;
-  color: var(--color-brand);
-  font-weight: 600;
-  margin: 0 0 1.5rem;
+.review-summary__banner--great {
+  background: linear-gradient(135deg, var(--color-primary, #c9a227), #d4a72c);
+  color: #fff;
 }
 
-.review-summary__stats {
+.review-summary__banner--good {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  color: #fff;
+}
+
+.review-summary__banner--keep {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.review-summary__banner-message {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+@keyframes summary-banner-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.review-summary__stats-row {
   display: flex;
+  align-items: baseline;
   justify-content: center;
-  gap: 3rem;
-  margin-bottom: 2rem;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-.review-summary__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.review-summary__value {
-  font-size: 2rem;
+.review-summary__stat-big {
+  font-size: 2.25rem;
   font-weight: 700;
   color: var(--color-text);
 }
 
-.review-summary__label {
+.review-summary__stat-label {
   font-size: 0.85rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
+}
+
+.review-summary__stat-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 8px;
+  align-self: center;
+}
+
+.review-summary__note {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.review-summary__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
 }
 
 .review-summary__btn {
-  padding: 0.75rem 2rem;
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 24px;
   border: none;
-  border-radius: 8px;
-  background: var(--color-primary);
-  color: var(--color-bg);
+  border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -864,23 +1196,22 @@
   opacity: 0.9;
 }
 
+.review-summary__btn--primary {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
 .review-summary__btn--secondary {
   background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-text-muted);
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
 }
 
-.review-summary__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-}
-
-.review-summary__note {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  margin-bottom: 0.5rem;
+.review-summary__btn--link {
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 
 /* Speak button */
@@ -894,7 +1225,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   cursor: pointer;
   opacity: 0.5;
   transition: opacity 0.15s, color 0.15s;
@@ -919,11 +1250,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .speak-btn--playing { animation: none; }
-}
-
-.review-card__speak {
-  margin-right: 0.25rem;
-  vertical-align: middle;
+  .flash-card { transition: none; }
+  .review-mc__option { transition: none; }
+  .review-summary__banner { animation: none; }
 }
 
 /* Responsive */
@@ -951,4 +1280,17 @@
   .vocab-word__meta {
     width: 100%;
   }
+
+  .flash-card__word { font-size: 1.5rem; }
+  .flash-card__face { padding: 20px 16px; }
+  .flash-card__assess { padding: 10px 12px; font-size: 0.85rem; }
+  .new-word-card { padding: 20px 16px; }
+  .new-word-card__word { font-size: 1.5rem; }
+  .review-mc__card { padding: 20px 16px; }
+  .review-mc__option { padding: 12px 16px; }
+  .review-summary__stat-big { font-size: 1.75rem; }
+  .review-summary__banner { padding: 24px 16px; }
+  .review-summary__banner-message { font-size: 1.25rem; }
+  .practice-section__actions { flex-direction: column; }
+  .practice-section__btn { width: 100%; text-align: center; }
 }

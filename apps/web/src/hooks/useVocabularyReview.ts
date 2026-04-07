@@ -3,14 +3,19 @@ import {
   getReviewQueue,
   submitReview,
   type ReviewCardDto,
+  type SelfAssessment,
   type SubmitReviewResponse,
 } from '../api/vocabulary'
+
+export type ReviewMode = 'blitz' | 'classic'
 
 interface SessionStats {
   total: number
   correct: number
   reviewed: number
 }
+
+const EMPTY_STATS: SessionStats = { total: 0, correct: 0, reviewed: 0 }
 
 export function useVocabularyReview() {
   const [cards, setCards] = useState<ReviewCardDto[]>([])
@@ -19,35 +24,57 @@ export function useVocabularyReview() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalDue, setTotalDue] = useState(0)
-  const [sessionStats, setSessionStats] = useState<SessionStats>({ total: 0, correct: 0, reviewed: 0 })
+  const [sessionStats, setSessionStats] = useState<SessionStats>(EMPTY_STATS)
   const [lastResult, setLastResult] = useState<SubmitReviewResponse | null>(null)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
   const [answerRevealed, setAnswerRevealed] = useState(false)
   const [mode, setMode] = useState<'srs' | 'practice'>('srs')
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
+  const [showingNewWord, setShowingNewWord] = useState(false)
 
-  const startSession = useCallback(async (limit?: number, sessionMode?: 'srs' | 'practice') => {
-    const m = sessionMode || 'srs'
-    setMode(m)
-    setLoading(true)
-    setError(null)
-    setCurrentIndex(0)
-    setSessionStats({ total: 0, correct: 0, reviewed: 0 })
+  const resetAnswerState = useCallback(() => {
     setLastResult(null)
     setLastAnswerCorrect(false)
     setAnswerRevealed(false)
+    setShowingNewWord(false)
+  }, [])
+
+  const showNewWordIfNeeded = useCallback((cardsList: ReviewCardDto[], idx: number) => {
+    if (idx < cardsList.length && cardsList[idx].isNew) {
+      setShowingNewWord(true)
+    }
+  }, [])
+
+  const startSession = useCallback(async (limit?: number, sessionMode?: 'srs' | 'practice', rMode?: ReviewMode) => {
+    const m = sessionMode || 'srs'
+    setMode(m)
+    if (rMode) setReviewMode(rMode)
+    setLoading(true)
+    setError(null)
+    setCurrentIndex(0)
+    resetAnswerState()
     try {
       const queue = await getReviewQueue(limit, m)
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
-      setSessionStats(prev => ({ ...prev, total: queue.cards.length }))
+      setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
+      showNewWordIfNeeded(queue.cards, 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load review')
     } finally {
       setLoading(false)
     }
+  }, [resetAnswerState, showNewWordIfNeeded])
+
+  const dismissNewWord = useCallback(() => {
+    setShowingNewWord(false)
   }, [])
 
-  const submitAnswer = useCallback(async (isCorrect: boolean, responseTimeMs: number) => {
+  const submitAnswer = useCallback(async (
+    isCorrect: boolean,
+    responseTimeMs: number,
+    selfAssessment?: SelfAssessment,
+  ) => {
     const card = cards[currentIndex]
     if (!card || submitting) return
 
@@ -58,6 +85,7 @@ export function useVocabularyReview() {
         isCorrect,
         responseTimeMs,
         mode: mode === 'practice' ? 'practice' : undefined,
+        selfAssessment,
       })
       setLastResult(result)
       setLastAnswerCorrect(isCorrect)
@@ -75,11 +103,11 @@ export function useVocabularyReview() {
   }, [cards, currentIndex, mode, submitting])
 
   const nextCard = useCallback(() => {
-    setCurrentIndex(prev => prev + 1)
-    setLastResult(null)
-    setLastAnswerCorrect(false)
-    setAnswerRevealed(false)
-  }, [])
+    const nextIdx = currentIndex + 1
+    setCurrentIndex(nextIdx)
+    resetAnswerState()
+    showNewWordIfNeeded(cards, nextIdx)
+  }, [currentIndex, cards, resetAnswerState, showNewWordIfNeeded])
 
   const currentCard = cards[currentIndex] || null
   const isSessionComplete = currentIndex >= cards.length && cards.length > 0
@@ -100,8 +128,12 @@ export function useVocabularyReview() {
     isSessionComplete,
     hasCards,
     mode,
+    reviewMode,
+    showingNewWord,
     startSession,
     submitAnswer,
     nextCard,
+    dismissNewWord,
+    setReviewMode,
   }
 }
