@@ -1481,6 +1481,11 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 
 
 /* Word popup (tap-to-translate) */
+@keyframes word-popup-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .word-popup {
   width: 260px;
   max-width: 90vw;
@@ -1489,6 +1494,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   z-index: 1100;
   padding: 14px 16px;
+  animation: word-popup-in 0.2s ease-out;
 }
 
 .word-popup__header {
@@ -1771,6 +1777,10 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 
 
 /* Vocab word underlines in reader */
+@keyframes vocab-underline-in {
+  from { border-bottom-color: transparent; }
+}
+
 .vocab-underline {
   background: none;
   border-radius: 0;
@@ -1779,6 +1789,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   text-decoration: none;
   border-bottom: 2px solid transparent;
   transition: border-color 0.2s;
+  animation: vocab-underline-in 0.4s ease-out;
 }
 .vocab-underline--new {
   border-bottom-color: rgba(59, 130, 246, 0.5); /* blue */
@@ -1796,6 +1807,11 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   border-bottom-color: rgba(34, 197, 94, 0.25); /* faint green */
 }
 
+@keyframes vocab-fade-in {
+  from { opacity: 0; }
+  to { opacity: 0.5; }
+}
+
 .vocab-inline-translation {
   font-size: 0.75em;
   font-style: italic;
@@ -1803,4 +1819,5 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   margin-left: 1px;
   pointer-events: none;
   user-select: none;
+  animation: vocab-fade-in 0.4s ease-out;
 }

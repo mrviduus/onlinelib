@@ -10,6 +10,17 @@ export function useReaderVocabulary() {
   const [loading, setLoading] = useState(false)
   const mapRef = useRef<VocabMap>(new Map())
 
+  const commitMap = useCallback((map: VocabMap) => {
+    mapRef.current = map
+    setVocabMap(map)
+  }, [])
+
+  const updateMap = useCallback((fn: (draft: VocabMap) => void) => {
+    const next = new Map(mapRef.current)
+    fn(next)
+    commitMap(next)
+  }, [commitMap])
+
   useEffect(() => {
     if (!isAuthenticated) return
     let cancelled = false
@@ -17,61 +28,48 @@ export function useReaderVocabulary() {
     getReaderVocab()
       .then((words) => {
         if (cancelled) return
-        const m = new Map<string, { stage: number; id?: string; translation?: string }>()
+        const m: VocabMap = new Map()
         for (const w of words) {
           m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id, translation: w.translation })
         }
-        mapRef.current = m
-        setVocabMap(m)
+        commitMap(m)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [isAuthenticated])
+  }, [isAuthenticated, commitMap])
 
   const addWord = useCallback(async (req: SaveWordRequest) => {
     const saved = await saveWord(req)
     const key = saved.word.toLowerCase()
     const existing = mapRef.current.get(key)
-    // Skip map update if word already exists with same stage (avoids VocabWordLayer re-mark)
     if (existing && existing.id === saved.id && existing.stage === saved.stage) {
       return saved
     }
-    const next = new Map(mapRef.current)
-    next.set(key, { stage: saved.stage, id: saved.id, translation: existing?.translation || saved.translation || undefined })
-    mapRef.current = next
-    setVocabMap(next)
+    updateMap(m => m.set(key, {
+      stage: saved.stage, id: saved.id,
+      translation: existing?.translation || saved.translation || undefined,
+    }))
     return saved
-  }, [])
+  }, [updateMap])
 
   const markAsKnown = useCallback(async (id: string, word: string) => {
     const updated = await markAsKnownApi(id)
-    const key = word.toLowerCase()
-    const next = new Map(mapRef.current)
-    next.set(key, { stage: 4, id: updated.id })
-    mapRef.current = next
-    setVocabMap(next)
+    updateMap(m => m.set(word.toLowerCase(), { stage: 4, id: updated.id }))
     return updated
-  }, [])
+  }, [updateMap])
 
   const removeWord = useCallback(async (id: string, word: string) => {
     await deleteWordApi(id)
-    const key = word.toLowerCase()
-    const next = new Map(mapRef.current)
-    next.delete(key)
-    mapRef.current = next
-    setVocabMap(next)
-  }, [])
+    updateMap(m => m.delete(word.toLowerCase()))
+  }, [updateMap])
 
   const updateTranslation = useCallback((word: string, translation: string) => {
     const key = word.toLowerCase()
     const entry = mapRef.current.get(key)
     if (!entry) return
-    const next = new Map(mapRef.current)
-    next.set(key, { ...entry, translation })
-    mapRef.current = next
-    setVocabMap(next)
-  }, [])
+    updateMap(m => m.set(key, { ...entry, translation }))
+  }, [updateMap])
 
   const refreshMarks = useCallback(() => {
     setVocabMap(new Map(mapRef.current))

@@ -29,6 +29,10 @@ const INITIAL_TAP: TapPopupState = {
 /** CSS selectors for elements that should not trigger word tap */
 const POPUP_SELECTORS = '.word-popup, .selection-toolbar, .dictionary-popup, .translation-popup, .note-editor'
 
+function extractSentenceSafe(range: Range, container: HTMLElement): string | undefined {
+  try { return extractSentence(range, container) } catch { return undefined }
+}
+
 interface UseWordTapOptions {
   wrapperRef: React.RefObject<HTMLElement | null>
   containerRef: React.RefObject<HTMLElement | null>
@@ -146,39 +150,28 @@ export function useWordTap({
       .catch(() => {})
       .finally(() => setTap(prev => ({ ...prev, definitionLoading: false })))
 
-    // Auto-save to vocabulary + persist translation; update vocabMap once both resolve
-    if (isAuthenticated && !vocabMap.get(word.toLowerCase())) {
-      let sentence: string | undefined
-      try {
-        if (container) sentence = extractSentence(result.range, container)
-      } catch {}
+    // Auto-save new word, then persist translation to backend once both resolve
+    const savePromise = isAuthenticated && !vocabMap.get(word.toLowerCase())
+      ? addVocabWord({
+          word,
+          language: bookLanguage,
+          editionId: userBookId ? undefined : editionId || undefined,
+          chapterId: userBookId ? undefined : chapterId || undefined,
+          userBookId: userBookId || undefined,
+          sentence: extractSentenceSafe(result.range, container),
+          bookTitle: bookTitle || undefined,
+          nativeLanguage: targetLang || undefined,
+        }).catch(() => null)
+      : Promise.resolve(null)
 
-      const savePromise = addVocabWord({
-        word,
-        language: bookLanguage,
-        editionId: userBookId ? undefined : editionId || undefined,
-        chapterId: userBookId ? undefined : chapterId || undefined,
-        userBookId: userBookId || undefined,
-        sentence: sentence || undefined,
-        bookTitle: bookTitle || undefined,
-        nativeLanguage: targetLang || undefined,
-      }).catch(() => null)
-
-      // Wait for both save + translation, then patch backend and update vocabMap in one go
-      Promise.all([savePromise, translationPromise]).then(([saved, translation]) => {
-        if (saved && translation) {
-          updateWord(saved.id, { translation }).catch(() => {})
-        }
-        if (translation) {
-          updateTranslation(word, translation)
-        }
-      })
-    } else {
-      // Word already in vocabMap (re-tap) — just update translation when it arrives
-      translationPromise.then(translation => {
-        if (translation) updateTranslation(word, translation)
-      })
-    }
+    Promise.all([savePromise, translationPromise]).then(([saved, translation]) => {
+      if (saved && translation) {
+        updateWord(saved.id, { translation }).catch(() => {})
+      }
+      if (translation) {
+        updateTranslation(word, translation)
+      }
+    })
   }, [containerRef, clearSelection, clearHighlight, close, bookLanguage, targetLang, lookupWord, isAuthenticated, vocabMap, addVocabWord, updateTranslation, editionId, chapterId, userBookId, bookTitle])
 
   // --- Attach pointer listeners ---
@@ -218,17 +211,13 @@ export function useWordTap({
   const vocabEntry = tap.word ? vocabMap.get(tap.word.toLowerCase()) : undefined
 
   const markKnown = useCallback(() => {
-    if (!tap.word) return
-    const entry = vocabMap.get(tap.word.toLowerCase())
-    if (entry?.id) markVocabKnown(entry.id, tap.word)
-  }, [tap.word, vocabMap, markVocabKnown])
+    if (tap.word && vocabEntry?.id) markVocabKnown(vocabEntry.id, tap.word)
+  }, [tap.word, vocabEntry, markVocabKnown])
 
   const remove = useCallback(() => {
-    if (!tap.word) return
-    const entry = vocabMap.get(tap.word.toLowerCase())
-    if (entry?.id) removeVocabWord(entry.id, tap.word)
+    if (tap.word && vocabEntry?.id) removeVocabWord(vocabEntry.id, tap.word)
     close()
-  }, [tap.word, vocabMap, removeVocabWord, close])
+  }, [tap.word, vocabEntry, removeVocabWord, close])
 
   return { tap, close, vocabEntry, vocabMap, markKnown, remove, markVocabKnown, removeVocabWord }
 }
