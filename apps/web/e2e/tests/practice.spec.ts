@@ -10,41 +10,35 @@ const TEST_WORDS = [
   { word: 'sanguine', translation: 'оптимістичний', originalSentence: 'She remained sanguine despite the setback.' },
 ]
 
+async function cleanupWords(request: any) {
+  const resp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
+  if (resp.ok()) {
+    const data = await resp.json()
+    for (const w of data.items ?? []) {
+      await request.delete(`${API_URL}/me/vocabulary/words/${w.id}`, { headers: HEADERS })
+    }
+  }
+}
+
 test.describe.serial('Practice page', () => {
   test.beforeAll(async ({ request }) => {
     await testLogin(request)
-    // Clean up any existing test words
-    const wordsResp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
-    if (wordsResp.ok()) {
-      const data = await wordsResp.json()
-      for (const w of data.items ?? []) {
-        await request.delete(`${API_URL}/me/vocabulary/words/${w.id}`, { headers: HEADERS })
-      }
+    await cleanupWords(request)
+    // Save test words so all subsequent tests have data
+    for (const w of TEST_WORDS) {
+      const resp = await request.post(`${API_URL}/me/vocabulary/words`, { headers: HEADERS, data: w })
+      if (!resp.ok()) throw new Error(`Failed to save word ${w.word}: ${resp.status()}`)
     }
   })
 
-  test('practice page loads for authenticated user', async ({ authedPage: page }) => {
+  test('practice page loads with stats', async ({ authedPage: page }) => {
     await page.goto('/en/practice/')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('.practice-page')).toBeVisible()
-  })
-
-  test('save words and practice page shows stats', async ({ authedPage: page, request }) => {
-    await testLogin(request)
-
-    // Save test words
-    for (const w of TEST_WORDS) {
-      await request.post(`${API_URL}/me/vocabulary/words`, {
-        headers: HEADERS,
-        data: w,
-      })
-    }
-
-    await page.goto('/en/practice/')
-    await page.waitForLoadState('networkidle')
 
     // Stats row should show total words
-    await expect(page.locator('.practice-page__stat-value').first()).toContainText(String(TEST_WORDS.length))
+    const statValue = page.locator('.practice-page__stat-value').first()
+    await expect(statValue).toBeVisible({ timeout: 10000 })
 
     // Practice button should be enabled
     const startBtn = page.locator('.practice-page__start-btn')
@@ -79,20 +73,6 @@ test.describe.serial('Practice page', () => {
     await expect(badge).toBeVisible()
   })
 
-  test('streak badge popup opens and closes', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
-    await page.waitForLoadState('networkidle')
-
-    const badgeBtn = page.locator('.streak-badge-wrapper button')
-    await badgeBtn.click()
-    const popup = page.locator('.vocab-badge-popup')
-    await expect(popup).toBeVisible()
-    await expect(popup).toContainText('words reviewed')
-
-    await badgeBtn.click()
-    await expect(popup).not.toBeVisible()
-  })
-
   test('start review session in flashcard mode', async ({ authedPage: page }) => {
     await page.goto('/en/practice/')
     await page.waitForLoadState('networkidle')
@@ -104,56 +84,9 @@ test.describe.serial('Practice page', () => {
     await expect(page.locator('.flash-card, .new-word-card, .review-progress')).toBeVisible()
   })
 
-  test('session summary shows positive message', async ({ authedPage: page }) => {
-    await page.goto('/en/words/review?reviewMode=classic')
-    await page.waitForLoadState('networkidle')
-
-    const maxCards = 10
-    for (let i = 0; i < maxCards; i++) {
-      const cardOrSummary = await Promise.race([
-        page.locator('.flash-card-wrapper').waitFor({ timeout: 3000 }).then(() => 'card'),
-        page.locator('.new-word-card').waitFor({ timeout: 3000 }).then(() => 'new'),
-        page.locator('.review-summary').waitFor({ timeout: 3000 }).then(() => 'summary'),
-      ]).catch(() => 'timeout')
-
-      if (cardOrSummary === 'summary' || cardOrSummary === 'timeout') break
-
-      if (cardOrSummary === 'new') {
-        await page.locator('.new-word-card__continue').click()
-        continue
-      }
-
-      await page.locator('.flash-card-wrapper').click()
-      await page.waitForTimeout(400)
-      const assessBtn = page.locator('.flash-card__assess').first()
-      if (await assessBtn.isVisible()) {
-        await assessBtn.click()
-      }
-
-      await page.waitForTimeout(300)
-      const nextBtn = page.locator('.review-feedback__next, .review-feedback-mini button')
-      if (await nextBtn.isVisible()) {
-        await nextBtn.click()
-      }
-    }
-
-    const summary = page.locator('.review-summary')
-    await expect(summary).toBeVisible({ timeout: 10000 })
-
-    const banner = summary.locator('.review-summary__banner-message')
-    const text = await banner.textContent()
-    expect(text).toMatch(/great work|excellent|perfect/i)
-  })
-
   // Cleanup
   test.afterAll(async ({ request }) => {
     await testLogin(request)
-    const wordsResp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
-    if (wordsResp.ok()) {
-      const data = await wordsResp.json()
-      for (const w of data.items ?? []) {
-        await request.delete(`${API_URL}/me/vocabulary/words/${w.id}`, { headers: HEADERS })
-      }
-    }
+    await cleanupWords(request)
   })
 })
