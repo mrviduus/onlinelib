@@ -56,6 +56,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
     public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<BoardTask> BoardTasks => Set<BoardTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -604,6 +605,16 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.Property(x => x.TokenHash).HasMaxLength(128);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BoardTask>(e =>
+        {
+            e.HasIndex(x => x.SiteId);
+            e.HasIndex(x => new { x.SiteId, x.Status });
+            e.Property(x => x.Title).HasMaxLength(500);
+            e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.Source).HasMaxLength(20);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

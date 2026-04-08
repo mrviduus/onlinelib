@@ -26,6 +26,7 @@ import { SsgRebuildJobPage } from './pages/SsgRebuildJobPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CodeGenPage } from './pages/CodeGenPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
+import { TaskBoardPage } from './pages/TaskBoardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
 
@@ -44,6 +45,7 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="task-board" element={<TaskBoardPage />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="editions" element={<EditionsPage />} />

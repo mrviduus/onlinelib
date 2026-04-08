@@ -272,6 +272,7 @@ app.MapUserRatingEndpoints();
 app.MapReviewEndpoints();
 app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
+app.MapAdminBoardTaskEndpoints();
 app.MapAdminBlogEndpoints();
 app.MapBlogEndpoints();
 app.MapVocabularyEndpoints();
