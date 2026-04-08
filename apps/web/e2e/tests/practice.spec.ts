@@ -5,9 +5,9 @@ const API_URL = process.env.API_URL ?? 'http://localhost:8080'
 const HEADERS = { Host: 'general.localhost', 'Content-Type': 'application/json' }
 
 const TEST_WORDS = [
-  { word: 'ephemeral', translation: 'ефемерний', originalSentence: 'The ephemeral beauty of the sunset.' },
-  { word: 'ubiquitous', translation: 'повсюдний', originalSentence: 'Smartphones are ubiquitous today.' },
-  { word: 'sanguine', translation: 'оптимістичний', originalSentence: 'She remained sanguine despite the setback.' },
+  { word: 'ephemeral', language: 'en', translation: 'ефемерний', sentence: 'The ephemeral beauty of the sunset.' },
+  { word: 'ubiquitous', language: 'en', translation: 'повсюдний', sentence: 'Smartphones are ubiquitous today.' },
+  { word: 'sanguine', language: 'en', translation: 'оптимістичний', sentence: 'She remained sanguine despite the setback.' },
 ]
 
 async function cleanupWords(request: any) {
