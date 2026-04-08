@@ -6,19 +6,19 @@ interface Props {
   elapsedMs: number
   reviewMode: ReviewMode
   batchSize: number
+  wrongCount: number
   t: (key: string) => string
   onBack: () => void
   onAgain: () => void
+  onRetryWrong: () => void
   onBatchChange: (size: number) => void
   onModeChange: (mode: ReviewMode) => void
-  dueCount?: number
 }
 
 function getReward(rate: number, t: (k: string) => string) {
   if (rate === 100) return { tier: 'perfect' as const, message: t('vocabulary.review.perfectSession') }
   if (rate >= 80) return { tier: 'great' as const, message: t('vocabulary.review.excellent') }
-  if (rate >= 60) return { tier: 'good' as const, message: t('vocabulary.review.greatWork') }
-  return { tier: 'keep' as const, message: t('vocabulary.review.keepPracticingMsg') }
+  return { tier: 'good' as const, message: t('vocabulary.review.greatWork') }
 }
 
 function formatTime(ms: number): string {
@@ -28,8 +28,8 @@ function formatTime(ms: number): string {
 }
 
 export function SessionSummary({
-  reviewed, correct, elapsedMs, reviewMode, batchSize, t,
-  onBack, onAgain, onBatchChange, onModeChange, dueCount,
+  reviewed, correct, elapsedMs, reviewMode, batchSize, wrongCount, t,
+  onBack, onAgain, onRetryWrong, onBatchChange, onModeChange,
 }: Props) {
   const rate = reviewed > 0 ? Math.round((correct / reviewed) * 100) : 0
   const reward = getReward(rate, t)
@@ -57,7 +57,7 @@ export function SessionSummary({
       <div className="review-summary__section">
         <span className="review-summary__section-label">Mode</span>
         <div className="review-summary__toggle">
-          {(['blitz', 'classic'] as ReviewMode[]).map(m => (
+          {(['classic', 'blitz'] as ReviewMode[]).map(m => (
             <button
               key={m}
               className={`review-summary__toggle-item ${reviewMode === m ? 'review-summary__toggle-item--active' : ''}`}
@@ -87,9 +87,13 @@ export function SessionSummary({
 
       {/* Actions */}
       <div className="review-summary__actions">
+        {wrongCount > 0 && (
+          <button className="review-summary__btn review-summary__btn--retry" onClick={onRetryWrong}>
+            Retry wrong words ({wrongCount})
+          </button>
+        )}
         <button className="review-summary__btn review-summary__btn--primary" onClick={onAgain}>
-          {t('vocabulary.review.startAgain')}
-          {dueCount != null && dueCount > 0 ? ` (${dueCount} ${t('vocabulary.dueToday').toLowerCase()})` : ''}
+          Practice more
         </button>
         <button className="review-summary__btn review-summary__btn--link" onClick={onBack}>
           {t('vocabulary.review.backToVocab')}

@@ -155,9 +155,10 @@ export async function updateWord(id: string, data: UpdateWordRequest): Promise<V
   })
 }
 
-export async function getReviewQueue(limit?: number): Promise<ReviewQueueResponse> {
+export async function getReviewQueue(limit?: number, includeAll?: boolean): Promise<ReviewQueueResponse> {
   const params = new URLSearchParams()
   if (limit) params.set('limit', String(limit))
+  if (includeAll) params.set('includeAll', 'true')
   const qs = params.toString()
   return authFetch<ReviewQueueResponse>(`/me/vocabulary/review${qs ? `?${qs}` : ''}`)
 }

@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Practice & Review UX Improvements (2026-04-08)
+- **Flashcards default mode** — classic flashcards now first and default (was Blitz)
+- **Retry wrong words** — optional "Retry wrong words (N)" button on session summary to re-practice mistakes
+- **Practice always available** — button never disabled, backend `includeAll` serves non-due words when queue empty
+- **Real-time streak badge** — progress ring updates live during review via custom event + optimistic UI
+- **Streak goal = 10 words** — progress ring fills to 10, turns green when goal met, amber while in-progress
+- **No negative messaging** — removed "keep practicing" tier, lowest is now "Great work!" even at 0%
+- **Twemoji flags** — replaced Unicode emoji flags with Twemoji CDN SVGs (fixes Windows rendering)
+- **Dark mode badge fix** — explicit colors instead of CSS vars that blended with dark background
+- **Popup flicker fix** — outside-click handler uses container ref to avoid toggle race condition
+- **No-cards redirect** — review page redirects to practice instead of showing dead-end empty state
+- **Vocabulary table on practice page** — shows all words sorted by due date (was "reviewed today" only)
+- **Refactor** — removed redundant `NativeLang.flag` field, deduplicated banner/label logic
+
 ### Vocabulary Review Overhaul (2026-04-06)
 - **Blitz + Classic modes** — segmented control on Practice page, Blitz (MC cards) and Classic (3D flip flashcards with self-assessment)
 - **Classic Flashcards** — CSS 3D flip animation, self-assessment buttons (Forgot/Almost/Knew), maps to SRS isCorrect

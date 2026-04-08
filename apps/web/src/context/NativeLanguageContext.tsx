@@ -2,18 +2,33 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 
 export interface NativeLang {
   code: string
-  flag: string
   label: string
 }
 
+// Twemoji CDN flag URLs — works on all platforms including Windows
+const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg'
+const FLAG_SVG: Record<string, string> = {
+  en: `${TWEMOJI_BASE}/1f1ec-1f1e7.svg`,
+  uk: `${TWEMOJI_BASE}/1f1fa-1f1e6.svg`,
+  ru: `${TWEMOJI_BASE}/1f1f7-1f1fa.svg`,
+  de: `${TWEMOJI_BASE}/1f1e9-1f1ea.svg`,
+  fr: `${TWEMOJI_BASE}/1f1eb-1f1f7.svg`,
+  es: `${TWEMOJI_BASE}/1f1ea-1f1f8.svg`,
+  pl: `${TWEMOJI_BASE}/1f1f5-1f1f1.svg`,
+}
+
+export function getFlagUrl(code: string): string {
+  return FLAG_SVG[code] || ''
+}
+
 export const NATIVE_LANGUAGES: NativeLang[] = [
-  { code: 'en', flag: '\u{1F1EC}\u{1F1E7}', label: 'English' },
-  { code: 'uk', flag: '\u{1F1FA}\u{1F1E6}', label: 'Ukrainian' },
-  { code: 'ru', flag: '\u{1F1F7}\u{1F1FA}', label: 'Russian' },
-  { code: 'de', flag: '\u{1F1E9}\u{1F1EA}', label: 'German' },
-  { code: 'fr', flag: '\u{1F1EB}\u{1F1F7}', label: 'French' },
-  { code: 'es', flag: '\u{1F1EA}\u{1F1F8}', label: 'Spanish' },
-  { code: 'pl', flag: '\u{1F1F5}\u{1F1F1}', label: 'Polish' },
+  { code: 'en', label: 'English' },
+  { code: 'uk', label: 'Ukrainian' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'de', label: 'German' },
+  { code: 'fr', label: 'French' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'pl', label: 'Polish' },
 ]
 
 const STORAGE_KEY = 'textstack_native_language'

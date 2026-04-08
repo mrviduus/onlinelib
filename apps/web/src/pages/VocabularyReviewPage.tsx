@@ -13,7 +13,6 @@ import { FlashCard } from '../components/vocabulary/FlashCard'
 import { NewWordCard } from '../components/vocabulary/NewWordCard'
 import { ReviewFeedback } from '../components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../components/vocabulary/SessionSummary'
-import { EmptyState } from '../components/EmptyState'
 
 export function VocabularyReviewPage() {
   const { user } = useAuth()
@@ -21,7 +20,7 @@ export function VocabularyReviewPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const initialReviewMode = (searchParams.get('reviewMode') as ReviewMode) || 'blitz'
+  const initialReviewMode = (searchParams.get('reviewMode') as ReviewMode) || 'classic'
   const initialBatchSize = useMemo(() => {
     const v = parseInt(searchParams.get('limit') || String(DEFAULT_BATCH_SIZE), 10)
     return (REVIEW_BATCH_SIZES as readonly number[]).includes(v) ? v : DEFAULT_BATCH_SIZE
@@ -34,7 +33,7 @@ export function VocabularyReviewPage() {
   const { play: playSound, toggle: toggleSound, isEnabled: isSoundEnabled } = useSoundEffects()
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled())
   const handleSpeak = (text: string) => speak(text, language)
-  const goToWords = () => navigate(`/${language}/words`)
+  const goBack = () => navigate(`/${language}/practice`)
 
   useEffect(() => {
     if (user) {
@@ -53,6 +52,13 @@ export function VocabularyReviewPage() {
   useEffect(() => {
     if (review.isSessionComplete) playSound('complete')
   }, [review.isSessionComplete]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirect to practice if no cards available (instead of dead-end empty state)
+  useEffect(() => {
+    if (!review.loading && !review.hasCards && !review.error && user) {
+      navigate(`/${language}/practice`, { replace: true })
+    }
+  }, [review.loading, review.hasCards, review.error, user, language, navigate])
 
   if (!user) {
     return (
@@ -79,16 +85,7 @@ export function VocabularyReviewPage() {
   }
 
   if (!review.hasCards) {
-    return (
-      <div className="vocab-page">
-        <EmptyState
-          icon="✅"
-          title={t('vocabulary.noReviewDue')}
-          buttonLabel={t('vocabulary.review.backToVocab')}
-          onButtonClick={goToWords}
-        />
-      </div>
-    )
+    return null // redirect effect handles this
   }
 
   if (review.isSessionComplete) {
@@ -100,15 +97,19 @@ export function VocabularyReviewPage() {
           elapsedMs={Date.now() - sessionStartRef.current}
           reviewMode={review.reviewMode}
           batchSize={batchSize}
+          wrongCount={review.wrongCards.length}
           t={t}
-          onBack={goToWords}
+          onBack={goBack}
           onAgain={() => {
             sessionStartRef.current = Date.now()
             review.startSession(batchSize, review.reviewMode)
           }}
+          onRetryWrong={() => {
+            sessionStartRef.current = Date.now()
+            review.retryWrong()
+          }}
           onBatchChange={setBatchSize}
           onModeChange={(m: ReviewMode) => review.setReviewMode(m)}
-          dueCount={review.totalDue}
         />
       </div>
     )

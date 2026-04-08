@@ -510,6 +510,14 @@
   white-space: nowrap;
 }
 
+.practice-page__reviewed-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #22c55e;
+}
+
 @media (max-width: 480px) {
   .practice-page__banner {
     flex-direction: column;
@@ -1553,6 +1561,12 @@
   background: transparent;
   color: var(--color-text);
   border: 1.5px solid var(--color-border);
+}
+
+.review-summary__btn--retry {
+  background: transparent;
+  color: #f59e0b;
+  border: 1.5px solid #f59e0b;
 }
 
 .review-summary__btn--link {

@@ -326,6 +326,7 @@ public static class VocabularyEndpoints
         IReviewCardBuilder cardBuilder,
         [FromQuery] int? limit,
         [FromQuery] string? mode,
+        [FromQuery] bool? includeAll,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -338,12 +339,22 @@ public static class VocabularyEndpoints
         var totalDue = await db.VocabularyWords
             .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now, ct);
 
-        // Always SRS: return only due words
+        // SRS: return due words first
         var dueWords = await db.VocabularyWords
             .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
             .OrderBy(w => w.NextReviewAt)
             .Take(batchSize)
             .ToListAsync(ct);
+
+        // When no due words and includeAll requested, return non-due words (closest to due first)
+        if (dueWords.Count == 0 && includeAll == true)
+        {
+            dueWords = await db.VocabularyWords
+                .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+                .OrderBy(w => w.NextReviewAt)
+                .Take(batchSize)
+                .ToListAsync(ct);
+        }
 
         if (dueWords.Count == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue));

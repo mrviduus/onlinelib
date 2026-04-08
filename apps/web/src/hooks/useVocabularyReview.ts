@@ -21,7 +21,7 @@ const EMPTY_STATS: SessionStats = { total: 0, correct: 0, reviewed: 0 }
 export function useVocabularyReview() {
   const [cards, setCards] = useState<ReviewCardDto[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalDue, setTotalDue] = useState(0)
@@ -31,6 +31,7 @@ export function useVocabularyReview() {
   const [answerRevealed, setAnswerRevealed] = useState(false)
   const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
   const [showingNewWord, setShowingNewWord] = useState(false)
+  const [wrongCards, setWrongCards] = useState<ReviewCardDto[]>([])
 
   const resetAnswerState = useCallback(() => {
     setLastResult(null)
@@ -45,14 +46,15 @@ export function useVocabularyReview() {
     }
   }, [])
 
-  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode) => {
+  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode, includeAll?: boolean) => {
     if (rMode) setReviewMode(rMode)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
+    setWrongCards([])
     resetAnswerState()
     try {
-      const queue = await getReviewQueue(limit)
+      const queue = await getReviewQueue(limit, includeAll ?? true)
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
       setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
@@ -92,6 +94,13 @@ export function useVocabularyReview() {
         reviewed: prev.reviewed + 1,
         correct: prev.correct + (isCorrect ? 1 : 0),
       }))
+      if (!isCorrect) {
+        setWrongCards(prev => {
+          if (prev.some(c => c.wordId === card.wordId)) return prev
+          return [...prev, card]
+        })
+      }
+      window.dispatchEvent(new Event('vocab-review-submitted'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit')
     } finally {
@@ -105,6 +114,17 @@ export function useVocabularyReview() {
     resetAnswerState()
     showNewWordIfNeeded(cards, nextIdx)
   }, [currentIndex, cards, resetAnswerState, showNewWordIfNeeded])
+
+  const retryWrong = useCallback(() => {
+    if (wrongCards.length === 0) return
+    const retryCards = wrongCards.map(c => ({ ...c, isNew: false }))
+    setCards(retryCards)
+    setCurrentIndex(0)
+    setWrongCards([])
+    setSessionStats(prev => ({ ...prev, total: prev.total + retryCards.length }))
+    resetAnswerState()
+    showNewWordIfNeeded(retryCards, 0)
+  }, [wrongCards, resetAnswerState, showNewWordIfNeeded])
 
   const currentCard = cards[currentIndex] || null
   const isSessionComplete = currentIndex >= cards.length && cards.length > 0
@@ -126,10 +146,12 @@ export function useVocabularyReview() {
     hasCards,
     reviewMode,
     showingNewWord,
+    wrongCards,
     startSession,
     submitAnswer,
     nextCard,
     dismissNewWord,
     setReviewMode,
+    retryWrong,
   }
 }

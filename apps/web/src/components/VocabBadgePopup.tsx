@@ -1,25 +1,27 @@
 import { useEffect, useRef } from 'react'
 import { LocalizedLink } from './LocalizedLink'
+import { DAILY_GOAL } from './StreakBadge'
 
 interface VocabBadgePopupProps {
   reviewed: number
   due: number
   streak: number
+  containerRef?: React.RefObject<HTMLDivElement | null>
   onClose: () => void
 }
 
-export function VocabBadgePopup({ reviewed, due, streak, onClose }: VocabBadgePopupProps) {
+export function VocabBadgePopup({ reviewed, due, streak, containerRef, onClose }: VocabBadgePopupProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const complete = due === 0 && reviewed > 0
-  const total = reviewed + due
+  const goalMet = reviewed >= DAILY_GOAL
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const container = containerRef?.current || ref.current
+      if (container && !container.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
+  }, [onClose, containerRef])
 
   return (
     <div className="vocab-badge-popup" ref={ref}>
@@ -29,9 +31,9 @@ export function VocabBadgePopup({ reviewed, due, streak, onClose }: VocabBadgePo
           : 'Vocabulary'}
       </div>
       <div className="vocab-badge-popup__status">
-        {complete
+        {goalMet
           ? "Today's goal met!"
-          : `${reviewed} of ${total} words reviewed`}
+          : `${reviewed} of ${DAILY_GOAL} words reviewed`}
       </div>
       <div className="vocab-badge-popup__stats">
         <div className="vocab-badge-popup__stat">

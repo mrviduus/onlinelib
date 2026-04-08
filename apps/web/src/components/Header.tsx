@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { LocalizedLink } from './LocalizedLink'
 import { MobileSearchOverlay } from './Search'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -15,6 +15,7 @@ import { VocabBadgePopup } from './VocabBadgePopup'
 export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [badgePopup, setBadgePopup] = useState(false)
+  const badgeWrapperRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, isLoading } = useAuth()
   const isScrolled = useScrolled(50)
   const { isDark, toggleTheme } = useDarkMode()
@@ -66,7 +67,7 @@ export function Header() {
           <span className="material-icons-outlined">search</span>
         </button>
         {isAuthenticated && quickStats && (quickStats.vocabDueNow > 0 || quickStats.vocabReviewedToday > 0) && (
-          <div className="streak-badge-wrapper">
+          <div className="streak-badge-wrapper" ref={badgeWrapperRef}>
             <button
               className="streak-badge"
               onClick={() => setBadgePopup(v => !v)}
@@ -83,6 +84,7 @@ export function Header() {
                 reviewed={quickStats.vocabReviewedToday}
                 due={quickStats.vocabDueNow}
                 streak={quickStats.vocabStreak}
+                containerRef={badgeWrapperRef}
                 onClose={() => setBadgePopup(false)}
               />
             )}

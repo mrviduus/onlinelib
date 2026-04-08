@@ -460,9 +460,11 @@
 }
 
 .lang-ctx__flag {
-  font-size: 14px;
-  line-height: 1;
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  vertical-align: middle;
 }
 
 .lang-ctx__chevron {
@@ -529,7 +531,8 @@
     display: none;
   }
   .lang-ctx__flag {
-    font-size: 18px;
+    width: 24px;
+    height: 18px;
   }
   .lang-ctx__trigger {
     padding: 4px;

@@ -52,5 +52,23 @@ export function useQuickStats(): QuickStats | null {
       .catch(() => {})
   }, [isAuthenticated])
 
+  // Optimistically update when a review is submitted
+  useEffect(() => {
+    const handler = () => {
+      setData(prev => {
+        if (!prev) return prev
+        const updated = {
+          ...prev,
+          vocabReviewedToday: prev.vocabReviewedToday + 1,
+          vocabDueNow: Math.max(0, prev.vocabDueNow - 1),
+        }
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(updated)) } catch {}
+        return updated
+      })
+    }
+    window.addEventListener('vocab-review-submitted', handler)
+    return () => window.removeEventListener('vocab-review-submitted', handler)
+  }, [])
+
   return data
 }

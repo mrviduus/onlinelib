@@ -1,0 +1,186 @@
+import { test, expect } from '@playwright/test'
+import { testLogin } from '../helpers/api'
+
+const API_URL = process.env.API_URL ?? 'http://localhost:8080'
+const HEADERS = { Host: 'general.localhost', 'Content-Type': 'application/json' }
+
+const TEST_WORDS = [
+  { word: 'ephemeral', translation: 'ефемерний', originalSentence: 'The ephemeral beauty of the sunset.' },
+  { word: 'ubiquitous', translation: 'повсюдний', originalSentence: 'Smartphones are ubiquitous today.' },
+  { word: 'sanguine', translation: 'оптимістичний', originalSentence: 'She remained sanguine despite the setback.' },
+]
+
+test.describe.serial('Practice page', () => {
+  test.beforeAll(async ({ request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    // Clean up any existing test words
+    const wordsResp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
+    if (wordsResp.ok()) {
+      const data = await wordsResp.json()
+      for (const w of data.items ?? []) {
+        await request.delete(`${API_URL}/me/vocabulary/words/${w.id}`, { headers: HEADERS })
+      }
+    }
+  })
+
+  test('practice page loads for authenticated user', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('.practice-page')).toBeVisible()
+  })
+
+  test('flashcards is default mode', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    // Clear localStorage to test fresh default
+    await page.goto('/en/practice/')
+    await page.evaluate(() => localStorage.removeItem('practiceMode'))
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    // Flashcards button should be active
+    const flashcardsBtn = page.locator('.vocab-mode-toggle__btn--active')
+    await expect(flashcardsBtn).toContainText('Flashcards')
+  })
+
+  test('flashcards listed first in mode toggle', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    const buttons = page.locator('.vocab-mode-toggle__btn')
+    const count = await buttons.count()
+    if (count >= 2) {
+      await expect(buttons.nth(0)).toContainText('Flashcards')
+      await expect(buttons.nth(1)).toContainText('Blitz')
+    }
+  })
+
+  test('save words and practice page shows stats', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+
+    // Save test words
+    for (const w of TEST_WORDS) {
+      await request.post(`${API_URL}/me/vocabulary/words`, {
+        headers: HEADERS,
+        data: w,
+      })
+    }
+
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    // Stats row should show total words
+    await expect(page.locator('.practice-page__stat-value').first()).toContainText(String(TEST_WORDS.length))
+
+    // Practice button should be enabled
+    const startBtn = page.locator('.practice-page__start-btn')
+    await expect(startBtn).toBeEnabled()
+    await expect(startBtn).toContainText('words')
+  })
+
+  test('streak badge shows in header when words due', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    const badge = page.locator('[data-testid="streak-badge"]')
+    await expect(badge).toBeVisible()
+  })
+
+  test('streak badge popup opens and closes', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    const badgeBtn = page.locator('.streak-badge-wrapper button')
+    // Open popup
+    await badgeBtn.click()
+    const popup = page.locator('.vocab-badge-popup')
+    await expect(popup).toBeVisible()
+    await expect(popup).toContainText('words reviewed')
+
+    // Close by clicking badge again
+    await badgeBtn.click()
+    await expect(popup).not.toBeVisible()
+  })
+
+  test('start review session in flashcard mode', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    const startBtn = page.locator('.practice-page__start-btn')
+    await startBtn.click()
+
+    // Should navigate to review page
+    await page.waitForURL(/\/words\/review/)
+
+    // FlashCard should render (classic mode)
+    await expect(page.locator('.flash-card, .review-progress')).toBeVisible()
+  })
+
+  test('session summary shows positive message', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+
+    // Navigate to review with classic mode
+    await page.goto('/en/words/review?reviewMode=classic')
+    await page.waitForLoadState('networkidle')
+
+    // Complete all cards by self-assessing
+    const maxCards = 10
+    for (let i = 0; i < maxCards; i++) {
+      // Wait for card or summary
+      const cardOrSummary = await Promise.race([
+        page.locator('.flash-card').waitFor({ timeout: 3000 }).then(() => 'card'),
+        page.locator('.new-word-card').waitFor({ timeout: 3000 }).then(() => 'new'),
+        page.locator('.review-summary').waitFor({ timeout: 3000 }).then(() => 'summary'),
+      ]).catch(() => 'timeout')
+
+      if (cardOrSummary === 'summary' || cardOrSummary === 'timeout') break
+
+      if (cardOrSummary === 'new') {
+        await page.locator('.new-word-card__btn').click()
+        continue
+      }
+
+      // Tap the card to flip
+      await page.locator('.flash-card__front, .flash-card__inner').first().click()
+      // Wait for flip animation
+      await page.waitForTimeout(400)
+      // Click "Got it" or first assessment button
+      const assessBtn = page.locator('.flash-card__assess-btn').first()
+      if (await assessBtn.isVisible()) {
+        await assessBtn.click()
+      }
+
+      // Wait for next or feedback
+      await page.waitForTimeout(300)
+      const nextBtn = page.locator('.review-feedback__next, .review-feedback-mini button')
+      if (await nextBtn.isVisible()) {
+        await nextBtn.click()
+      }
+    }
+
+    // Session summary should show
+    const summary = page.locator('.review-summary')
+    await expect(summary).toBeVisible({ timeout: 10000 })
+
+    // Should show positive message (Great work! or better, never negative)
+    const banner = summary.locator('.review-summary__banner-message')
+    const text = await banner.textContent()
+    expect(text).toMatch(/great work|excellent|perfect/i)
+  })
+
+  // Cleanup
+  test.afterAll(async ({ request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    const wordsResp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
+    if (wordsResp.ok()) {
+      const data = await wordsResp.json()
+      for (const w of data.items ?? []) {
+        await request.delete(`${API_URL}/me/vocabulary/words/${w.id}`, { headers: HEADERS })
+      }
+    }
+  })
+})

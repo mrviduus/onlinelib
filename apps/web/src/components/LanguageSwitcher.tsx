@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
-import { useNativeLanguage, NATIVE_LANGUAGES } from '../context/NativeLanguageContext'
+import { useNativeLanguage, NATIVE_LANGUAGES, getFlagUrl } from '../context/NativeLanguageContext'
 
 const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en' || l.code === 'uk')
 
@@ -33,7 +33,7 @@ export function LanguageSwitcher() {
           aria-expanded={openMenu === 'native'}
           aria-haspopup="listbox"
         >
-          <span className="lang-ctx__flag">{nativeLang.flag}</span>
+          <img className="lang-ctx__flag" src={getFlagUrl(nativeLang.code)} alt="" width="20" height="15" />
           <span className="lang-ctx__prefix">I know</span>
           <span className="lang-ctx__lang">{nativeLang.label}</span>
           <Chevron />
@@ -47,7 +47,7 @@ export function LanguageSwitcher() {
                   role="option"
                   onClick={() => { setNativeLanguage(l.code); setOpenMenu(null) }}
                 >
-                  <span className="lang-ctx__flag">{l.flag}</span> {l.label}
+                  <img className="lang-ctx__flag" src={getFlagUrl(l.code)} alt="" width="20" height="15" /> {l.label}
                 </button>
               </li>
             ))}
@@ -65,7 +65,7 @@ export function LanguageSwitcher() {
           aria-expanded={openMenu === 'target'}
           aria-haspopup="listbox"
         >
-          <span className="lang-ctx__flag">{targetLang.flag}</span>
+          <img className="lang-ctx__flag" src={getFlagUrl(targetLang.code)} alt="" width="20" height="15" />
           <span className="lang-ctx__prefix">I'm learning</span>
           <span className="lang-ctx__lang">{targetLang.label}</span>
           <Chevron />
@@ -79,7 +79,7 @@ export function LanguageSwitcher() {
                   role="option"
                   onClick={() => { switchLanguage(l.code as SupportedLanguage); setOpenMenu(null) }}
                 >
-                  <span className="lang-ctx__flag">{l.flag}</span> {l.label}
+                  <img className="lang-ctx__flag" src={getFlagUrl(l.code)} alt="" width="20" height="15" /> {l.label}
                 </button>
               </li>
             ))}
