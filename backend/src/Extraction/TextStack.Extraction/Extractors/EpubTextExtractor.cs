@@ -175,7 +175,7 @@ public sealed class EpubTextExtractor : ITextExtractor
             }
         }
 
-        AfterReadingOrderLoop:
+    AfterReadingOrderLoop:
 
         // Generate table of contents
         var toc = TocGenerator.GenerateToc(tocChapters);
