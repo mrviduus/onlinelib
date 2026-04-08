@@ -81,7 +81,7 @@ test.describe.serial('Practice page', () => {
     await startBtn.click()
 
     await page.waitForURL(/\/words\/review/)
-    await expect(page.locator('.flash-card, .new-word-card, .review-progress')).toBeVisible()
+    await expect(page.locator('.review-progress')).toBeVisible()
   })
 
   // Cleanup
