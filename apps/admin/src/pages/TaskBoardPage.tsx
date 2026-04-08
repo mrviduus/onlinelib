@@ -50,9 +50,9 @@ export function TaskBoardPage() {
     [tasks]
   )
 
-  const handleCreate = async (title: string) => {
+  const handleCreate = async (title: string, source?: string) => {
     try {
-      const task = await adminApi.createBoardTask(title)
+      const task = await adminApi.createBoardTask(title, source)
       setTasks(prev => [...prev, task])
     } catch (err: any) {
       setError(err.message)
@@ -195,7 +195,7 @@ function KanbanColumn({
   id: Status
   label: string
   tasks: BoardTaskDto[]
-  onCreate?: (title: string) => void
+  onCreate?: (title: string, source?: string) => void
   onUpdate: (id: string, title: string) => void
   onDelete: (id: string) => void
 }) {
@@ -227,15 +227,47 @@ function KanbanColumn({
   )
 }
 
-function TaskInput({ onSubmit }: { onSubmit: (title: string) => void }) {
+function TaskInput({ onSubmit }: { onSubmit: (title: string, source?: string) => void }) {
   const [value, setValue] = useState('')
+  const [listening, setListening] = useState(false)
+  const [fromVoice, setFromVoice] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
+
+  const speechSupported = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  useEffect(() => {
+    if (!speechSupported) return
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SR()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript
+      setValue(prev => prev ? prev + ' ' + text : text)
+      setFromVoice(true)
+    }
+    recognition.onend = () => setListening(false)
+    recognition.onerror = () => setListening(false)
+    recognitionRef.current = recognition
+  }, [])
+
+  const toggleVoice = () => {
+    if (listening) {
+      recognitionRef.current?.stop()
+    } else {
+      recognitionRef.current?.start()
+      setListening(true)
+    }
+  }
 
   const handleSubmit = () => {
     const trimmed = value.trim()
     if (!trimmed) return
-    onSubmit(trimmed)
+    onSubmit(trimmed, fromVoice ? 'voice' : undefined)
     setValue('')
+    setFromVoice(false)
     inputRef.current?.focus()
   }
 
@@ -247,9 +279,24 @@ function TaskInput({ onSubmit }: { onSubmit: (title: string) => void }) {
         className="task-input__field"
         placeholder="Add a task..."
         value={value}
-        onChange={e => setValue(e.target.value)}
+        onChange={e => { setValue(e.target.value); setFromVoice(false) }}
         onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
       />
+      {speechSupported && (
+        <button
+          className={`task-input__voice ${listening ? 'task-input__voice--active' : ''}`}
+          onClick={toggleVoice}
+          title={listening ? 'Stop recording' : 'Voice input'}
+          type="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
+        </button>
+      )}
       <button className="task-input__btn" onClick={handleSubmit} disabled={!value.trim()}>
         +
       </button>

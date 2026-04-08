@@ -2585,6 +2585,38 @@ body {
   cursor: default;
 }
 
+.task-input__voice {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.task-input__voice:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+.task-input__voice--active {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
+  animation: voice-pulse 1.5s infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
 /* Task card */
 .task-card {
   background: white;
