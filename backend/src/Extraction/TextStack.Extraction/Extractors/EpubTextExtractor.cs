@@ -453,19 +453,32 @@ public sealed class EpubTextExtractor : ITextExtractor
             return [];
 
         // Filter to only headings that look like chapter/part markers
-        // (short text, not inside nested elements like blockquotes)
         var chapterHeadings = new List<HtmlNode>();
+        var skipPatterns = new[]
+        {
+            "novel by", "books by", "the end", "copyright", "published by",
+            "printed in", "all rights reserved", "table of contents",
+            "about the author", "acknowledgment", "acknowledgement",
+        };
         foreach (var h in headings)
         {
             var text = HtmlEntity.DeEntitize(h.InnerText).Trim();
-            // Skip very long headings (likely not chapter markers)
             if (text.Length > 100) continue;
-            // Skip headings that are clearly not chapters (author names, publisher info)
-            if (text.Contains("novel by", StringComparison.OrdinalIgnoreCase)) continue;
-            // Must be a meaningful heading
             if (string.IsNullOrWhiteSpace(text)) continue;
+            var lower = text.ToLowerInvariant();
+            if (skipPatterns.Any(p => lower.Contains(p))) continue;
             chapterHeadings.Add(h);
         }
+
+        // Skip headings before the first h2 that looks like a part/chapter marker
+        // (filter out title page headings like author names)
+        var firstPartIndex = chapterHeadings.FindIndex(h =>
+        {
+            var text = HtmlEntity.DeEntitize(h.InnerText).Trim();
+            return IsChapterOrPartHeading(text);
+        });
+        if (firstPartIndex > 0)
+            chapterHeadings = chapterHeadings.Skip(firstPartIndex).ToList();
 
         if (chapterHeadings.Count < 2)
             return [];
@@ -532,5 +545,31 @@ public sealed class EpubTextExtractor : ITextExtractor
         }
 
         return sections.Count >= 2 ? sections : [];
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ChapterPartRegex = new(
+        @"^(chapter|part|book|section|глава|часть|частина|розділ|prologue|epilogue|appendix|introduction|preface|foreword)\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static readonly string[] RomanNumerals =
+        ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+         "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
+
+    private static readonly string[] NumberWords =
+        ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
+         "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN",
+         "EIGHTEEN", "NINETEEN", "TWENTY"];
+
+    /// <summary>
+    /// Checks if a heading text looks like a chapter/part marker (Roman numeral, number word, or keyword).
+    /// </summary>
+    private static bool IsChapterOrPartHeading(string text)
+    {
+        if (ChapterPartRegex.IsMatch(text)) return true;
+        var upper = text.Trim().ToUpperInvariant();
+        if (RomanNumerals.Contains(upper)) return true;
+        if (NumberWords.Contains(upper)) return true;
+        if (int.TryParse(text.Trim(), out _)) return true;
+        return false;
     }
 }
