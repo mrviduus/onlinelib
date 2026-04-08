@@ -15,6 +15,7 @@ const FLAG_SVG: Record<string, string> = {
   fr: `${TWEMOJI_BASE}/1f1eb-1f1f7.svg`,
   es: `${TWEMOJI_BASE}/1f1ea-1f1f8.svg`,
   pl: `${TWEMOJI_BASE}/1f1f5-1f1f1.svg`,
+  fa: `${TWEMOJI_BASE}/1f1ee-1f1f7.svg`,
 }
 
 export function getFlagUrl(code: string): string {
@@ -29,6 +30,7 @@ export const NATIVE_LANGUAGES: NativeLang[] = [
   { code: 'fr', label: 'French' },
   { code: 'es', label: 'Spanish' },
   { code: 'pl', label: 'Polish' },
+  { code: 'fa', label: 'Farsi' },
 ]
 
 const STORAGE_KEY = 'textstack_native_language'
