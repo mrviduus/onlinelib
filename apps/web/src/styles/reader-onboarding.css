@@ -1,0 +1,112 @@
+.reader-onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: onboarding-fade-in 0.3s ease;
+}
+
+@keyframes onboarding-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reader-onboarding__card {
+  background: var(--reader-bg, #fff);
+  color: var(--reader-text, #1a1a1a);
+  border-radius: 20px;
+  padding: 40px 32px 32px;
+  max-width: 340px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: onboarding-slide-up 0.3s ease;
+}
+
+@keyframes onboarding-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reader-onboarding__icon {
+  font-size: 48px;
+  color: var(--reader-secondary, #666);
+  margin-bottom: 16px;
+  display: block;
+}
+
+.reader-onboarding__title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
+.reader-onboarding__desc {
+  font-size: 15px;
+  color: var(--reader-secondary, #666);
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.reader-onboarding__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.reader-onboarding__skip {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--reader-secondary, #666);
+  background: transparent;
+  border: 1px solid var(--reader-border, #e0e0e0);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.reader-onboarding__skip:hover {
+  border-color: var(--reader-text, #1a1a1a);
+  color: var(--reader-text, #1a1a1a);
+}
+
+.reader-onboarding__next {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: var(--reader-text, #1a1a1a);
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.reader-onboarding__next:hover {
+  opacity: 0.85;
+}
+
+.reader-onboarding__dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.reader-onboarding__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--reader-border, #e0e0e0);
+  transition: background 0.2s;
+}
+
+.reader-onboarding__dot--active {
+  background: var(--reader-text, #1a1a1a);
+}

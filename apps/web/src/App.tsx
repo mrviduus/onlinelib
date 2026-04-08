@@ -3,6 +3,8 @@ import { SiteProvider, useSite } from './context/SiteContext'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
+import { GuestLimitsProvider } from './context/GuestLimitsContext'
+import { useGuestMigration } from './hooks/useGuestMigration'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
 import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
@@ -116,6 +118,11 @@ function LegacyRedirect() {
   return <Navigate to={`/${defaultLang}${location.pathname}${location.search}`} replace />
 }
 
+function GuestMigrationRunner() {
+  useGuestMigration()
+  return null
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -146,12 +153,15 @@ function App() {
     <BrowserRouter>
       <SiteProvider>
         <AuthProvider>
+          <GuestLimitsProvider>
+          <GuestMigrationRunner />
           <NativeLanguageProvider>
           <DownloadProvider>
             <AppRoutes />
             <DownloadProgressBar />
           </DownloadProvider>
           </NativeLanguageProvider>
+          </GuestLimitsProvider>
           <AuthModal />
         </AuthProvider>
       </SiteProvider>

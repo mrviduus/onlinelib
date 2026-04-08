@@ -58,7 +58,7 @@ export function useWordTap({
   bookTitle,
   clearSelection,
 }: UseWordTapOptions) {
-  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation, refreshMarks } = useReaderVocabulary()
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation, refreshMarks, wordLimitHit, clearWordLimitHit } = useReaderVocabulary()
   const { lookup: lookupWord } = useDictionary()
 
   const [tap, setTap] = useState<TapPopupState>(INITIAL_TAP)
@@ -150,8 +150,8 @@ export function useWordTap({
       .catch(() => {})
       .finally(() => setTap(prev => ({ ...prev, definitionLoading: false })))
 
-    // Auto-save new word, then persist translation to backend once both resolve
-    const savePromise = isAuthenticated && !vocabMap.get(word.toLowerCase())
+    // Auto-save new word (both auth and guest), then persist translation
+    const savePromise = !vocabMap.get(word.toLowerCase())
       ? addVocabWord({
           word,
           language: bookLanguage,
@@ -165,7 +165,7 @@ export function useWordTap({
       : Promise.resolve(null)
 
     Promise.all([savePromise, translationPromise]).then(([saved, translation]) => {
-      if (saved && translation) {
+      if (saved && saved.id && translation) {
         updateWord(saved.id, { translation }).catch(() => {})
       }
       if (translation) {
@@ -219,5 +219,5 @@ export function useWordTap({
     close()
   }, [tap.word, vocabEntry, removeVocabWord, close])
 
-  return { tap, close, vocabEntry, vocabMap, markKnown, remove, markVocabKnown, removeVocabWord }
+  return { tap, close, vocabEntry, vocabMap, markKnown, remove, markVocabKnown, removeVocabWord, wordLimitHit, clearWordLimitHit }
 }
