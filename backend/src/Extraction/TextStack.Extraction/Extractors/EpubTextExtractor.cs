@@ -1,3 +1,4 @@
+using HtmlAgilityPack;
 using TextStack.Extraction.Contracts;
 using TextStack.Extraction.Enums;
 using TextStack.Extraction.TextProcessing.Processors;
@@ -47,6 +48,46 @@ public sealed class EpubTextExtractor : ITextExtractor
         var order = 0;
         ContentUnit? previousUnit = null;
         int previousUnitIndex = -1;
+
+        // Single-file EPUB: try splitting by headings before standard processing
+        if (book.ReadingOrder.Count == 1)
+        {
+            var singleHtml = book.ReadingOrder[0].Content;
+            if (!string.IsNullOrWhiteSpace(singleHtml))
+            {
+                var sections = SplitSingleFileByHeadings(singleHtml);
+                if (sections.Count > 1)
+                {
+                    foreach (var (sectionTitle, sectionHtml) in sections)
+                    {
+                        if (ct.IsCancellationRequested) break;
+
+                        var (cleanHtml, plainText) = HtmlCleaner.Clean(sectionHtml);
+                        if (string.IsNullOrWhiteSpace(plainText)) continue;
+
+                        var wordCount = HtmlCleaner.CountWords(plainText);
+                        var chapterNumber = order + 1;
+
+                        cleanHtml = TocGenerator.InjectAnchorIds(cleanHtml, chapterNumber);
+                        tocChapters.Add((chapterNumber, cleanHtml));
+
+                        var newUnit = new ContentUnit(
+                            Type: ContentUnitType.Chapter,
+                            Title: sectionTitle,
+                            Html: cleanHtml,
+                            PlainText: plainText,
+                            OrderIndex: order++,
+                            WordCount: wordCount
+                        );
+
+                        units.Add(newUnit);
+                    }
+
+                    // Skip the standard loop — we already processed the single file
+                    goto AfterReadingOrderLoop;
+                }
+            }
+        }
 
         foreach (var textContent in book.ReadingOrder)
         {
@@ -133,6 +174,8 @@ public sealed class EpubTextExtractor : ITextExtractor
                     $"Failed to parse chapter: {ex.Message}"));
             }
         }
+
+        AfterReadingOrderLoop:
 
         // Generate table of contents
         var toc = TocGenerator.GenerateToc(tocChapters);
@@ -390,5 +433,104 @@ public sealed class EpubTextExtractor : ITextExtractor
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Splits a single-file EPUB by h2/h3 headings that act as chapter boundaries.
+    /// Returns empty list if fewer than 2 sections found (no split needed).
+    /// </summary>
+    private static List<(string Title, string Html)> SplitSingleFileByHeadings(string html)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        var body = doc.DocumentNode.SelectSingleNode("//body") ?? doc.DocumentNode;
+
+        // Find all h2 and h3 that are direct children of body (chapter headings)
+        // Skip the very first heading if it's the book title (h1)
+        var headings = body.SelectNodes(".//h2 | .//h3");
+        if (headings == null || headings.Count < 2)
+            return [];
+
+        // Filter to only headings that look like chapter/part markers
+        // (short text, not inside nested elements like blockquotes)
+        var chapterHeadings = new List<HtmlNode>();
+        foreach (var h in headings)
+        {
+            var text = HtmlEntity.DeEntitize(h.InnerText).Trim();
+            // Skip very long headings (likely not chapter markers)
+            if (text.Length > 100) continue;
+            // Skip headings that are clearly not chapters (author names, publisher info)
+            if (text.Contains("novel by", StringComparison.OrdinalIgnoreCase)) continue;
+            // Must be a meaningful heading
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            chapterHeadings.Add(h);
+        }
+
+        if (chapterHeadings.Count < 2)
+            return [];
+
+        var sections = new List<(string Title, string Html)>();
+        string? currentPartName = null;
+
+        for (int i = 0; i < chapterHeadings.Count; i++)
+        {
+            var heading = chapterHeadings[i];
+            var title = HtmlEntity.DeEntitize(heading.InnerText).Trim();
+            var isPartHeading = heading.Name == "h2";
+
+            // Track part name for prefixing chapter titles
+            if (isPartHeading)
+                currentPartName = title;
+
+            // Collect all nodes between this heading and the next (or end)
+            var sectionNodes = new List<HtmlNode>();
+
+            // Include the <hr> before the heading if present
+            var prevSibling = heading.PreviousSibling;
+            while (prevSibling != null && (prevSibling.NodeType == HtmlNodeType.Text && string.IsNullOrWhiteSpace(prevSibling.InnerText)))
+                prevSibling = prevSibling.PreviousSibling;
+
+            // Add the heading itself
+            sectionNodes.Add(heading);
+
+            // Collect siblings until next chapter heading
+            var nextHeading = i + 1 < chapterHeadings.Count ? chapterHeadings[i + 1] : null;
+            var node = heading.NextSibling;
+            while (node != null)
+            {
+                if (node == nextHeading) break;
+                // Also check if next heading is preceded by an <hr>
+                if (nextHeading != null && node.NextSibling == nextHeading && node.Name == "hr") break;
+                // Check if this node contains the next heading (for nested structures)
+                if (nextHeading != null && node.Descendants().Any(d => d == nextHeading)) break;
+                sectionNodes.Add(node);
+                node = node.NextSibling;
+            }
+
+            // Build section HTML
+            var sectionHtml = string.Join("", sectionNodes.Select(n => n.OuterHtml));
+            if (string.IsNullOrWhiteSpace(HtmlCleaner.Clean(sectionHtml).PlainText))
+                continue;
+
+            // Build display title
+            string displayTitle;
+            if (isPartHeading)
+            {
+                displayTitle = $"Part {title}";
+            }
+            else if (currentPartName != null)
+            {
+                displayTitle = $"Part {currentPartName}, Chapter {title}";
+            }
+            else
+            {
+                displayTitle = $"Chapter {title}";
+            }
+
+            sections.Add((displayTitle, sectionHtml));
+        }
+
+        return sections.Count >= 2 ? sections : [];
     }
 }
