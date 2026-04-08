@@ -30,32 +30,6 @@ test.describe.serial('Practice page', () => {
     await expect(page.locator('.practice-page')).toBeVisible()
   })
 
-  test('flashcards is default mode', async ({ page, request }) => {
-    await testLogin(request, 'e2e-practice@textstack.app')
-    // Clear localStorage to test fresh default
-    await page.goto('/en/practice/')
-    await page.evaluate(() => localStorage.removeItem('practiceMode'))
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-
-    // Flashcards button should be active
-    const flashcardsBtn = page.locator('.vocab-mode-toggle__btn--active')
-    await expect(flashcardsBtn).toContainText('Flashcards')
-  })
-
-  test('flashcards listed first in mode toggle', async ({ page, request }) => {
-    await testLogin(request, 'e2e-practice@textstack.app')
-    await page.goto('/en/practice/')
-    await page.waitForLoadState('networkidle')
-
-    const buttons = page.locator('.vocab-mode-toggle__btn')
-    const count = await buttons.count()
-    if (count >= 2) {
-      await expect(buttons.nth(0)).toContainText('Flashcards')
-      await expect(buttons.nth(1)).toContainText('Blitz')
-    }
-  })
-
   test('save words and practice page shows stats', async ({ page, request }) => {
     await testLogin(request, 'e2e-practice@textstack.app')
 
@@ -77,6 +51,27 @@ test.describe.serial('Practice page', () => {
     const startBtn = page.locator('.practice-page__start-btn')
     await expect(startBtn).toBeEnabled()
     await expect(startBtn).toContainText('words')
+  })
+
+  test('flashcards is default mode', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.evaluate(() => localStorage.removeItem('practiceMode'))
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    const flashcardsBtn = page.locator('.vocab-mode-toggle__btn--active')
+    await expect(flashcardsBtn).toContainText('Flashcards')
+  })
+
+  test('flashcards listed first in mode toggle', async ({ page, request }) => {
+    await testLogin(request, 'e2e-practice@textstack.app')
+    await page.goto('/en/practice/')
+    await page.waitForLoadState('networkidle')
+
+    const buttons = page.locator('.vocab-mode-toggle__btn')
+    await expect(buttons.nth(0)).toContainText('Flashcards')
+    await expect(buttons.nth(1)).toContainText('Blitz')
   })
 
   test('streak badge shows in header when words due', async ({ page, request }) => {
@@ -140,16 +135,16 @@ test.describe.serial('Practice page', () => {
       if (cardOrSummary === 'summary' || cardOrSummary === 'timeout') break
 
       if (cardOrSummary === 'new') {
-        await page.locator('.new-word-card__btn').click()
+        await page.locator('.new-word-card__continue').click()
         continue
       }
 
       // Tap the card to flip
-      await page.locator('.flash-card__front, .flash-card__inner').first().click()
+      await page.locator('.flash-card-wrapper').click()
       // Wait for flip animation
       await page.waitForTimeout(400)
       // Click "Got it" or first assessment button
-      const assessBtn = page.locator('.flash-card__assess-btn').first()
+      const assessBtn = page.locator('.flash-card__assess').first()
       if (await assessBtn.isVisible()) {
         await assessBtn.click()
       }
