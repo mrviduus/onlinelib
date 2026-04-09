@@ -16,6 +16,11 @@ export const test = base.extend<AuthFixtures>({
       baseURL: baseURL ?? undefined,
     })
     const page = await context.newPage()
+    // Pre-set native language so the language picker modal doesn't block tests
+    await page.addInitScript(() => {
+      localStorage.setItem('textstack_native_language', 'en')
+      localStorage.setItem('reader.onboarding.seen', '1')
+    })
     await use(page)
     await context.close()
   },
