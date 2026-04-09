@@ -15,8 +15,8 @@ export function useGuestMigration() {
     migratedRef.current = true
     const words = [...guestState.savedWords]
 
-    // Migrate words sequentially to avoid overwhelming the API
     ;(async () => {
+      let migrated = 0
       for (const w of words) {
         try {
           await saveWord({
@@ -24,11 +24,12 @@ export function useGuestMigration() {
             language: w.language,
             translation: w.translation,
           })
+          migrated++
         } catch {
-          // Skip failed words silently
+          // Skip failed words
         }
       }
-      resetGuestState()
+      if (migrated > 0) resetGuestState()
     })()
   }, [isAuthenticated, guestState.savedWords, resetGuestState])
 }
