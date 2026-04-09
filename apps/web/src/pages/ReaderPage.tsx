@@ -170,6 +170,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     setLastTappedWord(word)
     setLastTappedTranslation(translation)
   }, [])
+
+  // Soft reminder on every chapter transition for guests
+  const [showChapterReminder, setShowChapterReminder] = useState(false)
+  const prevChapterRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!chapterIdentifier || isAuthenticated) return
+    if (prevChapterRef.current && prevChapterRef.current !== chapterIdentifier) {
+      setShowChapterReminder(true)
+    }
+    prevChapterRef.current = chapterIdentifier
+  }, [chapterIdentifier, isAuthenticated])
+
   const libraryAddedRef = useRef(false)
   const editionIdRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
@@ -1030,13 +1042,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // Navigation handlers
   const navigateToChapterCustom = useCallback((identifier: string) => {
-    if (!isAuthenticated) {
-      setPaywallTrigger('chapters')
-      return
-    }
     setBookCompleted(false)
     navigate(getChapterUrl(identifier))
-  }, [navigate, getChapterUrl, isAuthenticated])
+  }, [navigate, getChapterUrl])
 
   const handlePrevPageCustom = useCallback(() => {
     readingSession.recordActivity()
@@ -1289,8 +1297,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           const isLoaded = scrollReader.chapters.some(c => c.identifier === identifier)
           if (isLoaded) {
             scrollReader.scrollToChapter(identifier)
-          } else if (!isAuthenticated) {
-            setPaywallTrigger('chapters')
           } else {
             navigate(getChapterUrl(identifier) + '?direct=1')
           }
@@ -1380,12 +1386,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       )}
 
       <SaveProgressPrompt
-        visible={onboardingFlow.showRegistrationPrompt}
+        visible={onboardingFlow.showRegistrationPrompt || showChapterReminder}
         onAccept={() => {
-          onboardingFlow.acceptRegistration()
+          if (onboardingFlow.showRegistrationPrompt) onboardingFlow.acceptRegistration()
+          setShowChapterReminder(false)
           openAuthModal()
         }}
-        onDismiss={onboardingFlow.dismissRegistration}
+        onDismiss={() => {
+          if (onboardingFlow.showRegistrationPrompt) onboardingFlow.dismissRegistration()
+          setShowChapterReminder(false)
+        }}
       />
 
       {paywallTrigger && (

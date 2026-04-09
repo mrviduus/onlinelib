@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext'
 
-export type PaywallTrigger = 'pages' | 'words' | 'practice' | 'chapters'
+export type PaywallTrigger = 'pages' | 'words' | 'practice'
 
 interface SoftPaywallProps {
   trigger: PaywallTrigger
@@ -22,11 +22,6 @@ const content: Record<PaywallTrigger, { icon: string; title: string; text: strin
     icon: 'school',
     title: 'Unlimited practice sessions',
     text: 'Sign in to access unlimited vocabulary review and track your learning progress.',
-  },
-  chapters: {
-    icon: 'menu_book',
-    title: 'Sign in to keep reading',
-    text: 'Create a free account to unlock all chapters, save your vocabulary, and continue reading anytime.',
   },
 }
 
