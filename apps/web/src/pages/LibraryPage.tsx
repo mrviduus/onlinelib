@@ -13,7 +13,7 @@ import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
 import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
-import { getUserBooks, getUserBookCoverUrl, getUserBookProgress, type UserBook, type UserBookProgress } from '../api/userBooks'
+import { getUserBooks, getUserBookCoverUrl, type UserBook } from '../api/userBooks'
 import { getAllRatings, type UserRatingDto } from '../api/userRatings'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
@@ -31,7 +31,6 @@ export function LibraryPage() {
   const [activeTab, setActiveTab] = useState<SidebarTab>(isGuest ? 'uploads' : 'saved')
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
-  const [userBookProgress, setUserBookProgress] = useState<Record<string, UserBookProgress>>({})
   const [myReviews, setMyReviews] = useState<UserRatingDto[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
 
@@ -75,19 +74,6 @@ export function LibraryPage() {
       .finally(() => setReviewsLoading(false))
   }, [activeTab, isAuthenticated])
 
-  // Fetch progress for ready user books
-  useEffect(() => {
-    const readyBooks = userBooks.filter(b => b.status === 'Ready')
-    if (readyBooks.length === 0) return
-
-    readyBooks.forEach(async (book) => {
-      if (userBookProgress[book.id]) return // already fetched
-      const progress = await getUserBookProgress(book.id)
-      if (progress) {
-        setUserBookProgress(prev => ({ ...prev, [book.id]: progress }))
-      }
-    })
-  }, [userBooks])
 
   // Auto-refresh processing books
   useEffect(() => {
@@ -159,6 +145,13 @@ export function LibraryPage() {
     switch (sortBy) {
       case 'title':
         return a.title.localeCompare(b.title)
+      case 'recent': {
+        const aDate = a.progressUpdatedAt || a.createdAt
+        const bDate = b.progressUpdatedAt || b.createdAt
+        return new Date(bDate).getTime() - new Date(aDate).getTime()
+      }
+      case 'progress':
+        return (b.progressPercent ?? 0) - (a.progressPercent ?? 0)
       default:
         return 0
     }
@@ -484,10 +477,9 @@ export function LibraryPage() {
               <div className="library-list">
                 {sortedUserBooks.map((book) => {
                   const isReady = book.status === 'Ready'
-                  const progress = userBookProgress[book.id]
-                  const percent = progress?.percent ?? 0
+                  const percent = book.progressPercent ?? 0
                   const destination = isReady
-                    ? (progress?.chapterSlug ? `/${language}/library/my/${book.id}/read/${progress.chapterSlug}` : `/${language}/library/my/${book.id}`)
+                    ? (book.progressChapterSlug ? `/${language}/library/my/${book.id}/read/${book.progressChapterSlug}` : `/${language}/library/my/${book.id}`)
                     : '#'
                   const coverUrl = getUserBookCoverUrl(book.coverPath)
                   return (
@@ -563,10 +555,10 @@ export function LibraryPage() {
                               {book.chapterCount} {t('library.chapters')}
                             </span>
                           )}
-                          {isReady && progress?.updatedAt && (
+                          {isReady && book.progressUpdatedAt && (
                             <span className="library-list-item__info-item">
                               <span className="material-icons-outlined">schedule</span>
-                              {t('library.lastRead')} {formatTimeAgo(progress.updatedAt, t)}
+                              {t('library.lastRead')} {formatTimeAgo(book.progressUpdatedAt, t)}
                             </span>
                           )}
                           {book.status === 'Processing' && (
@@ -599,7 +591,7 @@ export function LibraryPage() {
                     onDelete={fetchUserBooks}
                     onRetry={fetchUserBooks}
                     onUpdate={fetchUserBooks}
-                    progress={userBookProgress[book.id]}
+                    progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
                   />
                 ))}
               </div>

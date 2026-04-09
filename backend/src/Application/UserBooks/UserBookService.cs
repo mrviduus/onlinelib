@@ -124,7 +124,10 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 ChapterCount = b.Chapters.Count,
                 b.TotalWordCount,
                 b.CreatedAt,
-                b.CompletedAt
+                b.CompletedAt,
+                b.ProgressPercent,
+                b.ProgressUpdatedAt,
+                b.ProgressChapterSlug
             })
             .ToListAsync(ct);
 
@@ -142,7 +145,10 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             b.ChapterCount,
             b.TotalWordCount,
             b.CreatedAt,
-            b.CompletedAt
+            b.CompletedAt,
+            b.ProgressPercent,
+            b.ProgressUpdatedAt,
+            b.ProgressChapterSlug
         )).ToList();
     }
 

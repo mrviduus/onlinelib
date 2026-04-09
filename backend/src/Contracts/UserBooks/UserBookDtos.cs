@@ -14,7 +14,10 @@ public record UserBookListDto(
     int ChapterCount,
     int? TotalWordCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt
+    DateTimeOffset? CompletedAt,
+    double? ProgressPercent,
+    DateTimeOffset? ProgressUpdatedAt,
+    string? ProgressChapterSlug
 );
 
 public record UserBookDetailDto(
