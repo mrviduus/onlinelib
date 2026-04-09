@@ -44,6 +44,9 @@ import { useReviewPrompt } from '../hooks/useReviewPrompt'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { calculateETF, calculateChapterETF } from '../lib/etf'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
+import { ReaderOnboarding } from '../components/reader/ReaderOnboarding'
+import { SoftPaywall, type PaywallTrigger } from '../components/SoftPaywall'
+import { useGuestLimits } from '../context/GuestLimitsContext'
 
 export type ReaderMode = 'public' | 'userbook'
 
@@ -143,6 +146,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { add: addToLibrary, isInLibrary } = useLibrary()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [bookCompleted, setBookCompleted] = useState(false)
+  const [paywallTrigger, setPaywallTrigger] = useState<PaywallTrigger | null>(null)
+  const { incrementPages, setCurrentBook: setGuestCurrentBook } = useGuestLimits()
   const libraryAddedRef = useRef(false)
   const editionIdRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
@@ -665,6 +670,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
   }, [useScrollMode, currentPage, overallProgress, book?.id, chapter?.id, updateProgress])
 
+  // Track current book for guest returning user feature
+  useEffect(() => {
+    if (isAuthenticated || !bookSlug || !chapterIdentifier) return
+    setGuestCurrentBook({ bookSlug, chapterSlug: chapterIdentifier })
+  }, [isAuthenticated, bookSlug, chapterIdentifier, setGuestCurrentBook])
+
   // Auto-add to library after page 2 or 1% progress (for single-page chapters)
   useEffect(() => {
     if (!book?.id || libraryAddedRef.current) return
@@ -1012,6 +1023,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const handleNextPageCustom = useCallback(() => {
     readingSession.recordActivity()
+    // Track guest page turns
+    if (!isAuthenticated) {
+      const ok = incrementPages()
+      if (!ok) {
+        setPaywallTrigger('pages')
+        return
+      }
+    }
     if (currentPage < totalPages - 1) {
       nextPage()
     } else if (chapter?.next) {
@@ -1020,7 +1039,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       setBookCompleted(true)
       updateProgress(1, currentPage)
     }
-  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress])
+  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress, isAuthenticated, incrementPages])
 
   // Legacy navigation hook (still needed for keyboard shortcuts compatibility)
   const { navigateToChapter } = useReaderNavigation({
@@ -1169,6 +1188,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
+            onWordLimitHit={() => setPaywallTrigger('words')}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1195,6 +1215,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
+            onWordLimitHit={() => setPaywallTrigger('words')}
           >
             <ReaderContent
               ref={contentRef}
@@ -1309,6 +1330,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             </div>
           </div>
         </div>
+      )}
+
+      <ReaderOnboarding />
+
+      {paywallTrigger && (
+        <SoftPaywall trigger={paywallTrigger} onDismiss={() => setPaywallTrigger(null)} />
       )}
     </div>
   )

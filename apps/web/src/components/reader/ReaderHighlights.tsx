@@ -26,6 +26,7 @@ interface ReaderHighlightsProps {
   ttsSpeed?: number
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
+  onWordLimitHit?: () => void
   children: React.ReactNode
 }
 
@@ -46,6 +47,7 @@ export function ReaderHighlights({
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
+  onWordLimitHit,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage } = useNativeLanguage()
@@ -60,6 +62,7 @@ export function ReaderHighlights({
   const {
     tap, close: closeTapPopup, vocabEntry: tappedVocabEntry,
     vocabMap, markKnown: handleTapMarkKnown, remove: handleTapRemove,
+    wordLimitHit, clearWordLimitHit,
   } = useWordTap({
     wrapperRef,
     containerRef,
@@ -72,6 +75,14 @@ export function ReaderHighlights({
     bookTitle,
     clearSelection,
   })
+
+  // Trigger paywall when guest word limit hit
+  useEffect(() => {
+    if (wordLimitHit && onWordLimitHit) {
+      onWordLimitHit()
+      clearWordLimitHit()
+    }
+  }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
 
   // Close tap popup when selection starts
   useEffect(() => {
