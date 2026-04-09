@@ -47,6 +47,12 @@ import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { ReaderOnboarding } from '../components/reader/ReaderOnboarding'
 import { SoftPaywall, type PaywallTrigger } from '../components/SoftPaywall'
 import { useGuestLimits } from '../context/GuestLimitsContext'
+import { useOnboardingFlow } from '../hooks/useOnboardingFlow'
+import { WordHint } from '../components/reader/WordHint'
+import { MicroPracticePrompt } from '../components/reader/MicroPracticePrompt'
+import { MicroPracticeCard } from '../components/reader/MicroPracticeCard'
+import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
+import '../styles/micro-practice.css'
 
 export type ReaderMode = 'public' | 'userbook'
 
@@ -86,7 +92,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const chapterIdentifier = mode === 'public' ? chapterSlug : userChapterSlug
 
   const api = useApi()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, openAuthModal } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
   // Raw state for public books (needed for scroll reader, caching, etc.)
@@ -147,7 +153,23 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [bookCompleted, setBookCompleted] = useState(false)
   const [paywallTrigger, setPaywallTrigger] = useState<PaywallTrigger | null>(null)
-  const { incrementPages, setCurrentBook: setGuestCurrentBook } = useGuestLimits()
+  const { setCurrentBook: setGuestCurrentBook, guestState } = useGuestLimits()
+
+  // Onboarding micro-practice flow
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false)
+  const [lastTappedWord, setLastTappedWord] = useState<string | null>(null)
+  const [lastTappedTranslation, setLastTappedTranslation] = useState<string | null>(null)
+  const onboardingFlow = useOnboardingFlow({
+    onboardingModalDismissed: onboardingDismissed,
+    lastTappedWord,
+    lastTappedTranslation,
+    guestSavedWords: guestState.savedWords,
+    isAuthenticated,
+  })
+  const handleWordTap = useCallback((word: string, translation: string | null) => {
+    setLastTappedWord(word)
+    setLastTappedTranslation(translation)
+  }, [])
   const libraryAddedRef = useRef(false)
   const editionIdRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
@@ -1008,9 +1030,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // Navigation handlers
   const navigateToChapterCustom = useCallback((identifier: string) => {
+    if (!isAuthenticated) {
+      setPaywallTrigger('chapters')
+      return
+    }
     setBookCompleted(false)
     navigate(getChapterUrl(identifier))
-  }, [navigate, getChapterUrl])
+  }, [navigate, getChapterUrl, isAuthenticated])
 
   const handlePrevPageCustom = useCallback(() => {
     readingSession.recordActivity()
@@ -1023,14 +1049,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const handleNextPageCustom = useCallback(() => {
     readingSession.recordActivity()
-    // Track guest page turns
-    if (!isAuthenticated) {
-      const ok = incrementPages()
-      if (!ok) {
-        setPaywallTrigger('pages')
-        return
-      }
-    }
     if (currentPage < totalPages - 1) {
       nextPage()
     } else if (chapter?.next) {
@@ -1039,7 +1057,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       setBookCompleted(true)
       updateProgress(1, currentPage)
     }
-  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress, isAuthenticated, incrementPages])
+  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress])
 
   // Legacy navigation hook (still needed for keyboard shortcuts compatibility)
   const { navigateToChapter } = useReaderNavigation({
@@ -1189,6 +1207,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
             onWordLimitHit={() => setPaywallTrigger('words')}
+            onWordTap={handleWordTap}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1216,6 +1235,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
             onWordLimitHit={() => setPaywallTrigger('words')}
+            onWordTap={handleWordTap}
           >
             <ReaderContent
               ref={contentRef}
@@ -1269,6 +1289,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           const isLoaded = scrollReader.chapters.some(c => c.identifier === identifier)
           if (isLoaded) {
             scrollReader.scrollToChapter(identifier)
+          } else if (!isAuthenticated) {
+            setPaywallTrigger('chapters')
           } else {
             navigate(getChapterUrl(identifier) + '?direct=1')
           }
@@ -1332,7 +1354,39 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         </div>
       )}
 
-      <ReaderOnboarding />
+      <ReaderOnboarding onDismiss={() => setOnboardingDismissed(true)} />
+
+      <WordHint
+        containerRef={useScrollMode ? scrollContainerRef : containerRef}
+        active={onboardingFlow.showWordHint}
+        onDismiss={onboardingFlow.dismissWordHint}
+      />
+
+      <MicroPracticePrompt
+        visible={onboardingFlow.showMicroPrompt}
+        onAccept={onboardingFlow.acceptPrompt}
+        onDismiss={onboardingFlow.dismissPrompt}
+      />
+
+      {onboardingFlow.showMicroPractice && onboardingFlow.practiceWord && (
+        <MicroPracticeCard
+          word={onboardingFlow.practiceWord.word}
+          options={onboardingFlow.options}
+          correctOptionIndex={onboardingFlow.correctOptionIndex}
+          feedbackState={onboardingFlow.feedbackState}
+          onAnswer={onboardingFlow.handleAnswer}
+          onClose={() => {}}
+        />
+      )}
+
+      <SaveProgressPrompt
+        visible={onboardingFlow.showRegistrationPrompt}
+        onAccept={() => {
+          onboardingFlow.acceptRegistration()
+          openAuthModal()
+        }}
+        onDismiss={onboardingFlow.dismissRegistration}
+      />
 
       {paywallTrigger && (
         <SoftPaywall trigger={paywallTrigger} onDismiss={() => setPaywallTrigger(null)} />

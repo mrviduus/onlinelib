@@ -56,7 +56,7 @@ export function HeroSection() {
           <div className="home-hero__cta-group">
             <LocalizedLink
               to={isReturningUser ? returningPath : demoPath}
-              className="home-hero__cta-primary"
+              className={`home-hero__cta-primary${!isReturningUser ? ' home-hero__cta-primary--pulse' : ''}`}
             >
               {isReturningUser ? t('home.hero.ctaReturning') : t('home.hero.ctaPrimary')}
             </LocalizedLink>

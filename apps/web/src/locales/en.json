@@ -37,16 +37,31 @@
       "known": "Known",
       "ignore": "Ignore",
       "loading": "..."
-    },
-    "onboarding": {
-      "step1Title": "Tap any word to translate",
-      "step1Desc": "Touch a word to see its translation and save it to your vocabulary.",
-      "step2Title": "Words are saved automatically",
-      "step2Desc": "Every tapped word is remembered. Review them later with spaced repetition.",
-      "skip": "Skip",
-      "next": "Next",
-      "gotIt": "Got it"
     }
+  },
+  "onboarding": {
+    "langTitle": "I speak",
+    "langDesc": "Choose your language for translations",
+    "tapTitle": "Tap any word to translate",
+    "tapDesc": "Touch a word to see its translation and save it to your vocabulary.",
+    "savedTitle": "Words are saved automatically",
+    "savedDesc": "Every tapped word is remembered. Review them later with spaced repetition.",
+    "skip": "Skip",
+    "next": "Next",
+    "gotIt": "Got it",
+    "hintLabel": "Try tapping a word",
+    "promptTitle": "Try a quick check?",
+    "promptBody": "Test what you just learned",
+    "promptAccept": "Sure!",
+    "promptDismiss": "Not now",
+    "practicePrompt": "What does this mean?",
+    "correct": "Nice!",
+    "incorrect": "Not quite",
+    "correctAnswer": "It means: {answer}",
+    "saveProgressTitle": "Save your progress",
+    "saveProgressBody": "Create a free account to keep your words, review them later, and continue reading anytime.",
+    "saveProgressAccept": "Create free account",
+    "saveProgressDismiss": "Continue as guest"
   },
   "paywall": {
     "pagesTitle": "Keep reading for free",

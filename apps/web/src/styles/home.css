@@ -93,6 +93,20 @@
   transform: translateY(0);
 }
 
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+}
+
+.home-hero__cta-primary--pulse {
+  animation: cta-pulse 2.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+.home-hero__cta-primary--pulse:hover {
+  animation: none;
+}
+
 .home-hero__cta-secondary {
   display: inline-flex;
   align-items: center;

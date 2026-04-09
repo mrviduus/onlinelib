@@ -27,6 +27,7 @@ interface ReaderHighlightsProps {
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
   onWordLimitHit?: () => void
+  onWordTap?: (word: string, translation: string | null) => void
   children: React.ReactNode
 }
 
@@ -48,6 +49,7 @@ export function ReaderHighlights({
   scrollToHighlightId,
   showInlineTranslations = false,
   onWordLimitHit,
+  onWordTap,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage } = useNativeLanguage()
@@ -83,6 +85,13 @@ export function ReaderHighlights({
       clearWordLimitHit()
     }
   }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
+
+  // Notify parent of word taps (for onboarding flow)
+  useEffect(() => {
+    if (tap.word && onWordTap) {
+      onWordTap(tap.word, tap.translation)
+    }
+  }, [tap.word, tap.translation, onWordTap])
 
   // Close tap popup when selection starts
   useEffect(() => {
