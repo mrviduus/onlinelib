@@ -1,11 +1,9 @@
 name: CI
 
 on:
-  # CI runs on PRs and when called by deploy.yml
-  # Push to main triggers deploy.yml which calls this workflow
   pull_request:
     branches: [main]
-  workflow_call:  # Allow deploy.yml to reuse this workflow
+  workflow_call:
 
 jobs:
   backend:
@@ -49,10 +47,6 @@ jobs:
         env:
           ConnectionStrings__Default: "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme"
 
-      # Extraction tests skipped - require native SkiaSharp libs
-      # - name: Extraction tests
-      #   run: dotnet test tests/TextStack.Extraction.Tests --no-build
-
       - name: Search tests
         run: dotnet test tests/TextStack.Search.Tests --no-build
 
@@ -88,6 +82,17 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
           docker system prune -af
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-${{ runner.os }}-${{ hashFiles('**/Dockerfile', 'docker-compose.yml', 'backend/**/*.csproj', 'apps/web/package.json', 'apps/admin/package.json') }}
+          restore-keys: |
+            docker-${{ runner.os }}-
+
       - name: Create .env for CI
         run: |
           cat > .env << 'EOF'
@@ -108,6 +113,10 @@ jobs:
 
       - name: Build containers
         run: docker compose build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          BUILDKIT_INLINE_CACHE: 1
 
       - name: Start services
         run: docker compose up -d
@@ -160,8 +169,23 @@ jobs:
           mkdir -p data/storage data/textstack data/postgres-prod
           chmod 777 data/storage data/textstack
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-${{ runner.os }}-${{ hashFiles('**/Dockerfile', 'docker-compose.yml', 'backend/**/*.csproj', 'apps/web/package.json', 'apps/admin/package.json') }}
+          restore-keys: |
+            docker-${{ runner.os }}-
+
       - name: Build & start services
         run: docker compose up -d --build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          BUILDKIT_INLINE_CACHE: 1
 
       - name: Wait for API health
         run: |
@@ -179,9 +203,26 @@ jobs:
         working-directory: apps/web
         run: pnpm install --frozen-lockfile
 
+      - name: Get Playwright version
+        id: pw-version
+        working-directory: apps/web
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+
       - name: Install Playwright Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm -C apps/web exec playwright install-deps chromium
 
       - name: Clean stale dist
         run: rm -rf apps/web/dist
