@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { adminApi, Edition, AdminStats } from '../api/client'
+import { formatDate, getStatusBadge } from '../utils/badges'
 
 const PAGE_SIZE = 20
 
@@ -125,20 +126,6 @@ export function EditionsPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete')
     }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const classes: Record<string, string> = {
-      Draft: 'badge badge--draft',
-      Published: 'badge badge--success',
-      Deleted: 'badge badge--error',
-    }
-    return <span className={classes[status] || 'badge'}>{status}</span>
-  }
-
-  const formatDate = (date: string | null) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleDateString()
   }
 
   return (

@@ -23,12 +23,12 @@ type SortOption = 'recent' | 'title' | 'progress'
 type SidebarTab = 'saved' | 'uploads' | 'reviews'
 
 export function LibraryPage() {
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
+  const { isAuthenticated, isGuest, isLoading: authLoading, user } = useAuth()
   const { items, loading, remove } = useLibrary()
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [activeTab, setActiveTab] = useState<SidebarTab>('saved')
+  const [activeTab, setActiveTab] = useState<SidebarTab>(isGuest ? 'uploads' : 'saved')
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
   const [userBookProgress, setUserBookProgress] = useState<Record<string, UserBookProgress>>({})

@@ -3,18 +3,21 @@ import {
   User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
   loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
   updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, deleteAvatar as deleteAvatarApi,
+  createGuestSession as createGuestSessionApi,
 } from '../api/auth'
 
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
+  isGuest: boolean
   googleReady: boolean
   showAuthModal: boolean
   openAuthModal: () => void
   closeAuthModal: () => void
   loginWithEmail: (email: string, password: string) => Promise<void>
   registerWithEmail: (email: string, password: string, name?: string) => Promise<void>
+  ensureSession: () => Promise<void>
   logout: () => Promise<void>
   updateProfile: (name: string | null) => Promise<void>
   updateAvatar: (file: File) => Promise<void>
@@ -25,12 +28,14 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  isGuest: false,
   googleReady: false,
   showAuthModal: false,
   openAuthModal: () => {},
   closeAuthModal: () => {},
   loginWithEmail: async () => {},
   registerWithEmail: async () => {},
+  ensureSession: async () => {},
   logout: async () => {},
   updateProfile: async () => {},
   updateAvatar: async () => {},
@@ -153,6 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => prev ? { ...prev, picture: null } : null)
   }, [])
 
+  // Create a guest session if not authenticated
+  const ensureSession = useCallback(async () => {
+    if (user) return
+    const response = await createGuestSessionApi()
+    setUser(response.user)
+  }, [user])
+
   const logout = useCallback(async () => {
     try {
       await logoutApi()
@@ -171,12 +183,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        isGuest: user?.isGuest ?? false,
         googleReady,
         showAuthModal,
         openAuthModal,
         closeAuthModal,
         loginWithEmail,
         registerWithEmail,
+        ensureSession,
         logout,
         updateProfile,
         updateAvatar,

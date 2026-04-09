@@ -602,6 +602,34 @@ export interface BoardTaskDto {
   updatedAt: string
 }
 
+// User Uploads
+export interface UserUploadListItem {
+  id: string
+  title: string
+  author: string | null
+  language: string
+  status: 'Processing' | 'Ready' | 'Failed'
+  chapterCount: number
+  totalWordCount: number | null
+  fileSize: number
+  sourceFormat: string | null
+  originalFileName: string | null
+  userEmail: string
+  isGuest: boolean
+  errorMessage: string | null
+  createdAt: string
+}
+
+export interface UserUploadStats {
+  total: number
+  processing: number
+  ready: number
+  failed: number
+  guestUploads: number
+  registeredUploads: number
+  totalStorageBytes: number
+}
+
 export const adminApi = {
   uploadBook: async (params: {
     file: File
@@ -1187,5 +1215,25 @@ export const adminApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
     })
+  },
+
+  // User Uploads
+  getUserUploads: async (params?: { status?: string; userType?: string; search?: string; limit?: number; offset?: number }): Promise<PaginatedResult<UserUploadListItem>> => {
+    const query = new URLSearchParams()
+    if (params?.status) query.set('status', params.status)
+    if (params?.userType) query.set('userType', params.userType)
+    if (params?.search) query.set('search', params.search)
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const qs = query.toString()
+    return fetchJson<PaginatedResult<UserUploadListItem>>(`/admin/user-uploads${qs ? `?${qs}` : ''}`)
+  },
+
+  getUserUploadStats: async (): Promise<UserUploadStats> => {
+    return fetchJson<UserUploadStats>('/admin/user-uploads/stats')
+  },
+
+  deleteUserUpload: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/user-uploads/${id}`, { method: 'DELETE' })
   },
 }

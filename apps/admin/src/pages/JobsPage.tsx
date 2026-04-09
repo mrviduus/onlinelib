@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminApi, IngestionJob } from '../api/client'
+import { formatDate, getStatusBadge } from '../utils/badges'
 
 export function JobsPage() {
   const [jobs, setJobs] = useState<IngestionJob[]>([])
@@ -24,21 +25,6 @@ export function JobsPage() {
     const interval = setInterval(fetchJobs, 5000)
     return () => clearInterval(interval)
   }, [])
-
-  const getStatusBadge = (status: IngestionJob['status']) => {
-    const classes: Record<string, string> = {
-      Queued: 'badge badge--queued',
-      Processing: 'badge badge--processing',
-      Succeeded: 'badge badge--success',
-      Failed: 'badge badge--error',
-    }
-    return <span className={classes[status] || 'badge'}>{status}</span>
-  }
-
-  const formatDate = (date: string | null) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleString()
-  }
 
   if (loading) {
     return (

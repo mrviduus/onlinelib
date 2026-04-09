@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useLanguage } from '../../context/LanguageContext'
@@ -7,16 +7,20 @@ import { useGuestLimits } from '../../context/GuestLimitsContext'
 import { DEMO_BOOK } from '../../config/demoBook'
 import { MobileSearchOverlay } from '../Search'
 import { LocalizedLink } from '../LocalizedLink'
+import { uploadUserBook } from '../../api/userBooks'
 
 export function HeroSection() {
   const { t } = useTranslation()
   const { language } = useLanguage()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, ensureSession } = useAuth()
   const { isReturningUser, guestState } = useGuestLimits()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640)
@@ -36,6 +40,27 @@ export function HeroSection() {
     if (isMobile) {
       setSearchOverlayOpen(true)
     }
+  }
+
+  const handleUpload = async (file: File) => {
+    if (uploading) return
+    setUploading(true)
+    setUploadError(null)
+    try {
+      await ensureSession()
+      const result = await uploadUserBook(file)
+      navigate(`/${language}/library/my/${result.userBookId}`)
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleUpload(file)
+    e.target.value = ''
   }
 
   const showGuestCta = !isAuthenticated
@@ -63,6 +88,31 @@ export function HeroSection() {
             <LocalizedLink to="/library" className="home-hero__cta-secondary">
               {t('home.hero.ctaSecondary')}
             </LocalizedLink>
+            {uploading ? (
+              <span className="home-hero__cta-secondary" style={{ opacity: 0.7 }}>
+                <span className="material-icons-outlined" style={{ fontSize: 18, marginRight: 4 }}>hourglass_empty</span>
+                {t('guest.uploading')}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="home-hero__cta-secondary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="material-icons-outlined" style={{ fontSize: 18, marginRight: 4 }}>upload_file</span>
+                {t('guest.uploadBook')}
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".epub,.pdf,.fb2"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            {uploadError && (
+              <p style={{ color: '#c62828', fontSize: 13, margin: '4px 0 0' }}>{uploadError}</p>
+            )}
           </div>
         )}
 

@@ -104,6 +104,16 @@ public static class AdminEndpoints
         group.MapDelete("/chapters/{id:guid}", DeleteChapter)
             .WithName("AdminDeleteChapter");
 
+        // User uploads
+        group.MapGet("/user-uploads", GetUserUploads)
+            .WithName("GetUserUploads");
+
+        group.MapGet("/user-uploads/stats", GetUserUploadStats)
+            .WithName("GetUserUploadStats");
+
+        group.MapDelete("/user-uploads/{id:guid}", DeleteUserUpload)
+            .WithName("DeleteUserUpload");
+
         // Reprocessing endpoints
         group.MapPost("/reprocess/{editionId:guid}", ReprocessEdition)
             .WithName("ReprocessEdition")
@@ -228,6 +238,40 @@ public static class AdminEndpoints
         var stats = await adminService.GetStatsAsync(siteId, ct);
         return Results.Ok(stats);
     }
+
+    // User upload endpoints
+
+    private static async Task<IResult> GetUserUploads(
+        AdminService adminService,
+        [FromQuery] int? limit,
+        [FromQuery] int? offset,
+        [FromQuery] string? status,
+        [FromQuery] string? userType,
+        [FromQuery] string? search,
+        CancellationToken ct)
+    {
+        UserBookStatus? statusEnum = null;
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<UserBookStatus>(status, true, out var parsed))
+            statusEnum = parsed;
+
+        var query = new UserUploadsQuery(offset ?? 0, limit ?? 20, statusEnum, userType, search);
+        var result = await adminService.GetUserUploadsAsync(query, ct);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> GetUserUploadStats(
+        AdminService adminService,
+        CancellationToken ct)
+    {
+        var stats = await adminService.GetUserUploadStatsAsync(ct);
+        return Results.Ok(stats);
+    }
+
+    private static async Task<IResult> DeleteUserUpload(
+        Guid id,
+        AdminService adminService,
+        CancellationToken ct)
+        => ToResult(await adminService.DeleteUserUploadAsync(id, ct));
 
     // Edition endpoints
 

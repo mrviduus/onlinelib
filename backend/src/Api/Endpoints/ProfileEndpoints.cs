@@ -35,7 +35,7 @@ public static class ProfileEndpoints
         user.Name = request.Name?.Trim();
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt)));
     }
 
     private static async Task<IResult> UploadAvatar(
@@ -81,7 +81,7 @@ public static class ProfileEndpoints
         user.Picture = relativePath;
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt)));
+        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt)));
     }
 
     private static async Task<IResult> DeleteAvatar(

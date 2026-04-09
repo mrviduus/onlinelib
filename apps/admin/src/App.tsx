@@ -27,6 +27,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { CodeGenPage } from './pages/CodeGenPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
 import { TaskBoardPage } from './pages/TaskBoardPage'
+import { UserUploadsPage } from './pages/UserUploadsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
 
@@ -48,6 +49,7 @@ function App() {
             <Route path="task-board" element={<TaskBoardPage />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="jobs" element={<JobsPage />} />
+            <Route path="user-uploads" element={<UserUploadsPage />} />
             <Route path="editions" element={<EditionsPage />} />
             <Route path="editions/:id" element={<EditEditionPage />} />
             <Route path="chapters/:id" element={<EditChapterPage />} />

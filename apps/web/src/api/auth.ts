@@ -5,6 +5,7 @@ export interface User {
   email: string
   name: string | null
   picture: string | null
+  isGuest: boolean
   createdAt: string
 }
 
@@ -88,6 +89,10 @@ export async function logout(): Promise<void> {
   await authFetch<void>('/auth/logout', {
     method: 'POST',
   })
+}
+
+export async function createGuestSession(): Promise<AuthResponse> {
+  return authFetch<AuthResponse>('/auth/guest', { method: 'POST' })
 }
 
 export async function getCurrentUser(): Promise<AuthResponse> {

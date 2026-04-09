@@ -23,6 +23,7 @@ public static class AuthEndpoints
         group.MapPost("/logout", Logout).WithName("Logout");
         group.MapPost("/forgot-password", ForgotPassword).WithName("ForgotPassword").RequireRateLimiting("user-login");
         group.MapPost("/reset-password", ResetPassword).WithName("ResetPassword").RequireRateLimiting("user-login");
+        group.MapPost("/guest", CreateGuestSession).WithName("CreateGuestSession").RequireRateLimiting("guest-session");
         group.MapGet("/me", GetCurrentUser).WithName("GetCurrentUser");
 
         if (app.Environment.IsDevelopment()
@@ -30,6 +31,24 @@ public static class AuthEndpoints
         {
             group.MapPost("/test-login", TestLogin).WithName("TestLogin");
         }
+    }
+
+    private static async Task<IResult> CreateGuestSession(
+        AuthService authService,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        // If already authenticated, return current user
+        var existingUserId = httpContext.GetUserId(authService);
+        if (existingUserId.HasValue)
+        {
+            var existingUser = await authService.GetUserByIdAsync(existingUserId.Value, ct);
+            if (existingUser != null)
+                return Results.Ok(new AuthResponse(ToDto(existingUser)));
+        }
+
+        var result = await authService.CreateGuestSessionAsync(ct);
+        return ReturnAuthResult(result, httpContext);
     }
 
     private static async Task<IResult> TestLogin(
@@ -60,7 +79,9 @@ public static class AuthEndpoints
         if (await authService.EmailExistsAsync(request.Email, ct))
             return Results.Conflict(new { error = "An account with this email already exists." });
 
-        var result = await authService.RegisterWithEmailAsync(request.Email, request.Password, request.Name, ct);
+        var guestUserId = GetGuestUserId(httpContext, authService);
+
+        var result = await authService.RegisterWithEmailAsync(request.Email, request.Password, request.Name, guestUserId, ct);
         if (result == null)
             return Results.BadRequest(new { error = "Invalid email or password." });
 
@@ -76,9 +97,15 @@ public static class AuthEndpoints
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return Results.Unauthorized();
 
+        var guestUserId = GetGuestUserId(httpContext, authService);
+
         var result = await authService.LoginWithEmailAsync(request.Email, request.Password, ct);
         if (result == null)
             return Results.Unauthorized();
+
+        // Merge guest data into existing account
+        if (guestUserId.HasValue)
+            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
 
         return ReturnAuthResult(result.Value, httpContext);
     }
@@ -89,9 +116,14 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
+        var guestUserId = GetGuestUserId(httpContext, authService);
+
         var result = await authService.LoginWithGoogleAsync(request.IdToken, ct);
         if (result == null)
             return Results.Unauthorized();
+
+        if (guestUserId.HasValue)
+            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
 
         return ReturnAuthResult(result.Value, httpContext);
     }
@@ -102,10 +134,15 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
+        var guestUserId = GetGuestUserId(httpContext, authService);
+
         var result = await authService.LoginWithAppleAsync(
             request.IdentityToken, request.FullName, request.Email, ct);
         if (result == null)
             return Results.Unauthorized();
+
+        if (guestUserId.HasValue)
+            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
 
         return ReturnAuthResult(result.Value, httpContext);
     }
@@ -208,7 +245,7 @@ public static class AuthEndpoints
     }
 
     private static UserDto ToDto(User user) =>
-        new(user.Id, user.Email, user.Name, user.Picture, user.CreatedAt);
+        new(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt);
 
     private static IResult ReturnAuthResult(
         (User user, string accessToken, string refreshToken) result,
@@ -253,5 +290,29 @@ public static class AuthEndpoints
     {
         return httpContext.Request.Headers["X-Client"].FirstOrDefault()
             ?.Equals("mobile", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    /// <summary>Extract guest userId from current JWT cookies (if it's a guest session).</summary>
+    private static Guid? GetGuestUserId(HttpContext httpContext, AuthService authService)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (!userId.HasValue) return null;
+
+        // Check the is_guest claim in the JWT
+        var accessToken = httpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "")
+            ?? httpContext.Request.Cookies[AccessTokenCookie];
+        if (accessToken == null) return null;
+
+        var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        try
+        {
+            var jwt = handler.ReadJwtToken(accessToken);
+            var isGuest = jwt.Claims.FirstOrDefault(c => c.Type == "is_guest")?.Value;
+            return isGuest == "true" ? userId : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

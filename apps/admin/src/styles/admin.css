@@ -578,6 +578,38 @@ body {
   color: #d97706;
 }
 
+.stats-card--processing .stats-card__value {
+  color: #2563eb;
+}
+
+.stats-card--error .stats-card__value {
+  color: #dc2626;
+}
+
+/* User Uploads Page */
+.user-uploads-page h1 {
+  margin: 0;
+}
+
+.user-uploads-page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.user-uploads-page__count {
+  color: #666;
+  font-size: 14px;
+}
+
+.user-uploads-page__filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
 /* Editions Page */
 .editions-page h1 {
   margin: 0;

@@ -24,8 +24,16 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         await fileStream.CopyToAsync(ms, ct);
         var fileSize = ms.Length;
 
-        if (user.StorageUsedBytes + fileSize > User.StorageLimitBytes)
-            return (null, $"Storage limit exceeded. Used: {user.StorageUsedBytes}, Limit: {User.StorageLimitBytes}");
+        var storageLimit = user.IsGuest ? User.GuestStorageLimitBytes : User.StorageLimitBytes;
+        if (user.StorageUsedBytes + fileSize > storageLimit)
+            return (null, $"Storage limit exceeded. Used: {user.StorageUsedBytes}, Limit: {storageLimit}");
+
+        if (user.IsGuest)
+        {
+            var guestBookCount = await db.UserBooks.CountAsync(b => b.UserId == userId, ct);
+            if (guestBookCount >= 1)
+                return (null, "Guest accounts can upload 1 book. Sign up for more.");
+        }
 
         // Detect format
         var format = DetectFormat(fileName);
@@ -339,16 +347,19 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
 
     public async Task<StorageQuotaDto> GetStorageQuotaAsync(Guid userId, CancellationToken ct)
     {
-        var usedBytes = await db.Users
+        var user = await db.Users
             .Where(u => u.Id == userId)
-            .Select(u => u.StorageUsedBytes)
+            .Select(u => new { u.StorageUsedBytes, u.IsGuest })
             .FirstOrDefaultAsync(ct);
 
-        var percent = User.StorageLimitBytes > 0
-            ? (double)usedBytes / User.StorageLimitBytes * 100
+        var usedBytes = user?.StorageUsedBytes ?? 0;
+        var limit = user?.IsGuest == true ? User.GuestStorageLimitBytes : User.StorageLimitBytes;
+
+        var percent = limit > 0
+            ? (double)usedBytes / limit * 100
             : 0;
 
-        return new StorageQuotaDto(usedBytes, User.StorageLimitBytes, Math.Round(percent, 2));
+        return new StorageQuotaDto(usedBytes, limit, Math.Round(percent, 2));
     }
 
     public async Task<UserBookProgressDto?> GetProgressAsync(Guid userId, Guid bookId, CancellationToken ct)

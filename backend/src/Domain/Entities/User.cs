@@ -3,6 +3,7 @@ namespace Domain.Entities;
 public class User
 {
     public const long StorageLimitBytes = 500 * 1024 * 1024; // 500MB
+    public const long GuestStorageLimitBytes = 50 * 1024 * 1024; // 50MB
 
     public Guid Id { get; set; }
     public required string Email { get; set; }
@@ -12,6 +13,8 @@ public class User
     public string? GoogleSubject { get; set; }
     public string? AppleSubject { get; set; }
     public long StorageUsedBytes { get; set; }
+    public bool IsGuest { get; set; }
+    public DateTimeOffset? LastActiveAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     public ICollection<ReadingProgress> ReadingProgresses { get; set; } = [];

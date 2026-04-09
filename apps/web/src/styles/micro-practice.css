@@ -103,8 +103,8 @@
 }
 
 .micro-prompt__btn--accept {
-  background: var(--color-text, #1a1a1a);
-  color: var(--color-bg, #fff);
+  background: var(--reader-text, #1a1a1a);
+  color: var(--reader-bg, #fff);
 }
 
 .micro-prompt__btn--accept:hover {
@@ -112,13 +112,13 @@
 }
 
 .micro-prompt__btn--dismiss {
-  background: var(--color-bg-secondary, #f5f2ed);
-  color: var(--reader-text, var(--color-text, #1a1a1a));
-  border: 1px solid var(--reader-border, var(--color-border, #e0dcd6));
+  background: var(--reader-bg, #fff);
+  color: var(--reader-text, #1a1a1a);
+  border: 1px solid var(--reader-border, #e0e0e0);
 }
 
 .micro-prompt__btn--dismiss:hover {
-  background: var(--color-bg-hover, #e8e2d9);
+  opacity: 0.85;
 }
 
 /* =============================================
@@ -310,8 +310,8 @@
 }
 
 .save-progress-prompt__btn--accept {
-  background: var(--color-text, #1a1a1a);
-  color: var(--color-bg, #fff);
+  background: var(--reader-text, #1a1a1a);
+  color: var(--reader-bg, #fff);
 }
 
 .save-progress-prompt__btn--accept:hover {
@@ -319,11 +319,11 @@
 }
 
 .save-progress-prompt__btn--dismiss {
-  background: var(--color-bg-secondary, #f5f2ed);
-  color: var(--reader-text, var(--color-text, #1a1a1a));
-  border: 1px solid var(--reader-border, var(--color-border, #e0dcd6));
+  background: var(--reader-bg, #fff);
+  color: var(--reader-text, #1a1a1a);
+  border: 1px solid var(--reader-border, #e0e0e0);
 }
 
 .save-progress-prompt__btn--dismiss:hover {
-  background: var(--color-bg-hover, #e8e2d9);
+  opacity: 0.85;
 }

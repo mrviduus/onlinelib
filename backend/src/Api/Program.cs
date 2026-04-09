@@ -158,6 +158,12 @@ builder.Services.AddRateLimiter(options =>
         opt.PermitLimit = 10;
         opt.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("guest-session", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -236,6 +242,9 @@ app.UseLanguageContext();
 
 // Explicit routing after middleware so path rewriting works
 app.UseRouting();
+
+// Guest activity tracking (update LastActiveAt, debounced hourly)
+app.UseMiddleware<Api.Middleware.GuestActivityMiddleware>();
 
 // Admin auth middleware - protect /admin/* except /admin/auth/*
 app.UseWhen(

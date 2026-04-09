@@ -72,6 +72,9 @@ builder.Services.AddHostedService<SeoCrawlWorker>();
 
 // SSG Rebuild handled by dedicated ssg_worker container (apps/web/scripts/ssg-worker.mjs)
 
+// Guest cleanup (purge inactive guests every 6h)
+builder.Services.AddHostedService<GuestCleanupWorker>();
+
 // TextStack watcher (optional, enable via config)
 if (builder.Configuration.GetValue("TextStack:EnableWatcher", false))
 {

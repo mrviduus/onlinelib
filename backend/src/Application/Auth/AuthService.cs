@@ -96,6 +96,66 @@ public class AuthService
         return (user, accessToken, refreshToken);
     }
 
+    public async Task<(User user, string accessToken, string refreshToken)> CreateGuestSessionAsync(CancellationToken ct)
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = $"guest-{Guid.NewGuid():N}@guest.local",
+            Name = "Guest",
+            IsGuest = true,
+            LastActiveAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        var accessToken = GenerateAccessToken(user);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+        return (user, accessToken, refreshToken);
+    }
+
+    /// <summary>Promote guest to real user (registration) or merge guest data into existing user (login).</summary>
+    public async Task MergeGuestAsync(Guid guestUserId, Guid realUserId, CancellationToken ct)
+    {
+        if (guestUserId == realUserId) // Promoted in-place
+        {
+            var guest = await _db.Users.FirstOrDefaultAsync(x => x.Id == guestUserId, ct);
+            if (guest != null)
+            {
+                guest.IsGuest = false;
+                await _db.SaveChangesAsync(ct);
+            }
+            return;
+        }
+
+        // Transfer UserBooks from guest to real user
+        var guestBooks = await _db.UserBooks.Where(x => x.UserId == guestUserId).ToListAsync(ct);
+        foreach (var book in guestBooks)
+            book.UserId = realUserId;
+
+        // Transfer reading sessions
+        var guestSessions = await _db.ReadingSessions.Where(x => x.UserId == guestUserId).ToListAsync(ct);
+        foreach (var session in guestSessions)
+            session.UserId = realUserId;
+
+        // Transfer vocabulary words
+        var guestWords = await _db.VocabularyWords.Where(x => x.UserId == guestUserId).ToListAsync(ct);
+        foreach (var word in guestWords)
+            word.UserId = realUserId;
+
+        await _db.SaveChangesAsync(ct);
+
+        // Delete guest user (cascades refresh tokens, etc.)
+        var guestUser = await _db.Users.FirstOrDefaultAsync(x => x.Id == guestUserId, ct);
+        if (guestUser != null)
+        {
+            _db.Users.Remove(guestUser);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<(User user, string accessToken, string refreshToken)?> RefreshTokenAsync(
         string refreshToken,
         CancellationToken ct)
@@ -140,7 +200,7 @@ public class AuthService
     }
 
     public async Task<(User user, string accessToken, string refreshToken)?> RegisterWithEmailAsync(
-        string email, string password, string? name, CancellationToken ct)
+        string email, string password, string? name, Guid? guestUserId, CancellationToken ct)
     {
         email = email.Trim().ToLowerInvariant();
 
@@ -154,16 +214,45 @@ public class AuthService
         if (exists)
             return null;
 
-        var user = new User
+        User user;
+        if (guestUserId.HasValue)
         {
-            Id = Guid.NewGuid(),
-            Email = email,
-            Name = name?.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            CreatedAt = DateTimeOffset.UtcNow
-        };
+            // Promote guest user in-place
+            var guest = await _db.Users.FirstOrDefaultAsync(x => x.Id == guestUserId.Value && x.IsGuest, ct);
+            if (guest != null)
+            {
+                guest.Email = email;
+                guest.Name = name?.Trim();
+                guest.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+                guest.IsGuest = false;
+                user = guest;
+            }
+            else
+            {
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Email = email,
+                    Name = name?.Trim(),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                _db.Users.Add(user);
+            }
+        }
+        else
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                Name = name?.Trim(),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _db.Users.Add(user);
+        }
 
-        _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
 
         var accessToken = GenerateAccessToken(user);
@@ -315,12 +404,14 @@ public class AuthService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Name, user.Name ?? user.Email)
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Name, user.Name ?? user.Email)
         };
+        if (user.IsGuest)
+            claims.Add(new Claim("is_guest", "true"));
 
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,

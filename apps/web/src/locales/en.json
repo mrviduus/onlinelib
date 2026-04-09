@@ -571,5 +571,10 @@
     "shareOn": "Share on",
     "copyLink": "Copy link",
     "linkCopied": "Link copied!"
+  },
+  "guest": {
+    "uploadBook": "Upload your book",
+    "uploading": "Uploading...",
+    "expiryBanner": "Your books are saved for 3 days. Sign up to keep them permanently."
   }
 }

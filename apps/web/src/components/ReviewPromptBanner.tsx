@@ -21,7 +21,11 @@ export function ReviewPromptBanner() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [location.pathname])
 
-  if (count === 0) return null
+  // Hide on reader pages — it overlaps content and distracts from reading
+  const isReaderPage = /\/books\/[^/]+\/[^/]+$/.test(location.pathname)
+    || /\/library\/my\/[^/]+\/read\//.test(location.pathname)
+
+  if (count === 0 || isReaderPage) return null
 
   const message = t('reviewPrompt.message').replace('{count}', String(count))
 

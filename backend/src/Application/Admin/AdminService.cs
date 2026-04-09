@@ -8,6 +8,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.Utilities;
 using Microsoft.EntityFrameworkCore;
+using Application.UserBooks;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Contracts;
 using TextStack.Search.Enums;
@@ -73,6 +74,13 @@ public record IngestionDiagnosticsDto(
 
 public record IngestionWarningDto(int Code, string Message);
 
+public record UserUploadsQuery(
+    int Offset = 0,
+    int Limit = 20,
+    UserBookStatus? Status = null,
+    string? UserType = null,
+    string? Search = null);
+
 public record IngestionJobsQuery(
     int Offset = 0,
     int Limit = 20,
@@ -82,7 +90,7 @@ public record IngestionJobsQuery(
 
 public record ChapterPreviewDto(int ChapterNumber, string Title, string Preview, int TotalLength);
 
-public class AdminService(IAppDbContext db, IFileStorageService storage, ISearchIndexer searchIndexer, SsgRebuildService ssgRebuildService)
+public class AdminService(IAppDbContext db, IFileStorageService storage, ISearchIndexer searchIndexer, SsgRebuildService ssgRebuildService, UserBookService userBookService)
 {
     private static readonly string[] AllowedExtensions = [".epub", ".pdf", ".fb2"];
     private const long MaxFileSize = 100 * 1024 * 1024;
@@ -855,6 +863,74 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
         if (string.IsNullOrWhiteSpace(text))
             return 0;
         return text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    // User Uploads
+
+    public async Task<PaginatedResult<UserUploadListDto>> GetUserUploadsAsync(
+        UserUploadsQuery query, CancellationToken ct)
+    {
+        var q = db.UserBooks.AsQueryable();
+
+        if (query.Status.HasValue)
+            q = q.Where(b => b.Status == query.Status.Value);
+
+        if (string.Equals(query.UserType, "guest", StringComparison.OrdinalIgnoreCase))
+            q = q.Where(b => b.User.IsGuest);
+        else if (string.Equals(query.UserType, "registered", StringComparison.OrdinalIgnoreCase))
+            q = q.Where(b => !b.User.IsGuest);
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+            q = q.Where(b => b.Title.Contains(query.Search) ||
+                             (b.Author != null && b.Author.Contains(query.Search)) ||
+                             b.User.Email.Contains(query.Search));
+
+        var total = await q.CountAsync(ct);
+
+        var items = await q
+            .OrderByDescending(b => b.CreatedAt)
+            .Skip(query.Offset)
+            .Take(query.Limit)
+            .Select(b => new UserUploadListDto(
+                b.Id,
+                b.Title,
+                b.Author,
+                b.Language,
+                b.Status.ToString(),
+                b.Chapters.Count,
+                b.TotalWordCount,
+                b.BookFiles.Sum(f => f.FileSize),
+                b.BookFiles.Select(f => f.Format.ToString()).FirstOrDefault(),
+                b.BookFiles.Select(f => f.OriginalFileName).FirstOrDefault(),
+                b.User.Email,
+                b.User.IsGuest,
+                b.ErrorMessage,
+                b.CreatedAt))
+            .ToListAsync(ct);
+
+        return new PaginatedResult<UserUploadListDto>(total, items);
+    }
+
+    public async Task<UserUploadStatsDto> GetUserUploadStatsAsync(CancellationToken ct)
+    {
+        var total = await db.UserBooks.CountAsync(ct);
+        var processing = await db.UserBooks.CountAsync(b => b.Status == UserBookStatus.Processing, ct);
+        var ready = await db.UserBooks.CountAsync(b => b.Status == UserBookStatus.Ready, ct);
+        var failed = await db.UserBooks.CountAsync(b => b.Status == UserBookStatus.Failed, ct);
+        var guest = await db.UserBooks.CountAsync(b => b.User.IsGuest, ct);
+        var registered = total - guest;
+        var storageBytes = await db.UserBookFiles.Select(f => (long?)f.FileSize).SumAsync(ct) ?? 0;
+
+        return new UserUploadStatsDto(total, processing, ready, failed, guest, registered, storageBytes);
+    }
+
+    public async Task<(bool Success, string? Error)> DeleteUserUploadAsync(Guid id, CancellationToken ct)
+    {
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (book is null)
+            return (false, "User book not found");
+
+        return await userBookService.DeleteAsync(book.UserId, book.Id, ct);
     }
 
     private async Task EnqueueSsgSafe(Guid siteId, string[]? bookSlugs = null, string[]? authorSlugs = null, string[]? genreSlugs = null)
