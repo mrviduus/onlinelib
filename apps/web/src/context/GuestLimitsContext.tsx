@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 
 export interface GuestWord {
@@ -92,9 +92,11 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     }
   }, [state, isAuthenticated])
 
-  // Update lastVisitAt on mount for guests
+  // Update lastVisitAt once on mount for guests
+  const lastVisitUpdatedRef = useRef(false)
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !lastVisitUpdatedRef.current) {
+      lastVisitUpdatedRef.current = true
       setState(prev => ({ ...prev, lastVisitAt: new Date().toISOString() }))
     }
   }, [isAuthenticated])
@@ -134,7 +136,10 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, currentBook: book }))
   }, [])
 
-  const isReturningUser = !isAuthenticated && !!loadState().lastVisitAt && !!loadState().currentBook
+  const isReturningUser = useMemo(
+    () => !isAuthenticated && !!state.lastVisitAt && !!state.currentBook,
+    [isAuthenticated, state.lastVisitAt, state.currentBook]
+  )
 
   const resetGuestState = useCallback(() => {
     setState(defaultState)
