@@ -6,7 +6,6 @@ import { DownloadProvider } from './context/DownloadContext'
 import { GuestLimitsProvider } from './context/GuestLimitsContext'
 import { useGuestMigration } from './hooks/useGuestMigration'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
-import { NativeLanguagePicker } from './components/NativeLanguagePicker'
 import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
@@ -157,7 +156,6 @@ function App() {
           <GuestLimitsProvider>
           <GuestMigrationRunner />
           <NativeLanguageProvider>
-          <NativeLanguagePicker />
           <DownloadProvider>
             <AppRoutes />
             <DownloadProgressBar />

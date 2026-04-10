@@ -1,12 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from '../../hooks/useTranslation'
 
 const WORD_MIN_LENGTH = 4
+const GHOST_HINT_KEY = 'ghost_hint_seen'
+const AUTO_DISMISS_MS = 2500
+const MIN_DELAY_MS = 800
+const MAX_DELAY_MS = 1500
 
 function findVisibleArticle(container: HTMLElement): HTMLElement {
   const articles = container.querySelectorAll('article')
   for (const article of articles) {
     const rect = article.getBoundingClientRect()
-    // Article overlaps the viewport
     if (rect.bottom > 0 && rect.top < window.innerHeight) return article
   }
   return container.querySelector('article') || container
@@ -18,7 +22,6 @@ function findHintWord(container: HTMLElement): { node: Text; start: number; end:
   const wordRegex = /[\p{L}]{4,}/u
   const containerRect = container.getBoundingClientRect()
 
-  // Use viewport-intersected bounds so off-screen content in scroll mode is excluded
   const viewTop = Math.max(containerRect.top, 0)
   const viewBottom = Math.min(containerRect.bottom, window.innerHeight)
   const viewLeft = Math.max(containerRect.left, 0)
@@ -29,7 +32,6 @@ function findHintWord(container: HTMLElement): { node: Text; start: number; end:
     const parent = textNode.parentElement
     if (!parent || parent.closest('mark, .word-popup, .selection-toolbar, .note-editor, hgroup, h1, h2, h3')) continue
 
-    // Check visibility against visible bounds
     const range = document.createRange()
     range.selectNodeContents(textNode)
     const rect = range.getBoundingClientRect()
@@ -50,22 +52,25 @@ function findHintWord(container: HTMLElement): { node: Text; start: number; end:
 
 interface WordHintProps {
   containerRef: React.RefObject<HTMLElement | null>
-  active: boolean
-  onDismiss: () => void
 }
 
-export function WordHint({ containerRef, active, onDismiss }: WordHintProps) {
+export function WordHint({ containerRef }: WordHintProps) {
+  const { t } = useTranslation()
   const markRef = useRef<HTMLElement | null>(null)
+  const labelRef = useRef<HTMLElement | null>(null)
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(GHOST_HINT_KEY) === '1' } catch { return false }
+  })
 
   useEffect(() => {
-    if (!active || !containerRef.current) return
+    if (dismissed || !containerRef.current) return
 
-    // Small delay so reader content is fully rendered
-    const timer = setTimeout(() => {
+    const delay = MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS)
+    const showTimer = setTimeout(() => {
       if (!containerRef.current) return
       const target = findHintWord(containerRef.current)
       if (!target) {
-        onDismiss()
+        setDismissed(true)
         return
       }
 
@@ -78,11 +83,43 @@ export function WordHint({ containerRef, active, onDismiss }: WordHintProps) {
       mark.setAttribute('data-word-hint', 'true')
       range.surroundContents(mark)
       markRef.current = mark
-    }, 300)
 
-    return () => {
-      clearTimeout(timer)
-      // Cleanup: unwrap the mark element
+      // Create floating label
+      const label = document.createElement('div')
+      label.className = 'word-hint-label'
+      label.textContent = t('onboarding.ghostHintLabel') || 'Tap any word'
+      mark.style.position = 'relative'
+      mark.appendChild(label)
+      labelRef.current = label
+    }, delay)
+
+    // Auto-dismiss after delay
+    const dismissTimer = setTimeout(() => {
+      cleanup()
+      setDismissed(true)
+      try { localStorage.setItem(GHOST_HINT_KEY, '1') } catch {}
+    }, delay + AUTO_DISMISS_MS)
+
+    // Dismiss on any interaction
+    const handleInteraction = () => {
+      cleanup()
+      setDismissed(true)
+      try { localStorage.setItem(GHOST_HINT_KEY, '1') } catch {}
+    }
+
+    document.addEventListener('mousedown', handleInteraction, { once: true })
+    document.addEventListener('touchstart', handleInteraction, { once: true })
+
+    function cleanup() {
+      clearTimeout(showTimer)
+      clearTimeout(dismissTimer)
+      document.removeEventListener('mousedown', handleInteraction)
+      document.removeEventListener('touchstart', handleInteraction)
+      const label = labelRef.current
+      if (label && label.parentNode) {
+        label.parentNode.removeChild(label)
+        labelRef.current = null
+      }
       const mark = markRef.current
       if (mark && mark.parentNode) {
         const parent = mark.parentNode
@@ -93,7 +130,9 @@ export function WordHint({ containerRef, active, onDismiss }: WordHintProps) {
         markRef.current = null
       }
     }
-  }, [active, containerRef, onDismiss])
+
+    return cleanup
+  }, [dismissed, containerRef, t])
 
   return null
 }

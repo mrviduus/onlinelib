@@ -42,7 +42,13 @@ function detectDefault(): string {
   } catch {}
   const browser = navigator.language?.split('-')[0]
   if (browser && NATIVE_LANGUAGES.some((l) => l.code === browser)) return browser
-  return 'uk'
+  try {
+    for (const lang of navigator.languages || []) {
+      const code = lang.split('-')[0]
+      if (NATIVE_LANGUAGES.some((l) => l.code === code)) return code
+    }
+  } catch {}
+  return 'en'
 }
 
 interface NativeLanguageContextValue {
@@ -51,7 +57,7 @@ interface NativeLanguageContextValue {
 }
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
-  nativeLanguage: 'uk',
+  nativeLanguage: 'en',
   setNativeLanguage: () => {},
 })
 

@@ -27,7 +27,6 @@ interface ReaderHighlightsProps {
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
   onWordLimitHit?: () => void
-  onWordTap?: (word: string, translation: string | null) => void
   children: React.ReactNode
 }
 
@@ -49,10 +48,9 @@ export function ReaderHighlights({
   scrollToHighlightId,
   showInlineTranslations = false,
   onWordLimitHit,
-  onWordTap,
   children,
 }: ReaderHighlightsProps) {
-  const { nativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   const { t } = useTranslation()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const targetLang = resolveTargetLang(nativeLanguage, bookLanguage)
@@ -85,13 +83,6 @@ export function ReaderHighlights({
       clearWordLimitHit()
     }
   }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
-
-  // Notify parent of word taps (for onboarding flow)
-  useEffect(() => {
-    if (tap.word && onWordTap) {
-      onWordTap(tap.word, tap.translation)
-    }
-  }, [tap.word, tap.translation, onWordTap])
 
   // Close tap popup when selection starts
   useEffect(() => {
@@ -262,6 +253,8 @@ export function ReaderHighlights({
           onRemove={tappedVocabEntry?.id ? handleTapRemove : undefined}
           onClose={closeTapPopup}
           vocabStage={tappedVocabEntry?.stage ?? null}
+          nativeLanguage={nativeLanguage}
+          onChangeNativeLanguage={setNativeLanguage}
           t={t}
         />
       )}

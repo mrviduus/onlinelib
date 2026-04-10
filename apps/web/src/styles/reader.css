@@ -1673,6 +1673,81 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   background: rgba(239, 68, 68, 0.15);
 }
 
+/* Language footer */
+.word-popup__lang-footer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--reader-border, rgba(0,0,0,0.06));
+  font-size: 11px;
+  color: var(--reader-secondary, #999);
+}
+.word-popup__lang-change {
+  background: none;
+  border: none;
+  color: var(--color-accent, #638fd6);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+}
+.word-popup__lang-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: var(--reader-bg, #fff);
+  border: 1px solid var(--reader-border, rgba(0,0,0,0.1));
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+}
+.word-popup__lang-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  color: var(--reader-text, #1a1a1a);
+}
+.word-popup__lang-option:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+/* Ghost hint label */
+.word-hint-label {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--reader-secondary, #666);
+  background: var(--reader-bg, #fff);
+  padding: 2px 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.7;
+  animation: word-hint-label-in 0.3s ease;
+  z-index: 5;
+}
+@keyframes word-hint-label-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to { opacity: 0.7; transform: translateX(-50%) translateY(0); }
+}
+
 /* Word highlight in text when popup is open */
 .word-popup-highlight {
   background: none;

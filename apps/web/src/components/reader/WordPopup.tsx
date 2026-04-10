@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
+import { NATIVE_LANGUAGES, getFlagUrl } from '../../context/NativeLanguageContext'
 
 const AUTO_DISMISS_MS = 3000
 
@@ -17,6 +18,8 @@ interface WordPopupProps {
   onRemove?: () => void
   onClose: () => void
   vocabStage: number | null
+  nativeLanguage: string
+  onChangeNativeLanguage: (code: string) => void
   t: (key: string) => string
 }
 
@@ -34,10 +37,13 @@ export function WordPopup({
   onRemove,
   onClose,
   vocabStage,
+  nativeLanguage,
+  onChangeNativeLanguage,
   t,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+  const [showLangPicker, setShowLangPicker] = useState(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   const cancelAutoDismiss = useCallback(() => {
@@ -54,6 +60,11 @@ export function WordPopup({
     scheduleAutoDismiss()
     return () => clearTimeout(dismissTimerRef.current)
   }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cancel auto-dismiss when lang picker is open
+  useEffect(() => {
+    if (showLangPicker) cancelAutoDismiss()
+  }, [showLangPicker, cancelAutoDismiss])
 
   // Position popup relative to word rect
   useEffect(() => {
@@ -83,7 +94,7 @@ export function WordPopup({
     top = Math.max(8, Math.min(top, window.innerHeight - popupRect.height - 8))
 
     setPosition({ top, left })
-  }, [rect, containerRef, translation, definition, translationLoading, definitionLoading])
+  }, [rect, containerRef, translation, definition, translationLoading, definitionLoading, showLangPicker])
 
   // Close on click outside
   useEffect(() => {
@@ -106,6 +117,8 @@ export function WordPopup({
   }, [onClose])
 
   if (!rect) return null
+
+  const langLabel = NATIVE_LANGUAGES.find(l => l.code === nativeLanguage)?.label || nativeLanguage
 
   return (
     <div
@@ -178,6 +191,39 @@ export function WordPopup({
           >
             {t('reader.wordPopup.ignore')}
           </button>
+        )}
+      </div>
+
+      {/* Language footer */}
+      <div className="word-popup__lang-footer">
+        <span className="word-popup__lang-label">
+          {t('reader.wordPopup.translatingTo')} {langLabel}
+        </span>
+        <button
+          className="word-popup__lang-change"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setShowLangPicker(!showLangPicker)}
+        >
+          {t('reader.wordPopup.change')}
+        </button>
+        {showLangPicker && (
+          <div className="word-popup__lang-dropdown">
+            {NATIVE_LANGUAGES.filter(l => l.code !== nativeLanguage).map(l => (
+              <button
+                key={l.code}
+                className="word-popup__lang-option"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChangeNativeLanguage(l.code)
+                  setShowLangPicker(false)
+                  scheduleAutoDismiss()
+                }}
+              >
+                <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
+                {l.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

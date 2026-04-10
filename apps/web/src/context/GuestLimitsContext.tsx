@@ -13,7 +13,6 @@ interface GuestState {
   pagesRead: number
   savedWords: GuestWord[]
   practiceSessionsUsed: number
-  hasSeenOnboarding: boolean
   currentBook: { bookSlug: string; chapterSlug: string } | null
   lastVisitAt: string | null
 }
@@ -30,7 +29,6 @@ const defaultState: GuestState = {
   pagesRead: 0,
   savedWords: [],
   practiceSessionsUsed: 0,
-  hasSeenOnboarding: false,
   currentBook: null,
   lastVisitAt: null,
 }
@@ -60,7 +58,6 @@ interface GuestLimitsContextValue {
   incrementPages: () => boolean
   addGuestWord: (word: GuestWord) => boolean
   incrementPractice: () => boolean
-  markOnboardingSeen: () => void
   setCurrentBook: (book: GuestState['currentBook']) => void
   isReturningUser: boolean
   resetGuestState: () => void
@@ -75,7 +72,6 @@ const GuestLimitsContext = createContext<GuestLimitsContextValue>({
   incrementPages: () => true,
   addGuestWord: () => true,
   incrementPractice: () => true,
-  markOnboardingSeen: () => {},
   setCurrentBook: () => {},
   isReturningUser: false,
   resetGuestState: () => {},
@@ -128,10 +124,6 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     return true
   }, [isAuthenticated, state.practiceSessionsUsed])
 
-  const markOnboardingSeen = useCallback(() => {
-    setState(prev => ({ ...prev, hasSeenOnboarding: true }))
-  }, [])
-
   const setCurrentBook = useCallback((book: GuestState['currentBook']) => {
     setState(prev => ({ ...prev, currentBook: book }))
   }, [])
@@ -156,7 +148,6 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
       incrementPages,
       addGuestWord,
       incrementPractice,
-      markOnboardingSeen,
       setCurrentBook,
       isReturningUser,
       resetGuestState,
