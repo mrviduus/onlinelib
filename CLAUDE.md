@@ -112,7 +112,7 @@ API → Application → Domain ← Infrastructure
 - **Infrastructure**: EF Core (snake_case naming), storage implementations
 - **API/Worker**: Orchestration, DI
 
-**Middleware pipeline** (order matters): `ForwardedHeaders` → `Cors` → `RateLimiter` → `ExceptionMiddleware` → `StaticFiles(/storage)` → `/health` → `SiteContext` → `LanguageContext` → `Routing` → `AdminAuth` (conditional on `/admin/*`)
+**Middleware pipeline** (order matters): `ForwardedHeaders` → `Cors` → `RateLimiter` → `ExceptionMiddleware` → `StaticFiles(/storage)` → `/health` → `SiteContext` → `LanguageContext` → `GuestActivity` (LastActiveAt debounce hourly) → `Routing` → `AdminAuth` (conditional on `/admin/*`)
 
 **Site resolution**: Single-site now (ADR-007). `SiteContextMiddleware` still resolves host → SiteId. Dev mode: `?site=` query param override.
 
@@ -124,16 +124,18 @@ API → Application → Domain ← Infrastructure
 
 **No Redux/Zustand** — React Context only. Provider hierarchy in `App.tsx`:
 ```
-BrowserRouter → SiteProvider → AuthProvider → DownloadProvider → AppRoutes
+BrowserRouter → SiteProvider → AuthProvider → GuestLimitsProvider → NativeLanguageProvider → DownloadProvider → AppRoutes
   └─ /:lang/* → LanguageProvider → Header + page routes
 ```
 
 - **SiteProvider**: Fetches `/api/site/context`, provides `site` to all children
-- **AuthProvider**: Google Sign-In, auto-refresh token, skips Google for bots
+- **AuthProvider**: Google Sign-In, email/password, Apple auth, auto-refresh token, skips Google for bots
+- **GuestLimitsProvider**: Tracks guest usage limits (pages read, words saved) before requiring sign-up
+- **NativeLanguageProvider**: User's native language for translations/definitions direction
 - **DownloadProvider**: Offline reading — IndexedDB cache, download progress, resume
 - **LanguageProvider**: Inside language routes only. Extracts `lang` from URL params, provides `switchLanguage()`, `getLocalizedPath()`
 
-Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
+Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Download,Language}Context.tsx`
 
 **i18n**: JSON files in `apps/web/src/locales/{en,uk}.json`. Hook: `useTranslation()`. Languages: `['en', 'uk']`.
 
@@ -141,11 +143,11 @@ Context files: `apps/web/src/context/{Site,Auth,Download,Language}Context.tsx`
 
 **API client**: `useApi()` hook → `createApi(language)` → methods like `getBooks()`, `getBook(slug)`. Uses `fetchJsonWithRetry()`.
 
-**API client layer**: `apps/web/src/api/` — separate modules per domain: `client.ts` (base), `auth.ts`, `readingTracking.ts`, `userData.ts`, `userBooks.ts`, `dictionary.ts`, `translation.ts`. `useApi()` hook wraps these.
+**API client layer**: `apps/web/src/api/` — 13 modules: `client.ts` (base), `auth.ts`, `blog.ts`, `dictionary.ts`, `moods.ts`, `readingTracking.ts`, `reviews.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `userRatings.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
 
-**Reader hooks** (`apps/web/src/hooks/`): Reading session tracking (`useReadingSession`), progress sync (`useReadingProgress`), fullscreen (`useFullscreen`, `useImmersiveMode`), keyboard nav (`useReaderKeyboard`), in-book search (`useInBookSearch`), text selection (`useTextSelection`, `useDictionary`, `useTextTranslation`), dark mode (`useReaderSettings`, `useDarkMode`).
+**Hooks** (`apps/web/src/hooks/` — 47 hooks): Reader: `useReadingSession`, `useReadingProgress`, `useReaderKeyboard`, `useReaderNavigation`, `useReaderSettings`, `useReaderVocabulary`, `useScrollReader`, `useFullscreen`, `useFullscreenBars`, `useImmersiveMode`, `useAutoHideBar`, `useInBookSearch`, `useTextSelection`, `useDictionary`, `useTextTranslation`, `useWordTap`, `useDarkMode`. Library/data: `useLibrary`, `useBookmarks`, `useHighlights`, `useBookStats`, `useVocabulary`, `useVocabularyReview`, `useVocabLevel`, `useVocabDailyStats`, `useReadingStats`, `useReadingGoals`, `useAchievements`. UI: `useSwipe`, `useFocusTrap`, `useIsMobile`, `useScrolled`, `usePagination`, `useDebounce`, `useSoundEffects`, `useCardAnswer`, `useQuickStats`. Network: `useNetworkRecovery`, `useOfflineDownload`, `useGuestMigration`.
 
-**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild, SEO crawl, CodeGen, Auto Publish, Tools, Settings.
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. 27 pages: Dashboard, Upload, User Uploads, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild + job detail, SEO crawl + job detail, CodeGen, Auto Publish, Task Board, Tools, Settings.
 
 ## Key Concepts
 
@@ -215,6 +217,37 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Frontend: `ReviewForm`, `ReviewsList`, `ReviewCard`, `ReviewComments`, `RatingDistribution` in `components/reviews/`
 - API client: `apps/web/src/api/reviews.ts`
 
+**Guest Users**: Anonymous browsing with usage limits before sign-up required.
+- GuestCleanupWorker purges inactive guests (6h interval)
+- GuestLimitsContext tracks pages read, words saved
+- GuestBanner prompts sign-up when limits approached
+- Rate limiting: `guest-session` (5/min)
+- Guest activity tracking middleware (LastActiveAt debounced hourly)
+
+**Email/Password Auth**: Email + password login alongside Google/Apple OAuth.
+- ResendEmailService for transactional email (password reset)
+- PasswordResetToken entity, ResetPasswordPage frontend
+- Config: Resend API key
+
+**Export**: EPUB export of user highlights and notes.
+- EpubExportService (`Application/Export/EpubExportService.cs`)
+- ExportEndpoints (`Api/Endpoints/ExportEndpoints.cs`)
+
+**Highlights Review**: Spaced review of saved highlights.
+- HighlightReviewPage — review highlights with spaced repetition
+- PracticePage — practice vocabulary and highlights
+
+**CodeGen**: AI code generation via Claude CLI.
+- `codegen-poll.sh` (systemd) polls DB for CodeGen jobs
+- Creates git branches `codegen/{job-id}`, runs Claude CLI iterations
+- Auto-creates GitHub PRs with generated descriptions
+- Admin: CodeGenPage, AdminCodeGenEndpoints
+- Entity: CodeGenJob
+
+**Board Tasks**: Kanban task board in admin panel.
+- AdminBoardTaskEndpoints, TaskBoardPage
+- Entity: BoardTask
+
 **Reading Moods**: Tag reading sessions with moods for emotional tracking.
 - Entities: `Mood`, `UserMoodTag`
 - Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
@@ -245,9 +278,13 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`, `GET /blog`, `/blog/{slug}`, `/blog/{postId}/comments`
 
-**Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`
+**Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`
+
+**Profile**: `GET/PUT /me/profile`
 
 **User**: `GET/POST /me/library`, `/me/progress/{editionId}` (GET/PUT/DELETE), `/me/bookmarks`, `/me/highlights/{editionId}`
+
+**Export**: `GET /me/export/epub`
 
 **Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
@@ -261,7 +298,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/seo-crawl`, `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`, `/admin/board-tasks`, `/admin/codegen`
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
@@ -325,6 +362,28 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | SSG Periodic Worker | `backend/src/Api/Services/SsgPeriodicRebuildWorker.cs` |
 | SSG | `apps/web/scripts/prerender.mjs` |
 | nginx config | `infra/nginx/textstack.conf` |
+| Export | `backend/src/Application/Export/EpubExportService.cs` |
+| Export API | `backend/src/Api/Endpoints/ExportEndpoints.cs` |
+| Profile API | `backend/src/Api/Endpoints/ProfileEndpoints.cs` |
+| CodeGen Admin | `backend/src/Api/Endpoints/AdminCodeGenEndpoints.cs` |
+| CodeGen Script | `infra/scripts/codegen-poll.sh` |
+| Board Tasks API | `backend/src/Api/Endpoints/AdminBoardTaskEndpoints.cs` |
+| Board Tasks Admin | `apps/admin/src/pages/TaskBoardPage.tsx` |
+| Guest Context | `apps/web/src/context/GuestLimitsContext.tsx` |
+| Native Lang Context | `apps/web/src/context/NativeLanguageContext.tsx` |
+| Email Service | `backend/src/Infrastructure/Services/ResendEmailService.cs` |
+| Guest Cleanup | `backend/src/Worker/Services/GuestCleanupWorker.cs` |
+| SEO Crawl Worker | `backend/src/Worker/Services/SeoCrawlWorkerService.cs` |
+| Highlights Page | `apps/web/src/pages/HighlightsPage.tsx` |
+| Practice Page | `apps/web/src/pages/PracticePage.tsx` |
+| Mobile App | `apps/mobile/app/` (Expo Router pages) |
+| Mobile API | `apps/mobile/src/lib/api.ts` |
+| Mobile Contexts | `apps/mobile/src/context/` |
+| Mobile E2E | `apps/mobile/e2e/` |
+| CI Workflow | `.github/workflows/ci.yml` |
+| Deploy Workflow | `.github/workflows/deploy.yml` |
+| Backup Workflow | `.github/workflows/backup.yml` |
+| Health Check | `.github/workflows/health-check.yml` |
 
 ## Search
 
@@ -347,7 +406,8 @@ tests/
 ├── TextStack.IntegrationTests/    # API tests against running server (LiveApiFixture → localhost:8080, override via API_URL env)
 ├── TextStack.Extraction.Tests/    # Book parsing (EPUB/PDF/FB2)
 ├── TextStack.Search.Tests/        # Search logic
-apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin projects)
+apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin projects) — 11 specs
+apps/mobile/e2e/                   # Mobile Playwright E2E — 16 specs
 ```
 
 Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
@@ -372,6 +432,30 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 - `delete word removes it` — expand word, delete, verify count decreases
 - Helper: `apps/web/e2e/helpers/vocabulary.ts` — `saveTestWords()`, `deleteAllTestWords()`, `TEST_WORDS[]`
 
+### Mobile App Architecture
+
+**Framework**: Expo 55, React Native 0.83.2, Expo Router (file-based routing).
+
+**Pages** (`apps/mobile/app/`): 29 screens — tabs (home, search, library, profile), auth, book detail, reader, highlights + review, stats, vocabulary + review, blog, user book upload/read.
+
+**Contexts** (`apps/mobile/src/context/`): AuthContext, DownloadContext, LanguageContext, NativeLanguageContext, ThemeContext.
+
+**Hooks** (`apps/mobile/src/hooks/`): useCardAnswer, useHaptics, useQuickStats, useReaderSettings, useReadingSession, useTts, useVocabularyReview.
+
+**API**: Single `apps/mobile/src/lib/api.ts` module (consolidated, not split like web).
+
+**E2E**: 16 Playwright specs in `apps/mobile/e2e/` — navigation, books, search, library, vocabulary, highlights, stats, blog, auth.
+
+**Build**: EAS Build (cloud) for dev/prod. OTA updates via `expo-updates`.
+
+## CI/CD
+
+**GitHub Actions workflows** (`.github/workflows/`):
+- **ci.yml** — runs on PR + push to main. Jobs: backend (build, lint, migrations, search tests), frontend (web + admin build), docker (integration tests), e2e (Playwright)
+- **deploy.yml** — self-hosted runner on server. Pre-deploy backup → git pull → frontend build → docker compose up → health checks → SSG rebuild queue → image cleanup
+- **backup.yml** — daily at 3 AM UTC. DB dump + storage tar.gz, keeps 5 newest of each
+- **health-check.yml** — every 5 min. Checks API + both frontends
+
 ## Deployment
 
 ```
@@ -381,6 +465,10 @@ Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
 ```
 
 Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard`, `libretranslate`, `ollama`, `meilisearch`. All localhost-only, no public ports except 80 via tunnel.
+
+**Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m).
+
+**Systemd services**: `codegen-poller` (Claude CLI code generation), `seo-publish-poller` (auto-publish with SEO generation).
 
 **Notable env vars** (beyond `.env.example` basics): `SEARCH_PROVIDER=postgres|meilisearch`, `MEILI_MASTER_KEY`, `INDEXNOW_KEY`, `INDEXNOW_ENABLED`.
 
