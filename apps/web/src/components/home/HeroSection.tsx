@@ -85,9 +85,6 @@ export function HeroSection() {
             >
               {isReturningUser ? t('home.hero.ctaReturning') : t('home.hero.ctaPrimary')}
             </LocalizedLink>
-            <LocalizedLink to="/library" className="home-hero__cta-secondary">
-              {t('home.hero.ctaSecondary')}
-            </LocalizedLink>
             {uploading ? (
               <span className="home-hero__cta-secondary" style={{ opacity: 0.7 }}>
                 <span className="material-icons-outlined" style={{ fontSize: 18, marginRight: 4 }}>hourglass_empty</span>
