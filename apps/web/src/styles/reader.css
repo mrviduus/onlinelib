@@ -1568,6 +1568,10 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes word-popup-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(6px); }
+}
 
 .word-popup {
   width: 260px;
@@ -1578,6 +1582,9 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   z-index: 1100;
   padding: 14px 16px;
   animation: word-popup-in 0.2s ease-out;
+}
+.word-popup--closing {
+  animation: word-popup-out 150ms ease-in forwards;
 }
 
 .word-popup__header {
@@ -1728,7 +1735,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 /* Ghost hint label */
 .word-hint-label {
   position: absolute;
-  top: calc(100% + 4px);
+  bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
   font-size: 12px;
@@ -1744,7 +1751,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   z-index: 5;
 }
 @keyframes word-hint-label-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
   to { opacity: 0.7; transform: translateX(-50%) translateY(0); }
 }
 

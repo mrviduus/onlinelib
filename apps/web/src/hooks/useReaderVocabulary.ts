@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useGuestLimits, type GuestWord } from '../context/GuestLimitsContext'
-import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, type SaveWordRequest } from '../api/vocabulary'
+import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest } from '../api/vocabulary'
+import { translate as translateWord } from '../api/translation'
 
 export type VocabMap = Map<string, { stage: number; id?: string; translation?: string }>
 
-export function useReaderVocabulary() {
+export function useReaderVocabulary(bookLanguage?: string, targetLang?: string | null) {
   const { isAuthenticated } = useAuth()
   const { guestState, addGuestWord, isWordLimitReached } = useGuestLimits()
   const [vocabMap, setVocabMap] = useState<VocabMap>(new Map())
   const [loading, setLoading] = useState(false)
   const [wordLimitHit, setWordLimitHit] = useState(false)
   const mapRef = useRef<VocabMap>(new Map())
+  const backfillDone = useRef(false)
 
   const commitMap = useCallback((map: VocabMap) => {
     mapRef.current = map
@@ -50,6 +52,39 @@ export function useReaderVocabulary() {
       commitMap(m)
     }
   }, [isAuthenticated, guestState.savedWords, commitMap])
+
+  // Backfill translations for words missing them
+  useEffect(() => {
+    if (!targetLang || !bookLanguage || backfillDone.current) return
+    if (vocabMap.size === 0 || loading) return
+
+    const missing: { word: string; id?: string }[] = []
+    for (const [key, entry] of vocabMap) {
+      if (!entry.translation) missing.push({ word: key, id: entry.id })
+    }
+    if (missing.length === 0) return
+
+    backfillDone.current = true
+    const lang = bookLanguage
+    const target = targetLang
+
+    // Translate in small batches to avoid overwhelming the API
+    ;(async () => {
+      for (let i = 0; i < missing.length; i++) {
+        const { word, id } = missing[i]
+        try {
+          const res = await translateWord(word, lang, target)
+          const translation = res.translatedText
+          if (!translation) continue
+          updateMap(m => {
+            const entry = m.get(word)
+            if (entry) m.set(word, { ...entry, translation })
+          })
+          if (id) updateWord(id, { translation }).catch(() => {})
+        } catch { /* skip */ }
+      }
+    })()
+  }, [vocabMap, loading, targetLang, bookLanguage, updateMap])
 
   const addWord = useCallback(async (req: SaveWordRequest) => {
     if (isAuthenticated) {

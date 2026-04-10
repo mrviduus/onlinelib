@@ -3,6 +3,7 @@ import { SpeakButton } from '../vocabulary/SpeakButton'
 import { NATIVE_LANGUAGES, getFlagUrl } from '../../context/NativeLanguageContext'
 
 const AUTO_DISMISS_MS = 3000
+const EXIT_DURATION_MS = 150
 
 interface WordPopupProps {
   word: string
@@ -46,7 +47,20 @@ export function WordPopup({
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const [showLangPicker, setShowLangPicker] = useState(false)
+  const [closing, setClosing] = useState(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const animatedClose = useCallback(() => {
+    if (closing) return
+    setClosing(true)
+    clearTimeout(dismissTimerRef.current)
+    exitTimerRef.current = setTimeout(onClose, EXIT_DURATION_MS)
+  }, [onClose, closing])
+
+  // Reset closing state on new word
+  useEffect(() => { setClosing(false) }, [word])
+  useEffect(() => () => clearTimeout(exitTimerRef.current), [])
 
   const cancelAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
@@ -54,8 +68,8 @@ export function WordPopup({
 
   const scheduleAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
-    dismissTimerRef.current = setTimeout(onClose, AUTO_DISMISS_MS)
-  }, [onClose])
+    dismissTimerRef.current = setTimeout(animatedClose, AUTO_DISMISS_MS)
+  }, [animatedClose])
 
   // Start auto-dismiss timer on open / word change
   useEffect(() => {
@@ -102,21 +116,21 @@ export function WordPopup({
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-        onClose()
+        animatedClose()
       }
     }
     document.addEventListener('mousedown', handleMouseDown)
     return () => document.removeEventListener('mousedown', handleMouseDown)
-  }, [onClose])
+  }, [animatedClose])
 
   // Close on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') animatedClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
+  }, [animatedClose])
 
   if (!rect) return null
 
@@ -125,7 +139,7 @@ export function WordPopup({
   return (
     <div
       ref={popupRef}
-      className="word-popup"
+      className={`word-popup${closing ? ' word-popup--closing' : ''}`}
       style={{
         position: 'fixed',
         top: position?.top ?? -9999,
@@ -146,7 +160,7 @@ export function WordPopup({
         )}
         <button
           className="word-popup__close"
-          onClick={onClose}
+          onClick={animatedClose}
           onMouseDown={(e) => e.preventDefault()}
           aria-label="Close"
         >

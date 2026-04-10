@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '../../hooks/useTranslation'
 
-const WORD_MIN_LENGTH = 4
 const GHOST_HINT_KEY = 'ghost_hint_seen'
 const AUTO_DISMISS_MS = 2500
 const MIN_DELAY_MS = 800
@@ -19,7 +18,7 @@ function findVisibleArticle(container: HTMLElement): HTMLElement {
 function findHintWord(container: HTMLElement): { node: Text; start: number; end: number } | null {
   const content = findVisibleArticle(container)
   const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
-  const wordRegex = /[\p{L}]{4,}/u
+  const wordRegex = /[\p{L}]{4,}/gu
   const containerRect = container.getBoundingClientRect()
 
   const viewTop = Math.max(containerRect.top, 0)
@@ -42,9 +41,12 @@ function findHintWord(container: HTMLElement): { node: Text; start: number; end:
     if (rect.right < viewLeft || rect.left > viewRight) continue
 
     const text = textNode.textContent || ''
-    const match = wordRegex.exec(text)
-    if (match && match[0].length >= WORD_MIN_LENGTH) {
-      return { node: textNode, start: match.index, end: match.index + match[0].length }
+    const words = text.matchAll(wordRegex)
+    for (const m of words) {
+      // Skip capitalized words (proper nouns like "Alice")
+      if (m[0][0] === m[0][0].toLowerCase()) {
+        return { node: textNode, start: m.index, end: m.index + m[0].length }
+      }
     }
   }
   return null

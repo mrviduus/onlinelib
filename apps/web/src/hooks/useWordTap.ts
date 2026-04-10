@@ -58,7 +58,7 @@ export function useWordTap({
   bookTitle,
   clearSelection,
 }: UseWordTapOptions) {
-  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation, refreshMarks, wordLimitHit, clearWordLimitHit } = useReaderVocabulary()
+  const { vocabMap, addWord: addVocabWord, markAsKnown: markVocabKnown, removeWord: removeVocabWord, updateTranslation, refreshMarks, wordLimitHit, clearWordLimitHit } = useReaderVocabulary(bookLanguage, targetLang)
   const { lookup: lookupWord } = useDictionary()
 
   const [tap, setTap] = useState<TapPopupState>(INITIAL_TAP)
@@ -117,8 +117,15 @@ export function useWordTap({
     try {
       result.range.surroundContents(mark)
     } catch {
-      close()
-      return
+      // Range spans multiple nodes (word split across inline elements)
+      try {
+        const contents = result.range.extractContents()
+        mark.appendChild(contents)
+        result.range.insertNode(mark)
+      } catch {
+        close()
+        return
+      }
     }
     highlightRef.current = mark
 
