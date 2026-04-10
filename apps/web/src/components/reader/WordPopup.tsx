@@ -20,6 +20,7 @@ interface WordPopupProps {
   vocabStage: number | null
   nativeLanguage: string
   onChangeNativeLanguage: (code: string) => void
+  bookLanguage: string
   t: (key: string) => string
 }
 
@@ -39,6 +40,7 @@ export function WordPopup({
   vocabStage,
   nativeLanguage,
   onChangeNativeLanguage,
+  bookLanguage,
   t,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
@@ -196,16 +198,31 @@ export function WordPopup({
 
       {/* Language footer */}
       <div className="word-popup__lang-footer">
-        <span className="word-popup__lang-label">
-          {t('reader.wordPopup.translatingTo')} {langLabel}
-        </span>
-        <button
-          className="word-popup__lang-change"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setShowLangPicker(!showLangPicker)}
-        >
-          {t('reader.wordPopup.change')}
-        </button>
+        {nativeLanguage === bookLanguage ? (
+          <>
+            <span className="word-popup__lang-label">{t('reader.wordPopup.definitionMode')}</span>
+            <button
+              className="word-popup__lang-change"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowLangPicker(!showLangPicker)}
+            >
+              {t('reader.wordPopup.translateTo')}
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="word-popup__lang-label">
+              {t('reader.wordPopup.translatingTo')} {langLabel}
+            </span>
+            <button
+              className="word-popup__lang-change"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowLangPicker(!showLangPicker)}
+            >
+              {t('reader.wordPopup.change')}
+            </button>
+          </>
+        )}
         {showLangPicker && (
           <div className="word-popup__lang-dropdown">
             {NATIVE_LANGUAGES.filter(l => l.code !== nativeLanguage).map(l => (

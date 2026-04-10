@@ -37,7 +37,7 @@ interface UseWordTapOptions {
   wrapperRef: React.RefObject<HTMLElement | null>
   containerRef: React.RefObject<HTMLElement | null>
   bookLanguage: string
-  targetLang: string
+  targetLang: string | null
   isAuthenticated?: boolean
   editionId: string
   chapterId: string
@@ -127,15 +127,17 @@ export function useWordTap({
     clearSelection()
 
     // Show popup immediately, load data in parallel
-    setTap({ word, rect, translation: null, translationLoading: true, phonetic: undefined, definition: null, definitionLoading: true })
+    setTap({ word, rect, translation: null, translationLoading: !!targetLang, phonetic: undefined, definition: null, definitionLoading: true })
 
-    const translationPromise = translateWord(word, bookLanguage, targetLang)
-      .then(res => {
-        setTap(prev => ({ ...prev, translation: res.translatedText }))
-        return res.translatedText
-      })
-      .catch(() => null as string | null)
-      .finally(() => setTap(prev => ({ ...prev, translationLoading: false })))
+    const translationPromise = targetLang
+      ? translateWord(word, bookLanguage, targetLang)
+          .then(res => {
+            setTap(prev => ({ ...prev, translation: res.translatedText }))
+            return res.translatedText
+          })
+          .catch(() => null as string | null)
+          .finally(() => setTap(prev => ({ ...prev, translationLoading: false })))
+      : Promise.resolve(null as string | null)
 
     lookupWord(word, bookLanguage)
       .then(entry => {

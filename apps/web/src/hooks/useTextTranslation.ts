@@ -10,11 +10,11 @@ interface TranslationState {
 
 interface UseTextTranslationOptions {
   defaultSourceLang?: string
-  defaultTargetLang?: string
+  defaultTargetLang?: string | null
 }
 
 export function useTextTranslation(options?: UseTextTranslationOptions) {
-  const { defaultSourceLang = 'en', defaultTargetLang = 'uk' } = options || {}
+  const { defaultSourceLang = 'en', defaultTargetLang } = options || {}
 
   const [state, setState] = useState<TranslationState>({
     translatedText: null,
@@ -23,7 +23,7 @@ export function useTextTranslation(options?: UseTextTranslationOptions) {
   })
   const [languages, setLanguages] = useState<LanguageInfo[]>([])
   const [sourceLang, setSourceLang] = useState(defaultSourceLang)
-  const [targetLang, setTargetLang] = useState(defaultTargetLang)
+  const [targetLang, setTargetLang] = useState(defaultTargetLang || defaultSourceLang)
 
   // Fetch available languages on mount
   useEffect(() => {

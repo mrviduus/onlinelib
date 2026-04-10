@@ -1,9 +1,9 @@
 {
   "home": {
     "hero": {
-      "title": "Learn languages by reading real books",
-      "subtitle": "Read classic literature. Build vocabulary. Track your progress.",
-      "subtitleDemo": "Tap any word to translate. Build vocabulary as you read.",
+      "title": "A better way to read books",
+      "subtitle": "Read real books. Instantly understand words. Build knowledge as you read.",
+      "subtitleDemo": "Read real books. Instantly understand words. Build knowledge as you read.",
       "description": "TextStack is a reading platform for language learners. Thousands of classic books with built-in vocabulary tools, spaced repetition, and reading statistics.",
       "cta": "Browse catalog",
       "ctaPrimary": "Start reading instantly",
@@ -38,7 +38,9 @@
       "ignore": "Ignore",
       "loading": "...",
       "translatingTo": "Translating to",
-      "change": "Change"
+      "change": "Change",
+      "definitionMode": "Definition",
+      "translateTo": "Translate to..."
     }
   },
   "onboarding": {

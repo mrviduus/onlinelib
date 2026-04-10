@@ -30,10 +30,10 @@ interface ReaderHighlightsProps {
   children: React.ReactNode
 }
 
-/** Resolve target language for translation: native lang, or flip if same as book */
-function resolveTargetLang(nativeLang: string, bookLang: string): string {
+/** Resolve target language for translation: native lang, or null if same as book (definition mode) */
+function resolveTargetLang(nativeLang: string, bookLang: string): string | null {
   if (nativeLang !== bookLang) return nativeLang
-  return bookLang === 'uk' ? 'en' : 'uk'
+  return null
 }
 
 export function ReaderHighlights({
@@ -255,6 +255,7 @@ export function ReaderHighlights({
           vocabStage={tappedVocabEntry?.stage ?? null}
           nativeLanguage={nativeLanguage}
           onChangeNativeLanguage={setNativeLanguage}
+          bookLanguage={bookLanguage}
           t={t}
         />
       )}
