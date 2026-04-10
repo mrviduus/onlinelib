@@ -16,7 +16,7 @@ import { ContinueReadingCard } from '../../src/components/ContinueReadingCard'
 export default function ReadScreen() {
   const router = useRouter()
   const { colors } = useTheme()
-  const { t } = useLanguage()
+  const { language, switchLanguage, t } = useLanguage()
   const { isAuthenticated } = useAuth()
   const quickStats = useQuickStats(isAuthenticated)
 
@@ -51,7 +51,19 @@ export default function ReadScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>TextStack</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>TextStack</Text>
+          <TouchableOpacity
+            style={[styles.langPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => switchLanguage(language === 'en' ? 'uk' : 'en')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="globe-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.langPillText, { color: colors.textSecondary }]}>
+              {language.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
           {t('home.hero.subtitle')}
         </Text>
@@ -160,6 +172,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.serif,
     fontSize: 36,
     lineHeight: 42,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  langPillText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
   },
   headerSubtitle: {
     fontFamily: fonts.serifItalic,
