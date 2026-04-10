@@ -3,20 +3,15 @@ import { View, Text, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { libraryApi, readingProgressApi, getStorageUrl } from '@textstack/shared'
-import type { UserLibraryItem, ReadingProgressDto } from '@textstack/shared'
+import { libraryApi, readingProgressApi, userBooksApi, getStorageUrl } from '@textstack/shared'
+import type { UserLibraryItem, ReadingProgressDto, UserBookDto } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 import { PressableScale } from './ui/PressableScale'
 
-interface ContinueBook {
-  slug: string
-  title: string
-  coverPath: string | null
-  percent: number
-  chapterSlug: string | null
-  updatedAt: string
-}
+type ContinueBook =
+  | { type: 'edition'; slug: string; title: string; coverPath: string | null; percent: number; chapterSlug: string | null }
+  | { type: 'userbook'; id: string; title: string; coverPath: string | null; percent: number; chapterSlug: string | null }
 
 export function ContinueReadingCard() {
   const { colors } = useTheme()
@@ -26,35 +21,39 @@ export function ContinueReadingCard() {
   useEffect(() => {
     ;(async () => {
       try {
-        const [library, progress] = await Promise.all([
+        const [library, progress, userBooks] = await Promise.all([
           libraryApi.getLibrary(),
           readingProgressApi.getAllProgress(),
+          userBooksApi.getUserBooks(),
         ])
-        if (!library.length || !progress.length) return
 
-        // Find most recently read book
         const progressMap = new Map<string, ReadingProgressDto>()
         for (const p of progress) progressMap.set(p.editionId, p)
 
-        let best: { item: UserLibraryItem; prog: ReadingProgressDto } | null = null
+        let best: ContinueBook | null = null
+        let bestUpdatedAt = ''
+
+        // Check library editions
         for (const item of library) {
           const p = progressMap.get(item.editionId)
-          if (!p) continue
-          if (!best || p.updatedAt > best.prog.updatedAt) {
-            best = { item, prog: p }
+          if (!p || p.percent == null || p.percent >= 1) continue
+          if (!best || p.updatedAt > bestUpdatedAt) {
+            best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent: p.percent, chapterSlug: p.chapterSlug }
+            bestUpdatedAt = p.updatedAt
           }
         }
 
-        if (best && best.prog.percent !== null && best.prog.percent < 1) {
-          setBook({
-            slug: best.item.slug,
-            title: best.item.title,
-            coverPath: best.item.coverPath,
-            percent: best.prog.percent,
-            chapterSlug: best.prog.chapterSlug,
-            updatedAt: best.prog.updatedAt,
-          })
+        // Check user-uploaded books
+        for (const ub of userBooks) {
+          if (ub.status.toLowerCase() !== 'ready' || !ub.progressPercent || ub.progressPercent >= 1) continue
+          if (!ub.progressUpdatedAt) continue
+          if (!best || ub.progressUpdatedAt > bestUpdatedAt) {
+            best = { type: 'userbook', id: ub.id, title: ub.title || 'Untitled', coverPath: ub.coverPath, percent: ub.progressPercent, chapterSlug: ub.progressChapterSlug }
+            bestUpdatedAt = ub.progressUpdatedAt
+          }
         }
+
+        setBook(best)
       } catch {}
     })()
   }, [])
@@ -67,10 +66,10 @@ export function ContinueReadingCard() {
     <PressableScale
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => {
-        if (book.chapterSlug) {
-          router.push(`/reader/${book.slug}/${book.chapterSlug}`)
+        if (book.type === 'edition') {
+          router.push(book.chapterSlug ? `/reader/${book.slug}/${book.chapterSlug}` : `/book/${book.slug}`)
         } else {
-          router.push(`/book/${book.slug}`)
+          router.push(book.chapterSlug ? `/my-books/${book.id}/read/${book.chapterSlug}` : `/my-books/${book.id}`)
         }
       }}
     >

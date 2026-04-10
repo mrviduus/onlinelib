@@ -300,6 +300,9 @@ export interface UserBookDto {
   createdAt: string
   completedAt: string | null
   errorMessage: string | null
+  progressPercent: number | null
+  progressUpdatedAt: string | null
+  progressChapterSlug: string | null
 }
 
 export interface UserBookChapterDto {

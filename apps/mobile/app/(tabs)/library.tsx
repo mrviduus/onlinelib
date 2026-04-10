@@ -20,7 +20,6 @@ import { EmptyState } from '../../src/components/ui/EmptyState'
 type Tab = 'saved' | 'uploads' | 'reviews'
 type ViewMode = 'list' | 'grid'
 
-type UserBookProgress = { chapterSlug: string | null; percent: number | null }
 
 const VIEW_MODE_KEY = 'textstack_library_view'
 
@@ -34,7 +33,6 @@ export default function LibraryScreen() {
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [userBookProgressMap, setUserBookProgressMap] = useState<Record<string, UserBookProgress>>({})
   const [reviews, setReviews] = useState<UserRatingDto[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -62,18 +60,6 @@ export default function LibraryScreen() {
     }
   }, [isAuthenticated])
 
-  // Fetch progress for ready user books
-  useEffect(() => {
-    const readyBooks = userBooks.filter(b => b.status.toLowerCase() === 'ready')
-    if (readyBooks.length === 0) return
-    readyBooks.forEach(async (book) => {
-      if (userBookProgressMap[book.id]) return
-      try {
-        const p = await userBooksApi.getUserBookProgress(book.id)
-        if (p) setUserBookProgressMap(prev => ({ ...prev, [book.id]: { chapterSlug: p.chapterSlug, percent: p.percent } }))
-      } catch {}
-    })
-  }, [userBooks])
 
   // Auto-refresh while processing books exist
   useEffect(() => {
@@ -103,7 +89,6 @@ export default function LibraryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true)
-    setUserBookProgressMap({})
     await loadData()
     setRefreshing(false)
   }
@@ -173,7 +158,7 @@ export default function LibraryScreen() {
       {tab === 'saved' ? (
         <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       ) : tab === 'uploads' ? (
-        <UploadsList books={userBooks} progressMap={userBookProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
+        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       ) : (
         <ReviewsList reviews={reviews} refreshing={refreshing} onRefresh={onRefresh} />
       )}
@@ -387,8 +372,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
-  books: UserBookDto[]; progressMap: Record<string, UserBookProgress>; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode
+function UploadsList({ books, refreshing, onRefresh, viewMode }: {
+  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode
 }) {
   const router = useRouter()
   const { colors } = useTheme()
@@ -459,12 +444,13 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
 
   const sorted = [...books].sort((a, b) => {
     if (sort === 'title') return (a.title || '').localeCompare(b.title || '')
-    if (sort === 'progress') {
-      const pa = progressMap[a.id]?.percent || 0
-      const pb = progressMap[b.id]?.percent || 0
-      return (pb ?? 0) - (pa ?? 0)
+    if (sort === 'progress') return (b.progressPercent ?? 0) - (a.progressPercent ?? 0)
+    if (sort === 'recent') {
+      const aDate = a.progressUpdatedAt || a.createdAt
+      const bDate = b.progressUpdatedAt || b.createdAt
+      return new Date(bDate).getTime() - new Date(aDate).getTime()
     }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    return 0
   })
 
   const listHeader = (
@@ -535,8 +521,7 @@ function UploadsList({ books, progressMap, refreshing, onRefresh, viewMode }: {
             const isReady = s === 'ready' || s === 'completed'
             const isFailed = s === 'failed'
             const isProcessing = !isReady && !isFailed
-            const progress = progressMap[item.id]
-            const pct = progress?.percent ? Math.round(progress.percent * 100) : 0
+            const pct = item.progressPercent ? Math.round(item.progressPercent * 100) : 0
 
             if (viewMode === 'grid') {
               const cardWidth = (width - 20 - (numColumns - 1) * 10) / numColumns
