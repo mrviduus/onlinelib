@@ -54,6 +54,7 @@ public interface IAppDbContext
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<BoardTask> BoardTasks { get; }
+    DbSet<BookQualityJob> BookQualityJobs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

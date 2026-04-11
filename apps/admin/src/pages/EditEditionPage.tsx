@@ -411,6 +411,19 @@ export function EditEditionPage() {
               Delete Edition
             </button>
           )}
+          <button
+            onClick={async () => {
+              try {
+                await adminApi.createBookQualityJob({ editionId: edition.id })
+                alert('Quality check queued')
+              } catch (err) {
+                alert(err instanceof Error ? err.message : 'Failed')
+              }
+            }}
+            className="btn btn--secondary"
+          >
+            Run Quality Check
+          </button>
         </div>
       </div>
 

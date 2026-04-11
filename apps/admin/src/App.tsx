@@ -26,6 +26,7 @@ import { SsgRebuildJobPage } from './pages/SsgRebuildJobPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CodeGenPage } from './pages/CodeGenPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
+import { BookQualityPage } from './pages/BookQualityPage'
 import { TaskBoardPage } from './pages/TaskBoardPage'
 import { UserUploadsPage } from './pages/UserUploadsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -69,6 +70,7 @@ function App() {
             <Route path="ssg-rebuild/:id" element={<SsgRebuildJobPage />} />
             <Route path="codegen" element={<CodeGenPage />} />
             <Route path="autopublish" element={<AutoPublishPage />} />
+            <Route path="quality" element={<BookQualityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

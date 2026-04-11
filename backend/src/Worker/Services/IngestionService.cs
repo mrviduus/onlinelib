@@ -297,6 +297,9 @@ public class IngestionWorkerService
             _logger.LogInformation("Job {JobId} completed successfully. {ChapterCount} chapters created.",
                 jobId, parsed.Chapters.Count);
 
+            // Auto-queue quality validation if enabled
+            await TryQueueQualityJobAsync(db, job.EditionId, null, ct);
+
             // Record success metric
             stopwatch.Stop();
             IngestionMetrics.JobsSucceeded.Add(1, new KeyValuePair<string, object?>("format", sourceFormat));
@@ -500,5 +503,36 @@ public class IngestionWorkerService
             TextStack.Extraction.Lint.LintSeverity.Warning => Domain.Enums.LintSeverity.Warning,
             _ => Domain.Enums.LintSeverity.Info
         };
+    }
+
+    private async Task TryQueueQualityJobAsync(AppDbContext db, Guid? editionId, Guid? userBookId, CancellationToken ct)
+    {
+        try
+        {
+            var settingKey = editionId.HasValue ? "quality.autoQueueAfterIngestion" : "quality.autoQueueForUserBooks";
+            var enabled = await db.AdminSettings
+                .Where(s => s.Key == settingKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(ct);
+
+            if (enabled != "true") return;
+
+            db.BookQualityJobs.Add(new BookQualityJob
+            {
+                Id = Guid.NewGuid(),
+                EditionId = editionId,
+                UserBookId = userBookId,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Queued quality validation for {Type} {Id}",
+                editionId.HasValue ? "edition" : "user book",
+                editionId ?? userBookId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to queue quality job — non-blocking");
+        }
     }
 }

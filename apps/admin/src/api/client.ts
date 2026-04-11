@@ -602,6 +602,34 @@ export interface BoardTaskDto {
   updatedAt: string
 }
 
+// Book Quality
+export type BookQualityJobStatus = 'Queued' | 'Validating' | 'Fixing' | 'Completed' | 'Failed' | 'Cancelled'
+
+export interface BookQualityJobListItem {
+  id: string
+  editionId: string | null
+  userBookId: string | null
+  status: BookQualityJobStatus
+  issuesFound: number | null
+  issuesFixed: number | null
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  editionTitle: string | null
+  userBookTitle: string | null
+}
+
+export interface BookQualityJobDetail extends BookQualityJobListItem {
+  issuesJson: string | null
+  logOutput: string | null
+}
+
+export interface BookQualitySettings {
+  autoQueueAfterIngestion: boolean
+  autoQueueForUserBooks: boolean
+}
+
 // User Uploads
 export interface UserUploadListItem {
   id: string
@@ -1235,5 +1263,47 @@ export const adminApi = {
 
   deleteUserUpload: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/user-uploads/${id}`, { method: 'DELETE' })
+  },
+
+  // Book Quality
+  getBookQualitySettings: async (): Promise<BookQualitySettings> => {
+    return fetchJson<BookQualitySettings>('/admin/quality/settings')
+  },
+
+  updateBookQualitySettings: async (data: BookQualitySettings): Promise<void> => {
+    await fetchVoid('/admin/quality/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  getBookQualityJobs: async (params?: { limit?: number; offset?: number; status?: string }): Promise<PaginatedResult<BookQualityJobListItem>> => {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.status) query.set('status', params.status)
+    const qs = query.toString()
+    return fetchJson<PaginatedResult<BookQualityJobListItem>>(`/admin/quality/jobs${qs ? `?${qs}` : ''}`)
+  },
+
+  getBookQualityJob: async (id: string): Promise<BookQualityJobDetail> => {
+    return fetchJson<BookQualityJobDetail>(`/admin/quality/jobs/${id}`)
+  },
+
+  createBookQualityJob: async (data: { editionId?: string; userBookId?: string }): Promise<{ id: string }> => {
+    return fetchJson<{ id: string }>('/admin/quality/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  cancelBookQualityJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/quality/jobs/${id}/cancel`, { method: 'POST' })
+  },
+
+  retryBookQualityJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/quality/jobs/${id}/retry`, { method: 'POST' })
   },
 }

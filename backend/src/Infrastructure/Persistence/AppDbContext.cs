@@ -57,6 +57,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<BoardTask> BoardTasks => Set<BoardTask>();
+    public DbSet<BookQualityJob> BookQualityJobs => Set<BookQualityJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -619,6 +620,16 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Status).HasMaxLength(20);
             e.Property(x => x.Source).HasMaxLength(20);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BookQualityJob>(e =>
+        {
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.EditionId);
+            e.HasIndex(x => x.UserBookId);
+            e.Property(x => x.IssuesJson).HasColumnType("jsonb");
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 
