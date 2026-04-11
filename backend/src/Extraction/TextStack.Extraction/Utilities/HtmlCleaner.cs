@@ -73,10 +73,17 @@ public partial class HtmlCleaner
             ?? doc.DocumentNode.SelectSingleNode("//title");
 
         var title = titleNode?.InnerText?.Trim();
-        if (!string.IsNullOrWhiteSpace(title))
-            return HtmlEntity.DeEntitize(title);
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
 
-        return null;
+        var decoded = HtmlEntity.DeEntitize(title);
+
+        // Reject placeholder titles from Calibre/Word conversions
+        if (string.Equals(decoded, "Unknown", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(decoded, "Untitled", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return decoded;
     }
 
     public static int CountWords(string text)

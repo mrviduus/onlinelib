@@ -21,7 +21,6 @@ export default function ReadScreen() {
   const quickStats = useQuickStats(isAuthenticated)
 
   const [refreshing, setRefreshing] = useState(false)
-  const [vocabDueCount, setVocabDueCount] = useState(0)
   const [vocabLevel, setVocabLevel] = useState(0)
   const [wordsReviewedToday, setWordsReviewedToday] = useState(0)
 
@@ -29,7 +28,6 @@ export default function ReadScreen() {
     if (!isAuthenticated) return
     vocabularyApi.getVocabularyStats()
       .then(stats => {
-        setVocabDueCount(stats.dueNow)
         setVocabLevel(getVocabLevel(stats.byStage.mastered).level)
         setWordsReviewedToday(stats.reviewedToday)
       })
@@ -138,23 +136,6 @@ export default function ReadScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Vocab Review Card */}
-      {vocabDueCount > 0 && (
-        <TouchableOpacity
-          style={[styles.reviewCard, { backgroundColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.15)' }]}
-          onPress={() => router.push('/vocabulary/review')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="school" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.reviewCardText, { color: colors.text }]}>
-            {vocabDueCount} word{vocabDueCount === 1 ? '' : 's'} due for review
-          </Text>
-          <View style={[styles.reviewCardBtn, { backgroundColor: colors.primary }]}>
-            <Text style={{ color: '#fff', fontSize: 13, fontFamily: fonts.sansMedium }}>Review</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
       <View style={{ height: 40 }} />
     </ScrollView>
   )
@@ -213,19 +194,6 @@ const styles = StyleSheet.create({
   quickStatItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   quickStatValue: { fontFamily: fonts.sansMedium, fontSize: 14 },
   quickStatLabel: { fontFamily: fonts.sans, fontSize: 12 },
-
-  // Review card
-  reviewCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  reviewCardText: { flex: 1, fontSize: 14, fontFamily: fonts.sans },
-  reviewCardBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
 
   // Start reading CTA
   startReadingCta: {

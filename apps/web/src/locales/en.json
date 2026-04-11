@@ -66,11 +66,6 @@
     "signIn": "Sign in",
     "suffix": "to save your progress"
   },
-  "reviewPrompt": {
-    "message": "You have {count} words due for review",
-    "reviewNow": "Review Now",
-    "later": "Later"
-  },
   "common": {
     "loading": "Loading...",
     "noBooksYet": "No books available yet.",

@@ -219,7 +219,7 @@ public sealed class EpubTextExtractor : ITextExtractor
                         ? (originalPath.EndsWith(coverFilePath, StringComparison.OrdinalIgnoreCase) ||
                            originalPath.Contains("cover", StringComparison.OrdinalIgnoreCase))
                         : Path.GetFileNameWithoutExtension(originalPath)
-                              .Equals("cover", StringComparison.OrdinalIgnoreCase);
+                              .Contains("cover", StringComparison.OrdinalIgnoreCase);
 
                     if (isCover && coverImage == null)
                     {
