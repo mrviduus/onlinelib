@@ -24,6 +24,7 @@ import {
 import type { Chapter, BookDetail, UserBookChapterDto } from '@textstack/shared'
 import { useLanguage } from '../../context/LanguageContext'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
+import { useHaptics } from '../../hooks/useHaptics'
 import { fonts } from '../../theme/typography'
 
 export type FocusReaderMode = 'public' | 'userbook'
@@ -71,6 +72,7 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
   const { nativeLanguage } = useNativeLanguage()
   const scheme = useColorScheme()
   const insets = useSafeAreaInsets()
+  const haptics = useHaptics()
 
   // Theme pref (tri-state, persisted)
   const [themePref, setThemePref] = useState<ThemePref>('system')
@@ -101,6 +103,21 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
 
   const cacheRef = useRef<Map<string, string>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const LONGPRESS_MS = 400
+
+  const cancelPress = useCallback(() => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+  }, [])
+
+  // Clean up any pending press timer on unmount
+  useEffect(() => () => {
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current)
+  }, [])
 
   // Fetch chapter + book metadata
   useEffect(() => {
@@ -122,13 +139,14 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           setBookLanguage(bk.language || 'en')
         } else {
           if (!bookId) return
-          const ch: UserBookChapterDto = await userBooksApi.getUserBookChapter(bookId, chapterSlug)
+          const [ch, book]: [UserBookChapterDto, { language: string }] = await Promise.all([
+            userBooksApi.getUserBookChapter(bookId, chapterSlug),
+            userBooksApi.getUserBook(bookId),
+          ])
           if (cancelled) return
           setHtml(ch.html)
           setChapterId(ch.id)
-          // UserBookDto has no language field yet; default 'en' to avoid
-          // silent same-lang collision when UI lang == nativeLanguage.
-          setBookLanguage('en')
+          setBookLanguage(book.language || 'en')
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load chapter')
@@ -372,7 +390,15 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
                 <Text key={k}>
                   <Text
                     style={wordStyle}
-                    onPress={() => tapWord(clampedIdx, i, t.word)}
+                    onPressIn={sameLang ? undefined : () => {
+                      cancelPress()
+                      pressTimerRef.current = setTimeout(() => {
+                        pressTimerRef.current = null
+                        haptics.play('flip')
+                        tapWord(clampedIdx, i, t.word)
+                      }, LONGPRESS_MS)
+                    }}
+                    onPressOut={sameLang ? undefined : cancelPress}
                   >
                     {t.word}
                   </Text>

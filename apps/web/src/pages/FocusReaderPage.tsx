@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useVerticalSwipe } from '../hooks/useVerticalSwipe'
 import { splitSentences, tokenizeWords } from '@textstack/shared'
-import { getUserBookChapter } from '../api/userBooks'
+import { getUserBookChapter, getUserBook } from '../api/userBooks'
 import { translate as translateApi } from '../api/translation'
 import { SeoHead } from '../components/SeoHead'
 import '../styles/focus-reader.css'
@@ -49,8 +49,28 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [tap, setTap] = useState<TapState | null>(null)
+  const [pressingKey, setPressingKey] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pressOriginRef = useRef<{ x: number; y: number } | null>(null)
+
+  const LONGPRESS_MS = 400
+  const MOVE_TOLERANCE_PX = 8
+
+  const cancelPress = useCallback(() => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+    pressOriginRef.current = null
+    setPressingKey(null)
+  }, [])
+
+  // Clean up any pending press timer on unmount
+  useEffect(() => () => {
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current)
+  }, [])
 
   // Theme: 'light' | 'dark' | 'system'. Persist in localStorage. Default system.
   type ThemePref = 'light' | 'dark' | 'system'
@@ -91,13 +111,15 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           setBookLanguage(bk.language || 'en')
         } else {
           if (!id || !chapterSlug) return
-          const ch = await getUserBookChapter(id, chapterSlug)
+          const [ch, book] = await Promise.all([
+            getUserBookChapter(id, chapterSlug),
+            getUserBook(id),
+          ])
           if (cancelled) return
           setHtml(ch.html)
           setChapterId(ch.id)
           setTitle(ch.title)
-          // User-book language not fetched here; default to UI language.
-          setBookLanguage(language)
+          setBookLanguage(book.language || 'en')
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load chapter')
@@ -297,12 +319,38 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         {tokens.map((t, i) => {
           const k = `${clampedIdx}:${i}`
           const active = tap?.key === k
+          const pressing = pressingKey === k
+          const disabled = sameLang
+          const handlePointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
+            if (disabled) return
+            // Only main pointer; ignore right-clicks on desktop
+            if (e.pointerType === 'mouse' && e.button !== 0) return
+            e.currentTarget.setPointerCapture?.(e.pointerId)
+            pressOriginRef.current = { x: e.clientX, y: e.clientY }
+            setPressingKey(k)
+            pressTimerRef.current = setTimeout(() => {
+              pressTimerRef.current = null
+              tapWord(clampedIdx, i, t.word)
+              setPressingKey(null)
+            }, LONGPRESS_MS)
+          }
+          const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+            if (!pressOriginRef.current) return
+            const dx = e.clientX - pressOriginRef.current.x
+            const dy = e.clientY - pressOriginRef.current.y
+            if (Math.abs(dx) + Math.abs(dy) > MOVE_TOLERANCE_PX) cancelPress()
+          }
           return (
             <span key={k}>
               <span className="focus-reader__word-wrap">
                 <span
-                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${sameLang ? ' focus-reader__word--disabled' : ''}`}
-                  onClick={() => tapWord(clampedIdx, i, t.word)}
+                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${pressing ? ' focus-reader__word--pressing' : ''}${disabled ? ' focus-reader__word--disabled' : ''}`}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={cancelPress}
+                  onPointerCancel={cancelPress}
+                  onPointerLeave={cancelPress}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   {t.word}
                 </span>

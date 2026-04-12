@@ -39,6 +39,7 @@ public sealed class EpubTextExtractor : ITextExtractor
         var title = book.Title;
         var authors = book.AuthorList?.Count > 0 ? string.Join(", ", book.AuthorList) : null;
         var description = book.Description;
+        var language = ExtractLanguage(book);
 
         // Build navigation title map from EPUB's NCX/NAV
         var navTitleMap = BuildNavigationTitleMap(book);
@@ -258,10 +259,37 @@ public sealed class EpubTextExtractor : ITextExtractor
             // Image extraction is optional, don't fail
         }
 
-        var metadata = new ExtractionMetadata(title, authors, null, description, coverImage, coverMimeType);
+        var metadata = new ExtractionMetadata(title, authors, language, description, coverImage, coverMimeType);
         var diagnostics = new ExtractionDiagnostics(TextSource.NativeText, null, warnings);
 
         return new ExtractionResult(SourceFormat.Epub, metadata, units, images, diagnostics, toc);
+    }
+
+    /// <summary>
+    /// Extracts the primary language from EPUB metadata (&lt;dc:language&gt;).
+    /// Normalizes BCP47 tags like "en-US" to ISO 639-1 "en". Returns null if absent/invalid.
+    /// </summary>
+    private static string? ExtractLanguage(EpubBook book)
+    {
+        try
+        {
+            var languages = book.Schema?.Package?.Metadata?.Languages;
+            if (languages == null || languages.Count == 0)
+                return null;
+
+            var raw = languages[0]?.Language?.Trim();
+            if (string.IsNullOrEmpty(raw))
+                return null;
+
+            // "en-US" / "en_US" → "en"; already-2-letter stays as-is
+            var sep = raw.IndexOfAny(['-', '_']);
+            var code = sep > 0 ? raw[..sep] : raw;
+            return code.Length is >= 2 and <= 3 ? code.ToLowerInvariant() : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? GetMimeType(EpubContentType contentType)
