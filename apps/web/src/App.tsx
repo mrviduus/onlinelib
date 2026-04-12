@@ -8,6 +8,7 @@ import { useGuestMigration } from './hooks/useGuestMigration'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
 import { HomePage } from './pages/HomePage'
 import { ReaderPage } from './pages/ReaderPage'
+import { FocusReaderPage } from './pages/FocusReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
 import { SearchPage } from './pages/SearchPage'
@@ -55,13 +56,16 @@ function LanguageRoutes() {
     return <Navigate to="/en" replace />
   }
 
-  // Hide header on reader pages (have their own top bar)
+  // Hide header on reader pages (have their own top bar) — incl. Focus Mode
   const isReaderPage = /^\/[a-z]{2}\/books\/[^/]+\/[^/]+$/.test(location.pathname)
   const isUserBookReaderPage = /^\/[a-z]{2}\/library\/my\/[^/]+\/read\/[^/]+$/.test(location.pathname)
+  const isFocusReaderPage =
+    /^\/[a-z]{2}\/books\/[^/]+\/focus\/[^/]+$/.test(location.pathname) ||
+    /^\/[a-z]{2}\/library\/my\/[^/]+\/focus\/[^/]+$/.test(location.pathname)
 
   return (
     <LanguageProvider>
-      {!isReaderPage && !isUserBookReaderPage && (
+      {!isReaderPage && !isUserBookReaderPage && !isFocusReaderPage && (
         <>
           <GuestBanner />
           <Header />
@@ -72,6 +76,7 @@ function LanguageRoutes() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/books" element={<BooksPage />} />
         <Route path="/books/:bookSlug" element={<BookDetailPage />} />
+        <Route path="/books/:bookSlug/focus/:chapterSlug" element={<FocusReaderPage mode="public" />} />
         <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
         <Route path="/authors" element={<AuthorsPage />} />
         <Route path="/authors/:slug" element={<AuthorDetailPage />} />
@@ -95,6 +100,7 @@ function LanguageRoutes() {
         <Route path="/vocabulary/review" element={<Navigate to="../words/review" replace />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
+        <Route path="/library/my/:id/focus/:chapterSlug" element={<FocusReaderPage mode="userbook" />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

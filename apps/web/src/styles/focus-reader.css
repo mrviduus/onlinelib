@@ -1,0 +1,92 @@
+/* Focus Mode — minimal sentence-by-sentence reader.
+   Intentionally ignores the global reader theme: spec hardcodes bg colors. */
+
+.focus-reader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #FAFAFA;
+  color: #111;
+  overflow: hidden;
+  /* Block iOS pull-to-refresh interfering with vertical swipes */
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+.focus-reader--dark {
+  background: #0F0F0F;
+  color: #E8E8E8;
+}
+
+.focus-reader__sentence {
+  max-width: 600px;
+  width: 100%;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(22px, 4.5vw, 34px);
+  line-height: 1.5;
+  text-align: center;
+  overflow-y: auto;
+  max-height: 80vh;
+  /* Allow inline translations to wrap naturally */
+  word-break: break-word;
+}
+
+.focus-reader__word {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background-color 120ms ease;
+}
+
+.focus-reader__word:hover {
+  background-color: rgba(127, 127, 127, 0.12);
+}
+
+.focus-reader__translation {
+  font-size: 0.7em;
+  color: #888;
+  margin: 0 4px;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.focus-reader__progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.3;
+  transition: width 180ms ease;
+  pointer-events: none;
+}
+
+.focus-reader__exit {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  z-index: 10;
+}
+
+.focus-reader__exit:hover {
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .focus-reader {
+    padding: 16px;
+  }
+  .focus-reader__sentence {
+    font-size: clamp(22px, 6vw, 26px);
+  }
+}

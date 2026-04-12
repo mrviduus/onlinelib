@@ -30,6 +30,7 @@ function AppContent() {
         <Stack.Screen name="(auth)/login" options={{ presentation: 'modal' }} />
         <Stack.Screen name="book/[slug]" />
         <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="reader/[bookSlug]/focus/[chapterSlug]" options={{ animation: 'fade' }} />
         <Stack.Screen name="vocabulary/index" />
         <Stack.Screen name="vocabulary/review" />
         <Stack.Screen name="stats/index" />
@@ -38,6 +39,7 @@ function AppContent() {
         <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-books/[id]" />
         <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="my-books/read/[bookId]/focus/[chapterSlug]" options={{ animation: 'fade' }} />
         <Stack.Screen name="blog/index" />
         <Stack.Screen name="blog/[slug]" />
         <Stack.Screen name="highlights/index" />

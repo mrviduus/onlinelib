@@ -1166,6 +1166,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         }}
         onFullscreenClick={toggleFullscreen}
         onHelpClick={() => setShortcutsOpen(true)}
+        onFocusClick={() => {
+          const target = mode === 'public'
+            ? `/${language}/books/${bookSlug}/focus/${activeChapterIdentifier}`
+            : `/${language}/library/my/${id}/focus/${activeChapterIdentifier}`
+          navigate(target)
+        }}
       />
 
       {/* Hide side navigation in scroll mode - content scrolls continuously */}
