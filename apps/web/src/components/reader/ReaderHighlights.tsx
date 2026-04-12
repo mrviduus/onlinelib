@@ -89,13 +89,23 @@ export function ReaderHighlights({
     translation: string | null
     state: BubbleState
     rect: DOMRect | null
+    saved: boolean
   } | null>(null)
   const bubbleAbortRef = useRef<AbortController | null>(null)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearSavedTimer = useCallback(() => {
+    if (savedTimerRef.current) {
+      clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = null
+    }
+  }, [])
 
   const closeBubble = useCallback(() => {
     bubbleAbortRef.current?.abort()
+    clearSavedTimer()
     setBubble(null)
-  }, [])
+  }, [clearSavedTimer])
 
   // Trigger bubble when selection narrows to 1 word.
   useEffect(() => {
@@ -117,7 +127,8 @@ export function ReaderHighlights({
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
-    setBubble({ word, translation: null, state: 'loading', rect: selection.rect })
+    setBubble({ word, translation: null, state: 'loading', rect: selection.rect, saved: false })
+    clearSavedTimer()
 
     // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
     const shouldSave = !vocabMap.has(word.toLowerCase())
@@ -141,7 +152,17 @@ export function ReaderHighlights({
     Promise.all([savePromise, translateApi(word, bookLanguage, targetLang, ctrl.signal)])
       .then(([saved, res]) => {
         if (ctrl.signal.aborted) return
-        setBubble({ word, translation: res.translatedText, state: 'ready', rect: selection.rect })
+        const didSave = shouldSave && saved != null
+        setBubble({
+          word, translation: res.translatedText, state: 'ready',
+          rect: selection.rect, saved: didSave,
+        })
+        if (didSave) {
+          clearSavedTimer()
+          savedTimerRef.current = setTimeout(() => {
+            setBubble(b => (b && b.word === word) ? { ...b, saved: false } : b)
+          }, 1000)
+        }
         if (res.translatedText) {
           if (saved?.id) updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
           updateTranslation(word, res.translatedText)
@@ -150,17 +171,20 @@ export function ReaderHighlights({
       .catch((err) => {
         if (ctrl.signal.aborted) return
         if ((err as { name?: string })?.name === 'AbortError') return
-        setBubble({ word, translation: null, state: 'error', rect: selection.rect })
+        setBubble({ word, translation: null, state: 'error', rect: selection.rect, saved: false })
       })
   }, [
     isSingleWord, selection.text, selection.rect, selection.range,
-    bookLanguage, targetLang, bubble?.word, closeBubble,
+    bookLanguage, targetLang, bubble?.word, closeBubble, clearSavedTimer,
     vocabMap, addWord, updateTranslation,
     containerRef, editionId, chapterId, userBookId, bookTitle,
   ])
 
-  // Clean abort on unmount
-  useEffect(() => () => bubbleAbortRef.current?.abort(), [])
+  // Clean abort + saved timer on unmount
+  useEffect(() => () => {
+    bubbleAbortRef.current?.abort()
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+  }, [])
 
   // --- Highlights ---
   const {
@@ -314,6 +338,7 @@ export function ReaderHighlights({
           translation={bubble.translation}
           state={bubble.state}
           rect={bubble.rect}
+          saved={bubble.saved}
           onClose={closeBubble}
         />
       )}

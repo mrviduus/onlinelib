@@ -241,6 +241,25 @@ html[data-theme="dark"] .reader-main {
   opacity: 0;
 }
 
+/* Subtle "Saved ✓" badge — absolute overlay, no layout shift. */
+.translation-bubble__saved {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+
+.translation-bubble__saved--visible {
+  opacity: 1;
+}
+
 /* Desktop: two-column pages with horizontal pagination */
 @media (min-width: 900px) {
   .reader-content {

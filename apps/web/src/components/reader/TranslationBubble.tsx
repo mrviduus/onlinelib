@@ -10,6 +10,8 @@ interface Props {
   onClose: () => void
   /** ms before fade-out begins; fade lasts 200ms on top. Default 2800. */
   holdMs?: number
+  /** When true, show the "Saved ✓" badge overlay. */
+  saved?: boolean
 }
 
 /**
@@ -23,6 +25,7 @@ export function TranslationBubble({
   rect,
   onClose,
   holdMs = 2800,
+  saved = false,
 }: Props) {
   const [fadingOut, setFadingOut] = useState(false)
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -51,6 +54,12 @@ export function TranslationBubble({
       role="tooltip"
     >
       {state === 'loading' ? '…' : state === 'error' ? '—' : translation}
+      <span
+        className={`translation-bubble__saved${saved ? ' translation-bubble__saved--visible' : ''}`}
+        aria-hidden={!saved}
+      >
+        Saved ✓
+      </span>
     </div>
   )
 }
