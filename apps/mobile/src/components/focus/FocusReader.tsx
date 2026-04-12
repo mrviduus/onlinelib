@@ -319,6 +319,21 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
         <Ionicons name="close" size={22} color={btnColor} />
       </TouchableOpacity>
 
+      {/* Floating tooltip above the sentence — one active word at a time */}
+      {tap && !sameLang && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.tooltip,
+            { backgroundColor: isDark ? '#EDEDED' : '#222' },
+          ]}
+        >
+          <Text style={[styles.tooltipText, { color: isDark ? '#111' : '#fff' }]}>
+            {tap.loading ? '…' : tap.text || '—'}
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -329,19 +344,21 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
             {tokens.map((t, i) => {
               const k = `${clampedIdx}:${i}`
               const active = tap?.key === k
+              const wordStyle = [
+                sameLang ? null : {
+                  textDecorationLine: 'underline' as const,
+                  textDecorationStyle: 'dotted' as const,
+                  textDecorationColor: active ? fg : (isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'),
+                },
+              ]
               return (
                 <Text key={k}>
                   <Text
-                    style={styles.word}
+                    style={wordStyle}
                     onPress={() => tapWord(clampedIdx, i, t.word)}
                   >
                     {t.word}
                   </Text>
-                  {active && (tap?.loading ? (
-                    <Text style={[styles.translation, { color: muted }]}> …</Text>
-                  ) : tap?.text ? (
-                    <Text style={[styles.translation, { color: muted }]}> {tap.text}</Text>
-                  ) : null)}
                   <Text>{t.trailing}</Text>
                 </Text>
               )
@@ -390,13 +407,24 @@ const styles = StyleSheet.create({
     fontFamily: fonts.serif,
     textAlign: 'center',
   },
-  word: {
-    // Pressable via onPress on <Text>; no extra bg so taps feel invisible.
+  tooltip: {
+    position: 'absolute',
+    top: 90,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
-  translation: {
-    fontSize: 14,
-    fontStyle: 'italic',
+  tooltipText: {
+    fontSize: 15,
     fontFamily: fonts.sans,
+    fontWeight: '500',
   },
   topBtn: {
     position: 'absolute',

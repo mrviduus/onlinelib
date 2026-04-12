@@ -299,17 +299,19 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           const active = tap?.key === k
           return (
             <span key={k}>
-              <span
-                className="focus-reader__word"
-                onClick={() => tapWord(clampedIdx, i, t.word)}
-              >
-                {t.word}
+              <span className="focus-reader__word-wrap">
+                <span
+                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${sameLang ? ' focus-reader__word--disabled' : ''}`}
+                  onClick={() => tapWord(clampedIdx, i, t.word)}
+                >
+                  {t.word}
+                </span>
+                {active && (tap?.loading ? (
+                  <span className="focus-reader__translation">…</span>
+                ) : tap?.text ? (
+                  <span className="focus-reader__translation">{tap.text}</span>
+                ) : null)}
               </span>
-              {active && (tap?.loading ? (
-                <span className="focus-reader__translation">…</span>
-              ) : tap?.text ? (
-                <span className="focus-reader__translation">{tap.text}</span>
-              ) : null)}
               {t.trailing}
             </span>
           )

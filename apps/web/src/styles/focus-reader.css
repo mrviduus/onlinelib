@@ -7,6 +7,9 @@
   --fr-fg: #111;
   --fr-translation: #666;
   --fr-word-hover: rgba(0, 0, 0, 0.08);
+  --fr-underline: rgba(0, 0, 0, 0.25);
+  --fr-tooltip-bg: #222;
+  --fr-tooltip-fg: #fff;
   --fr-btn-opacity: 0.45;
 
   position: fixed;
@@ -29,6 +32,9 @@
   --fr-fg: #111;
   --fr-translation: #666;
   --fr-word-hover: rgba(0, 0, 0, 0.08);
+  --fr-underline: rgba(0, 0, 0, 0.25);
+  --fr-tooltip-bg: #222;
+  --fr-tooltip-fg: #fff;
 }
 
 .focus-reader--dark {
@@ -36,6 +42,9 @@
   --fr-fg: #EDEDED;
   --fr-translation: #B8B8B8;
   --fr-word-hover: rgba(255, 255, 255, 0.1);
+  --fr-underline: rgba(255, 255, 255, 0.3);
+  --fr-tooltip-bg: #EDEDED;
+  --fr-tooltip-fg: #111;
 }
 
 /* OS-level dark only when no explicit theme class is present */
@@ -45,6 +54,9 @@
     --fr-fg: #EDEDED;
     --fr-translation: #B8B8B8;
     --fr-word-hover: rgba(255, 255, 255, 0.1);
+    --fr-underline: rgba(255, 255, 255, 0.3);
+    --fr-tooltip-bg: #EDEDED;
+    --fr-tooltip-fg: #111;
   }
 }
 
@@ -60,23 +72,76 @@
   word-break: break-word;
 }
 
+.focus-reader__word-wrap {
+  position: relative;
+  display: inline-block;
+}
+
 .focus-reader__word {
   cursor: pointer;
   border-radius: 3px;
   padding: 0 1px;
-  transition: background-color 120ms ease;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--fr-underline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+  transition: background-color 120ms ease, text-decoration-color 120ms ease;
 }
 
 .focus-reader__word:hover {
   background-color: var(--fr-word-hover);
+  text-decoration-color: currentColor;
+}
+
+.focus-reader__word--active {
+  text-decoration-color: currentColor;
+}
+
+/* In same-lang mode, words are not translatable — drop underline + cursor hint */
+.focus-reader__word--disabled {
+  cursor: default;
+  text-decoration: none;
+}
+.focus-reader__word--disabled:hover {
+  background-color: transparent;
 }
 
 .focus-reader__translation {
-  font-size: 0.7em;
-  color: var(--fr-translation);
-  margin: 0 4px;
-  font-style: italic;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: var(--fr-tooltip-bg);
+  color: var(--fr-tooltip-fg);
+  border-radius: 6px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.2;
+  font-style: normal;
   white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 5;
+  animation: focus-reader-tooltip-in 140ms ease-out;
+}
+
+.focus-reader__translation::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--fr-tooltip-bg);
+}
+
+@keyframes focus-reader-tooltip-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .focus-reader__progress {
