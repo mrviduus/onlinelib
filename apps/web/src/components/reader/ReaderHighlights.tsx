@@ -6,6 +6,8 @@ import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { translate as translateApi } from '../../api/translation'
+import { updateWord } from '../../api/vocabulary'
+import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
@@ -49,12 +51,12 @@ export function ReaderHighlights({
   containerRef,
   isAuthenticated: _isAuthenticated,
   bookLanguage = 'en',
-  bookTitle: _bookTitle,
+  bookTitle,
   userBookId,
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
-  onWordLimitHit: _onWordLimitHit,
+  onWordLimitHit,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage } = useNativeLanguage()
@@ -67,8 +69,19 @@ export function ReaderHighlights({
   const selectionWordCount = countWords(selection.text)
   const isSingleWord = hasSelection && selectionWordCount === 1
 
-  // --- Vocab map for inline translations layer (used read-only now) ---
-  const { vocabMap } = useReaderVocabulary(bookLanguage, targetLang)
+  // --- Vocab map + save/update (auth → API, guest → localStorage) ---
+  const {
+    vocabMap, addWord, updateTranslation,
+    wordLimitHit, clearWordLimitHit,
+  } = useReaderVocabulary(bookLanguage, targetLang)
+
+  // Guest word-limit → surface to parent for paywall
+  useEffect(() => {
+    if (wordLimitHit && onWordLimitHit) {
+      onWordLimitHit()
+      clearWordLimitHit()
+    }
+  }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
 
   // --- Single-word translation bubble ---
   const [bubble, setBubble] = useState<{
@@ -105,17 +118,46 @@ export function ReaderHighlights({
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
     setBubble({ word, translation: null, state: 'loading', rect: selection.rect })
-    translateApi(word, bookLanguage, targetLang, ctrl.signal)
-      .then((res) => {
+
+    // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
+    const shouldSave = !vocabMap.has(word.toLowerCase())
+    const container = containerRef.current
+    const sentence = selection.range && container
+      ? extractSentence(selection.range, container)
+      : undefined
+    const savePromise = shouldSave
+      ? addWord({
+          word,
+          language: bookLanguage,
+          editionId: userBookId ? undefined : (editionId || undefined),
+          chapterId: userBookId ? undefined : (chapterId || undefined),
+          userBookId: userBookId || undefined,
+          sentence: sentence || undefined,
+          bookTitle: bookTitle || undefined,
+          nativeLanguage: targetLang || undefined,
+        }).catch(() => null)
+      : Promise.resolve(null)
+
+    Promise.all([savePromise, translateApi(word, bookLanguage, targetLang, ctrl.signal)])
+      .then(([saved, res]) => {
         if (ctrl.signal.aborted) return
         setBubble({ word, translation: res.translatedText, state: 'ready', rect: selection.rect })
+        if (res.translatedText) {
+          if (saved?.id) updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+          updateTranslation(word, res.translatedText)
+        }
       })
       .catch((err) => {
         if (ctrl.signal.aborted) return
         if ((err as { name?: string })?.name === 'AbortError') return
         setBubble({ word, translation: null, state: 'error', rect: selection.rect })
       })
-  }, [isSingleWord, selection.text, selection.rect, bookLanguage, targetLang, bubble?.word, closeBubble])
+  }, [
+    isSingleWord, selection.text, selection.rect, selection.range,
+    bookLanguage, targetLang, bubble?.word, closeBubble,
+    vocabMap, addWord, updateTranslation,
+    containerRef, editionId, chapterId, userBookId, bookTitle,
+  ])
 
   // Clean abort on unmount
   useEffect(() => () => bubbleAbortRef.current?.abort(), [])
