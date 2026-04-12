@@ -367,6 +367,10 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
         </View>
       </ScrollView>
 
+      <Text style={[styles.counter, { color: muted }]}>
+        {clampedIdx + 1} / {sentences.length}
+      </Text>
+
       <View style={[styles.progressTrack, { backgroundColor: isDark ? '#333' : '#e5e5e5' }]}>
         <View style={[styles.progressBar, { width: `${progressPct}%`, backgroundColor: fg }]} />
       </View>
@@ -443,11 +447,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 2,
+    height: 3,
   },
   progressBar: {
     height: '100%',
-    opacity: 0.4,
+    opacity: 0.55,
+  },
+  counter: {
+    position: 'absolute',
+    top: 52,
+    alignSelf: 'center',
+    fontSize: 12,
+    letterSpacing: 1,
+    fontFamily: fonts.sans,
+    opacity: 0.8,
   },
   sameLang: {
     position: 'absolute',

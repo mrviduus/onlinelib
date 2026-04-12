@@ -148,11 +148,25 @@
   position: fixed;
   bottom: 0;
   left: 0;
-  height: 2px;
+  height: 3px;
   background: currentColor;
-  opacity: 0.3;
+  opacity: 0.45;
   transition: width 180ms ease;
   pointer-events: none;
+}
+
+.focus-reader__counter {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
 }
 
 .focus-reader__btn {

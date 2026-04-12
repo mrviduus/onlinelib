@@ -317,6 +317,9 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           )
         })}
       </div>
+      <div className="focus-reader__counter">
+        {clampedIdx + 1} / {sentences.length}
+      </div>
       <div className="focus-reader__progress" style={{ width: `${progress}%` }} />
       {sameLang && (
         <div className="focus-reader__same-lang-hint">
