@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useLanguage } from '../context/LanguageContext'
@@ -50,16 +50,26 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [tap, setTap] = useState<TapState | null>(null)
 
-  // System dark mode (ignore user theme — spec hardcodes #FAFAFA/#0F0F0F)
-  const [isDark, setIsDark] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = (e: MediaQueryListEvent) => setIsDark(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Theme: 'light' | 'dark' | 'system'. Persist in localStorage. Default system.
+  type ThemePref = 'light' | 'dark' | 'system'
+  const [themePref, setThemePref] = useState<ThemePref>(() => {
+    if (typeof window === 'undefined') return 'system'
+    const saved = localStorage.getItem('focus.theme')
+    return saved === 'light' || saved === 'dark' ? saved : 'system'
+  })
+  const cycleTheme = useCallback(() => {
+    setThemePref((p) => {
+      const next: ThemePref = p === 'system' ? 'light' : p === 'light' ? 'dark' : 'system'
+      try { localStorage.setItem('focus.theme', next) } catch {}
+      return next
+    })
   }, [])
+  const themeClass =
+    themePref === 'light' ? ' focus-reader--light'
+      : themePref === 'dark' ? ' focus-reader--dark'
+      : ''
 
   // Fetch chapter
   useEffect(() => {
@@ -165,23 +175,44 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   }, [next, prev, exit])
 
   // Tap a word → inline translation
+  // Deps exclude `tap` to avoid callback churn + stale closures; toggle-off uses functional setter.
   const tapWord = useCallback(
     async (sentenceIdx: number, wordIdx: number, word: string) => {
       const key = `${sentenceIdx}:${wordIdx}`
+      // Same-lang: silent no-op, but clear any prior tap so UI stays honest
+      if (bookLanguage === nativeLanguage) {
+        setTap(null)
+        return
+      }
       // Toggle off if tapping same word
-      if (tap?.key === key) { setTap(null); return }
-      // Same source+target → no translation needed
-      if (bookLanguage === nativeLanguage) return
-      setTap({ key, text: null, loading: true })
+      let toggledOff = false
+      setTap((prev) => {
+        if (prev?.key === key) { toggledOff = true; return null }
+        return { key, text: null, loading: true }
+      })
+      if (toggledOff) {
+        abortRef.current?.abort()
+        return
+      }
+      // Cancel previous in-flight request
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
       try {
-        const res = await translateApi(word, bookLanguage, nativeLanguage)
+        const res = await translateApi(word, bookLanguage, nativeLanguage, ctrl.signal)
+        if (ctrl.signal.aborted) return
         setTap({ key, text: res.translatedText, loading: false })
-      } catch {
+      } catch (err) {
+        if (ctrl.signal.aborted) return
+        if ((err as { name?: string })?.name === 'AbortError') return
         setTap({ key, text: '—', loading: false })
       }
     },
-    [tap, bookLanguage, nativeLanguage],
+    [bookLanguage, nativeLanguage],
   )
+
+  // Abort in-flight on unmount
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   // Auth check for userbook mode
   if (mode === 'userbook' && !isAuthenticated) {
@@ -198,7 +229,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
 
   if (loading) {
     return (
-      <div className={`focus-reader${isDark ? ' focus-reader--dark' : ''}`}>
+      <div className={`focus-reader${themeClass}`}>
         <SeoHead title="Focus" noindex />
         <div className="focus-reader__sentence" />
       </div>
@@ -207,7 +238,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
 
   if (error || !sentences.length) {
     return (
-      <div className={`focus-reader${isDark ? ' focus-reader--dark' : ''}`}>
+      <div className={`focus-reader${themeClass}`}>
         <SeoHead title="Focus" noindex />
         <div className="focus-reader__sentence">
           {error || 'No readable content.'}
@@ -221,11 +252,39 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const tokens = tokenizeWords(currentSentence)
   const progress = ((clampedIdx + 1) / sentences.length) * 100
 
+  const sameLang = bookLanguage === nativeLanguage
+
   return (
-    <div className={`focus-reader${isDark ? ' focus-reader--dark' : ''}`}>
+    <div className={`focus-reader${themeClass}`}>
       <SeoHead title={title ? `${title} — Focus` : 'Focus'} noindex />
       <button
-        className="focus-reader__exit"
+        className="focus-reader__btn focus-reader__theme"
+        onClick={cycleTheme}
+        aria-label={`Theme: ${themePref}`}
+        title={`Theme: ${themePref} (click to cycle)`}
+      >
+        {themePref === 'light' ? (
+          // sun
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+        ) : themePref === 'dark' ? (
+          // moon
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+          </svg>
+        ) : (
+          // half-circle (system)
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 3v18" />
+            <path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" stroke="none" />
+          </svg>
+        )}
+      </button>
+      <button
+        className="focus-reader__btn focus-reader__exit"
         onClick={exit}
         aria-label="Exit focus mode"
         title="Exit focus mode (Esc)"
@@ -257,6 +316,11 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         })}
       </div>
       <div className="focus-reader__progress" style={{ width: `${progress}%` }} />
+      {sameLang && (
+        <div className="focus-reader__same-lang-hint">
+          Same language — tap translation disabled
+        </div>
+      )}
     </div>
   )
 }

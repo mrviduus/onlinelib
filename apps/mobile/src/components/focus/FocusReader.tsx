@@ -10,7 +10,7 @@ import {
   useColorScheme,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler'
+import { GestureDetector, Gesture } from 'react-native-gesture-handler'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
@@ -40,6 +40,9 @@ interface TapState {
   loading: boolean
 }
 
+type ThemePref = 'light' | 'dark' | 'system'
+const THEME_KEY = 'focus.theme'
+
 // Strip HTML tags on-device (no DOM in RN). Collapses whitespace.
 function htmlToText(html: string): string {
   return html
@@ -63,7 +66,25 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
   const { language } = useLanguage()
   const { nativeLanguage } = useNativeLanguage()
   const scheme = useColorScheme()
-  const isDark = scheme === 'dark'
+
+  // Theme pref (tri-state, persisted)
+  const [themePref, setThemePref] = useState<ThemePref>('system')
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_KEY)
+      .then((saved) => {
+        if (saved === 'light' || saved === 'dark' || saved === 'system') setThemePref(saved)
+      })
+      .catch(() => {})
+  }, [])
+  const cycleTheme = useCallback(() => {
+    setThemePref((p) => {
+      const next: ThemePref = p === 'system' ? 'light' : p === 'light' ? 'dark' : 'system'
+      AsyncStorage.setItem(THEME_KEY, next).catch(() => {})
+      return next
+    })
+  }, [])
+  const isDark =
+    themePref === 'dark' || (themePref === 'system' && scheme === 'dark')
 
   const [html, setHtml] = useState<string>('')
   const [bookLanguage, setBookLanguage] = useState<string>('en')
@@ -100,7 +121,9 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           if (cancelled) return
           setHtml(ch.html)
           setChapterId(ch.id)
-          setBookLanguage(language)
+          // UserBookDto has no language field yet; default 'en' to avoid
+          // silent same-lang collision when UI lang == nativeLanguage.
+          setBookLanguage('en')
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load chapter')
@@ -172,8 +195,8 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
     setCurrentIndex((i) => Math.max(0, i - 1))
   }, [])
 
-  // Vertical pan gesture with threshold. .runOnJS(true) lets the onEnd
-  // callback call React state setters without needing reanimated worklets.
+  // Vertical pan — lives on a background layer behind the content so it
+  // never competes with word onPress or ScrollView scroll.
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
@@ -190,32 +213,33 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
   )
 
   // Tap word → inline translation
+  // Deps exclude `tap` to prevent callback churn; toggle uses functional setter.
   const tapWord = useCallback(
     async (sentenceIdx: number, wordIdx: number, word: string) => {
       const key = `${sentenceIdx}:${wordIdx}`
-      // Toggle off if same word
-      if (tap?.key === key) {
+      // Same-lang: silent skip + clear any prior tap
+      if (bookLanguage === nativeLanguage) {
         setTap(null)
+        return
+      }
+      let toggledOff = false
+      setTap((prev) => {
+        if (prev?.key === key) { toggledOff = true; return null }
+        return { key, text: null, loading: true }
+      })
+      if (toggledOff) {
         abortRef.current?.abort()
         return
       }
-      // Same-lang guard (ADR requirement)
-      if (bookLanguage === nativeLanguage) return
-
-      // Cache lookup
       const cacheKey = `${bookLanguage}:${nativeLanguage}:${word.toLowerCase()}`
       const cached = cacheRef.current.get(cacheKey)
       if (cached) {
         setTap({ key, text: cached, loading: false })
         return
       }
-
-      // Cancel previous in-flight request
       abortRef.current?.abort()
       const ctrl = new AbortController()
       abortRef.current = ctrl
-
-      setTap({ key, text: null, loading: true })
       try {
         const res = await translationApi.translate(word, bookLanguage, nativeLanguage, ctrl.signal)
         if (ctrl.signal.aborted) return
@@ -227,12 +251,22 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
         setTap({ key, text: '—', loading: false })
       }
     },
-    [tap, bookLanguage, nativeLanguage],
+    [bookLanguage, nativeLanguage],
   )
 
+  // Abort in-flight on unmount
+  useEffect(() => () => abortRef.current?.abort(), [])
+
   const bg = isDark ? '#0F0F0F' : '#FAFAFA'
-  const fg = isDark ? '#E8E8E8' : '#111'
-  const muted = isDark ? '#888' : '#888'
+  const fg = isDark ? '#EDEDED' : '#111'
+  const muted = isDark ? '#B8B8B8' : '#666'
+  const btnColor = isDark ? '#CCC' : '#444'
+
+  // Theme toggle icon
+  const themeIcon =
+    themePref === 'light' ? 'sunny-outline'
+      : themePref === 'dark' ? 'moon-outline'
+      : 'contrast-outline'
 
   if (loading) {
     return (
@@ -249,7 +283,7 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           {error || 'No readable content.'}
         </Text>
         <TouchableOpacity style={styles.exit} onPress={exit} accessibilityLabel="Exit focus mode">
-          <Ionicons name="close" size={22} color={fg} />
+          <Ionicons name="close" size={22} color={btnColor} />
         </TouchableOpacity>
       </View>
     )
@@ -259,52 +293,73 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
   const currentSentence = sentences[clampedIdx]
   const tokens = tokenizeWords(currentSentence)
   const progressPct = ((clampedIdx + 1) / sentences.length) * 100
+  const sameLang = bookLanguage === nativeLanguage
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={[styles.root, { backgroundColor: bg }]} testID="focus-reader">
+      {/* Background Pan layer — absolute, behind content. Catches swipes that
+          miss the content, and words (on top) keep getting normal onPress. */}
       <GestureDetector gesture={panGesture}>
-        <View style={[styles.root, { backgroundColor: bg }]} testID="focus-reader">
-          <TouchableOpacity style={styles.exit} onPress={exit} accessibilityLabel="Exit focus mode">
-            <Ionicons name="close" size={22} color={fg} />
-          </TouchableOpacity>
-
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.sentenceWrap}>
-              <Text style={[styles.sentence, { color: fg }]} accessibilityLiveRegion="polite">
-                {tokens.map((t, i) => {
-                  const k = `${clampedIdx}:${i}`
-                  const active = tap?.key === k
-                  return (
-                    <Text key={k}>
-                      <Text
-                        style={styles.word}
-                        onPress={() => tapWord(clampedIdx, i, t.word)}
-                      >
-                        {t.word}
-                      </Text>
-                      {active && (tap?.loading ? (
-                        <Text style={[styles.translation, { color: muted }]}> …</Text>
-                      ) : tap?.text ? (
-                        <Text style={[styles.translation, { color: muted }]}> {tap.text}</Text>
-                      ) : null)}
-                      <Text>{t.trailing}</Text>
-                    </Text>
-                  )
-                })}
-              </Text>
-            </View>
-          </ScrollView>
-
-          <View style={[styles.progressTrack, { backgroundColor: isDark ? '#333' : '#e5e5e5' }]}>
-            <View style={[styles.progressBar, { width: `${progressPct}%`, backgroundColor: fg }]} />
-          </View>
-        </View>
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-only" />
       </GestureDetector>
-    </GestureHandlerRootView>
+
+      {/* Top-right controls */}
+      <TouchableOpacity
+        style={[styles.topBtn, styles.themeBtn]}
+        onPress={cycleTheme}
+        accessibilityLabel={`Theme: ${themePref}`}
+      >
+        <Ionicons name={themeIcon as 'sunny-outline'} size={20} color={btnColor} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.topBtn, styles.exit]}
+        onPress={exit}
+        accessibilityLabel="Exit focus mode"
+      >
+        <Ionicons name="close" size={22} color={btnColor} />
+      </TouchableOpacity>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.sentenceWrap}>
+          <Text style={[styles.sentence, { color: fg }]} accessibilityLiveRegion="polite">
+            {tokens.map((t, i) => {
+              const k = `${clampedIdx}:${i}`
+              const active = tap?.key === k
+              return (
+                <Text key={k}>
+                  <Text
+                    style={styles.word}
+                    onPress={() => tapWord(clampedIdx, i, t.word)}
+                  >
+                    {t.word}
+                  </Text>
+                  {active && (tap?.loading ? (
+                    <Text style={[styles.translation, { color: muted }]}> …</Text>
+                  ) : tap?.text ? (
+                    <Text style={[styles.translation, { color: muted }]}> {tap.text}</Text>
+                  ) : null)}
+                  <Text>{t.trailing}</Text>
+                </Text>
+              )
+            })}
+          </Text>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.progressTrack, { backgroundColor: isDark ? '#333' : '#e5e5e5' }]}>
+        <View style={[styles.progressBar, { width: `${progressPct}%`, backgroundColor: fg }]} />
+      </View>
+
+      {sameLang && (
+        <Text style={[styles.sameLang, { color: muted }]}>
+          Same language — tap translation disabled
+        </Text>
+      )}
+    </View>
   )
 }
 
@@ -343,13 +398,17 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontFamily: fonts.sans,
   },
-  exit: {
+  topBtn: {
     position: 'absolute',
     top: 48,
-    right: 16,
     zIndex: 10,
     padding: 10,
-    opacity: 0.5,
+  },
+  exit: {
+    right: 16,
+  },
+  themeBtn: {
+    right: 56,
   },
   progressTrack: {
     position: 'absolute',
@@ -361,5 +420,12 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     opacity: 0.4,
+  },
+  sameLang: {
+    position: 'absolute',
+    bottom: 10,
+    fontSize: 11,
+    alignSelf: 'center',
+    opacity: 0.7,
   },
 })

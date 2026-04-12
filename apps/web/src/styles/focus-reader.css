@@ -1,24 +1,51 @@
 /* Focus Mode — minimal sentence-by-sentence reader.
-   Intentionally ignores the global reader theme: spec hardcodes bg colors. */
+   Theme is resolved on the root element via .focus-reader--light / --dark.
+   No class => falls back to OS via prefers-color-scheme. */
 
 .focus-reader {
+  --fr-bg: #FAFAFA;
+  --fr-fg: #111;
+  --fr-translation: #666;
+  --fr-word-hover: rgba(0, 0, 0, 0.08);
+  --fr-btn-opacity: 0.45;
+
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: #FAFAFA;
-  color: #111;
+  background: var(--fr-bg);
+  color: var(--fr-fg);
   overflow: hidden;
   /* Block iOS pull-to-refresh interfering with vertical swipes */
   overscroll-behavior: none;
   touch-action: pan-y;
 }
 
+/* Explicit overrides beat the OS media query below */
+.focus-reader--light {
+  --fr-bg: #FAFAFA;
+  --fr-fg: #111;
+  --fr-translation: #666;
+  --fr-word-hover: rgba(0, 0, 0, 0.08);
+}
+
 .focus-reader--dark {
-  background: #0F0F0F;
-  color: #E8E8E8;
+  --fr-bg: #0F0F0F;
+  --fr-fg: #EDEDED;
+  --fr-translation: #B8B8B8;
+  --fr-word-hover: rgba(255, 255, 255, 0.1);
+}
+
+/* OS-level dark only when no explicit theme class is present */
+@media (prefers-color-scheme: dark) {
+  .focus-reader:not(.focus-reader--light):not(.focus-reader--dark) {
+    --fr-bg: #0F0F0F;
+    --fr-fg: #EDEDED;
+    --fr-translation: #B8B8B8;
+    --fr-word-hover: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .focus-reader__sentence {
@@ -30,7 +57,6 @@
   text-align: center;
   overflow-y: auto;
   max-height: 80vh;
-  /* Allow inline translations to wrap naturally */
   word-break: break-word;
 }
 
@@ -42,12 +68,12 @@
 }
 
 .focus-reader__word:hover {
-  background-color: rgba(127, 127, 127, 0.12);
+  background-color: var(--fr-word-hover);
 }
 
 .focus-reader__translation {
   font-size: 0.7em;
-  color: #888;
+  color: var(--fr-translation);
   margin: 0 4px;
   font-style: italic;
   white-space: nowrap;
@@ -64,22 +90,41 @@
   pointer-events: none;
 }
 
-.focus-reader__exit {
+.focus-reader__btn {
   position: fixed;
   top: 16px;
-  right: 16px;
   padding: 8px;
   background: transparent;
   border: none;
   color: currentColor;
-  opacity: 0.4;
+  opacity: var(--fr-btn-opacity);
   cursor: pointer;
   transition: opacity 120ms ease;
   z-index: 10;
+  line-height: 0;
 }
 
-.focus-reader__exit:hover {
+.focus-reader__btn:hover {
   opacity: 1;
+}
+
+.focus-reader__exit {
+  right: 16px;
+}
+
+.focus-reader__theme {
+  right: 56px;
+}
+
+.focus-reader__same-lang-hint {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  opacity: 0.55;
+  letter-spacing: 0.02em;
+  pointer-events: none;
 }
 
 @media (max-width: 480px) {

@@ -14,7 +14,8 @@ export interface LanguageInfo {
 export async function translate(
   text: string,
   sourceLang: string,
-  targetLang: string
+  targetLang: string,
+  signal?: AbortSignal,
 ): Promise<TranslateResponse> {
   const res = await fetch(`${API_BASE}/api/translate`, {
     method: 'POST',
@@ -24,6 +25,7 @@ export async function translate(
       sourceLang,
       targetLang,
     }),
+    signal,
   })
 
   if (!res.ok) {

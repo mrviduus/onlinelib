@@ -3,6 +3,7 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { setupApi } from '../src/lib/api'
 import { setupNotifications, requestPermissions, scheduleSmartReminder } from '../src/lib/notifications'
 
@@ -80,18 +81,20 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null
 
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <LanguageProvider>
-          <NativeLanguageProvider>
-            <AuthProvider>
-              <DownloadProvider>
-                <AppContent />
-              </DownloadProvider>
-            </AuthProvider>
-          </NativeLanguageProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <LanguageProvider>
+            <NativeLanguageProvider>
+              <AuthProvider>
+                <DownloadProvider>
+                  <AppContent />
+                </DownloadProvider>
+              </AuthProvider>
+            </NativeLanguageProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   )
 }
