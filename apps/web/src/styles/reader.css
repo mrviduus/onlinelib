@@ -215,51 +215,6 @@ html[data-theme="dark"] .reader-main {
   -webkit-touch-callout: none;
 }
 
-/* Single-word selection → minimal translation bubble with auto-fade. */
-.translation-bubble {
-  position: absolute;
-  transform: translateX(-50%);
-  padding: 4px 10px;
-  background: rgba(20, 20, 20, 0.92);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 14px;
-  line-height: 1.2;
-  font-family: system-ui, -apple-system, sans-serif;
-  white-space: nowrap;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-  z-index: 20;
-  opacity: 1;
-  transition: opacity 200ms ease;
-}
-
-.translation-bubble--fading {
-  opacity: 0;
-}
-
-/* Subtle "Saved ✓" badge — absolute overlay, no layout shift. */
-.translation-bubble__saved {
-  position: absolute;
-  top: 2px;
-  right: 6px;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1;
-  text-transform: uppercase;
-  opacity: 0;
-  transition: opacity 160ms ease;
-  pointer-events: none;
-}
-
-.translation-bubble__saved--visible {
-  opacity: 1;
-}
-
 /* Desktop: two-column pages with horizontal pagination */
 @media (min-width: 900px) {
   .reader-content {

@@ -5,6 +5,8 @@ import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
+import { useDictionary } from '../../hooks/useDictionary'
+import { useTranslation } from '../../hooks/useTranslation'
 import { translate as translateApi } from '../../api/translation'
 import { updateWord } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
@@ -14,7 +16,7 @@ import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
-import { TranslationBubble, type BubbleState } from './TranslationBubble'
+import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
 
 interface ReaderHighlightsProps {
@@ -57,7 +59,8 @@ export function ReaderHighlights({
   showInlineTranslations = false,
   children,
 }: ReaderHighlightsProps) {
-  const { nativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
+  const { t } = useTranslation()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const targetLang = resolveTargetLang(nativeLanguage, bookLanguage)
 
@@ -68,54 +71,78 @@ export function ReaderHighlights({
   const isSingleWord = hasSelection && selectionWordCount === 1
 
   // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
-  const { vocabMap, addWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, markAsKnown, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
 
-  // --- Single-word translation bubble ---
+  // --- Dictionary (phonetic + definition) ---
+  const { lookup: lookupWord } = useDictionary()
+
+  // --- Single-word popup state ---
   const [bubble, setBubble] = useState<{
     word: string
     translation: string | null
-    state: BubbleState
+    translationLoading: boolean
+    phonetic: string | undefined
+    definition: string | null
+    definitionLoading: boolean
     rect: DOMRect | null
-    saved: boolean
   } | null>(null)
   const bubbleAbortRef = useRef<AbortController | null>(null)
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const clearSavedTimer = useCallback(() => {
-    if (savedTimerRef.current) {
-      clearTimeout(savedTimerRef.current)
-      savedTimerRef.current = null
-    }
-  }, [])
 
   const closeBubble = useCallback(() => {
     bubbleAbortRef.current?.abort()
-    clearSavedTimer()
     setBubble(null)
-  }, [clearSavedTimer])
+    // Clear selection to break the effect loop: without this, selection persists,
+    // isSingleWord stays true, bubble is null → effect re-fires → mercание.
+    clearSelection()
+  }, [clearSelection])
 
-  // Trigger bubble when selection narrows to 1 word.
+  // Trigger popup when selection narrows to 1 word.
   useEffect(() => {
     if (!isSingleWord || !selection.rect || !selection.text) {
-      // Selection cleared or grew → drop any open bubble.
-      if (!isSingleWord) closeBubble()
+      // Selection cleared or grew → drop any open popup (no clearSelection here —
+      // caller already changed selection, avoid recursion).
+      if (!isSingleWord) {
+        bubbleAbortRef.current?.abort()
+        setBubble(null)
+      }
       return
     }
     const word = selection.text.trim()
-    // Same-lang: show the word itself as "translation" is meaningless.
-    // Instead show nothing (bail) — keeps UX honest.
-    if (!targetLang) {
-      closeBubble()
-      return
-    }
     // If same word already shown, don't re-fetch.
     if (bubble?.word === word) return
 
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
-    setBubble({ word, translation: null, state: 'loading', rect: selection.rect, saved: false })
-    clearSavedTimer()
+    setBubble({
+      word,
+      translation: null,
+      translationLoading: !!targetLang,
+      phonetic: undefined,
+      definition: null,
+      definitionLoading: true,
+      rect: selection.rect,
+    })
+
+    // Dictionary lookup (phonetic + definition) — runs regardless of targetLang.
+    lookupWord(word, bookLanguage)
+      .then((entry) => {
+        if (ctrl.signal.aborted) return
+        setBubble((prev) =>
+          prev && prev.word === word
+            ? {
+                ...prev,
+                phonetic: entry?.phonetic,
+                definition: entry?.definitions?.[0]?.definitions?.[0]?.definition ?? null,
+                definitionLoading: false,
+              }
+            : prev,
+        )
+      })
+      .catch(() => {
+        if (ctrl.signal.aborted) return
+        setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
+      })
 
     // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
     const shouldSave = !vocabMap.has(word.toLowerCase())
@@ -136,41 +163,41 @@ export function ReaderHighlights({
         }).catch(() => null)
       : Promise.resolve(null)
 
-    Promise.all([savePromise, translateApi(word, bookLanguage, targetLang, ctrl.signal)])
+    const translationPromise = targetLang
+      ? translateApi(word, bookLanguage, targetLang, ctrl.signal)
+      : Promise.resolve(null)
+
+    Promise.all([savePromise, translationPromise])
       .then(([saved, res]) => {
         if (ctrl.signal.aborted) return
-        const didSave = shouldSave && saved != null
-        setBubble({
-          word, translation: res.translatedText, state: 'ready',
-          rect: selection.rect, saved: didSave,
-        })
-        if (didSave) {
-          clearSavedTimer()
-          savedTimerRef.current = setTimeout(() => {
-            setBubble(b => (b && b.word === word) ? { ...b, saved: false } : b)
-          }, 1000)
-        }
-        if (res.translatedText) {
-          if (saved?.id) updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
-          updateTranslation(word, res.translatedText)
+        const translatedText = res?.translatedText ?? null
+        setBubble((prev) =>
+          prev && prev.word === word
+            ? { ...prev, translation: translatedText, translationLoading: false }
+            : prev,
+        )
+        if (translatedText) {
+          if (saved?.id) updateWord(saved.id, { translation: translatedText }).catch(() => {})
+          updateTranslation(word, translatedText)
         }
       })
       .catch((err) => {
         if (ctrl.signal.aborted) return
         if ((err as { name?: string })?.name === 'AbortError') return
-        setBubble({ word, translation: null, state: 'error', rect: selection.rect, saved: false })
+        setBubble((prev) =>
+          prev && prev.word === word ? { ...prev, translationLoading: false } : prev,
+        )
       })
   }, [
     isSingleWord, selection.text, selection.rect, selection.range,
-    bookLanguage, targetLang, bubble?.word, closeBubble, clearSavedTimer,
-    vocabMap, addWord, updateTranslation,
+    bookLanguage, targetLang, bubble?.word,
+    vocabMap, addWord, updateTranslation, lookupWord,
     containerRef, editionId, chapterId, userBookId, bookTitle,
   ])
 
-  // Clean abort + saved timer on unmount
+  // Clean abort on unmount
   useEffect(() => () => {
     bubbleAbortRef.current?.abort()
-    if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
   }, [])
 
   // --- Highlights ---
@@ -232,6 +259,12 @@ export function ReaderHighlights({
   const handleSpeak = useCallback((text: string, lang?: string) => {
     speak(text, lang || bookLanguage, undefined, ttsSpeed)
   }, [speak, bookLanguage, ttsSpeed])
+
+  // Auto-play TTS when popup opens on a new word (not on every translation/definition update).
+  useEffect(() => {
+    if (bubble?.word) handleSpeak(bubble.word)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bubble?.word])
 
   // --- Multi-word translation popup ---
   const {
@@ -318,17 +351,31 @@ export function ReaderHighlights({
         />
       )}
 
-      {/* Single-word selection → minimal auto-fading bubble */}
-      {bubble && isSingleWord && !showTranslation && (
-        <TranslationBubble
-          word={bubble.word}
-          translation={bubble.translation}
-          state={bubble.state}
-          rect={bubble.rect}
-          saved={bubble.saved}
-          onClose={closeBubble}
-        />
-      )}
+      {/* Single-word selection → full WordPopup (phonetic, translation, definition, I know/Ignore) */}
+      {bubble && isSingleWord && !showTranslation && (() => {
+        const entry = vocabMap.get(bubble.word.toLowerCase())
+        return (
+          <WordPopup
+            word={bubble.word}
+            phonetic={bubble.phonetic}
+            translation={bubble.translation}
+            translationLoading={bubble.translationLoading}
+            definition={bubble.definition}
+            definitionLoading={bubble.definitionLoading}
+            rect={bubble.rect}
+            containerRef={containerRef}
+            onSpeak={() => handleSpeak(bubble.word)}
+            onMarkKnown={entry?.id ? () => { markAsKnown(entry.id!, bubble.word); closeBubble() } : undefined}
+            onRemove={entry?.id ? () => { removeWord(entry.id!, bubble.word); closeBubble() } : undefined}
+            onClose={closeBubble}
+            vocabStage={entry?.stage ?? null}
+            nativeLanguage={nativeLanguage}
+            onChangeNativeLanguage={setNativeLanguage}
+            bookLanguage={bookLanguage}
+            t={t}
+          />
+        )
+      })()}
 
       {showTranslation && (
         <TranslationPopup

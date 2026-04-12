@@ -40,7 +40,8 @@
       "translatingTo": "Переклад на",
       "change": "Змінити",
       "definitionMode": "Визначення",
-      "translateTo": "Перекласти на..."
+      "translateTo": "Перекласти на...",
+      "searchLanguage": "Пошук мови..."
     }
   },
   "onboarding": {

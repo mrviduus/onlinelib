@@ -40,7 +40,8 @@
       "translatingTo": "Translating to",
       "change": "Change",
       "definitionMode": "Definition",
-      "translateTo": "Translate to..."
+      "translateTo": "Translate to...",
+      "searchLanguage": "Search language..."
     }
   },
   "onboarding": {
