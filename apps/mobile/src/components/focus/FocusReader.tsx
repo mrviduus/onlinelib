@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router'
 import { GestureDetector, Gesture } from 'react-native-gesture-handler'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createBooksApi,
   userBooksApi,
@@ -61,11 +62,15 @@ function htmlToText(html: string): string {
 
 const SWIPE_THRESHOLD = 50
 
+// Simple LRU cap for per-session translation cache.
+const CACHE_MAX = 200
+
 export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const { nativeLanguage } = useNativeLanguage()
   const scheme = useColorScheme()
+  const insets = useSafeAreaInsets()
 
   // Theme pref (tri-state, persisted)
   const [themePref, setThemePref] = useState<ThemePref>('system')
@@ -243,7 +248,13 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
       try {
         const res = await translationApi.translate(word, bookLanguage, nativeLanguage, ctrl.signal)
         if (ctrl.signal.aborted) return
-        cacheRef.current.set(cacheKey, res.translatedText)
+        const cache = cacheRef.current
+        // LRU-ish: drop the oldest entry when we hit cap
+        if (cache.size >= CACHE_MAX) {
+          const oldest = cache.keys().next().value
+          if (oldest !== undefined) cache.delete(oldest)
+        }
+        cache.set(cacheKey, res.translatedText)
         setTap({ key, text: res.translatedText, loading: false })
       } catch (err) {
         if (ctrl.signal.aborted) return
@@ -305,14 +316,14 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
 
       {/* Top-right controls */}
       <TouchableOpacity
-        style={[styles.topBtn, styles.themeBtn]}
+        style={[styles.topBtn, styles.themeBtn, { top: insets.top + 8 }]}
         onPress={cycleTheme}
         accessibilityLabel={`Theme: ${themePref}`}
       >
         <Ionicons name={themeIcon as 'sunny-outline'} size={20} color={btnColor} />
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.topBtn, styles.exit]}
+        style={[styles.topBtn, styles.exit, { top: insets.top + 8 }]}
         onPress={exit}
         accessibilityLabel="Exit focus mode"
       >
@@ -325,10 +336,16 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           pointerEvents="none"
           style={[
             styles.tooltip,
-            { backgroundColor: isDark ? '#EDEDED' : '#222' },
+            {
+              top: insets.top + 52,
+              backgroundColor: isDark ? '#EDEDED' : '#222',
+            },
           ]}
         >
-          <Text style={[styles.tooltipText, { color: isDark ? '#111' : '#fff' }]}>
+          <Text
+            style={[styles.tooltipText, { color: isDark ? '#111' : '#fff' }]}
+            numberOfLines={2}
+          >
             {tap.loading ? '…' : tap.text || '—'}
           </Text>
         </View>
@@ -367,11 +384,11 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
         </View>
       </ScrollView>
 
-      <Text style={[styles.counter, { color: muted }]}>
+      <Text style={[styles.counter, { color: muted, top: insets.top + 12 }]}>
         {clampedIdx + 1} / {sentences.length}
       </Text>
 
-      <View style={styles.progressRow} pointerEvents="none">
+      <View style={[styles.progressRow, { bottom: insets.bottom + 12 }]} pointerEvents="none">
         <Text style={[styles.percent, { color: muted }]}>
           {Math.round(progressPct)}%
         </Text>
@@ -381,7 +398,7 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
       </View>
 
       {sameLang && (
-        <Text style={[styles.sameLang, { color: muted }]}>
+        <Text style={[styles.sameLang, { color: muted, bottom: insets.bottom + 32 }]}>
           Same language — tap translation disabled
         </Text>
       )}
@@ -418,8 +435,8 @@ const styles = StyleSheet.create({
   },
   tooltip: {
     position: 'absolute',
-    top: 90,
     alignSelf: 'center',
+    maxWidth: '80%',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -434,10 +451,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.sans,
     fontWeight: '500',
+    textAlign: 'center',
   },
   topBtn: {
     position: 'absolute',
-    top: 48,
     zIndex: 10,
     padding: 10,
   },
@@ -449,7 +466,6 @@ const styles = StyleSheet.create({
   },
   progressRow: {
     position: 'absolute',
-    bottom: 16,
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -475,7 +491,6 @@ const styles = StyleSheet.create({
   },
   counter: {
     position: 'absolute',
-    top: 52,
     alignSelf: 'center',
     fontSize: 12,
     letterSpacing: 1,
@@ -484,7 +499,6 @@ const styles = StyleSheet.create({
   },
   sameLang: {
     position: 'absolute',
-    bottom: 10,
     fontSize: 11,
     alignSelf: 'center',
     opacity: 0.7,
