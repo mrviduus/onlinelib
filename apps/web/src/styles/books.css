@@ -539,6 +539,135 @@
   }
 }
 
+/* Language picker (searchable combobox) */
+.lang-picker {
+  position: relative;
+}
+
+.lang-picker__popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--color-bg, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  max-height: 440px;
+  overflow: hidden;
+}
+
+.lang-picker__search {
+  padding: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.lang-picker__input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #191919);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.lang-picker__input:focus {
+  border-color: var(--color-accent, #8B5A2B);
+}
+
+.lang-picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.lang-picker__section {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary, #666);
+  opacity: 0.6;
+  user-select: none;
+}
+
+.lang-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text, #191919);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.lang-picker__option.highlighted {
+  background: var(--color-bg-warm, #FAF8F5);
+}
+
+.lang-picker__option.selected {
+  font-weight: 600;
+}
+
+.lang-picker__option.selected::after {
+  content: '✓';
+  margin-left: auto;
+  color: var(--color-accent, #8B5A2B);
+}
+
+.lang-picker__flag {
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.lang-picker__native {
+  flex-shrink: 0;
+}
+
+.lang-picker__english {
+  color: var(--color-text-secondary, #666);
+  font-size: 12px;
+  opacity: 0.7;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.lang-picker__option.selected .lang-picker__english {
+  margin-left: 0;
+}
+
+.lang-picker__empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--color-text-secondary, #666);
+  font-size: 13px;
+}
+
+/* Mobile: narrower popover anchored to viewport */
+@media (max-width: 480px) {
+  .lang-picker__popover {
+    width: calc(100vw - 24px);
+    left: auto;
+    right: 0;
+    max-height: 70vh;
+  }
+}
+
 /* Catalogue filters (shared between books & authors) */
 .catalogue-filters {
   display: flex;

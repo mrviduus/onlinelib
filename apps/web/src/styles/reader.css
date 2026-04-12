@@ -1705,15 +1705,48 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   position: absolute;
   bottom: 100%;
   left: 0;
+  right: 0;
+  margin-bottom: 4px;
   background: var(--reader-bg, #fff);
   border: 1px solid var(--reader-border, rgba(0,0,0,0.1));
   border-radius: 8px;
   padding: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  min-width: 220px;
+  max-height: 320px;
+}
+.word-popup__lang-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border: 1px solid var(--reader-border, rgba(0,0,0,0.1));
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--reader-bg, #fff);
+  color: var(--reader-text, #1a1a1a);
+  outline: none;
+}
+.word-popup__lang-search:focus {
+  border-color: var(--color-accent, #638fd6);
+}
+.word-popup__lang-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 10;
+  overflow-y: auto;
+  max-height: 260px;
+}
+.word-popup__lang-section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--reader-secondary, #999);
+  padding: 6px 10px 2px;
+  font-weight: 600;
 }
 .word-popup__lang-option {
   display: flex;
@@ -1727,9 +1760,25 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   border-radius: 6px;
   white-space: nowrap;
   color: var(--reader-text, #1a1a1a);
+  text-align: left;
 }
 .word-popup__lang-option:hover {
   background: rgba(0,0,0,0.05);
+}
+.word-popup__lang-native {
+  font-weight: 500;
+}
+.word-popup__lang-english {
+  color: var(--reader-secondary, #999);
+  font-size: 11px;
+  margin-left: auto;
+  padding-left: 8px;
+}
+.word-popup__lang-empty {
+  font-size: 12px;
+  color: var(--reader-secondary, #999);
+  text-align: center;
+  padding: 12px;
 }
 
 /* Ghost hint label */

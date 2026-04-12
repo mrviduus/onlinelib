@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
-import { NATIVE_LANGUAGES, getFlagUrl } from '../../context/NativeLanguageContext'
+import { getFlagUrl } from '../../context/NativeLanguageContext'
+import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage } from '../../data/languages'
 
 const AUTO_DISMISS_MS = 3000
 const EXIT_DURATION_MS = 150
@@ -45,11 +46,26 @@ export function WordPopup({
   t,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const [showLangPicker, setShowLangPicker] = useState(false)
+  const [langQuery, setLangQuery] = useState('')
   const [closing, setClosing] = useState(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const filteredLangs = useMemo(() => {
+    const q = langQuery.trim().toLowerCase()
+    if (!q) return null
+    return LANGUAGES.filter(
+      (l) =>
+        l.code !== nativeLanguage && (
+          l.englishName.toLowerCase().includes(q) ||
+          l.nativeName.toLowerCase().includes(q) ||
+          l.code.toLowerCase().startsWith(q)
+        ),
+    )
+  }, [langQuery, nativeLanguage])
 
   const animatedClose = useCallback(() => {
     if (closing) return
@@ -77,9 +93,14 @@ export function WordPopup({
     return () => clearTimeout(dismissTimerRef.current)
   }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cancel auto-dismiss when lang picker is open
+  // Cancel auto-dismiss when lang picker is open + autofocus search
   useEffect(() => {
-    if (showLangPicker) cancelAutoDismiss()
+    if (showLangPicker) {
+      cancelAutoDismiss()
+      setTimeout(() => searchInputRef.current?.focus(), 0)
+    } else {
+      setLangQuery('')
+    }
   }, [showLangPicker, cancelAutoDismiss])
 
   // Position popup relative to word rect
@@ -134,7 +155,7 @@ export function WordPopup({
 
   if (!rect) return null
 
-  const langLabel = NATIVE_LANGUAGES.find(l => l.code === nativeLanguage)?.label || nativeLanguage
+  const langLabel = getLanguage(nativeLanguage)?.nativeName || nativeLanguage
 
   return (
     <div
@@ -239,21 +260,99 @@ export function WordPopup({
         )}
         {showLangPicker && (
           <div className="word-popup__lang-dropdown">
-            {NATIVE_LANGUAGES.filter(l => l.code !== nativeLanguage).map(l => (
-              <button
-                key={l.code}
-                className="word-popup__lang-option"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onChangeNativeLanguage(l.code)
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={langQuery}
+              onChange={(e) => setLangQuery(e.target.value)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault()
                   setShowLangPicker(false)
                   scheduleAutoDismiss()
-                }}
-              >
-                <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
-                {l.label}
-              </button>
-            ))}
+                } else if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const list = filteredLangs ?? LANGUAGES.filter(l => l.code !== nativeLanguage)
+                  const first = list[0]
+                  if (first) {
+                    onChangeNativeLanguage(first.code)
+                    setShowLangPicker(false)
+                    scheduleAutoDismiss()
+                  }
+                }
+              }}
+              placeholder={t('reader.wordPopup.searchLanguage') || 'Search language...'}
+              className="word-popup__lang-search"
+              autoComplete="off"
+            />
+            <div className="word-popup__lang-list">
+              {filteredLangs ? (
+                filteredLangs.length === 0 ? (
+                  <div className="word-popup__lang-empty">No results</div>
+                ) : (
+                  filteredLangs.map((l) => (
+                    <button
+                      key={l.code}
+                      className="word-popup__lang-option"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        onChangeNativeLanguage(l.code)
+                        setShowLangPicker(false)
+                        scheduleAutoDismiss()
+                      }}
+                    >
+                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
+                      <span className="word-popup__lang-native">{l.nativeName}</span>
+                      {l.englishName !== l.nativeName && (
+                        <span className="word-popup__lang-english">{l.englishName}</span>
+                      )}
+                    </button>
+                  ))
+                )
+              ) : (
+                <>
+                  <div className="word-popup__lang-section">Popular</div>
+                  {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
+                    <button
+                      key={l.code}
+                      className="word-popup__lang-option"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        onChangeNativeLanguage(l.code)
+                        setShowLangPicker(false)
+                        scheduleAutoDismiss()
+                      }}
+                    >
+                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
+                      <span className="word-popup__lang-native">{l.nativeName}</span>
+                      {l.englishName !== l.nativeName && (
+                        <span className="word-popup__lang-english">{l.englishName}</span>
+                      )}
+                    </button>
+                  ))}
+                  <div className="word-popup__lang-section">All languages</div>
+                  {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
+                    <button
+                      key={l.code}
+                      className="word-popup__lang-option"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        onChangeNativeLanguage(l.code)
+                        setShowLangPicker(false)
+                        scheduleAutoDismiss()
+                      }}
+                    >
+                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
+                      <span className="word-popup__lang-native">{l.nativeName}</span>
+                      {l.englishName !== l.nativeName && (
+                        <span className="word-popup__lang-english">{l.englishName}</span>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

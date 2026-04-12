@@ -9,7 +9,9 @@ try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
-import { useNativeLanguage, NATIVE_LANGUAGES, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
+import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
+import { getLanguage, getFlagEmoji } from '../../src/data/languages'
+import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
@@ -30,6 +32,7 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [langPickerOpen, setLangPickerOpen] = useState(false)
 
   const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
 
@@ -166,30 +169,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* I know (native language) */}
-        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
+        {/* I know (native language) — searchable picker */}
+        <TouchableOpacity
+          style={[styles.menuItem, { borderBottomColor: colors.border }]}
+          onPress={() => setLangPickerOpen(true)}
+          activeOpacity={0.7}
+        >
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
           <Text style={[styles.menuText, { color: colors.text }]}>I know</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
-            {NATIVE_LANGUAGES.map(lang => (
-              <TouchableOpacity
-                key={lang.code}
-                onPress={() => setNativeLanguage(lang.code)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  backgroundColor: nativeLanguage === lang.code ? colors.primaryLight : 'transparent',
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: nativeLanguage === lang.code ? colors.primary : colors.textSecondary }}>
-                  {lang.flag} {lang.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 18 }}>{getFlagEmoji(nativeLanguage)}</Text>
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.textSecondary }}>
+              {getLanguage(nativeLanguage)?.nativeName || nativeLanguage}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          </View>
+        </TouchableOpacity>
 
         {/* I'm learning (target language) */}
         <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
@@ -269,6 +264,13 @@ export default function ProfileScreen() {
           <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+
+      <LanguagePickerModal
+        visible={langPickerOpen}
+        onClose={() => setLangPickerOpen(false)}
+        value={nativeLanguage}
+        onChange={setNativeLanguage}
+      />
     </ScrollView>
   )
 }
