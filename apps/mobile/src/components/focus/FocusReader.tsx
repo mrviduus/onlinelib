@@ -378,18 +378,10 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           <Text style={[styles.sentence, { color: fg }]} accessibilityLiveRegion="polite">
             {tokens.map((t, i) => {
               const k = `${clampedIdx}:${i}`
-              const active = tap?.key === k
-              const wordStyle = [
-                sameLang ? null : {
-                  textDecorationLine: 'underline' as const,
-                  textDecorationStyle: 'dotted' as const,
-                  textDecorationColor: active ? fg : (isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'),
-                },
-              ]
+              const _active = tap?.key === k
               return (
                 <Text key={k}>
                   <Text
-                    style={wordStyle}
                     onPressIn={sameLang ? undefined : () => {
                       cancelPress()
                       pressTimerRef.current = setTimeout(() => {
