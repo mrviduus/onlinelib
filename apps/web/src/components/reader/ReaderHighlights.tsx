@@ -28,7 +28,6 @@ interface ReaderHighlightsProps {
   ttsSpeed?: number
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
-  onWordLimitHit?: () => void
   children: React.ReactNode
 }
 
@@ -56,7 +55,6 @@ export function ReaderHighlights({
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
-  onWordLimitHit,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage } = useNativeLanguage()
@@ -69,19 +67,8 @@ export function ReaderHighlights({
   const selectionWordCount = countWords(selection.text)
   const isSingleWord = hasSelection && selectionWordCount === 1
 
-  // --- Vocab map + save/update (auth → API, guest → localStorage) ---
-  const {
-    vocabMap, addWord, updateTranslation,
-    wordLimitHit, clearWordLimitHit,
-  } = useReaderVocabulary(bookLanguage, targetLang)
-
-  // Guest word-limit → surface to parent for paywall
-  useEffect(() => {
-    if (wordLimitHit && onWordLimitHit) {
-      onWordLimitHit()
-      clearWordLimitHit()
-    }
-  }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
+  // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
+  const { vocabMap, addWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
 
   // --- Single-word translation bubble ---
   const [bubble, setBubble] = useState<{

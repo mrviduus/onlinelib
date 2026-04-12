@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { useGuestLimits, type GuestWord } from '../context/GuestLimitsContext'
 import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest } from '../api/vocabulary'
 import { translate as translateWord } from '../api/translation'
 
 export type VocabMap = Map<string, { stage: number; id?: string; translation?: string }>
 
 export function useReaderVocabulary(bookLanguage?: string, targetLang?: string | null) {
-  const { isAuthenticated } = useAuth()
-  const { guestState, addGuestWord, isWordLimitReached } = useGuestLimits()
+  const { isAuthenticated, waitForSession } = useAuth()
   const [vocabMap, setVocabMap] = useState<VocabMap>(new Map())
   const [loading, setLoading] = useState(false)
-  const [wordLimitHit, setWordLimitHit] = useState(false)
   const mapRef = useRef<VocabMap>(new Map())
   const backfillDone = useRef(false)
+  // Keep auth state available inside async callbacks without stale-closure races.
+  const isAuthRef = useRef(isAuthenticated)
+  isAuthRef.current = isAuthenticated
 
   const commitMap = useCallback((map: VocabMap) => {
     mapRef.current = map
@@ -26,32 +26,27 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     commitMap(next)
   }, [commitMap])
 
-  // Load vocab: API for auth users, localStorage for guests
+  // Load vocab from API once a session exists (guest or real).
   useEffect(() => {
-    if (isAuthenticated) {
-      let cancelled = false
-      setLoading(true)
-      getReaderVocab()
-        .then((words) => {
-          if (cancelled) return
-          const m: VocabMap = new Map()
-          for (const w of words) {
-            m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id, translation: w.translation })
-          }
-          commitMap(m)
-        })
-        .catch(() => {})
-        .finally(() => { if (!cancelled) setLoading(false) })
-      return () => { cancelled = true }
-    } else {
-      // Guest: build vocab map from localStorage
-      const m: VocabMap = new Map()
-      for (const w of guestState.savedWords) {
-        m.set(w.word.toLowerCase(), { stage: 0, translation: w.translation || undefined })
-      }
-      commitMap(m)
+    if (!isAuthenticated) {
+      commitMap(new Map())
+      return
     }
-  }, [isAuthenticated, guestState.savedWords, commitMap])
+    let cancelled = false
+    setLoading(true)
+    getReaderVocab()
+      .then((words) => {
+        if (cancelled) return
+        const m: VocabMap = new Map()
+        for (const w of words) {
+          m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id, translation: w.translation })
+        }
+        commitMap(m)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [isAuthenticated, commitMap])
 
   // Backfill translations for words missing them
   useEffect(() => {
@@ -87,36 +82,22 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
   }, [vocabMap, loading, targetLang, bookLanguage, updateMap])
 
   const addWord = useCallback(async (req: SaveWordRequest) => {
-    if (isAuthenticated) {
-      const saved = await saveWord(req)
-      const key = saved.word.toLowerCase()
-      const existing = mapRef.current.get(key)
-      if (existing && existing.id === saved.id && existing.stage === saved.stage) {
-        return saved
-      }
-      updateMap(m => m.set(key, {
-        stage: saved.stage, id: saved.id,
-        translation: existing?.translation || saved.translation || undefined,
-      }))
+    // Gate: block first tap until AuthContext has finished bootstrapping (B2).
+    await waitForSession()
+    // After bootstrap, if we still have no session, we're in local guest mode — silent no-op (B3).
+    if (!isAuthRef.current) return null
+    const saved = await saveWord(req)
+    const key = saved.word.toLowerCase()
+    const existing = mapRef.current.get(key)
+    if (existing && existing.id === saved.id && existing.stage === saved.stage) {
       return saved
-    } else {
-      // Guest: save to localStorage via context
-      const gw: GuestWord = {
-        word: req.word,
-        translation: null,
-        language: req.language || 'en',
-        bookSlug: '',
-        savedAt: new Date().toISOString(),
-      }
-      const ok = addGuestWord(gw)
-      if (!ok) {
-        setWordLimitHit(true)
-        return null
-      }
-      updateMap(m => m.set(req.word.toLowerCase(), { stage: 0, translation: undefined }))
-      return { id: '', word: req.word, stage: 0, translation: null }
     }
-  }, [isAuthenticated, updateMap, addGuestWord])
+    updateMap(m => m.set(key, {
+      stage: saved.stage, id: saved.id,
+      translation: existing?.translation || saved.translation || undefined,
+    }))
+    return saved
+  }, [waitForSession, updateMap])
 
   const markAsKnown = useCallback(async (id: string, word: string) => {
     if (!isAuthenticated) return null
@@ -143,7 +124,5 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     setVocabMap(new Map(mapRef.current))
   }, [])
 
-  const clearWordLimitHit = useCallback(() => setWordLimitHit(false), [])
-
-  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks, wordLimitHit, clearWordLimitHit, isWordLimitReached }
+  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks }
 }
