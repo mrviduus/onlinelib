@@ -371,8 +371,13 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
         {clampedIdx + 1} / {sentences.length}
       </Text>
 
-      <View style={[styles.progressTrack, { backgroundColor: isDark ? '#333' : '#e5e5e5' }]}>
-        <View style={[styles.progressBar, { width: `${progressPct}%`, backgroundColor: fg }]} />
+      <View style={styles.progressRow} pointerEvents="none">
+        <Text style={[styles.percent, { color: muted }]}>
+          {Math.round(progressPct)}%
+        </Text>
+        <View style={[styles.progressTrack, { backgroundColor: isDark ? '#2a2a2a' : '#e5e5e5' }]}>
+          <View style={[styles.progressBar, { width: `${progressPct}%`, backgroundColor: fg }]} />
+        </View>
       </View>
 
       {sameLang && (
@@ -442,16 +447,31 @@ const styles = StyleSheet.create({
   themeBtn: {
     right: 56,
   },
-  progressTrack: {
+  progressRow: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+    bottom: 16,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  percent: {
+    fontSize: 11,
+    fontFamily: fonts.sans,
+    letterSpacing: 0.5,
+    minWidth: 34,
+    opacity: 0.8,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 2,
+    borderRadius: 1,
+    overflow: 'hidden',
+    marginLeft: 10,
   },
   progressBar: {
     height: '100%',
-    opacity: 0.55,
+    opacity: 0.9,
   },
   counter: {
     position: 'absolute',

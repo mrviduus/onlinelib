@@ -144,15 +144,42 @@
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-.focus-reader__progress {
+.focus-reader__progress-row {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: currentColor;
-  opacity: 0.45;
-  transition: width 180ms ease;
+  bottom: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   pointer-events: none;
+  user-select: none;
+}
+
+.focus-reader__percent {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+  flex-shrink: 0;
+  min-width: 32px;
+}
+
+.focus-reader__progress-track {
+  flex: 1;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.15;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.focus-reader__progress {
+  height: 100%;
+  background: currentColor;
+  opacity: 1;
+  transition: width 180ms ease;
 }
 
 .focus-reader__counter {
