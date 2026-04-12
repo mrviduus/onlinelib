@@ -292,6 +292,7 @@ export interface UserBookDto {
   id: string
   title: string | null
   author: string | null
+  language: string
   coverPath: string | null
   genre: string | null
   totalWordCount: number | null

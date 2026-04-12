@@ -77,7 +77,7 @@ test.describe('Focus Mode', () => {
       .toMatch(new RegExp(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}$`))
   })
 
-  test('tap word triggers inline translation node (loading or result)', async ({ authedPage: page }) => {
+  test('long-press word triggers inline translation (not a quick tap)', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     // Force native language to 'uk' so translation fires on English text
     // (same-lang path short-circuits and renders no translation node).
@@ -88,9 +88,22 @@ test.describe('Focus Mode', () => {
     await page.goto(`/en/books/${enBook.slug}/focus/${enBook.firstChapterSlug}`)
     const firstWord = page.locator('.focus-reader__word').first()
     await expect(firstWord).toBeVisible({ timeout: 30_000 })
-    await firstWord.click()
 
-    // Either loading "…" appears or a translation result
+    // Quick click should NOT trigger translation (sensitivity fix).
+    await firstWord.click()
+    await page.waitForTimeout(200)
+    await expect(page.locator('.focus-reader__translation')).toHaveCount(0)
+
+    // Press-and-hold > 400ms should trigger.
+    const box = await firstWord.boundingBox()
+    if (!box) throw new Error('word box missing')
+    const cx = box.x + box.width / 2
+    const cy = box.y + box.height / 2
+    await page.mouse.move(cx, cy)
+    await page.mouse.down()
+    await page.waitForTimeout(500)
+    await page.mouse.up()
+
     const translation = page.locator('.focus-reader__translation')
     await expect(translation).toBeVisible({ timeout: 10_000 })
   })

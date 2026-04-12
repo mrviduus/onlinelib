@@ -212,6 +212,10 @@ public class UserIngestionService
             if (string.IsNullOrEmpty(job.UserBook.Author) && !string.IsNullOrEmpty(result.Metadata.Authors))
                 job.UserBook.Author = result.Metadata.Authors;
 
+            // Prefer extracted EPUB language over upload-time guess. PDF/FB2 return null → keep user's choice.
+            if (!string.IsNullOrEmpty(result.Metadata.Language))
+                job.UserBook.Language = result.Metadata.Language;
+
             job.UserBook.TotalWordCount = result.Units.Sum(u => u.WordCount ?? 0);
 
             // If title was auto-generated, update with extracted title
