@@ -43,6 +43,11 @@
               "scheme": "https",
               "host": "textstack.app",
               "pathPrefix": "/uk/books"
+            },
+            {
+              "scheme": "https",
+              "host": "textstack.app",
+              "pathPrefix": "/reset-password"
             }
           ],
           "category": [

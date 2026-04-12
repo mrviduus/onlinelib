@@ -73,6 +73,19 @@ export async function forgotPassword(email: string): Promise<void> {
   })
 }
 
+export async function resetPassword(token: string, password: string): Promise<void> {
+  const { baseUrl } = getApiConfig()
+  const res = await fetch(`${baseUrl}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw Object.assign(new Error(data?.error || 'Reset failed.'), { status: res.status })
+  }
+}
+
 export async function logout(accessToken: string): Promise<void> {
   const { baseUrl } = getApiConfig()
   await fetch(`${baseUrl}/auth/logout`, {
