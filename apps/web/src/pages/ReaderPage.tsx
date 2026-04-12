@@ -1196,7 +1196,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
-            onWordLimitHit={() => setPaywallTrigger('words')}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1223,7 +1222,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
-            onWordLimitHit={() => setPaywallTrigger('words')}
           >
             <ReaderContent
               ref={contentRef}

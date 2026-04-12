@@ -4,15 +4,17 @@ import { useHighlights } from '../../hooks/useHighlights'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useTts } from '../../hooks/useTts'
-import { useTranslation } from '../../hooks/useTranslation'
-import { useWordTap } from '../../hooks/useWordTap'
+import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
+import { translate as translateApi } from '../../api/translation'
+import { updateWord } from '../../api/vocabulary'
+import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
-import { WordPopup } from './WordPopup'
+import { TranslationBubble, type BubbleState } from './TranslationBubble'
 import { NoteEditor } from './NoteEditor'
 
 interface ReaderHighlightsProps {
@@ -26,7 +28,6 @@ interface ReaderHighlightsProps {
   ttsSpeed?: number
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
-  onWordLimitHit?: () => void
   children: React.ReactNode
 }
 
@@ -36,70 +37,148 @@ function resolveTargetLang(nativeLang: string, bookLang: string): string | null 
   return null
 }
 
+/** Count words in a trimmed selection string. */
+function countWords(text: string): number {
+  const trimmed = text.trim()
+  if (!trimmed) return 0
+  return trimmed.split(/\s+/).length
+}
+
 export function ReaderHighlights({
   editionId,
   chapterId,
   containerRef,
-  isAuthenticated,
+  isAuthenticated: _isAuthenticated,
   bookLanguage = 'en',
   bookTitle,
   userBookId,
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
-  onWordLimitHit,
   children,
 }: ReaderHighlightsProps) {
-  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
-  const { t } = useTranslation()
+  const { nativeLanguage } = useNativeLanguage()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const targetLang = resolveTargetLang(nativeLanguage, bookLanguage)
 
   // --- Text selection ---
   const { selection, clearSelection, hasSelection } = useTextSelection(containerRef)
 
-  // --- Word tap popup ---
-  const {
-    tap, close: closeTapPopup, vocabEntry: tappedVocabEntry,
-    vocabMap, markKnown: handleTapMarkKnown, remove: handleTapRemove,
-    wordLimitHit, clearWordLimitHit,
-  } = useWordTap({
-    wrapperRef,
-    containerRef,
-    bookLanguage,
-    targetLang,
-    isAuthenticated,
-    editionId,
-    chapterId,
-    userBookId,
-    bookTitle,
-    clearSelection,
-  })
+  const selectionWordCount = countWords(selection.text)
+  const isSingleWord = hasSelection && selectionWordCount === 1
 
-  // Trigger paywall when guest word limit hit
-  useEffect(() => {
-    if (wordLimitHit && onWordLimitHit) {
-      onWordLimitHit()
-      clearWordLimitHit()
+  // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
+  const { vocabMap, addWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+
+  // --- Single-word translation bubble ---
+  const [bubble, setBubble] = useState<{
+    word: string
+    translation: string | null
+    state: BubbleState
+    rect: DOMRect | null
+    saved: boolean
+  } | null>(null)
+  const bubbleAbortRef = useRef<AbortController | null>(null)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearSavedTimer = useCallback(() => {
+    if (savedTimerRef.current) {
+      clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = null
     }
-  }, [wordLimitHit, onWordLimitHit, clearWordLimitHit])
+  }, [])
 
-  // Close tap popup when selection starts
-  useEffect(() => {
-    if (hasSelection && tap.word) closeTapPopup()
-  }, [hasSelection, tap.word, closeTapPopup])
+  const closeBubble = useCallback(() => {
+    bubbleAbortRef.current?.abort()
+    clearSavedTimer()
+    setBubble(null)
+  }, [clearSavedTimer])
 
-  // Auto-play TTS when word is tapped
+  // Trigger bubble when selection narrows to 1 word.
   useEffect(() => {
-    if (tap.word) handleSpeak(tap.word)
-  }, [tap.word]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isSingleWord || !selection.rect || !selection.text) {
+      // Selection cleared or grew → drop any open bubble.
+      if (!isSingleWord) closeBubble()
+      return
+    }
+    const word = selection.text.trim()
+    // Same-lang: show the word itself as "translation" is meaningless.
+    // Instead show nothing (bail) — keeps UX honest.
+    if (!targetLang) {
+      closeBubble()
+      return
+    }
+    // If same word already shown, don't re-fetch.
+    if (bubble?.word === word) return
+
+    bubbleAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    bubbleAbortRef.current = ctrl
+    setBubble({ word, translation: null, state: 'loading', rect: selection.rect, saved: false })
+    clearSavedTimer()
+
+    // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
+    const shouldSave = !vocabMap.has(word.toLowerCase())
+    const container = containerRef.current
+    const sentence = selection.range && container
+      ? extractSentence(selection.range, container)
+      : undefined
+    const savePromise = shouldSave
+      ? addWord({
+          word,
+          language: bookLanguage,
+          editionId: userBookId ? undefined : (editionId || undefined),
+          chapterId: userBookId ? undefined : (chapterId || undefined),
+          userBookId: userBookId || undefined,
+          sentence: sentence || undefined,
+          bookTitle: bookTitle || undefined,
+          nativeLanguage: targetLang || undefined,
+        }).catch(() => null)
+      : Promise.resolve(null)
+
+    Promise.all([savePromise, translateApi(word, bookLanguage, targetLang, ctrl.signal)])
+      .then(([saved, res]) => {
+        if (ctrl.signal.aborted) return
+        const didSave = shouldSave && saved != null
+        setBubble({
+          word, translation: res.translatedText, state: 'ready',
+          rect: selection.rect, saved: didSave,
+        })
+        if (didSave) {
+          clearSavedTimer()
+          savedTimerRef.current = setTimeout(() => {
+            setBubble(b => (b && b.word === word) ? { ...b, saved: false } : b)
+          }, 1000)
+        }
+        if (res.translatedText) {
+          if (saved?.id) updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+          updateTranslation(word, res.translatedText)
+        }
+      })
+      .catch((err) => {
+        if (ctrl.signal.aborted) return
+        if ((err as { name?: string })?.name === 'AbortError') return
+        setBubble({ word, translation: null, state: 'error', rect: selection.rect, saved: false })
+      })
+  }, [
+    isSingleWord, selection.text, selection.rect, selection.range,
+    bookLanguage, targetLang, bubble?.word, closeBubble, clearSavedTimer,
+    vocabMap, addWord, updateTranslation,
+    containerRef, editionId, chapterId, userBookId, bookTitle,
+  ])
+
+  // Clean abort + saved timer on unmount
+  useEffect(() => () => {
+    bubbleAbortRef.current?.abort()
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+  }, [])
 
   // --- Highlights ---
   const {
     highlights, addHighlight, updateHighlight, removeHighlight,
   } = useHighlights(userBookId ? undefined : editionId, userBookId, {
     chapterId,
-    isAuthenticated,
+    isAuthenticated: _isAuthenticated,
   })
 
   // Scroll to highlight when navigating from highlights page
@@ -226,7 +305,8 @@ export function ReaderHighlights({
 
       <VocabWordLayer containerRef={containerRef} vocabMap={vocabMap} showInlineTranslations={showInlineTranslations} />
 
-      {hasSelection && !showTranslation && (
+      {/* Multi-word selection → full highlights toolbar */}
+      {hasSelection && !isSingleWord && !showTranslation && (
         <SelectionToolbar
           rect={selection.rect}
           text={selection.text}
@@ -238,25 +318,15 @@ export function ReaderHighlights({
         />
       )}
 
-      {tap.word && !hasSelection && !showTranslation && (
-        <WordPopup
-          word={tap.word}
-          phonetic={tap.phonetic}
-          translation={tap.translation}
-          translationLoading={tap.translationLoading}
-          definition={tap.definition}
-          definitionLoading={tap.definitionLoading}
-          rect={tap.rect}
-          containerRef={containerRef}
-          onSpeak={() => handleSpeak(tap.word!)}
-          onMarkKnown={tappedVocabEntry?.id ? handleTapMarkKnown : undefined}
-          onRemove={tappedVocabEntry?.id ? handleTapRemove : undefined}
-          onClose={closeTapPopup}
-          vocabStage={tappedVocabEntry?.stage ?? null}
-          nativeLanguage={nativeLanguage}
-          onChangeNativeLanguage={setNativeLanguage}
-          bookLanguage={bookLanguage}
-          t={t}
+      {/* Single-word selection → minimal auto-fading bubble */}
+      {bubble && isSingleWord && !showTranslation && (
+        <TranslationBubble
+          word={bubble.word}
+          translation={bubble.translation}
+          state={bubble.state}
+          rect={bubble.rect}
+          saved={bubble.saved}
+          onClose={closeBubble}
         />
       )}
 

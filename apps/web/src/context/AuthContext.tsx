@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import {
   User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
   loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
@@ -17,6 +17,8 @@ interface AuthContextValue {
   closeAuthModal: () => void
   loginWithEmail: (email: string, password: string) => Promise<void>
   registerWithEmail: (email: string, password: string, name?: string) => Promise<void>
+  /** Resolves once the initial session bootstrap has settled (auth, refresh, or guest). Never rejects. */
+  waitForSession: () => Promise<void>
   ensureSession: () => Promise<void>
   logout: () => Promise<void>
   updateProfile: (name: string | null) => Promise<void>
@@ -35,6 +37,7 @@ const AuthContext = createContext<AuthContextValue>({
   closeAuthModal: () => {},
   loginWithEmail: async () => {},
   registerWithEmail: async () => {},
+  waitForSession: async () => {},
   ensureSession: async () => {},
   logout: async () => {},
   updateProfile: async () => {},
@@ -43,6 +46,9 @@ const AuthContext = createContext<AuthContextValue>({
 })
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+
+/** Hard ceiling on how long waitForSession waits for bootstrap to settle. */
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 15_000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -64,27 +70,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Check current auth status on mount
+  // Session-ready gate: resolves once the initial auth/refresh/guest-create attempt has settled.
+  // Consumers (e.g. reader vocab save) await this before deciding to hit auth-gated APIs.
+  const sessionReadyRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null)
+  if (!sessionReadyRef.current) {
+    let resolveFn: () => void = () => {}
+    const promise = new Promise<void>((r) => { resolveFn = r })
+    sessionReadyRef.current = { promise, resolve: resolveFn }
+  }
+  // waitForSession races the bootstrap promise with a hard timeout so it can never hang.
+  const waitForSession = useCallback(async () => {
+    await Promise.race([
+      sessionReadyRef.current!.promise,
+      new Promise<void>((r) => setTimeout(r, SESSION_BOOTSTRAP_TIMEOUT_MS)),
+    ])
+  }, [])
+
+  // Single-flight guard for POST /auth/guest. Shared by bootstrap, ensureSession, and logout
+  // so concurrent callers (StrictMode double-invoke, logout race, HeroSection upload) dedupe into one call.
+  const inFlightGuestRef = useRef<Promise<User | null> | null>(null)
+  const createGuestOnce = useCallback(async (): Promise<User | null> => {
+    if (inFlightGuestRef.current) return inFlightGuestRef.current
+    const promise = createGuestSessionApi()
+      .then((res) => { setUser(res.user); return res.user })
+      .catch(() => { setUser(null); return null })
+      .finally(() => { inFlightGuestRef.current = null })
+    inFlightGuestRef.current = promise
+    return promise
+  }, [])
+
+  // StrictMode fires effects twice in dev; this ref dedupes the bootstrap so we never hit /auth/guest twice.
+  const bootstrapStartedRef = useRef(false)
+
+  // Check current auth status on mount; if none, auto-create guest session (B2 fix).
+  // If all network attempts fail, degrade to local guest mode — reader still loads, saves become no-ops (B3).
   useEffect(() => {
-    const checkAuth = async () => {
+    if (bootstrapStartedRef.current) return
+    bootstrapStartedRef.current = true
+
+    const sessionReady = sessionReadyRef.current!
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const timeoutPromise = new Promise<void>((r) => {
+      timeoutId = setTimeout(r, SESSION_BOOTSTRAP_TIMEOUT_MS)
+    })
+
+    const bootstrap = async () => {
       try {
         const response = await getCurrentUser()
         setUser(response.user)
       } catch {
-        // Try to refresh token
         try {
           const response = await refreshToken()
           setUser(response.user)
         } catch {
-          setUser(null)
+          await createGuestOnce()
         }
-      } finally {
-        setIsLoading(false)
       }
     }
 
-    checkAuth()
-  }, [])
+    ;(async () => {
+      try {
+        await Promise.race([bootstrap(), timeoutPromise])
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId)
+        setIsLoading(false)
+        sessionReady.resolve()
+      }
+    })()
+  }, [createGuestOnce])
 
   // Load and initialize Google Sign-In in single effect
   useEffect(() => {
@@ -158,24 +211,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => prev ? { ...prev, picture: null } : null)
   }, [])
 
-  // Create a guest session if not authenticated
+  // Public: create a guest session if not authenticated. Routes through the single-flight
+  // helper so concurrent callers (e.g. HeroSection upload + bootstrap) share one network call.
   const ensureSession = useCallback(async () => {
     if (user) return
-    const response = await createGuestSessionApi()
-    setUser(response.user)
-  }, [user])
+    await createGuestOnce()
+  }, [user, createGuestOnce])
 
   const logout = useCallback(async () => {
     try {
       await logoutApi()
-      setUser(null)
       if (typeof google !== 'undefined') {
         google.accounts.id.disableAutoSelect()
       }
+      // Immediately create a new guest session so reader-driven flows don't break.
+      // Uses the single-flight helper to coalesce with any concurrent bootstrap/ensureSession.
+      await createGuestOnce()
     } catch (error) {
       console.error('Logout failed:', error)
     }
-  }, [])
+  }, [createGuestOnce])
 
   return (
     <AuthContext.Provider
@@ -190,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         closeAuthModal,
         loginWithEmail,
         registerWithEmail,
+        waitForSession,
         ensureSession,
         logout,
         updateProfile,
