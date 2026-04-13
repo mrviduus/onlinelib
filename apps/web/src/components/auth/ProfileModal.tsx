@@ -1,4 +1,5 @@
 import { useState, useRef, FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
@@ -54,7 +55,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return (
+  // Portal escapes header's backdrop-filter containing block — otherwise
+  // `position: fixed; inset: 0` scopes to the 80px header, not the viewport.
+  return createPortal(
     <div className="profile-overlay" onClick={onClose}>
       <div className="profile-modal" onClick={e => e.stopPropagation()}>
         <button className="profile-modal__close" onClick={onClose}>&times;</button>
@@ -107,6 +110,7 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
