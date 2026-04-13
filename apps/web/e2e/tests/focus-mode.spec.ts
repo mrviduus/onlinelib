@@ -77,10 +77,10 @@ test.describe('Focus Mode', () => {
       .toMatch(new RegExp(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}$`))
   })
 
-  test('long-press word triggers inline translation (not a quick tap)', async ({ authedPage: page }) => {
+  test('long-press word opens word popup (not a quick tap)', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     // Force native language to 'uk' so translation fires on English text
-    // (same-lang path short-circuits and renders no translation node).
+    // (same-lang shows definition only; popup still opens).
     // addInitScript runs on every navigation — overrides auth-fixture default.
     await page.addInitScript(() => {
       localStorage.setItem('textstack_native_language', 'uk')
@@ -89,12 +89,12 @@ test.describe('Focus Mode', () => {
     const firstWord = page.locator('.focus-reader__word').first()
     await expect(firstWord).toBeVisible({ timeout: 30_000 })
 
-    // Quick click should NOT trigger translation (sensitivity fix).
+    // Quick click should NOT open popup (long-press required).
     await firstWord.click()
     await page.waitForTimeout(200)
-    await expect(page.locator('.focus-reader__translation')).toHaveCount(0)
+    await expect(page.locator('.word-popup')).toHaveCount(0)
 
-    // Press-and-hold > 400ms should trigger.
+    // Press-and-hold > 400ms opens the popup.
     const box = await firstWord.boundingBox()
     if (!box) throw new Error('word box missing')
     const cx = box.x + box.width / 2
@@ -104,7 +104,6 @@ test.describe('Focus Mode', () => {
     await page.waitForTimeout(500)
     await page.mouse.up()
 
-    const translation = page.locator('.focus-reader__translation')
-    await expect(translation).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.word-popup')).toBeVisible({ timeout: 10_000 })
   })
 })
