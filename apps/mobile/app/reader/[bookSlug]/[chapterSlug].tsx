@@ -6,6 +6,7 @@ import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highli
 import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
+import { saveLocalProgress } from '../../../src/lib/progressStorage'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
@@ -195,12 +196,26 @@ export default function ReaderScreen() {
   }, [bookSlug, chapterSlug])
 
   const saveProgress = useCallback(() => {
-    if (!isAuthenticated || !editionIdRef.current || !chapter || !chapterSlug) return
+    if (!editionIdRef.current || !chapter || !chapterSlug) return
     const slug = currentChapterSlugRef.current || chapterSlug
+    const percent = progressRef.current
+    const updatedAt = Date.now()
+
+    // Offline-first: always persist locally, even for guests. Survives flaky network,
+    // crashes between PUTs, and gives ContinueReadingCard a fallback when server is
+    // unreachable. LWW merge in consumers uses this `updatedAt`.
+    saveLocalProgress(editionIdRef.current, {
+      chapterId: chapter.id,
+      chapterSlug: slug,
+      percent,
+      updatedAt,
+    }).catch(() => {})
+
+    if (!isAuthenticated) return
     readingProgressApi.updateProgress(editionIdRef.current, {
       chapterId: chapter.id,
       chapterSlug: slug,
-      progress: progressRef.current,
+      progress: percent,
     }).catch(() => {})
   }, [isAuthenticated, chapter, chapterSlug])
 

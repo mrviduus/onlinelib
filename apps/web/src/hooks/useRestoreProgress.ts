@@ -39,7 +39,14 @@ export function useRestoreProgress(
     shouldNavigate: false,
     targetChapterSlug: null,
   })
-  const fetchedRef = useRef(false)
+  // Composite-key dedupe: re-fetch when editionId OR isAuthenticated changes.
+  // Covers the "user logs in mid-reading" case — without this, post-login server data
+  // never reaches savedProgress until a reload.
+  const lastFetchKeyRef = useRef<string | null>(null)
+  // Tracks whether we've already done the initial resume for this editionId. Subsequent
+  // fetches (after login) update savedProgress but must NOT trigger navigation — mid-session
+  // jumps to another chapter are disruptive UX.
+  const seenEditionIdRef = useRef<string | null>(null)
 
   // Reset shouldNavigate once navigation completes (currentChapterSlug matches target)
   useEffect(() => {
@@ -51,9 +58,13 @@ export function useRestoreProgress(
   useEffect(() => {
     // Wait for auth check and editionId
     if (authLoading || !editionId) return
-    // Skip if already fetched for this editionId
-    if (fetchedRef.current) return
-    fetchedRef.current = true
+    // Skip if we've already fetched for this (editionId, auth) combo
+    const fetchKey = `${editionId}:${isAuthenticated}`
+    if (lastFetchKeyRef.current === fetchKey) return
+    lastFetchKeyRef.current = fetchKey
+
+    const isInitialFetch = seenEditionIdRef.current !== editionId
+    seenEditionIdRef.current = editionId
 
     async function fetchProgress() {
       // Skip restore when navigating directly from TOC (?direct=1)
@@ -106,7 +117,9 @@ export function useRestoreProgress(
       }
 
       if (progress && progress.chapterSlug) {
-        const shouldNav = progress.chapterSlug !== currentChapterSlug
+        // Only navigate on the initial resume — after that, a post-login refetch just
+        // updates savedProgress for bookmarks/UI without jumping the user away.
+        const shouldNav = isInitialFetch && progress.chapterSlug !== currentChapterSlug
         setState({
           savedProgress: progress,
           isLoading: false,

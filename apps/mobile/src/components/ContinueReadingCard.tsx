@@ -8,6 +8,7 @@ import type { UserLibraryItem, ReadingProgressDto, UserBookDto } from '@textstac
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 import { PressableScale } from './ui/PressableScale'
+import { getAllLocalProgress } from '../lib/progressStorage'
 
 type ContinueBook =
   | { type: 'edition'; slug: string; title: string; coverPath: string | null; percent: number; chapterSlug: string | null }
@@ -21,25 +22,47 @@ export function ContinueReadingCard() {
   useEffect(() => {
     ;(async () => {
       try {
-        const [library, progress, userBooks] = await Promise.all([
-          libraryApi.getLibrary(),
-          readingProgressApi.getAllProgress(),
-          userBooksApi.getUserBooks(),
+        // Server calls can 401 or fail when offline — tolerate each independently so a
+        // single failure doesn't wipe out the card. Local progress is the offline fallback.
+        const [library, serverProgress, userBooks, localMap] = await Promise.all([
+          libraryApi.getLibrary().catch(() => [] as UserLibraryItem[]),
+          readingProgressApi.getAllProgress().catch(() => [] as ReadingProgressDto[]),
+          userBooksApi.getUserBooks().catch(() => [] as UserBookDto[]),
+          getAllLocalProgress(),
         ])
 
         const progressMap = new Map<string, ReadingProgressDto>()
-        for (const p of progress) progressMap.set(p.editionId, p)
+        for (const p of serverProgress) progressMap.set(p.editionId, p)
 
         let best: ContinueBook | null = null
-        let bestUpdatedAt = ''
+        // Normalized to epoch ms so local (Date.now) and server (ISO) comparisons are apples-to-apples.
+        let bestUpdatedAtMs = 0
 
-        // Check library editions
+        // Check library editions. LWW merge: prefer whichever source (server | local) has a
+        // newer updatedAt. Covers the "read offline, server still on stale record" case.
         for (const item of library) {
-          const p = progressMap.get(item.editionId)
-          if (!p || p.percent == null || p.percent >= 1) continue
-          if (!best || p.updatedAt > bestUpdatedAt) {
-            best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent: p.percent, chapterSlug: p.chapterSlug }
-            bestUpdatedAt = p.updatedAt
+          const server = progressMap.get(item.editionId)
+          const local = localMap.get(item.editionId)
+          const serverMs = server?.updatedAt ? Date.parse(server.updatedAt) : 0
+          const localMs = local?.updatedAt ?? 0
+
+          let percent: number | null = null
+          let chapterSlug: string | null = null
+          let updatedAtMs = 0
+          if (localMs > serverMs && local) {
+            percent = local.percent
+            chapterSlug = local.chapterSlug
+            updatedAtMs = localMs
+          } else if (server && server.percent != null) {
+            percent = server.percent
+            chapterSlug = server.chapterSlug
+            updatedAtMs = serverMs
+          }
+
+          if (percent == null || percent >= 1) continue
+          if (!best || updatedAtMs > bestUpdatedAtMs) {
+            best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent, chapterSlug }
+            bestUpdatedAtMs = updatedAtMs
           }
         }
 
@@ -47,9 +70,10 @@ export function ContinueReadingCard() {
         for (const ub of userBooks) {
           if (ub.status.toLowerCase() !== 'ready' || !ub.progressPercent || ub.progressPercent >= 1) continue
           if (!ub.progressUpdatedAt) continue
-          if (!best || ub.progressUpdatedAt > bestUpdatedAt) {
+          const ubMs = Date.parse(ub.progressUpdatedAt)
+          if (!best || ubMs > bestUpdatedAtMs) {
             best = { type: 'userbook', id: ub.id, title: ub.title || 'Untitled', coverPath: ub.coverPath, percent: ub.progressPercent, chapterSlug: ub.progressChapterSlug }
-            bestUpdatedAt = ub.progressUpdatedAt
+            bestUpdatedAtMs = ubMs
           }
         }
 
