@@ -7,5 +7,6 @@ public interface IFileStorageService
     Task<Stream?> GetFileAsync(string path, CancellationToken ct = default);
     Task DeleteFileAsync(string path, CancellationToken ct = default);
     Task DeleteUserBookDirectoryAsync(Guid userId, Guid userBookId, CancellationToken ct = default);
+    Task DeleteUserDirectoryAsync(Guid userId, CancellationToken ct = default);
     string GetFullPath(string relativePath);
 }

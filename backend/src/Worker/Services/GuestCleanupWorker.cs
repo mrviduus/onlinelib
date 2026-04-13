@@ -70,6 +70,12 @@ public class GuestCleanupWorker(
                     await storage.DeleteUserBookDirectoryAsync(guest.Id, book.Id, ct);
                 }
 
+                // Sweep user's parent storage dir — covers cases:
+                //   (a) guest without books (UserBooks loop empty, parent dir lingers);
+                //   (b) per-book delete partially failed but guest row is being removed anyway;
+                //   (c) hygiene: prunes empty shard prefix.
+                await storage.DeleteUserDirectoryAsync(guest.Id, ct);
+
                 // Delete user (cascade handles UserBooks, chapters, tokens, etc.)
                 db.Users.Remove(guest);
                 await db.SaveChangesAsync(ct);

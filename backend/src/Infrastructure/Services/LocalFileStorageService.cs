@@ -63,6 +63,34 @@ public class LocalFileStorageService : IFileStorageService
         return Task.CompletedTask;
     }
 
+    public Task DeleteUserDirectoryAsync(Guid userId, CancellationToken ct = default)
+    {
+        var userIdStr = userId.ToString();
+        var shardPrefix = userIdStr[..2];
+        var userPath = Path.Combine(_rootPath, "users", shardPrefix, userIdStr);
+
+        if (Directory.Exists(userPath))
+        {
+            Directory.Delete(userPath, recursive: true);
+        }
+
+        // Prune empty shard parent (hygiene — не fail'им если race/permission).
+        var shardPath = Path.Combine(_rootPath, "users", shardPrefix);
+        try
+        {
+            if (Directory.Exists(shardPath) && !Directory.EnumerateFileSystemEntries(shardPath).Any())
+            {
+                Directory.Delete(shardPath, recursive: false);
+            }
+        }
+        catch
+        {
+            // Best-effort; race с другим delete / permission issue — не критично.
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<Stream?> GetFileAsync(string path, CancellationToken ct = default)
     {
         var fullPath = GetFullPath(path);
