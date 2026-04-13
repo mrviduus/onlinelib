@@ -65,7 +65,10 @@
   "guestBanner": {
     "message": "You're browsing as a guest.",
     "signIn": "Sign in",
-    "suffix": "to save your progress"
+    "suffix": "to save your progress",
+    "nagMessage": "Save your progress — sign up free.",
+    "signUp": "Sign up",
+    "notNow": "Not now"
   },
   "common": {
     "loading": "Loading...",

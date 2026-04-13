@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest } from '../api/vocabulary'
+import { useGuestLimits } from '../context/GuestLimitsContext'
+import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type VocabWordDto } from '../api/vocabulary'
 import { translate as translateWord } from '../api/translation'
+import {
+  addPendingVocabWord,
+  listPendingVocabWords,
+  countPendingVocabWords,
+  deletePendingVocabWord,
+  type PendingVocabWord,
+} from '../lib/offlineDb'
 
-export type VocabMap = Map<string, { stage: number; id?: string; translation?: string }>
+export type VocabMap = Map<string, { stage: number; id?: string; translation?: string; isPending?: boolean }>
 
 export function useReaderVocabulary(bookLanguage?: string, targetLang?: string | null) {
   const { isAuthenticated, waitForSession, ensureSession } = useAuth()
+  const { commitmentThreshold } = useGuestLimits()
   const [vocabMap, setVocabMap] = useState<VocabMap>(new Map())
   const [loading, setLoading] = useState(false)
   const mapRef = useRef<VocabMap>(new Map())
@@ -55,6 +64,8 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
 
     const missing: { word: string; id?: string }[] = []
     for (const [key, entry] of vocabMap) {
+      // Skip pending entries — their `id` is a local UUID, not a backend row.
+      if (entry.isPending) continue
       if (!entry.translation) missing.push({ word: key, id: entry.id })
     }
     if (missing.length === 0) return
@@ -81,27 +92,123 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     })()
   }, [vocabMap, loading, targetLang, bookLanguage, updateMap])
 
-  const addWord = useCallback(async (req: SaveWordRequest) => {
+  // I4: flush pending local vocab into backend. Called:
+  //   (a) on threshold-crossing after ensureSession succeeds;
+  //   (b) pre-save in Path A when session was acquired externally (I5 stale-pending guard).
+  // Stops on first failure — remaining pending stay in IndexedDB for next retry.
+  const flushPendingIfAny = useCallback(async () => {
+    let pending: PendingVocabWord[]
+    try {
+      pending = await listPendingVocabWords()
+    } catch {
+      return
+    }
+    if (pending.length === 0) return
+
+    for (const p of pending) {
+      const key = p.word.toLowerCase()
+      const existing = mapRef.current.get(key)
+      try {
+        const saved = await saveWord({
+          word: p.word,
+          language: p.language,
+          // Prefer translation captured locally after pending was created (via updateTranslation).
+          translation: existing?.translation ?? p.translation ?? null,
+          definition: p.definition ?? null,
+          editionId: p.editionId ?? null,
+          chapterId: p.chapterId ?? null,
+          userBookId: p.userBookId ?? null,
+          sentence: p.sentence ?? null,
+          bookTitle: p.bookTitle ?? null,
+          nativeLanguage: p.nativeLanguage ?? null,
+        })
+        await deletePendingVocabWord(p.id).catch(() => {})
+        updateMap(m => {
+          // Preserve any translation accumulated in map (from translateApi) over backend's null.
+          const preserved = m.get(key)?.translation ?? saved.translation ?? p.translation ?? undefined
+          m.set(saved.word.toLowerCase(), {
+            stage: saved.stage,
+            id: saved.id,
+            translation: preserved ?? undefined,
+          })
+        })
+      } catch {
+        // I4: keep in local, retry on next trigger. Stop iteration to avoid hammering a failing API.
+        break
+      }
+    }
+  }, [updateMap])
+
+  const addWord = useCallback(async (req: SaveWordRequest): Promise<VocabWordDto | null> => {
     // Gate: block first tap until AuthContext has finished bootstrapping (B2).
     await waitForSession()
-    // I2/I4: bootstrap теперь read-only. Первый tap слова — demand-driven триггер
-    // для создания guest-сессии. Single-flight внутри ensureSession дедуплицирует
-    // конкурентные tap'ы в один /auth/guest.
-    if (!isAuthRef.current) await ensureSession()
-    // Network failed → local-only mode, silent no-op (B3).
-    if (!isAuthRef.current) return null
-    const saved = await saveWord(req)
-    const key = saved.word.toLowerCase()
-    const existing = mapRef.current.get(key)
-    if (existing && existing.id === saved.id && existing.stage === saved.stage) {
+
+    // Path A: session exists (guest or real) → direct save, plus any stale pending flush.
+    if (isAuthRef.current) {
+      // I5: pending из pre-auth периода (напр. юзер сохранил 1-2 слова как anon,
+      // потом залогинился на другой странице) — flush перед текущим save.
+      await flushPendingIfAny()
+      const saved = await saveWord(req)
+      const key = saved.word.toLowerCase()
+      const existing = mapRef.current.get(key)
+      if (existing && existing.id === saved.id && existing.stage === saved.stage && !existing.isPending) {
+        return saved
+      }
+      updateMap(m => m.set(key, {
+        stage: saved.stage, id: saved.id,
+        translation: existing?.translation || saved.translation || undefined,
+      }))
       return saved
     }
-    updateMap(m => m.set(key, {
-      stage: saved.stage, id: saved.id,
-      translation: existing?.translation || saved.translation || undefined,
+
+    // Path B: anonymous → accumulate locally until commitment threshold.
+    const pending: PendingVocabWord = {
+      id: crypto.randomUUID(),
+      word: req.word,
+      language: req.language,
+      translation: req.translation ?? null,
+      definition: req.definition ?? null,
+      editionId: req.editionId ?? null,
+      chapterId: req.chapterId ?? null,
+      userBookId: req.userBookId ?? null,
+      sentence: req.sentence ?? null,
+      bookTitle: req.bookTitle ?? null,
+      nativeLanguage: req.nativeLanguage ?? null,
+      createdAt: Date.now(),
+    }
+    try {
+      await addPendingVocabWord(pending)
+    } catch {
+      // I7: IndexedDB unavailable (Safari private / storage full). Silent no-op.
+      return null
+    }
+    // I8: synthetic map entry so WordPopup can show "saved" state immediately.
+    // `isPending` flag prevents backfill from hitting backend with a local UUID.
+    updateMap(m => m.set(req.word.toLowerCase(), {
+      stage: 0,
+      id: pending.id,                // local UUID; replaced with backend id after flush
+      translation: req.translation ?? undefined,
+      isPending: true,
     }))
-    return saved
-  }, [waitForSession, ensureSession, updateMap])
+
+    // I2: threshold check — cross → create guest, flush everything.
+    let count = 0
+    try {
+      count = await countPendingVocabWords()
+    } catch {
+      count = 0
+    }
+    if (count >= commitmentThreshold) {
+      await ensureSession()
+      if (isAuthRef.current) {
+        await flushPendingIfAny()
+      }
+      // I7: ensureSession fail → pending остаётся, следующий tap снова триггерит.
+    }
+
+    // Path B returns null — caller (ReaderHighlights) tolerates null result.
+    return null
+  }, [waitForSession, ensureSession, updateMap, commitmentThreshold, flushPendingIfAny])
 
   const markAsKnown = useCallback(async (id: string, word: string) => {
     if (!isAuthenticated) return null

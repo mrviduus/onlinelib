@@ -80,14 +80,30 @@ export interface CachedTtsAudio {
   cachedAt: number
 }
 
+export interface PendingVocabWord {
+  id: string           // crypto.randomUUID(), stable local ID
+  word: string
+  language: string
+  translation?: string | null
+  definition?: string | null
+  editionId?: string | null
+  chapterId?: string | null
+  userBookId?: string | null
+  sentence?: string | null
+  bookTitle?: string | null
+  nativeLanguage?: string | null
+  createdAt: number    // epoch ms, FIFO flush order
+}
+
 const DB_NAME = 'textstack-reader'
-const DB_VERSION = 7
+const DB_VERSION = 8
 const CHAPTERS_STORE = 'chapters'
 const BOOKS_META_STORE = 'cachedBooks'
 const HIGHLIGHTS_STORE = 'highlights'
 const TRANSLATIONS_STORE = 'translations'
 const DICTIONARY_STORE = 'dictionary'
 const TTS_STORE = 'tts-audio'
+const PENDING_VOCAB_STORE = 'pendingVocabWords'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -154,6 +170,12 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(TTS_STORE)) {
         const store = db.createObjectStore(TTS_STORE, { keyPath: 'key' })
         store.createIndex('cachedAt', 'cachedAt', { unique: false })
+      }
+
+      // Pending vocab words store (v8) — anonymous accumulation before guest-create threshold.
+      if (!db.objectStoreNames.contains(PENDING_VOCAB_STORE)) {
+        const store = db.createObjectStore(PENDING_VOCAB_STORE, { keyPath: 'id' })
+        store.createIndex('createdAt', 'createdAt', { unique: false })
       }
     }
   })
@@ -720,6 +742,64 @@ export async function clearOldTtsAudio(maxAgeMs = 30 * 24 * 60 * 60 * 1000): Pro
         resolve()
       }
     }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+// ============ PENDING VOCAB WORDS (anonymous accumulator) ============
+
+export async function addPendingVocabWord(word: PendingVocabWord): Promise<void> {
+  const db = await openOfflineDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PENDING_VOCAB_STORE, 'readwrite')
+    const store = tx.objectStore(PENDING_VOCAB_STORE)
+    const request = store.add(word)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function listPendingVocabWords(): Promise<PendingVocabWord[]> {
+  const db = await openOfflineDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PENDING_VOCAB_STORE, 'readonly')
+    const store = tx.objectStore(PENDING_VOCAB_STORE)
+    const index = store.index('createdAt')
+    const request = index.getAll()
+    request.onsuccess = () => resolve(request.result as PendingVocabWord[])
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function countPendingVocabWords(): Promise<number> {
+  const db = await openOfflineDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PENDING_VOCAB_STORE, 'readonly')
+    const store = tx.objectStore(PENDING_VOCAB_STORE)
+    const request = store.count()
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function deletePendingVocabWord(id: string): Promise<void> {
+  const db = await openOfflineDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PENDING_VOCAB_STORE, 'readwrite')
+    const store = tx.objectStore(PENDING_VOCAB_STORE)
+    const request = store.delete(id)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function clearPendingVocabWords(): Promise<void> {
+  const db = await openOfflineDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PENDING_VOCAB_STORE, 'readwrite')
+    const store = tx.objectStore(PENDING_VOCAB_STORE)
+    const request = store.clear()
+    request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
   })
 }

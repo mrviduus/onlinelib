@@ -11,6 +11,8 @@ interface GuestState {
 const LIMITS = {
   maxPages: 3,
   maxPracticeSessions: 1,
+  commitmentThreshold: 3,  // слов до guest-create (Phase 2)
+  nagDays: 3,              // дней до nag banner
 } as const
 
 // Legacy key — cleaned up once on mount. Guest state no longer persisted (cookie session is SoT).
@@ -32,6 +34,8 @@ interface GuestLimitsContextValue {
   incrementPractice: () => boolean
   setCurrentBook: (book: GuestState['currentBook']) => void
   isReturningUser: boolean
+  shouldShowNag: boolean
+  commitmentThreshold: number
   resetGuestState: () => void
 }
 
@@ -44,11 +48,13 @@ const GuestLimitsContext = createContext<GuestLimitsContextValue>({
   incrementPractice: () => true,
   setCurrentBook: () => {},
   isReturningUser: false,
+  shouldShowNag: false,
+  commitmentThreshold: LIMITS.commitmentThreshold,
   resetGuestState: () => {},
 })
 
 export function GuestLimitsProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isGuest, user } = useAuth()
   const [state, setState] = useState<GuestState>(defaultState)
 
   // One-time cleanup of legacy localStorage key.
@@ -91,6 +97,16 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     [isAuthenticated, state.lastVisitAt, state.currentBook]
   )
 
+  // Nag banner: guest accounts after N days. Source of truth = backend `user.createdAt`
+  // (already in User DTO). No client-side counters/localStorage — survives reloads naturally.
+  const shouldShowNag = useMemo(() => {
+    if (!isAuthenticated || !isGuest || !user?.createdAt) return false
+    const createdAtMs = Date.parse(user.createdAt)
+    if (!Number.isFinite(createdAtMs)) return false
+    const days = (Date.now() - createdAtMs) / 86_400_000
+    return days >= LIMITS.nagDays
+  }, [isAuthenticated, isGuest, user?.createdAt])
+
   const resetGuestState = useCallback(() => {
     setState(defaultState)
   }, [])
@@ -105,6 +121,8 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
       incrementPractice,
       setCurrentBook,
       isReturningUser,
+      shouldShowNag,
+      commitmentThreshold: LIMITS.commitmentThreshold,
       resetGuestState,
     }}>
       {children}

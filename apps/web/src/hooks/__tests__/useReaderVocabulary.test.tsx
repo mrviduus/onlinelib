@@ -3,9 +3,10 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 
 // --- Mocks ---
 
-const authState: { isAuthenticated: boolean; sessionReadyDelayMs: number } = {
+const authState: { isAuthenticated: boolean; sessionReadyDelayMs: number; ensureSession: () => Promise<void> } = {
   isAuthenticated: true,
   sessionReadyDelayMs: 0,
+  ensureSession: () => Promise.resolve(),
 }
 
 vi.mock('../../context/AuthContext', () => ({
@@ -16,9 +17,15 @@ vi.mock('../../context/AuthContext', () => ({
         ? new Promise<void>((r) => setTimeout(r, authState.sessionReadyDelayMs))
         : Promise.resolve(),
     // I4: addWord зовёт ensureSession как fallback если !isAuthRef.current после waitForSession.
-    // В этих тестах isAuthenticated контролируется флагом authState напрямую,
-    // поэтому ensureSession — безопидный no-op resolve.
-    ensureSession: () => Promise.resolve(),
+    ensureSession: () => authState.ensureSession(),
+  }),
+}))
+
+const guestLimits = { commitmentThreshold: 3 }
+
+vi.mock('../../context/GuestLimitsContext', () => ({
+  useGuestLimits: () => ({
+    commitmentThreshold: guestLimits.commitmentThreshold,
   }),
 }))
 
@@ -37,6 +44,27 @@ vi.mock('../../api/translation', () => ({
   translate: vi.fn().mockResolvedValue({ translatedText: '' }),
 }))
 
+// In-memory IndexedDB substitute controlled by the tests.
+const pendingStore: Record<string, any> = {}
+const addPendingMock = vi.fn(async (w: any) => { pendingStore[w.id] = w })
+const listPendingMock = vi.fn(async () => Object.values(pendingStore).sort((a: any, b: any) => a.createdAt - b.createdAt))
+const countPendingMock = vi.fn(async () => Object.keys(pendingStore).length)
+const deletePendingMock = vi.fn(async (id: string) => { delete pendingStore[id] })
+
+vi.mock('../../lib/offlineDb', () => ({
+  addPendingVocabWord: (...args: unknown[]) => addPendingMock(...(args as [any])),
+  listPendingVocabWords: (...args: unknown[]) => listPendingMock(...(args as [])),
+  countPendingVocabWords: (...args: unknown[]) => countPendingMock(...(args as [])),
+  deletePendingVocabWord: (...args: unknown[]) => deletePendingMock(...(args as [string])),
+}))
+
+// crypto.randomUUID polyfill for jsdom.
+if (!globalThis.crypto || !globalThis.crypto.randomUUID) {
+  let seq = 0
+  // @ts-ignore — minimal polyfill for test env
+  globalThis.crypto = { ...(globalThis.crypto || {}), randomUUID: () => `uuid-${++seq}` }
+}
+
 // Import under test AFTER mocks are registered.
 import { useReaderVocabulary } from '../useReaderVocabulary'
 
@@ -44,8 +72,15 @@ describe('useReaderVocabulary', () => {
   beforeEach(() => {
     authState.isAuthenticated = true
     authState.sessionReadyDelayMs = 0
+    authState.ensureSession = () => Promise.resolve()
     getReaderVocabMock.mockReset()
     saveWordMock.mockReset()
+    addPendingMock.mockClear()
+    listPendingMock.mockClear()
+    countPendingMock.mockClear()
+    deletePendingMock.mockClear()
+    for (const k of Object.keys(pendingStore)) delete pendingStore[k]
+    guestLimits.commitmentThreshold = 3
     getReaderVocabMock.mockResolvedValue([])
   })
 
@@ -61,7 +96,6 @@ describe('useReaderVocabulary', () => {
   it('does not call getReaderVocab when !isAuthenticated (no session yet)', async () => {
     authState.isAuthenticated = false
     renderHook(() => useReaderVocabulary('en', 'uk'))
-    // Let any microtasks flush.
     await Promise.resolve()
     expect(getReaderVocabMock).not.toHaveBeenCalled()
   })
@@ -79,32 +113,95 @@ describe('useReaderVocabulary', () => {
     expect(saveWordMock).toHaveBeenCalledTimes(1)
     expect(result.current.vocabMap.has('hello')).toBe(true)
 
-    // Second add with identical id + stage should not mutate the map again
-    // (same object returned from API — dedupe short-circuit).
     await act(async () => {
       await result.current.addWord({ word: 'Hello', language: 'en' })
     })
     expect(saveWordMock).toHaveBeenCalledTimes(2)
-    // Still a single entry for the key — dedup preserved.
     expect(result.current.vocabMap.size).toBe(1)
   })
 
-  it('addWord is a no-op (returns null, skips API) when !isAuthenticated', async () => {
+  it('accumulates words locally until commitment threshold (I1, I2)', async () => {
+    // Anon: саму-то session ещё нет, threshold=3. Ожидаем: 2 слова — local-only, 3-е — trigger ensureSession + flush.
     authState.isAuthenticated = false
+    let ensureCalled = 0
+    authState.ensureSession = async () => { ensureCalled++ }
+
+    saveWordMock.mockImplementation(async (req: any) => ({
+      id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
+    }))
+
     const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
 
-    let ret: unknown
+    await act(async () => { await result.current.addWord({ word: 'one', language: 'en' }) })
+    await act(async () => { await result.current.addWord({ word: 'two', language: 'en' }) })
+
+    expect(saveWordMock).not.toHaveBeenCalled()
+    expect(ensureCalled).toBe(0)
+    expect(addPendingMock).toHaveBeenCalledTimes(2)
+    expect(Object.keys(pendingStore).length).toBe(2)
+
+    // 3rd word: triggers ensureSession. Guest create fails to flip isAuth in this test setup
+    // (we don't fake backend cookie), so flush won't happen — but ensureSession MUST be called.
+    await act(async () => { await result.current.addWord({ word: 'three', language: 'en' }) })
+    expect(addPendingMock).toHaveBeenCalledTimes(3)
+    expect(ensureCalled).toBe(1)
+  })
+
+  it('flushes pending pre-save when session acquired externally (I5)', async () => {
+    // Pre-populate pending as if user saved 2 words as anon, then logged in elsewhere.
+    pendingStore['p1'] = { id: 'p1', word: 'alpha', language: 'en', createdAt: 1 }
+    pendingStore['p2'] = { id: 'p2', word: 'beta', language: 'en', createdAt: 2 }
+
+    authState.isAuthenticated = true
+    saveWordMock.mockImplementation(async (req: any) => ({
+      id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
+    }))
+
+    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
+
     await act(async () => {
-      ret = await result.current.addWord({ word: 'silent', language: 'en' })
+      await result.current.addWord({ word: 'gamma', language: 'en' })
     })
 
-    expect(ret).toBeNull()
-    expect(saveWordMock).not.toHaveBeenCalled()
+    // Expect: 2 pending flushed + 1 current = 3 saveWord calls, pending store emptied.
+    expect(saveWordMock).toHaveBeenCalledTimes(3)
+    expect(Object.keys(pendingStore).length).toBe(0)
+  })
+
+  it('keeps pending on flush fail, does not lose data (I4, I7)', async () => {
+    pendingStore['p1'] = { id: 'p1', word: 'alpha', language: 'en', createdAt: 1 }
+    pendingStore['p2'] = { id: 'p2', word: 'beta', language: 'en', createdAt: 2 }
+    pendingStore['p3'] = { id: 'p3', word: 'gamma', language: 'en', createdAt: 3 }
+
+    authState.isAuthenticated = true
+    let call = 0
+    saveWordMock.mockImplementation(async (req: any) => {
+      call++
+      if (call === 2) throw new Error('flaky backend')
+      return { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null }
+    })
+
+    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
+
+    await act(async () => {
+      try { await result.current.addWord({ word: 'delta', language: 'en' }) } catch {}
+    })
+
+    // alpha flushed (1st call, success) → removed from pending.
+    // beta flush fails (2nd call) → pending still has beta + gamma.
+    // Then `delta` (Path A after flush) — not reached because we stopped flush loop on beta's error
+    // and the flushPendingIfAny catches the throw? Actually flushPendingIfAny has try/catch per iter
+    // with break on catch. So it stops after beta fails. Then current addWord proceeds to saveWord(delta).
+    // But saveWord for delta is call #3 → succeeds in mock.
+    // Conclusion: alpha removed, beta + gamma remain, delta persisted.
+    expect(pendingStore['p1']).toBeUndefined()
+    expect(pendingStore['p2']).toBeDefined()
+    expect(pendingStore['p3']).toBeDefined()
   })
 
   it('addWord awaits waitForSession before hitting saveWord (B2 gate)', async () => {
-    // Start unauthenticated with a session promise that resolves after 50ms.
-    // Simulates: user taps word before bootstrap finishes, then session becomes ready and auth flips.
     authState.isAuthenticated = false
     authState.sessionReadyDelayMs = 50
     saveWordMock.mockResolvedValue({
@@ -113,7 +210,6 @@ describe('useReaderVocabulary', () => {
 
     const { result, rerender } = renderHook(() => useReaderVocabulary('en', 'uk'))
 
-    // Fire addWord before "session" resolves.
     let pending: Promise<unknown>
     await act(async () => {
       pending = result.current.addWord({ word: 'late', language: 'en' })
