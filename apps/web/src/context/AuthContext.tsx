@@ -234,15 +234,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (typeof google !== 'undefined') {
         google.accounts.id.disableAutoSelect()
       }
-      // I5: явно сбрасываем user перед guest re-create, иначе I3-guard в
-      // createGuestOnce увидит старого залогиненного юзера и не обновит state.
+      // Sign out = user becomes anonymous. Phase 1 bootstrap is read-only and
+      // guest creation is demand-driven (ensureSession on commitment signal),
+      // so we don't re-create a guest here — that would make "Sign out" a no-op
+      // from the user's perspective.
       setUser(null)
-      // Create a new guest session so reader-driven flows don't break.
-      await createGuestOnce()
     } catch (error) {
       console.error('Logout failed:', error)
     }
-  }, [createGuestOnce])
+  }, [])
 
   return (
     <AuthContext.Provider

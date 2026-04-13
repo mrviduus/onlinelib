@@ -143,8 +143,8 @@ describe('AuthContext bootstrap', () => {
     await expect(waited).resolves.toBeUndefined()
   })
 
-  it('logout triggers exactly one new POST /auth/guest (no double-create)', async () => {
-    const authedUser = { id: 'u-2', email: 'x@y.z', name: null, picture: null, isGuest: false }
+  it('logout leaves user anonymous (no auto-guest re-create)', async () => {
+    const authedUser = { id: 'u-2', email: 'x@y.z', name: null, picture: null, isGuest: false, createdAt: '2026-01-01T00:00:00Z' }
     getCurrentUserMock.mockResolvedValue({ user: authedUser })
     logoutMock.mockResolvedValue(undefined)
     createGuestSessionMock.mockResolvedValue({ user: guestUser })
@@ -156,8 +156,12 @@ describe('AuthContext bootstrap', () => {
     await act(async () => { await result.current.logout() })
 
     expect(logoutMock).toHaveBeenCalledTimes(1)
-    expect(createGuestSessionMock).toHaveBeenCalledTimes(1)
-    expect(result.current.isGuest).toBe(true)
+    // Phase 1+2: bootstrap is read-only and guest is demand-driven.
+    // Sign-out must NOT immediately spawn a new guest — otherwise it's a no-op visually.
+    expect(createGuestSessionMock).not.toHaveBeenCalled()
+    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.isGuest).toBe(false)
+    expect(result.current.user).toBeNull()
   })
 
   it('concurrent ensureSession + logout dedupe into one guest create', async () => {
@@ -173,8 +177,7 @@ describe('AuthContext bootstrap', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     // Fire ensureSession (simulates word-tap) and logout concurrently.
-    // logout: logoutApi → setUser(null) → createGuestOnce.
-    // Single-flight: the first ensureSession's guest promise is shared.
+    // Phase 1+2: logout no longer calls createGuestOnce → only ensureSession triggers guest-create.
     logoutMock.mockResolvedValue(undefined)
 
     let ensureP!: Promise<void>
@@ -187,9 +190,8 @@ describe('AuthContext bootstrap', () => {
       await logoutP
     })
 
-    // ensureSession shared one call; logout may trigger a fresh call after logoutApi cleared single-flight.
-    // Assert "no runaway": <= 2 (1 = fully shared, 2 = logout re-created after clear).
-    expect(createGuestSessionMock.mock.calls.length).toBeLessThanOrEqual(2)
+    // Exactly one guest-create (from ensureSession). logout is a no-op on network side here.
+    expect(createGuestSessionMock).toHaveBeenCalledTimes(1)
   })
 })
 
