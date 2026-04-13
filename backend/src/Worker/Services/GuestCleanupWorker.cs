@@ -64,10 +64,20 @@ public class GuestCleanupWorker(
         {
             try
             {
-                // Delete files from storage for each book
+                // Delete files from storage for each book. Per-book try/catch so a single
+                // bad directory (permission / race / lock) doesn't abort the whole guest
+                // cleanup — worst case: orphan files remain, but user row still gets removed
+                // and the DeleteUserDirectoryAsync sweep below tries to clear the parent.
                 foreach (var book in guest.UserBooks)
                 {
-                    await storage.DeleteUserBookDirectoryAsync(guest.Id, book.Id, ct);
+                    try
+                    {
+                        await storage.DeleteUserBookDirectoryAsync(guest.Id, book.Id, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to delete book dir {BookId} for guest {GuestId}; continuing", book.Id, guest.Id);
+                    }
                 }
 
                 // Sweep user's parent storage dir — covers cases:
