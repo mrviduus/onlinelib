@@ -158,11 +158,18 @@ builder.Services.AddRateLimiter(options =>
         opt.PermitLimit = 10;
         opt.QueueLimit = 0;
     });
-    options.AddFixedWindowLimiter("guest-session", opt =>
+    // Per-IP partition — bot with one IP can't exhaust the limit for everyone.
+    // 3 guest-creates per 5min per IP: covers legit shared-WiFi cases, blocks scripted abuse.
+    // ForwardedHeaders runs before RateLimiter in the pipeline, so RemoteIpAddress is the real client.
+    options.AddPolicy("guest-session", httpContext =>
     {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(5),
+            PermitLimit = 3,
+            QueueLimit = 0,
+        });
     });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });

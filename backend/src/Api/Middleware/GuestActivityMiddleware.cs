@@ -22,9 +22,11 @@ public class GuestActivityMiddleware(RequestDelegate next)
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null) return;
 
-            // Debounce: only update if last activity was >1 hour ago
+            // Debounce: only update if last activity was >10 minutes ago.
+            // Shorter than before (was 1h) because guest cleanup threshold is now 48h —
+            // we need more accurate LastActiveAt to avoid premature deletion of active users.
             if (user.LastActiveAt.HasValue &&
-                DateTimeOffset.UtcNow - user.LastActiveAt.Value < TimeSpan.FromHours(1))
+                DateTimeOffset.UtcNow - user.LastActiveAt.Value < TimeSpan.FromMinutes(10))
                 return;
 
             user.LastActiveAt = DateTimeOffset.UtcNow;

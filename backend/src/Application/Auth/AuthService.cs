@@ -112,7 +112,7 @@ public class AuthService
         await _db.SaveChangesAsync(ct);
 
         var accessToken = GenerateAccessToken(user);
-        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct, isGuest: true);
         return (user, accessToken, refreshToken);
     }
 
@@ -171,7 +171,8 @@ public class AuthService
         try
         {
             _db.UserRefreshTokens.Remove(token);
-            var newRefreshToken = await CreateRefreshTokenAsync(token.UserId, ct);
+            // Preserve guest-vs-real TTL on refresh — guests keep the shorter window.
+            var newRefreshToken = await CreateRefreshTokenAsync(token.UserId, ct, isGuest: token.User.IsGuest);
             var accessToken = GenerateAccessToken(token.User);
             return (token.User, accessToken, newRefreshToken);
         }
@@ -423,14 +424,19 @@ public class AuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private async Task<string> CreateRefreshTokenAsync(Guid userId, CancellationToken ct)
+    private async Task<string> CreateRefreshTokenAsync(Guid userId, CancellationToken ct, bool isGuest = false)
     {
+        // Guest sessions get a shorter refresh window — reduces DB bloat from abandoned accounts.
+        var ttlDays = isGuest
+            ? _jwtSettings.GuestRefreshTokenExpiryDays
+            : _jwtSettings.RefreshTokenExpiryDays;
+
         var token = new UserRefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             Token = GenerateSecureToken(),
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays),
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(ttlDays),
             CreatedAt = DateTimeOffset.UtcNow
         };
 

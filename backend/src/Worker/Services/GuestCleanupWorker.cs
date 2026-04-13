@@ -10,8 +10,13 @@ public class GuestCleanupWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<GuestCleanupWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
-    private static readonly TimeSpan ExpiryThreshold = TimeSpan.FromDays(3);
+    // Run cleanup every 2h: short enough to reclaim abandoned guest slots quickly,
+    // long enough to avoid hammering the DB on a weak server.
+    private static readonly TimeSpan Interval = TimeSpan.FromHours(2);
+    // 48h inactivity → delete. Paired with the 7-day guest refresh-token TTL:
+    // token outlives cleanup, but cleanup fires on engagement absence (LastActiveAt).
+    // Real "abandoned after first tap" guests are gone in 2 days instead of 3.
+    private static readonly TimeSpan ExpiryThreshold = TimeSpan.FromHours(48);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
