@@ -15,6 +15,10 @@ vi.mock('../../context/AuthContext', () => ({
       authState.sessionReadyDelayMs > 0
         ? new Promise<void>((r) => setTimeout(r, authState.sessionReadyDelayMs))
         : Promise.resolve(),
+    // I4: addWord зовёт ensureSession как fallback если !isAuthRef.current после waitForSession.
+    // В этих тестах isAuthenticated контролируется флагом authState напрямую,
+    // поэтому ensureSession — безопидный no-op resolve.
+    ensureSession: () => Promise.resolve(),
   }),
 }))
 

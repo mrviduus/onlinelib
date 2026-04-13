@@ -6,7 +6,7 @@ import { translate as translateWord } from '../api/translation'
 export type VocabMap = Map<string, { stage: number; id?: string; translation?: string }>
 
 export function useReaderVocabulary(bookLanguage?: string, targetLang?: string | null) {
-  const { isAuthenticated, waitForSession } = useAuth()
+  const { isAuthenticated, waitForSession, ensureSession } = useAuth()
   const [vocabMap, setVocabMap] = useState<VocabMap>(new Map())
   const [loading, setLoading] = useState(false)
   const mapRef = useRef<VocabMap>(new Map())
@@ -84,7 +84,11 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
   const addWord = useCallback(async (req: SaveWordRequest) => {
     // Gate: block first tap until AuthContext has finished bootstrapping (B2).
     await waitForSession()
-    // After bootstrap, if we still have no session, we're in local guest mode — silent no-op (B3).
+    // I2/I4: bootstrap теперь read-only. Первый tap слова — demand-driven триггер
+    // для создания guest-сессии. Single-flight внутри ensureSession дедуплицирует
+    // конкурентные tap'ы в один /auth/guest.
+    if (!isAuthRef.current) await ensureSession()
+    // Network failed → local-only mode, silent no-op (B3).
     if (!isAuthRef.current) return null
     const saved = await saveWord(req)
     const key = saved.word.toLowerCase()
@@ -97,7 +101,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       translation: existing?.translation || saved.translation || undefined,
     }))
     return saved
-  }, [waitForSession, updateMap])
+  }, [waitForSession, ensureSession, updateMap])
 
   const markAsKnown = useCallback(async (id: string, word: string) => {
     if (!isAuthenticated) return null

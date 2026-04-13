@@ -7,6 +7,7 @@ const getCurrentUserMock = vi.fn()
 const refreshTokenMock = vi.fn()
 const createGuestSessionMock = vi.fn()
 const logoutMock = vi.fn()
+const loginWithEmailMock = vi.fn()
 
 vi.mock('../../api/auth', () => ({
   getCurrentUser: () => getCurrentUserMock(),
@@ -14,7 +15,7 @@ vi.mock('../../api/auth', () => ({
   createGuestSession: () => createGuestSessionMock(),
   logout: () => logoutMock(),
   loginWithGoogle: vi.fn(),
-  loginWithEmail: vi.fn(),
+  loginWithEmail: (...args: unknown[]) => loginWithEmailMock(...args),
   registerWithEmail: vi.fn(),
   updateProfile: vi.fn(),
   uploadAvatar: vi.fn(),
@@ -40,13 +41,15 @@ describe('AuthContext bootstrap', () => {
     refreshTokenMock.mockReset()
     createGuestSessionMock.mockReset()
     logoutMock.mockReset()
+    loginWithEmailMock.mockReset()
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('fires POST /auth/guest exactly once under StrictMode double-invoke', async () => {
+  // I1: bootstrap is a read-only session probe — never creates a guest.
+  it('bootstrap is read-only — no POST /auth/guest when unauthenticated', async () => {
     getCurrentUserMock.mockRejectedValue(new Error('401'))
     refreshTokenMock.mockRejectedValue(new Error('401'))
     createGuestSessionMock.mockResolvedValue({ user: guestUser })
@@ -54,9 +57,59 @@ describe('AuthContext bootstrap', () => {
     const { result } = renderHook(() => useAuth(), { wrapper: wrapperStrict })
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
+    expect(createGuestSessionMock).not.toHaveBeenCalled()
+    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.user).toBeNull()
+  })
+
+  // I2: guest is created on-demand when a feature needs a persistence session.
+  it('ensureSession creates guest on demand after read-only bootstrap', async () => {
+    getCurrentUserMock.mockRejectedValue(new Error('401'))
+    refreshTokenMock.mockRejectedValue(new Error('401'))
+    createGuestSessionMock.mockResolvedValue({ user: guestUser })
+
+    const { result } = renderHook(() => useAuth(), { wrapper: wrapperPlain })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(createGuestSessionMock).not.toHaveBeenCalled()
+
+    await act(async () => { await result.current.ensureSession() })
+
     expect(createGuestSessionMock).toHaveBeenCalledTimes(1)
     expect(result.current.isAuthenticated).toBe(true)
     expect(result.current.isGuest).toBe(true)
+  })
+
+  // I3: late-arriving guest response must not overwrite a real user who logged in.
+  it('in-flight guest create does not stomp authenticated user (I3)', async () => {
+    getCurrentUserMock.mockRejectedValue(new Error('401'))
+    refreshTokenMock.mockRejectedValue(new Error('401'))
+    let resolveGuest: (v: { user: typeof guestUser }) => void = () => {}
+    createGuestSessionMock.mockImplementation(
+      () => new Promise((r) => { resolveGuest = r })
+    )
+
+    const authedUser = { id: 'u-real', email: 'a@b.c', name: null, picture: null, isGuest: false }
+    loginWithEmailMock.mockResolvedValue({ user: authedUser })
+
+    const { result } = renderHook(() => useAuth(), { wrapper: wrapperPlain })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // User taps a word → reader flow fires ensureSession → guest in-flight.
+    let ensureP!: Promise<void>
+    act(() => { ensureP = result.current.ensureSession() })
+
+    // Meanwhile user hits login on another tab/flow.
+    await act(async () => { await result.current.loginWithEmail('a@b.c', 'pw') })
+    expect(result.current.user?.id).toBe('u-real')
+    expect(result.current.isGuest).toBe(false)
+
+    // Guest response arrives LATE. MUST NOT overwrite the real user.
+    await act(async () => {
+      resolveGuest({ user: guestUser })
+      await ensureP
+    })
+    expect(result.current.user?.id).toBe('u-real')
+    expect(result.current.isGuest).toBe(false)
   })
 
   it('waitForSession resolves after normal bootstrap', async () => {
@@ -108,7 +161,7 @@ describe('AuthContext bootstrap', () => {
   })
 
   it('concurrent ensureSession + logout dedupe into one guest create', async () => {
-    // Bootstrap completes unauth (no cookies, guest create succeeds once).
+    // Bootstrap completes unauthenticated (I1: no auto-guest).
     getCurrentUserMock.mockRejectedValue(new Error('401'))
     refreshTokenMock.mockRejectedValue(new Error('401'))
     let resolveGuest: (v: { user: typeof guestUser }) => void = () => {}
@@ -117,23 +170,25 @@ describe('AuthContext bootstrap', () => {
     )
 
     const { result } = renderHook(() => useAuth(), { wrapper: wrapperPlain })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    // While bootstrap's guest create is pending, also fire ensureSession and logout.
-    // logout calls logoutApi first, then createGuestOnce. We let it reach the second step.
+    // Fire ensureSession (simulates word-tap) and logout concurrently.
+    // logout: logoutApi → setUser(null) → createGuestOnce.
+    // Single-flight: the first ensureSession's guest promise is shared.
     logoutMock.mockResolvedValue(undefined)
 
-    const ensureP = result.current.ensureSession()
+    let ensureP!: Promise<void>
+    act(() => { ensureP = result.current.ensureSession() })
     const logoutP = result.current.logout()
 
-    // Resolve the in-flight guest create.
     await act(async () => {
       resolveGuest({ user: guestUser })
       await ensureP
       await logoutP
     })
 
-    // Bootstrap + ensureSession shared one call; logout triggered a second fresh call after logoutApi cleared the in-flight.
-    // Accept either 1 (shared) or 2 (logout re-created after clear). Asserting "no runaway": <= 2.
+    // ensureSession shared one call; logout may trigger a fresh call after logoutApi cleared single-flight.
+    // Assert "no runaway": <= 2 (1 = fully shared, 2 = logout re-created after clear).
     expect(createGuestSessionMock.mock.calls.length).toBeLessThanOrEqual(2)
   })
 })

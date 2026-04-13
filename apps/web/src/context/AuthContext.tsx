@@ -86,14 +86,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ])
   }, [])
 
-  // Single-flight guard for POST /auth/guest. Shared by bootstrap, ensureSession, and logout
+  // Single-flight guard for POST /auth/guest. Shared by ensureSession and logout
   // so concurrent callers (StrictMode double-invoke, logout race, HeroSection upload) dedupe into one call.
   const inFlightGuestRef = useRef<Promise<User | null> | null>(null)
   const createGuestOnce = useCallback(async (): Promise<User | null> => {
     if (inFlightGuestRef.current) return inFlightGuestRef.current
     const promise = createGuestSessionApi()
-      .then((res) => { setUser(res.user); return res.user })
-      .catch(() => { setUser(null); return null })
+      .then((res) => {
+        // I3: no-downgrade — не перетираем не-guest юзера.
+        // Race: login мог завершиться пока guest-промис был in-flight.
+        setUser(prev => (prev && !prev.isGuest ? prev : res.user))
+        return res.user
+      })
+      .catch(() => {
+        // Падение guest-create не должно трогать существующего юзера.
+        setUser(prev => (prev && !prev.isGuest ? prev : null))
+        return null
+      })
       .finally(() => { inFlightGuestRef.current = null })
     inFlightGuestRef.current = promise
     return promise
@@ -102,8 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // StrictMode fires effects twice in dev; this ref dedupes the bootstrap so we never hit /auth/guest twice.
   const bootstrapStartedRef = useRef(false)
 
-  // Check current auth status on mount; if none, auto-create guest session (B2 fix).
-  // If all network attempts fail, degrade to local guest mode — reader still loads, saves become no-ops (B3).
+  // I1: Bootstrap = read-only session probe. Проверяем существующую сессию, но
+  // НЕ создаём guest. Guest создаётся demand-driven (ensureSession → первый tap
+  // слова в reader или upload книги). Homepage/login/каталог не триггерят /auth/guest.
   useEffect(() => {
     if (bootstrapStartedRef.current) return
     bootstrapStartedRef.current = true
@@ -123,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const response = await refreshToken()
           setUser(response.user)
         } catch {
-          await createGuestOnce()
+          // I1: bootstrap read-only. user остаётся null; фичи сами зовут ensureSession().
         }
       }
     }
@@ -137,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionReady.resolve()
       }
     })()
-  }, [createGuestOnce])
+  }, [])
 
   // Load and initialize Google Sign-In in single effect
   useEffect(() => {
@@ -224,8 +234,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (typeof google !== 'undefined') {
         google.accounts.id.disableAutoSelect()
       }
-      // Immediately create a new guest session so reader-driven flows don't break.
-      // Uses the single-flight helper to coalesce with any concurrent bootstrap/ensureSession.
+      // I5: явно сбрасываем user перед guest re-create, иначе I3-guard в
+      // createGuestOnce увидит старого залогиненного юзера и не обновит state.
+      setUser(null)
+      // Create a new guest session so reader-driven flows don't break.
       await createGuestOnce()
     } catch (error) {
       console.error('Logout failed:', error)
