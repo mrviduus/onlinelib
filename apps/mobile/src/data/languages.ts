@@ -27,8 +27,9 @@ export function getLanguage(code: string): LanguageEntry | undefined {
 }
 
 export const LANGUAGES: LanguageEntry[] = [
-  // Popular
+  // Popular — pt-BR promoted for Brazil audience.
   { code: 'en', englishName: 'English', nativeName: 'English', flagCountry: 'GB', popular: true },
+  { code: 'pt-BR', englishName: 'Portuguese (Brazil)', nativeName: 'Português (Brasil)', flagCountry: 'BR', popular: true },
   { code: 'uk', englishName: 'Ukrainian', nativeName: 'Українська', flagCountry: 'UA', popular: true },
   { code: 'ru', englishName: 'Russian', nativeName: 'Русский', flagCountry: 'RU', popular: true },
   { code: 'de', englishName: 'German', nativeName: 'Deutsch', flagCountry: 'DE', popular: true },
@@ -96,7 +97,6 @@ export const LANGUAGES: LanguageEntry[] = [
   { code: 'no', englishName: 'Norwegian', nativeName: 'Norsk', flagCountry: 'NO' },
   { code: 'ps', englishName: 'Pashto', nativeName: 'پښتو', flagCountry: 'AF' },
   { code: 'pt', englishName: 'Portuguese', nativeName: 'Português', flagCountry: 'PT' },
-  { code: 'pt-BR', englishName: 'Portuguese (Brazil)', nativeName: 'Português (Brasil)', flagCountry: 'BR' },
   { code: 'pa', englishName: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flagCountry: 'IN' },
   { code: 'ro', englishName: 'Romanian', nativeName: 'Română', flagCountry: 'RO' },
   { code: 'sr', englishName: 'Serbian', nativeName: 'Српски', flagCountry: 'RS' },

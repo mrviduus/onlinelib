@@ -29,6 +29,8 @@ import { PracticePage } from './pages/PracticePage'
 import { HighlightsPage } from './pages/HighlightsPage'
 import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
+import { LearnEnglishBrazilPage } from './pages/LearnEnglishBrazilPage'
+import { LearnEnglishSpainPage } from './pages/LearnEnglishSpainPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
@@ -83,6 +85,8 @@ function LanguageRoutes() {
         <Route path="/genres/:slug" element={<GenreDetailPage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/blog/:slug" element={<BlogPostPage />} />
+        <Route path="/learn-english-brazil" element={<LearnEnglishBrazilPage />} />
+        <Route path="/learn-english-spain" element={<LearnEnglishSpainPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />

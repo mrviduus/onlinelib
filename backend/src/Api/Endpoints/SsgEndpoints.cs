@@ -41,6 +41,12 @@ public static class SsgEndpoints
             routes.Add($"/{lang}/about");
         }
 
+        // Country-targeted SEO landing pages (English-only — targeting EN-learners
+        // in Brazil / Spain). Copy is English; country signals are in the
+        // hero + FAQ + audience badge. No uk variants.
+        routes.Add("/en/learn-english-brazil");
+        routes.Add("/en/learn-english-spain");
+
         // Books (each book has a language)
         var books = await db.Editions
             .Where(e => e.SiteId == site.SiteId &&

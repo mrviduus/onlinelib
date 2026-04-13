@@ -35,6 +35,8 @@ public static class DictionaryEndpoints
             "fr" or "french" => "fr",
             "es" or "spanish" => "es",
             "pl" or "polish" => "pl",
+            "pt" or "portuguese" => "pt",
+            "pt-br" or "portuguese-brazil" => "pt", // Free Dictionary API uses 'pt' for both
             _ => lang.ToLowerInvariant()
         };
 

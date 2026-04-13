@@ -40,6 +40,11 @@ public static class TranslationEndpoints
         if (string.IsNullOrWhiteSpace(request.TargetLang))
             return Results.BadRequest("Target language is required");
 
+        // Normalize BCP47 region codes to base language (pt-BR → pt).
+        // LibreTranslate accepts only base codes (en, pt, ko, ...).
+        var srcLang = request.SourceLang.Split('-')[0];
+        var tgtLang = request.TargetLang.Split('-')[0];
+
         try
         {
             var client = httpClientFactory.CreateClient();
@@ -48,8 +53,8 @@ public static class TranslationEndpoints
             var libreRequest = new
             {
                 q = request.Text,
-                source = request.SourceLang,
-                target = request.TargetLang,
+                source = srcLang,
+                target = tgtLang,
                 format = "text"
             };
 
