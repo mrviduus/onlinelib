@@ -701,13 +701,23 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       .catch(() => {}) // silent fail
   }, [currentPage, overallProgress, book?.id, isInLibrary, addToLibrary])
 
-  // Navigate to saved chapter if different from current
+  // Navigate to saved chapter if different from current.
+  // Stale-progress guard: wait until TOC is loaded, then only navigate if the saved
+  // chapter still exists. If it doesn't (renamed/deleted), keep the user on the
+  // current chapter instead of redirecting to a 404.
   useEffect(() => {
-    if (shouldNavigate && targetChapterSlug && !hasNavigatedRef.current) {
-      hasNavigatedRef.current = true
+    if (!shouldNavigate || !targetChapterSlug || hasNavigatedRef.current) return
+    if (mode !== 'public') return
+    // Need TOC to validate. publicBook is set after the book fetch resolves.
+    if (!publicBook?.chapters) return
+
+    const chapterExists = publicBook.chapters.some(c => c.slug === targetChapterSlug)
+    hasNavigatedRef.current = true
+    if (chapterExists) {
       navigate(getLocalizedPath(`/books/${bookSlug}/${targetChapterSlug}`), { replace: true })
     }
-  }, [shouldNavigate, targetChapterSlug, bookSlug, navigate, getLocalizedPath])
+    // else: saved chapter is stale — stay put, user lands at page 0 of current chapter.
+  }, [shouldNavigate, targetChapterSlug, bookSlug, navigate, getLocalizedPath, mode, publicBook?.chapters])
 
   // Restore page position after pagination is ready (pagination mode)
   useEffect(() => {
@@ -724,6 +734,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       return
     }
 
+    // Saved-for-different-chapter guard: if effectiveProgress belongs to another chapter
+    // (stale saved chapter that failed TOC validation, or user clicked Next/Prev to a new
+    // chapter while savedProgress still points at the original), don't apply its locator
+    // to this chapter's pagination — that lands the user mid-way in the wrong chapter.
+    if (effectiveProgress.chapterSlug && effectiveProgress.chapterSlug !== chapterIdentifier) {
+      goToPage(0)
+      return
+    }
+
     // Restore to saved position
     const { locator } = effectiveProgress
     if (locator.startsWith('page:')) {
@@ -736,7 +755,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       // Fallback for scroll: or other formats
       goToPage(Math.floor(effectiveProgress.percent * (totalPages - 1)))
     }
-  }, [useScrollMode, totalPages, effectiveProgress, effectiveLoading, shouldNavigate, goToPage, book?.id])
+  }, [useScrollMode, totalPages, effectiveProgress, effectiveLoading, shouldNavigate, goToPage, book?.id, chapterIdentifier])
 
   // Restore scroll position (scroll mode)
   useEffect(() => {

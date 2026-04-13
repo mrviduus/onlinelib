@@ -9,12 +9,16 @@ interface LocalProgress {
   chapterSlug: string
   locator: string
   percent: number
+  /** Epoch ms. Optional for backward-compat with pre-fix entries (treated as 0 → server wins). */
+  updatedAt?: number
 }
 
 interface SavedProgress {
   chapterSlug: string | null
   locator: string
   percent?: number
+  /** Epoch ms. 0 when unknown. */
+  updatedAt: number
 }
 
 interface RestoreState {
@@ -70,13 +74,16 @@ export function useRestoreProgress(
             chapterSlug: local.chapterSlug,
             locator: local.locator,
             percent: local.percent,
+            updatedAt: local.updatedAt ?? 0,
           }
         }
       } catch {
         // localStorage might be unavailable
       }
 
-      // If authenticated, check server (may have newer data from another device)
+      // If authenticated, check server (may have newer data from another device).
+      // LWW: newer timestamp wins. Percent-based merge was broken — a stale server record
+      // at 95% of ch1 beat a fresh local record at 20% of ch5, tossing the user back.
       if (isAuthenticated) {
         try {
           const serverProgress = await getProgress(editionId!)
@@ -85,8 +92,11 @@ export function useRestoreProgress(
               chapterSlug: serverProgress.chapterSlug,
               locator: serverProgress.locator,
               percent: serverProgress.percent ?? undefined,
+              updatedAt: serverProgress.updatedAt
+                ? Date.parse(serverProgress.updatedAt)
+                : 0,
             }
-            if (!progress || (serverData.percent ?? 0) > (progress.percent ?? 0)) {
+            if (!progress || serverData.updatedAt > progress.updatedAt) {
               progress = serverData
             }
           }

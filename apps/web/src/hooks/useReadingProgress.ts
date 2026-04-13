@@ -16,6 +16,7 @@ interface PendingSync {
   chapterId: string
   locator: string
   percent: number
+  updatedAt: number
 }
 
 export function useReadingProgress(
@@ -64,6 +65,10 @@ export function useReadingProgress(
     lastSyncedPercentRef.current = percent
     lastSyncedLocatorRef.current = locator
 
+    // Timestamp is the source of truth for LWW merge in useRestoreProgress.
+    // Single monotonic stamp shared by localStorage + server payload so both sides merge identically.
+    const updatedAt = Date.now()
+
     // Always save to localStorage (works offline, fallback if API fails)
     try {
       localStorage.setItem(`${STORAGE_KEY}${editionId}`, JSON.stringify({
@@ -71,6 +76,7 @@ export function useReadingProgress(
         chapterSlug: effectiveChapterSlug,
         locator,
         percent,
+        updatedAt,
       }))
     } catch {
       // localStorage might be full or disabled
@@ -82,6 +88,7 @@ export function useReadingProgress(
       chapterId: effectiveChapterId,
       locator,
       percent,
+      updatedAt,
     }
 
     // Also sync to server if authenticated (debounced)
@@ -92,6 +99,7 @@ export function useReadingProgress(
           chapterId: effectiveChapterId,
           locator,
           percent,
+          updatedAt: new Date(updatedAt).toISOString(),
         }).catch(() => {})
         pendingSyncRef.current = null
       }, 2000)
@@ -108,8 +116,13 @@ export function useReadingProgress(
       serverSyncRef.current = null
     }
 
-    const { editionId, chapterId, locator, percent } = pendingSyncRef.current
-    const payload = JSON.stringify({ chapterId, locator, percent })
+    const { editionId, chapterId, locator, percent, updatedAt } = pendingSyncRef.current
+    const payload = JSON.stringify({
+      chapterId,
+      locator,
+      percent,
+      updatedAt: new Date(updatedAt).toISOString(),
+    })
     const url = `/api/me/progress/${editionId}`
 
     // Use fetch with keepalive (survives page unload like sendBeacon, but supports PUT)

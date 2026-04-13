@@ -10,6 +10,9 @@ export function updateProgress(editionId: string, data: { chapterId: string; cha
     chapterId: data.chapterId,
     locator: JSON.stringify({ type: 'chapter', slug: data.chapterSlug }),
     percent: data.progress,
+    // Client timestamp for LWW merge on server (UserDataEndpoints.cs:134) and on restore in web.
+    // Skips stale overwrites if a newer record already exists on the server.
+    updatedAt: new Date().toISOString(),
   }))
 }
 
