@@ -5,9 +5,15 @@ import { useLanguage } from '../context/LanguageContext'
 import { useAuth } from '../context/AuthContext'
 import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useVerticalSwipe } from '../hooks/useVerticalSwipe'
+import { useDictionary } from '../hooks/useDictionary'
+import { useReaderVocabulary } from '../hooks/useReaderVocabulary'
+import { useTts } from '../hooks/useTts'
+import { useTranslation } from '../hooks/useTranslation'
 import { splitSentences, tokenizeWords } from '@textstack/shared'
 import { getUserBookChapter, getUserBook } from '../api/userBooks'
 import { translate as translateApi } from '../api/translation'
+import { updateWord as updateWordApi } from '../api/vocabulary'
+import { WordPopup } from '../components/reader/WordPopup'
 import { SeoHead } from '../components/SeoHead'
 import '../styles/focus-reader.css'
 
@@ -23,10 +29,14 @@ function htmlToText(html: string): string {
   return div.textContent || div.innerText || ''
 }
 
-interface TapState {
-  key: string // "sentenceIdx:wordIdx"
-  text: string | null
-  loading: boolean
+interface BubbleState {
+  word: string
+  translation: string | null
+  translationLoading: boolean
+  phonetic: string | undefined
+  definition: string | null
+  definitionLoading: boolean
+  rect: DOMRect | null
 }
 
 export function FocusReaderPage({ mode = 'public' }: Props) {
@@ -38,22 +48,38 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const api = useApi()
   const { language } = useLanguage()
   const { isAuthenticated } = useAuth()
-  const { nativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [html, setHtml] = useState<string>('')
   const [bookLanguage, setBookLanguage] = useState<string>('en')
   const [chapterId, setChapterId] = useState<string | null>(null)
+  const [editionId, setEditionId] = useState<string | null>(null)
+  const [bookTitle, setBookTitle] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [tap, setTap] = useState<TapState | null>(null)
+  const [bubble, setBubble] = useState<BubbleState | null>(null)
   const [pressingKey, setPressingKey] = useState<string | null>(null)
 
-  const abortRef = useRef<AbortController | null>(null)
+  const bubbleAbortRef = useRef<AbortController | null>(null)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressOriginRef = useRef<{ x: number; y: number } | null>(null)
+
+  const targetLang = bookLanguage !== nativeLanguage ? nativeLanguage : null
+
+  // Shared services for the word popup
+  const { lookup: lookupWord } = useDictionary()
+  const { vocabMap, addWord, markAsKnown, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+  const { speak } = useTts()
+  const handleSpeak = useCallback((word: string) => {
+    speak(word, bookLanguage)
+  }, [speak, bookLanguage])
+
+  // Container ref for WordPopup clamping (sentence area)
+  const sentenceRef = useRef<HTMLDivElement>(null)
 
   const LONGPRESS_MS = 400
   const MOVE_TOLERANCE_PX = 8
@@ -65,11 +91,6 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
     }
     pressOriginRef.current = null
     setPressingKey(null)
-  }, [])
-
-  // Clean up any pending press timer on unmount
-  useEffect(() => () => {
-    if (pressTimerRef.current) clearTimeout(pressTimerRef.current)
   }, [])
 
   // Theme: 'light' | 'dark' | 'system'. Persist in localStorage. Default system.
@@ -107,7 +128,9 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           if (cancelled) return
           setHtml(ch.html)
           setChapterId(ch.id)
+          setEditionId(bk.id)
           setTitle(ch.title)
+          setBookTitle(bk.title)
           setBookLanguage(bk.language || 'en')
         } else {
           if (!id || !chapterSlug) return
@@ -118,7 +141,9 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           if (cancelled) return
           setHtml(ch.html)
           setChapterId(ch.id)
+          setEditionId(null) // userbook mode uses userBookId, not editionId
           setTitle(ch.title)
+          setBookTitle(book.title || '')
           setBookLanguage(book.language || 'en')
         }
       } catch (e) {
@@ -157,15 +182,21 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
     try { localStorage.setItem(storageKey, String(currentIndex)) } catch {}
   }, [storageKey, currentIndex])
 
+  // Close any open popup — shared by nav, exit, auto-dismiss
+  const closeBubble = useCallback(() => {
+    bubbleAbortRef.current?.abort()
+    setBubble(null)
+  }, [])
+
   // Nav handlers
   const next = useCallback(() => {
-    setTap(null)
+    closeBubble()
     setCurrentIndex((i) => Math.min(i + 1, Math.max(0, sentences.length - 1)))
-  }, [sentences.length])
+  }, [sentences.length, closeBubble])
   const prev = useCallback(() => {
-    setTap(null)
+    closeBubble()
     setCurrentIndex((i) => Math.max(0, i - 1))
-  }, [])
+  }, [closeBubble])
   const exit = useCallback(() => {
     // Back to normal reader for the same chapter
     if (mode === 'public' && bookSlug && chapterSlug) {
@@ -196,45 +227,99 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev, exit])
 
-  // Tap a word → inline translation
-  // Deps exclude `tap` to avoid callback churn + stale closures; toggle-off uses functional setter.
-  const tapWord = useCallback(
-    async (sentenceIdx: number, wordIdx: number, word: string) => {
-      const key = `${sentenceIdx}:${wordIdx}`
-      // Same-lang: silent no-op, but clear any prior tap so UI stays honest
-      if (bookLanguage === nativeLanguage) {
-        setTap(null)
+  // Long-press a word → open full WordPopup (translation + definition + TTS + vocab save).
+  // Toggle-off: long-pressing the same word that's already open closes the popup.
+  const openWordBubble = useCallback(
+    (wordEl: HTMLElement, word: string) => {
+      // Toggle off if same word is currently shown
+      if (bubble?.word === word) {
+        closeBubble()
         return
       }
-      // Toggle off if tapping same word
-      let toggledOff = false
-      setTap((prev) => {
-        if (prev?.key === key) { toggledOff = true; return null }
-        return { key, text: null, loading: true }
-      })
-      if (toggledOff) {
-        abortRef.current?.abort()
-        return
-      }
-      // Cancel previous in-flight request
-      abortRef.current?.abort()
+
+      const rect = wordEl.getBoundingClientRect()
+      bubbleAbortRef.current?.abort()
       const ctrl = new AbortController()
-      abortRef.current = ctrl
-      try {
-        const res = await translateApi(word, bookLanguage, nativeLanguage, ctrl.signal)
-        if (ctrl.signal.aborted) return
-        setTap({ key, text: res.translatedText, loading: false })
-      } catch (err) {
-        if (ctrl.signal.aborted) return
-        if ((err as { name?: string })?.name === 'AbortError') return
-        setTap({ key, text: '—', loading: false })
-      }
+      bubbleAbortRef.current = ctrl
+
+      setBubble({
+        word,
+        translation: null,
+        translationLoading: !!targetLang,
+        phonetic: undefined,
+        definition: null,
+        definitionLoading: true,
+        rect,
+      })
+
+      // Dictionary lookup
+      lookupWord(word, bookLanguage)
+        .then((entry) => {
+          if (ctrl.signal.aborted) return
+          setBubble((prev) =>
+            prev && prev.word === word
+              ? {
+                  ...prev,
+                  phonetic: entry?.phonetic,
+                  definition: entry?.definitions?.[0]?.definitions?.[0]?.definition ?? null,
+                  definitionLoading: false,
+                }
+              : prev,
+          )
+        })
+        .catch(() => {
+          if (ctrl.signal.aborted) return
+          setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
+        })
+
+      // Fire-and-forget vocab save (dedup via vocabMap) + translation in parallel
+      const shouldSave = !vocabMap.has(word.toLowerCase())
+      const savePromise = shouldSave
+        ? addWord({
+            word,
+            language: bookLanguage,
+            editionId: mode === 'public' ? (editionId || undefined) : undefined,
+            chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
+            userBookId: mode === 'userbook' ? (id || undefined) : undefined,
+            bookTitle: bookTitle || undefined,
+            nativeLanguage: targetLang || undefined,
+          }).catch(() => null)
+        : Promise.resolve(null)
+
+      const translationPromise = targetLang
+        ? translateApi(word, bookLanguage, targetLang, ctrl.signal)
+        : Promise.resolve(null)
+
+      Promise.all([savePromise, translationPromise])
+        .then(([saved, res]) => {
+          if (ctrl.signal.aborted) return
+          const translatedText = res?.translatedText ?? null
+          setBubble((prev) =>
+            prev && prev.word === word
+              ? { ...prev, translation: translatedText, translationLoading: false }
+              : prev,
+          )
+          if (translatedText) {
+            if (saved?.id) updateWordApi(saved.id, { translation: translatedText }).catch(() => {})
+            updateTranslation(word, translatedText)
+          }
+        })
+        .catch((err) => {
+          if (ctrl.signal.aborted) return
+          if ((err as { name?: string })?.name === 'AbortError') return
+          setBubble((prev) =>
+            prev && prev.word === word ? { ...prev, translationLoading: false } : prev,
+          )
+        })
     },
-    [bookLanguage, nativeLanguage],
+    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, addWord, updateTranslation, mode, editionId, chapterId, id, bookTitle],
   )
 
-  // Abort in-flight on unmount
-  useEffect(() => () => abortRef.current?.abort(), [])
+  // Abort in-flight + pending press on unmount
+  useEffect(() => () => {
+    bubbleAbortRef.current?.abort()
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current)
+  }, [])
 
   // Auth check for userbook mode
   if (mode === 'userbook' && !isAuthenticated) {
@@ -274,7 +359,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const tokens = tokenizeWords(currentSentence)
   const progress = ((clampedIdx + 1) / sentences.length) * 100
 
-  const sameLang = bookLanguage === nativeLanguage
+  const vocabEntry = bubble ? vocabMap.get(bubble.word.toLowerCase()) : undefined
 
   return (
     <div className={`focus-reader${themeClass}`}>
@@ -315,22 +400,21 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           <path d="M6 6l12 12M6 18L18 6" />
         </svg>
       </button>
-      <div className="focus-reader__sentence" aria-live="polite">
+      <div className="focus-reader__sentence" aria-live="polite" ref={sentenceRef}>
         {tokens.map((t, i) => {
           const k = `${clampedIdx}:${i}`
-          const active = tap?.key === k
+          const active = bubble?.word === t.word
           const pressing = pressingKey === k
-          const disabled = sameLang
           const handlePointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
-            if (disabled) return
             // Only main pointer; ignore right-clicks on desktop
             if (e.pointerType === 'mouse' && e.button !== 0) return
             e.currentTarget.setPointerCapture?.(e.pointerId)
             pressOriginRef.current = { x: e.clientX, y: e.clientY }
             setPressingKey(k)
+            const wordEl = e.currentTarget
             pressTimerRef.current = setTimeout(() => {
               pressTimerRef.current = null
-              tapWord(clampedIdx, i, t.word)
+              openWordBubble(wordEl, t.word)
               setPressingKey(null)
             }, LONGPRESS_MS)
           }
@@ -344,7 +428,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
             <span key={k}>
               <span className="focus-reader__word-wrap">
                 <span
-                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${pressing ? ' focus-reader__word--pressing' : ''}${disabled ? ' focus-reader__word--disabled' : ''}`}
+                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${pressing ? ' focus-reader__word--pressing' : ''}`}
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={cancelPress}
@@ -354,11 +438,6 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
                 >
                   {t.word}
                 </span>
-                {active && (tap?.loading ? (
-                  <span className="focus-reader__translation">…</span>
-                ) : tap?.text ? (
-                  <span className="focus-reader__translation">{tap.text}</span>
-                ) : null)}
               </span>
               {t.trailing}
             </span>
@@ -374,10 +453,27 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           <div className="focus-reader__progress" style={{ width: `${progress}%` }} />
         </div>
       </div>
-      {sameLang && (
-        <div className="focus-reader__same-lang-hint">
-          Same language — tap translation disabled
-        </div>
+
+      {bubble && (
+        <WordPopup
+          word={bubble.word}
+          phonetic={bubble.phonetic}
+          translation={bubble.translation}
+          translationLoading={bubble.translationLoading}
+          definition={bubble.definition}
+          definitionLoading={bubble.definitionLoading}
+          rect={bubble.rect}
+          containerRef={sentenceRef}
+          onSpeak={() => handleSpeak(bubble.word)}
+          onMarkKnown={vocabEntry?.id ? () => { markAsKnown(vocabEntry.id!, bubble.word); closeBubble() } : undefined}
+          onRemove={vocabEntry?.id ? () => { removeWord(vocabEntry.id!, bubble.word); closeBubble() } : undefined}
+          onClose={closeBubble}
+          vocabStage={vocabEntry?.stage ?? null}
+          nativeLanguage={nativeLanguage}
+          onChangeNativeLanguage={setNativeLanguage}
+          bookLanguage={bookLanguage}
+          t={t}
+        />
       )}
     </div>
   )

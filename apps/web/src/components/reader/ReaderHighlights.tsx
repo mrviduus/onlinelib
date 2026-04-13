@@ -87,8 +87,13 @@ export function ReaderHighlights({
     rect: DOMRect | null
   } | null>(null)
   const bubbleAbortRef = useRef<AbortController | null>(null)
+  // Stabilization delay before opening popup. Filters out transient single-word
+  // selections fired by iOS tap-to-select / scroll-jitter / incidental taps.
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const STABILIZE_MS = 220
 
   const closeBubble = useCallback(() => {
+    if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
     bubbleAbortRef.current?.abort()
     setBubble(null)
     // Clear selection to break the effect loop: without this, selection persists,
@@ -96,21 +101,9 @@ export function ReaderHighlights({
     clearSelection()
   }, [clearSelection])
 
-  // Trigger popup when selection narrows to 1 word.
-  useEffect(() => {
-    if (!isSingleWord || !selection.rect || !selection.text) {
-      // Selection cleared or grew → drop any open popup (no clearSelection here —
-      // caller already changed selection, avoid recursion).
-      if (!isSingleWord) {
-        bubbleAbortRef.current?.abort()
-        setBubble(null)
-      }
-      return
-    }
-    const word = selection.text.trim()
-    // If same word already shown, don't re-fetch.
-    if (bubble?.word === word) return
-
+  // Popup creation, extracted so the scheduling effect has tight deps and doesn't
+  // re-fire on translation/definition arrival.
+  const openBubble = useCallback((word: string, rect: DOMRect, range: Range | null) => {
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
@@ -121,7 +114,7 @@ export function ReaderHighlights({
       phonetic: undefined,
       definition: null,
       definitionLoading: true,
-      rect: selection.rect,
+      rect,
     })
 
     // Dictionary lookup (phonetic + definition) — runs regardless of targetLang.
@@ -147,8 +140,8 @@ export function ReaderHighlights({
     // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
     const shouldSave = !vocabMap.has(word.toLowerCase())
     const container = containerRef.current
-    const sentence = selection.range && container
-      ? extractSentence(selection.range, container)
+    const sentence = range && container
+      ? extractSentence(range, container)
       : undefined
     const savePromise = shouldSave
       ? addWord({
@@ -189,15 +182,45 @@ export function ReaderHighlights({
         )
       })
   }, [
-    isSingleWord, selection.text, selection.rect, selection.range,
-    bookLanguage, targetLang, bubble?.word,
+    bookLanguage, targetLang,
     vocabMap, addWord, updateTranslation, lookupWord,
     containerRef, editionId, chapterId, userBookId, bookTitle,
   ])
 
-  // Clean abort on unmount
+  // Trigger popup when selection narrows to 1 word — with a short stabilization window
+  // so transient selections (iOS auto-select, scroll-tap jitter) don't flash the popup.
+  useEffect(() => {
+    if (!isSingleWord || !selection.rect || !selection.text) {
+      // Selection cleared or grew → cancel any pending open + drop existing popup.
+      if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
+      if (!isSingleWord) {
+        bubbleAbortRef.current?.abort()
+        setBubble(null)
+      }
+      return
+    }
+    const word = selection.text.trim()
+    // If same word already shown, don't re-fetch.
+    if (bubble?.word === word) return
+
+    // Debounce: schedule opening, cancel if selection changes again within the window.
+    // Net effect: brief accidental word-selections never create a bubble.
+    if (openTimerRef.current) clearTimeout(openTimerRef.current)
+    const rect = selection.rect
+    const range = selection.range
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null
+      openBubble(word, rect, range)
+    }, STABILIZE_MS)
+    return () => {
+      if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
+    }
+  }, [isSingleWord, selection.text, selection.rect, selection.range, bubble?.word, openBubble])
+
+  // Clean abort + pending open timer on unmount
   useEffect(() => () => {
     bubbleAbortRef.current?.abort()
+    if (openTimerRef.current) clearTimeout(openTimerRef.current)
   }, [])
 
   // --- Highlights ---

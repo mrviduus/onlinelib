@@ -74,9 +74,16 @@ export function WordPopup({
     exitTimerRef.current = setTimeout(onClose, EXIT_DURATION_MS)
   }, [onClose, closing])
 
-  // Reset closing state on new word
-  useEffect(() => { setClosing(false) }, [word])
-  useEffect(() => () => clearTimeout(exitTimerRef.current), [])
+  // Reset closing state on new word. Also cancel any pending exit timer from a previous
+  // close — otherwise it fires 150ms later on the NEW popup and unmounts it (re-tap glitch).
+  useEffect(() => {
+    clearTimeout(exitTimerRef.current)
+    setClosing(false)
+  }, [word])
+  useEffect(() => () => {
+    clearTimeout(exitTimerRef.current)
+    clearTimeout(dismissTimerRef.current)
+  }, [])
 
   const cancelAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
@@ -103,8 +110,11 @@ export function WordPopup({
     }
   }, [showLangPicker, cancelAutoDismiss])
 
-  // Position popup relative to word rect
+  // Position popup relative to word rect.
+  // Skip while closing — re-positioning a fading popup causes visual jitter, especially
+  // when async data (translation/definition) arrives mid-exit.
   useEffect(() => {
+    if (closing) return
     if (!rect || !containerRef.current || !popupRef.current) {
       setPosition(null)
       return
@@ -131,7 +141,7 @@ export function WordPopup({
     top = Math.max(8, Math.min(top, window.innerHeight - popupRect.height - 8))
 
     setPosition({ top, left })
-  }, [rect, containerRef, translation, definition, translationLoading, definitionLoading, showLangPicker])
+  }, [rect, containerRef, translation, definition, translationLoading, definitionLoading, showLangPicker, closing])
 
   // Close on click outside
   useEffect(() => {
