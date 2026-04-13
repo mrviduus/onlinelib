@@ -16,12 +16,12 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
         _fixture = fixture;
     }
 
-    #region GET /api/tts
+    #region GET /tts
 
     [Fact]
     public async Task Synthesize_ValidRequest_Returns200Audio()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=hello&lang=en");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=hello&lang=en");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Edge TTS might not be reachable from Docker, accept 502
@@ -37,7 +37,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task Synthesize_Ukrainian_Returns200()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=%D0%BF%D1%80%D0%B8%D0%B2%D1%96%D1%82&lang=uk");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=%D0%BF%D1%80%D0%B8%D0%B2%D1%96%D1%82&lang=uk");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -48,7 +48,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task Synthesize_WithSpeed_Returns200()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=test&lang=en&speed=1.5");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=test&lang=en&speed=1.5");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -59,7 +59,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task Synthesize_EmptyText_Returns400()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=&lang=en");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=&lang=en");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -68,7 +68,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task Synthesize_MissingText_Returns400()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?lang=en");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?lang=en");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -77,7 +77,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task Synthesize_MissingLang_Returns400()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=hello");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=hello");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -87,7 +87,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Synthesize_TextTooLong_Returns400()
     {
         var longText = new string('a', 600);
-        var request = _fixture.CreateRequest(HttpMethod.Get, $"/api/tts?text={longText}&lang=en");
+        var request = _fixture.CreateRequest(HttpMethod.Get, $"/tts?text={longText}&lang=en");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -97,7 +97,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     public async Task Synthesize_CachedRequest_ReturnsSameSize()
     {
         // First request
-        var request1 = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=cache-test&lang=en");
+        var request1 = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=cache-test&lang=en");
         var response1 = await _fixture.Client.SendAsync(request1, TestContext.Current.CancellationToken);
         if (response1.StatusCode == HttpStatusCode.BadGateway) return;
 
@@ -105,7 +105,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
         var bytes1 = await response1.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
 
         // Second request (should come from cache)
-        var request2 = _fixture.CreateRequest(HttpMethod.Get, "/api/tts?text=cache-test&lang=en");
+        var request2 = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=cache-test&lang=en");
         var response2 = await _fixture.Client.SendAsync(request2, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
@@ -116,12 +116,12 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
 
     #endregion
 
-    #region GET /api/tts/voices
+    #region GET /tts/voices
 
     [Fact]
     public async Task GetVoices_NoFilter_ReturnsVoices()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts/voices");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts/voices");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -136,7 +136,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task GetVoices_FilterByEn_ReturnsEnglishVoices()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts/voices?lang=en");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts/voices?lang=en");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -150,7 +150,7 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     [Fact]
     public async Task GetVoices_FilterByUk_ReturnsUkrainianVoices()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/api/tts/voices?lang=uk");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts/voices?lang=uk");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;

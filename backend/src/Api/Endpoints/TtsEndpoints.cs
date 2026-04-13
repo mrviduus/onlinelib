@@ -6,7 +6,9 @@ public static class TtsEndpoints
 {
     public static void MapTtsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/tts").WithTags("TTS");
+        // Note: registered at /tts (not /api/tts) because nginx strips /api prefix
+        // via proxy_pass trailing slash. Frontend calls /api/tts → nginx → /tts → here.
+        var group = app.MapGroup("/tts").WithTags("TTS");
 
         group.MapGet("", Synthesize).WithName("Synthesize");
         group.MapGet("/voices", GetVoices).WithName("GetTtsVoices");
