@@ -8,12 +8,15 @@ import { DEMO_BOOK } from '../../config/demoBook'
 import { MobileSearchOverlay } from '../Search'
 import { LocalizedLink } from '../LocalizedLink'
 import { uploadUserBook } from '../../api/userBooks'
+import { useContinueReading } from '../../hooks/useContinueReading'
+import { ContinueReadingCard } from './ContinueReadingCard'
 
 export function HeroSection() {
   const { t } = useTranslation()
   const { language } = useLanguage()
   const { isAuthenticated, ensureSession } = useAuth()
   const { isReturningUser, guestState } = useGuestLimits()
+  const { book: continueReadingBook } = useContinueReading()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [isMobile, setIsMobile] = useState(false)
@@ -72,6 +75,7 @@ export function HeroSection() {
   return (
     <section className="home-hero home-hero--split">
       <div className="home-hero__content">
+        {continueReadingBook && <ContinueReadingCard book={continueReadingBook} />}
         <h1 className="home-hero__title">{t('home.hero.title')}</h1>
         <p className="home-hero__subtitle">
           {showGuestCta ? t('home.hero.subtitleDemo') : t('home.hero.subtitle')}
@@ -127,6 +131,7 @@ export function HeroSection() {
         </form>
       </div>
 
+      {!continueReadingBook && (
       <div className="home-hero__visual" aria-hidden="true">
         <div className="home-hero__demo">
           <p className="home-hero__demo-text">
@@ -156,6 +161,7 @@ export function HeroSection() {
           </div>
         </div>
       </div>
+      )}
 
       {searchOverlayOpen && <MobileSearchOverlay onClose={() => setSearchOverlayOpen(false)} />}
     </section>

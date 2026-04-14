@@ -596,6 +596,12 @@
   padding: 0 0 2rem;
 }
 
+.home-hero__content > .continue-reading__card {
+  margin-bottom: 1.25rem;
+  width: 100%;
+  max-width: 480px;
+}
+
 .continue-reading__card {
   display: flex;
   align-items: center;
