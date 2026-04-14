@@ -18,6 +18,7 @@ export function getFlagUrl(code: string): string {
 }
 
 const STORAGE_KEY = 'textstack_native_language'
+const CONFIRMED_KEY = 'textstack_native_language_confirmed'
 
 function isSupported(code: string): boolean {
   return LANGUAGES.some((l) => l.code === code)
@@ -62,21 +63,34 @@ function detectDefault(): string {
 interface NativeLanguageContextValue {
   nativeLanguage: string
   setNativeLanguage: (code: string) => void
+  hasConfirmedLanguage: boolean
 }
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
   nativeLanguage: 'en',
   setNativeLanguage: () => {},
+  hasConfirmedLanguage: false,
 })
+
+function detectConfirmed(): boolean {
+  try {
+    return localStorage.getItem(CONFIRMED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const [nativeLanguage, setNativeLanguageState] = useState(detectDefault)
+  const [hasConfirmedLanguage, setHasConfirmedLanguage] = useState(detectConfirmed)
   const location = useLocation()
 
   const setNativeLanguage = useCallback((code: string) => {
     if (!isSupported(code)) return
     setNativeLanguageState(code)
+    setHasConfirmedLanguage(true)
     try { localStorage.setItem(STORAGE_KEY, code) } catch {}
+    try { localStorage.setItem(CONFIRMED_KEY, '1') } catch {}
   }, [])
 
   // Hard-bind native language to country landing URL. SPA navigation between
@@ -91,7 +105,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   }, [location.pathname, nativeLanguage])
 
   return (
-    <NativeLanguageContext.Provider value={{ nativeLanguage, setNativeLanguage }}>
+    <NativeLanguageContext.Provider value={{ nativeLanguage, setNativeLanguage, hasConfirmedLanguage }}>
       {children}
     </NativeLanguageContext.Provider>
   )
