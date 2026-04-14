@@ -4,7 +4,7 @@ export function getTtsAudioUrl(text: string, lang: string, voice?: string, speed
   const params = new URLSearchParams({ text, lang })
   if (voice) params.set('voice', voice)
   if (speed && speed !== 1.0) params.set('speed', String(speed))
-  return `${API_BASE}/api/tts?${params}`
+  return `${API_BASE}/tts?${params}`
 }
 
 export async function fetchTtsAudio(
@@ -29,7 +29,7 @@ export interface TtsVoiceInfo {
 
 export async function fetchTtsVoices(lang?: string): Promise<TtsVoiceInfo[]> {
   const params = lang ? `?lang=${lang}` : ''
-  const res = await fetch(`${API_BASE}/api/tts/voices${params}`)
+  const res = await fetch(`${API_BASE}/tts/voices${params}`)
   if (!res.ok) throw new Error(`Failed to fetch voices: ${res.status}`)
   return res.json()
 }
