@@ -22,7 +22,8 @@ if [ -f "$REPO_DIR/.env" ]; then
   set +a
 fi
 
-# Add claude CLI to PATH (same pattern as seo-generate.sh)
+# Add claude CLI to PATH. Prefer user-installed (~/.local/bin), fall back to VS Code extension.
+export PATH="$HOME/.local/bin:$PATH"
 for claude_dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary; do
   [ -d "$claude_dir" ] && export PATH="$claude_dir:$PATH" && break
 done
@@ -34,9 +35,9 @@ fi
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
-# Check if backfill is enabled via settings endpoint
+# Check if backfill is enabled via INTERNAL endpoint (loopback guard, no admin auth)
 is_enabled() {
-  curl -sS "$API_URL/admin/seo/settings" 2>/dev/null \
+  curl -sS "$API_URL/internal/seo/enabled" 2>/dev/null \
     | grep -o '"enabled":true' >/dev/null 2>&1
 }
 

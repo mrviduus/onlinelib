@@ -346,9 +346,13 @@ public static class AdminSeoBackfillEndpoints
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 500);
-        var list = entityType.Equals("Author", StringComparison.OrdinalIgnoreCase)
-            ? await analyzer.GetAuthorGapsAsync(language, limit, ct)
-            : await analyzer.GetEditionGapsAsync(language, limit, ct);
+        var list = entityType.ToLowerInvariant() switch
+        {
+            "author" => await analyzer.GetAuthorGapsAsync(language, limit, ct),
+            "genre" => await analyzer.GetGenreGapsAsync(limit, ct),
+            "blogpost" => await analyzer.GetBlogPostGapsAsync(language, limit, ct),
+            _ => await analyzer.GetEditionGapsAsync(language, limit, ct),
+        };
         return Results.Ok(list);
     }
 

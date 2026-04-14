@@ -128,6 +128,7 @@ builder.Services.Configure<EmailSettings>(options =>
     options.ResendApiKey = builder.Configuration["Resend:ApiKey"] ?? "";
     options.FromEmail = builder.Configuration["Resend:FromEmail"] ?? "noreply@textstack.app";
     options.BaseUrl = builder.Configuration["App:BaseUrl"] ?? "https://textstack.app";
+    options.AdminAlertEmail = builder.Configuration["Resend:AdminAlertEmail"] ?? "";
 });
 builder.Services.AddHttpClient<IEmailService, ResendEmailService>();
 

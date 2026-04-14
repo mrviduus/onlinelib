@@ -15,6 +15,12 @@ API_URL="${API_URL:-http://localhost:8080}"
 MAX_RETRIES="${SEO_BACKFILL_MAX_RETRIES:-3}"
 CLAUDE_TIMEOUT="${SEO_BACKFILL_CLAUDE_TIMEOUT:-300}"
 
+# Add claude CLI to PATH in case this script is invoked directly without poll script's env
+export PATH="$HOME/.local/bin:$PATH"
+for claude_dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary; do
+  [ -d "$claude_dir" ] && export PATH="$claude_dir:$PATH" && break
+done
+
 log() { echo "[$(date '+%H:%M:%S')] [$JOB_ID] $*"; }
 
 fail_job() {

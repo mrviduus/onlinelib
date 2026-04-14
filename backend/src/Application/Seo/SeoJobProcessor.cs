@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Application.Auth;
 using Application.Common.Interfaces;
 using Application.SsgRebuild;
 using Contracts.Admin;
@@ -18,7 +19,8 @@ public class SeoJobProcessor(
     IAppDbContext db,
     SeoContextBuilder contextBuilder,
     SeoContentApplier applier,
-    ISsgJobService ssg)
+    ISsgJobService ssg,
+    IEmailService email)
 {
     public record JobContext(
         Guid JobId,
@@ -180,6 +182,7 @@ public class SeoJobProcessor(
             job.Error = string.Join(" | ", errors);
             job.CompletedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
+            await NotifyFailureAsync(job, ct);
             return "failed";
         }
 
@@ -224,6 +227,36 @@ public class SeoJobProcessor(
         job.Error = error;
         job.CompletedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
+        await NotifyFailureAsync(job, ct);
+    }
+
+    /// <summary>
+    /// Best-effort admin email on a failed job. Non-fatal — if email service isn't configured
+    /// or Resend throws, we log but don't re-throw (the failure is already persisted).
+    /// </summary>
+    private async Task NotifyFailureAsync(SeoBackfillJob job, CancellationToken ct)
+    {
+        try
+        {
+            var subject = $"[TextStack SEO] Job failed: {job.EntityType} {job.EntityId}";
+            var html = $"""
+                <div style="font-family: -apple-system, sans-serif; max-width: 560px;">
+                  <h3 style="color:#b91c1c;margin:0 0 12px">SEO Backfill job failed</h3>
+                  <table style="border-collapse:collapse;font-size:14px;color:#111;">
+                    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Job ID</td><td><code>{job.Id}</code></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Entity</td><td>{job.EntityType} <code>{job.EntityId}</code></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Fields</td><td>{string.Join(", ", job.TargetFields)}</td></tr>
+                    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Triggered by</td><td>{System.Net.WebUtility.HtmlEncode(job.TriggeredBy)}</td></tr>
+                    <tr><td style="padding:4px 12px 4px 0;color:#64748b;vertical-align:top;">Error</td><td><pre style="white-space:pre-wrap;background:#fef2f2;padding:8px;border-radius:4px;">{System.Net.WebUtility.HtmlEncode(job.Error ?? "(no error message)")}</pre></td></tr>
+                  </table>
+                  <p style="margin-top:16px;font-size:13px;color:#64748b;">
+                    Open <a href="https://textstack.dev/seo-backfill?tab=jobs">/seo-backfill → Jobs</a> to retry or inspect.
+                  </p>
+                </div>
+                """;
+            await email.SendAdminAlertAsync(subject, html, ct);
+        }
+        catch { /* best-effort */ }
     }
 
     /// <summary>Admin approves a NeedsReview job → apply the generated content + rebuild.</summary>
@@ -264,12 +297,19 @@ public class SeoJobProcessor(
         await EnqueueSsgSafeAsync(job, ct);
     }
 
+    /// <summary>
+    /// Restores the entity's Before snapshot and flips SeoSource back to Manual.
+    /// POLICY: no TTL — revert is allowed at any age. Job BeforeSnapshot is an immutable audit record
+    /// and the admin controls when to roll back. Only rejects if snapshot is missing (job never ran past GetContext).
+    /// </summary>
     public async Task RevertAsync(Guid jobId, CancellationToken ct)
     {
         var job = await db.SeoBackfillJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new InvalidOperationException($"Job {jobId} not found");
         if (string.IsNullOrEmpty(job.BeforeSnapshot))
             throw new InvalidOperationException("Job has no BeforeSnapshot — cannot revert");
+        if (job.Status == SeoJobStatus.Reverted)
+            throw new InvalidOperationException("Job is already reverted");
 
         await applier.RevertAsync(job.EntityType, job.EntityId, job.BeforeSnapshot, ct);
         job.Status = SeoJobStatus.Reverted;

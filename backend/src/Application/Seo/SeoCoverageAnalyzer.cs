@@ -62,6 +62,8 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
             if (string.IsNullOrEmpty(a.SeoRelevanceText)) missing.Add("Relevance");
             if (string.IsNullOrEmpty(a.SeoThemesJson)) missing.Add("Themes");
             if (string.IsNullOrEmpty(a.SeoFaqsJson)) missing.Add("Faqs");
+            if (string.IsNullOrEmpty(a.SeoTitle)) missing.Add("SeoTitle");
+            if (string.IsNullOrEmpty(a.SeoDescription)) missing.Add("SeoDescription");
             return new GapRow("Author", a.Id, a.Name, language ?? "en", missing);
         }).Where(r => r.MissingFields.Count > 0).ToList();
     }
@@ -80,7 +82,39 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
             if (string.IsNullOrEmpty(e.SeoRelevanceText)) missing.Add("Relevance");
             if (string.IsNullOrEmpty(e.SeoThemesJson)) missing.Add("Themes");
             if (string.IsNullOrEmpty(e.SeoFaqsJson)) missing.Add("Faqs");
+            if (string.IsNullOrEmpty(e.SeoTitle)) missing.Add("SeoTitle");
+            if (string.IsNullOrEmpty(e.SeoDescription)) missing.Add("SeoDescription");
             return new GapRow("Edition", e.Id, e.Title, e.Language, missing);
+        }).Where(r => r.MissingFields.Count > 0).ToList();
+    }
+
+    public async Task<List<GapRow>> GetGenreGapsAsync(int limit, CancellationToken ct)
+    {
+        var q = db.Genres.AsNoTracking().Where(g => g.Indexable && g.SeoSource != SeoSource.Manual);
+        var list = await q.OrderBy(g => g.Name).Take(limit).ToListAsync(ct);
+        return list.Select(g =>
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrEmpty(g.Description)) missing.Add("Description");
+            if (string.IsNullOrEmpty(g.SeoTitle)) missing.Add("SeoTitle");
+            if (string.IsNullOrEmpty(g.SeoDescription)) missing.Add("SeoDescription");
+            return new GapRow("Genre", g.Id, g.Name, "en", missing);
+        }).Where(r => r.MissingFields.Count > 0).ToList();
+    }
+
+    public async Task<List<GapRow>> GetBlogPostGapsAsync(string? language, int limit, CancellationToken ct)
+    {
+        var q = db.BlogPosts.AsNoTracking()
+            .Where(p => p.Status == BlogPostStatus.Published && p.SeoSource != SeoSource.Manual);
+        if (!string.IsNullOrWhiteSpace(language)) q = q.Where(p => p.Language == language);
+
+        var list = await q.OrderBy(p => p.Title).Take(limit).ToListAsync(ct);
+        return list.Select(p =>
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrEmpty(p.SeoTitle)) missing.Add("SeoTitle");
+            if (string.IsNullOrEmpty(p.SeoDescription)) missing.Add("SeoDescription");
+            return new GapRow("BlogPost", p.Id, p.Title, p.Language, missing);
         }).Where(r => r.MissingFields.Count > 0).ToList();
     }
 }
