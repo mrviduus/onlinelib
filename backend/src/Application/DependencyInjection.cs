@@ -21,6 +21,12 @@ public static class DependencyInjection
         services.AddScoped<AuthorsService>();
         services.AddScoped<BookService>();
         services.AddScoped<SeoService>();
+
+        // SEO Backfill Automation
+        services.AddScoped<SeoContextBuilder>();
+        services.AddScoped<SeoContentApplier>();
+        services.AddScoped<SeoCoverageAnalyzer>();
+        services.AddScoped<SeoJobProcessor>();
         services.AddScoped<AdminService>();
         services.AddScoped<Ingestion.IngestionService>();
         services.AddScoped<AuthService>();
