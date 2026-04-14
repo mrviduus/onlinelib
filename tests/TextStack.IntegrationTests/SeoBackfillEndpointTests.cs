@@ -71,8 +71,12 @@ public class SeoBackfillEndpointTests : IClassFixture<LiveApiFixture>
         var req = _fixture.CreateAdminRequest(HttpMethod.Post, "/admin/seo/templates");
         req.Content = JsonContent.Create(new
         {
-            entityType = "Author", fieldType = "Bio", languageCode = "en",
-            name = "test", promptTemplate = "x", outputSchema = "{}"
+            entityType = "Author",
+            fieldType = "Bio",
+            languageCode = "en",
+            name = "test",
+            promptTemplate = "x",
+            outputSchema = "{}"
         });
         var res = await _fixture.Client.SendAsync(req, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
@@ -150,8 +154,11 @@ public class SeoBackfillEndpointTests : IClassFixture<LiveApiFixture>
         var req = _fixture.CreateAdminRequest(HttpMethod.Post, "/admin/seo/queue");
         req.Content = JsonContent.Create(new
         {
-            entityType = "Author", entityId = Guid.NewGuid(),
-            fields = new[] { "Bio" }, language = "en", requireReview = true
+            entityType = "Author",
+            entityId = Guid.NewGuid(),
+            fields = new[] { "Bio" },
+            language = "en",
+            requireReview = true
         });
         var res = await _fixture.Client.SendAsync(req, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
