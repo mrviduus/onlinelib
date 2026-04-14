@@ -80,6 +80,7 @@ export function HeroSection() {
         <p className="home-hero__subtitle">
           {showGuestCta ? t('home.hero.subtitleDemo') : t('home.hero.subtitle')}
         </p>
+        <p className="home-hero__brand-line">{t('home.hero.brandLine')}</p>
 
         {showGuestCta && (
           <div className="home-hero__cta-group">

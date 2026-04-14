@@ -1,14 +1,15 @@
 {
   "home": {
     "hero": {
-      "title": "TextStack Reader",
-      "subtitle": "Learn English by reading real books with instant translation",
-      "subtitleDemo": "Learn English by reading real books with instant translation",
-      "seoTitle": "TextStack Reader – Read Books in English with Translation",
-      "seoDescription": "Read books in English with instant word translation. TextStack Reader helps you learn languages naturally through real books, vocabulary tracking, and spaced repetition.",
+      "title": "Read books in English without stopping",
+      "subtitle": "Tap any word to translate instantly — and stay in flow",
+      "subtitleDemo": "Tap any word to translate instantly — and stay in flow",
+      "brandLine": "TextStack Reader — learn English by reading real books",
+      "seoTitle": "TextStack Reader — Read books in English with instant translation",
+      "seoDescription": "Read books in English without stopping. Tap any word to translate instantly and stay in flow. Learn English by reading real books with TextStack.",
       "description": "TextStack Reader is a reading platform for language learners. Thousands of classic books with built-in vocabulary tools, spaced repetition, and reading statistics.",
       "cta": "Browse catalog",
-      "ctaPrimary": "Start reading instantly",
+      "ctaPrimary": "Start reading",
       "ctaSecondary": "Upload your book",
       "ctaReturning": "Continue where you left off",
       "searchPlaceholder": "Search by title, author, or genre..."
