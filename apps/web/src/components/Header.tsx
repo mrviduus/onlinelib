@@ -32,16 +32,15 @@ export function Header() {
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
             {t('nav.library')}
           </LocalizedLink>
-          {isAuthenticated && (
-            <LocalizedLink to="/words" className="site-header__nav-link" title={t('nav.words')}>
-              {t('nav.words')}
-            </LocalizedLink>
-          )}
-          {isAuthenticated && (
-            <LocalizedLink to="/practice" className="site-header__nav-link" title={t('nav.practice')}>
-              {t('nav.practice')}
-            </LocalizedLink>
-          )}
+          <LocalizedLink to="/words" className="site-header__nav-link" title={t('nav.words')}>
+            {t('nav.words')}
+          </LocalizedLink>
+          <LocalizedLink to="/practice" className="site-header__nav-link" title={t('nav.practice')}>
+            {t('nav.practice')}
+          </LocalizedLink>
+          <LocalizedLink to="/stats" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.stats')}>
+            {t('nav.stats')}
+          </LocalizedLink>
           <LocalizedLink to="/blog" className="site-header__nav-link site-header__nav-link--secondary" title={t('blog.title')}>
             {t('blog.title')}
           </LocalizedLink>

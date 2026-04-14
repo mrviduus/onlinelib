@@ -7,6 +7,7 @@ import {
   getFlagUrl,
   type LanguageEntry,
 } from '../data/languages'
+import { useNativeLanguage } from '../context/NativeLanguageContext'
 
 interface Props {
   value: string
@@ -22,6 +23,8 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
+  const { hasConfirmedLanguage } = useNativeLanguage()
+  const showPulse = !hasConfirmedLanguage && !open
 
   const current = getLanguage(value) || LANGUAGES[0]
 
@@ -113,6 +116,7 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
 
   return (
     <div className="lang-ctx__side lang-picker" ref={containerRef}>
+      {showPulse && <span className="lang-ctx__pulse" aria-hidden="true" />}
       <button
         className="lang-ctx__trigger"
         onClick={() => setOpen((o) => !o)}

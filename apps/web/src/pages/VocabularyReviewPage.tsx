@@ -13,6 +13,7 @@ import { FlashCard } from '../components/vocabulary/FlashCard'
 import { NewWordCard } from '../components/vocabulary/NewWordCard'
 import { ReviewFeedback } from '../components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../components/vocabulary/SessionSummary'
+import { EmptyState } from '../components/EmptyState'
 
 export function VocabularyReviewPage() {
   const { user } = useAuth()
@@ -63,7 +64,13 @@ export function VocabularyReviewPage() {
   if (!user) {
     return (
       <div className="vocab-page">
-        <p className="vocab-loading">{t('vocabulary.signInPrompt')}</p>
+        <EmptyState
+          icon="🎴"
+          title={t('practice.empty.title')}
+          subtitle={t('practice.empty.subtitle')}
+          buttonLabel={t('practice.empty.cta')}
+          buttonTo="/books"
+        />
       </div>
     )
   }

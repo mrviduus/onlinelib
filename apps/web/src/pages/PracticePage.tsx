@@ -8,6 +8,7 @@ import { getVocabStats, getVocabDailyStats, getWords, type VocabStatsDto, type V
 import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE, type ReviewMode } from '../lib/vocabularyConstants'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { EmptyState } from '../components/EmptyState'
 
 function formatNextDue(nextReviewAt: string): string {
   const now = new Date()
@@ -128,7 +129,13 @@ export function PracticePage() {
       <SeoHead title={t('nav.practice')} noindex />
       <div className="practice-page">
         {!isAuthenticated && (
-          <p className="vocab-loading">{t('vocabulary.signInPrompt')}</p>
+          <EmptyState
+            icon="🎴"
+            title={t('practice.empty.title')}
+            subtitle={t('practice.empty.subtitle')}
+            buttonLabel={t('practice.empty.cta')}
+            buttonTo="/books"
+          />
         )}
 
         {isAuthenticated && loading && (

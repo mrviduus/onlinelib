@@ -7,6 +7,7 @@ import { useAchievements } from '../hooks/useAchievements'
 import { useBookStats } from '../hooks/useBookStats'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { EmptyState } from '../components/EmptyState'
 import { TimePeriodFilter } from '../components/stats/TimePeriodFilter'
 import { StatsOverviewTab } from '../components/stats/StatsOverviewTab'
 import { StatsBooksTab } from '../components/stats/StatsBooksTab'
@@ -34,13 +35,24 @@ export function StatsPage() {
   const { vocabStats, dailyStats: vocabDailyStats } = useVocabDailyStats()
   const [tab, setTab] = useState<Tab>('overview')
 
-  if (!isAuthenticated) {
+  // Empty state for unauthenticated visitors or users with zero activity
+  const hasAnyActivity =
+    (stats && ((stats.totalSeconds ?? 0) > 0 || (stats.totalWords ?? 0) > 0)) ||
+    (vocabStats && vocabStats.totalWords > 0) ||
+    (bookStats && (bookStats.booksFinished > 0 || bookStats.totalPages > 0))
+  if (!isAuthenticated || (!loading && !hasAnyActivity)) {
     return (
       <div className="page-container">
         <SeoHead title={t('stats.title')} noindex />
         <div className="stats-page">
           <h1>{t('stats.title')}</h1>
-          <p>{t('stats.signInPrompt')}</p>
+          <EmptyState
+            icon="📈"
+            title={t('stats.empty.title')}
+            subtitle={t('stats.empty.subtitle')}
+            buttonLabel={t('stats.empty.cta')}
+            buttonTo="/books"
+          />
         </div>
         <Footer />
       </div>

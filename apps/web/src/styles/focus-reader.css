@@ -110,6 +110,12 @@
   background-color: transparent;
 }
 
+/* Saved vocab word: .vocab-underline from reader.css provides border-bottom.
+   Slight underline-offset tweak for focus mode's larger serif typography. */
+.focus-reader__word--saved {
+  padding-bottom: 1px;
+}
+
 .focus-reader__translation {
   position: absolute;
   left: 50%;

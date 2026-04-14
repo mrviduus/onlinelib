@@ -16,10 +16,10 @@ interface WordPopupProps {
   rect: DOMRect | null
   containerRef: React.RefObject<HTMLElement | null>
   onSpeak: () => void
-  onMarkKnown?: () => void
+  onSave?: () => void | Promise<void>
   onRemove?: () => void
   onClose: () => void
-  vocabStage: number | null
+  isSaved: boolean
   nativeLanguage: string
   onChangeNativeLanguage: (code: string) => void
   bookLanguage: string
@@ -36,10 +36,10 @@ export function WordPopup({
   rect,
   containerRef,
   onSpeak,
-  onMarkKnown,
+  onSave,
   onRemove,
   onClose,
-  vocabStage,
+  isSaved,
   nativeLanguage,
   onChangeNativeLanguage,
   bookLanguage,
@@ -51,6 +51,7 @@ export function WordPopup({
   const [showLangPicker, setShowLangPicker] = useState(false)
   const [langQuery, setLangQuery] = useState('')
   const [closing, setClosing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -79,7 +80,13 @@ export function WordPopup({
   useEffect(() => {
     clearTimeout(exitTimerRef.current)
     setClosing(false)
+    setIsSaving(false)
   }, [word])
+
+  // Flip isSaving off when parent confirms save (isSaved becomes true).
+  useEffect(() => {
+    if (isSaved) setIsSaving(false)
+  }, [isSaved])
   useEffect(() => () => {
     clearTimeout(exitTimerRef.current)
     clearTimeout(dismissTimerRef.current)
@@ -221,23 +228,43 @@ export function WordPopup({
 
       <div className="word-popup__actions">
         <SpeakButton onClick={onSpeak} size={16} />
-        {onMarkKnown && vocabStage != null && vocabStage < 4 && (
-          <button
-            className="word-popup__btn word-popup__btn--known"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onMarkKnown}
-          >
-            {t('reader.wordPopup.known')}
-          </button>
-        )}
-        {onRemove && (
-          <button
-            className="word-popup__btn word-popup__btn--ignore"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onRemove}
-          >
-            {t('reader.wordPopup.ignore')}
-          </button>
+        {isSaved ? (
+          onRemove && (
+            <button
+              className="word-popup__btn word-popup__btn--remove"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onRemove}
+              aria-label={t('reader.wordPopup.remove')}
+            >
+              <span className="material-icons-outlined word-popup__btn-icon">delete_outline</span>
+              {t('reader.wordPopup.remove')}
+            </button>
+          )
+        ) : (
+          onSave && (
+            <button
+              className="word-popup__btn word-popup__btn--save"
+              onMouseDown={(e) => e.preventDefault()}
+              disabled={isSaving}
+              onClick={async () => {
+                if (isSaving) return
+                setIsSaving(true)
+                try {
+                  await onSave()
+                  // Smooth dismiss shortly after success — user sees Save→Remove swap briefly.
+                  clearTimeout(dismissTimerRef.current)
+                  dismissTimerRef.current = setTimeout(animatedClose, 700)
+                } catch {
+                  // Reset on failure so user can retry; otherwise stuck "Saving..."
+                  setIsSaving(false)
+                }
+              }}
+              aria-label={t('reader.wordPopup.save')}
+            >
+              <span className="material-icons-outlined word-popup__btn-icon">add</span>
+              {isSaving ? t('reader.wordPopup.saving') : t('reader.wordPopup.save')}
+            </button>
+          )
         )}
       </div>
 

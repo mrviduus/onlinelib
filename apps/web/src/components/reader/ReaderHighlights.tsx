@@ -11,6 +11,7 @@ import { translate as translateApi } from '../../api/translation'
 import { updateWord } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
+import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
@@ -71,7 +72,7 @@ export function ReaderHighlights({
   const isSingleWord = hasSelection && selectionWordCount === 1
 
   // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
-  const { vocabMap, addWord, markAsKnown, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
 
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
@@ -85,6 +86,7 @@ export function ReaderHighlights({
     definition: string | null
     definitionLoading: boolean
     rect: DOMRect | null
+    range: Range | null
   } | null>(null)
   const bubbleAbortRef = useRef<AbortController | null>(null)
   // Stabilization delay before opening popup. Filters out transient single-word
@@ -102,7 +104,8 @@ export function ReaderHighlights({
   }, [clearSelection])
 
   // Popup creation, extracted so the scheduling effect has tight deps and doesn't
-  // re-fire on translation/definition arrival.
+  // re-fire on translation/definition arrival. Save is now EXPLICIT — only fetches
+  // translation + dictionary; `handleSave` is invoked from WordPopup on user click.
   const openBubble = useCallback((word: string, rect: DOMRect, range: Range | null) => {
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
@@ -115,6 +118,7 @@ export function ReaderHighlights({
       definition: null,
       definitionLoading: true,
       rect,
+      range,
     })
 
     // Dictionary lookup (phonetic + definition) — runs regardless of targetLang.
@@ -137,31 +141,10 @@ export function ReaderHighlights({
         setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
       })
 
-    // Fire-and-forget vocab save in parallel with translation (dedup via vocabMap)
-    const shouldSave = !vocabMap.has(word.toLowerCase())
-    const container = containerRef.current
-    const sentence = range && container
-      ? extractSentence(range, container)
-      : undefined
-    const savePromise = shouldSave
-      ? addWord({
-          word,
-          language: bookLanguage,
-          editionId: userBookId ? undefined : (editionId || undefined),
-          chapterId: userBookId ? undefined : (chapterId || undefined),
-          userBookId: userBookId || undefined,
-          sentence: sentence || undefined,
-          bookTitle: bookTitle || undefined,
-          nativeLanguage: targetLang || undefined,
-        }).catch(() => null)
-      : Promise.resolve(null)
-
-    const translationPromise = targetLang
-      ? translateApi(word, bookLanguage, targetLang, ctrl.signal)
-      : Promise.resolve(null)
-
-    Promise.all([savePromise, translationPromise])
-      .then(([saved, res]) => {
+    // Translation fetch (no save).
+    if (!targetLang) return
+    translateApi(word, bookLanguage, targetLang, ctrl.signal)
+      .then((res) => {
         if (ctrl.signal.aborted) return
         const translatedText = res?.translatedText ?? null
         setBubble((prev) =>
@@ -169,9 +152,14 @@ export function ReaderHighlights({
             ? { ...prev, translation: translatedText, translationLoading: false }
             : prev,
         )
+        // If word already saved (e.g. user re-tapping underlined word), propagate
+        // translation to vocab map so inline caption stays fresh.
         if (translatedText) {
-          if (saved?.id) updateWord(saved.id, { translation: translatedText }).catch(() => {})
-          updateTranslation(word, translatedText)
+          const existing = vocabMap.get(normalizeVocabKey(word))
+          if (existing?.id && !existing.isPending && !existing.translation) {
+            updateWord(existing.id, { translation: translatedText }).catch(() => {})
+          }
+          if (existing) updateTranslation(word, translatedText)
         }
       })
       .catch((err) => {
@@ -183,8 +171,35 @@ export function ReaderHighlights({
       })
   }, [
     bookLanguage, targetLang,
-    vocabMap, addWord, updateTranslation, lookupWord,
-    containerRef, editionId, chapterId, userBookId, bookTitle,
+    vocabMap, updateTranslation, lookupWord,
+  ])
+
+  // Explicit save: invoked from WordPopup when user clicks Save. Captures sentence
+  // from the range stored on the bubble at tap time (may be stale if selection was
+  // cleared, but vocab save doesn't require a live range).
+  const handleSave = useCallback(async (word: string, range: Range | null) => {
+    const container = containerRef.current
+    const sentence = range && container ? extractSentence(range, container) : undefined
+    const currentTranslation = bubble?.word === word ? bubble?.translation : null
+    const saved = await addWord({
+      word,
+      language: bookLanguage,
+      editionId: userBookId ? undefined : (editionId || undefined),
+      chapterId: userBookId ? undefined : (chapterId || undefined),
+      userBookId: userBookId || undefined,
+      sentence: sentence || undefined,
+      bookTitle: bookTitle || undefined,
+      nativeLanguage: targetLang || undefined,
+      translation: currentTranslation || null,
+    }).catch(() => null)
+    if (saved?.id && currentTranslation) {
+      updateWord(saved.id, { translation: currentTranslation }).catch(() => {})
+      updateTranslation(word, currentTranslation)
+    }
+  }, [
+    addWord, bookLanguage, bookTitle, chapterId, containerRef,
+    editionId, targetLang, userBookId, updateTranslation,
+    bubble?.word, bubble?.translation,
   ])
 
   // Trigger popup when selection narrows to 1 word — with a short stabilization window
@@ -199,7 +214,14 @@ export function ReaderHighlights({
       }
       return
     }
-    const word = selection.text.trim()
+    // Extract word from selection. Prefer DOM-aware extraction (strips
+    // .vocab-inline-translation text that Selection API concatenates with the word
+    // when both are in the same <mark> — e.g. "amiableприветливый"). Fallback to
+    // tokenizer on raw text to strip NBSP / zero-width chars. Preserves case.
+    const word = extractWordFromRange(selection.range)
+      ?? tokenizeVocabWords(selection.text)[0]?.word
+      ?? selection.text.trim()
+    if (!word) return
     // If same word already shown, don't re-fetch.
     if (bubble?.word === word) return
 
@@ -374,9 +396,10 @@ export function ReaderHighlights({
         />
       )}
 
-      {/* Single-word selection → full WordPopup (phonetic, translation, definition, I know/Ignore) */}
+      {/* Single-word selection → WordPopup (phonetic, translation, definition, Save/Remove) */}
       {bubble && isSingleWord && !showTranslation && (() => {
-        const entry = vocabMap.get(bubble.word.toLowerCase())
+        const entry = vocabMap.get(normalizeVocabKey(bubble.word))
+        const isSaved = !!entry
         return (
           <WordPopup
             word={bubble.word}
@@ -388,10 +411,10 @@ export function ReaderHighlights({
             rect={bubble.rect}
             containerRef={containerRef}
             onSpeak={() => handleSpeak(bubble.word)}
-            onMarkKnown={entry?.id ? () => { markAsKnown(entry.id!, bubble.word); closeBubble() } : undefined}
+            onSave={!isSaved ? () => handleSave(bubble.word, bubble.range) : undefined}
             onRemove={entry?.id ? () => { removeWord(entry.id!, bubble.word); closeBubble() } : undefined}
             onClose={closeBubble}
-            vocabStage={entry?.stage ?? null}
+            isSaved={isSaved}
             nativeLanguage={nativeLanguage}
             onChangeNativeLanguage={setNativeLanguage}
             bookLanguage={bookLanguage}

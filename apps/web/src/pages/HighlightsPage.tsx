@@ -113,7 +113,13 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
       <>
         <div className="highlights-page">
           <SeoHead title={t('highlights.title')} noindex />
-          <EmptyState icon="🎨" title={t('highlights.signInPrompt')} />
+          <EmptyState
+            icon="🎨"
+            title={t('highlights.empty.title')}
+            subtitle={t('highlights.empty.subtitle')}
+            buttonLabel={t('highlights.empty.cta')}
+            buttonTo="/books"
+          />
         </div>
         <Footer />
       </>
