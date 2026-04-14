@@ -9,13 +9,7 @@
       "ctaPrimary": "Start reading instantly",
       "ctaSecondary": "Upload your book",
       "ctaReturning": "Continue where you left off",
-      "searchPlaceholder": "Search by title, author, or genre...",
-      "demoTextBefore": "She was staring at the",
-      "demoWord": "curiouser",
-      "demoTextAfter": "of the two doors.",
-      "demoTranslation": "more curious",
-      "demoDefinition": "comparative of curious; more curious",
-      "demoSave": "Save word"
+      "searchPlaceholder": "Search by title, author, or genre..."
     },
     "stats": {
       "books": "books",

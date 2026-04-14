@@ -9,13 +9,7 @@
       "ctaPrimary": "Почати читати зараз",
       "ctaSecondary": "Завантажити свою книгу",
       "ctaReturning": "Продовжити читання",
-      "searchPlaceholder": "Пошук за назвою, автором або жанром...",
-      "demoTextBefore": "Вона дивилась на",
-      "demoWord": "дивніші",
-      "demoTextAfter": "з двох дверей.",
-      "demoTranslation": "more curious",
-      "demoDefinition": "порівняльний ступінь від «дивний»; ще більш дивний",
-      "demoSave": "Зберегти слово"
+      "searchPlaceholder": "Пошук за назвою, автором або жанром..."
     },
     "stats": {
       "books": "книг",

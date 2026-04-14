@@ -73,7 +73,7 @@ export function HeroSection() {
     : demoPath
 
   return (
-    <section className="home-hero home-hero--split">
+    <section className="home-hero">
       <div className="home-hero__content">
         {continueReadingBook && <ContinueReadingCard book={continueReadingBook} />}
         <h1 className="home-hero__title">{t('home.hero.title')}</h1>
@@ -130,38 +130,6 @@ export function HeroSection() {
           />
         </form>
       </div>
-
-      {!continueReadingBook && (
-      <div className="home-hero__visual" aria-hidden="true">
-        <div className="home-hero__demo">
-          <p className="home-hero__demo-text">
-            {t('home.hero.demoTextBefore')}{' '}
-            <mark className="home-hero__demo-word">
-              {t('home.hero.demoWord')}
-              <span className="home-hero__demo-pulse" />
-            </mark>
-            {' '}{t('home.hero.demoTextAfter')}
-          </p>
-          <div className="home-hero__demo-popup">
-            <div className="home-hero__demo-popup-header">
-              <span className="home-hero__demo-popup-word">{t('home.hero.demoWord')}</span>
-              <span className="home-hero__demo-popup-pron">/ˈkjʊə.ri.ə.sər/</span>
-              <span className="home-hero__demo-popup-tts" aria-hidden="true">
-                <span className="material-icons-outlined" style={{ fontSize: 18 }}>volume_up</span>
-              </span>
-            </div>
-            <div className="home-hero__demo-popup-translation">{t('home.hero.demoTranslation')}</div>
-            <div className="home-hero__demo-popup-def">{t('home.hero.demoDefinition')}</div>
-            <div className="home-hero__demo-popup-actions">
-              <span className="home-hero__demo-popup-save">
-                <span className="material-icons-outlined" style={{ fontSize: 16, marginRight: 4 }}>add</span>
-                {t('home.hero.demoSave')}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      )}
 
       {searchOverlayOpen && <MobileSearchOverlay onClose={() => setSearchOverlayOpen(false)} />}
     </section>
