@@ -1,19 +1,11 @@
 import { useEffect } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
-import { tokenizeVocabWords, normalizeVocabKey } from '../../lib/vocabKey'
+import { tokenizeVocabWords, normalizeVocabKey, vocabStageClass } from '../../lib/vocabKey'
 
 interface VocabWordLayerProps {
   containerRef: React.RefObject<HTMLElement | null>
   vocabMap: VocabMap
   showInlineTranslations?: boolean
-}
-
-const STAGE_CLASSES: Record<number, string> = {
-  0: 'vocab-underline--new',
-  1: 'vocab-underline--recognition',
-  2: 'vocab-underline--recall',
-  3: 'vocab-underline--context',
-  4: 'vocab-underline--mastered',
 }
 
 const MARK_ATTR = 'data-vocab-mark'
@@ -97,7 +89,7 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
       const entry = vocabMap.get(normalizeVocabKey(token.word))!
       const mark = document.createElement('mark')
       mark.setAttribute(MARK_ATTR, 'true')
-      mark.className = `vocab-underline ${STAGE_CLASSES[entry.stage] || STAGE_CLASSES[0]}`
+      mark.className = `vocab-underline ${vocabStageClass(entry.stage)}`
       mark.textContent = text.slice(token.start, token.end)
 
       // Translation positioned absolutely inside mark — no text reflow

@@ -7,11 +7,11 @@ import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
-import { translate as translateApi } from '../../api/translation'
 import { updateWord } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
+import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
@@ -120,59 +120,13 @@ export function ReaderHighlights({
       rect,
       range,
     })
-
-    // Dictionary lookup (phonetic + definition) — runs regardless of targetLang.
-    lookupWord(word, bookLanguage)
-      .then((entry) => {
-        if (ctrl.signal.aborted) return
-        setBubble((prev) =>
-          prev && prev.word === word
-            ? {
-                ...prev,
-                phonetic: entry?.phonetic,
-                definition: entry?.definitions?.[0]?.definitions?.[0]?.definition ?? null,
-                definitionLoading: false,
-              }
-            : prev,
-        )
-      })
-      .catch(() => {
-        if (ctrl.signal.aborted) return
-        setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
-      })
-
-    // Translation fetch (no save).
-    if (!targetLang) return
-    translateApi(word, bookLanguage, targetLang, ctrl.signal)
-      .then((res) => {
-        if (ctrl.signal.aborted) return
-        const translatedText = res?.translatedText ?? null
-        setBubble((prev) =>
-          prev && prev.word === word
-            ? { ...prev, translation: translatedText, translationLoading: false }
-            : prev,
-        )
-        // If word already saved (e.g. user re-tapping underlined word), propagate
-        // translation to vocab map so inline caption stays fresh.
-        if (translatedText) {
-          const existing = vocabMap.get(normalizeVocabKey(word))
-          if (existing?.id && !existing.isPending && !existing.translation) {
-            updateWord(existing.id, { translation: translatedText }).catch(() => {})
-          }
-          if (existing) updateTranslation(word, translatedText)
-        }
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        if ((err as { name?: string })?.name === 'AbortError') return
-        setBubble((prev) =>
-          prev && prev.word === word ? { ...prev, translationLoading: false } : prev,
-        )
-      })
-  }, [
-    bookLanguage, targetLang,
-    vocabMap, updateTranslation, lookupWord,
-  ])
+    fetchWordBubble({
+      word, bookLanguage, targetLang,
+      lookup: lookupWord, vocabMap, updateTranslation,
+      signal: ctrl.signal,
+      patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
+    })
+  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord])
 
   // Explicit save: invoked from WordPopup when user clicks Save. Captures sentence
   // from the range stored on the bubble at tap time (may be stale if selection was

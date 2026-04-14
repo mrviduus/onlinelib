@@ -11,9 +11,9 @@ import { useTts } from '../hooks/useTts'
 import { useTranslation } from '../hooks/useTranslation'
 import { splitSentences, tokenizeWords } from '@textstack/shared'
 import { getUserBookChapter, getUserBook } from '../api/userBooks'
-import { translate as translateApi } from '../api/translation'
 import { updateWord as updateWordApi } from '../api/vocabulary'
-import { normalizeVocabKey } from '../lib/vocabKey'
+import { normalizeVocabKey, vocabStageClass } from '../lib/vocabKey'
+import { fetchWordBubble } from '../lib/wordBubbleFetch'
 import { WordPopup } from '../components/reader/WordPopup'
 import { SeoHead } from '../components/SeoHead'
 import '../styles/focus-reader.css'
@@ -252,53 +252,12 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         definitionLoading: true,
         rect,
       })
-
-      // Dictionary lookup
-      lookupWord(word, bookLanguage)
-        .then((entry) => {
-          if (ctrl.signal.aborted) return
-          setBubble((prev) =>
-            prev && prev.word === word
-              ? {
-                  ...prev,
-                  phonetic: entry?.phonetic,
-                  definition: entry?.definitions?.[0]?.definitions?.[0]?.definition ?? null,
-                  definitionLoading: false,
-                }
-              : prev,
-          )
-        })
-        .catch(() => {
-          if (ctrl.signal.aborted) return
-          setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
-        })
-
-      // Translation fetch only — save is now explicit via Save button in WordPopup.
-      if (!targetLang) return
-      translateApi(word, bookLanguage, targetLang, ctrl.signal)
-        .then((res) => {
-          if (ctrl.signal.aborted) return
-          const translatedText = res?.translatedText ?? null
-          setBubble((prev) =>
-            prev && prev.word === word
-              ? { ...prev, translation: translatedText, translationLoading: false }
-              : prev,
-          )
-          if (translatedText) {
-            const existing = vocabMap.get(normalizeVocabKey(word))
-            if (existing?.id && !existing.isPending && !existing.translation) {
-              updateWordApi(existing.id, { translation: translatedText }).catch(() => {})
-            }
-            if (existing) updateTranslation(word, translatedText)
-          }
-        })
-        .catch((err) => {
-          if (ctrl.signal.aborted) return
-          if ((err as { name?: string })?.name === 'AbortError') return
-          setBubble((prev) =>
-            prev && prev.word === word ? { ...prev, translationLoading: false } : prev,
-          )
-        })
+      fetchWordBubble({
+        word, bookLanguage, targetLang,
+        lookup: lookupWord, vocabMap, updateTranslation,
+        signal: ctrl.signal,
+        patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
+      })
     },
     [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation],
   )
@@ -368,15 +327,6 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
 
   const vocabEntry = bubble ? vocabMap.get(normalizeVocabKey(bubble.word)) : undefined
 
-  // Stage class helper for underline coloring (matches VocabWordLayer STAGE_CLASSES)
-  const STAGE_CLASSES: Record<number, string> = {
-    0: 'vocab-underline--new',
-    1: 'vocab-underline--recognition',
-    2: 'vocab-underline--recall',
-    3: 'vocab-underline--context',
-    4: 'vocab-underline--mastered',
-  }
-
   return (
     <div className={`focus-reader${themeClass}`}>
       <SeoHead title={title ? `${title} — Focus` : 'Focus'} noindex />
@@ -423,7 +373,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           const pressing = pressingKey === k
           const savedEntry = vocabMap.get(normalizeVocabKey(t.word))
           const savedClass = savedEntry
-            ? ` focus-reader__word--saved vocab-underline ${STAGE_CLASSES[savedEntry.stage] ?? STAGE_CLASSES[0]}`
+            ? ` focus-reader__word--saved vocab-underline ${vocabStageClass(savedEntry.stage)}`
             : ''
           const handlePointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
             // Only main pointer; ignore right-clicks on desktop
