@@ -267,6 +267,7 @@ app.MapAdminSeoCrawlEndpoints();
 app.MapAdminSsgRebuildEndpoints();
 app.MapAdminCodeGenEndpoints();
 app.MapAdminAutoPublishEndpoints();
+app.MapAdminSeoBackfillEndpoints();
 app.MapAdminLintEndpoints();
 app.MapAdminSettingsEndpoints();
 app.MapBooksEndpoints();
@@ -296,6 +297,7 @@ app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();
 app.MapInternalEndpoints();
+app.MapInternalSeoEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")
