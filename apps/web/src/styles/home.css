@@ -20,17 +20,6 @@
   align-items: center;
 }
 
-.home-hero__logo {
-  color: var(--color-text);
-  margin: 0 0 24px;
-}
-
-@media (max-width: 640px) {
-  .home-hero__logo {
-    margin-bottom: 16px;
-  }
-}
-
 .home-hero__title {
   font-family: 'Crimson Pro', 'Playfair Display', serif;
   font-size: clamp(3rem, 10vw, 6rem);
@@ -600,15 +589,10 @@
 }
 
 .site-footer__logo {
-  color: var(--color-text);
-}
-
-.site-footer__logo .brand-wordmark {
   font-family: 'Crimson Pro', 'Playfair Display', serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--color-text);
-  letter-spacing: -0.01em;
 }
 
 .site-footer__copyright {

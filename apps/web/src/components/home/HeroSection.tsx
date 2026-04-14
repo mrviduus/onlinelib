@@ -7,7 +7,6 @@ import { useGuestLimits } from '../../context/GuestLimitsContext'
 import { DEMO_BOOK } from '../../config/demoBook'
 import { MobileSearchOverlay } from '../Search'
 import { LocalizedLink } from '../LocalizedLink'
-import { Logo } from '../Logo'
 import { uploadUserBook } from '../../api/userBooks'
 import { useContinueReading } from '../../hooks/useContinueReading'
 import { ContinueReadingCard } from './ContinueReadingCard'
@@ -77,7 +76,6 @@ export function HeroSection() {
     <section className="home-hero">
       <div className="home-hero__content">
         {continueReadingBook && <ContinueReadingCard book={continueReadingBook} />}
-        <Logo variant="icon" size={64} className="home-hero__logo" aria-label="TextStack" />
         <h1 className="home-hero__title">{t('home.hero.title')}</h1>
         <p className="home-hero__subtitle">
           {showGuestCta ? t('home.hero.subtitleDemo') : t('home.hero.subtitle')}

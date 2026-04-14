@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  RefreshControl, Image,
+  RefreshControl,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -50,14 +50,7 @@ export default function ReadScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View style={styles.brandLockup}>
-            <Image
-              source={require('../../assets/logo-icon.png')}
-              style={[styles.brandIcon, { tintColor: colors.text }]}
-              accessibilityLabel="TextStack"
-            />
-            <Text style={[styles.headerTitle, { color: colors.text }]}>TextStack</Text>
-          </View>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>TextStack</Text>
           <TouchableOpacity
             style={[styles.langPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => switchLanguage(language === 'en' ? 'uk' : 'en')}
@@ -158,18 +151,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: fonts.serif,
-    fontSize: 32,
-    lineHeight: 38,
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  brandIcon: {
-    width: 34,
-    height: 34,
-    resizeMode: 'contain',
+    fontSize: 36,
+    lineHeight: 42,
   },
   headerRow: {
     flexDirection: 'row',

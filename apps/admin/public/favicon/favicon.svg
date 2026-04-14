@@ -1,18 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  TextStack micro-mark. Simplified silhouette for navbar, favicon,
-  mobile header, and compact UI (16–32 px). Same identity as the
-  detailed `logo-mark.svg` (open book + page stack), but drawn with
-  chunky pill-stacked pages and a single ribbon book so it stays
-  readable at small sizes. 24×24 viewBox aligns strokes to the
-  integer pixel grid at common UI sizes.
-
-  Uses `fill="#111827"` so it follows the parent CSS color token.
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111827" role="img" aria-label="TextStack">
-  <title>TextStack</title>
-  <rect x="9" y="3" width="6" height="2" rx="1"/>
-  <rect x="7" y="6" width="10" height="2" rx="1"/>
-  <rect x="5" y="9" width="14" height="2" rx="1"/>
-  <path d="M3 13Q12 15 21 13L21 18Q12 20 3 18Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="16" y="14" width="38" height="10" rx="2" fill="#16A34A"/>
+  <rect x="14" y="26" width="36" height="8" rx="2" fill="#86EFAC"/>
+  <rect x="10" y="38" width="36" height="8" rx="2" fill="#16A34A"/>
 </svg>
