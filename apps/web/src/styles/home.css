@@ -545,6 +545,30 @@
   color: var(--color-text);
 }
 
+.site-footer__badges {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.site-footer__badge {
+  display: inline-block;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.site-footer__badge:hover {
+  opacity: 1;
+}
+
+.site-footer__badge img {
+  display: block;
+  max-width: 250px;
+  height: auto;
+}
+
 .site-footer__bottom {
   margin-top: 48px;
   padding-top: 48px;
