@@ -9,7 +9,13 @@
       "ctaPrimary": "Start reading instantly",
       "ctaSecondary": "Upload your book",
       "ctaReturning": "Continue where you left off",
-      "searchPlaceholder": "Search by title, author, or genre..."
+      "searchPlaceholder": "Search by title, author, or genre...",
+      "demoTextBefore": "She was staring at the",
+      "demoWord": "curiouser",
+      "demoTextAfter": "of the two doors.",
+      "demoTranslation": "more curious",
+      "demoDefinition": "comparative of curious; more curious",
+      "demoSave": "Save word"
     },
     "stats": {
       "books": "books",
@@ -30,6 +36,52 @@
     },
     "continueReading": {
       "label": "Continue Reading"
+    },
+    "features": {
+      "heading": "Everything you need to read — and learn",
+      "subheading": "One clean app. Real books. Real progress.",
+      "translate": {
+        "title": "Tap to translate",
+        "description": "Tap any word for instant translation, definition, and pronunciation. 18+ languages."
+      },
+      "srs": {
+        "title": "Smart flashcards",
+        "description": "Saved words become SRS flashcards. 5 stages from Recognition to Mastered."
+      },
+      "upload": {
+        "title": "Your own books",
+        "description": "Upload EPUB, PDF, or FB2. Read your books with the full TextStack toolkit."
+      },
+      "stats": {
+        "title": "Reading stats",
+        "description": "Track streaks, daily goals, and achievements. See your fluency grow."
+      },
+      "offline": {
+        "title": "Offline reading",
+        "description": "Download books for offline reading. Sync progress when you're back online."
+      },
+      "tts": {
+        "title": "Natural voices",
+        "description": "200+ text-to-speech voices. Hear native pronunciation while you read."
+      }
+    },
+    "howItWorks": {
+      "heading": "How it works",
+      "step1Title": "Pick a book",
+      "step1Body": "Choose from thousands of classics — or upload your own.",
+      "step2Title": "Tap to translate",
+      "step2Body": "One tap reveals translation, definition, and TTS pronunciation.",
+      "step3Title": "Master with flashcards",
+      "step3Body": "Saved words become SRS cards. Review daily to make them stick."
+    },
+    "devices": {
+      "heading": "Read anywhere",
+      "body": "Your library, progress, and vocabulary — synced across web and mobile."
+    },
+    "finalCta": {
+      "heading": "Start your reading journey today.",
+      "body": "Free. No credit card. Works right in your browser.",
+      "button": "Start reading free"
     }
   },
   "reader": {
@@ -281,6 +333,11 @@
   "stats": {
     "title": "Reading Stats",
     "signInPrompt": "Sign in to track your reading and unlock achievements.",
+    "empty": {
+      "title": "Your reading stats will appear here",
+      "subtitle": "Start reading to track streaks, time, and achievements.",
+      "cta": "Open a book"
+    },
     "totalTime": "Total Time",
     "booksFinished": "Books Finished",
     "currentStreak": "Current Streak",
@@ -361,7 +418,12 @@
   },
   "highlights": {
     "title": "Highlights",
-    "empty": "No highlights yet. Select text while reading to highlight it.",
+    "empty": {
+      "title": "Your highlights will appear here",
+      "subtitle": "Select text in any book to save a highlight.",
+      "cta": "Browse library"
+    },
+    "emptyFiltered": "No highlights yet. Select text while reading to highlight it.",
     "signInPrompt": "Sign in to view your highlights.",
     "all": "All",
     "libraryBooks": "Library",
@@ -387,6 +449,11 @@
   },
   "practice": {
     "title": "Practice",
+    "empty": {
+      "title": "Nothing to review yet",
+      "subtitle": "Save a few words from any book — they become flashcards here.",
+      "cta": "Browse library"
+    },
     "vocabReview": "Vocabulary Review",
     "highlightReview": "Highlight Review",
     "wordsDue": "{count} words due for review",
@@ -399,6 +466,11 @@
     "title": "Vocabulary",
     "signInPrompt": "Sign in to build your personal vocabulary list.",
     "empty": "No words saved yet. Select words while reading to add them.",
+    "emptyPage": {
+      "title": "Your vocabulary starts here",
+      "subtitle": "Open any book, tap a word — it will appear here ready for review.",
+      "cta": "Browse library"
+    },
     "saveWord": "Save word",
     "wordSaved": "Word saved",
     "alreadySaved": "Already saved",

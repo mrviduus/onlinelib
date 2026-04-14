@@ -41,6 +41,7 @@ function ContextSnippet({ word, sentence }: { word: string; sentence?: string | 
 export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
+  void isAuthenticated // may gate future in-page CTAs
   const {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
@@ -56,19 +57,6 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
-  if (!embedded && !isAuthenticated) {
-    return (
-      <div className="page-container">
-        <SeoHead title={t('vocabulary.title')} noindex />
-        <div className="vocab-page">
-          <h1>{t('vocabulary.title')}</h1>
-          <p>{t('vocabulary.signInPrompt')}</p>
-        </div>
-        <Footer />
-      </div>
-    )
-  }
-
   if (loading && words.length === 0) {
     if (embedded) return <div className="vocab-loading">{t('common.loading')}</div>
     return (
@@ -77,6 +65,37 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
         <div className="vocab-page">
           <h1>{t('vocabulary.title')}</h1>
           <div className="vocab-loading">{t('common.loading')}</div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Empty state for both guests (no auth) and fresh authenticated users with zero saved words
+  if (!loading && words.length === 0 && !filters.search && !filters.stage) {
+    if (embedded) {
+      return (
+        <EmptyState
+          icon="📚"
+          title={t('vocabulary.emptyPage.title')}
+          subtitle={t('vocabulary.emptyPage.subtitle')}
+          buttonLabel={t('vocabulary.emptyPage.cta')}
+          buttonTo="/books"
+        />
+      )
+    }
+    return (
+      <div className="page-container">
+        <SeoHead title={t('vocabulary.title')} noindex />
+        <div className="vocab-page">
+          <h1>{t('vocabulary.title')}</h1>
+          <EmptyState
+            icon="📚"
+            title={t('vocabulary.emptyPage.title')}
+            subtitle={t('vocabulary.emptyPage.subtitle')}
+            buttonLabel={t('vocabulary.emptyPage.cta')}
+            buttonTo="/books"
+          />
         </div>
         <Footer />
       </div>
