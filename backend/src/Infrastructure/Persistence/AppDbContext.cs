@@ -58,6 +58,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<BoardTask> BoardTasks => Set<BoardTask>();
     public DbSet<BookQualityJob> BookQualityJobs => Set<BookQualityJob>();
+    public DbSet<SeoTemplate> SeoTemplates => Set<SeoTemplate>();
+    public DbSet<SeoBackfillJob> SeoBackfillJobs => Set<SeoBackfillJob>();
+    public DbSet<SeoBackfillSettings> SeoBackfillSettings => Set<SeoBackfillSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -631,6 +634,48 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.Cascade);
         });
+
+        // SeoTemplate — editable Claude prompts per entity_type × field_type × language, version-frozen.
+        modelBuilder.Entity<SeoTemplate>(e =>
+        {
+            e.HasIndex(x => new { x.EntityType, x.FieldType, x.LanguageCode, x.IsActive });
+            e.Property(x => x.LanguageCode).HasMaxLength(8);
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Model).HasMaxLength(100);
+            e.Property(x => x.PromptTemplate).HasColumnType("text");
+            e.Property(x => x.OutputSchema).HasColumnType("jsonb");
+        });
+
+        // SeoBackfillJob — audit trail for every run, frozen template versions enable replay.
+        modelBuilder.Entity<SeoBackfillJob>(e =>
+        {
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasIndex(x => new { x.EntityType, x.EntityId });
+            e.Property(x => x.TargetFields).HasColumnType("text[]");
+            e.Property(x => x.TemplateIds).HasColumnType("uuid[]");
+            e.Property(x => x.TemplateVersions).HasColumnType("integer[]");
+            e.Property(x => x.TriggeredBy).HasMaxLength(200);
+            e.Property(x => x.InputSnapshot).HasColumnType("jsonb");
+            e.Property(x => x.RenderedPrompts).HasColumnType("jsonb");
+            e.Property(x => x.RawOutputs).HasColumnType("jsonb");
+            e.Property(x => x.GeneratedContent).HasColumnType("jsonb");
+            e.Property(x => x.BeforeSnapshot).HasColumnType("jsonb");
+            e.Property(x => x.AfterSnapshot).HasColumnType("jsonb");
+        });
+
+        // SeoBackfillSettings — singleton.
+        modelBuilder.Entity<SeoBackfillSettings>(e =>
+        {
+            e.Property(x => x.LanguageFilter).HasColumnType("text[]");
+            e.Property(x => x.EntityTypeFilter).HasColumnType("text[]");
+        });
+
+        // seo_source on SEO-bearing entities — default 'Manual' (0) preserves existing rows.
+        modelBuilder.Entity<Author>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
+        modelBuilder.Entity<Edition>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
+        modelBuilder.Entity<Genre>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
+        modelBuilder.Entity<BlogPost>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

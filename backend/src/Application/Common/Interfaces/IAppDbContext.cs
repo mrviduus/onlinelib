@@ -55,6 +55,9 @@ public interface IAppDbContext
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<BoardTask> BoardTasks { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }
+    DbSet<SeoTemplate> SeoTemplates { get; }
+    DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
+    DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

@@ -30,6 +30,9 @@ public class Edition
     public string? SeoThemesJson { get; set; }  // JSON array: ["Theme1", "Theme2"]
     public string? SeoFaqsJson { get; set; }    // JSON array: [{q: "", a: ""}, ...]
 
+    /// <summary>Provenance of the SEO fields on this entity. Drives auto-skip logic during bulk backfill.</summary>
+    public SeoSource SeoSource { get; set; } = SeoSource.Manual;
+
     // Table of contents (JSON)
     public string? TocJson { get; set; }
 

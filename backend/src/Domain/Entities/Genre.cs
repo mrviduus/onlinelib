@@ -1,3 +1,5 @@
+using Domain.Enums;
+
 namespace Domain.Entities;
 
 public class Genre
@@ -14,6 +16,9 @@ public class Genre
     public bool Indexable { get; set; } = true;
     public string? SeoTitle { get; set; }
     public string? SeoDescription { get; set; }
+
+    /// <summary>Provenance of the SEO fields on this entity. Drives auto-skip logic during bulk backfill.</summary>
+    public SeoSource SeoSource { get; set; } = SeoSource.Manual;
 
     public Site Site { get; set; } = null!;
     public ICollection<Edition> Editions { get; set; } = [];
