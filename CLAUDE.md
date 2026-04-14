@@ -261,6 +261,19 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Settings: books/day, hour UTC, require review, language filter, priority queue
 - Auto-triggers Specific SSG rebuild per published book via `PublishEditionAsync() → EnqueueSsgSafe()`
 
+**SEO Backfill**: Template-driven SEO field generation for Authors, Editions, Genres, Blog posts.
+- Admin page at `/seo-backfill` — Coverage, Templates, Jobs, Settings tabs
+- Entities: `SeoTemplate` (admin-editable prompts, versioned), `SeoBackfillJob` (queue + Before/After snapshots), `SeoBackfillSettings` (singleton)
+- `SeoSource` column on Author/Edition/Genre/BlogPost: `manual` | `auto` | `hybrid` — `manual` rows protected from overwrite
+- Progressive trust: `TrustLevel` per template — `Manual` (queue by admin only) → `Review` (needs approval) → `Auto` (direct apply). Strictest wins for multi-field jobs
+- `seo-backfill-poll.sh` (systemd) claims jobs atomically via `FOR UPDATE SKIP LOCKED`, dispatches per-job
+- `seo-backfill-generate.sh` — GET context → Claude CLI per field (3 retries with error feedback) → POST apply; output validated vs per-field JSON schema
+- Prompt injection defense: `SeoPromptSanitizer` strips `{{`, `}}`, `assistant:`, `system:`, `</prompt>`, `<|…|>` from entity text before template interpolation
+- Immutable replay: job stores `TemplateIds[]` + `TemplateVersions[]` — editing a template creates a new version, old jobs keep their frozen snapshot
+- Revert: restores `BeforeSnapshot`, flips `SeoSource` back to `manual`
+- Internal endpoints `/internal/seo/jobs/claim|context|apply|fail` (Docker network only)
+- Setup: `make seo-backfill-setup` (systemd user unit), `make seo-backfill-restart`, `make seo-backfill-logs`
+
 **SSG**: Puppeteer prerenders SEO pages to static HTML
 - nginx serves SSG first, falls back to SPA
 - Run `make rebuild-ssg` after content changes
@@ -302,7 +315,9 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
-**Internal**: `POST /internal/editions/{id}/publish`, `POST /internal/ssg/rebuild-all` (Docker network only)
+**SEO Backfill Admin**: `GET /admin/seo/coverage`, `GET /admin/seo/gaps?entityType=&limit=`, `GET/PUT /admin/seo/settings`, `GET /admin/seo/templates`, `GET /admin/seo/templates/{id}`, `POST /admin/seo/templates`, `PUT /admin/seo/templates/{id}` (creates new Version), `POST /admin/seo/templates/{id}/deactivate`, `POST /admin/seo/templates/preview`, `GET /admin/seo/jobs`, `GET /admin/seo/jobs/{id}`, `POST /admin/seo/jobs/{id}/approve`, `POST /admin/seo/jobs/{id}/revert`, `POST /admin/seo/jobs/{id}/retry`, `POST /admin/seo/queue`
+
+**Internal**: `POST /internal/editions/{id}/publish`, `POST /internal/ssg/rebuild-all`, `POST /internal/seo/jobs/claim?limit=`, `GET /internal/seo/jobs/{id}/context`, `POST /internal/seo/jobs/{id}/apply`, `POST /internal/seo/jobs/{id}/fail` (Docker network only)
 
 ## Key Files
 
@@ -358,6 +373,13 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Auto Publish Admin | `apps/admin/src/pages/AutoPublishPage.tsx` |
 | SEO Generate Script | `infra/scripts/seo-generate.sh` |
 | SEO Publish Poller | `infra/scripts/seo-publish-poll.sh` |
+| SEO Backfill Admin API | `backend/src/Api/Endpoints/AdminSeoBackfillEndpoints.cs` |
+| SEO Backfill Internal API | `backend/src/Api/Endpoints/InternalSeoEndpoints.cs` |
+| SEO Backfill Services | `backend/src/Application/Seo/` (JobProcessor, ContextBuilder, ContentApplier, CoverageAnalyzer, TemplateRenderer, ContentValidator, PromptSanitizer) |
+| SEO Backfill Entities | `backend/src/Domain/Entities/SeoTemplate.cs`, `SeoBackfillJob.cs`, `SeoBackfillSettings.cs` |
+| SEO Backfill Poller | `infra/scripts/seo-backfill-poll.sh`, `infra/scripts/seo-backfill-generate.sh` |
+| SEO Backfill systemd | `infra/systemd/seo-backfill-poller.service` |
+| SEO Backfill Admin UI | `apps/admin/src/pages/SeoBackfillPage.tsx` |
 | Internal Endpoints | `backend/src/Api/Endpoints/InternalEndpoints.cs` |
 | SSG Periodic Worker | `backend/src/Api/Services/SsgPeriodicRebuildWorker.cs` |
 | SSG | `apps/web/scripts/prerender.mjs` |
