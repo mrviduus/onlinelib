@@ -64,8 +64,12 @@ public class ResendEmailService : IEmailService
     {
         var resetUrl = $"{_settings.BaseUrl}/en/reset-password?token={Uri.EscapeDataString(resetToken)}";
 
+        var logoUrl = $"{_settings.BaseUrl}/logo-email.png";
         var html = $"""
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+              <div style="text-align: center; padding-bottom: 24px;">
+                <img src="{logoUrl}" alt="TextStack" width="120" height="40" style="display: inline-block; border: 0;" />
+              </div>
               <h2 style="color: #111827; font-weight: 500; margin-bottom: 16px;">Reset your password</h2>
               <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
                 Click the button below to reset your TextStack password. This link expires in 1 hour.

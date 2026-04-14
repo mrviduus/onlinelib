@@ -73,6 +73,23 @@
   font-size: 20px;
 }
 
+.site-header__logo {
+  color: var(--color-text);
+}
+
+.site-header__logo .brand-wordmark {
+  font-family: 'Crimson Pro', 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  transition: font-size 0.3s ease;
+}
+
+.site-header--scrolled .site-header__logo .brand-wordmark {
+  font-size: 20px;
+}
+
 .site-header__nav-links {
   display: none;
 }

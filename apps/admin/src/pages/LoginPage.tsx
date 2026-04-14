@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import { Logo } from '../components/Logo'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -30,6 +31,7 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
+          <Logo variant="icon" size={56} style={{ marginBottom: 16 }} aria-label="TextStack" />
           <h1>TextStack Admin</h1>
           <p>Sign in to continue</p>
         </div>

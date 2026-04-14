@@ -20,6 +20,17 @@
   align-items: center;
 }
 
+.home-hero__logo {
+  color: var(--color-text);
+  margin: 0 0 24px;
+}
+
+@media (max-width: 640px) {
+  .home-hero__logo {
+    margin-bottom: 16px;
+  }
+}
+
 .home-hero__title {
   font-family: 'Crimson Pro', 'Playfair Display', serif;
   font-size: clamp(3rem, 10vw, 6rem);
@@ -38,6 +49,15 @@
   margin: 32px 0 0;
   max-width: 600px;
   line-height: 1.5;
+}
+
+.home-hero__brand-line {
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  margin: 12px 0 0;
+  letter-spacing: 0.01em;
 }
 
 /* CTA Buttons */
@@ -580,10 +600,15 @@
 }
 
 .site-footer__logo {
+  color: var(--color-text);
+}
+
+.site-footer__logo .brand-wordmark {
   font-family: 'Crimson Pro', 'Playfair Display', serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .site-footer__copyright {

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { LocalizedLink } from './LocalizedLink'
+import { Logo } from './Logo'
 import { MobileSearchOverlay } from './Search'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { LoginButton } from './auth/LoginButton'
@@ -26,7 +27,7 @@ export function Header() {
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
       <div className="site-header__left">
         <LocalizedLink to="/" className="site-header__brand" title={t('nav.brandTitle')}>
-          <span className="site-header__wordmark">TextStack</span>
+          <Logo variant="lockup" size={28} className="site-header__logo" />
         </LocalizedLink>
         <nav className="site-header__nav-links">
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>

@@ -7,11 +7,11 @@
   text (a "stack"), echoing the brand name. Drawn on a 256×256 canvas
   with the motif centered vertically via a translate.
 
-  Color: uses fill="#111827" so the parent CSS color or the
+  Color: uses fill="currentColor" so the parent CSS color or the
   `fill` attribute on consuming <svg> controls the rendered hue.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" aria-label="TextStack logo">
-  <g fill="#111827" transform="translate(0, 64)">
+  <g fill="currentColor" transform="translate(0, 64)">
     <!-- base / open book -->
     <path d="M18 88C42 84.8 67 84.6 92 87.8C108 89.9 120.4 93.1 128 96.6C135.6 93.1 148 89.9 164 87.8C189 84.6 214 84.8 238 88L232 101.5C209.8 99 186.8 99.1 164.8 101.5C149.2 103.2 136.6 106 128 109.4C119.4 106 106.8 103.2 91.2 101.5C69.2 99.1 46.2 99 24 101.5L18 88Z"/>
 

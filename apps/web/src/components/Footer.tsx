@@ -1,4 +1,5 @@
 import { LocalizedLink } from './LocalizedLink'
+import { Logo } from './Logo'
 import { useTranslation } from '../hooks/useTranslation'
 
 export function Footer() {
@@ -39,7 +40,7 @@ export function Footer() {
           </a>
         </div>
         <div className="site-footer__bottom">
-          <span className="site-footer__logo">TextStack</span>
+          <Logo variant="lockup" size={22} className="site-footer__logo" />
           <span className="site-footer__copyright">&copy; {new Date().getFullYear()} TextStack Reader Library Project.</span>
         </div>
       </div>

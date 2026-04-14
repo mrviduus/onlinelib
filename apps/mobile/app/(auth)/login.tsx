@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Alert, Platform, TextInput, KeyboardAvoidingView, ScrollView,
+  Alert, Platform, TextInput, KeyboardAvoidingView, ScrollView, Image,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -135,7 +135,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Ionicons name="book" size={48} color={colors.primary} style={{ marginBottom: 12 }} />
+        <Image
+          source={require('../../assets/logo-icon.png')}
+          style={{ width: 64, height: 64, marginBottom: 12, tintColor: colors.primary, resizeMode: 'contain' }}
+          accessibilityLabel="TextStack"
+        />
         <Text style={[styles.brand, { color: colors.text, fontFamily: fonts.serifBold }]}>TextStack</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
           Your reading journey starts here

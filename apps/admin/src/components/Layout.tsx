@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import { Logo } from './Logo'
 
 export function Layout() {
   const location = useLocation()
@@ -40,7 +41,7 @@ export function Layout() {
 
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar__header">
-          <h2>TextStack</h2>
+          <Logo variant="lockup" size={24} />
           <span>Admin</span>
         </div>
 

@@ -1,0 +1,13 @@
+{
+  "name": "textstack-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One-off repo-root scripts (brand asset generation, etc.).",
+  "scripts": {
+    "brand": "node generate-logo-assets.mjs"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}
