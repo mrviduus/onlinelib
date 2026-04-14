@@ -163,6 +163,16 @@ export function Layout() {
             Auto Publish
           </Link>
 
+          <Link to="/seo-backfill" className={`admin-nav__link ${location.pathname.startsWith('/seo-backfill') ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h16v4H4z" />
+              <path d="M4 12h10v4H4z" />
+              <path d="M4 20h6" />
+              <path d="M17 14l4 4-4 4" />
+            </svg>
+            SEO Backfill
+          </Link>
+
           <Link to="/quality" className={`admin-nav__link ${location.pathname.startsWith('/quality') ? 'active' : ''}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 11l3 3L22 4" />
