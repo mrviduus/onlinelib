@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### SEO Backfill Automation (2026-04-14)
+- **ADR-010** — `docs/ADR-010-seo-backfill-automation.md` describes architecture.
+- **Editable prompt templates** — admin panel CRUD (per entity_type × field_type × language), version-frozen on edit.
+- **DB-backed queue** — `seo_backfill_jobs` with atomic `FOR UPDATE SKIP LOCKED` claim.
+- **Separate systemd poller** — `seo-backfill-poller` (does not mix with `seo-publish-poller`). Setup via `make seo-backfill-setup`.
+- **Claude CLI generation** — JSON schema validation with 3 retries on invalid output.
+- **Before/After snapshots** — full revert support even after success.
+- **Coverage dashboard** — Author/Edition/Genre gap tracking per FieldType.
+- **Review gate** — default ON, progressive trust via `trust_level` (manual → review → auto). Strictest wins for multi-field jobs.
+- **`seo_source` column** — `manual` | `auto` | `hybrid` on Author/Edition/Genre/BlogPost; auto-skip entities marked `manual`.
+- **Prompt injection guard** — `SeoPromptSanitizer` strips role markers (`assistant:`, `system:`) and template delimiters.
+- **Admin UI** — `/seo-backfill` with Coverage, Templates, Jobs, Settings tabs.
+- **Deploy** — `deploy.yml` restarts `seo-backfill-poller` post-deploy; Makefile `make deploy` mirrors.
+- **Deprecates** `docs/seo-content-task.md` manual tracker — migrate to `/seo-backfill`.
+
 ### Practice & Review UX Improvements (2026-04-08)
 - **Flashcards default mode** — classic flashcards now first and default (was Blitz)
 - **Retry wrong words** — optional "Retry wrong words (N)" button on session summary to re-practice mistakes

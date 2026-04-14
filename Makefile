@@ -58,6 +58,8 @@ deploy: fix-permissions
 	sudo nginx -t && sudo systemctl reload nginx
 	docker image prune -f
 	@systemctl --user restart codegen-poller 2>/dev/null && echo " CodeGen poller restarted" || echo " CodeGen poller not installed (run: make codegen-setup)"
+	@systemctl --user restart seo-publish-poller 2>/dev/null && echo " SEO Publish poller restarted" || echo " SEO Publish poller not installed (run: make seo-publish-setup)"
+	@systemctl --user restart seo-backfill-poller 2>/dev/null && echo " SEO Backfill poller restarted" || echo " SEO Backfill poller not installed (run: make seo-backfill-setup)"
 	@echo "=== Done ==="
 
 rebuild-ssg:
@@ -184,3 +186,28 @@ seo-publish-restart:
 
 seo-publish-stop:
 	@systemctl --user stop seo-publish-poller
+
+# ============================================================
+# SEO Backfill (template-driven SEO generation for Authors/Editions/Genres/Blog)
+# ============================================================
+
+seo-backfill-setup:
+	@mkdir -p ~/.config/systemd/user
+	@cp infra/systemd/seo-backfill-poller.service ~/.config/systemd/user/
+	@systemctl --user daemon-reload
+	@systemctl --user enable seo-backfill-poller
+	@systemctl --user start seo-backfill-poller
+	@loginctl enable-linger $$(whoami)
+	@echo "SEO Backfill poller installed and started."
+
+seo-backfill-status:
+	@systemctl --user status seo-backfill-poller
+
+seo-backfill-logs:
+	@journalctl --user -u seo-backfill-poller -f
+
+seo-backfill-restart:
+	@systemctl --user restart seo-backfill-poller
+
+seo-backfill-stop:
+	@systemctl --user stop seo-backfill-poller

@@ -17,6 +17,10 @@ public class BlogPost
     public string? Tags { get; set; }
     public string? SeoTitle { get; set; }
     public string? SeoDescription { get; set; }
+
+    /// <summary>Provenance of the SEO fields on this entity. Drives auto-skip logic during bulk backfill.</summary>
+    public SeoSource SeoSource { get; set; } = SeoSource.Manual;
+
     public DateTimeOffset? PublishedAt { get; set; }
     public int ViewCount { get; set; }
     public int LikeCount { get; set; }

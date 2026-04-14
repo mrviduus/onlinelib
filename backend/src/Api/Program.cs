@@ -128,6 +128,7 @@ builder.Services.Configure<EmailSettings>(options =>
     options.ResendApiKey = builder.Configuration["Resend:ApiKey"] ?? "";
     options.FromEmail = builder.Configuration["Resend:FromEmail"] ?? "noreply@textstack.app";
     options.BaseUrl = builder.Configuration["App:BaseUrl"] ?? "https://textstack.app";
+    options.AdminAlertEmail = builder.Configuration["Resend:AdminAlertEmail"] ?? "";
 });
 builder.Services.AddHttpClient<IEmailService, ResendEmailService>();
 
@@ -267,6 +268,7 @@ app.MapAdminSeoCrawlEndpoints();
 app.MapAdminSsgRebuildEndpoints();
 app.MapAdminCodeGenEndpoints();
 app.MapAdminAutoPublishEndpoints();
+app.MapAdminSeoBackfillEndpoints();
 app.MapAdminLintEndpoints();
 app.MapAdminSettingsEndpoints();
 app.MapBooksEndpoints();
@@ -296,6 +298,7 @@ app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();
 app.MapInternalEndpoints();
+app.MapInternalSeoEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")

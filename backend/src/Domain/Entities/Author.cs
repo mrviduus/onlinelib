@@ -1,3 +1,5 @@
+using Domain.Enums;
+
 namespace Domain.Entities;
 
 public class Author
@@ -21,6 +23,9 @@ public class Author
     public string? SeoRelevanceText { get; set; }
     public string? SeoThemesJson { get; set; }
     public string? SeoFaqsJson { get; set; }
+
+    /// <summary>Provenance of the SEO fields on this entity. Drives auto-skip logic during bulk backfill.</summary>
+    public SeoSource SeoSource { get; set; } = SeoSource.Manual;
 
     public Site Site { get; set; } = null!;
     public ICollection<EditionAuthor> EditionAuthors { get; set; } = [];

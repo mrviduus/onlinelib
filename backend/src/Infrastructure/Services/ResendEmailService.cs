@@ -10,6 +10,8 @@ public class EmailSettings
     public string ResendApiKey { get; set; } = "";
     public string FromEmail { get; set; } = "noreply@textstack.app";
     public string BaseUrl { get; set; } = "https://textstack.app";
+    /// <summary>Destination for operational alerts (failed jobs, etc.). If empty, alerts are skipped.</summary>
+    public string AdminAlertEmail { get; set; } = "";
 }
 
 public class ResendEmailService : IEmailService
@@ -23,6 +25,39 @@ public class ResendEmailService : IEmailService
         _http = http;
         _settings = settings.Value;
         _logger = logger;
+    }
+
+    public async Task SendAdminAlertAsync(string subject, string htmlBody, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.AdminAlertEmail) || string.IsNullOrWhiteSpace(_settings.ResendApiKey))
+        {
+            _logger.LogDebug("Admin alert skipped (no AdminAlertEmail or ResendApiKey): {Subject}", subject);
+            return;
+        }
+
+        var payload = new
+        {
+            from = _settings.FromEmail,
+            to = new[] { _settings.AdminAlertEmail },
+            subject,
+            html = htmlBody,
+        };
+
+        try
+        {
+            _http.DefaultRequestHeaders.Clear();
+            _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ResendApiKey}");
+            var response = await _http.PostAsJsonAsync("https://api.resend.com/emails", payload, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("Admin alert email failed: {Status} {Body}", response.StatusCode, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Admin alert email threw");
+        }
     }
 
     public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct)

@@ -1306,4 +1306,182 @@ export const adminApi = {
   retryBookQualityJob: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/quality/jobs/${id}/retry`, { method: 'POST' })
   },
+
+  // ── SEO Backfill ──
+  getSeoCoverage: async (): Promise<SeoCoverageStat[]> => {
+    return fetchJson<SeoCoverageStat[]>('/admin/seo/coverage')
+  },
+
+  getSeoTemplates: async (params?: { entityType?: string; onlyActive?: boolean }): Promise<SeoTemplateListItem[]> => {
+    const qs = new URLSearchParams()
+    if (params?.entityType) qs.set('entityType', params.entityType)
+    if (params?.onlyActive !== undefined) qs.set('onlyActive', params.onlyActive.toString())
+    const tail = qs.toString()
+    return fetchJson<SeoTemplateListItem[]>(`/admin/seo/templates${tail ? `?${tail}` : ''}`)
+  },
+
+  getSeoTemplate: async (id: string): Promise<SeoTemplateDetail> => {
+    return fetchJson<SeoTemplateDetail>(`/admin/seo/templates/${id}`)
+  },
+
+  createSeoTemplate: async (data: SeoTemplateUpsert): Promise<{ id: string; version: number }> => {
+    return fetchJson(`/admin/seo/templates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  updateSeoTemplate: async (id: string, data: SeoTemplateUpsert): Promise<{ id: string; version: number }> => {
+    return fetchJson(`/admin/seo/templates/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  deactivateSeoTemplate: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/seo/templates/${id}`, { method: 'DELETE' })
+  },
+
+  previewSeoTemplate: async (id: string, entityId: string): Promise<SeoTemplatePreview> => {
+    return fetchJson<SeoTemplatePreview>(`/admin/seo/templates/${id}/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entityId }),
+    })
+  },
+
+  getSeoJobs: async (params?: { status?: string; entityType?: string; offset?: number; limit?: number }): Promise<{ total: number; items: SeoBackfillJobListItem[] }> => {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.entityType) qs.set('entityType', params.entityType)
+    if (params?.offset !== undefined) qs.set('offset', params.offset.toString())
+    if (params?.limit !== undefined) qs.set('limit', params.limit.toString())
+    const tail = qs.toString()
+    return fetchJson(`/admin/seo/jobs${tail ? `?${tail}` : ''}`)
+  },
+
+  getSeoJob: async (id: string): Promise<SeoBackfillJobDetail> => {
+    return fetchJson<SeoBackfillJobDetail>(`/admin/seo/jobs/${id}`)
+  },
+
+  approveSeoJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/seo/jobs/${id}/approve`, { method: 'POST' })
+  },
+
+  revertSeoJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/seo/jobs/${id}/revert`, { method: 'POST' })
+  },
+
+  retrySeoJob: async (id: string): Promise<void> => {
+    await fetchVoid(`/admin/seo/jobs/${id}/retry`, { method: 'POST' })
+  },
+
+  queueSeoEntity: async (data: { entityType: string; entityId: string; fields: string[]; language?: string; requireReview?: boolean }): Promise<{ jobId: string }> => {
+    return fetchJson(`/admin/seo/queue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+
+  getSeoSettings: async (): Promise<SeoBackfillSettings> => {
+    return fetchJson<SeoBackfillSettings>('/admin/seo/settings')
+  },
+
+  updateSeoSettings: async (data: Partial<SeoBackfillSettings>): Promise<void> => {
+    await fetchVoid('/admin/seo/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  },
+}
+
+// SEO Backfill types
+export interface SeoCoverageStat {
+  entityType: string
+  fieldType: string
+  total: number
+  populated: number
+  missing: number
+}
+
+export interface SeoTemplateListItem {
+  id: string
+  entityType: string
+  fieldType: string
+  languageCode: string
+  name: string
+  description: string | null
+  model: string
+  maxTokens: number
+  temperature: number
+  trustLevel: string
+  version: number
+  isActive: boolean
+  updatedAt: string
+}
+
+export interface SeoTemplateDetail extends SeoTemplateListItem {
+  promptTemplate: string
+  outputSchema: string
+  createdAt: string
+}
+
+export interface SeoTemplateUpsert {
+  entityType: string
+  fieldType: string
+  languageCode: string
+  name: string
+  description?: string
+  promptTemplate: string
+  outputSchema: string
+  model?: string
+  maxTokens?: number
+  temperature?: number
+  trustLevel?: string
+}
+
+export interface SeoTemplatePreview {
+  rendered: string
+  missingPlaceholders: string[]
+  values: Record<string, string | null>
+}
+
+export interface SeoBackfillJobListItem {
+  id: string
+  entityType: string
+  entityId: string
+  targetFields: string[]
+  status: string
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  completedAt: string | null
+  triggeredBy: string
+  requiresReview: boolean
+}
+
+export interface SeoBackfillJobDetail extends SeoBackfillJobListItem {
+  templateIds: string[]
+  templateVersions: number[]
+  inputSnapshot: string | null
+  renderedPrompts: string | null
+  rawOutputs: string | null
+  generatedContent: string | null
+  beforeSnapshot: string | null
+  afterSnapshot: string | null
+  approvedByUserId: string | null
+  approvedAt: string | null
+}
+
+export interface SeoBackfillSettings {
+  enabled: boolean
+  jobsPerRun: number
+  intervalSeconds: number
+  languageFilter: string[]
+  entityTypeFilter: string[]
+  ssgRebuildBatchMinutes: number
 }

@@ -68,6 +68,9 @@ services:
       Tts__CachePath: /data/tts-cache
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: qwen3:8b
+      Resend__ApiKey: ${RESEND_API_KEY:-}
+      Resend__FromEmail: ${RESEND_FROM_EMAIL:-noreply@textstack.app}
+      Resend__AdminAlertEmail: ${ADMIN_ALERT_EMAIL:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
