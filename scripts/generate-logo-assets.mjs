@@ -2,10 +2,13 @@
 /**
  * TextStack brand asset generator.
  *
- * Source: assets/brand/logo-icon.svg (single source of truth).
- * Outputs: favicons, PWA icons, mobile app icons + splash, Android adaptive
- * icons, email-ready logo and a tint-friendly mono asset for in-app
- * react-native <Image tintColor={…} /> usage.
+ * Sources:
+ *   - assets/brand/logo-icon.svg        → detailed mark (hero / large PWA / OG / app-store icon).
+ *   - assets/brand/logo-mark-micro.svg  → simplified mark (favicons, small tab icons, email).
+ *
+ * Route small outputs through the micro mark (legibility at ≤96 px)
+ * and large outputs through the detailed mark (the radiating fan reads
+ * beautifully at 180 px+).
  *
  * Run with `pnpm run generate:brand` (or `make brand`).
  */
@@ -22,8 +25,10 @@ const BRAND_INK = '#111827'
 const BRAND_WARM = '#F3EEE7'
 const WHITE = '#FFFFFF'
 
-const sourceSvgPath = path.join(repoRoot, 'assets/brand/logo-icon.svg')
-const sourceSvg = await fs.readFile(sourceSvgPath, 'utf8')
+const detailedSvgPath = path.join(repoRoot, 'assets/brand/logo-icon.svg')
+const microSvgPath = path.join(repoRoot, 'assets/brand/logo-mark-micro.svg')
+const detailedSvg = await fs.readFile(detailedSvgPath, 'utf8')
+const microSvg = await fs.readFile(microSvgPath, 'utf8')
 
 const recolor = (svg, color) => svg.replace(/fill="currentColor"/g, `fill="${color}"`)
 
@@ -38,13 +43,19 @@ const hexToRgb = (hex) => {
 }
 
 /**
- * Render the icon SVG to PNG with optional padding and background.
- * - `width`/`height`: output canvas size.
- * - `padding`: safe-zone padding (px) around the glyph.
- * - `bg`: hex background. Omit for transparent.
- * - `color`: hex color for the glyph (replaces currentColor).
+ * Render an icon SVG to PNG with optional padding and background.
+ * `src`: 'detailed' (default) or 'micro'.
  */
-async function renderIcon({ width, height, padding = 0, bg = null, color = BRAND_INK, outPath }) {
+async function renderIcon({
+  width,
+  height,
+  padding = 0,
+  bg = null,
+  color = BRAND_INK,
+  src = 'detailed',
+  outPath,
+}) {
+  const sourceSvg = src === 'micro' ? microSvg : detailedSvg
   const inner = Math.min(width, height) - padding * 2
   const coloredSvg = recolor(sourceSvg, color)
   const iconBuf = await sharp(Buffer.from(coloredSvg))
@@ -66,7 +77,9 @@ async function renderIcon({ width, height, padding = 0, bg = null, color = BRAND
     .png()
     .toFile(outPath)
 
-  console.log(`  ✓ ${rel(outPath)}  (${width}×${height}${bg ? `, bg ${bg}` : ', transparent'})`)
+  console.log(
+    `  ✓ ${rel(outPath)}  (${width}×${height}${bg ? `, bg ${bg}` : ', transparent'}, src: ${src})`,
+  )
 }
 
 async function writeSvg(outPath, svg) {
@@ -80,20 +93,31 @@ async function ensureDir(p) {
 }
 
 console.log('Generating TextStack brand assets…')
-console.log(`  source: ${rel(sourceSvgPath)}`)
+console.log(`  detailed: ${rel(detailedSvgPath)}`)
+console.log(`  micro:    ${rel(microSvgPath)}`)
 console.log(`  brand ink: ${BRAND_INK}`)
 
-// Ensure target directories exist
 await ensureDir(path.join(repoRoot, 'apps/web/public'))
 await ensureDir(path.join(repoRoot, 'apps/admin/public/favicon'))
 await ensureDir(path.join(repoRoot, 'apps/mobile/assets'))
 
 // ── Web ───────────────────────────────────────────────────────────────────────
 const webPublic = path.join(repoRoot, 'apps/web/public')
-// Favicon SVG — hard-coded ink color (browser favicon contexts don't honour currentColor)
-await writeSvg(path.join(webPublic, 'favicon.svg'), recolor(sourceSvg, BRAND_INK))
+// Favicon SVG — micro mark, ink color (favicon contexts don't honour currentColor)
+await writeSvg(path.join(webPublic, 'favicon.svg'), recolor(microSvg, BRAND_INK))
 
-await renderIcon({ width: 96, height: 96, padding: 6, outPath: path.join(webPublic, 'favicon-96x96.png') })
+// Small favicons: micro source
+await renderIcon({ width: 16, height: 16, padding: 1, src: 'micro', outPath: path.join(webPublic, 'favicon-16.png') })
+await renderIcon({ width: 32, height: 32, padding: 2, src: 'micro', outPath: path.join(webPublic, 'favicon-32.png') })
+await renderIcon({
+  width: 96,
+  height: 96,
+  padding: 6,
+  src: 'micro',
+  outPath: path.join(webPublic, 'favicon-96x96.png'),
+})
+
+// Apple touch icon renders at 60–80 px on iOS home screen — detailed is legible.
 await renderIcon({
   width: 180,
   height: 180,
@@ -114,16 +138,17 @@ await renderIcon({
   outPath: path.join(webPublic, 'web-app-manifest-512x512.png'),
 })
 
-// Email-friendly logo: 240×80 canvas, icon centered (email clients treat transparent poorly → white bg)
+// Email-friendly logo: 240×80 — inline images render small in many clients, use micro
 await renderIcon({
   width: 240,
   height: 80,
   padding: 8,
   bg: WHITE,
+  src: 'micro',
   outPath: path.join(webPublic, 'logo-email.png'),
 })
 
-// OG image: 1200×630 warm background with centered icon (text overlay is a follow-up)
+// OG image: 1200×630 — plenty of space, keep detailed mark
 await renderIcon({
   width: 1200,
   height: 630,
@@ -134,12 +159,18 @@ await renderIcon({
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 const adminFav = path.join(repoRoot, 'apps/admin/public/favicon')
-await writeSvg(path.join(adminFav, 'favicon.svg'), recolor(sourceSvg, BRAND_INK))
-await renderIcon({ width: 96, height: 96, padding: 6, outPath: path.join(adminFav, 'favicon-96x96.png') })
+await writeSvg(path.join(adminFav, 'favicon.svg'), recolor(microSvg, BRAND_INK))
+await renderIcon({
+  width: 96,
+  height: 96,
+  padding: 6,
+  src: 'micro',
+  outPath: path.join(adminFav, 'favicon-96x96.png'),
+})
 
 // ── Mobile (Expo) ─────────────────────────────────────────────────────────────
 const mobileAssets = path.join(repoRoot, 'apps/mobile/assets')
-// App-store icon — must be opaque
+// App-store icon — must be opaque, large → detailed
 await renderIcon({
   width: 1024,
   height: 1024,
@@ -147,7 +178,6 @@ await renderIcon({
   bg: WHITE,
   outPath: path.join(mobileAssets, 'icon.png'),
 })
-// Android adaptive icon foreground (transparent) — Android composites it over a background color
 await renderIcon({
   width: 1024,
   height: 1024,
@@ -160,7 +190,6 @@ await renderIcon({
   padding: 120,
   outPath: path.join(mobileAssets, 'android-icon-foreground.png'),
 })
-// Splash: warm background
 await renderIcon({
   width: 1024,
   height: 1024,
@@ -168,18 +197,22 @@ await renderIcon({
   bg: BRAND_WARM,
   outPath: path.join(mobileAssets, 'splash-icon.png'),
 })
+// Expo web favicon (48 px) — micro
 await renderIcon({
   width: 48,
   height: 48,
   padding: 3,
+  src: 'micro',
   outPath: path.join(mobileAssets, 'favicon.png'),
 })
-// In-app monochrome asset (white on transparent) — used with react-native <Image tintColor={…} />
+// In-app tint-friendly asset (white on transparent). Used in mobile home header
+// at ~34 px and login at ~64 px via <Image tintColor={…} />. Micro keeps both crisp.
 await renderIcon({
   width: 256,
   height: 256,
   padding: 8,
   color: WHITE,
+  src: 'micro',
   outPath: path.join(mobileAssets, 'logo-icon.png'),
 })
 

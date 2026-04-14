@@ -9,6 +9,15 @@
  *   - `icon`   — just the glyph (favicons, compact badges, hero mark).
  *   - `lockup` — glyph + wordmark; the wordmark is rendered as HTML text
  *     so it inherits typography tokens and stays locale-agnostic.
+ *
+ * `micro`:
+ *   - `undefined` (default) — auto: small sizes (≤ 32 px) use the
+ *     simplified micro mark, larger sizes use the detailed mark.
+ *   - `true` / `false` — force the choice.
+ *
+ *   The micro mark is hand-tuned on a 24×24 grid for navbar / favicon /
+ *   mobile header clarity. The detailed mark lives on 256×256 with a
+ *   radiating page fan — great for hero, blurry in the navbar.
  */
 import type { CSSProperties } from 'react'
 
@@ -18,6 +27,8 @@ type LogoProps = {
   variant?: LogoVariant
   /** Height in px (width derived from 1:1 aspect ratio). */
   size?: number
+  /** Force the simplified micro mark. Defaults to auto (micro when size ≤ 32). */
+  micro?: boolean
   className?: string
   style?: CSSProperties
   'aria-label'?: string
@@ -26,11 +37,32 @@ type LogoProps = {
 export function Logo({
   variant = 'lockup',
   size = 32,
+  micro,
   className,
   style,
   'aria-label': ariaLabel,
 }: LogoProps) {
-  const svg = (
+  const useMicro = micro ?? size <= 32
+
+  const svg = useMicro ? (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="currentColor"
+      role="img"
+      aria-hidden={variant === 'lockup' ? true : undefined}
+      aria-label={variant === 'icon' ? (ariaLabel ?? 'TextStack') : undefined}
+      focusable="false"
+    >
+      {variant === 'icon' && <title>{ariaLabel ?? 'TextStack'}</title>}
+      <rect x="9" y="3" width="6" height="2" rx="1" />
+      <rect x="7" y="6" width="10" height="2" rx="1" />
+      <rect x="5" y="9" width="14" height="2" rx="1" />
+      <path d="M3 13Q12 15 21 13L21 18Q12 20 3 18Z" />
+    </svg>
+  ) : (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 256 256"

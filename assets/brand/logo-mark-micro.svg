@@ -7,9 +7,9 @@
   readable at small sizes. 24×24 viewBox aligns strokes to the
   integer pixel grid at common UI sizes.
 
-  Uses `fill="#111827"` so it follows the parent CSS color token.
+  Uses `fill="currentColor"` so it follows the parent CSS color token.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111827" role="img" aria-label="TextStack">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="TextStack">
   <title>TextStack</title>
   <rect x="9" y="3" width="6" height="2" rx="1"/>
   <rect x="7" y="6" width="10" height="2" rx="1"/>
