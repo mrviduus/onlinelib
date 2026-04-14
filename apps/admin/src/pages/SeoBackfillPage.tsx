@@ -143,6 +143,7 @@ function JobsTab() {
   const [items, setItems] = useState<SeoBackfillJobListItem[] | null>(null)
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
 
   const load = () => {
@@ -154,12 +155,13 @@ function JobsTab() {
   useEffect(load, [statusFilter])
 
   const doAction = async (id: string, action: 'approve' | 'revert' | 'retry') => {
+    setActionError(null)
     try {
       if (action === 'approve') await adminApi.approveSeoJob(id)
       else if (action === 'revert') await adminApi.revertSeoJob(id)
       else await adminApi.retrySeoJob(id)
       load()
-    } catch (e) { alert(String(e)) }
+    } catch (e) { setActionError(`${action} failed: ${String(e)}`) }
   }
 
   if (error) return <div style={{ color: 'red' }}>{error}</div>
@@ -181,6 +183,13 @@ function JobsTab() {
         </label>
         <span style={{ marginLeft: '1rem', color: '#666' }}>Total: {total}</span>
       </div>
+
+      {actionError && (
+        <div style={{ background: '#fee', border: '1px solid #c33', color: '#c33', padding: '0.5rem 0.75rem', borderRadius: 4, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} style={{ background: 'transparent', border: 'none', color: '#c33', cursor: 'pointer', fontSize: 16 }}>×</button>
+        </div>
+      )}
 
       {!items ? <div>Loading…</div> : items.length === 0 ? <div style={{ color: '#666' }}>No jobs match.</div> : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
@@ -233,46 +242,53 @@ function StatusBadge({ status }: { status: string }) {
 function SettingsTab() {
   const [settings, setSettings] = useState<SeoBackfillSettings | null>(null)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    adminApi.getSeoSettings().then(setSettings).catch(e => setError(String(e)))
+    adminApi.getSeoSettings().then(setSettings).catch(e => setLoadError(String(e)))
   }, [])
 
   const save = async () => {
     if (!settings) return
     setSaving(true)
+    setSaveError(null)
+    setSaved(false)
     try {
       await adminApi.updateSeoSettings(settings)
-    } catch (e) { setError(String(e)) }
+      setSaved(true)
+    } catch (e) { setSaveError(String(e)) }
     setSaving(false)
   }
 
-  if (error) return <div style={{ color: 'red' }}>{error}</div>
+  if (loadError) return <div style={{ color: 'red' }}>{loadError}</div>
   if (!settings) return <div>Loading…</div>
 
   return (
     <div style={{ maxWidth: 500 }}>
       <label style={{ display: 'block', marginBottom: '1rem' }}>
-        <input type="checkbox" checked={settings.enabled} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} />
+        <input type="checkbox" checked={settings.enabled} onChange={e => { setSettings({ ...settings, enabled: e.target.checked }); setSaved(false) }} />
         {' '}Enable backfill poller
       </label>
       <label style={{ display: 'block', marginBottom: '1rem' }}>
         Jobs per run:{' '}
         <input type="number" min={1} max={50} value={settings.jobsPerRun}
-          onChange={e => setSettings({ ...settings, jobsPerRun: Number(e.target.value) })} />
+          onChange={e => { setSettings({ ...settings, jobsPerRun: Number(e.target.value) }); setSaved(false) }} />
       </label>
       <label style={{ display: 'block', marginBottom: '1rem' }}>
         Interval (seconds):{' '}
         <input type="number" min={10} max={3600} value={settings.intervalSeconds}
-          onChange={e => setSettings({ ...settings, intervalSeconds: Number(e.target.value) })} />
+          onChange={e => { setSettings({ ...settings, intervalSeconds: Number(e.target.value) }); setSaved(false) }} />
       </label>
       <label style={{ display: 'block', marginBottom: '1rem' }}>
         SSG rebuild batch (minutes):{' '}
         <input type="number" min={1} max={60} value={settings.ssgRebuildBatchMinutes}
-          onChange={e => setSettings({ ...settings, ssgRebuildBatchMinutes: Number(e.target.value) })} />
+          onChange={e => { setSettings({ ...settings, ssgRebuildBatchMinutes: Number(e.target.value) }); setSaved(false) }} />
       </label>
       <button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      {saveError && <div style={{ color: '#c33', marginTop: '0.5rem' }}>Save failed: {saveError}</div>}
+      {saved && !saveError && <div style={{ color: '#3a3', marginTop: '0.5rem' }}>Saved.</div>}
     </div>
   )
 }
