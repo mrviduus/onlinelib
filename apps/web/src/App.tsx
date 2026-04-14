@@ -31,6 +31,8 @@ import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
 import { LearnEnglishBrazilPage } from './pages/LearnEnglishBrazilPage'
 import { LearnEnglishSpainPage } from './pages/LearnEnglishSpainPage'
+import { ReadBooksInEnglishPage } from './pages/ReadBooksInEnglishPage'
+import { BooksWithTranslationPage } from './pages/BooksWithTranslationPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
@@ -87,6 +89,8 @@ function LanguageRoutes() {
         <Route path="/blog/:slug" element={<BlogPostPage />} />
         <Route path="/learn-english-brazil" element={<LearnEnglishBrazilPage />} />
         <Route path="/learn-english-spain" element={<LearnEnglishSpainPage />} />
+        <Route path="/read-books-in-english" element={<ReadBooksInEnglishPage />} />
+        <Route path="/books-with-translation" element={<BooksWithTranslationPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
@@ -145,6 +149,8 @@ function AppRoutes() {
       <Route path="/highlights" element={<LegacyRedirect />} />
       <Route path="/highlights/review" element={<LegacyRedirect />} />
       <Route path="/blog/*" element={<LegacyRedirect />} />
+      <Route path="/read-books-in-english" element={<LegacyRedirect />} />
+      <Route path="/books-with-translation" element={<LegacyRedirect />} />
       <Route path="/:lang/*" element={<LanguageRoutes />} />
     </Routes>
   )

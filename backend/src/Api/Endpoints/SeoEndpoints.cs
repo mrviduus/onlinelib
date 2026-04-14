@@ -278,6 +278,24 @@ public static class SeoEndpoints
             }
         }
 
+        // English-only SEO landing pages (country + topic targeted).
+        var enLandingPages = new[]
+        {
+            "learn-english-brazil",
+            "learn-english-spain",
+            "read-books-in-english",
+            "books-with-translation",
+        };
+        foreach (var page in enLandingPages)
+        {
+            sb.AppendLine("  <url>");
+            sb.AppendLine($"    <loc>{baseUrl}/en/{page}/</loc>");
+            sb.AppendLine($"    <lastmod>{today}</lastmod>");
+            sb.AppendLine("    <changefreq>weekly</changefreq>");
+            sb.AppendLine("    <priority>0.8</priority>");
+            sb.AppendLine("  </url>");
+        }
+
         sb.AppendLine("</urlset>");
 
         return Task.FromResult(Results.Content(sb.ToString(), "application/xml"));
