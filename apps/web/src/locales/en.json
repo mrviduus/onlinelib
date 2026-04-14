@@ -88,6 +88,9 @@
     "wordPopup": {
       "known": "Known",
       "ignore": "Ignore",
+      "save": "Save",
+      "remove": "Remove",
+      "saving": "Saving...",
       "loading": "...",
       "translatingTo": "Translating to",
       "change": "Change",

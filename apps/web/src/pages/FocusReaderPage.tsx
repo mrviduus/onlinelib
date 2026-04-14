@@ -13,6 +13,7 @@ import { splitSentences, tokenizeWords } from '@textstack/shared'
 import { getUserBookChapter, getUserBook } from '../api/userBooks'
 import { translate as translateApi } from '../api/translation'
 import { updateWord as updateWordApi } from '../api/vocabulary'
+import { normalizeVocabKey } from '../lib/vocabKey'
 import { WordPopup } from '../components/reader/WordPopup'
 import { SeoHead } from '../components/SeoHead'
 import '../styles/focus-reader.css'
@@ -72,7 +73,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
 
   // Shared services for the word popup
   const { lookup: lookupWord } = useDictionary()
-  const { vocabMap, addWord, markAsKnown, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
   const { speak } = useTts()
   const handleSpeak = useCallback((word: string) => {
     speak(word, bookLanguage)
@@ -272,26 +273,10 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           setBubble((prev) => (prev && prev.word === word ? { ...prev, definitionLoading: false } : prev))
         })
 
-      // Fire-and-forget vocab save (dedup via vocabMap) + translation in parallel
-      const shouldSave = !vocabMap.has(word.toLowerCase())
-      const savePromise = shouldSave
-        ? addWord({
-            word,
-            language: bookLanguage,
-            editionId: mode === 'public' ? (editionId || undefined) : undefined,
-            chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
-            userBookId: mode === 'userbook' ? (id || undefined) : undefined,
-            bookTitle: bookTitle || undefined,
-            nativeLanguage: targetLang || undefined,
-          }).catch(() => null)
-        : Promise.resolve(null)
-
-      const translationPromise = targetLang
-        ? translateApi(word, bookLanguage, targetLang, ctrl.signal)
-        : Promise.resolve(null)
-
-      Promise.all([savePromise, translationPromise])
-        .then(([saved, res]) => {
+      // Translation fetch only — save is now explicit via Save button in WordPopup.
+      if (!targetLang) return
+      translateApi(word, bookLanguage, targetLang, ctrl.signal)
+        .then((res) => {
           if (ctrl.signal.aborted) return
           const translatedText = res?.translatedText ?? null
           setBubble((prev) =>
@@ -300,8 +285,11 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
               : prev,
           )
           if (translatedText) {
-            if (saved?.id) updateWordApi(saved.id, { translation: translatedText }).catch(() => {})
-            updateTranslation(word, translatedText)
+            const existing = vocabMap.get(normalizeVocabKey(word))
+            if (existing?.id && !existing.isPending && !existing.translation) {
+              updateWordApi(existing.id, { translation: translatedText }).catch(() => {})
+            }
+            if (existing) updateTranslation(word, translatedText)
           }
         })
         .catch((err) => {
@@ -312,8 +300,27 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           )
         })
     },
-    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, addWord, updateTranslation, mode, editionId, chapterId, id, bookTitle],
+    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation],
   )
+
+  // Explicit save handler — called from WordPopup on Save click.
+  const handleSaveWord = useCallback(async (word: string) => {
+    const currentTranslation = bubble?.word === word ? bubble?.translation : null
+    const saved = await addWord({
+      word,
+      language: bookLanguage,
+      editionId: mode === 'public' ? (editionId || undefined) : undefined,
+      chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
+      userBookId: mode === 'userbook' ? (id || undefined) : undefined,
+      bookTitle: bookTitle || undefined,
+      nativeLanguage: targetLang || undefined,
+      translation: currentTranslation || null,
+    }).catch(() => null)
+    if (saved?.id && currentTranslation) {
+      updateWordApi(saved.id, { translation: currentTranslation }).catch(() => {})
+      updateTranslation(word, currentTranslation)
+    }
+  }, [addWord, bookLanguage, mode, editionId, chapterId, id, bookTitle, targetLang, updateTranslation, bubble?.word, bubble?.translation])
 
   // Abort in-flight + pending press on unmount
   useEffect(() => () => {
@@ -359,7 +366,16 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const tokens = tokenizeWords(currentSentence)
   const progress = ((clampedIdx + 1) / sentences.length) * 100
 
-  const vocabEntry = bubble ? vocabMap.get(bubble.word.toLowerCase()) : undefined
+  const vocabEntry = bubble ? vocabMap.get(normalizeVocabKey(bubble.word)) : undefined
+
+  // Stage class helper for underline coloring (matches VocabWordLayer STAGE_CLASSES)
+  const STAGE_CLASSES: Record<number, string> = {
+    0: 'vocab-underline--new',
+    1: 'vocab-underline--recognition',
+    2: 'vocab-underline--recall',
+    3: 'vocab-underline--context',
+    4: 'vocab-underline--mastered',
+  }
 
   return (
     <div className={`focus-reader${themeClass}`}>
@@ -405,6 +421,10 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           const k = `${clampedIdx}:${i}`
           const active = bubble?.word === t.word
           const pressing = pressingKey === k
+          const savedEntry = vocabMap.get(normalizeVocabKey(t.word))
+          const savedClass = savedEntry
+            ? ` focus-reader__word--saved vocab-underline ${STAGE_CLASSES[savedEntry.stage] ?? STAGE_CLASSES[0]}`
+            : ''
           const handlePointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
             // Only main pointer; ignore right-clicks on desktop
             if (e.pointerType === 'mouse' && e.button !== 0) return
@@ -428,7 +448,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
             <span key={k}>
               <span className="focus-reader__word-wrap">
                 <span
-                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${pressing ? ' focus-reader__word--pressing' : ''}`}
+                  className={`focus-reader__word${active ? ' focus-reader__word--active' : ''}${pressing ? ' focus-reader__word--pressing' : ''}${savedClass}`}
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={cancelPress}
@@ -465,10 +485,10 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           rect={bubble.rect}
           containerRef={sentenceRef}
           onSpeak={() => handleSpeak(bubble.word)}
-          onMarkKnown={vocabEntry?.id ? () => { markAsKnown(vocabEntry.id!, bubble.word); closeBubble() } : undefined}
+          onSave={!vocabEntry ? () => handleSaveWord(bubble.word) : undefined}
           onRemove={vocabEntry?.id ? () => { removeWord(vocabEntry.id!, bubble.word); closeBubble() } : undefined}
           onClose={closeBubble}
-          vocabStage={vocabEntry?.stage ?? null}
+          isSaved={!!vocabEntry}
           nativeLanguage={nativeLanguage}
           onChangeNativeLanguage={setNativeLanguage}
           bookLanguage={bookLanguage}

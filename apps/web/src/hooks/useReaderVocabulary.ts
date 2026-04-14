@@ -10,6 +10,7 @@ import {
   deletePendingVocabWord,
   type PendingVocabWord,
 } from '../lib/offlineDb'
+import { normalizeVocabKey } from '../lib/vocabKey'
 
 export type VocabMap = Map<string, { stage: number; id?: string; translation?: string; isPending?: boolean }>
 
@@ -48,7 +49,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
         if (cancelled) return
         const m: VocabMap = new Map()
         for (const w of words) {
-          m.set(w.word.toLowerCase(), { stage: w.stage, id: w.id, translation: w.translation })
+          m.set(normalizeVocabKey(w.word), { stage: w.stage, id: w.id, translation: w.translation })
         }
         commitMap(m)
       })
@@ -106,7 +107,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     if (pending.length === 0) return
 
     for (const p of pending) {
-      const key = p.word.toLowerCase()
+      const key = normalizeVocabKey(p.word)
       const existing = mapRef.current.get(key)
       try {
         const saved = await saveWord({
@@ -126,7 +127,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
         updateMap(m => {
           // Preserve any translation accumulated in map (from translateApi) over backend's null.
           const preserved = m.get(key)?.translation ?? saved.translation ?? p.translation ?? undefined
-          m.set(saved.word.toLowerCase(), {
+          m.set(normalizeVocabKey(saved.word), {
             stage: saved.stage,
             id: saved.id,
             translation: preserved ?? undefined,
@@ -149,7 +150,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       // потом залогинился на другой странице) — flush перед текущим save.
       await flushPendingIfAny()
       const saved = await saveWord(req)
-      const key = saved.word.toLowerCase()
+      const key = normalizeVocabKey(saved.word)
       const existing = mapRef.current.get(key)
       if (existing && existing.id === saved.id && existing.stage === saved.stage && !existing.isPending) {
         return saved
@@ -184,7 +185,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     }
     // I8: synthetic map entry so WordPopup can show "saved" state immediately.
     // `isPending` flag prevents backfill from hitting backend with a local UUID.
-    updateMap(m => m.set(req.word.toLowerCase(), {
+    updateMap(m => m.set(normalizeVocabKey(req.word), {
       stage: 0,
       id: pending.id,                // local UUID; replaced with backend id after flush
       translation: req.translation ?? undefined,
@@ -213,7 +214,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
   const markAsKnown = useCallback(async (id: string, word: string) => {
     if (!isAuthenticated) return null
     const updated = await markAsKnownApi(id)
-    updateMap(m => m.set(word.toLowerCase(), { stage: 4, id: updated.id }))
+    updateMap(m => m.set(normalizeVocabKey(word), { stage: 4, id: updated.id }))
     return updated
   }, [isAuthenticated, updateMap])
 
@@ -221,11 +222,11 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     if (isAuthenticated) {
       await deleteWordApi(id)
     }
-    updateMap(m => m.delete(word.toLowerCase()))
+    updateMap(m => m.delete(normalizeVocabKey(word)))
   }, [isAuthenticated, updateMap])
 
   const updateTranslation = useCallback((word: string, translation: string) => {
-    const key = word.toLowerCase()
+    const key = normalizeVocabKey(word)
     const entry = mapRef.current.get(key)
     if (!entry) return
     updateMap(m => m.set(key, { ...entry, translation }))

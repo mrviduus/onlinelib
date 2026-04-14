@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
+import { tokenizeVocabWords, normalizeVocabKey } from '../../lib/vocabKey'
 
 interface VocabWordLayerProps {
   containerRef: React.RefObject<HTMLElement | null>
@@ -16,18 +17,6 @@ const STAGE_CLASSES: Record<number, string> = {
 }
 
 const MARK_ATTR = 'data-vocab-mark'
-
-// Tokenize text into word boundaries
-function tokenize(text: string): { word: string; start: number; end: number }[] {
-  const tokens: { word: string; start: number; end: number }[] = []
-  // Match word characters (unicode-aware)
-  const re = /[\p{L}\p{N}'-]+/gu
-  let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    tokens.push({ word: m[0], start: m.index, end: m.index + m[0].length })
-  }
-  return tokens
-}
 
 export function VocabWordLayer({ containerRef, vocabMap, showInlineTranslations = false }: VocabWordLayerProps) {
   useEffect(() => {
@@ -91,8 +80,8 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
     const text = textNode.textContent || ''
     if (!text.trim()) continue
 
-    const tokens = tokenize(text)
-    const matchedTokens = tokens.filter((t) => vocabMap.has(t.word.toLowerCase()))
+    const tokens = tokenizeVocabWords(text)
+    const matchedTokens = tokens.filter((t) => vocabMap.has(normalizeVocabKey(t.word)))
     if (matchedTokens.length === 0) continue
 
     // Build replacement fragment
@@ -105,7 +94,7 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
         frag.appendChild(document.createTextNode(text.slice(lastEnd, token.start)))
       }
 
-      const entry = vocabMap.get(token.word.toLowerCase())!
+      const entry = vocabMap.get(normalizeVocabKey(token.word))!
       const mark = document.createElement('mark')
       mark.setAttribute(MARK_ATTR, 'true')
       mark.className = `vocab-underline ${STAGE_CLASSES[entry.stage] || STAGE_CLASSES[0]}`

@@ -88,6 +88,9 @@
     "wordPopup": {
       "known": "Знаю",
       "ignore": "Видалити",
+      "save": "Зберегти",
+      "remove": "Видалити",
+      "saving": "Збереження...",
       "loading": "...",
       "translatingTo": "Переклад на",
       "change": "Змінити",
