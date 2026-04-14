@@ -54,7 +54,7 @@ export function LearnEnglishSpainPage() {
       whyItWorks={{
         title: 'Your cognate advantage',
         body:
-          'Spanish and English share thousands of cognates. Spanish speakers already understand more English than they realize. TextStack removes the friction so that latent understanding turns into real reading speed — and real fluency.',
+          'Spanish and English share thousands of cognates. Spanish speakers already understand more English than they realize. TextStack Reader removes the friction so that latent understanding turns into real reading speed — and real fluency.',
       }}
       faqs={[
         {

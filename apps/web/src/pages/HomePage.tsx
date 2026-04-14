@@ -16,8 +16,8 @@ export function HomePage() {
     <>
       <div className="home-page">
         <SeoHead
-          title={t('home.hero.title')}
-          description={t('home.hero.subtitle')}
+          title={t('home.hero.seoTitle')}
+          description={t('home.hero.seoDescription')}
         />
         <HeroSection />
         <FeaturesSection />

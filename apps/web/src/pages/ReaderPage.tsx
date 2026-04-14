@@ -1153,7 +1153,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }
 
   const seoTitle = `${chapter.title} — ${book.title}`
-  const seoDescription = `Read ${chapter.title} from ${book.title} online | TextStack`
+  const seoDescription = `Read ${chapter.title} from ${book.title} online | TextStack Reader`
 
   const fullscreenClass = isFullscreen ? (showBarsInFullscreen ? 'fullscreen-bars-visible' : 'fullscreen-bars-hidden') : ''
   const immersiveClass = immersiveMode ? 'immersive-mode' : ''

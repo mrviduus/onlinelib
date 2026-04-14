@@ -22,8 +22,8 @@ export function GenresPage() {
 
   const title = language === 'uk' ? 'Жанри' : 'Genres'
   const description = language === 'uk'
-    ? 'Перегляньте книги за жанрами | TextStack'
-    : 'Browse books by genre | TextStack'
+    ? 'Перегляньте книги за жанрами | TextStack Reader'
+    : 'Browse books by genre | TextStack Reader'
 
   if (loading) {
     return (

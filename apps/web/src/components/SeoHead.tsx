@@ -77,8 +77,8 @@ export function SeoHead({
     const fullTitle = title
       ? title.toLowerCase().includes('textstack')
         ? title
-        : `${title} | TextStack`
-      : 'TextStack'
+        : `${title} | TextStack Reader`
+      : 'TextStack Reader'
 
     // Set canonical URL (always set, will update when site loads)
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
@@ -135,7 +135,7 @@ export function SeoHead({
     setMeta('og:title', fullTitle, 'property')
     setMeta('og:url', canonicalUrl, 'property')
     setMeta('og:type', type, 'property')
-    setMeta('og:site_name', 'TextStack', 'property')
+    setMeta('og:site_name', 'TextStack Reader', 'property')
     if (description) {
       setMeta('og:description', description, 'property')
     }

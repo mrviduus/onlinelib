@@ -184,7 +184,7 @@ export function CountryLandingPage({
         {/* Solution */}
         <section className="country-landing__section">
           <div className="country-landing__container">
-            <h2 className="country-landing__h2">How TextStack fixes it</h2>
+            <h2 className="country-landing__h2">How TextStack Reader fixes it</h2>
             <div className="country-landing__grid country-landing__grid--3">
               {solutionSteps.map((s, i) => (
                 <div key={i} className="country-landing__card">

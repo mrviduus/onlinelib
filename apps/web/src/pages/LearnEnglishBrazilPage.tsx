@@ -54,7 +54,7 @@ export function LearnEnglishBrazilPage() {
       whyItWorks={{
         title: 'Why reading beats drills',
         body:
-          'Real fluency comes from thousands of hours of reading in the target language. Brazilian learners who hit B2 and beyond do it through books, not worksheets. TextStack removes the friction that stops most people at chapter two.',
+          'Real fluency comes from thousands of hours of reading in the target language. Brazilian learners who hit B2 and beyond do it through books, not worksheets. TextStack Reader removes the friction that stops most people at chapter two.',
       }}
       faqs={[
         {

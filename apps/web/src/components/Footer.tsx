@@ -40,7 +40,7 @@ export function Footer() {
         </div>
         <div className="site-footer__bottom">
           <span className="site-footer__logo">TextStack</span>
-          <span className="site-footer__copyright">&copy; {new Date().getFullYear()} TextStack Library Project.</span>
+          <span className="site-footer__copyright">&copy; {new Date().getFullYear()} TextStack Reader Library Project.</span>
         </div>
       </div>
     </footer>

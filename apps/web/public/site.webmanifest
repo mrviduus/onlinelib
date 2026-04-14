@@ -1,7 +1,7 @@
 {
-  "name": "TextStack",
+  "name": "TextStack Reader",
   "short_name": "TextStack",
-  "description": "Free online library of classic books",
+  "description": "Read books in English with instant translation. Learn languages naturally through real books.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3EEE7",

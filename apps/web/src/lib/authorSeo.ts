@@ -93,17 +93,17 @@ function generateFAQs(author: AuthorDetail): FAQItem[] {
     question: `Who is ${author.name}?`,
     answer: author.bio
       ? author.bio.replace(/<[^>]*>/g, '').split(/(?<=[.!?])\s+/).slice(0, 1).join(' ')
-      : `${author.name} is an author whose works are available on TextStack.`,
+      : `${author.name} is an author whose works are available on TextStack Reader.`,
   })
 
   faqs.push({
-    question: `How many books by ${author.name} are on TextStack?`,
-    answer: `TextStack currently has ${author.editions.length} ${author.editions.length === 1 ? 'book' : 'books'} by ${author.name}.`,
+    question: `How many books by ${author.name} are on TextStack Reader?`,
+    answer: `TextStack Reader currently has ${author.editions.length} ${author.editions.length === 1 ? 'book' : 'books'} by ${author.name}.`,
   })
 
   faqs.push({
     question: `Can I read ${author.name}'s books for free?`,
-    answer: `Yes, all books by ${author.name} on TextStack are available to read for free.`,
+    answer: `Yes, all books by ${author.name} on TextStack Reader are available to read for free.`,
   })
 
   if (author.editions.length > 0) {

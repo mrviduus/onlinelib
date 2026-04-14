@@ -49,7 +49,7 @@ export function AboutPage() {
                 <img
                   src="/images/vasyl-vdovychenko.png"
                   alt="Vasyl Vdovychenko"
-                  title="Vasyl Vdovychenko - Creator of TextStack"
+                  title="Vasyl Vdovychenko - Creator of TextStack Reader"
                   className="about-creator-card__photo"
                 />
               </div>

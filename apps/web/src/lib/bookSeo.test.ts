@@ -23,10 +23,10 @@ const mockT = (key: string): string => {
     'bookDetail.faqPublished': 'When was {title} published?',
     'bookDetail.faqPublishedAnswer': '{title} was first published in {year}.',
     'bookDetail.faqFree': 'Can I read {title} for free?',
-    'bookDetail.faqFreeAnswer': 'Yes, {title} is available to read for free on TextStack.',
+    'bookDetail.faqFreeAnswer': 'Yes, {title} is available to read for free on TextStack Reader.',
     'bookDetail.faqLanguages': 'Is {title} available in other languages?',
-    'bookDetail.faqLanguagesYes': 'Yes, {title} is available in {count} language(s) on TextStack.',
-    'bookDetail.faqLanguagesNo': 'Currently {title} is only available in {lang} on TextStack.',
+    'bookDetail.faqLanguagesYes': 'Yes, {title} is available in {count} language(s) on TextStack Reader.',
+    'bookDetail.faqLanguagesNo': 'Currently {title} is only available in {lang} on TextStack Reader.',
     'books.unknown': 'Unknown',
   }
   return translations[key] || key
