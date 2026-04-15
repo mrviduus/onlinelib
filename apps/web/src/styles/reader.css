@@ -1574,6 +1574,19 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   gap: 8px;
 }
 
+.word-popup__saved-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  font-size: 12px;
+  color: var(--reader-secondary);
+}
+
+.word-popup__saved-status .material-icons-outlined {
+  font-size: 16px;
+}
+
 .word-popup__btn {
   display: inline-flex;
   align-items: center;

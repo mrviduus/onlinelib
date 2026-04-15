@@ -23,14 +23,29 @@ export function LanguageSwitcher() {
 
   const targetLang = TARGET_LANGUAGES.find((l) => l.code === language) || TARGET_LANGUAGES[0]
 
+  // Switching the reading language to the user's current native language would
+  // collapse both pickers onto the same code (and blank the native trigger).
+  // Swap them instead — preserve the user's known language by moving it to the
+  // side that just got vacated.
+  const handleSwitchTarget = (newCode: SupportedLanguage) => {
+    if (newCode === nativeLanguage) {
+      setNativeLanguage(language)
+    }
+    switchLanguage(newCode)
+    setTargetOpen(false)
+  }
+
   return (
     <div className="lang-ctx" ref={ref}>
-      {/* Native language — searchable picker */}
+      {/* Native language — searchable picker. excludeCode hides the language
+          the user is reading from the list (and renders the trigger empty if
+          they happen to match), since native == reading is meaningless. */}
       <LanguagePicker
         value={nativeLanguage}
         onChange={setNativeLanguage}
         ariaLabel="Native language"
         prefix="I know"
+        excludeCode={language}
       />
 
       <span className="lang-ctx__arrow">→</span>
@@ -55,7 +70,7 @@ export function LanguageSwitcher() {
                 <button
                   className="lang-ctx__option"
                   role="option"
-                  onClick={() => { switchLanguage(l.code as SupportedLanguage); setTargetOpen(false) }}
+                  onClick={() => handleSwitchTarget(l.code as SupportedLanguage)}
                 >
                   <img className="lang-ctx__flag" src={getFlagUrl(l.code)} alt="" width="20" height="15" /> {l.label}
                 </button>

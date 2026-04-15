@@ -30,16 +30,10 @@ export function Header() {
         </LocalizedLink>
         <nav className="site-header__nav-links">
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
-            {t('nav.library')}
+            {t('nav.catalog')}
           </LocalizedLink>
-          <LocalizedLink to="/words" className="site-header__nav-link" title={t('nav.words')}>
-            {t('nav.words')}
-          </LocalizedLink>
-          <LocalizedLink to="/practice" className="site-header__nav-link" title={t('nav.practice')}>
-            {t('nav.practice')}
-          </LocalizedLink>
-          <LocalizedLink to="/stats" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.stats')}>
-            {t('nav.stats')}
+          <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
+            {t('nav.vocabulary')}
           </LocalizedLink>
           <LocalizedLink to="/blog" className="site-header__nav-link site-header__nav-link--secondary" title={t('blog.title')}>
             {t('blog.title')}
@@ -70,7 +64,7 @@ export function Header() {
             <button
               className="streak-badge"
               onClick={() => setBadgePopup(v => !v)}
-              title={t('nav.words')}
+              title={t('nav.vocabulary')}
             >
               <StreakBadge
                 reviewed={quickStats.vocabReviewedToday}

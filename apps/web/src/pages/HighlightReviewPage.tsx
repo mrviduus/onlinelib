@@ -79,7 +79,7 @@ export function HighlightReviewPage() {
           <SeoHead title={t('highlights.reviewButton')} noindex />
           <div className="highlight-review__empty">
             <p>{t('highlights.reviewEmpty')}</p>
-            <button onClick={() => navigate(getLocalizedPath('/words?tab=highlights'))}>
+            <button onClick={() => navigate(getLocalizedPath('/highlights'))}>
               {t('highlights.backToHighlights')}
             </button>
           </div>
@@ -99,7 +99,7 @@ export function HighlightReviewPage() {
             <p>{t('highlights.reviewedCount').replace('{count}', String(reviewedCount))}</p>
             <button
               className="highlight-review__back-btn"
-              onClick={() => navigate(getLocalizedPath('/words?tab=highlights'))}
+              onClick={() => navigate(getLocalizedPath('/highlights'))}
             >
               {t('highlights.backToHighlights')}
             </button>
@@ -160,7 +160,7 @@ export function HighlightReviewPage() {
 
         <button
           className="highlight-review__back-link"
-          onClick={() => navigate(getLocalizedPath('/words?tab=highlights'))}
+          onClick={() => navigate(getLocalizedPath('/highlights'))}
         >
           {t('highlights.backToHighlights')}
         </button>

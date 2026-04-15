@@ -5,9 +5,9 @@ const API_URL = process.env.API_URL ?? 'http://localhost:8080'
 const HEADERS = { Host: 'general.localhost', 'Content-Type': 'application/json' }
 
 const TEST_WORDS = [
-  { word: 'ephemeral', language: 'en', translation: 'ефемерний', sentence: 'The ephemeral beauty of the sunset.' },
-  { word: 'ubiquitous', language: 'en', translation: 'повсюдний', sentence: 'Smartphones are ubiquitous today.' },
-  { word: 'sanguine', language: 'en', translation: 'оптимістичний', sentence: 'She remained sanguine despite the setback.' },
+  { word: 'ephemeral', language: 'en', nativeLanguage: 'uk', translation: 'ефемерний', sentence: 'The ephemeral beauty of the sunset.' },
+  { word: 'ubiquitous', language: 'en', nativeLanguage: 'uk', translation: 'повсюдний', sentence: 'Smartphones are ubiquitous today.' },
+  { word: 'sanguine', language: 'en', nativeLanguage: 'uk', translation: 'оптимістичний', sentence: 'She remained sanguine despite the setback.' },
 ]
 
 async function cleanupWords(request: any) {
@@ -20,7 +20,7 @@ async function cleanupWords(request: any) {
   }
 }
 
-test.describe.serial('Practice page', () => {
+test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
   test.beforeAll(async ({ request }) => {
     await testLogin(request)
     await cleanupWords(request)
@@ -31,13 +31,13 @@ test.describe.serial('Practice page', () => {
     }
   })
 
-  test('practice page loads with stats', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
+  test('vocabulary page loads with stats', async ({ authedPage: page }) => {
+    await page.goto('/en/vocabulary/')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('.practice-page')).toBeVisible()
+    await expect(page.locator('.vocab-page')).toBeVisible()
 
-    // Stats row should show total words
-    const statValue = page.locator('.practice-page__stat-value').first()
+    // Stats bar should show total words
+    const statValue = page.locator('.vocab-stat__value').first()
     await expect(statValue).toBeVisible({ timeout: 10000 })
 
     // Practice button should be enabled
@@ -47,7 +47,7 @@ test.describe.serial('Practice page', () => {
   })
 
   test('flashcards is default mode', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
+    await page.goto('/en/vocabulary/')
     await page.evaluate(() => localStorage.removeItem('practiceMode'))
     await page.reload()
     await page.waitForLoadState('networkidle')
@@ -57,7 +57,7 @@ test.describe.serial('Practice page', () => {
   })
 
   test('flashcards listed first in mode toggle', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
+    await page.goto('/en/vocabulary/')
     await page.waitForLoadState('networkidle')
 
     const buttons = page.locator('.vocab-mode-toggle__btn')
@@ -66,7 +66,7 @@ test.describe.serial('Practice page', () => {
   })
 
   test('streak badge shows in header when words due', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
+    await page.goto('/en/vocabulary/')
     await page.waitForLoadState('networkidle')
 
     const badge = page.locator('[data-testid="streak-badge"]')
@@ -74,14 +74,26 @@ test.describe.serial('Practice page', () => {
   })
 
   test('start review session in flashcard mode', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
+    await page.goto('/en/vocabulary/')
     await page.waitForLoadState('networkidle')
 
     const startBtn = page.locator('.practice-page__start-btn')
     await startBtn.click()
 
-    await page.waitForURL(/\/words\/review/)
+    await page.waitForURL(/\/vocabulary\/review/)
     await expect(page.locator('.review-progress')).toBeVisible()
+  })
+
+  test('legacy /practice redirects to /vocabulary', async ({ authedPage: page }) => {
+    await page.goto('/en/practice/')
+    await page.waitForURL(/\/en\/vocabulary\/?$/)
+    await expect(page.locator('.vocab-page')).toBeVisible()
+  })
+
+  test('legacy /words redirects to /vocabulary', async ({ authedPage: page }) => {
+    await page.goto('/en/words/')
+    await page.waitForURL(/\/en\/vocabulary\/?$/)
+    await expect(page.locator('.vocab-page')).toBeVisible()
   })
 
   // Cleanup

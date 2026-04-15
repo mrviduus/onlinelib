@@ -37,8 +37,15 @@ interface ReaderHighlightsProps {
   children: React.ReactNode
 }
 
-/** Resolve target language for translation: native lang, or null if same as book (definition mode) */
-function resolveTargetLang(nativeLang: string, bookLang: string): string | null {
+/**
+ * Resolve target language for translation. Returns null (= definition mode /
+ * no translation fetch) when:
+ * - native not yet confirmed (value is a `navigator.language` guess we shouldn't
+ *   trust — saving vocab with a guessed native poisons SRS explanations), OR
+ * - native equals book language (user has nothing to translate into).
+ */
+function resolveTargetLang(nativeLang: string, bookLang: string, hasConfirmed: boolean): string | null {
+  if (!hasConfirmed) return null
   if (nativeLang !== bookLang) return nativeLang
   return null
 }
@@ -63,10 +70,10 @@ export function ReaderHighlights({
   showInlineTranslations = false,
   children,
 }: ReaderHighlightsProps) {
-  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
   const { t } = useTranslation()
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const targetLang = resolveTargetLang(nativeLanguage, bookLanguage)
+  const targetLang = resolveTargetLang(nativeLanguage, bookLanguage, hasConfirmedLanguage)
 
   // --- Text selection ---
   const { selection, clearSelection, hasSelection } = useTextSelection(containerRef)
@@ -124,6 +131,15 @@ export function ReaderHighlights({
   // at tap time. Translation may be null at this point — `fetchWordBubble` resolves
   // it async, and the translation-patch effect below forwards it to the backend.
   const handleSave = useCallback(async (word: string, range: Range | null) => {
+    // Gate: never save vocab with an unconfirmed native. A guessed
+    // `navigator.language` isn't a real user choice — persisting it poisons the
+    // SRS enrichment pipeline (explanations generated in wrong language) and
+    // can't be retroactively fixed once LLM fields are cached. Throw so
+    // `triggerAutoSave`'s catch clears the dedup key, letting re-tap retry
+    // after the user confirms via WordPopup's picker.
+    if (!hasConfirmedLanguage) {
+      throw new Error('native_language_not_confirmed')
+    }
     const container = containerRef.current
     const sentence = range && container ? extractSentence(range, container) : undefined
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
@@ -135,7 +151,10 @@ export function ReaderHighlights({
       userBookId: userBookId || undefined,
       sentence: sentence || undefined,
       bookTitle: bookTitle || undefined,
-      nativeLanguage: targetLang || undefined,
+      // Send the actual confirmed native language (not `targetLang`, which is
+      // null in same-lang definition mode — but the user's explicit choice is
+      // still a valid native we want the backend to record for SRS enrichment).
+      nativeLanguage: nativeLanguage,
       translation: currentTranslation || null,
     }).catch(() => null)
     if (saved?.id && currentTranslation) {
@@ -144,7 +163,7 @@ export function ReaderHighlights({
     }
   }, [
     addWord, bookLanguage, bookTitle, chapterId, containerRef,
-    editionId, targetLang, userBookId, updateTranslation,
+    editionId, nativeLanguage, hasConfirmedLanguage, userBookId, updateTranslation,
     bubble?.word, bubble?.translation,
   ])
 
@@ -174,8 +193,26 @@ export function ReaderHighlights({
 
     // Auto-save via shared dedup hook (sync ref seals race that vocabMap can't —
     // state commit is async, a second rapid tap would see has(key)===false).
-    triggerAutoSave(word, () => handleSave(word, range))
-  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave, triggerAutoSave])
+    // Skip when native isn't confirmed: save is deferred until the user picks
+    // a native language in WordPopup's picker (see catch-up effect below).
+    if (hasConfirmedLanguage) {
+      triggerAutoSave(word, () => handleSave(word, range))
+    }
+  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave, triggerAutoSave, hasConfirmedLanguage])
+
+  // Catch-up auto-save: if the user taps a word BEFORE confirming native
+  // language, openBubble opens the popup but skips the save. When they then
+  // pick a language via the popup's picker, `hasConfirmedLanguage` flips true
+  // while the same bubble is still on screen — fire the save now so they
+  // don't have to re-tap. `triggerAutoSave`'s dedup prevents a duplicate if
+  // the openBubble branch also fired (confirmed-first path).
+  const prevConfirmedRef = useRef(hasConfirmedLanguage)
+  useEffect(() => {
+    if (!prevConfirmedRef.current && hasConfirmedLanguage && bubble) {
+      triggerAutoSave(bubble.word, () => handleSave(bubble.word, bubble.range))
+    }
+    prevConfirmedRef.current = hasConfirmedLanguage
+  }, [hasConfirmedLanguage, bubble, triggerAutoSave, handleSave])
 
   // Trigger popup when selection narrows to 1 word — with a short stabilization window
   // so transient selections (iOS auto-select, scroll-tap jitter) don't flash the popup.
@@ -404,6 +441,7 @@ export function ReaderHighlights({
             isSaved={isSaved}
             nativeLanguage={nativeLanguage}
             onChangeNativeLanguage={setNativeLanguage}
+            hasConfirmedLanguage={hasConfirmedLanguage}
             bookLanguage={bookLanguage}
             t={t}
           />

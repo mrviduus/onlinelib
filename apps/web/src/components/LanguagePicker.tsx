@@ -14,9 +14,18 @@ interface Props {
   onChange: (code: string) => void
   ariaLabel?: string
   prefix?: string
+  /**
+   * Language code to exclude from the picker. The user shouldn't pick a
+   * "native" language equal to the language they're reading — same code on
+   * both sides is a meaningless state. When `value === excludeCode`, the
+   * trigger renders empty (no flag, no name) so the pulse animation reads
+   * as "you still need to pick something here", and the dropdown list omits
+   * that code entirely.
+   */
+  excludeCode?: string
 }
 
-export function LanguagePicker({ value, onChange, ariaLabel = 'Native language', prefix }: Props) {
+export function LanguagePicker({ value, onChange, ariaLabel = 'Native language', prefix, excludeCode }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -24,26 +33,33 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
   const { hasConfirmedLanguage } = useNativeLanguage()
+  const isEmpty = !!excludeCode && value === excludeCode
   const showPulse = !hasConfirmedLanguage && !open
 
   const current = getLanguage(value) || LANGUAGES[0]
+
+  const filterFn = (l: LanguageEntry) => !excludeCode || l.code !== excludeCode
 
   const filtered = useMemo<LanguageEntry[]>(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
     return LANGUAGES.filter(
       (l) =>
-        l.englishName.toLowerCase().includes(q) ||
-        l.nativeName.toLowerCase().includes(q) ||
-        l.code.toLowerCase().startsWith(q),
+        filterFn(l) &&
+        (l.englishName.toLowerCase().includes(q) ||
+          l.nativeName.toLowerCase().includes(q) ||
+          l.code.toLowerCase().startsWith(q)),
     )
-  }, [query])
+  }, [query, excludeCode])
+
+  const popularList = useMemo(() => POPULAR_LANGUAGES.filter(filterFn), [excludeCode])
+  const otherList = useMemo(() => OTHER_LANGUAGES.filter(filterFn), [excludeCode])
 
   // Flat list for keyboard navigation — what's actually shown in order
   const navigableList = useMemo<LanguageEntry[]>(() => {
     if (query.trim()) return filtered
-    return [...POPULAR_LANGUAGES, ...OTHER_LANGUAGES]
-  }, [query, filtered])
+    return [...popularList, ...otherList]
+  }, [query, filtered, popularList, otherList])
 
   // Outside click
   useEffect(() => {
@@ -118,15 +134,19 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
     <div className="lang-ctx__side lang-picker" ref={containerRef}>
       {showPulse && <span className="lang-ctx__pulse" aria-hidden="true" />}
       <button
-        className="lang-ctx__trigger"
+        className={`lang-ctx__trigger${isEmpty ? ' lang-ctx__trigger--empty' : ''}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
       >
-        <img className="lang-ctx__flag" src={getFlagUrl(current.code)} alt="" width="20" height="15" />
+        {isEmpty ? (
+          <GlobeIcon />
+        ) : (
+          <img className="lang-ctx__flag" src={getFlagUrl(current.code)} alt="" width="20" height="15" />
+        )}
         {prefix && <span className="lang-ctx__prefix">{prefix}</span>}
-        <span className="lang-ctx__lang">{current.nativeName}</span>
+        <span className="lang-ctx__lang">{isEmpty ? '' : current.nativeName}</span>
         <Chevron />
       </button>
 
@@ -162,10 +182,10 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
             ) : (
               <>
                 <li className="lang-picker__section" role="presentation">Popular</li>
-                {POPULAR_LANGUAGES.map((lang, i) => renderOption(lang, i))}
+                {popularList.map((lang, i) => renderOption(lang, i))}
                 <li className="lang-picker__section" role="presentation">All languages</li>
-                {OTHER_LANGUAGES.map((lang, i) =>
-                  renderOption(lang, i + POPULAR_LANGUAGES.length),
+                {otherList.map((lang, i) =>
+                  renderOption(lang, i + popularList.length),
                 )}
               </>
             )}
@@ -186,6 +206,23 @@ function Chevron() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  )
+}
+
+// Generic globe — placeholder when no native language is picked yet.
+// Sized to match flag visuals (20×15 box, glyph ~14×14 centered).
+function GlobeIcon() {
+  return (
+    <svg
+      className="lang-ctx__flag lang-ctx__globe"
+      viewBox="0 0 20 15"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
+      <ellipse cx="10" cy="7.5" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M4 7.5h12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   )
 }

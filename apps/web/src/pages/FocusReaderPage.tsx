@@ -50,7 +50,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const api = useApi()
   const { language } = useLanguage()
   const { isAuthenticated } = useAuth()
-  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
   const { t } = useTranslation()
   const navigate = useNavigate()
 
@@ -70,7 +70,10 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressOriginRef = useRef<{ x: number; y: number } | null>(null)
 
-  const targetLang = bookLanguage !== nativeLanguage ? nativeLanguage : null
+  // Only trust native language for translation when the user has explicitly
+  // confirmed it — an auto-detected `navigator.language` guess shouldn't drive
+  // translation fetches or poison SRS enrichment. Mirrors ReaderHighlights.
+  const targetLang = hasConfirmedLanguage && bookLanguage !== nativeLanguage ? nativeLanguage : null
 
   // Shared services for the word popup
   const { lookup: lookupWord } = useDictionary()
@@ -245,6 +248,11 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   // Translation may be null at call time; translation-patch effect below forwards it
   // to the backend once fetchWordBubble resolves.
   const handleSaveWord = useCallback(async (word: string) => {
+    // Never save vocab with an unconfirmed native (guess-poisons SRS). Throw so
+    // triggerAutoSave's catch clears the dedup key — post-confirm re-tap retries.
+    if (!hasConfirmedLanguage) {
+      throw new Error('native_language_not_confirmed')
+    }
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
     const saved = await addWord({
       word,
@@ -253,14 +261,15 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
       chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
       userBookId: mode === 'userbook' ? (id || undefined) : undefined,
       bookTitle: bookTitle || undefined,
-      nativeLanguage: targetLang || undefined,
+      // Send the confirmed native (not targetLang which is null in same-lang mode).
+      nativeLanguage: nativeLanguage,
       translation: currentTranslation || null,
     }).catch(() => null)
     if (saved?.id && currentTranslation) {
       updateWordApi(saved.id, { translation: currentTranslation }).catch(() => {})
       updateTranslation(word, currentTranslation)
     }
-  }, [addWord, bookLanguage, mode, editionId, chapterId, id, bookTitle, targetLang, updateTranslation, bubble?.word, bubble?.translation])
+  }, [addWord, bookLanguage, mode, editionId, chapterId, id, bookTitle, nativeLanguage, hasConfirmedLanguage, updateTranslation, bubble?.word, bubble?.translation])
 
   // Long-press a word → open full WordPopup (translation + definition + TTS).
   // Also auto-saves the word to vocab (fire-and-forget). Long-pressing the same
@@ -294,11 +303,24 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
       })
 
-      // Auto-save via shared dedup hook.
-      triggerAutoSave(word, () => handleSaveWord(word))
+      // Auto-save via shared dedup hook. Skip when native not confirmed —
+      // save is deferred until user picks via WordPopup (see catch-up effect).
+      if (hasConfirmedLanguage) {
+        triggerAutoSave(word, () => handleSaveWord(word))
+      }
     },
-    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation, handleSaveWord, triggerAutoSave],
+    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation, handleSaveWord, triggerAutoSave, hasConfirmedLanguage],
   )
+
+  // Catch-up save: if the user long-pressed before confirming native, fire
+  // the save once they confirm via WordPopup. Mirrors ReaderHighlights.
+  const prevConfirmedRef = useRef(hasConfirmedLanguage)
+  useEffect(() => {
+    if (!prevConfirmedRef.current && hasConfirmedLanguage && bubble) {
+      triggerAutoSave(bubble.word, () => handleSaveWord(bubble.word))
+    }
+    prevConfirmedRef.current = hasConfirmedLanguage
+  }, [hasConfirmedLanguage, bubble, triggerAutoSave, handleSaveWord])
 
   // Translation patch + mid-popup lang-switch refetch live in useBubbleTranslationSync.
 
@@ -465,6 +487,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           isSaved={!!vocabEntry}
           nativeLanguage={nativeLanguage}
           onChangeNativeLanguage={setNativeLanguage}
+          hasConfirmedLanguage={hasConfirmedLanguage}
           bookLanguage={bookLanguage}
           t={t}
         />

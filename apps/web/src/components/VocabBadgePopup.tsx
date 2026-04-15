@@ -46,7 +46,7 @@ export function VocabBadgePopup({ reviewed, due, streak, containerRef, onClose }
         </div>
       </div>
       {due > 0 && (
-        <LocalizedLink to="/practice" className="vocab-badge-popup__btn" onClick={onClose}>
+        <LocalizedLink to="/vocabulary" className="vocab-badge-popup__btn" onClick={onClose}>
           Review now ({due})
         </LocalizedLink>
       )}

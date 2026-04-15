@@ -224,13 +224,15 @@ public static class HighlightsEndpoints
             if (!request.ChapterId.HasValue)
                 return Results.BadRequest("ChapterId required for edition highlights");
 
+            var editionId = request.EditionId!.Value;
+            var chapterId = request.ChapterId!.Value;
             var edition = await db.Editions
-                .Where(e => e.Id == request.EditionId.Value && e.SiteId == siteId)
+                .Where(e => e.Id == editionId && e.SiteId == siteId)
                 .FirstOrDefaultAsync(ct);
             if (edition == null) return Results.NotFound("Edition not found");
 
             var chapter = await db.Chapters
-                .Where(c => c.Id == request.ChapterId.Value && c.EditionId == request.EditionId.Value)
+                .Where(c => c.Id == chapterId && c.EditionId == editionId)
                 .FirstOrDefaultAsync(ct);
             if (chapter == null) return Results.NotFound("Chapter not found");
         }
@@ -244,8 +246,9 @@ public static class HighlightsEndpoints
                 .FirstOrDefaultAsync(ct);
             if (userBook == null) return Results.NotFound("User book not found");
 
+            var userChapterId = request.UserChapterId!.Value;
             var userChapter = await db.UserChapters
-                .Where(c => c.Id == request.UserChapterId.Value && c.UserBookId == request.UserBookId.Value)
+                .Where(c => c.Id == userChapterId && c.UserBookId == request.UserBookId!.Value)
                 .FirstOrDefaultAsync(ct);
             if (userChapter == null) return Results.NotFound("User chapter not found");
         }

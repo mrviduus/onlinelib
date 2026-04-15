@@ -17,7 +17,7 @@ public sealed class DistractorGenerator : IDistractorGenerator
 
     public async Task<(List<string>? Distractors, string? Hint, string? Explanation)> GenerateAsync(
         string word, string language, string? definition, string? sentence,
-        string? nativeLanguage, CancellationToken ct)
+        string nativeLanguage, CancellationToken ct)
     {
         var prompt = BuildPrompt(word, language, definition, sentence, nativeLanguage);
 
@@ -37,7 +37,7 @@ public sealed class DistractorGenerator : IDistractorGenerator
         return ParseStructuredResponse(result.Response, word);
     }
 
-    private static string BuildPrompt(string word, string language, string? definition, string? sentence, string? nativeLanguage)
+    private static string BuildPrompt(string word, string language, string? definition, string? sentence, string nativeLanguage)
     {
         var parts = new List<string>
         {
@@ -62,9 +62,8 @@ public sealed class DistractorGenerator : IDistractorGenerator
         parts.Add("Task 2 - Hint: Write ONE short sentence (under 15 words) describing what this word means.");
         parts.Add($"Do NOT use the word \"{word}\" or direct synonyms in the hint.");
 
-        var explainLang = !string.IsNullOrWhiteSpace(nativeLanguage) ? nativeLanguage : language;
         parts.Add("");
-        parts.Add($"Task 3 - Explanation: Write 2-3 sentences in {explainLang} explaining the meaning of \"{word}\".");
+        parts.Add($"Task 3 - Explanation: Write 2-3 sentences in {nativeLanguage} explaining the meaning of \"{word}\".");
         if (!string.IsNullOrWhiteSpace(sentence))
             parts.Add($"Include how it is used in this context: \"{sentence}\"");
 

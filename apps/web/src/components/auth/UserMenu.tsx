@@ -70,32 +70,11 @@ export function UserMenu() {
               My Library
             </LocalizedLink>
             <LocalizedLink
-              to="/words"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              Words
-            </LocalizedLink>
-            <LocalizedLink
-              to="/practice"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              Practice
-            </LocalizedLink>
-            <LocalizedLink
               to="/highlights"
               className="user-menu__item"
               onClick={() => setOpen(false)}
             >
               Highlights
-            </LocalizedLink>
-            <LocalizedLink
-              to="/stats"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              Stats
             </LocalizedLink>
             <hr className="user-menu__divider" />
             <button

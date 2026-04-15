@@ -57,6 +57,13 @@ interface WordPopupProps {
   isSaved: boolean
   nativeLanguage: string
   onChangeNativeLanguage: (code: string) => void
+  /**
+   * Whether the user has explicitly confirmed their native language. When
+   * false, `nativeLanguage` is a `navigator.language` guess — saving vocab
+   * with it poisons SRS. Popup auto-expands the language picker and footer
+   * reads "Pick your native language to save words" until confirmed.
+   */
+  hasConfirmedLanguage: boolean
   bookLanguage: string
   t: (key: string) => string
 }
@@ -76,13 +83,18 @@ export function WordPopup({
   isSaved,
   nativeLanguage,
   onChangeNativeLanguage,
+  hasConfirmedLanguage,
   bookLanguage,
   t,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
-  const [showLangPicker, setShowLangPicker] = useState(false)
+  // Auto-expand language picker when the user hasn't confirmed native yet —
+  // this is the contextual gate: word tap triggers the prompt exactly when
+  // native language becomes relevant, instead of front-loading an onboarding
+  // modal on the landing page. After confirm, picker collapses normally.
+  const [showLangPicker, setShowLangPicker] = useState(!hasConfirmedLanguage)
   const [langQuery, setLangQuery] = useState('')
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
@@ -294,10 +306,17 @@ export function WordPopup({
   if (!rect) return null
 
   const langLabel = getLanguage(nativeLanguage)?.nativeName || nativeLanguage
-  const isDefinitionMode = nativeLanguage === bookLanguage
-  const footerLabel = isDefinitionMode
-    ? t('reader.wordPopup.definitionMode')
-    : `${t('reader.wordPopup.translatingTo')} ${langLabel}`
+  // Three footer states:
+  //   needsNativeLang: user hasn't confirmed → prompt + expanded picker, no "Change" btn.
+  //   isDefinitionMode: confirmed but same-lang as book → explain *why* no translation.
+  //   default: confirmed different → show target native + "Change".
+  const needsNativeLang = !hasConfirmedLanguage
+  const isDefinitionMode = hasConfirmedLanguage && nativeLanguage === bookLanguage
+  const footerLabel = needsNativeLang
+    ? t('reader.wordPopup.needsNativeLang')
+    : isDefinitionMode
+      ? t('reader.wordPopup.definitionModeHint')
+      : `${t('reader.wordPopup.translatingTo')} ${langLabel}`
   const changeLabel = isDefinitionMode
     ? t('reader.wordPopup.translateTo')
     : t('reader.wordPopup.change')
@@ -369,15 +388,21 @@ export function WordPopup({
 
       <div className="word-popup__actions">
         <SpeakButton onClick={onSpeak} size={16} />
+        {isSaved && (
+          <span className="word-popup__saved-status" aria-live="polite">
+            <span className="material-icons-outlined" aria-hidden="true">check</span>
+            {t('reader.wordPopup.savedStatus')}
+          </span>
+        )}
         {isSaved && onRemove && (
           <button
             className="word-popup__btn word-popup__btn--remove"
             onMouseDown={(e) => e.preventDefault()}
             onClick={onRemove}
-            aria-label={t('reader.wordPopup.remove')}
+            aria-label={t('reader.wordPopup.ignore')}
           >
             <span className="material-icons-outlined word-popup__btn-icon" aria-hidden="true">delete_outline</span>
-            {t('reader.wordPopup.remove')}
+            {t('reader.wordPopup.ignore')}
           </button>
         )}
       </div>
@@ -385,13 +410,18 @@ export function WordPopup({
       {/* Language footer */}
       <div className="word-popup__lang-footer">
         <span className="word-popup__lang-label">{footerLabel}</span>
-        <button
-          className="word-popup__lang-change"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setShowLangPicker(!showLangPicker)}
-        >
-          {changeLabel}
-        </button>
+        {/* Hide "Change" when user hasn't confirmed native yet — the picker
+            is already forced open and closing it would leave them staring at
+            a prompt with no way to act. After first pick, button re-appears. */}
+        {!needsNativeLang && (
+          <button
+            className="word-popup__lang-change"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowLangPicker(!showLangPicker)}
+          >
+            {changeLabel}
+          </button>
+        )}
         {showLangPicker && (
           <div className="word-popup__lang-dropdown">
             <input

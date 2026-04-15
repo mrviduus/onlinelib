@@ -95,14 +95,15 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
 
   // Hard-bind native language to country landing URL. SPA navigation between
   // landings (or first SPA mount on a landing) must always force the matching
-  // native language — overrides any stored preference.
+  // native language — overrides any stored preference. Use full `setNativeLanguage`
+  // so CONFIRMED_KEY=1 is set — otherwise pulse keeps blinking on /learn-english-*
+  // even though native is de-facto chosen by URL intent.
   useEffect(() => {
     const landing = getLandingLang(location.pathname)
     if (landing && landing !== nativeLanguage) {
-      setNativeLanguageState(landing)
-      try { localStorage.setItem(STORAGE_KEY, landing) } catch {}
+      setNativeLanguage(landing)
     }
-  }, [location.pathname, nativeLanguage])
+  }, [location.pathname, nativeLanguage, setNativeLanguage])
 
   return (
     <NativeLanguageContext.Provider value={{ nativeLanguage, setNativeLanguage, hasConfirmedLanguage }}>
