@@ -13,10 +13,10 @@ public class GuestCleanupWorker(
     // Run cleanup every 2h: short enough to reclaim abandoned guest slots quickly,
     // long enough to avoid hammering the DB on a weak server.
     private static readonly TimeSpan Interval = TimeSpan.FromHours(2);
-    // 48h inactivity → delete. Paired with the 7-day guest refresh-token TTL:
-    // token outlives cleanup, but cleanup fires on engagement absence (LastActiveAt).
-    // Real "abandoned after first tap" guests are gone in 2 days instead of 3.
-    private static readonly TimeSpan ExpiryThreshold = TimeSpan.FromHours(48);
+    // 30 days inactivity → delete, BUT only if the guest holds no durable value (vocab,
+    // highlights, bookmarks, library). Engaged guests live indefinitely so they don't lose
+    // data when they finally come back to register. Pairs with 30d guest refresh-token TTL.
+    private static readonly TimeSpan ExpiryThreshold = TimeSpan.FromDays(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -50,8 +50,23 @@ public class GuestCleanupWorker(
 
         var cutoff = DateTimeOffset.UtcNow - ExpiryThreshold;
 
+        // Skip guests holding any data the user might want preserved on conversion.
+        // Empty/abandoned guests get pruned; engaged guests stay forever (or until they convert).
+        // Note: ReadingSessions are deliberately EXCLUDED from the filter — they accumulate on
+        // every page read and would keep every bounced visitor alive forever. We only care about
+        // signals of intent to save/convert: explicit saves (vocab/highlights/bookmarks), owned
+        // library/books/uploads, ratings, notes, and progress beyond page 1.
         var expiredGuests = await db.Users
-            .Where(u => u.IsGuest && u.LastActiveAt < cutoff)
+            .Where(u => u.IsGuest
+                && u.LastActiveAt < cutoff
+                && !db.VocabularyWords.Any(v => v.UserId == u.Id)
+                && !db.Highlights.Any(h => h.UserId == u.Id)
+                && !db.Bookmarks.Any(b => b.UserId == u.Id)
+                && !db.UserLibraries.Any(l => l.UserId == u.Id)
+                && !db.UserBooks.Any(b => b.UserId == u.Id)
+                && !db.ReadingProgresses.Any(p => p.UserId == u.Id)
+                && !db.Notes.Any(n => n.UserId == u.Id)
+                && !db.UserRatings.Any(r => r.UserId == u.Id))
             .Include(u => u.UserBooks)
                 .ThenInclude(b => b.BookFiles)
             .ToListAsync(ct);

@@ -20,6 +20,8 @@ import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
+import { Toast } from '../Toast'
+import { useAuth } from '../../context/AuthContext'
 
 interface ReaderHighlightsProps {
   editionId: string
@@ -73,7 +75,8 @@ export function ReaderHighlights({
   const isSingleWord = hasSelection && selectionWordCount === 1
 
   // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
-  const { vocabMap, addWord, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, removeWord, updateTranslation, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
+  const { openAuthModal } = useAuth()
 
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
@@ -433,6 +436,15 @@ export function ReaderHighlights({
           onSave={handleNoteSave}
           onDelete={handleHighlightDelete}
           onClose={closeNoteEditor}
+        />
+      )}
+
+      {idbUnavailable && (
+        <Toast
+          message={t('reader.idbUnavailable')}
+          duration={5000}
+          onClose={dismissIdbUnavailable}
+          onClick={() => { dismissIdbUnavailable(); openAuthModal() }}
         />
       )}
     </div>

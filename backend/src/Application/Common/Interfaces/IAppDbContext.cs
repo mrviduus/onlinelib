@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Application.Common.Interfaces;
 
@@ -60,4 +61,7 @@ public interface IAppDbContext
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Begin an explicit DB transaction. Caller must Commit or Dispose.</summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default);
 }

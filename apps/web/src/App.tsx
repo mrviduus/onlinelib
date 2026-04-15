@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { SiteProvider, useSite } from './context/SiteContext'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
 import { GuestLimitsProvider } from './context/GuestLimitsContext'
@@ -38,7 +38,8 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
-import { GuestBanner } from './components/GuestBanner'
+import { Toast } from './components/Toast'
+import { useTranslation } from './hooks/useTranslation'
 import './styles/theme.css'
 import './styles/reader.css'
 import './styles/books.css'
@@ -49,6 +50,13 @@ import './styles/blog.css'
 import './styles/highlights.css'
 import './styles/auth.css'
 import './styles/profile.css'
+
+function AuthSuccessToast() {
+  const { authSuccessToast, dismissAuthSuccessToast } = useAuth()
+  const { t } = useTranslation()
+  if (!authSuccessToast) return null
+  return <Toast message={t('auth.progressSavedToast')} duration={4000} onClose={dismissAuthSuccessToast} />
+}
 
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
@@ -68,12 +76,8 @@ function LanguageRoutes() {
 
   return (
     <LanguageProvider>
-      {!isReaderPage && !isUserBookReaderPage && !isFocusReaderPage && (
-        <>
-          <GuestBanner />
-          <Header />
-        </>
-      )}
+      {!isReaderPage && !isUserBookReaderPage && !isFocusReaderPage && <Header />}
+      <AuthSuccessToast />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />

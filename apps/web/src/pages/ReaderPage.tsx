@@ -43,7 +43,6 @@ import { useReadingSession } from '../hooks/useReadingSession'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { calculateETF, calculateChapterETF } from '../lib/etf'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
-import { SoftPaywall, type PaywallTrigger } from '../components/SoftPaywall'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
@@ -147,7 +146,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { add: addToLibrary, isInLibrary } = useLibrary()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [bookCompleted, setBookCompleted] = useState(false)
-  const [paywallTrigger, setPaywallTrigger] = useState<PaywallTrigger | null>(null)
   const { setCurrentBook: setGuestCurrentBook } = useGuestLimits()
 
   // Soft reminder on every chapter transition for guests
@@ -1370,9 +1368,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         }}
       />
 
-      {paywallTrigger && (
-        <SoftPaywall trigger={paywallTrigger} onDismiss={() => setPaywallTrigger(null)} />
-      )}
     </div>
   )
 }
