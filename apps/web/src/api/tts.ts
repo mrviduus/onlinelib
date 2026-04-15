@@ -7,14 +7,31 @@ export function getTtsAudioUrl(text: string, lang: string, voice?: string, speed
   return `${API_BASE}/tts?${params}`
 }
 
+export class TtsRateLimitError extends Error {
+  readonly retryAfterSeconds: number
+  constructor(retryAfterSeconds: number) {
+    super(`TTS rate limited, retry after ${retryAfterSeconds}s`)
+    this.name = 'TtsRateLimitError'
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
 export async function fetchTtsAudio(
   text: string,
   lang: string,
   voice?: string,
-  speed?: number
+  speed?: number,
+  signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
   const url = getTtsAudioUrl(text, lang, voice, speed)
-  const res = await fetch(url)
+  const res = await fetch(url, { signal })
+  if (res.status === 429) {
+    // Server sends Retry-After (seconds) via RateLimiter.OnRejected.
+    // Parse it so callers can back off instead of hammering.
+    const header = res.headers.get('Retry-After')
+    const seconds = header ? parseInt(header, 10) : NaN
+    throw new TtsRateLimitError(Number.isFinite(seconds) && seconds > 0 ? seconds : 60)
+  }
   if (!res.ok) throw new Error(`TTS error: ${res.status}`)
   return res.arrayBuffer()
 }
