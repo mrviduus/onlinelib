@@ -1,7 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
 import { getFlagUrl } from '../../context/NativeLanguageContext'
-import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage } from '../../data/languages'
+import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage, type LanguageEntry } from '../../data/languages'
+
+function LangOption({ lang, onSelect }: { lang: LanguageEntry; onSelect: (code: string) => void }) {
+  return (
+    <button
+      className="word-popup__lang-option"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => onSelect(lang.code)}
+    >
+      <img src={getFlagUrl(lang.code)} alt="" width="16" height="12" />
+      <span className="word-popup__lang-native">{lang.nativeName}</span>
+      {lang.englishName !== lang.nativeName && (
+        <span className="word-popup__lang-english">{lang.englishName}</span>
+      )}
+    </button>
+  )
+}
 
 const AUTO_DISMISS_MS_MIN = 3000
 const AUTO_DISMISS_MS_MAX = 8000
@@ -69,6 +85,7 @@ export function WordPopup({
   const [showLangPicker, setShowLangPicker] = useState(false)
   const [langQuery, setLangQuery] = useState('')
   const [closing, setClosing] = useState(false)
+  const closingRef = useRef(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -85,12 +102,14 @@ export function WordPopup({
     )
   }, [langQuery, nativeLanguage])
 
+  // Use ref-based guard (state lags behind batching → rapid calls leak timers + onClose×N).
   const animatedClose = useCallback(() => {
-    if (closing) return
+    if (closingRef.current) return
+    closingRef.current = true
     setClosing(true)
     clearTimeout(dismissTimerRef.current)
     exitTimerRef.current = setTimeout(onClose, EXIT_DURATION_MS)
-  }, [onClose, closing])
+  }, [onClose])
 
   // Reset closing state on new word OR new rect (same word re-tapped elsewhere).
   // Cancel any pending exit timer from a previous close — otherwise it fires 150ms
@@ -98,6 +117,7 @@ export function WordPopup({
   // catches same-word re-taps during the 150ms close animation.
   useEffect(() => {
     clearTimeout(exitTimerRef.current)
+    closingRef.current = false
     setClosing(false)
   }, [word, rect])
 
@@ -189,15 +209,38 @@ export function WordPopup({
     setPosition({ top, left })
   }, [rect, containerRef, translation, definition, translationLoading, definitionLoading, showLangPicker, closing])
 
-  // Close on click outside
+  // Close on click outside.
+  // Use pointerdown + drag threshold instead of mousedown — on touch devices a
+  // scroll gesture starts with pointerdown but shouldn't dismiss the popup.
+  // We only close if the pointer released within ~8px of where it started (real tap).
   useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-        animatedClose()
+    let startX = 0
+    let startY = 0
+    let startedOutside = false
+
+    const handleDown = (e: PointerEvent) => {
+      if (!popupRef.current) return
+      if (popupRef.current.contains(e.target as Node)) {
+        startedOutside = false
+        return
       }
+      startedOutside = true
+      startX = e.clientX
+      startY = e.clientY
     }
-    document.addEventListener('mousedown', handleMouseDown)
-    return () => document.removeEventListener('mousedown', handleMouseDown)
+    const handleUp = (e: PointerEvent) => {
+      if (!startedOutside) return
+      startedOutside = false
+      const dx = Math.abs(e.clientX - startX)
+      const dy = Math.abs(e.clientY - startY)
+      if (dx < 8 && dy < 8) animatedClose()
+    }
+    document.addEventListener('pointerdown', handleDown)
+    document.addEventListener('pointerup', handleUp)
+    return () => {
+      document.removeEventListener('pointerdown', handleDown)
+      document.removeEventListener('pointerup', handleUp)
+    }
   }, [animatedClose])
 
   // Close on Escape — but if lang picker is open, close that first. Native
@@ -216,10 +259,59 @@ export function WordPopup({
     return () => document.removeEventListener('keydown', handleKey)
   }, [animatedClose, showLangPicker])
 
+  // Trap Tab inside popup — only when focus is already within it (don't hijack reader nav).
+  // Once user tabs into popup (or picker autofocuses search), Tab cycles within.
+  useEffect(() => {
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const popup = popupRef.current
+      const active = document.activeElement as HTMLElement | null
+      if (!popup || !active || !popup.contains(active)) return
+      const focusables = popup.querySelectorAll<HTMLElement>(
+        'button, input, [href], [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && active === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleTab)
+    return () => document.removeEventListener('keydown', handleTab)
+  }, [showLangPicker]) // re-bind so focusable list refreshes when picker toggles
+
+  // setShowLangPicker(false) → showLangPicker effect reschedules auto-dismiss; no manual call needed.
+  const selectLang = useCallback((code: string) => {
+    onChangeNativeLanguage(code)
+    setShowLangPicker(false)
+  }, [onChangeNativeLanguage])
+
   if (!rect) return null
 
   const langLabel = getLanguage(nativeLanguage)?.nativeName || nativeLanguage
+  const isDefinitionMode = nativeLanguage === bookLanguage
+  const footerLabel = isDefinitionMode
+    ? t('reader.wordPopup.definitionMode')
+    : `${t('reader.wordPopup.translatingTo')} ${langLabel}`
+  const changeLabel = isDefinitionMode
+    ? t('reader.wordPopup.translateTo')
+    : t('reader.wordPopup.change')
 
+  // Conditional preventDefault: protect reader selection (mousedown on any
+  // non-input area moves selection anchor and collapses it → bubble dies).
+  // Skip for inputs/textareas so they keep native focus without per-child
+  // stopPropagation (the earlier "all children must remember to preventDefault"
+  // pattern was fragile — easy to break when adding a new text div).
+  const preventSelectionLoss = (e: React.MouseEvent | React.TouchEvent) => {
+    const t = e.target as HTMLElement
+    if (t.matches('input, textarea, [contenteditable="true"]')) return
+    e.preventDefault()
+  }
   return (
     <div
       ref={popupRef}
@@ -230,8 +322,8 @@ export function WordPopup({
         left: position?.left ?? -9999,
         visibility: position ? 'visible' : 'hidden',
       }}
-      onMouseDown={(e) => e.preventDefault()}
-      onTouchStart={(e) => e.preventDefault()}
+      onMouseDown={preventSelectionLoss}
+      onTouchStart={preventSelectionLoss}
       onMouseEnter={cancelAutoDismiss}
       onPointerEnter={cancelAutoDismiss}
       onClick={cancelAutoDismiss}
@@ -292,31 +384,14 @@ export function WordPopup({
 
       {/* Language footer */}
       <div className="word-popup__lang-footer">
-        {nativeLanguage === bookLanguage ? (
-          <>
-            <span className="word-popup__lang-label">{t('reader.wordPopup.definitionMode')}</span>
-            <button
-              className="word-popup__lang-change"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShowLangPicker(!showLangPicker)}
-            >
-              {t('reader.wordPopup.translateTo')}
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="word-popup__lang-label">
-              {t('reader.wordPopup.translatingTo')} {langLabel}
-            </span>
-            <button
-              className="word-popup__lang-change"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShowLangPicker(!showLangPicker)}
-            >
-              {t('reader.wordPopup.change')}
-            </button>
-          </>
-        )}
+        <span className="word-popup__lang-label">{footerLabel}</span>
+        <button
+          className="word-popup__lang-change"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setShowLangPicker(!showLangPicker)}
+        >
+          {changeLabel}
+        </button>
         {showLangPicker && (
           <div className="word-popup__lang-dropdown">
             <input
@@ -328,19 +403,22 @@ export function WordPopup({
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   e.preventDefault()
-                  setShowLangPicker(false)
-                  scheduleAutoDismiss()
+                  setShowLangPicker(false) // showLangPicker effect reschedules
                 } else if (e.key === 'Enter') {
                   e.preventDefault()
-                  // Only select on Enter when the user typed a query — otherwise a
-                  // bare Enter picks an arbitrary first language and silently
-                  // changes the user's native language.
-                  if (!filteredLangs) return
+                  // Enter selects only when the query unambiguously points at the first
+                  // result — either the only match, or first match's code/name STARTS WITH
+                  // the query. Otherwise a substring hit could silently swap the user's
+                  // native language to something they didn't mean (e.g. "en" → Slovenian).
+                  if (!filteredLangs || filteredLangs.length === 0) return
+                  const q = langQuery.trim().toLowerCase()
                   const first = filteredLangs[0]
-                  if (first) {
-                    onChangeNativeLanguage(first.code)
-                    setShowLangPicker(false)
-                    scheduleAutoDismiss()
+                  const startsWith =
+                    first.code.toLowerCase().startsWith(q) ||
+                    first.englishName.toLowerCase().startsWith(q) ||
+                    first.nativeName.toLowerCase().startsWith(q)
+                  if (filteredLangs.length === 1 || startsWith) {
+                    selectLang(first.code)
                   }
                 }
               }}
@@ -354,63 +432,18 @@ export function WordPopup({
                   <div className="word-popup__lang-empty">{t('reader.wordPopup.noResults') || 'No results'}</div>
                 ) : (
                   filteredLangs.map((l) => (
-                    <button
-                      key={l.code}
-                      className="word-popup__lang-option"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onChangeNativeLanguage(l.code)
-                        setShowLangPicker(false)
-                        scheduleAutoDismiss()
-                      }}
-                    >
-                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
-                      <span className="word-popup__lang-native">{l.nativeName}</span>
-                      {l.englishName !== l.nativeName && (
-                        <span className="word-popup__lang-english">{l.englishName}</span>
-                      )}
-                    </button>
+                    <LangOption key={l.code} lang={l} onSelect={selectLang} />
                   ))
                 )
               ) : (
                 <>
                   <div className="word-popup__lang-section">{t('reader.wordPopup.popularLanguages')}</div>
                   {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
-                    <button
-                      key={l.code}
-                      className="word-popup__lang-option"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onChangeNativeLanguage(l.code)
-                        setShowLangPicker(false)
-                        scheduleAutoDismiss()
-                      }}
-                    >
-                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
-                      <span className="word-popup__lang-native">{l.nativeName}</span>
-                      {l.englishName !== l.nativeName && (
-                        <span className="word-popup__lang-english">{l.englishName}</span>
-                      )}
-                    </button>
+                    <LangOption key={l.code} lang={l} onSelect={selectLang} />
                   ))}
                   <div className="word-popup__lang-section">{t('reader.wordPopup.allLanguages')}</div>
                   {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
-                    <button
-                      key={l.code}
-                      className="word-popup__lang-option"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onChangeNativeLanguage(l.code)
-                        setShowLangPicker(false)
-                        scheduleAutoDismiss()
-                      }}
-                    >
-                      <img src={getFlagUrl(l.code)} alt="" width="16" height="12" />
-                      <span className="word-popup__lang-native">{l.nativeName}</span>
-                      {l.englishName !== l.nativeName && (
-                        <span className="word-popup__lang-english">{l.englishName}</span>
-                      )}
-                    </button>
+                    <LangOption key={l.code} lang={l} onSelect={selectLang} />
                   ))}
                 </>
               )}
