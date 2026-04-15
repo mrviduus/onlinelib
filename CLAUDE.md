@@ -232,6 +232,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 **Export**: EPUB export of user highlights and notes.
 - EpubExportService (`Application/Export/EpubExportService.cs`)
 - ExportEndpoints (`Api/Endpoints/ExportEndpoints.cs`)
+- **Deprecated 2026-04-15**: public book EPUB download (route `GET /{lang}/books/{slug}/export/epub` + UI anchor on `BookDetailPage`) hidden from UI; may be fully removed. Backend route + `EpubExportService` still live but unreachable from the app.
 
 **Highlights Review**: Spaced review of saved highlights.
 - HighlightReviewPage — review highlights with spaced repetition
