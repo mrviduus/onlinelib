@@ -93,7 +93,27 @@
       "change": "Змінити",
       "definitionMode": "Визначення",
       "translateTo": "Перекласти на...",
-      "searchLanguage": "Пошук мови..."
+      "searchLanguage": "Пошук мови...",
+      "noResults": "Нічого не знайдено",
+      "popularLanguages": "Популярні",
+      "allLanguages": "Усі мови",
+      "close": "Закрити"
+    },
+    "selectionToolbar": {
+      "highlightYellow": "Виділити жовтим",
+      "highlightGreen": "Виділити зеленим",
+      "highlightPink": "Виділити рожевим",
+      "highlightBlue": "Виділити синім",
+      "translate": "Перекласти виділений текст",
+      "listen": "Прослухати вимову",
+      "copy": "Копіювати виділений текст"
+    },
+    "noteEditor": {
+      "close": "Закрити",
+      "placeholder": "Додати нотатку...",
+      "deleteHighlight": "Видалити виділення",
+      "cancel": "Скасувати",
+      "save": "Зберегти"
     }
   },
   "onboarding": {

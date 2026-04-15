@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { HighlightColor } from '../../lib/offlineDb'
+import { useTranslation } from '../../hooks/useTranslation'
 
-const HIGHLIGHT_COLORS: { color: HighlightColor; label: string; hex: string }[] = [
-  { color: 'yellow', label: 'Yellow', hex: '#fef08a' },
-  { color: 'green', label: 'Green', hex: '#bbf7d0' },
-  { color: 'pink', label: 'Pink', hex: '#fbcfe8' },
-  { color: 'blue', label: 'Blue', hex: '#bfdbfe' },
+const HIGHLIGHT_COLORS: { color: HighlightColor; labelKey: string; hex: string }[] = [
+  { color: 'yellow', labelKey: 'reader.selectionToolbar.highlightYellow', hex: '#fef08a' },
+  { color: 'green', labelKey: 'reader.selectionToolbar.highlightGreen', hex: '#bbf7d0' },
+  { color: 'pink', labelKey: 'reader.selectionToolbar.highlightPink', hex: '#fbcfe8' },
+  { color: 'blue', labelKey: 'reader.selectionToolbar.highlightBlue', hex: '#bfdbfe' },
 ]
 
 interface SelectionToolbarProps {
@@ -27,10 +28,14 @@ export function SelectionToolbar({
   onSpeak,
   onCopy,
 }: SelectionToolbarProps) {
+  const { t } = useTranslation()
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
-  useEffect(() => {
+  // useLayoutEffect: reposition before paint, no flash when toolbar mounts or
+  // when re-measuring after the toolbar DOM first renders (it needs its own
+  // rect to compute position).
+  useLayoutEffect(() => {
     if (!rect || !containerRef.current || !toolbarRef.current) {
       setPosition(null)
       return
@@ -82,18 +87,21 @@ export function SelectionToolbar({
       }}
     >
       <div className="selection-toolbar__colors">
-        {HIGHLIGHT_COLORS.map(({ color, label, hex }) => (
-          <button
-            key={color}
-            className="selection-toolbar__color"
-            style={{ background: hex }}
-            onMouseDown={(e) => e.preventDefault()}
-            onTouchStart={(e) => e.preventDefault()}
-            onClick={() => onHighlight(color)}
-            title={`Highlight ${label}`}
-            aria-label={`Highlight ${label}`}
-          />
-        ))}
+        {HIGHLIGHT_COLORS.map(({ color, labelKey, hex }) => {
+          const label = t(labelKey)
+          return (
+            <button
+              key={color}
+              className="selection-toolbar__color"
+              style={{ background: hex }}
+              onMouseDown={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.preventDefault()}
+              onClick={() => onHighlight(color)}
+              title={label}
+              aria-label={label}
+            />
+          )
+        })}
       </div>
       <div className="selection-toolbar__divider" />
       {onTranslate && (
@@ -102,8 +110,8 @@ export function SelectionToolbar({
           onMouseDown={(e) => e.preventDefault()}
           onTouchStart={(e) => e.preventDefault()}
           onClick={onTranslate}
-          title="Translate"
-          aria-label="Translate selected text"
+          title={t('reader.selectionToolbar.translate')}
+          aria-label={t('reader.selectionToolbar.translate')}
         >
           <TranslateIcon />
         </button>
@@ -114,8 +122,8 @@ export function SelectionToolbar({
           onMouseDown={(e) => e.preventDefault()}
           onTouchStart={(e) => e.preventDefault()}
           onClick={onSpeak}
-          title="Listen"
-          aria-label="Listen to pronunciation"
+          title={t('reader.selectionToolbar.listen')}
+          aria-label={t('reader.selectionToolbar.listen')}
         >
           <SpeakIcon />
         </button>
@@ -125,8 +133,8 @@ export function SelectionToolbar({
         onMouseDown={(e) => e.preventDefault()}
         onTouchStart={(e) => e.preventDefault()}
         onClick={handleCopy}
-        title="Copy"
-        aria-label="Copy selected text"
+        title={t('reader.selectionToolbar.copy')}
+        aria-label={t('reader.selectionToolbar.copy')}
       >
         <CopyIcon />
       </button>

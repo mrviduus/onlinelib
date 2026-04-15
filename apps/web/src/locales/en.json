@@ -93,7 +93,27 @@
       "change": "Change",
       "definitionMode": "Definition",
       "translateTo": "Translate to...",
-      "searchLanguage": "Search language..."
+      "searchLanguage": "Search language...",
+      "noResults": "No results",
+      "popularLanguages": "Popular",
+      "allLanguages": "All languages",
+      "close": "Close"
+    },
+    "selectionToolbar": {
+      "highlightYellow": "Highlight yellow",
+      "highlightGreen": "Highlight green",
+      "highlightPink": "Highlight pink",
+      "highlightBlue": "Highlight blue",
+      "translate": "Translate selected text",
+      "listen": "Listen to pronunciation",
+      "copy": "Copy selected text"
+    },
+    "noteEditor": {
+      "close": "Close",
+      "placeholder": "Add a note...",
+      "deleteHighlight": "Delete highlight",
+      "cancel": "Cancel",
+      "save": "Save"
     }
   },
   "onboarding": {
