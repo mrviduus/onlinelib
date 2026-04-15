@@ -86,7 +86,7 @@
       "known": "Known",
       "ignore": "Ignore",
       "save": "Save",
-      "savedStatus": "Saved",
+      "savedStatus": "Saved to vocabulary",
       "remove": "Remove",
       "saving": "Saving...",
       "loading": "...",
@@ -140,10 +140,6 @@
   },
   "nav": {
     "catalog": "Catalog",
-    "library": "Library",
-    "words": "Words",
-    "practice": "Practice",
-    "stats": "Stats",
     "vocabulary": "Vocabulary",
     "highlights": "Highlights",
     "about": "About",
@@ -509,6 +505,25 @@
       "3": "Context",
       "4": "Mastered"
     },
+    "due": {
+      "now": "Now",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "In {n} days",
+      "inWeeks": "In {n} weeks",
+      "inMonths": "In {n} months"
+    },
+    "interval": "Next interval: {n} days",
+    "listTitle": "My vocabulary",
+    "listCount": "{n} words",
+    "srsHint": "Spaced repetition — each word returns when it's due for review.",
+    "columns": {
+      "word": "Word",
+      "translation": "Translation",
+      "progress": "Progress",
+      "nextDue": "Next due"
+    },
+    "fromBook": "from {title}",
     "filters": {
       "all": "All",
       "new": "New",

@@ -34,7 +34,7 @@ export function VocabularyReviewPage() {
   const { play: playSound, toggle: toggleSound, isEnabled: isSoundEnabled } = useSoundEffects()
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled())
   const handleSpeak = (text: string) => speak(text, language)
-  const goBack = () => navigate(`/${language}/practice`)
+  const goBack = () => navigate(`/${language}/vocabulary`)
 
   useEffect(() => {
     if (user) {
@@ -57,7 +57,7 @@ export function VocabularyReviewPage() {
   // Redirect to practice if no cards available (instead of dead-end empty state)
   useEffect(() => {
     if (!review.loading && !review.hasCards && !review.error && user) {
-      navigate(`/${language}/practice`, { replace: true })
+      navigate(`/${language}/vocabulary`, { replace: true })
     }
   }, [review.loading, review.hasCards, review.error, user, language, navigate])
 

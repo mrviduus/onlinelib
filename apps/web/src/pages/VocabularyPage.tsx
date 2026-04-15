@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { useVocabulary } from '../hooks/useVocabulary'
 import { useTts } from '../hooks/useTts'
+import { getVocabDailyStats, type VocabDailyStatDto } from '../api/vocabulary'
+import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE, type ReviewMode } from '../lib/vocabularyConstants'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
@@ -16,32 +21,61 @@ function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
   )
 }
 
-function ContextSnippet({ word, sentence }: { word: string; sentence?: string | null }) {
-  if (!sentence) return <span className="vocab-word__text">{word}</span>
-
-  const idx = sentence.toLowerCase().indexOf(word.toLowerCase())
-  if (idx === -1) return <span className="vocab-word__context">{sentence}</span>
-
-  const before = sentence.slice(0, idx)
-  const match = sentence.slice(idx, idx + word.length)
-  const after = sentence.slice(idx + word.length)
-
-  // Trim to ~80 chars around the word
-  const maxSide = 35
-  const trimBefore = before.length > maxSide ? '…' + before.slice(-maxSide) : before
-  const trimAfter = after.length > maxSide ? after.slice(0, maxSide) + '…' : after
-
+function ProgressBar({ stage, label }: { stage: number; label?: string }) {
   return (
-    <span className="vocab-word__context">
-      {trimBefore}<strong>{match}</strong>{trimAfter}
-    </span>
+    <div className="vocab-word__progress-bar" aria-label={label || `Stage ${stage + 1} of 5`} title={label}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span
+          key={i}
+          className={[
+            'vocab-word__progress-step',
+            i <= stage ? 'vocab-word__progress-step--filled' : '',
+            i === stage ? 'vocab-word__progress-step--current' : '',
+          ].filter(Boolean).join(' ')}
+        />
+      ))}
+    </div>
   )
 }
 
-export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
+function formatNextDue(nextReviewAt: string | null | undefined, t: (k: string) => string): string {
+  if (!nextReviewAt) return ''
+  const diffMs = new Date(nextReviewAt).getTime() - Date.now()
+  if (diffMs <= 0) return t('vocabulary.due.now')
+  const diffH = diffMs / 3_600_000
+  if (diffH < 24) return t('vocabulary.due.today')
+  const diffD = Math.ceil(diffH / 24)
+  if (diffD === 1) return t('vocabulary.due.tomorrow')
+  if (diffD <= 7) return t('vocabulary.due.inDays').replace('{n}', String(diffD))
+  if (diffD <= 30) return t('vocabulary.due.inWeeks').replace('{n}', String(Math.ceil(diffD / 7)))
+  return t('vocabulary.due.inMonths').replace('{n}', String(Math.ceil(diffD / 30)))
+}
+
+function getLast7Days(dailyStats: VocabDailyStatDto[]) {
+  const today = new Date()
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const statsMap = new Map(dailyStats.map(d => [d.date.split('T')[0], d]))
+  const result: { day: string; reviewed: number; added: number }[] = []
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().split('T')[0]
+    const stat = statsMap.get(key)
+    result.push({
+      day: days[d.getDay()],
+      reviewed: stat?.reviewCount ?? 0,
+      added: stat?.wordsAdded ?? 0,
+    })
+  }
+  return result
+}
+
+export function VocabularyPage() {
   const { isAuthenticated } = useAuth()
+  const { getLocalizedPath } = useLanguage()
   const { t } = useTranslation()
-  void isAuthenticated // may gate future in-page CTAs
+  const navigate = useNavigate()
   const {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
@@ -57,8 +91,23 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
+  // Practice-widget state (lifted from old PracticePage)
+  const [dailyStats, setDailyStats] = useState<VocabDailyStatDto[]>([])
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(() =>
+    (localStorage.getItem('practiceMode') as ReviewMode) || 'classic'
+  )
+  const [batchSize, setBatchSize] = useState(() => {
+    const saved = parseInt(localStorage.getItem('practiceBatch') || '', 10)
+    return (REVIEW_BATCH_SIZES as readonly number[]).includes(saved) ? saved : DEFAULT_BATCH_SIZE
+  })
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const tz = new Date().getTimezoneOffset()
+    getVocabDailyStats(tz).then(setDailyStats).catch(() => {})
+  }, [isAuthenticated])
+
   if (loading && words.length === 0) {
-    if (embedded) return <div className="vocab-loading">{t('common.loading')}</div>
     return (
       <div className="page-container">
         <SeoHead title={t('vocabulary.title')} noindex />
@@ -73,17 +122,6 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
 
   // Empty state for both guests (no auth) and fresh authenticated users with zero saved words
   if (!loading && words.length === 0 && !filters.search && !filters.stage) {
-    if (embedded) {
-      return (
-        <EmptyState
-          icon="📚"
-          title={t('vocabulary.emptyPage.title')}
-          subtitle={t('vocabulary.emptyPage.subtitle')}
-          buttonLabel={t('vocabulary.emptyPage.cta')}
-          buttonTo="/books"
-        />
-      )
-    }
     return (
       <div className="page-container">
         <SeoHead title={t('vocabulary.title')} noindex />
@@ -152,15 +190,139 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
     }
   }
 
-  const vocabContent = (
-    <div className="vocab-page">
-      {!embedded && <h1>{t('vocabulary.title')}</h1>}
+  const handleModeChange = (m: ReviewMode) => {
+    setReviewMode(m)
+    localStorage.setItem('practiceMode', m)
+  }
 
-      {error && (
+  const handleBatchChange = (n: number) => {
+    setBatchSize(n)
+    localStorage.setItem('practiceBatch', String(n))
+  }
+
+  const handleStartPractice = () => {
+    const params = new URLSearchParams()
+    params.set('reviewMode', reviewMode)
+    if (batchSize !== DEFAULT_BATCH_SIZE) params.set('limit', String(batchSize))
+    navigate(getLocalizedPath('/vocabulary/review') + '?' + params.toString())
+  }
+
+  const dueCount = stats?.dueNow ?? 0
+  const totalWords = stats?.totalWords ?? 0
+
+  const bannerContent = () => {
+    if (!stats) return null
+    if (totalWords === 0) return { title: 'Start building your vocabulary', subtitle: 'Save words while reading to practice them here.' }
+    if (stats.reviewedToday > 0) {
+      const sub = dueCount === 0 ? 'Practice more to strengthen memory.'
+        : stats.correctRateToday >= 80 ? 'Great accuracy!' : 'Every review counts!'
+      return { title: `You've Reviewed ${stats.reviewedToday} Words Today!`, subtitle: sub }
+    }
+    if (dueCount > 0) return { title: `${dueCount} words waiting for review`, subtitle: 'Keep your streak going!' }
+    return { title: 'Ready to practice!', subtitle: 'Strengthen your vocabulary by reviewing words.' }
+  }
+
+  const practiceLabel = () => {
+    const label = t('vocabulary.startPractice')
+    const count = dueCount > 0 ? Math.min(batchSize, dueCount) : totalWords > 0 ? Math.min(batchSize, totalWords) : 0
+    return count > 0 ? `${label} (${count} words)` : label
+  }
+
+  const banner = bannerContent()
+  const chartData = getLast7Days(dailyStats)
+
+  return (
+    <div className="page-container">
+      <SeoHead title={t('vocabulary.title')} noindex />
+      <div className="vocab-page">
+        <h1>{t('vocabulary.title')}</h1>
+
+        {error && (
           <div className="vocab-error">{error}</div>
         )}
 
-        {/* Stats bar */}
+        {/* Motivational banner (from Practice) */}
+        {isAuthenticated && banner && (
+          <div className="practice-page__banner">
+            <div className="practice-page__banner-content">
+              <div className="practice-page__banner-title">{banner.title}</div>
+              {banner.subtitle && <div className="practice-page__banner-subtitle">{banner.subtitle}</div>}
+            </div>
+            {stats && stats.streak > 0 && (
+              <div className="practice-page__banner-streak">
+                <span className="practice-page__banner-streak-num">{stats.streak}</span>
+                <span className="practice-page__banner-streak-label">day streak</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Start practice card (from Practice) */}
+        {isAuthenticated && stats && totalWords > 0 && (
+          <div className="practice-page__card">
+            <div className="practice-page__settings">
+              <div className="practice-page__setting">
+                <span className="practice-page__setting-label">Mode</span>
+                <div className="vocab-mode-toggle">
+                  {(['classic', 'blitz'] as ReviewMode[]).map(m => (
+                    <button
+                      key={m}
+                      className={`vocab-mode-toggle__btn ${reviewMode === m ? 'vocab-mode-toggle__btn--active' : ''}`}
+                      onClick={() => handleModeChange(m)}
+                    >
+                      {m === 'blitz' ? 'Blitz' : 'Flashcards'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="practice-page__setting">
+                <span className="practice-page__setting-label">Length</span>
+                <div className="review-summary__batch-row">
+                  {REVIEW_BATCH_SIZES.map(n => (
+                    <button
+                      key={n}
+                      className={`review-summary__batch-chip ${batchSize === n ? 'review-summary__batch-chip--active' : ''}`}
+                      onClick={() => handleBatchChange(n)}
+                    >
+                      {n} words
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="practice-page__start-btn"
+              onClick={handleStartPractice}
+            >
+              {practiceLabel()}
+            </button>
+          </div>
+        )}
+
+        {/* Weekly activity — area chart (from Practice) */}
+        {isAuthenticated && stats && totalWords > 0 && dailyStats.length > 0 && (
+          <div className="practice-page__section">
+            <h3 className="practice-page__section-title">Practice Every Day</h3>
+            <div style={{ width: '100%', height: 180 }}>
+              <ResponsiveContainer>
+                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 13 }}
+                    labelStyle={{ color: 'var(--color-text)', fontWeight: 600 }}
+                  />
+                  <Area type="monotone" dataKey="reviewed" name="Reviewed" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: '#60a5fa' }} />
+                  <Area type="monotone" dataKey="added" name="Added" stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Stats bar (kept from Words — richer stats than Practice stats row) */}
         {stats && (
           <div className="vocab-stats-bar">
             <div className="vocab-stat">
@@ -243,6 +405,21 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
           <EmptyState icon="📝" title={t('vocabulary.empty')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
         ) : (
           <div className="vocab-list">
+            <div className="vocab-list__header">
+              <div className="vocab-list__heading">
+                <h2 className="vocab-list__title">{t('vocabulary.listTitle')}</h2>
+                <span className="vocab-list__count">{t('vocabulary.listCount').replace('{n}', String(total))}</span>
+              </div>
+              <p className="vocab-list__hint" title={t('vocabulary.srsHint')}>
+                <span aria-hidden>↻</span> {t('vocabulary.srsHint')}
+              </p>
+            </div>
+            <div className="vocab-list__columns" aria-hidden="true">
+              <span className="vocab-list__col vocab-list__col--word">{t('vocabulary.columns.word')}</span>
+              <span className="vocab-list__col vocab-list__col--translation">{t('vocabulary.columns.translation')}</span>
+              <span className="vocab-list__col vocab-list__col--progress">{t('vocabulary.columns.progress')}</span>
+              <span className="vocab-list__col vocab-list__col--due">{t('vocabulary.columns.nextDue')}</span>
+            </div>
             {words.map(w => (
               <div
                 key={w.id}
@@ -257,15 +434,27 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
                       onClick={() => speak(w.word, w.language)}
                       isPlaying={isPlaying}
                     />
-                    <ContextSnippet word={w.word} sentence={w.sentence} />
+                    <div className="vocab-word__word-cell">
+                      <span className="vocab-word__text">{w.word}</span>
+                      {w.bookTitle && (
+                        <span className="vocab-word__book" title={w.bookTitle}>
+                          <span className="vocab-word__book-icon" aria-hidden>📖</span>
+                          {t('vocabulary.fromBook').replace('{title}', w.bookTitle)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="vocab-word__meta">
                     {w.translation && (
                       <span className="vocab-word__translation">{w.translation}</span>
                     )}
-                    {w.bookTitle && (
-                      <span className="vocab-word__book">{w.bookTitle}</span>
-                    )}
+                    <ProgressBar
+                      stage={w.stage}
+                      label={`${t(`vocabulary.stages.${w.stage}`)}${w.totalReviews > 0 ? ` · ${Math.round(w.correctReviews / w.totalReviews * 100)}%` : ''}`}
+                    />
+                    <span className={`vocab-word__due ${w.nextReviewAt && new Date(w.nextReviewAt).getTime() <= Date.now() ? 'vocab-word__due--now' : ''}`}>
+                      {formatNextDue(w.nextReviewAt, t)}
+                    </span>
                   </div>
                 </div>
 
@@ -289,6 +478,9 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
                       <span>{t('vocabulary.review.correctRate')}: {w.totalReviews > 0 ? Math.round(w.correctReviews / w.totalReviews * 100) : 0}%</span>
                       {w.nextReviewAt && (
                         <span>{t('vocabulary.dueDate')}: {new Date(w.nextReviewAt).toLocaleDateString()}</span>
+                      )}
+                      {w.intervalDays > 0 && (
+                        <span>{t('vocabulary.interval').replace('{n}', String(w.intervalDays))}</span>
                       )}
                     </div>
                     <div className="vocab-word__actions">
@@ -329,14 +521,6 @@ export function VocabularyPage({ embedded }: { embedded?: boolean } = {}) {
           </button>
         )}
       </div>
-  )
-
-  if (embedded) return vocabContent
-
-  return (
-    <div className="page-container">
-      <SeoHead title={t('vocabulary.title')} noindex />
-      {vocabContent}
       <Footer />
     </div>
   )

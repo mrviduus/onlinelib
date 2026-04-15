@@ -24,8 +24,7 @@ import { UserBookDetailPage } from './pages/UserBookDetailPage'
 import { StatsPage } from './pages/StatsPage'
 import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
-import { WordsPage } from './pages/WordsPage'
-import { PracticePage } from './pages/PracticePage'
+import { VocabularyPage } from './pages/VocabularyPage'
 import { HighlightsPage } from './pages/HighlightsPage'
 import { BlogPage } from './pages/BlogPage'
 import { BlogPostPage } from './pages/BlogPostPage'
@@ -101,14 +100,14 @@ function LanguageRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/stats" element={<StatsPage />} />
-        <Route path="/words" element={<WordsPage />} />
-        <Route path="/words/review" element={<VocabularyReviewPage />} />
-        <Route path="/practice" element={<PracticePage />} />
+        <Route path="/vocabulary" element={<VocabularyPage />} />
+        <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
         <Route path="/highlights" element={<HighlightsPage />} />
         <Route path="/highlights/review" element={<HighlightReviewPage />} />
-        {/* Redirects from old URLs */}
-        <Route path="/vocabulary" element={<Navigate to="../words" replace />} />
-        <Route path="/vocabulary/review" element={<Navigate to="../words/review" replace />} />
+        {/* Legacy redirects */}
+        <Route path="/words" element={<Navigate to="../vocabulary" replace />} />
+        <Route path="/words/review" element={<Navigate to="../vocabulary/review" replace />} />
+        <Route path="/practice" element={<Navigate to="../vocabulary" replace />} />
         <Route path="/library/my/:id" element={<UserBookDetailPage />} />
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="/library/my/:id/focus/:chapterSlug" element={<FocusReaderPage mode="userbook" />} />

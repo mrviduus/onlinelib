@@ -691,14 +691,98 @@
 .vocab-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
+  background: var(--color-bg-card);
+}
+
+.vocab-list__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vocab-list__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.vocab-list__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.vocab-list__count {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.vocab-list__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  line-height: 1.35;
+}
+
+.vocab-list__columns {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.vocab-list__col--word {
+  flex: 1;
+  padding-left: 2.25rem;
+}
+.vocab-list__col--translation {
+  flex-shrink: 0;
+  text-align: right;
+}
+.vocab-list__col--progress {
+  width: 90px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.vocab-list__col--due {
+  min-width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .vocab-list__columns {
+    display: none;
+  }
 }
 
 .vocab-word {
   background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+}
+
+.vocab-word:first-of-type {
+  border-top: none;
 }
 
 .vocab-word__row {
@@ -728,19 +812,6 @@
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
-}
-
-.vocab-word__context {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vocab-word__context strong {
-  font-weight: 700;
-  color: var(--color-text);
 }
 
 .vocab-word__translation {
@@ -777,10 +848,64 @@
 .vocab-word__book {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
-  max-width: 120px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.vocab-word__book-icon {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.vocab-word__word-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.vocab-word__progress-bar {
+  display: flex;
+  gap: 3px;
+  width: 90px;
+  align-items: center;
+  cursor: help;
+}
+
+.vocab-word__progress-step {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--color-border);
+  transition: background 0.2s, height 0.2s;
+}
+
+.vocab-word__progress-step--filled:nth-child(1) { background: #94a3b8; }
+.vocab-word__progress-step--filled:nth-child(2) { background: #60a5fa; }
+.vocab-word__progress-step--filled:nth-child(3) { background: #f59e0b; }
+.vocab-word__progress-step--filled:nth-child(4) { background: #a78bfa; }
+.vocab-word__progress-step--filled:nth-child(5) { background: #22c55e; }
+
+.vocab-word__progress-step--current {
+  height: 6px;
+}
+
+.vocab-word__due {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: right;
+}
+
+.vocab-word__due--now {
+  color: #ef4444;
+  font-weight: 600;
 }
 
 /* Expanded detail */
@@ -1736,13 +1861,18 @@
     width: 100%;
   }
 
-  .vocab-word__context {
-    white-space: normal;
-    overflow: visible;
-  }
-
   .vocab-word__meta {
     width: 100%;
+    justify-content: space-between;
+  }
+
+  .vocab-word__translation {
+    flex: 1;
+    white-space: normal;
+  }
+
+  .vocab-word__progress-bar {
+    width: 70px;
   }
 
   .flash-card__word { font-size: 1.5rem; }
