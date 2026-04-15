@@ -172,7 +172,48 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // TTS synthesis — per-IP cap. Generous enough for bursty vocab-review /
+    // reader-tap usage (~2/s average, tolerates ~20-req bursts via window
+    // timing), but blocks scripted abuse hammering the upstream Bing WS.
+    // ETag + server+client cache mean most requests are cheap; this limit
+    // primarily protects synthesis (uncached) throughput.
+    options.AddPolicy("tts", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 120,
+            QueueLimit = 0,
+        });
+    });
+    // TTS voices list — cheap (served from 24h server cache), typically
+    // called once per session at voice-picker mount. Separate bucket with
+    // a much higher cap so a user burning through synthesis budget can
+    // still open the voice picker.
+    options.AddPolicy("tts-voices", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 600,
+            QueueLimit = 0,
+        });
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Emit Retry-After so clients can back off intelligently instead of
+    // hammering in a tight retry loop. RateLimiter exposes the metadata
+    // via lease.TryGetMetadata when available.
+    options.OnRejected = (context, ct) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            var seconds = (int)Math.Ceiling(retryAfter.TotalSeconds);
+            context.HttpContext.Response.Headers.RetryAfter = seconds.ToString();
+        }
+        return ValueTask.CompletedTask;
+    };
 });
 
 // Validate required config at startup
