@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   adminApi,
+  DEFAULT_SITE_ID,
   SeoCoverageStat,
+  SeoGapRow,
   SeoTemplateListItem,
   SeoTemplateDetail,
   SeoTemplateUpsert,
@@ -10,6 +12,15 @@ import {
   SeoBackfillJobDetail,
   SeoBackfillSettings,
 } from '../api/client'
+
+type PickedEntity = { id: string; label: string }
+type QueueInitialValues = {
+  entityType: string
+  entityId: string
+  entityLabel: string
+  fields: string[]
+  language: string
+}
 
 type Tab = 'coverage' | 'templates' | 'jobs' | 'settings'
 
@@ -61,6 +72,8 @@ export function SeoBackfillPage() {
 function CoverageTab() {
   const [stats, setStats] = useState<SeoCoverageStat[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [gapsFor, setGapsFor] = useState<{ entityType: string; fieldType: string } | null>(null)
+  const [queueInit, setQueueInit] = useState<QueueInitialValues | null>(null)
 
   useEffect(() => {
     adminApi.getSeoCoverage().then(setStats).catch(e => setError(String(e)))
@@ -73,6 +86,11 @@ function CoverageTab() {
     (acc[s.entityType] ??= []).push(s)
     return acc
   }, {})
+
+  const linkBtn: React.CSSProperties = {
+    background: 'transparent', border: 'none', color: '#c33',
+    cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline',
+  }
 
   return (
     <div>
@@ -96,7 +114,17 @@ function CoverageTab() {
                   <tr key={r.fieldType} style={{ borderBottom: '1px solid #f0f0f0' }}>
                     <td style={{ padding: '0.5rem' }}>{r.fieldType}</td>
                     <td style={{ padding: '0.5rem', textAlign: 'right' }}>{r.populated}</td>
-                    <td style={{ padding: '0.5rem', textAlign: 'right', color: r.missing > 0 ? '#c33' : '#3a3' }}>{r.missing}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'right', color: r.missing > 0 ? '#c33' : '#3a3' }}>
+                      {r.missing > 0 ? (
+                        <button
+                          onClick={() => setGapsFor({ entityType: entity, fieldType: r.fieldType })}
+                          style={linkBtn}
+                          title="Show entities missing this field"
+                        >
+                          {r.missing}
+                        </button>
+                      ) : r.missing}
+                    </td>
                     <td style={{ padding: '0.5rem', textAlign: 'right' }}>{r.total}</td>
                     <td style={{ padding: '0.5rem' }}>
                       <div style={{ background: '#eee', borderRadius: 3, height: 14, position: 'relative' }}>
@@ -111,7 +139,90 @@ function CoverageTab() {
           </table>
         </div>
       ))}
+
+      {gapsFor && (
+        <MissingEntitiesModal
+          entityType={gapsFor.entityType}
+          fieldType={gapsFor.fieldType}
+          onClose={() => setGapsFor(null)}
+          onQueue={init => { setGapsFor(null); setQueueInit(init) }}
+        />
+      )}
+      {queueInit && (
+        <QueueEntityModal
+          initialValues={queueInit}
+          onClose={() => setQueueInit(null)}
+          onQueued={() => setQueueInit(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function MissingEntitiesModal({
+  entityType, fieldType, onClose, onQueue,
+}: {
+  entityType: string
+  fieldType: string
+  onClose: () => void
+  onQueue: (init: QueueInitialValues) => void
+}) {
+  const [rows, setRows] = useState<SeoGapRow[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    adminApi.getSeoGaps({ entityType, limit: 200 })
+      .then(all => setRows(all.filter(g => g.missingFields.includes(fieldType))))
+      .catch(e => setError(String(e)))
+  }, [entityType, fieldType])
+
+  return (
+    <Modal onClose={onClose} title={`${entityType} missing ${fieldType}`} wide>
+      {error && <div style={errBox}>{error}</div>}
+      {!rows ? <div>Loading…</div> : rows.length === 0 ? (
+        <div style={{ color: '#666' }}>No entities missing {fieldType}.</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #ddd' }}>
+              <th style={th}>Label</th>
+              <th style={th}>Language</th>
+              <th style={th}>Other missing</th>
+              <th style={th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(g => {
+              const other = g.missingFields.filter(f => f !== fieldType)
+              return (
+                <tr key={`${g.entityId}-${g.language}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={td}>
+                    <div>{g.label}</div>
+                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'ui-monospace, monospace' }}>{g.entityId}</div>
+                  </td>
+                  <td style={td}>{g.language}</td>
+                  <td style={{ ...td, color: '#888', fontSize: 12 }}>{other.length ? other.join(', ') : '—'}</td>
+                  <td style={td}>
+                    <button
+                      onClick={() => onQueue({
+                        entityType: g.entityType,
+                        entityId: g.entityId,
+                        entityLabel: g.label,
+                        fields: [fieldType],
+                        language: g.language || 'en',
+                      })}
+                      style={btnSmall}
+                    >
+                      Queue backfill
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </Modal>
   )
 }
 
@@ -493,11 +604,19 @@ function JobsTab() {
   )
 }
 
-function QueueEntityModal({ onClose, onQueued }: { onClose: () => void; onQueued: () => void }) {
-  const [entityType, setEntityType] = useState<string>('Author')
-  const [entityId, setEntityId] = useState('')
-  const [fields, setFields] = useState<string[]>(['Bio'])
-  const [language, setLanguage] = useState('en')
+function QueueEntityModal({
+  onClose, onQueued, initialValues,
+}: {
+  onClose: () => void
+  onQueued: () => void
+  initialValues?: QueueInitialValues
+}) {
+  const [entityType, setEntityType] = useState<string>(initialValues?.entityType ?? 'Author')
+  const [picked, setPicked] = useState<PickedEntity | null>(
+    initialValues ? { id: initialValues.entityId, label: initialValues.entityLabel } : null
+  )
+  const [fields, setFields] = useState<string[]>(initialValues?.fields ?? ['Bio'])
+  const [language, setLanguage] = useState(initialValues?.language ?? 'en')
   const [requireReview, setRequireReview] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -505,12 +624,17 @@ function QueueEntityModal({ onClose, onQueued }: { onClose: () => void; onQueued
   const toggleField = (f: string) =>
     setFields(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
 
+  const onEntityTypeChange = (t: string) => {
+    setEntityType(t)
+    setPicked(null)
+  }
+
   const submit = async () => {
-    if (!entityId.trim()) { setError('Entity ID is required'); return }
+    if (!picked) { setError('Select an entity'); return }
     if (fields.length === 0) { setError('Select at least one field'); return }
     setBusy(true); setError(null)
     try {
-      await adminApi.queueSeoEntity({ entityType, entityId: entityId.trim(), fields, language, requireReview })
+      await adminApi.queueSeoEntity({ entityType, entityId: picked.id, fields, language, requireReview })
       onQueued()
     } catch (e) { setError(String(e)) }
     setBusy(false)
@@ -521,12 +645,12 @@ function QueueEntityModal({ onClose, onQueued }: { onClose: () => void; onQueued
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         {error && <div style={errBox}>{error}</div>}
         <Field label="Entity type">
-          <select value={entityType} onChange={e => setEntityType(e.target.value)} style={input}>
+          <select value={entityType} onChange={e => onEntityTypeChange(e.target.value)} style={input}>
             {ENTITY_TYPES.map(x => <option key={x} value={x}>{x}</option>)}
           </select>
         </Field>
-        <Field label="Entity ID (UUID)">
-          <input value={entityId} onChange={e => setEntityId(e.target.value)} placeholder="xxxxxxxx-…" style={input} />
+        <Field label="Entity">
+          <EntityPicker entityType={entityType} value={picked} onChange={setPicked} />
         </Field>
         <Field label="Fields to backfill">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.25rem' }}>
@@ -555,6 +679,126 @@ function QueueEntityModal({ onClose, onQueued }: { onClose: () => void; onQueued
         </div>
       </div>
     </Modal>
+  )
+}
+
+function EntityPicker({
+  entityType, value, onChange,
+}: {
+  entityType: string
+  value: PickedEntity | null
+  onChange: (v: PickedEntity | null) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PickedEntity[]>([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const debounceRef = useRef<number | null>(null)
+  const reqIdRef = useRef(0)
+
+  // Clear results when entity type changes (but keep selection — handled by parent)
+  useEffect(() => {
+    setQuery('')
+    setResults([])
+    setErr(null)
+    setOpen(false)
+  }, [entityType])
+
+  const runSearch = async (q: string) => {
+    const reqId = ++reqIdRef.current
+    setLoading(true)
+    setErr(null)
+    try {
+      let items: PickedEntity[] = []
+      if (entityType === 'Edition') {
+        const r = await adminApi.getEditions({ search: q || undefined, limit: 10 })
+        items = r.items.map(e => ({ id: e.id, label: `${e.title}${e.language ? ` (${e.language})` : ''}` }))
+      } else if (entityType === 'Author') {
+        const r = await adminApi.searchAuthors(DEFAULT_SITE_ID, q || undefined, 10)
+        items = r.map(a => ({ id: a.id, label: a.name }))
+      } else if (entityType === 'Genre') {
+        const r = await adminApi.searchGenres(DEFAULT_SITE_ID, q || undefined, 10)
+        items = r.map(g => ({ id: g.id, label: g.name }))
+      } else if (entityType === 'BlogPost') {
+        const r = await adminApi.getBlogPosts({ search: q || undefined, limit: 10 })
+        items = r.items.map(p => ({ id: p.id, label: `${p.title}${p.language ? ` (${p.language})` : ''}` }))
+      }
+      if (reqId === reqIdRef.current) setResults(items)
+    } catch (e) {
+      if (reqId === reqIdRef.current) setErr(String(e))
+    } finally {
+      if (reqId === reqIdRef.current) setLoading(false)
+    }
+  }
+
+  const onQueryChange = (q: string) => {
+    setQuery(q)
+    setOpen(true)
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    debounceRef.current = window.setTimeout(() => runSearch(q), 250)
+  }
+
+  const onFocus = () => {
+    setOpen(true)
+    if (results.length === 0 && !loading) runSearch(query)
+  }
+
+  if (value) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.5rem', border: '1px solid #ccc', borderRadius: 4, background: '#f9f9ff' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value.label}</div>
+          <div style={{ fontSize: 11, color: '#888', fontFamily: 'ui-monospace, monospace' }}>{value.id}</div>
+        </div>
+        <button
+          onClick={() => onChange(null)}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#888', fontSize: 18 }}
+          title="Clear"
+        >×</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={query}
+        onChange={e => onQueryChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        placeholder={`Search ${entityType.toLowerCase()}…`}
+        style={input}
+      />
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+          background: 'white', border: '1px solid #ccc', borderTop: 'none',
+          borderRadius: '0 0 4px 4px', maxHeight: 260, overflowY: 'auto',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        }}>
+          {loading && <div style={{ padding: '0.5rem', color: '#888', fontSize: 13 }}>Searching…</div>}
+          {err && <div style={{ padding: '0.5rem', color: '#c33', fontSize: 13 }}>{err}</div>}
+          {!loading && !err && results.length === 0 && (
+            <div style={{ padding: '0.5rem', color: '#888', fontSize: 13 }}>
+              {query ? 'No matches.' : 'Start typing to search.'}
+            </div>
+          )}
+          {results.map(r => (
+            <div
+              key={r.id}
+              onMouseDown={e => { e.preventDefault(); onChange(r); setOpen(false) }}
+              style={{ padding: '0.4rem 0.6rem', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontSize: 14 }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5ff')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+            >
+              <div>{r.label}</div>
+              <div style={{ fontSize: 11, color: '#888', fontFamily: 'ui-monospace, monospace' }}>{r.id}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
