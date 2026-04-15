@@ -7,8 +7,8 @@ import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
+import { useBubbleTranslationSync } from '../../hooks/useBubbleTranslationSync'
 import { updateWord } from '../../api/vocabulary'
-import { translate as translateApi } from '../../api/translation'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
@@ -94,12 +94,18 @@ export function ReaderHighlights({
   // selections fired by iOS tap-to-select / scroll-jitter / incidental taps.
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const STABILIZE_MS = 220
-  // Auto-save dedup: word keys that have an in-flight or completed save in this
-  // component instance. Prevents duplicate POST /me/vocabulary/words when two
-  // openBubble calls race (e.g. rapid re-tap before vocabMap re-renders).
-  const autoSavedRef = useRef<Set<string>>(new Set())
-  // Translation-patch dedup: one backend patch per (wordId, translation) pair.
-  const patchedTranslationRef = useRef<Set<string>>(new Set())
+
+  // Backend translation patch + mid-popup lang-switch refetch + auto-save dedup.
+  // Extracted hook — same shape is used in FocusReaderPage.
+  const { triggerAutoSave, clearAutoSave } = useBubbleTranslationSync({
+    bubble,
+    setBubble,
+    vocabMap,
+    updateTranslation,
+    targetLang,
+    bookLanguage,
+    abortRef: bubbleAbortRef,
+  })
 
   const closeBubble = useCallback(() => {
     if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
@@ -163,90 +169,10 @@ export function ReaderHighlights({
       patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
     })
 
-    // Auto-save. Guards: (1) already in vocab → user-delete flow; (2) already
-    // in-flight in this session → ref seals the race that vocabMap can't (state
-    // commit is async, so a second rapid tap would still see has(key)===false).
-    const key = normalizeVocabKey(word)
-    if (!vocabMap.has(key) && !autoSavedRef.current.has(key)) {
-      autoSavedRef.current.add(key)
-      handleSave(word, range).catch(() => {
-        autoSavedRef.current.delete(key)
-      })
-    }
-  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave])
-
-  // Translation patch after auto-save. `fetchWordBubble` captures vocabMap via
-  // closure at call time — BEFORE auto-save inserts the entry — so its built-in
-  // patch (wordBubbleFetch.ts:68-74) misses. We watch bubble.translation and apply
-  // the backend patch once per (id, translation) pair. Guest entries (isPending)
-  // are skipped: flushPendingIfAny reads mapRef translation at flush time.
-  useEffect(() => {
-    const word = bubble?.word
-    const translation = bubble?.translation
-    if (!word || !translation) return
-    const entry = vocabMap.get(normalizeVocabKey(word))
-    if (!entry?.id || entry.isPending) return
-    const patchKey = `${entry.id}:${translation}`
-    if (patchedTranslationRef.current.has(patchKey)) return
-    patchedTranslationRef.current.add(patchKey)
-    updateWord(entry.id, { translation }).catch(() => {})
-    updateTranslation(word, translation)
-  }, [bubble?.word, bubble?.translation, vocabMap, updateTranslation])
-
-  // Refetch translation when targetLang changes mid-popup (user opens lang picker
-  // in the popup and switches native language). openBubble fires the initial fetch
-  // — this effect handles every subsequent lang switch for the same word.
-  // Tracks (word, lang) pair so word changes (handled by openBubble) don't double-fetch.
-  const lastFetchedPairRef = useRef<string | null>(null)
-  useEffect(() => {
-    const word = bubble?.word
-    if (!word) {
-      lastFetchedPairRef.current = null
-      return
-    }
-    const pairKey = `${word}::${targetLang ?? ''}`
-    if (lastFetchedPairRef.current === null) {
-      // Initial open: openBubble already kicked off the fetch. Just record.
-      lastFetchedPairRef.current = pairKey
-      return
-    }
-    if (lastFetchedPairRef.current === pairKey) return
-
-    const [prevWord] = lastFetchedPairRef.current.split('::')
-    lastFetchedPairRef.current = pairKey
-    // Word changed → openBubble owns the fetch. Skip.
-    if (prevWord !== word) return
-
-    // Same word, lang flipped. Switched into definition mode (no targetLang) → clear translation.
-    if (!targetLang) {
-      setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: false } : prev)
-      return
-    }
-
-    // Refetch translation only — definition is language-independent (always in book lang).
-    bubbleAbortRef.current?.abort()
-    const ctrl = new AbortController()
-    bubbleAbortRef.current = ctrl
-    setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: true } : prev)
-    translateApi(word, bookLanguage, targetLang, ctrl.signal)
-      .then((res) => {
-        if (ctrl.signal.aborted) return
-        const translatedText = res?.translatedText ?? null
-        setBubble((prev) => prev && prev.word === word ? { ...prev, translation: translatedText, translationLoading: false } : prev)
-        if (translatedText) {
-          const existing = vocabMap.get(normalizeVocabKey(word))
-          if (existing?.id && !existing.isPending) {
-            updateWord(existing.id, { translation: translatedText }).catch(() => {})
-          }
-          if (existing) updateTranslation(word, translatedText)
-        }
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        if ((err as { name?: string })?.name === 'AbortError') return
-        setBubble((prev) => prev && prev.word === word ? { ...prev, translationLoading: false } : prev)
-      })
-  }, [bubble?.word, targetLang, bookLanguage, vocabMap, updateTranslation])
+    // Auto-save via shared dedup hook (sync ref seals race that vocabMap can't —
+    // state commit is async, a second rapid tap would see has(key)===false).
+    triggerAutoSave(word, () => handleSave(word, range))
+  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave, triggerAutoSave])
 
   // Trigger popup when selection narrows to 1 word — with a short stabilization window
   // so transient selections (iOS auto-select, scroll-tap jitter) don't flash the popup.
@@ -468,7 +394,7 @@ export function ReaderHighlights({
             onRemove={entry?.id ? () => {
               removeWord(entry.id!, bubble.word)
               // Clear dedup so a subsequent tap on the same word re-auto-saves.
-              autoSavedRef.current.delete(normalizeVocabKey(bubble.word))
+              clearAutoSave(bubble.word)
               closeBubble()
             } : undefined}
             onClose={closeBubble}

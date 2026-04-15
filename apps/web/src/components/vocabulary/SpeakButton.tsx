@@ -9,6 +9,7 @@ export function SpeakButton({ onClick, isPlaying, size = 16, className = '' }: S
   return (
     <button
       className={`speak-btn ${isPlaying ? 'speak-btn--playing' : ''} ${className}`}
+      onMouseDown={e => e.preventDefault()}
       onClick={e => { e.stopPropagation(); onClick() }}
       title="Listen"
       aria-label="Listen to pronunciation"

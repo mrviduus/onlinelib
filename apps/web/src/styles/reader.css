@@ -2009,9 +2009,12 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 }
 
 
-/* Vocab word underlines in reader */
+/* Vocab word underlines in reader.
+   Uses native text-decoration (not border-bottom) so the underline sits at
+   descender level with skip-ink — keeps letter shapes clean AND leaves a
+   predictable gap above for inline translations on the next line. */
 @keyframes vocab-underline-in {
-  from { border-bottom-color: transparent; }
+  from { text-decoration-color: transparent; }
 }
 
 .vocab-underline {
@@ -2019,26 +2022,29 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   border-radius: 0;
   padding: 0;
   color: inherit;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: border-color 0.2s;
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.2s;
   animation: vocab-underline-in 0.4s ease-out;
   position: relative;
 }
 .vocab-underline--new {
-  border-bottom-color: rgba(59, 130, 246, 0.5); /* blue */
+  text-decoration-color: rgba(59, 130, 246, 0.5); /* blue */
 }
 .vocab-underline--recognition {
-  border-bottom-color: rgba(234, 179, 8, 0.5); /* yellow */
+  text-decoration-color: rgba(234, 179, 8, 0.5); /* yellow */
 }
 .vocab-underline--recall {
-  border-bottom-color: rgba(234, 179, 8, 0.4);
+  text-decoration-color: rgba(234, 179, 8, 0.4);
 }
 .vocab-underline--context {
-  border-bottom-color: rgba(34, 197, 94, 0.4); /* green */
+  text-decoration-color: rgba(34, 197, 94, 0.4); /* green */
 }
 .vocab-underline--mastered {
-  border-bottom-color: rgba(34, 197, 94, 0.25); /* faint green */
+  text-decoration-color: rgba(34, 197, 94, 0.25); /* faint green */
 }
 
 @keyframes vocab-fade-in {
@@ -2046,10 +2052,14 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   to { opacity: 0.5; }
 }
 
+/* Inline translation above the word.
+   bottom: calc(100% + 4px) guarantees a real gap from the word's top, so it
+   can't visually collide with underlines / descenders of the line above even
+   at tight line-heights. */
 .vocab-inline-translation {
   position: absolute;
   left: 50%;
-  bottom: 100%;
+  bottom: calc(100% + 4px);
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: 0.5em;

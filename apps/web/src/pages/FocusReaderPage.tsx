@@ -9,10 +9,10 @@ import { useDictionary } from '../hooks/useDictionary'
 import { useReaderVocabulary } from '../hooks/useReaderVocabulary'
 import { useTts } from '../hooks/useTts'
 import { useTranslation } from '../hooks/useTranslation'
+import { useBubbleTranslationSync } from '../hooks/useBubbleTranslationSync'
 import { splitSentences, tokenizeWords } from '@textstack/shared'
 import { getUserBookChapter, getUserBook } from '../api/userBooks'
 import { updateWord as updateWordApi } from '../api/vocabulary'
-import { translate as translateApi } from '../api/translation'
 import { normalizeVocabKey, vocabStageClass } from '../lib/vocabKey'
 import { fetchWordBubble } from '../lib/wordBubbleFetch'
 import { WordPopup } from '../components/reader/WordPopup'
@@ -69,16 +69,24 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const bubbleAbortRef = useRef<AbortController | null>(null)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressOriginRef = useRef<{ x: number; y: number } | null>(null)
-  // Auto-save dedup: word keys with an in-flight or completed auto-save in this session.
-  const autoSavedRef = useRef<Set<string>>(new Set())
-  // Translation-patch dedup: one backend patch per (wordId, translation) pair.
-  const patchedTranslationRef = useRef<Set<string>>(new Set())
 
   const targetLang = bookLanguage !== nativeLanguage ? nativeLanguage : null
 
   // Shared services for the word popup
   const { lookup: lookupWord } = useDictionary()
   const { vocabMap, addWord, removeWord, updateTranslation } = useReaderVocabulary(bookLanguage, targetLang)
+
+  // Backend translation patch + mid-popup lang-switch refetch + auto-save dedup.
+  // Extracted hook — same shape is used in ReaderHighlights.
+  const { triggerAutoSave, clearAutoSave } = useBubbleTranslationSync({
+    bubble,
+    setBubble,
+    vocabMap,
+    updateTranslation,
+    targetLang,
+    bookLanguage,
+    abortRef: bubbleAbortRef,
+  })
   const { speak } = useTts()
   const handleSpeak = useCallback((word: string) => {
     speak(word, bookLanguage)
@@ -286,86 +294,13 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
       })
 
-      // Auto-save. Dedup via ref (synchronous) since vocabMap.has() reads stale
-      // state until re-render — rapid re-presses would otherwise double-save.
-      const key = normalizeVocabKey(word)
-      if (!vocabMap.has(key) && !autoSavedRef.current.has(key)) {
-        autoSavedRef.current.add(key)
-        handleSaveWord(word).catch(() => {
-          autoSavedRef.current.delete(key)
-        })
-      }
+      // Auto-save via shared dedup hook.
+      triggerAutoSave(word, () => handleSaveWord(word))
     },
-    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation, handleSaveWord],
+    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation, handleSaveWord, triggerAutoSave],
   )
 
-  // Translation patch after auto-save. fetchWordBubble's built-in patch
-  // (wordBubbleFetch.ts:68-74) captures vocabMap at call time — before auto-save
-  // inserts the entry — so it misses. Apply a dedicated patch once per (id, translation).
-  useEffect(() => {
-    const word = bubble?.word
-    const translation = bubble?.translation
-    if (!word || !translation) return
-    const entry = vocabMap.get(normalizeVocabKey(word))
-    if (!entry?.id || entry.isPending) return
-    const patchKey = `${entry.id}:${translation}`
-    if (patchedTranslationRef.current.has(patchKey)) return
-    patchedTranslationRef.current.add(patchKey)
-    updateWordApi(entry.id, { translation }).catch(() => {})
-    updateTranslation(word, translation)
-  }, [bubble?.word, bubble?.translation, vocabMap, updateTranslation])
-
-  // Refetch translation when targetLang changes mid-popup (user picks a new
-  // native language in the popup's lang picker). openWordBubble owns the initial
-  // fetch — this effect handles every subsequent lang switch for the same word.
-  // Tracks (word, lang) pair so word changes (handled by openWordBubble) don't double-fetch.
-  const lastFetchedPairRef = useRef<string | null>(null)
-  useEffect(() => {
-    const word = bubble?.word
-    if (!word) {
-      lastFetchedPairRef.current = null
-      return
-    }
-    const pairKey = `${word}::${targetLang ?? ''}`
-    if (lastFetchedPairRef.current === null) {
-      lastFetchedPairRef.current = pairKey
-      return
-    }
-    if (lastFetchedPairRef.current === pairKey) return
-
-    const [prevWord] = lastFetchedPairRef.current.split('::')
-    lastFetchedPairRef.current = pairKey
-    if (prevWord !== word) return  // word changed → openWordBubble owns the fetch
-
-    if (!targetLang) {
-      // Switched into definition mode — clear translation field.
-      setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: false } : prev)
-      return
-    }
-
-    bubbleAbortRef.current?.abort()
-    const ctrl = new AbortController()
-    bubbleAbortRef.current = ctrl
-    setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: true } : prev)
-    translateApi(word, bookLanguage, targetLang, ctrl.signal)
-      .then((res) => {
-        if (ctrl.signal.aborted) return
-        const translatedText = res?.translatedText ?? null
-        setBubble((prev) => prev && prev.word === word ? { ...prev, translation: translatedText, translationLoading: false } : prev)
-        if (translatedText) {
-          const existing = vocabMap.get(normalizeVocabKey(word))
-          if (existing?.id && !existing.isPending) {
-            updateWordApi(existing.id, { translation: translatedText }).catch(() => {})
-          }
-          if (existing) updateTranslation(word, translatedText)
-        }
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        if ((err as { name?: string })?.name === 'AbortError') return
-        setBubble((prev) => prev && prev.word === word ? { ...prev, translationLoading: false } : prev)
-      })
-  }, [bubble?.word, targetLang, bookLanguage, vocabMap, updateTranslation])
+  // Translation patch + mid-popup lang-switch refetch live in useBubbleTranslationSync.
 
   // Abort in-flight + pending press on unmount
   useEffect(() => () => {
@@ -523,7 +458,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           onSpeak={() => handleSpeak(bubble.word)}
           onRemove={vocabEntry?.id ? () => {
             removeWord(vocabEntry.id!, bubble.word)
-            autoSavedRef.current.delete(normalizeVocabKey(bubble.word))
+            clearAutoSave(bubble.word)
             closeBubble()
           } : undefined}
           onClose={closeBubble}
