@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import type { StoredHighlight } from '../../lib/offlineDb'
+import { useTranslation } from '../../hooks/useTranslation'
 
 interface NoteEditorProps {
   highlight: StoredHighlight
@@ -18,12 +19,14 @@ export function NoteEditor({
   onDelete,
   onClose,
 }: NoteEditorProps) {
+  const { t } = useTranslation()
   const editorRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [noteText, setNoteText] = useState(highlight.noteText ?? '')
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
-  useEffect(() => {
+  // useLayoutEffect: reposition before paint, no flash when editor mounts or rect changes.
+  useLayoutEffect(() => {
     if (!rect || !containerRef.current || !editorRef.current) {
       setPosition(null)
       return
@@ -125,9 +128,9 @@ export function NoteEditor({
         <button
           className="note-editor__close"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('reader.noteEditor.close')}
         >
-          x
+          ×
         </button>
       </div>
 
@@ -136,7 +139,7 @@ export function NoteEditor({
         className="note-editor__textarea"
         value={noteText}
         onChange={(e) => setNoteText(e.target.value)}
-        placeholder="Add a note..."
+        placeholder={t('reader.noteEditor.placeholder')}
         rows={4}
       />
 
@@ -144,16 +147,17 @@ export function NoteEditor({
         <button
           className="note-editor__delete"
           onClick={onDelete}
-          title="Delete highlight"
+          title={t('reader.noteEditor.deleteHighlight')}
+          aria-label={t('reader.noteEditor.deleteHighlight')}
         >
           <TrashIcon />
         </button>
         <div className="note-editor__actions">
           <button className="note-editor__cancel" onClick={onClose}>
-            Cancel
+            {t('reader.noteEditor.cancel')}
           </button>
           <button className="note-editor__save" onClick={handleSave}>
-            Save
+            {t('reader.noteEditor.save')}
           </button>
         </div>
       </div>

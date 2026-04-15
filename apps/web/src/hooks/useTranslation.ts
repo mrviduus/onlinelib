@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 import en from '../locales/en.json'
 import uk from '../locales/uk.json'
@@ -22,23 +23,25 @@ function getNestedValue(obj: unknown, path: string): unknown {
 export function useTranslation() {
   const { language } = useLanguage()
 
-  function t(key: string): string {
+  // useCallback bound to [language] so t/tArray identities are stable across
+  // renders and only change when the language actually changes. Without this,
+  // every render returns new fn identities and any consumer using them in
+  // useEffect/useCallback deps re-fires on every parent re-render.
+  const t = useCallback((key: string): string => {
     const value = getNestedValue(translations[language], key)
     if (typeof value === 'string') return value
-    // fallback to EN
     const fallback = getNestedValue(translations.en, key)
     if (typeof fallback === 'string') return fallback
     return key
-  }
+  }, [language])
 
-  function tArray(key: string): string[] {
+  const tArray = useCallback((key: string): string[] => {
     const value = getNestedValue(translations[language], key)
     if (Array.isArray(value)) return value as string[]
-    // fallback to EN
     const fallback = getNestedValue(translations.en, key)
     if (Array.isArray(fallback)) return fallback as string[]
     return []
-  }
+  }, [language])
 
   return { t, tArray, language }
 }

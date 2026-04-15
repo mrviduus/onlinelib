@@ -12,6 +12,7 @@ import { useTranslation } from '../hooks/useTranslation'
 import { splitSentences, tokenizeWords } from '@textstack/shared'
 import { getUserBookChapter, getUserBook } from '../api/userBooks'
 import { updateWord as updateWordApi } from '../api/vocabulary'
+import { translate as translateApi } from '../api/translation'
 import { normalizeVocabKey, vocabStageClass } from '../lib/vocabKey'
 import { fetchWordBubble } from '../lib/wordBubbleFetch'
 import { WordPopup } from '../components/reader/WordPopup'
@@ -68,6 +69,10 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
   const bubbleAbortRef = useRef<AbortController | null>(null)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressOriginRef = useRef<{ x: number; y: number } | null>(null)
+  // Auto-save dedup: word keys with an in-flight or completed auto-save in this session.
+  const autoSavedRef = useRef<Set<string>>(new Set())
+  // Translation-patch dedup: one backend patch per (wordId, translation) pair.
+  const patchedTranslationRef = useRef<Set<string>>(new Set())
 
   const targetLang = bookLanguage !== nativeLanguage ? nativeLanguage : null
 
@@ -228,8 +233,30 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [next, prev, exit])
 
-  // Long-press a word → open full WordPopup (translation + definition + TTS + vocab save).
-  // Toggle-off: long-pressing the same word that's already open closes the popup.
+  // Auto-save handler — fired from openWordBubble on every long-press (once per word).
+  // Translation may be null at call time; translation-patch effect below forwards it
+  // to the backend once fetchWordBubble resolves.
+  const handleSaveWord = useCallback(async (word: string) => {
+    const currentTranslation = bubble?.word === word ? bubble?.translation : null
+    const saved = await addWord({
+      word,
+      language: bookLanguage,
+      editionId: mode === 'public' ? (editionId || undefined) : undefined,
+      chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
+      userBookId: mode === 'userbook' ? (id || undefined) : undefined,
+      bookTitle: bookTitle || undefined,
+      nativeLanguage: targetLang || undefined,
+      translation: currentTranslation || null,
+    }).catch(() => null)
+    if (saved?.id && currentTranslation) {
+      updateWordApi(saved.id, { translation: currentTranslation }).catch(() => {})
+      updateTranslation(word, currentTranslation)
+    }
+  }, [addWord, bookLanguage, mode, editionId, chapterId, id, bookTitle, targetLang, updateTranslation, bubble?.word, bubble?.translation])
+
+  // Long-press a word → open full WordPopup (translation + definition + TTS).
+  // Also auto-saves the word to vocab (fire-and-forget). Long-pressing the same
+  // open word closes the popup (toggle-off).
   const openWordBubble = useCallback(
     (wordEl: HTMLElement, word: string) => {
       // Toggle off if same word is currently shown
@@ -258,28 +285,87 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
         signal: ctrl.signal,
         patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
       })
+
+      // Auto-save. Dedup via ref (synchronous) since vocabMap.has() reads stale
+      // state until re-render — rapid re-presses would otherwise double-save.
+      const key = normalizeVocabKey(word)
+      if (!vocabMap.has(key) && !autoSavedRef.current.has(key)) {
+        autoSavedRef.current.add(key)
+        handleSaveWord(word).catch(() => {
+          autoSavedRef.current.delete(key)
+        })
+      }
     },
-    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation],
+    [bubble?.word, closeBubble, bookLanguage, targetLang, lookupWord, vocabMap, updateTranslation, handleSaveWord],
   )
 
-  // Explicit save handler — called from WordPopup on Save click.
-  const handleSaveWord = useCallback(async (word: string) => {
-    const currentTranslation = bubble?.word === word ? bubble?.translation : null
-    const saved = await addWord({
-      word,
-      language: bookLanguage,
-      editionId: mode === 'public' ? (editionId || undefined) : undefined,
-      chapterId: mode === 'public' ? (chapterId || undefined) : undefined,
-      userBookId: mode === 'userbook' ? (id || undefined) : undefined,
-      bookTitle: bookTitle || undefined,
-      nativeLanguage: targetLang || undefined,
-      translation: currentTranslation || null,
-    }).catch(() => null)
-    if (saved?.id && currentTranslation) {
-      updateWordApi(saved.id, { translation: currentTranslation }).catch(() => {})
-      updateTranslation(word, currentTranslation)
+  // Translation patch after auto-save. fetchWordBubble's built-in patch
+  // (wordBubbleFetch.ts:68-74) captures vocabMap at call time — before auto-save
+  // inserts the entry — so it misses. Apply a dedicated patch once per (id, translation).
+  useEffect(() => {
+    const word = bubble?.word
+    const translation = bubble?.translation
+    if (!word || !translation) return
+    const entry = vocabMap.get(normalizeVocabKey(word))
+    if (!entry?.id || entry.isPending) return
+    const patchKey = `${entry.id}:${translation}`
+    if (patchedTranslationRef.current.has(patchKey)) return
+    patchedTranslationRef.current.add(patchKey)
+    updateWordApi(entry.id, { translation }).catch(() => {})
+    updateTranslation(word, translation)
+  }, [bubble?.word, bubble?.translation, vocabMap, updateTranslation])
+
+  // Refetch translation when targetLang changes mid-popup (user picks a new
+  // native language in the popup's lang picker). openWordBubble owns the initial
+  // fetch — this effect handles every subsequent lang switch for the same word.
+  // Tracks (word, lang) pair so word changes (handled by openWordBubble) don't double-fetch.
+  const lastFetchedPairRef = useRef<string | null>(null)
+  useEffect(() => {
+    const word = bubble?.word
+    if (!word) {
+      lastFetchedPairRef.current = null
+      return
     }
-  }, [addWord, bookLanguage, mode, editionId, chapterId, id, bookTitle, targetLang, updateTranslation, bubble?.word, bubble?.translation])
+    const pairKey = `${word}::${targetLang ?? ''}`
+    if (lastFetchedPairRef.current === null) {
+      lastFetchedPairRef.current = pairKey
+      return
+    }
+    if (lastFetchedPairRef.current === pairKey) return
+
+    const [prevWord] = lastFetchedPairRef.current.split('::')
+    lastFetchedPairRef.current = pairKey
+    if (prevWord !== word) return  // word changed → openWordBubble owns the fetch
+
+    if (!targetLang) {
+      // Switched into definition mode — clear translation field.
+      setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: false } : prev)
+      return
+    }
+
+    bubbleAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    bubbleAbortRef.current = ctrl
+    setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: true } : prev)
+    translateApi(word, bookLanguage, targetLang, ctrl.signal)
+      .then((res) => {
+        if (ctrl.signal.aborted) return
+        const translatedText = res?.translatedText ?? null
+        setBubble((prev) => prev && prev.word === word ? { ...prev, translation: translatedText, translationLoading: false } : prev)
+        if (translatedText) {
+          const existing = vocabMap.get(normalizeVocabKey(word))
+          if (existing?.id && !existing.isPending) {
+            updateWordApi(existing.id, { translation: translatedText }).catch(() => {})
+          }
+          if (existing) updateTranslation(word, translatedText)
+        }
+      })
+      .catch((err) => {
+        if (ctrl.signal.aborted) return
+        if ((err as { name?: string })?.name === 'AbortError') return
+        setBubble((prev) => prev && prev.word === word ? { ...prev, translationLoading: false } : prev)
+      })
+  }, [bubble?.word, targetLang, bookLanguage, vocabMap, updateTranslation])
 
   // Abort in-flight + pending press on unmount
   useEffect(() => () => {
@@ -435,8 +521,11 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
           rect={bubble.rect}
           containerRef={sentenceRef}
           onSpeak={() => handleSpeak(bubble.word)}
-          onSave={!vocabEntry ? () => handleSaveWord(bubble.word) : undefined}
-          onRemove={vocabEntry?.id ? () => { removeWord(vocabEntry.id!, bubble.word); closeBubble() } : undefined}
+          onRemove={vocabEntry?.id ? () => {
+            removeWord(vocabEntry.id!, bubble.word)
+            autoSavedRef.current.delete(normalizeVocabKey(bubble.word))
+            closeBubble()
+          } : undefined}
           onClose={closeBubble}
           isSaved={!!vocabEntry}
           nativeLanguage={nativeLanguage}

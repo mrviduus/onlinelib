@@ -1,10 +1,30 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
 import { getFlagUrl } from '../../context/NativeLanguageContext'
 import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage } from '../../data/languages'
 
-const AUTO_DISMISS_MS = 3000
+const AUTO_DISMISS_MS_MIN = 3000
+const AUTO_DISMISS_MS_MAX = 8000
+const AUTO_DISMISS_MS_PER_WORD = 350  // L2-reader pace, ~170 wpm
 const EXIT_DURATION_MS = 150
+
+// CJK (Hiragana, Katakana, CJK Unified, Hangul) — spaceless scripts where each
+// glyph carries ~word-level info. Counted as individual reading units so
+// Chinese/Japanese/Korean translations aren't flattened to 1 word.
+const CJK_RE = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/g
+
+// Scale dismiss timer to content length so a 16-word definition gets more
+// read-time than a 1-word translation. Min 3s (short content), max 8s (don't
+// keep popup open forever — user can always tap to extend).
+function computeDismissMs(translation: string | null, definition: string | null): number {
+  const text = `${translation ?? ''} ${definition ?? ''}`.trim()
+  if (!text) return AUTO_DISMISS_MS_MIN
+  const cjkChars = (text.match(CJK_RE) || []).length
+  const nonCjk = text.replace(CJK_RE, ' ')
+  const words = nonCjk.split(/\s+/).filter(Boolean).length
+  const units = words + cjkChars
+  return Math.min(AUTO_DISMISS_MS_MAX, Math.max(AUTO_DISMISS_MS_MIN, units * AUTO_DISMISS_MS_PER_WORD))
+}
 
 interface WordPopupProps {
   word: string
@@ -16,7 +36,6 @@ interface WordPopupProps {
   rect: DOMRect | null
   containerRef: React.RefObject<HTMLElement | null>
   onSpeak: () => void
-  onSave?: () => void | Promise<void>
   onRemove?: () => void
   onClose: () => void
   isSaved: boolean
@@ -36,7 +55,6 @@ export function WordPopup({
   rect,
   containerRef,
   onSpeak,
-  onSave,
   onRemove,
   onClose,
   isSaved,
@@ -51,7 +69,6 @@ export function WordPopup({
   const [showLangPicker, setShowLangPicker] = useState(false)
   const [langQuery, setLangQuery] = useState('')
   const [closing, setClosing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -75,18 +92,15 @@ export function WordPopup({
     exitTimerRef.current = setTimeout(onClose, EXIT_DURATION_MS)
   }, [onClose, closing])
 
-  // Reset closing state on new word. Also cancel any pending exit timer from a previous
-  // close — otherwise it fires 150ms later on the NEW popup and unmounts it (re-tap glitch).
+  // Reset closing state on new word OR new rect (same word re-tapped elsewhere).
+  // Cancel any pending exit timer from a previous close — otherwise it fires 150ms
+  // later on the NEW popup and unmounts it (re-tap glitch). Keying on rect too
+  // catches same-word re-taps during the 150ms close animation.
   useEffect(() => {
     clearTimeout(exitTimerRef.current)
     setClosing(false)
-    setIsSaving(false)
-  }, [word])
+  }, [word, rect])
 
-  // Flip isSaving off when parent confirms save (isSaved becomes true).
-  useEffect(() => {
-    if (isSaved) setIsSaving(false)
-  }, [isSaved])
   useEffect(() => () => {
     clearTimeout(exitTimerRef.current)
     clearTimeout(dismissTimerRef.current)
@@ -98,29 +112,54 @@ export function WordPopup({
 
   const scheduleAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
-    dismissTimerRef.current = setTimeout(animatedClose, AUTO_DISMISS_MS)
-  }, [animatedClose])
+    const ms = computeDismissMs(translation, definition)
+    dismissTimerRef.current = setTimeout(animatedClose, ms)
+  }, [animatedClose, translation, definition])
 
-  // Start auto-dismiss timer on open / word change
+  // Start auto-dismiss timer on open / word change / same-word re-tap at new rect.
+  // Keying on rect ensures re-tapping the same word restarts the timer — otherwise
+  // the old timer (maybe about to fire) closes the popup right after the user re-engages.
   useEffect(() => {
     scheduleAutoDismiss()
     return () => clearTimeout(dismissTimerRef.current)
-  }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, rect]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cancel auto-dismiss when lang picker is open + autofocus search
+  // Cancel auto-dismiss when lang picker is open + autofocus search.
+  // On close: clear query AND resume auto-dismiss — otherwise toggling the
+  // "Change" button to close the picker leaves the popup stuck open forever.
+  const didMountRef = useRef(false)
   useEffect(() => {
     if (showLangPicker) {
       cancelAutoDismiss()
       setTimeout(() => searchInputRef.current?.focus(), 0)
     } else {
       setLangQuery('')
+      if (didMountRef.current) scheduleAutoDismiss()
     }
-  }, [showLangPicker, cancelAutoDismiss])
+    didMountRef.current = true
+  }, [showLangPicker, cancelAutoDismiss, scheduleAutoDismiss])
+
+  // Restart auto-dismiss when translation finishes loading. Without this, the
+  // 3s timer scheduled at popup-open / lang-pick can fire BEFORE a slow
+  // translation arrives — user sees the popup vanish just as the result lands.
+  // Reset gives them a fresh 3s window from the moment the translation appears.
+  // Also covers definition: if dictionary lookup is the slow one, same logic applies.
+  const wasLoadingRef = useRef(false)
+  useEffect(() => {
+    const loading = translationLoading || definitionLoading
+    if (wasLoadingRef.current && !loading) {
+      scheduleAutoDismiss()
+    }
+    wasLoadingRef.current = loading
+  }, [translationLoading, definitionLoading, scheduleAutoDismiss])
 
   // Position popup relative to word rect.
+  // useLayoutEffect (not useEffect) so repositioning happens synchronously
+  // before paint — otherwise content changes (translation arriving, lang picker
+  // opening) cause a visible flash at the old position with new dimensions.
   // Skip while closing — re-positioning a fading popup causes visual jitter, especially
   // when async data (translation/definition) arrives mid-exit.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (closing) return
     if (!rect || !containerRef.current || !popupRef.current) {
       setPosition(null)
@@ -161,14 +200,21 @@ export function WordPopup({
     return () => document.removeEventListener('mousedown', handleMouseDown)
   }, [animatedClose])
 
-  // Close on Escape
+  // Close on Escape — but if lang picker is open, close that first. Native
+  // listeners run regardless of React's preventDefault on synthetic events,
+  // so the picker's input handler alone can't stop the popup from closing.
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') animatedClose()
+      if (e.key !== 'Escape') return
+      if (showLangPicker) {
+        setShowLangPicker(false)
+      } else {
+        animatedClose()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [animatedClose])
+  }, [animatedClose, showLangPicker])
 
   if (!rect) return null
 
@@ -200,20 +246,23 @@ export function WordPopup({
           className="word-popup__close"
           onClick={animatedClose}
           onMouseDown={(e) => e.preventDefault()}
-          aria-label="Close"
+          aria-label={t('reader.wordPopup.close')}
         >
           ×
         </button>
       </div>
 
-      {/* Translation - primary content */}
-      <div className="word-popup__translation">
-        {translationLoading ? (
-          <span className="word-popup__loading">{t('reader.wordPopup.loading')}</span>
-        ) : translation ? (
-          translation
-        ) : null}
-      </div>
+      {/* Translation - primary content. Skip entirely in same-language mode
+         (translation null + not loading) to avoid empty div with CSS padding. */}
+      {(translationLoading || translation) && (
+        <div className="word-popup__translation">
+          {translationLoading ? (
+            <span className="word-popup__loading">{t('reader.wordPopup.loading')}</span>
+          ) : (
+            translation
+          )}
+        </div>
+      )}
 
       {/* Definition - secondary, async */}
       {(definitionLoading || definition) && (
@@ -228,43 +277,16 @@ export function WordPopup({
 
       <div className="word-popup__actions">
         <SpeakButton onClick={onSpeak} size={16} />
-        {isSaved ? (
-          onRemove && (
-            <button
-              className="word-popup__btn word-popup__btn--remove"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onRemove}
-              aria-label={t('reader.wordPopup.remove')}
-            >
-              <span className="material-icons-outlined word-popup__btn-icon">delete_outline</span>
-              {t('reader.wordPopup.remove')}
-            </button>
-          )
-        ) : (
-          onSave && (
-            <button
-              className="word-popup__btn word-popup__btn--save"
-              onMouseDown={(e) => e.preventDefault()}
-              disabled={isSaving}
-              onClick={async () => {
-                if (isSaving) return
-                setIsSaving(true)
-                try {
-                  await onSave()
-                  // Smooth dismiss shortly after success — user sees Save→Remove swap briefly.
-                  clearTimeout(dismissTimerRef.current)
-                  dismissTimerRef.current = setTimeout(animatedClose, 700)
-                } catch {
-                  // Reset on failure so user can retry; otherwise stuck "Saving..."
-                  setIsSaving(false)
-                }
-              }}
-              aria-label={t('reader.wordPopup.save')}
-            >
-              <span className="material-icons-outlined word-popup__btn-icon">add</span>
-              {isSaving ? t('reader.wordPopup.saving') : t('reader.wordPopup.save')}
-            </button>
-          )
+        {isSaved && onRemove && (
+          <button
+            className="word-popup__btn word-popup__btn--remove"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onRemove}
+            aria-label={t('reader.wordPopup.remove')}
+          >
+            <span className="material-icons-outlined word-popup__btn-icon" aria-hidden="true">delete_outline</span>
+            {t('reader.wordPopup.remove')}
+          </button>
         )}
       </div>
 
@@ -310,8 +332,11 @@ export function WordPopup({
                   scheduleAutoDismiss()
                 } else if (e.key === 'Enter') {
                   e.preventDefault()
-                  const list = filteredLangs ?? LANGUAGES.filter(l => l.code !== nativeLanguage)
-                  const first = list[0]
+                  // Only select on Enter when the user typed a query — otherwise a
+                  // bare Enter picks an arbitrary first language and silently
+                  // changes the user's native language.
+                  if (!filteredLangs) return
+                  const first = filteredLangs[0]
                   if (first) {
                     onChangeNativeLanguage(first.code)
                     setShowLangPicker(false)
@@ -326,7 +351,7 @@ export function WordPopup({
             <div className="word-popup__lang-list">
               {filteredLangs ? (
                 filteredLangs.length === 0 ? (
-                  <div className="word-popup__lang-empty">No results</div>
+                  <div className="word-popup__lang-empty">{t('reader.wordPopup.noResults') || 'No results'}</div>
                 ) : (
                   filteredLangs.map((l) => (
                     <button
@@ -349,7 +374,7 @@ export function WordPopup({
                 )
               ) : (
                 <>
-                  <div className="word-popup__lang-section">Popular</div>
+                  <div className="word-popup__lang-section">{t('reader.wordPopup.popularLanguages')}</div>
                   {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
                     <button
                       key={l.code}
@@ -368,7 +393,7 @@ export function WordPopup({
                       )}
                     </button>
                   ))}
-                  <div className="word-popup__lang-section">All languages</div>
+                  <div className="word-popup__lang-section">{t('reader.wordPopup.allLanguages')}</div>
                   {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
                     <button
                       key={l.code}

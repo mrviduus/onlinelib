@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { LanguageInfo } from '../../api/translation'
 import { SpeakButton } from '../vocabulary/SpeakButton'
+import { useTranslation } from '../../hooks/useTranslation'
 
 interface TranslationPopupProps {
   text: string
@@ -33,10 +34,12 @@ export function TranslationPopup({
   onSpeak,
   onClose,
 }: TranslationPopupProps) {
+  const { t } = useTranslation()
   const popupRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
-  useEffect(() => {
+  // useLayoutEffect: reposition before paint, no flash when translation arrives.
+  useLayoutEffect(() => {
     if (!rect || !containerRef.current || !popupRef.current) {
       setPosition(null)
       return
@@ -134,7 +137,7 @@ export function TranslationPopup({
         <button
           className="translation-popup__close"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('reader.wordPopup.close')}
         >
           ×
         </button>

@@ -8,6 +8,7 @@ import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
 import { updateWord } from '../../api/vocabulary'
+import { translate as translateApi } from '../../api/translation'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
@@ -93,6 +94,12 @@ export function ReaderHighlights({
   // selections fired by iOS tap-to-select / scroll-jitter / incidental taps.
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const STABILIZE_MS = 220
+  // Auto-save dedup: word keys that have an in-flight or completed save in this
+  // component instance. Prevents duplicate POST /me/vocabulary/words when two
+  // openBubble calls race (e.g. rapid re-tap before vocabMap re-renders).
+  const autoSavedRef = useRef<Set<string>>(new Set())
+  // Translation-patch dedup: one backend patch per (wordId, translation) pair.
+  const patchedTranslationRef = useRef<Set<string>>(new Set())
 
   const closeBubble = useCallback(() => {
     if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
@@ -103,34 +110,10 @@ export function ReaderHighlights({
     clearSelection()
   }, [clearSelection])
 
-  // Popup creation, extracted so the scheduling effect has tight deps and doesn't
-  // re-fire on translation/definition arrival. Save is now EXPLICIT — only fetches
-  // translation + dictionary; `handleSave` is invoked from WordPopup on user click.
-  const openBubble = useCallback((word: string, rect: DOMRect, range: Range | null) => {
-    bubbleAbortRef.current?.abort()
-    const ctrl = new AbortController()
-    bubbleAbortRef.current = ctrl
-    setBubble({
-      word,
-      translation: null,
-      translationLoading: !!targetLang,
-      phonetic: undefined,
-      definition: null,
-      definitionLoading: true,
-      rect,
-      range,
-    })
-    fetchWordBubble({
-      word, bookLanguage, targetLang,
-      lookup: lookupWord, vocabMap, updateTranslation,
-      signal: ctrl.signal,
-      patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
-    })
-  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord])
-
-  // Explicit save: invoked from WordPopup when user clicks Save. Captures sentence
-  // from the range stored on the bubble at tap time (may be stale if selection was
-  // cleared, but vocab save doesn't require a live range).
+  // Auto-save: invoked from openBubble on every word tap (unless the word is
+  // already saved or a save is in-flight). Captures sentence from the live range
+  // at tap time. Translation may be null at this point — `fetchWordBubble` resolves
+  // it async, and the translation-patch effect below forwards it to the backend.
   const handleSave = useCallback(async (word: string, range: Range | null) => {
     const container = containerRef.current
     const sentence = range && container ? extractSentence(range, container) : undefined
@@ -156,13 +139,126 @@ export function ReaderHighlights({
     bubble?.word, bubble?.translation,
   ])
 
+  // Popup creation, extracted so the scheduling effect has tight deps and doesn't
+  // re-fire on translation/definition arrival. Also fires auto-save for the tapped
+  // word (fire-and-forget) so the user doesn't need an explicit Save click.
+  const openBubble = useCallback((word: string, rect: DOMRect, range: Range | null) => {
+    bubbleAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    bubbleAbortRef.current = ctrl
+    setBubble({
+      word,
+      translation: null,
+      translationLoading: !!targetLang,
+      phonetic: undefined,
+      definition: null,
+      definitionLoading: true,
+      rect,
+      range,
+    })
+    fetchWordBubble({
+      word, bookLanguage, targetLang,
+      lookup: lookupWord, vocabMap, updateTranslation,
+      signal: ctrl.signal,
+      patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
+    })
+
+    // Auto-save. Guards: (1) already in vocab → user-delete flow; (2) already
+    // in-flight in this session → ref seals the race that vocabMap can't (state
+    // commit is async, so a second rapid tap would still see has(key)===false).
+    const key = normalizeVocabKey(word)
+    if (!vocabMap.has(key) && !autoSavedRef.current.has(key)) {
+      autoSavedRef.current.add(key)
+      handleSave(word, range).catch(() => {
+        autoSavedRef.current.delete(key)
+      })
+    }
+  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave])
+
+  // Translation patch after auto-save. `fetchWordBubble` captures vocabMap via
+  // closure at call time — BEFORE auto-save inserts the entry — so its built-in
+  // patch (wordBubbleFetch.ts:68-74) misses. We watch bubble.translation and apply
+  // the backend patch once per (id, translation) pair. Guest entries (isPending)
+  // are skipped: flushPendingIfAny reads mapRef translation at flush time.
+  useEffect(() => {
+    const word = bubble?.word
+    const translation = bubble?.translation
+    if (!word || !translation) return
+    const entry = vocabMap.get(normalizeVocabKey(word))
+    if (!entry?.id || entry.isPending) return
+    const patchKey = `${entry.id}:${translation}`
+    if (patchedTranslationRef.current.has(patchKey)) return
+    patchedTranslationRef.current.add(patchKey)
+    updateWord(entry.id, { translation }).catch(() => {})
+    updateTranslation(word, translation)
+  }, [bubble?.word, bubble?.translation, vocabMap, updateTranslation])
+
+  // Refetch translation when targetLang changes mid-popup (user opens lang picker
+  // in the popup and switches native language). openBubble fires the initial fetch
+  // — this effect handles every subsequent lang switch for the same word.
+  // Tracks (word, lang) pair so word changes (handled by openBubble) don't double-fetch.
+  const lastFetchedPairRef = useRef<string | null>(null)
+  useEffect(() => {
+    const word = bubble?.word
+    if (!word) {
+      lastFetchedPairRef.current = null
+      return
+    }
+    const pairKey = `${word}::${targetLang ?? ''}`
+    if (lastFetchedPairRef.current === null) {
+      // Initial open: openBubble already kicked off the fetch. Just record.
+      lastFetchedPairRef.current = pairKey
+      return
+    }
+    if (lastFetchedPairRef.current === pairKey) return
+
+    const [prevWord] = lastFetchedPairRef.current.split('::')
+    lastFetchedPairRef.current = pairKey
+    // Word changed → openBubble owns the fetch. Skip.
+    if (prevWord !== word) return
+
+    // Same word, lang flipped. Switched into definition mode (no targetLang) → clear translation.
+    if (!targetLang) {
+      setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: false } : prev)
+      return
+    }
+
+    // Refetch translation only — definition is language-independent (always in book lang).
+    bubbleAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    bubbleAbortRef.current = ctrl
+    setBubble((prev) => prev && prev.word === word ? { ...prev, translation: null, translationLoading: true } : prev)
+    translateApi(word, bookLanguage, targetLang, ctrl.signal)
+      .then((res) => {
+        if (ctrl.signal.aborted) return
+        const translatedText = res?.translatedText ?? null
+        setBubble((prev) => prev && prev.word === word ? { ...prev, translation: translatedText, translationLoading: false } : prev)
+        if (translatedText) {
+          const existing = vocabMap.get(normalizeVocabKey(word))
+          if (existing?.id && !existing.isPending) {
+            updateWord(existing.id, { translation: translatedText }).catch(() => {})
+          }
+          if (existing) updateTranslation(word, translatedText)
+        }
+      })
+      .catch((err) => {
+        if (ctrl.signal.aborted) return
+        if ((err as { name?: string })?.name === 'AbortError') return
+        setBubble((prev) => prev && prev.word === word ? { ...prev, translationLoading: false } : prev)
+      })
+  }, [bubble?.word, targetLang, bookLanguage, vocabMap, updateTranslation])
+
   // Trigger popup when selection narrows to 1 word — with a short stabilization window
   // so transient selections (iOS auto-select, scroll-tap jitter) don't flash the popup.
   useEffect(() => {
     if (!isSingleWord || !selection.rect || !selection.text) {
-      // Selection cleared or grew → cancel any pending open + drop existing popup.
+      // Cancel any pending open.
       if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
-      if (!isSingleWord) {
+      // Drop bubble ONLY when selection grew to multi-word (toolbar takes over).
+      // Empty selection must NOT close the popup: clicking a button inside the
+      // popup natively clears the document selection — we'd kill our own popup.
+      // Click-outside-popup is handled by WordPopup's own listener.
+      if (hasSelection && !isSingleWord) {
         bubbleAbortRef.current?.abort()
         setBubble(null)
       }
@@ -191,7 +287,7 @@ export function ReaderHighlights({
     return () => {
       if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
     }
-  }, [isSingleWord, selection.text, selection.rect, selection.range, bubble?.word, openBubble])
+  }, [isSingleWord, hasSelection, selection.text, selection.rect, selection.range, bubble?.word, openBubble])
 
   // Clean abort + pending open timer on unmount
   useEffect(() => () => {
@@ -350,8 +446,12 @@ export function ReaderHighlights({
         />
       )}
 
-      {/* Single-word selection → WordPopup (phonetic, translation, definition, Save/Remove) */}
-      {bubble && isSingleWord && !showTranslation && (() => {
+      {/* Single-word selection → WordPopup (phonetic, translation, definition, Remove). Save is automatic. */}
+      {/* NOT gated on isSingleWord: clicking buttons inside the popup natively
+          clears the document selection — keeping the popup mounted lets the user
+          interact with it (lang picker, etc). Close paths: WordPopup's own
+          click-outside / Escape / × / auto-dismiss, or selection growing to multi-word. */}
+      {bubble && !showTranslation && (() => {
         const entry = vocabMap.get(normalizeVocabKey(bubble.word))
         const isSaved = !!entry
         return (
@@ -365,8 +465,12 @@ export function ReaderHighlights({
             rect={bubble.rect}
             containerRef={containerRef}
             onSpeak={() => handleSpeak(bubble.word)}
-            onSave={!isSaved ? () => handleSave(bubble.word, bubble.range) : undefined}
-            onRemove={entry?.id ? () => { removeWord(entry.id!, bubble.word); closeBubble() } : undefined}
+            onRemove={entry?.id ? () => {
+              removeWord(entry.id!, bubble.word)
+              // Clear dedup so a subsequent tap on the same word re-auto-saves.
+              autoSavedRef.current.delete(normalizeVocabKey(bubble.word))
+              closeBubble()
+            } : undefined}
             onClose={closeBubble}
             isSaved={isSaved}
             nativeLanguage={nativeLanguage}
