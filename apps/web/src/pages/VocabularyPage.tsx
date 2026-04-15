@@ -212,20 +212,32 @@ export function VocabularyPage() {
 
   const bannerContent = () => {
     if (!stats) return null
-    if (totalWords === 0) return { title: 'Start building your vocabulary', subtitle: 'Save words while reading to practice them here.' }
-    if (stats.reviewedToday > 0) {
-      const sub = dueCount === 0 ? 'Practice more to strengthen memory.'
-        : stats.correctRateToday >= 80 ? 'Great accuracy!' : 'Every review counts!'
-      return { title: `You've Reviewed ${stats.reviewedToday} Words Today!`, subtitle: sub }
+    if (totalWords === 0) return {
+      title: t('vocabulary.banner.emptyTitle'),
+      subtitle: t('vocabulary.banner.emptySubtitle'),
     }
-    if (dueCount > 0) return { title: `${dueCount} words waiting for review`, subtitle: 'Keep your streak going!' }
-    return { title: 'Ready to practice!', subtitle: 'Strengthen your vocabulary by reviewing words.' }
+    if (stats.reviewedToday > 0) {
+      const sub = dueCount === 0 ? t('vocabulary.banner.todayMore')
+        : stats.correctRateToday >= 80 ? t('vocabulary.banner.todayStrong') : t('vocabulary.banner.todayEveryReview')
+      return {
+        title: t('vocabulary.banner.todayTitle').replace('{n}', String(stats.reviewedToday)),
+        subtitle: sub,
+      }
+    }
+    if (dueCount > 0) return {
+      title: t('vocabulary.banner.dueWaiting').replace('{n}', String(dueCount)),
+      subtitle: t('vocabulary.banner.keepStreak'),
+    }
+    return {
+      title: t('vocabulary.banner.readyTitle'),
+      subtitle: t('vocabulary.banner.readySubtitle'),
+    }
   }
 
   const practiceLabel = () => {
     const label = t('vocabulary.startPractice')
     const count = dueCount > 0 ? Math.min(batchSize, dueCount) : totalWords > 0 ? Math.min(batchSize, totalWords) : 0
-    return count > 0 ? `${label} (${count} words)` : label
+    return count > 0 ? `${label} (${count} ${t('vocabulary.practice.wordsUnit')})` : label
   }
 
   const banner = bannerContent()
@@ -251,7 +263,7 @@ export function VocabularyPage() {
             {stats && stats.streak > 0 && (
               <div className="practice-page__banner-streak">
                 <span className="practice-page__banner-streak-num">{stats.streak}</span>
-                <span className="practice-page__banner-streak-label">day streak</span>
+                <span className="practice-page__banner-streak-label">{t('vocabulary.banner.dayStreak')}</span>
               </div>
             )}
           </div>
@@ -262,7 +274,7 @@ export function VocabularyPage() {
           <div className="practice-page__card">
             <div className="practice-page__settings">
               <div className="practice-page__setting">
-                <span className="practice-page__setting-label">Mode</span>
+                <span className="practice-page__setting-label">{t('vocabulary.practice.mode')}</span>
                 <div className="vocab-mode-toggle">
                   {(['classic', 'blitz'] as ReviewMode[]).map(m => (
                     <button
@@ -270,13 +282,13 @@ export function VocabularyPage() {
                       className={`vocab-mode-toggle__btn ${reviewMode === m ? 'vocab-mode-toggle__btn--active' : ''}`}
                       onClick={() => handleModeChange(m)}
                     >
-                      {m === 'blitz' ? 'Blitz' : 'Flashcards'}
+                      {m === 'blitz' ? t('vocabulary.practice.blitz') : t('vocabulary.practice.flashcards')}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="practice-page__setting">
-                <span className="practice-page__setting-label">Length</span>
+                <span className="practice-page__setting-label">{t('vocabulary.practice.length')}</span>
                 <div className="review-summary__batch-row">
                   {REVIEW_BATCH_SIZES.map(n => (
                     <button
@@ -284,7 +296,7 @@ export function VocabularyPage() {
                       className={`review-summary__batch-chip ${batchSize === n ? 'review-summary__batch-chip--active' : ''}`}
                       onClick={() => handleBatchChange(n)}
                     >
-                      {n} words
+                      {n} {t('vocabulary.practice.wordsUnit')}
                     </button>
                   ))}
                 </div>
@@ -303,7 +315,7 @@ export function VocabularyPage() {
         {/* Weekly activity — area chart (from Practice) */}
         {isAuthenticated && stats && totalWords > 0 && dailyStats.length > 0 && (
           <div className="practice-page__section">
-            <h3 className="practice-page__section-title">Practice Every Day</h3>
+            <h3 className="practice-page__section-title">{t('vocabulary.chart.title')}</h3>
             <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -314,8 +326,8 @@ export function VocabularyPage() {
                     contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 13 }}
                     labelStyle={{ color: 'var(--color-text)', fontWeight: 600 }}
                   />
-                  <Area type="monotone" dataKey="reviewed" name="Reviewed" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: '#60a5fa' }} />
-                  <Area type="monotone" dataKey="added" name="Added" stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
+                  <Area type="monotone" dataKey="reviewed" name={t('vocabulary.chart.reviewed')} stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: '#60a5fa' }} />
+                  <Area type="monotone" dataKey="added" name={t('vocabulary.chart.added')} stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

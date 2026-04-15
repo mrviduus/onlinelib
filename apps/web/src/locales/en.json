@@ -524,6 +524,31 @@
       "nextDue": "Next due"
     },
     "fromBook": "from {title}",
+    "banner": {
+      "emptyTitle": "Start building your vocabulary",
+      "emptySubtitle": "Save words while reading to practice them here.",
+      "todayTitle": "You've reviewed {n} words today!",
+      "todayStrong": "Great accuracy!",
+      "todayEveryReview": "Every review counts!",
+      "todayMore": "Practice more to strengthen memory.",
+      "dueWaiting": "{n} words waiting for review",
+      "keepStreak": "Keep your streak going!",
+      "readyTitle": "Ready to practice!",
+      "readySubtitle": "Strengthen your vocabulary by reviewing words.",
+      "dayStreak": "day streak"
+    },
+    "practice": {
+      "mode": "Mode",
+      "length": "Length",
+      "flashcards": "Flashcards",
+      "blitz": "Blitz",
+      "wordsUnit": "words"
+    },
+    "chart": {
+      "title": "Practice every day",
+      "reviewed": "Reviewed",
+      "added": "Added"
+    },
     "filters": {
       "all": "All",
       "new": "New",
