@@ -114,7 +114,8 @@
       "deleteHighlight": "Delete highlight",
       "cancel": "Cancel",
       "save": "Save"
-    }
+    },
+    "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words."
   },
   "onboarding": {
     "ghostHintLabel": "Tap any word",
@@ -122,25 +123,10 @@
     "saveProgressTitle": "Save your progress",
     "saveProgressBody": "Create a free account to keep your words, review them later, and continue reading anytime.",
     "saveProgressAccept": "Create free account",
-    "saveProgressDismiss": "Continue as guest"
+    "saveProgressDismiss": "Not now"
   },
-  "paywall": {
-    "pagesTitle": "Keep reading for free",
-    "pagesText": "Sign in to unlock unlimited reading, save vocabulary, and track your progress across devices.",
-    "wordsTitle": "Save unlimited vocabulary",
-    "wordsText": "You've reached the guest limit for saved words. Sign in to save unlimited vocabulary and review with spaced repetition.",
-    "practiceTitle": "Unlimited practice sessions",
-    "practiceText": "Sign in to access unlimited vocabulary review and track your learning progress.",
-    "signIn": "Continue with sign in",
-    "later": "Maybe later"
-  },
-  "guestBanner": {
-    "message": "You're browsing as a guest.",
-    "signIn": "Sign in",
-    "suffix": "to save your progress",
-    "nagMessage": "Save your progress — sign up free.",
-    "signUp": "Sign up",
-    "notNow": "Not now"
+  "auth": {
+    "progressSavedToast": "Your reading progress and saved words were kept."
   },
   "common": {
     "loading": "Loading...",

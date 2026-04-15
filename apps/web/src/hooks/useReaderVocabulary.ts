@@ -19,6 +19,10 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
   const { commitmentThreshold } = useGuestLimits()
   const [vocabMap, setVocabMap] = useState<VocabMap>(new Map())
   const [loading, setLoading] = useState(false)
+  // I7: signal for ReaderHighlights to toast when IndexedDB is unavailable
+  // (Safari private mode / quota exceeded) so user knows to sign in to save words.
+  const [idbUnavailable, setIdbUnavailable] = useState(false)
+  const dismissIdbUnavailable = useCallback(() => setIdbUnavailable(false), [])
   const mapRef = useRef<VocabMap>(new Map())
   const backfillDone = useRef(false)
   // Keep auth state available inside async callbacks without stale-closure races.
@@ -180,7 +184,9 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     try {
       await addPendingVocabWord(pending)
     } catch {
-      // I7: IndexedDB unavailable (Safari private / storage full). Silent no-op.
+      // I7: IndexedDB unavailable (Safari private / storage full). Surface to caller
+      // via `idbUnavailable` so ReaderHighlights can toast "sign in to save words".
+      setIdbUnavailable(true)
       return null
     }
     // I8: synthetic map entry so WordPopup can show "saved" state immediately.
@@ -236,5 +242,5 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     setVocabMap(new Map(mapRef.current))
   }, [])
 
-  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks }
+  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks, idbUnavailable, dismissIdbUnavailable }
 }

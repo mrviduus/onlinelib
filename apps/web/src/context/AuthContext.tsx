@@ -5,6 +5,7 @@ import {
   updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, deleteAvatar as deleteAvatarApi,
   createGuestSession as createGuestSessionApi,
 } from '../api/auth'
+import { flushLocalProgress } from '../lib/progressSync'
 
 interface AuthContextValue {
   user: User | null
@@ -24,6 +25,9 @@ interface AuthContextValue {
   updateProfile: (name: string | null) => Promise<void>
   updateAvatar: (file: File) => Promise<void>
   deleteAvatar: () => Promise<void>
+  /** Set to true after a successful register/login. Consumer shows toast then calls dismissAuthSuccessToast. */
+  authSuccessToast: boolean
+  dismissAuthSuccessToast: () => void
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -43,6 +47,8 @@ const AuthContext = createContext<AuthContextValue>({
   updateProfile: async () => {},
   updateAvatar: async () => {},
   deleteAvatar: async () => {},
+  authSuccessToast: false,
+  dismissAuthSuccessToast: () => {},
 })
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -55,14 +61,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [googleReady, setGoogleReady] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authSuccessToast, setAuthSuccessToast] = useState(false)
+  const dismissAuthSuccessToast = useCallback(() => setAuthSuccessToast(false), [])
 
   // Google callback - stable ref to avoid stale closures
   const handleGoogleCallback = useCallback(async (response: google.accounts.id.CredentialResponse) => {
     try {
       setIsLoading(true)
       const authResponse = await loginWithGoogle(response.credential)
-      setUser(authResponse.user)
+      // Capture prev before setUser — if a real user logs in again (re-auth), no toast.
+      setUser(prev => {
+        const wasGuestOrAnon = prev === null || prev.isGuest
+        if (wasGuestOrAnon) setAuthSuccessToast(true)
+        return authResponse.user
+      })
       setShowAuthModal(false)
+      // Fire-and-forget: flush any anonymous localStorage progress to server.
+      void flushLocalProgress().catch(() => {})
     } catch (error) {
       console.error('Login failed:', error)
     } finally {
@@ -125,13 +140,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const bootstrap = async () => {
+      // On bootstrap the user didn't just authenticate — they restored a session. So we only
+      // surface the "progress kept" toast if flushLocalProgress actually recovered something
+      // (i.e. they read anonymously in a prior tab before signing in, and that progress was
+      // sitting in localStorage waiting to be dispatched).
+      const flushIfReal = async (u: User) => {
+        if (u.isGuest) return
+        try {
+          const n = await flushLocalProgress()
+          if (n > 0) setAuthSuccessToast(true)
+        } catch { /* keep keys for next attempt */ }
+      }
       try {
         const response = await getCurrentUser()
         setUser(response.user)
+        void flushIfReal(response.user)
       } catch {
         try {
           const response = await refreshToken()
           setUser(response.user)
+          void flushIfReal(response.user)
         } catch {
           // I1: bootstrap read-only. user остаётся null; фичи сами зовут ensureSession().
         }
@@ -192,8 +220,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticateAndClose = useCallback(async (apiCall: () => Promise<{ user: User }>) => {
     const response = await apiCall()
-    setUser(response.user)
+    // Only show the "progress kept" reassurance when user actually transitioned from
+    // anonymous/guest to real. A returning real user re-authenticating had nothing at risk.
+    setUser(prev => {
+      const wasGuestOrAnon = prev === null || prev.isGuest
+      if (wasGuestOrAnon) setAuthSuccessToast(true)
+      return response.user
+    })
     setShowAuthModal(false)
+    // Fire-and-forget: flush any anonymous localStorage progress to server (server LWW is safe).
+    void flushLocalProgress().catch(() => {})
   }, [])
 
   const loginWithEmail = useCallback(
@@ -263,6 +299,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         updateAvatar,
         deleteAvatar,
+        authSuccessToast,
+        dismissAuthSuccessToast,
       }}
     >
       {children}

@@ -117,12 +117,19 @@ public class AuthService
     }
 
     /// <summary>Promote guest to real user (registration) or merge guest data into existing user (login).</summary>
+    /// <remarks>
+    /// Re-parents every user-keyed entity from <paramref name="guestUserId"/> to <paramref name="realUserId"/>.
+    /// On unique-key conflict (e.g. both have ReadingProgress for the same edition), prefers the guest's row
+    /// for ReadingProgress when it's newer (LWW by UpdatedAt); for all other unique-keyed tables, the real
+    /// account's row wins (guest's conflicting row is dropped). All changes commit in a single SaveChanges
+    /// transaction; idempotent — second call is a no-op once the guest row is gone.
+    /// </remarks>
     public async Task MergeGuestAsync(Guid guestUserId, Guid realUserId, CancellationToken ct)
     {
         if (guestUserId == realUserId) // Promoted in-place
         {
             var guest = await _db.Users.FirstOrDefaultAsync(x => x.Id == guestUserId, ct);
-            if (guest != null)
+            if (guest != null && guest.IsGuest)
             {
                 guest.IsGuest = false;
                 await _db.SaveChangesAsync(ct);
@@ -130,30 +137,125 @@ public class AuthService
             return;
         }
 
-        // Transfer UserBooks from guest to real user
-        var guestBooks = await _db.UserBooks.Where(x => x.UserId == guestUserId).ToListAsync(ct);
-        foreach (var book in guestBooks)
-            book.UserId = realUserId;
+        // Atomicity: reparent + delete guest must be one transaction. If we crash between
+        // the two SaveChanges, we'd leave a dangling IsGuest=true row with no data.
+        await using var tx = await _db.BeginTransactionAsync(ct);
 
-        // Transfer reading sessions
-        var guestSessions = await _db.ReadingSessions.Where(x => x.UserId == guestUserId).ToListAsync(ct);
-        foreach (var session in guestSessions)
-            session.UserId = realUserId;
+        // === ReadingProgress: LWW conflict resolution by UpdatedAt ===
+        // Unique on (UserId, SiteId, EditionId). Keep whichever row was updated more recently.
+        var guestProgress = await _db.ReadingProgresses.Where(x => x.UserId == guestUserId).ToListAsync(ct);
+        if (guestProgress.Count > 0)
+        {
+            var realProgress = await _db.ReadingProgresses
+                .Where(x => x.UserId == realUserId)
+                .ToListAsync(ct);
+            var realByKey = realProgress.ToDictionary(x => (x.SiteId, x.EditionId));
+            foreach (var g in guestProgress)
+            {
+                if (realByKey.TryGetValue((g.SiteId, g.EditionId), out var r))
+                {
+                    if (g.UpdatedAt > r.UpdatedAt) { _db.ReadingProgresses.Remove(r); g.UserId = realUserId; }
+                    else { _db.ReadingProgresses.Remove(g); }
+                }
+                else { g.UserId = realUserId; }
+            }
+        }
 
-        // Transfer vocabulary words
-        var guestWords = await _db.VocabularyWords.Where(x => x.UserId == guestUserId).ToListAsync(ct);
-        foreach (var word in guestWords)
-            word.UserId = realUserId;
+        // === Unique-keyed tables: real account wins on conflict, guest's conflicting row dropped ===
+        await ReparentDropOnConflictAsync(
+            _db.UserLibraries, guestUserId, realUserId,
+            x => x.EditionId, ct);
 
+        await ReparentDropOnConflictAsync(
+            _db.UserBooks, guestUserId, realUserId,
+            x => x.Slug, ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.ReadingGoals, guestUserId, realUserId,
+            x => (x.SiteId, x.GoalType), ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.UserAchievements, guestUserId, realUserId,
+            x => (x.SiteId, x.AchievementCode), ct);
+
+        // UserRating: separate unique constraints for editions vs user-books — composite key handles both.
+        await ReparentDropOnConflictAsync(
+            _db.UserRatings, guestUserId, realUserId,
+            x => (x.SiteId, x.EditionId, x.UserBookId), ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.UserMoodTags, guestUserId, realUserId,
+            x => (x.EditionId, x.UserBookId, x.MoodId), ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.VocabularyWords, guestUserId, realUserId,
+            x => (x.SiteId, x.Word, x.Language), ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.ReviewLikes, guestUserId, realUserId,
+            x => x.UserRatingId, ct);
+
+        await ReparentDropOnConflictAsync(
+            _db.BlogLikes, guestUserId, realUserId,
+            x => x.BlogPostId, ct);
+
+        // Flush reparent-on-conflict work before bulk UPDATEs (ExecuteUpdateAsync bypasses the change tracker).
         await _db.SaveChangesAsync(ct);
 
-        // Delete guest user (cascades refresh tokens, etc.)
-        var guestUser = await _db.Users.FirstOrDefaultAsync(x => x.Id == guestUserId, ct);
-        if (guestUser != null)
+        // === Plain re-parent (no unique conflict on UserId) — bulk UPDATE, skips change tracker ===
+        await _db.Highlights.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.Bookmarks.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.Notes.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.ReadingSessions.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.ReviewComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.BlogComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+        await _db.VocabularyReviews.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
+
+        // Delete guest user (cascades refresh tokens, password reset tokens — reparented rows survive).
+        await _db.Users.Where(x => x.Id == guestUserId).ExecuteDeleteAsync(ct);
+
+        await tx.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Re-parents <typeparamref name="T"/> rows from guest to real, dropping guest rows whose
+    /// composite unique key (per <paramref name="keySelector"/>) already exists on the real user.
+    /// </summary>
+    private async Task ReparentDropOnConflictAsync<T>(
+        DbSet<T> set,
+        Guid from,
+        Guid to,
+        Func<T, object?> keySelector,
+        CancellationToken ct) where T : class
+    {
+        var guestRows = await set.Where(EntityUserIdEquals<T>(from)).ToListAsync(ct);
+        if (guestRows.Count == 0) return;
+
+        var realRows = await set.Where(EntityUserIdEquals<T>(to)).ToListAsync(ct);
+        var realKeys = new HashSet<object>(realRows.Select(r => keySelector(r) ?? new object()));
+
+        foreach (var g in guestRows)
         {
-            _db.Users.Remove(guestUser);
-            await _db.SaveChangesAsync(ct);
+            var key = keySelector(g);
+            if (key != null && realKeys.Contains(key))
+                set.Remove(g);
+            else
+                SetUserId(g, to);
         }
+    }
+
+    private static System.Linq.Expressions.Expression<Func<T, bool>> EntityUserIdEquals<T>(Guid id)
+    {
+        var p = System.Linq.Expressions.Expression.Parameter(typeof(T), "x");
+        var prop = System.Linq.Expressions.Expression.Property(p, "UserId");
+        var val = System.Linq.Expressions.Expression.Constant(id);
+        return System.Linq.Expressions.Expression.Lambda<Func<T, bool>>(
+            System.Linq.Expressions.Expression.Equal(prop, val), p);
+    }
+
+    private static void SetUserId<T>(T row, Guid id)
+    {
+        typeof(T).GetProperty("UserId")!.SetValue(row, id);
     }
 
     public async Task<(User user, string accessToken, string refreshToken)?> RefreshTokenAsync(

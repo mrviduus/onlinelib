@@ -80,7 +80,7 @@ export function LearnEnglishBrazilPage() {
         {
           q: 'Do I need to create an account?',
           a:
-            'No. You can start reading immediately as a guest. Sign up only when you want to sync progress across devices or save unlimited vocabulary.',
+            'No. You can start reading immediately — no account needed. Sign up only when you want to sync progress across devices or save unlimited vocabulary.',
         },
         {
           q: 'Is the Portuguese translation European or Brazilian?',

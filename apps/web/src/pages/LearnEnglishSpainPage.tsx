@@ -85,7 +85,7 @@ export function LearnEnglishSpainPage() {
         {
           q: 'Do I need to sign up?',
           a:
-            'No. You can start reading as a guest. Sign up later when you want to sync across devices or unlock unlimited vocabulary saving.',
+            'No. You can start reading right away — no account needed. Sign up later when you want to sync across devices or unlock unlimited vocabulary saving.',
         },
       ]}
       otherCountries={[
