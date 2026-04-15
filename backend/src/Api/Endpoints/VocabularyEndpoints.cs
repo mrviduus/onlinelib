@@ -57,6 +57,13 @@ public static class VocabularyEndpoints
             return Results.BadRequest("Word is required (max 200 chars)");
         if (string.IsNullOrWhiteSpace(request.Language) || request.Language.Length > 8)
             return Results.BadRequest("Language is required");
+        // Reject saves without a native language — enrichment (LLM distractors,
+        // hint, explanation) silently falls back to book language when native is
+        // null, producing explanations in the wrong language. Frontend gates
+        // this at WordPopup; this check defends against direct API calls and
+        // older clients still sending `undefined`.
+        if (string.IsNullOrWhiteSpace(request.NativeLanguage))
+            return Results.BadRequest(new { error = "native_language_required" });
 
         var word = request.Word.Trim().ToLowerInvariant();
 
@@ -106,7 +113,7 @@ public static class VocabularyEndpoints
         var lang = request.Language;
         var def = request.Definition;
         var sent = request.Sentence;
-        var nativeLang = request.NativeLanguage;
+        var nativeLang = request.NativeLanguage!;
         _ = Task.Run(async () =>
         {
             try

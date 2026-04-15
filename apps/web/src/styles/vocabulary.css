@@ -1648,7 +1648,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.75;
   transition: opacity 0.15s, color 0.15s;
   flex-shrink: 0;
 }

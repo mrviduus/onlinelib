@@ -84,14 +84,17 @@
   "reader": {
     "wordPopup": {
       "known": "Знаю",
-      "ignore": "Видалити",
+      "ignore": "Ігнорувати",
       "save": "Зберегти",
+      "savedStatus": "Збережено",
       "remove": "Видалити",
       "saving": "Збереження...",
       "loading": "...",
       "translatingTo": "Переклад на",
       "change": "Змінити",
       "definitionMode": "Визначення",
+      "definitionModeHint": "Лише визначення — оберіть іншу рідну мову, щоб бачити переклад",
+      "needsNativeLang": "Оберіть рідну мову, щоб зберігати слова",
       "translateTo": "Перекласти на...",
       "searchLanguage": "Пошук мови...",
       "noResults": "Нічого не знайдено",
