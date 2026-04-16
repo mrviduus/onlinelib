@@ -50,38 +50,72 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: none;
-  border: none;
+  /* Always read as a tappable chip — the previous "underline" styling was
+     too subtle for a hero-level CTA, visitors walked past it. A soft filled
+     background + border gives it affordance without hijacking the copy. */
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
+  border: 1px solid rgba(255, 152, 0, 0.32);
   font: inherit;
   font-style: normal;
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--color-text-secondary);
-  transition: background 0.15s, color 0.15s;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
   vertical-align: baseline;
+  /* transform on an inline-flex element doesn't affect the surrounding
+     baseline flow, so the bounce below is safe. */
+  will-change: transform, box-shadow;
 }
 
 .home-hero__lang-trigger:hover {
-  background: var(--color-warm-bg, rgba(255, 152, 0, 0.08));
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.18));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 152, 0, 0.28);
 }
 
+/* Attention mode: combine a slow vertical bounce with a synced glow pulse.
+   Two parallel animations keep the effect lively without a single overbearing
+   keyframe, and the 2.6s period is long enough to feel intentional rather
+   than frantic. */
 .home-hero__lang-trigger--pulse {
-  animation: hero-lang-pulse 2.2s ease-in-out infinite;
+  animation:
+    hero-lang-bounce 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite,
+    hero-lang-glow 2.6s ease-in-out infinite;
 }
 
-@keyframes hero-lang-pulse {
-  0%, 100% { background: transparent; }
-  50% { background: var(--color-warm-bg, rgba(255, 152, 0, 0.12)); }
+@keyframes hero-lang-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40%      { transform: translateY(-6px) scale(1.04); }
+  55%      { transform: translateY(0) scale(1); }
+  65%      { transform: translateY(-3px) scale(1.02); }
+  80%      { transform: translateY(0) scale(1); }
+}
+
+@keyframes hero-lang-glow {
+  0%, 100% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.0);
+    border-color: rgba(255, 152, 0, 0.32);
+  }
+  50% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.22));
+    box-shadow: 0 6px 22px rgba(255, 152, 0, 0.45);
+    border-color: rgba(255, 152, 0, 0.7);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-hero__lang-trigger--pulse { animation: none; background: var(--color-warm-bg, rgba(255, 152, 0, 0.08)); }
+  .home-hero__lang-trigger--pulse {
+    animation: none;
+    /* Static emphasis substitute — still visibly different from the idle chip
+       so reduced-motion users aren't left with no visual cue. */
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.22));
+    border-color: rgba(255, 152, 0, 0.7);
+    box-shadow: 0 4px 14px rgba(255, 152, 0, 0.3);
+  }
 }
 
 .home-hero__lang-flag {

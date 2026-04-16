@@ -9,6 +9,7 @@ import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { LanguageProvider } from '../src/context/LanguageContext'
 import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
+import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { useAppFonts } from '../src/theme/fonts'
 
@@ -75,7 +76,9 @@ export default function RootLayout() {
             <NativeLanguageProvider>
               <AuthProvider>
                 <DownloadProvider>
-                  <AppContent />
+                  <ToastProvider>
+                    <AppContent />
+                  </ToastProvider>
                 </DownloadProvider>
               </AuthProvider>
             </NativeLanguageProvider>

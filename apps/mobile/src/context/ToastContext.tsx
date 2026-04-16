@@ -1,0 +1,253 @@
+/**
+ * Global toast provider — single-slot, animated, safe-area aware.
+ *
+ * Why: we need a lightweight way to surface transient feedback ("word added
+ * to vocabulary", "offline — saved locally", etc.) without blocking input.
+ * React Native has no built-in primitive for this and we don't want to pull
+ * in a third-party dep for a single-use UI pattern.
+ *
+ * Contract:
+ *   const { show } = useToast()
+ *   show({ message: 'Added to vocabulary', variant: 'success' })
+ *
+ * Behavior:
+ *   - One toast visible at a time. A new show() replaces the previous.
+ *   - Auto-dismisses after `duration` ms (default 2200).
+ *   - Slides up from the bottom, fades in; on dismiss fades + slides down.
+ *   - Non-interactive background — toast sits above the tab bar, taps pass
+ *     through to content (only the toast body is pressable if `onPress` is
+ *     provided).
+ */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from './ThemeContext'
+import { fonts } from '../theme/typography'
+
+export type ToastVariant = 'success' | 'info' | 'error'
+
+export interface ToastOptions {
+  message: string
+  variant?: ToastVariant
+  /** Leading icon override. If omitted, a sensible default per variant is picked. */
+  icon?: keyof typeof Ionicons.glyphMap
+  /** Auto-dismiss duration in ms. Default 2200. 0 = sticky (no auto dismiss). */
+  duration?: number
+  /** Optional tap action. If set, the toast body becomes pressable. */
+  onPress?: () => void
+  /** Optional CTA label shown on the right. Requires onPress. */
+  actionLabel?: string
+}
+
+interface ToastContextValue {
+  show: (options: ToastOptions) => void
+  hide: () => void
+}
+
+const ToastContext = createContext<ToastContextValue>({
+  show: () => {},
+  hide: () => {},
+})
+
+const DEFAULT_DURATION = 2200
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [current, setCurrent] = useState<ToastOptions | null>(null)
+  const translateY = useRef(new Animated.Value(40)).current
+  const opacity = useRef(new Animated.Value(0)).current
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const insets = useSafeAreaInsets()
+  const { colors, isDark } = useTheme()
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const hide = useCallback(() => {
+    clearTimer()
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 40,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setCurrent(null)
+    })
+  }, [clearTimer, opacity, translateY])
+
+  const show = useCallback(
+    (options: ToastOptions) => {
+      clearTimer()
+      setCurrent(options)
+      // Snap values so the new toast animates in from off-screen regardless
+      // of where the previous one was in its lifecycle.
+      translateY.setValue(40)
+      opacity.setValue(0)
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start()
+
+      const duration = options.duration ?? DEFAULT_DURATION
+      if (duration > 0) {
+        timerRef.current = setTimeout(hide, duration)
+      }
+    },
+    [clearTimer, hide, opacity, translateY],
+  )
+
+  useEffect(() => {
+    return () => clearTimer()
+  }, [clearTimer])
+
+  const value = useMemo<ToastContextValue>(
+    () => ({ show, hide }),
+    [show, hide],
+  )
+
+  const variant = current?.variant ?? 'info'
+  const variantColor =
+    variant === 'success' ? '#10B981' : variant === 'error' ? colors.error : colors.primary
+  const defaultIcon: keyof typeof Ionicons.glyphMap =
+    variant === 'success'
+      ? 'checkmark-circle'
+      : variant === 'error'
+        ? 'alert-circle'
+        : 'information-circle'
+  const iconName = current?.icon ?? defaultIcon
+  // Bottom offset: sit above the tab bar (~60-88px on iOS). Callers inside
+  // modals without a tab bar still render OK — safe-area insets keep it off
+  // the home indicator.
+  const bottomOffset = insets.bottom + 72
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+      {current ? (
+        <View
+          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFill, styles.wrap]}
+        >
+          <Animated.View
+            style={[
+              styles.toastOuter,
+              {
+                bottom: bottomOffset,
+                opacity,
+                transform: [{ translateY }],
+              },
+            ]}
+          >
+            <Pressable
+              onPress={current.onPress ?? hide}
+              accessibilityRole={current.onPress ? 'button' : undefined}
+              accessibilityLabel={current.message}
+              style={[
+                styles.toast,
+                {
+                  backgroundColor: isDark ? '#1F1F1F' : '#111827',
+                  borderColor: variantColor,
+                },
+              ]}
+            >
+              <Ionicons name={iconName} size={18} color={variantColor} />
+              <Text style={styles.message} numberOfLines={2}>
+                {current.message}
+              </Text>
+              {current.actionLabel ? (
+                <Text style={[styles.action, { color: variantColor }]}>
+                  {current.actionLabel}
+                </Text>
+              ) : null}
+            </Pressable>
+          </Animated.View>
+        </View>
+      ) : null}
+    </ToastContext.Provider>
+  )
+}
+
+export function useToast() {
+  return useContext(ToastContext)
+}
+
+const styles = StyleSheet.create({
+  wrap: {
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  toastOuter: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    maxWidth: 480,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  message: {
+    flex: 1,
+    color: '#F9FAFB',
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  action: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+})
