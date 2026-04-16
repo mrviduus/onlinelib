@@ -50,3 +50,33 @@ export async function fetchTtsVoices(lang?: string): Promise<TtsVoiceInfo[]> {
   if (!res.ok) throw new Error(`Failed to fetch voices: ${res.status}`)
   return res.json()
 }
+
+// ASP.NET's default JSON serializer camelCases record properties, so the
+// wire format already matches our idiomatic WordTimestamp shape — no mapping
+// needed. (If the server ever flips to PascalCase we'd re-introduce a
+// normalizer here.)
+export interface WordTimestamp {
+  word: string
+  startMs: number
+  durationMs: number
+}
+
+export async function fetchTtsTimestamps(
+  text: string,
+  lang: string,
+  voice?: string,
+  speed?: number,
+  signal?: AbortSignal,
+): Promise<WordTimestamp[]> {
+  const params = new URLSearchParams({ text, lang })
+  if (voice) params.set('voice', voice)
+  if (speed && speed !== 1.0) params.set('speed', String(speed))
+  const res = await fetch(`${API_BASE}/tts/timestamps?${params}`, { signal })
+  if (res.status === 429) {
+    const header = res.headers.get('Retry-After')
+    const seconds = header ? parseInt(header, 10) : NaN
+    throw new TtsRateLimitError(Number.isFinite(seconds) && seconds > 0 ? seconds : 60)
+  }
+  if (!res.ok) throw new Error(`TTS timestamps error: ${res.status}`)
+  return res.json() as Promise<WordTimestamp[]>
+}

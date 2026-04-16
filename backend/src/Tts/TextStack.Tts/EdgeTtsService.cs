@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -94,72 +95,113 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
 
     public async Task<byte[]> SynthesizeAsync(string text, string lang, string? voice, double speed, CancellationToken ct)
     {
+        var result = await SynthesizeWithTimestampsAsync(text, lang, voice, speed, ct);
+        return result.Audio;
+    }
+
+    public async Task<TtsSynthesisResult> SynthesizeWithTimestampsAsync(string text, string lang, string? voice, double speed, CancellationToken ct)
+    {
         voice ??= ResolveDefaultVoice(lang);
         var rate = SpeedToRate(speed);
 
         var cacheKey = ComputeCacheKey(text, voice, rate);
-        var cachePath = _cacheAvailable ? Path.Combine(_config.CachePath, $"{cacheKey}.mp3") : null;
+        var (audioPath, tsPath) = _cacheAvailable
+            ? (Path.Combine(_config.CachePath, $"{cacheKey}.mp3"), Path.Combine(_config.CachePath, $"{cacheKey}.ts.json"))
+            : (null, null);
 
-        // Cache hit
-        if (cachePath != null && File.Exists(cachePath))
+        // Cache hit — require BOTH files to exist, otherwise re-synthesize.
+        // Old mp3-only entries from before the timestamps feature will miss
+        // here and be regenerated, which is correct: we need timestamps to
+        // serve the new /tts/timestamps endpoint.
+        if (await TryReadPairedCacheAsync(audioPath, tsPath, ct) is { } firstHit)
         {
             _logger.LogDebug("TTS cache hit: {Key}", cacheKey);
-            TouchCacheFile(cachePath);
-            return await File.ReadAllBytesAsync(cachePath, ct);
+            return firstHit;
         }
 
-        // Cache miss — synthesize
         await _synthLock.WaitAsync(ct);
         try
         {
             // Double-check after acquiring lock
-            if (cachePath != null && File.Exists(cachePath))
-            {
-                TouchCacheFile(cachePath);
-                return await File.ReadAllBytesAsync(cachePath, ct);
-            }
+            if (await TryReadPairedCacheAsync(audioPath, tsPath, ct) is { } raceHit)
+                return raceHit;
 
             _logger.LogInformation("TTS synthesizing: voice={Voice}, text={Text}", voice, text[..Math.Min(50, text.Length)]);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(_config.TimeoutSeconds));
 
-            var audio = await EdgeTtsClient.SynthesizeAsync(text, voice, rate, "+0%", "+0Hz", lang, cts.Token, _config.MaxAudioBytes);
+            var (audio, timestamps) = await EdgeTtsClient.SynthesizeAsync(text, voice, rate, "+0%", "+0Hz", lang, cts.Token, _config.MaxAudioBytes);
 
             if (audio.Length == 0)
                 throw new InvalidOperationException("TTS returned empty audio");
 
-            if (cachePath != null)
+            if (audioPath != null && tsPath != null)
             {
-                // Atomic write: tmp file + rename. Direct WriteAllBytesAsync to
-                // the final path leaves a partial/corrupt .mp3 if the process is
-                // killed mid-write — and File.Exists() on next call would treat
-                // it as a cache hit, serving broken audio forever (TTL won't
-                // help since mtime is fresh). Tmp+Move ensures the final path
-                // either contains the complete payload or doesn't exist.
-                // Per-call random suffix avoids collisions when two callers race
-                // on the same key (lock above prevents that today, but the file
-                // op is safe regardless).
-                var tmpPath = cachePath + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+                // Atomic write for both files via tmp + rename. Partial writes
+                // on kill leave orphan .tmp that the sweep eventually reaps.
+                // We intentionally write timestamps FIRST: if the audio rename
+                // succeeds but the timestamp write fails, the next cache lookup
+                // will require both files and re-synthesize — no stale-partial
+                // hit. (Atomic-across-two-files is not achievable on posix;
+                // the "both required" check on read is the fallback.)
+                var audioTmp = audioPath + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+                var tsTmp = tsPath + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
                 try
                 {
-                    await File.WriteAllBytesAsync(tmpPath, audio, ct);
-                    File.Move(tmpPath, cachePath, overwrite: true);
-                    _logger.LogInformation("TTS cached: {Key} ({Size}KB)", cacheKey, audio.Length / 1024);
+                    var tsJson = JsonSerializer.SerializeToUtf8Bytes(timestamps);
+                    await File.WriteAllBytesAsync(tsTmp, tsJson, ct);
+                    File.Move(tsTmp, tsPath, overwrite: true);
+
+                    await File.WriteAllBytesAsync(audioTmp, audio, ct);
+                    File.Move(audioTmp, audioPath, overwrite: true);
+                    _logger.LogInformation("TTS cached: {Key} ({Size}KB, {Words} words)", cacheKey, audio.Length / 1024, timestamps.Count);
                 }
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                 {
-                    _logger.LogWarning(ex, "TTS cache write failed for {Key}, returning audio without caching", cacheKey);
-                    try { if (File.Exists(tmpPath)) File.Delete(tmpPath); }
-                    catch (Exception cleanupEx) when (cleanupEx is UnauthorizedAccessException or IOException) { }
+                    _logger.LogWarning(ex, "TTS cache write failed for {Key}, returning without caching", cacheKey);
+                    foreach (var tmp in new[] { audioTmp, tsTmp })
+                    {
+                        try { if (File.Exists(tmp)) File.Delete(tmp); }
+                        catch (Exception cleanupEx) when (cleanupEx is UnauthorizedAccessException or IOException) { }
+                    }
                 }
             }
 
-            return audio;
+            return new TtsSynthesisResult(audio, timestamps);
         }
         finally
         {
             _synthLock.Release();
+        }
+    }
+
+    // Paired cache read: both .mp3 and .ts.json must be present. Returns null
+    // on any miss (including when cache is disabled). Touches both files on
+    // hit so LRU sweep treats them as recently used.
+    private static async Task<TtsSynthesisResult?> TryReadPairedCacheAsync(string? audioPath, string? tsPath, CancellationToken ct)
+    {
+        if (audioPath == null || tsPath == null) return null;
+        if (!File.Exists(audioPath) || !File.Exists(tsPath)) return null;
+        TouchCacheFile(audioPath);
+        TouchCacheFile(tsPath);
+        return new TtsSynthesisResult(
+            await File.ReadAllBytesAsync(audioPath, ct),
+            await ReadTimestampsAsync(tsPath, ct));
+    }
+
+    private static async Task<IReadOnlyList<WordTimestamp>> ReadTimestampsAsync(string path, CancellationToken ct)
+    {
+        try
+        {
+            await using var fs = File.OpenRead(path);
+            var list = await JsonSerializer.DeserializeAsync<List<WordTimestamp>>(fs, cancellationToken: ct);
+            return list ?? new List<WordTimestamp>();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // Corrupt cache file — serve empty; next synth will overwrite.
+            return Array.Empty<WordTimestamp>();
         }
     }
 
@@ -282,6 +324,18 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
     // loss is at most TouchCoalesceWindow, which is << TTL and << sweep
     // interval, so LRU ordering stays correct.
     private static readonly TimeSpan TouchCoalesceWindow = TimeSpan.FromHours(1);
+    // Delete the .ts.json sibling for an .mp3 path we just deleted. Best-effort:
+    // the sweep's orphan-reaper catches anything we miss here.
+    private static void TryDeletePair(string mp3Path)
+    {
+        try
+        {
+            var tsPath = mp3Path[..^".mp3".Length] + ".ts.json";
+            if (File.Exists(tsPath)) File.Delete(tsPath);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+    }
+
     private static void TouchCacheFile(string path)
     {
         try
@@ -362,6 +416,8 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
         }
 
         // Pass 1: TTL expiry — survivors collected for potential pass 2.
+        // Each .mp3 is paired with a .ts.json; delete both together so we
+        // never leave an orphan timestamps file with no audio (or vice versa).
         var survivors = new List<FileInfo>();
         foreach (var file in dir.EnumerateFiles("*.mp3"))
         {
@@ -369,11 +425,25 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
             {
                 try { file.Delete(); deleted++; }
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { failed++; lastFailure = ex; }
+                TryDeletePair(file.FullName);
             }
             else
             {
                 survivors.Add(file);
                 totalBytes += file.Length;
+            }
+        }
+
+        // Separately reap orphan .ts.json files whose .mp3 is gone (e.g.
+        // crash between the two atomic renames, or manual cache edits).
+        foreach (var ts in dir.EnumerateFiles("*.ts.json"))
+        {
+            var key = ts.Name[..^".ts.json".Length];
+            var mp3 = Path.Combine(dir.FullName, key + ".mp3");
+            if (!File.Exists(mp3) && ts.LastWriteTimeUtc < tmpCutoff)
+            {
+                try { ts.Delete(); deleted++; }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { failed++; lastFailure = ex; }
             }
         }
 
@@ -393,6 +463,7 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
                     deleted++;
                 }
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { failed++; lastFailure = ex; }
+                TryDeletePair(file.FullName);
             }
         }
 

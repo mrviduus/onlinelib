@@ -29,7 +29,7 @@ internal static class EdgeTtsClient
         Timeout = TimeSpan.FromSeconds(15)
     };
 
-    public static async Task<byte[]> SynthesizeAsync(string text, string voice, string rate, string volume, string pitch, string lang, CancellationToken ct, long maxAudioBytes = 5L * 1024 * 1024)
+    public static async Task<(byte[] Audio, List<WordTimestamp> Timestamps)> SynthesizeAsync(string text, string voice, string rate, string volume, string pitch, string lang, CancellationToken ct, long maxAudioBytes = 5L * 1024 * 1024)
     {
         var connectionId = Guid.NewGuid().ToString("N");
         var secGec = GenerateSecMsGec();
@@ -89,6 +89,7 @@ internal static class EdgeTtsClient
 
         // 3. Receive audio chunks
         using var audioStream = new MemoryStream();
+        var timestamps = new List<WordTimestamp>();
         var buffer = new byte[8192];
         // Reuse one MemoryStream across messages — `using var msgStream = new
         // MemoryStream()` inside the loop allocated a fresh stream per WS
@@ -141,6 +142,8 @@ internal static class EdgeTtsClient
                     var text_ = Encoding.UTF8.GetString(msgStream.GetBuffer(), 0, (int)msgStream.Length);
                     if (text_.Contains("Path:turn.end"))
                         break;
+                    if (text_.Contains("Path:audio.metadata"))
+                        ParseWordBoundaries(text_, timestamps);
                 }
             }
         }
@@ -163,7 +166,55 @@ internal static class EdgeTtsClient
             }
         }
 
-        return audioStream.ToArray();
+        return (audioStream.ToArray(), timestamps);
+    }
+
+    // Parses an Edge TTS text frame carrying Path:audio.metadata. Header and
+    // JSON body are separated by \r\n\r\n (same wire format as the outgoing
+    // config/ssml frames we send).
+    //
+    // Body JSON (observed): {"Metadata":[{"Type":"WordBoundary","Data":{
+    //   "Offset":2000000,"Duration":500000,
+    //   "text":{"Text":"hello","Length":5,"BoundaryType":"WordBoundary"}}}]}
+    //
+    // Offset/Duration are 100-ns ticks (1 ms = 10_000 ticks). They already
+    // account for the "rate" parameter we sent, so client-side playback matches
+    // timestamps directly — no post-scaling.
+    //
+    // Best-effort: any malformed body is silently skipped (empty timestamps
+    // list is valid — caller should fall back to no-highlight playback).
+    private static void ParseWordBoundaries(string text, List<WordTimestamp> output)
+    {
+        var bodyStart = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        if (bodyStart < 0) return;
+        var body = text[(bodyStart + 4)..];
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("Metadata", out var meta) || meta.ValueKind != JsonValueKind.Array)
+                return;
+            foreach (var entry in meta.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("Type", out var type) || type.GetString() != "WordBoundary")
+                    continue;
+                if (!entry.TryGetProperty("Data", out var data)) continue;
+                if (!data.TryGetProperty("Offset", out var offsetEl) || !data.TryGetProperty("Duration", out var durationEl))
+                    continue;
+                if (!data.TryGetProperty("text", out var textEl) || !textEl.TryGetProperty("Text", out var wordEl))
+                    continue;
+
+                var offsetTicks = offsetEl.GetInt64();
+                var durationTicks = durationEl.GetInt64();
+                var word = wordEl.GetString();
+                if (string.IsNullOrEmpty(word)) continue;
+
+                output.Add(new WordTimestamp(
+                    word,
+                    offsetTicks / 10_000.0,
+                    durationTicks / 10_000.0));
+            }
+        }
+        catch (JsonException) { /* swallow — no highlighting is better than a broken synth */ }
     }
 
     public static async Task<List<EdgeVoiceData>> GetVoicesAsync(CancellationToken ct)
