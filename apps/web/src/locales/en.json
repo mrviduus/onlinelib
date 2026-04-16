@@ -2,8 +2,8 @@
   "home": {
     "hero": {
       "title": "Read books in English without stopping",
-      "subtitle": "Tap any word to translate instantly — and stay in flow",
-      "subtitleDemo": "Tap any word to translate instantly — and stay in flow",
+      "subtitleBefore": "Tap any word to translate to",
+      "subtitleAfter": "— and stay in flow",
       "brandLine": "TextStack Reader — learn English by reading real books",
       "seoTitle": "TextStack Reader — Read books in English with instant translation",
       "seoDescription": "Read books in English without stopping. Tap any word to translate instantly and stay in flow. Learn English by reading real books with TextStack.",

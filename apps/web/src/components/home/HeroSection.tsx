@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useLanguage } from '../../context/LanguageContext'
+import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useAuth } from '../../context/AuthContext'
 import { useGuestLimits } from '../../context/GuestLimitsContext'
 import { DEMO_BOOK } from '../../config/demoBook'
@@ -10,6 +11,8 @@ import { LocalizedLink } from '../LocalizedLink'
 import { uploadUserBook } from '../../api/userBooks'
 import { useContinueReading } from '../../hooks/useContinueReading'
 import { ContinueReadingCard } from './ContinueReadingCard'
+import { FazierBadge } from './FazierBadge'
+import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
 
 export function HeroSection() {
   const { t } = useTranslation()
@@ -23,7 +26,11 @@ export function HeroSection() {
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [langPickerOpen, setLangPickerOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const langTriggerRef = useRef<HTMLDivElement>(null)
+  const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
+  const nativeLang = getLanguage(nativeLanguage)
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640)
@@ -31,6 +38,18 @@ export function HeroSection() {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Close lang picker on outside click
+  useEffect(() => {
+    if (!langPickerOpen) return
+    const handler = (e: MouseEvent) => {
+      if (langTriggerRef.current && !langTriggerRef.current.contains(e.target as Node)) {
+        setLangPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [langPickerOpen])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,9 +97,51 @@ export function HeroSection() {
         {continueReadingBook && <ContinueReadingCard book={continueReadingBook} />}
         <h1 className="home-hero__title">{t('home.hero.title')}</h1>
         <p className="home-hero__subtitle">
-          {showGuestCta ? t('home.hero.subtitleDemo') : t('home.hero.subtitle')}
+          {t('home.hero.subtitleBefore')}{' '}
+          <span className="home-hero__lang-trigger-wrap" ref={langTriggerRef}>
+            <button
+              type="button"
+              className={`home-hero__lang-trigger${!hasConfirmedLanguage ? ' home-hero__lang-trigger--pulse' : ''}`}
+              onClick={() => setLangPickerOpen(o => !o)}
+            >
+              {nativeLang && (
+                <img
+                  className="home-hero__lang-flag"
+                  src={getFlagUrl(nativeLang.code)}
+                  alt=""
+                  width="20"
+                  height="15"
+                />
+              )}
+              {nativeLang?.nativeName ?? nativeLanguage}
+            </button>
+            {langPickerOpen && (
+              <div className="home-hero__lang-popover">
+                <ul className="home-hero__lang-list" role="listbox">
+                  {POPULAR_LANGUAGES.filter(l => l.code !== language).map(l => (
+                    <li
+                      key={l.code}
+                      role="option"
+                      aria-selected={l.code === nativeLanguage}
+                      className={`home-hero__lang-option${l.code === nativeLanguage ? ' selected' : ''}`}
+                      onClick={() => { setNativeLanguage(l.code); setLangPickerOpen(false) }}
+                    >
+                      <img src={getFlagUrl(l.code)} alt="" width="20" height="15" />
+                      <span>{l.nativeName}</span>
+                      {l.englishName !== l.nativeName && (
+                        <span className="home-hero__lang-english">{l.englishName}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </span>{' '}
+          {t('home.hero.subtitleAfter')}
         </p>
         <p className="home-hero__brand-line">{t('home.hero.brandLine')}</p>
+
+        <FazierBadge />
 
         {showGuestCta && (
           <div className="home-hero__cta-group">

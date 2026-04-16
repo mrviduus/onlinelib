@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { LocalizedLink } from './LocalizedLink'
-import { MobileSearchOverlay } from './Search'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { LoginButton } from './auth/LoginButton'
 import { UserMenu } from './auth/UserMenu'
@@ -13,7 +13,6 @@ import { StreakBadge } from './StreakBadge'
 import { VocabBadgePopup } from './VocabBadgePopup'
 
 export function Header() {
-  const [searchOpen, setSearchOpen] = useState(false)
   const [badgePopup, setBadgePopup] = useState(false)
   const badgeWrapperRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, isLoading } = useAuth()
@@ -21,6 +20,8 @@ export function Header() {
   const { isDark, toggleTheme } = useDarkMode()
   const { t } = useTranslation()
   const quickStats = useQuickStats()
+  const location = useLocation()
+  const isHomePage = /^\/(en|uk)?\/?$/.test(location.pathname)
 
   return (
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
@@ -44,20 +45,13 @@ export function Header() {
         </nav>
       </div>
       <div className="site-header__right">
-        <LanguageSwitcher />
+        {!isHomePage && <LanguageSwitcher />}
         <button
           className="site-header__icon-btn"
           onClick={toggleTheme}
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           <span className="material-icons-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
-        </button>
-        <button
-          className="site-header__icon-btn"
-          onClick={() => setSearchOpen(true)}
-          aria-label="Search"
-        >
-          <span className="material-icons-outlined">search</span>
         </button>
         {isAuthenticated && quickStats && (quickStats.vocabDueNow > 0 || quickStats.vocabReviewedToday > 0) && (
           <div className="streak-badge-wrapper" ref={badgeWrapperRef}>
@@ -85,7 +79,6 @@ export function Header() {
         )}
         {!isLoading && (isAuthenticated ? <UserMenu /> : <LoginButton />)}
       </div>
-      {searchOpen && <MobileSearchOverlay onClose={() => setSearchOpen(false)} />}
     </header>
   )
 }
