@@ -59,11 +59,23 @@ public class SeoContextBuilder(IAppDbContext db)
             .Join(db.Authors, ea => ea.AuthorId, a => a.Id, (ea, a) => a.Name)
             .FirstOrDefaultAsync(ct) ?? "";
 
-        var excerpt = await db.Chapters.AsNoTracking()
+        // Take first few chapters and pick the first one that looks like real content
+        // (skip copyright notices, license pages, Project Gutenberg preambles, etc.)
+        var candidates = await db.Chapters.AsNoTracking()
             .Where(c => c.EditionId == id)
             .OrderBy(c => c.ChapterNumber)
+            .Take(5)
             .Select(c => c.PlainText)
-            .FirstOrDefaultAsync(ct) ?? "";
+            .ToListAsync(ct);
+
+        var excerpt = candidates
+            .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t)
+                && !t.Contains("Project Gutenberg", StringComparison.OrdinalIgnoreCase)
+                && !t.Contains("public domain", StringComparison.OrdinalIgnoreCase)
+                && !t.Contains("copyright", StringComparison.OrdinalIgnoreCase)
+                && !t.Contains("license", StringComparison.OrdinalIgnoreCase)
+                && !t.Contains("restrictions apply", StringComparison.OrdinalIgnoreCase))
+            ?? candidates.FirstOrDefault() ?? "";
         if (excerpt.Length > 1000) excerpt = excerpt[..1000];
 
         return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
