@@ -35,7 +35,7 @@ public class TtsConfiguration
         ["de"] = "de-DE-KatjaNeural",
         ["it"] = "it-IT-ElsaNeural",
         ["pt"] = "pt-BR-FranciscaNeural",
-        ["pl"] = "pl-PL-AgnieszkaNeural",
+        ["pl"] = "pl-PL-ZofiaNeural",
         ["nl"] = "nl-NL-ColetteNeural",
         ["tr"] = "tr-TR-EmelNeural",
         ["ja"] = "ja-JP-NanamiNeural",

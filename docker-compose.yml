@@ -261,7 +261,7 @@ services:
     image: libretranslate/libretranslate:v1.6.4
     container_name: textstack_libretranslate
     environment:
-      - LT_LOAD_ONLY=en,uk,ru,de,fr,es,pl,pt
+      - LT_LOAD_ONLY=en,uk,ru,de,fr,es,pl,pt,fa
       - LT_DISABLE_WEB_UI=true
       - LT_UPDATE_MODELS=true
     volumes:
