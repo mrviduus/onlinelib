@@ -161,6 +161,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.AppleSubject).HasMaxLength(255);
             e.Property(x => x.PasswordHash).HasMaxLength(255);
             e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.NativeLanguage).HasMaxLength(16);
             e.Property(x => x.IsGuest).HasDefaultValue(false);
             e.HasIndex(x => new { x.IsGuest, x.LastActiveAt })
                 .HasFilter("is_guest = true")

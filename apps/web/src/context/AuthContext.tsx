@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import {
-  User, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
+  User, UpdateProfilePayload, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
   loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
   updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, deleteAvatar as deleteAvatarApi,
   createGuestSession as createGuestSessionApi,
@@ -22,7 +22,7 @@ interface AuthContextValue {
   waitForSession: () => Promise<void>
   ensureSession: () => Promise<void>
   logout: () => Promise<void>
-  updateProfile: (name: string | null) => Promise<void>
+  updateProfile: (payload: UpdateProfilePayload) => Promise<void>
   updateAvatar: (file: File) => Promise<void>
   deleteAvatar: () => Promise<void>
   /** Set to true after a successful register/login. Consumer shows toast then calls dismissAuthSuccessToast. */
@@ -242,8 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [authenticateAndClose],
   )
 
-  const updateProfile = useCallback(async (name: string | null) => {
-    const response = await updateProfileApi(name)
+  const updateProfile = useCallback(async (payload: UpdateProfilePayload) => {
+    const response = await updateProfileApi(payload)
     setUser(response.user)
   }, [])
 

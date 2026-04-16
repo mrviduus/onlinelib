@@ -7,6 +7,9 @@ export interface User {
   picture: string | null
   isGuest: boolean
   createdAt: string
+  /** BCP-47 code of the user's native language. Null until set via ProfileModal
+   *  or propagated from a guest session. Source of truth when present. */
+  nativeLanguage: string | null
 }
 
 export interface AuthResponse {
@@ -100,10 +103,15 @@ export async function getCurrentUser(): Promise<AuthResponse> {
 }
 
 // Profile API
-export async function updateProfile(name: string | null): Promise<AuthResponse> {
+export interface UpdateProfilePayload {
+  name?: string | null
+  nativeLanguage?: string | null
+}
+
+export async function updateProfile(payload: UpdateProfilePayload): Promise<AuthResponse> {
   return authFetch<AuthResponse>('/me/profile', {
     method: 'PUT',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   })
 }
 

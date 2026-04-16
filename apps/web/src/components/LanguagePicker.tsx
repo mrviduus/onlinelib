@@ -29,6 +29,7 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [showMore, setShowMore] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
@@ -55,11 +56,13 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
   const popularList = useMemo(() => POPULAR_LANGUAGES.filter(filterFn), [excludeCode])
   const otherList = useMemo(() => OTHER_LANGUAGES.filter(filterFn), [excludeCode])
 
-  // Flat list for keyboard navigation — what's actually shown in order
+  // Flat list for keyboard navigation — what's actually shown in order.
+  // Tail is hidden by default behind the "More languages" toggle, so only
+  // include otherList when the user has expanded it.
   const navigableList = useMemo<LanguageEntry[]>(() => {
     if (query.trim()) return filtered
-    return [...popularList, ...otherList]
-  }, [query, filtered, popularList, otherList])
+    return showMore ? [...popularList, ...otherList] : popularList
+  }, [query, filtered, popularList, otherList, showMore])
 
   // Outside click
   useEffect(() => {
@@ -73,13 +76,15 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // Autofocus search on open
+  // Autofocus search on open. Reset the "More languages" toggle on close so
+  // each open starts collapsed — prevents the tail lingering across opens.
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 0)
       setHighlightedIndex(0)
     } else {
       setQuery('')
+      setShowMore(false)
     }
   }, [open])
 
@@ -183,9 +188,26 @@ export function LanguagePicker({ value, onChange, ariaLabel = 'Native language',
               <>
                 <li className="lang-picker__section" role="presentation">Popular</li>
                 {popularList.map((lang, i) => renderOption(lang, i))}
-                <li className="lang-picker__section" role="presentation">All languages</li>
-                {otherList.map((lang, i) =>
-                  renderOption(lang, i + popularList.length),
+                {showMore ? (
+                  <>
+                    <li className="lang-picker__section" role="presentation">All languages</li>
+                    {otherList.map((lang, i) =>
+                      renderOption(lang, i + popularList.length),
+                    )}
+                  </>
+                ) : (
+                  <li className="lang-picker__more" role="presentation">
+                    <button
+                      type="button"
+                      className="lang-picker__more-btn"
+                      onClick={() => {
+                        setShowMore(true)
+                        setHighlightedIndex(popularList.length)
+                      }}
+                    >
+                      More languages…
+                    </button>
+                  </li>
                 )}
               </>
             )}

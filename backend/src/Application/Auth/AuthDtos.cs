@@ -12,7 +12,7 @@ public record AuthResponse(UserDto User);
 
 public record MobileAuthResponse(UserDto User, string AccessToken, string RefreshToken);
 
-public record UserDto(Guid Id, string Email, string? Name, string? Picture, bool IsGuest, DateTimeOffset CreatedAt);
+public record UserDto(Guid Id, string Email, string? Name, string? Picture, bool IsGuest, DateTimeOffset CreatedAt, string? NativeLanguage);
 
 public record EmailRegisterRequest(string Email, string Password, string? Name);
 

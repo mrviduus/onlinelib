@@ -1,10 +1,12 @@
 import { useState, useRef, FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
+import { POPULAR_LANGUAGES, getLanguage } from '../../data/languages'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
   const [name, setName] = useState(user?.name || '')
+  const [nativeLanguage, setNativeLanguage] = useState(user?.nativeLanguage || '')
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -39,8 +41,14 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     setLoading(true)
     try {
       const trimmedName = name.trim() || null
-      if (trimmedName !== user.name) {
-        await updateProfile(trimmedName)
+      const nextLang = nativeLanguage.trim()
+      const nameChanged = (trimmedName ?? '') !== (user.name ?? '')
+      const langChanged = nextLang !== (user.nativeLanguage ?? '')
+      if (nameChanged || langChanged) {
+        await updateProfile({
+          ...(nameChanged ? { name: trimmedName } : {}),
+          ...(langChanged ? { nativeLanguage: nextLang } : {}),
+        })
       }
       if (file) {
         await updateAvatar(file)
@@ -96,6 +104,29 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               onChange={e => setName(e.target.value)}
               placeholder="Your name"
             />
+            <label className="profile-modal__label">Native language</label>
+            <select
+              className="profile-modal__input"
+              value={nativeLanguage}
+              onChange={e => setNativeLanguage(e.target.value)}
+            >
+              <option value="">— not set —</option>
+              {POPULAR_LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>
+                  {l.englishName} ({l.nativeName})
+                </option>
+              ))}
+              {user.nativeLanguage && !POPULAR_LANGUAGES.some(l => l.code === user.nativeLanguage) && (() => {
+                const lang = getLanguage(user.nativeLanguage!)
+                return lang ? (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.englishName} ({lang.nativeName})
+                  </option>
+                ) : (
+                  <option value={user.nativeLanguage!}>{user.nativeLanguage}</option>
+                )
+              })()}
+            </select>
             <label className="profile-modal__label">Email</label>
             <input
               type="email"

@@ -16,6 +16,10 @@ public class User
     public bool IsGuest { get; set; }
     public DateTimeOffset? LastActiveAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>BCP-47 language code for the user's native language (the one they already know).
+    /// Drives translation direction, dictionary hint language, and dismisses the onboarding pulse
+    /// across devices. Null = not yet set; falls back to client-side detection.</summary>
+    public string? NativeLanguage { get; set; }
 
     public ICollection<ReadingProgress> ReadingProgresses { get; set; } = [];
     public ICollection<Bookmark> Bookmarks { get; set; } = [];

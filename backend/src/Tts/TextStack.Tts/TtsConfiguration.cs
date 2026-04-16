@@ -63,6 +63,7 @@ public class TtsConfiguration
         ["lv"] = "lv-LV-EveritaNeural",
         ["et"] = "et-EE-AnuNeural",
         ["sl"] = "sl-SI-PetraNeural",
-        ["ca"] = "ca-ES-JoanaNeural"
+        ["ca"] = "ca-ES-JoanaNeural",
+        ["fa"] = "fa-IR-DilaraNeural" // fallback: fa-IR-FaridNeural
     };
 }

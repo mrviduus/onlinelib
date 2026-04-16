@@ -686,6 +686,34 @@
   margin-left: 0;
 }
 
+/* "More languages…" toggle — collapsed by default to keep the popular set
+   front-and-center; click to reveal the full tail. */
+.lang-picker__more {
+  padding: 4px 8px 8px;
+  list-style: none;
+}
+
+.lang-picker__more-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.lang-picker__more-btn:hover,
+.lang-picker__more-btn:focus-visible {
+  background: var(--color-bg-warm, #FAF8F5);
+  color: var(--color-text, #191919);
+  outline: none;
+}
+
 .lang-picker__empty {
   padding: 24px 12px;
   text-align: center;

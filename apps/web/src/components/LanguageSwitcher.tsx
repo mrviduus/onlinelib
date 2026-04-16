@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
-import { useNativeLanguage, NATIVE_LANGUAGES, getFlagUrl } from '../context/NativeLanguageContext'
+import { useNativeLanguage, NATIVE_LANGUAGES } from '../context/NativeLanguageContext'
+import { getFlagUrl } from '../data/languages'
 import { LanguagePicker } from './LanguagePicker'
 
 const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en' || l.code === 'uk')
 
 export function LanguageSwitcher() {
   const { language, switchLanguage } = useLanguage()
-  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage, markConfirmed } = useNativeLanguage()
   const [targetOpen, setTargetOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -30,6 +31,10 @@ export function LanguageSwitcher() {
   const handleSwitchTarget = (newCode: SupportedLanguage) => {
     if (newCode === nativeLanguage) {
       setNativeLanguage(language)
+    } else {
+      // Any valid learning-target pick counts as completed onboarding — stop
+      // the pulse even if the user never touches the native picker explicitly.
+      markConfirmed()
     }
     switchLanguage(newCode)
     setTargetOpen(false)

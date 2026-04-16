@@ -125,7 +125,19 @@
 
 ---
 
+## Mobile: Sync nativeLanguage from server
+
+**Goal**: Mobile app (`apps/mobile`) should read `user.nativeLanguage` from server as source of truth, same as web.
+
+- `apps/mobile/src/context/NativeLanguageContext.tsx` currently uses only AsyncStorage
+- Server already returns `nativeLanguage` in `UserDto` (via `X-Client: mobile` path)
+- Mirror web logic: server→local on login, local→server on pick, AsyncStorage fallback
+- Priority: after Play Store release
+
+---
+
 ## Priority
 1. **LLM Batch** - higher priority (immediate need for 1000 drafts)
 2. **Search improvements** - incremental
-3. **Eye Tracking** - experimental/research phase
+3. **Mobile nativeLanguage sync** - after Play Store release
+4. **Eye Tracking** - experimental/research phase

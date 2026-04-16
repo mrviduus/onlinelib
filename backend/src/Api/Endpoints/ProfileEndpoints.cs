@@ -10,6 +10,12 @@ public static class ProfileEndpoints
     private static readonly string[] AllowedPhotoExtensions = [".jpg", ".jpeg", ".png"];
     private const long MaxPhotoSize = 2 * 1024 * 1024; // 2MB
 
+    // BCP-47 shape: 2–3 letter base code, optional region suffix (e.g. "en", "pt-BR").
+    // Stored as-is; language-list validation is a client concern — we only guard against
+    // unbounded / malformed payload (XSS / DB bloat).
+    private static readonly System.Text.RegularExpressions.Regex NativeLanguageShape =
+        new("^[a-zA-Z]{2,3}(-[a-zA-Z]{2,4})?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     public static void MapProfileEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/me/profile").WithTags("Profile");
@@ -33,9 +39,30 @@ public static class ProfileEndpoints
         if (user == null) return Results.Unauthorized();
 
         user.Name = request.Name?.Trim();
+
+        // NativeLanguage: treat omitted (null) as "don't change"; empty string as "clear".
+        // Only persist the value when the request includes a non-null field — otherwise
+        // a simple name update would silently wipe the user's language preference.
+        if (request.NativeLanguage != null)
+        {
+            var trimmed = request.NativeLanguage.Trim();
+            if (trimmed.Length == 0)
+            {
+                user.NativeLanguage = null;
+            }
+            else if (NativeLanguageShape.IsMatch(trimmed))
+            {
+                user.NativeLanguage = trimmed;
+            }
+            else
+            {
+                return Results.BadRequest(new { error = "Invalid native language code" });
+            }
+        }
+
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt)));
+        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
     }
 
     private static async Task<IResult> UploadAvatar(
@@ -81,7 +108,7 @@ public static class ProfileEndpoints
         user.Picture = relativePath;
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt)));
+        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
     }
 
     private static async Task<IResult> DeleteAvatar(
@@ -109,4 +136,4 @@ public static class ProfileEndpoints
     }
 }
 
-public record UpdateProfileRequest(string? Name);
+public record UpdateProfileRequest(string? Name, string? NativeLanguage = null);

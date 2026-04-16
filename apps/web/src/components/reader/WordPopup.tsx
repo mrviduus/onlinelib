@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
-import { getFlagUrl } from '../../context/NativeLanguageContext'
-import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage, type LanguageEntry } from '../../data/languages'
+import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage, getFlagUrl, type LanguageEntry } from '../../data/languages'
 
 function LangOption({ lang, onSelect }: { lang: LanguageEntry; onSelect: (code: string) => void }) {
   return (
@@ -96,6 +95,7 @@ export function WordPopup({
   // modal on the landing page. After confirm, picker collapses normally.
   const [showLangPicker, setShowLangPicker] = useState(!hasConfirmedLanguage)
   const [langQuery, setLangQuery] = useState('')
+  const [showMoreLangs, setShowMoreLangs] = useState(false)
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -166,6 +166,7 @@ export function WordPopup({
       setTimeout(() => searchInputRef.current?.focus(), 0)
     } else {
       setLangQuery('')
+      setShowMoreLangs(false)
       if (didMountRef.current) scheduleAutoDismiss()
     }
     didMountRef.current = true
@@ -471,10 +472,23 @@ export function WordPopup({
                   {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
                     <LangOption key={l.code} lang={l} onSelect={selectLang} />
                   ))}
-                  <div className="word-popup__lang-section">{t('reader.wordPopup.allLanguages')}</div>
-                  {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
-                    <LangOption key={l.code} lang={l} onSelect={selectLang} />
-                  ))}
+                  {showMoreLangs ? (
+                    <>
+                      <div className="word-popup__lang-section">{t('reader.wordPopup.allLanguages')}</div>
+                      {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
+                        <LangOption key={l.code} lang={l} onSelect={selectLang} />
+                      ))}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="word-popup__lang-more"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setShowMoreLangs(true)}
+                    >
+                      {t('reader.wordPopup.moreLanguages')}
+                    </button>
+                  )}
                 </>
               )}
             </div>

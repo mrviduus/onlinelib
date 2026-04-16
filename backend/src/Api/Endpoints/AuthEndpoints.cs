@@ -245,7 +245,7 @@ public static class AuthEndpoints
     }
 
     private static UserDto ToDto(User user) =>
-        new(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt);
+        new(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage);
 
     private static IResult ReturnAuthResult(
         (User user, string accessToken, string refreshToken) result,

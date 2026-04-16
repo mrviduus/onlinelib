@@ -62,7 +62,7 @@ public class EdgeTtsServiceTests
     [InlineData("en", "en-US-AriaNeural")]
     [InlineData("uk", "uk-UA-PolinaNeural")]
     [InlineData("en-US", "en-US-AriaNeural")]
-    [InlineData("fr", "en-US-AriaNeural")] // fallback to en
+    [InlineData("xx", "en-US-AriaNeural")] // unknown → en fallback
     public void ResolveDefaultVoice_ReturnsExpected(string lang, string expected)
     {
         var service = CreateService();
@@ -73,6 +73,31 @@ public class EdgeTtsServiceTests
         Assert.NotNull(method);
         var result = method.Invoke(service, [lang]);
         Assert.Equal(expected, result);
+    }
+
+    // Guardrail: every language shown in the web picker's "popular" list must
+    // resolve to a native-locale voice. Without this, adding a new popular lang
+    // without a DefaultVoices entry silently falls back to en-US-AriaNeural
+    // (English voice reading foreign text) — noticed only by users, not tests.
+    [Theory]
+    [InlineData("en", "en-")]
+    [InlineData("pt-BR", "pt-")]
+    [InlineData("uk", "uk-")]
+    [InlineData("ru", "ru-")]
+    [InlineData("de", "de-")]
+    [InlineData("fr", "fr-")]
+    [InlineData("es", "es-")]
+    [InlineData("pl", "pl-")]
+    [InlineData("fa", "fa-")]
+    public void ResolveDefaultVoice_AllPopularLangs_ReturnNativeLocaleVoice(string lang, string expectedLocalePrefix)
+    {
+        var service = CreateService();
+        var method = typeof(EdgeTtsService).GetMethod(
+            "ResolveDefaultVoice",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+        var voice = (string)method.Invoke(service, [lang])!;
+        Assert.StartsWith(expectedLocalePrefix, voice, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

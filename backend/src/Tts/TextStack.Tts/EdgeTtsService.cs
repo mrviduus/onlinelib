@@ -44,21 +44,20 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
         {
             Directory.CreateDirectory(_config.CachePath);
             _cacheAvailable = true;
-            // Off-load the initial sweep — on a slow disk with a large cache,
-            // a synchronous sweep here would block IHostedService.StartAsync
-            // (and therefore application boot) for seconds. The periodic timer
-            // will retry if this first one is still running by the time it fires.
+            // Off-load sweeps to avoid blocking startup or pinning the Timer thread.
             _ = Task.Run(SweepCache);
-            // Periodic sweep — long-running servers otherwise accumulate expired
-            // files until restart, and MaxCacheSizeBytes is never enforced.
-            // Off-load to Task.Run so a long sweep doesn't pin the Timer thread
-            // (the Timer ThreadPool worker is supposed to return promptly).
             _cacheSweepTimer = new Timer(_ => Task.Run(SweepCache), null, CacheSweepInterval, CacheSweepInterval);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "TTS disk cache unavailable at {Path}, running without cache", _config.CachePath);
         }
+        // Pre-warm Bing voices list so the first synth skips the WS round-trip.
+        _ = Task.Run(async () =>
+        {
+            try { await GetVoicesAsync(null, CancellationToken.None); }
+            catch (Exception ex) { _logger.LogDebug(ex, "TTS voice pre-warm failed (will retry lazily)"); }
+        });
         return Task.CompletedTask;
     }
 

@@ -1729,6 +1729,28 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   padding: 12px;
 }
 
+/* "More languages…" toggle in the reader popup — matches lang-option padding
+   but styled as a secondary action. */
+.word-popup__lang-more {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  margin-top: 4px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--reader-secondary, #999);
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
+}
+.word-popup__lang-more:hover,
+.word-popup__lang-more:focus-visible {
+  background: rgba(0,0,0,0.05);
+  color: var(--reader-text, #1a1a1a);
+  outline: none;
+}
+
 /* Ghost hint label */
 .word-hint-label {
   position: absolute;
