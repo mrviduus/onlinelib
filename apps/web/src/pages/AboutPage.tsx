@@ -1,10 +1,12 @@
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
+import { useObfuscatedEmail } from '../hooks/useObfuscatedEmail'
 import './AboutPage.css'
 
 export function AboutPage() {
   const { t } = useTranslation()
+  const { email, mailto } = useObfuscatedEmail()
 
   return (
     <>
@@ -56,7 +58,7 @@ export function AboutPage() {
 
               <div className="about-creator-card__info">
                 <h4 className="about-creator-card__name">Vasyl Vdovychenko</h4>
-                <p className="about-creator-card__email">vasyl.vdov@gmail.com</p>
+                <p className="about-creator-card__email">{email}</p>
               </div>
 
               <div className="about-creator-card__bio">
@@ -66,7 +68,7 @@ export function AboutPage() {
 
               <div className="about-creator-card__buttons">
                 <a
-                  href="mailto:vasyl.vdov@gmail.com"
+                  href={mailto}
                   className="about-creator-card__btn about-creator-card__btn--primary"
                   title="Send email to Vasyl Vdovychenko"
                 >

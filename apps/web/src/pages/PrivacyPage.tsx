@@ -1,10 +1,12 @@
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
+import { useObfuscatedEmail } from '../hooks/useObfuscatedEmail'
 import './LegalPage.css'
 
 export function PrivacyPage() {
   const { t } = useTranslation()
+  const { email, mailto } = useObfuscatedEmail()
 
   return (
     <>
@@ -55,7 +57,7 @@ export function PrivacyPage() {
         <h2>{t('privacy.contactHeading')}</h2>
         <p>
           {t('privacy.contactBody')}{' '}
-          <a href="mailto:vasyl.vdov@gmail.com">vasyl.vdov@gmail.com</a>.
+          <a href={mailto}>{email}</a>.
         </p>
       </section>
       </div>

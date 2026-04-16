@@ -1,10 +1,12 @@
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
+import { useObfuscatedEmail } from '../hooks/useObfuscatedEmail'
 import './LegalPage.css'
 
 export function ContactPage() {
   const { t } = useTranslation()
+  const { email, mailto } = useObfuscatedEmail()
 
   return (
     <>
@@ -26,7 +28,7 @@ export function ContactPage() {
       <div className="legal-page__contact-card">
         <div className="legal-page__contact-item">
           <span className="material-icons-outlined">mail</span>
-          <a href="mailto:vasyl.vdov@gmail.com">vasyl.vdov@gmail.com</a>
+          <a href={mailto}>{email}</a>
         </div>
       </div>
 
