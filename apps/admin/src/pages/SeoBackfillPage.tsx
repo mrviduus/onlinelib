@@ -168,17 +168,28 @@ function MissingEntitiesModal({
   onQueue: (init: QueueInitialValues) => void
 }) {
   const [rows, setRows] = useState<SeoGapRow[] | null>(null)
+  const [truncated, setTruncated] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const FETCH_LIMIT = 500 // server caps at 500
+
   useEffect(() => {
-    adminApi.getSeoGaps({ entityType, limit: 200 })
-      .then(all => setRows(all.filter(g => g.missingFields.includes(fieldType))))
+    adminApi.getSeoGaps({ entityType, limit: FETCH_LIMIT })
+      .then(all => {
+        setTruncated(all.length >= FETCH_LIMIT)
+        setRows(all.filter(g => g.missingFields.includes(fieldType)))
+      })
       .catch(e => setError(String(e)))
   }, [entityType, fieldType])
 
   return (
     <Modal onClose={onClose} title={`${entityType} missing ${fieldType}`} wide>
       {error && <div style={errBox}>{error}</div>}
+      {truncated && (
+        <div style={{ background: '#fff4e0', border: '1px solid #ea0', color: '#8a5a00', padding: '0.4rem 0.6rem', borderRadius: 4, marginBottom: '0.5rem', fontSize: 12 }}>
+          Showing first {FETCH_LIMIT} entities — more may exist. Queue in batches to process all.
+        </div>
+      )}
       {!rows ? <div>Loading…</div> : rows.length === 0 ? (
         <div style={{ color: '#666' }}>No entities missing {fieldType}.</div>
       ) : (
@@ -696,6 +707,7 @@ function EntityPicker({
   const [err, setErr] = useState<string | null>(null)
   const debounceRef = useRef<number | null>(null)
   const reqIdRef = useRef(0)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Clear results when entity type changes (but keep selection — handled by parent)
   useEffect(() => {
@@ -704,6 +716,18 @@ function EntityPicker({
     setErr(null)
     setOpen(false)
   }, [entityType])
+
+  // Close dropdown on outside click (no blur/setTimeout race)
+  useEffect(() => {
+    if (!open) return
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [open])
 
   const runSearch = async (q: string) => {
     const reqId = ++reqIdRef.current
@@ -761,12 +785,11 @@ function EntityPicker({
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       <input
         value={query}
         onChange={e => onQueryChange(e.target.value)}
         onFocus={onFocus}
-        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
         placeholder={`Search ${entityType.toLowerCase()}…`}
         style={input}
       />
