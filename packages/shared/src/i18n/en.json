@@ -110,6 +110,21 @@
     "skip": "Skip",
     "gotIt": "Got it"
   },
+  "profile": {
+    "vocabReminder": {
+      "label": "Daily review reminder",
+      "offSubtitle": "Off",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "notificationTitle": "Time to review",
+      "notificationBody": "Keep your streak going — your vocabulary is waiting.",
+      "permissionDeniedTitle": "Notifications off",
+      "permissionDeniedBody": "Enable notifications in Settings to receive review reminders.",
+      "unavailableTitle": "Not available",
+      "unavailableBody": "Reminders aren't available in this build. Install the latest app version to enable them."
+    }
+  },
   "footer": {
     "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
     "privacy": "Privacy Policy",

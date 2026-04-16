@@ -12,6 +12,7 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
+import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
@@ -234,6 +235,9 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
+
+        {/* Daily vocabulary review reminder */}
+        <VocabReminderSettingsRow />
 
         {/* Info pages */}
         {[

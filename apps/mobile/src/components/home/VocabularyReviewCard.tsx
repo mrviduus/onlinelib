@@ -35,6 +35,7 @@ import { fonts } from '../../theme/typography'
 import { PressableScale } from '../ui/PressableScale'
 import { SkeletonLoader } from '../ui/SkeletonLoader'
 import { getVocabStatsCache, saveVocabStatsCache } from '../../lib/vocabStatsCache'
+import { vocabReminder } from '../../lib/vocabReminder'
 
 type IconName = keyof typeof Ionicons.glyphMap
 
@@ -90,6 +91,30 @@ export function VocabularyReviewCard() {
       })()
     }, []),
   )
+
+  // Keep the scheduled daily reminder's copy in sync with the current language.
+  // Users who toggled the reminder in English and then switched to UK would
+  // otherwise get an English notification; rescheduling on focus fixes this
+  // without forcing them to re-open settings.
+  useEffect(() => {
+    if (!initialLoaded) return
+    let cancelled = false
+    ;(async () => {
+      const s = await vocabReminder.getSettings()
+      if (cancelled || !s.enabled) return
+      await vocabReminder.schedule({
+        hour: s.hour,
+        minute: s.minute,
+        title: t('profile.vocabReminder.notificationTitle'),
+        body: t('profile.vocabReminder.notificationBody'),
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+    // t is the curried translator — its identity changes when language
+    // changes, which is exactly when we want to reschedule.
+  }, [initialLoaded, t])
 
   // Skeleton while we wait for the cache read (typically <10ms on warm cache,
   // but can be longer on cold start). Reserves exact card height so the home

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { userBooksApi, vocabularyApi, highlightsApi } from '@textstack/shared'
+import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
 import { useAuth } from '../../../../src/context/AuthContext'
@@ -17,13 +17,22 @@ import { TocSheet } from '../../../../src/components/TocSheet'
 import { useTts } from '../../../../src/hooks/useTts'
 import { useReadingSession } from '../../../../src/hooks/useReadingSession'
 import { useQuickStats } from '../../../../src/hooks/useQuickStats'
+import { useHaptics } from '../../../../src/hooks/useHaptics'
+import { useToast } from '../../../../src/context/ToastContext'
+import { useLanguage } from '../../../../src/context/LanguageContext'
 import { ReaderStatsWidget } from '../../../../src/components/ReaderStatsWidget'
+import { ReaderTapCoachmark } from '../../../../src/components/reader/ReaderTapCoachmark'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { trackBookOpened, trackVocabSaved } from '../../../../src/lib/analytics'
+
+/** Lightweight {key} interpolation — shared `t()` returns raw keys. */
+function interpolate(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
+}
 
 export default function UserBookReaderScreen() {
   const { bookId, chapterSlug } = useLocalSearchParams<{ bookId: string; chapterSlug: string }>()
@@ -48,6 +57,26 @@ export default function UserBookReaderScreen() {
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const quickStats = useQuickStats(isAuthenticated)
+  const haptics = useHaptics()
+  const { show: showToast } = useToast()
+  const { language } = useLanguage()
+  const sessionWordCountRef = useRef(0)
+
+  const notifyWordSaved = useCallback(() => {
+    sessionWordCountRef.current += 1
+    const count = sessionWordCountRef.current
+    haptics.play('complete')
+    showToast({
+      variant: 'success',
+      message:
+        count > 1
+          ? interpolate(t(language, 'reader.toastWordAddedCount'), { count })
+          : t(language, 'reader.toastWordAdded'),
+      actionLabel: t(language, 'reader.toastTapToReview'),
+      onPress: () => router.push('/vocabulary'),
+      duration: 2400,
+    })
+  }, [haptics, showToast, language, router])
   const insets = useSafeAreaInsets()
   const topBarHeight = 56 + insets.top
   const footerHeight = 80 + insets.bottom
@@ -241,7 +270,10 @@ export default function UserBookReaderScreen() {
             setDictOpen(true)
             if (isAuthenticated) {
               vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null })
-                .then(() => trackVocabSaved({ language: 'en', source: 'reader' }))
+                .then(() => {
+                  notifyWordSaved()
+                  trackVocabSaved({ language: 'en', source: 'reader' })
+                })
                 .catch(() => {})
             }
           }
@@ -250,7 +282,7 @@ export default function UserBookReaderScreen() {
         }
       }
     } catch {}
-  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated])
+  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, notifyWordSaved])
 
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
@@ -266,6 +298,7 @@ export default function UserBookReaderScreen() {
       vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
+      notifyWordSaved()
       trackVocabSaved({ language: 'en', source: 'reader' })
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
     } catch {}
@@ -457,6 +490,9 @@ export default function UserBookReaderScreen() {
             isAuthenticated={isAuthenticated}
           />
         )}
+
+        {/* First-run tap-to-save hint — self-gated by AsyncStorage flag */}
+        <ReaderTapCoachmark />
 
         {/* Reading stats widget */}
         {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
