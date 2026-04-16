@@ -90,9 +90,22 @@ export function AuthorDetailPage() {
   const seoTitle = language === 'uk'
     ? `${author.name} — книги автора`
     : `${author.name} — books by author`
-  const seoDescription = author.bio || (language === 'uk'
-    ? `Читайте книги автора ${author.name} онлайн`
-    : `Read books by ${author.name} online`)
+  const seoDescription = (() => {
+    if (author.bio && author.bio.length >= 100) return author.bio
+    const bookTitles = author.editions?.slice(0, 3).map(e => e.title).join(', ') || ''
+    if (language === 'uk') {
+      const parts = [`Читайте книги автора ${author.name} онлайн безкоштовно з перекладом.`]
+      if (author.bookCount > 0) parts.push(`${author.bookCount} книг доступно.`)
+      if (bookTitles) parts.push(`Включає: ${bookTitles}.`)
+      if (author.bio) parts.push(author.bio)
+      return parts.join(' ')
+    }
+    const parts = [`Read books by ${author.name} online for free with instant translation.`]
+    if (author.bookCount > 0) parts.push(`${author.bookCount} books available.`)
+    if (bookTitles) parts.push(`Including: ${bookTitles}.`)
+    if (author.bio) parts.push(author.bio)
+    return parts.join(' ')
+  })()
 
   return (
     <>

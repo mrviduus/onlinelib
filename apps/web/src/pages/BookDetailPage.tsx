@@ -33,6 +33,36 @@ function stripHtml(html: string): string {
   return doc.body.textContent || ''
 }
 
+/** Build a meaningful meta description fallback when seoDescription is missing or too short */
+function buildBookMetaDescription(book: BookDetail, lang: string): string {
+  // Prefer seoDescription, then description
+  const raw = book.seoDescription || (book.description ? stripHtml(book.description) : '')
+  if (raw.length >= 100) return raw
+
+  // Generate a richer fallback
+  const authors = book.authors.map(a => a.name).join(', ')
+  const genres = (book.genres ?? []).map(g => g.name).join(', ')
+  const chapterCount = book.chapters?.length ?? 0
+
+  if (lang === 'uk') {
+    const parts = [`Читайте «${book.title}»`]
+    if (authors) parts.push(`від ${authors}`)
+    parts.push('онлайн безкоштовно з перекладом')
+    if (genres) parts.push(`. Жанр: ${genres}`)
+    if (chapterCount > 0) parts.push(`. ${chapterCount} розділів`)
+    if (raw) parts.push(`. ${raw}`)
+    return parts.join(' ')
+  }
+
+  const parts = [`Read "${book.title}"`]
+  if (authors) parts.push(`by ${authors}`)
+  parts.push('online for free with instant translation')
+  if (genres) parts.push(`. Genre: ${genres}`)
+  if (chapterCount > 0) parts.push(`. ${chapterCount} chapters`)
+  if (raw) parts.push(`. ${raw}`)
+  return parts.join(' ')
+}
+
 // Format chapter number with leading zero
 function formatChapterNumber(num: number): string {
   return String(num + 1).padStart(2, '0')
@@ -155,7 +185,7 @@ export function BookDetailPage() {
     <div className="book-detail--stitch">
       <SeoHead
         title={book.seoTitle || book.title}
-        description={book.seoDescription || book.description || undefined}
+        description={buildBookMetaDescription(book, language)}
         image={book.coverPath ? getStorageUrl(book.coverPath) : undefined}
         type="book"
         availableLanguages={availableLanguages}
