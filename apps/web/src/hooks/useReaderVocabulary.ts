@@ -11,6 +11,7 @@ import {
   type PendingVocabWord,
 } from '../lib/offlineDb'
 import { normalizeVocabKey } from '../lib/vocabKey'
+import { trackVocabSaved } from '../lib/analytics'
 
 export type VocabMap = Map<string, { stage: number; id?: string; translation?: string; isPending?: boolean }>
 
@@ -163,6 +164,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
         stage: saved.stage, id: saved.id,
         translation: existing?.translation || saved.translation || undefined,
       }))
+      trackVocabSaved({ language: req.language, nativeLanguage: req.nativeLanguage ?? undefined, source: 'reader' })
       return saved
     }
 
@@ -197,6 +199,8 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       translation: req.translation ?? undefined,
       isPending: true,
     }))
+    // Track anonymous saves too — measures guest engagement before commitment threshold.
+    trackVocabSaved({ language: req.language, nativeLanguage: req.nativeLanguage ?? undefined, source: 'reader' })
 
     // I2: threshold check — cross → create guest, flush everything.
     let count = 0
