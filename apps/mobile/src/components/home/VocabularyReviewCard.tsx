@@ -1,87 +1,176 @@
 /**
  * Home-screen card surfacing the vocabulary review flow.
  *
- * Three states, chosen to mirror the user's actual progress loop:
+ * Three content states, chosen to mirror the user's actual progress loop:
  *   1. Due review queue   → primary CTA "Review N" (opens /vocabulary/review)
- *   2. Has words, 0 due   → secondary CTA "Open vocabulary" (opens /(tabs)/vocabulary)
+ *   2. Has words, 0 due   → secondary CTA "Open" (opens /(tabs)/vocabulary)
  *   3. Empty (totalWords=0) → still rendered, for discoverability — explains
  *      that tapping a word in the reader saves it. Previously vocabulary lived
  *      only under the profile menu, so new users never found it.
  *
- * Stats refresh on mount and every time the home tab regains focus, so coming
- * back from a reader session (where a word was just saved) updates the count.
+ * Load strategy:
+ *   - On focus, read last-known stats from AsyncStorage synchronously-ish so we
+ *     can render immediately (no layout shift) even on cold start.
+ *   - In parallel, hit the server; on success, swap in fresh stats and persist.
+ *   - If the server call fails (offline, 401), we keep showing the cached
+ *     value. Without the cache, a user with 500 saved words would see
+ *     "Start your vocabulary" when offline — actively misleading.
+ *
+ * Subline priority: streak > mastered count > nothing-due text. Streak is
+ * the strongest habit driver; surface it first when available.
+ *
+ * All user-facing copy goes through the shared i18n `t()` — hardcoded strings
+ * would break UK users the moment they switched language.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { vocabularyApi } from '@textstack/shared'
 import type { VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
+import { useLanguage } from '../../context/LanguageContext'
 import { fonts } from '../../theme/typography'
 import { PressableScale } from '../ui/PressableScale'
+import { SkeletonLoader } from '../ui/SkeletonLoader'
+import { getVocabStatsCache, saveVocabStatsCache } from '../../lib/vocabStatsCache'
+
+type IconName = keyof typeof Ionicons.glyphMap
+
+/** Minimal dot-notation template replace. */
+function interpolate(
+  template: string,
+  vars: Record<string, string | number>,
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) =>
+    vars[k] == null ? `{${k}}` : String(vars[k]),
+  )
+}
 
 export function VocabularyReviewCard() {
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const router = useRouter()
   const [stats, setStats] = useState<VocabularyStatsDto | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const [initialLoaded, setInitialLoaded] = useState(false)
+  // Prevents a race where a slow network response overwrites a fresh focus
+  // refetch. Bumped on every focus.
+  const fetchTokenRef = useRef(0)
 
+  // Seed from cache on first mount so we can render immediately without flicker.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const cached = await getVocabStatsCache()
+      if (cancelled) return
+      if (cached) setStats(cached.stats)
+      setInitialLoaded(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Refetch on every focus — covers "user saved a word in the reader, came
+  // back to home". Cached state is shown during the refetch.
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false
+      const token = ++fetchTokenRef.current
       ;(async () => {
         try {
-          const s = await vocabularyApi.getVocabularyStats()
-          if (!cancelled) setStats(s)
+          const fresh = await vocabularyApi.getVocabularyStats()
+          if (fetchTokenRef.current !== token) return
+          setStats(fresh)
+          void saveVocabStatsCache(fresh)
         } catch {
-          // Unauthenticated or offline — treat as no data, still render the empty
-          // state so the feature stays discoverable.
-          if (!cancelled) setStats(null)
-        } finally {
-          if (!cancelled) setLoaded(true)
+          // Offline / 401 — keep stale cached value. Only fall through to
+          // the empty state if we genuinely have no cache on cold start.
         }
       })()
-      return () => {
-        cancelled = true
-      }
     }, []),
   )
 
-  if (!loaded) return null
+  // Skeleton while we wait for the cache read (typically <10ms on warm cache,
+  // but can be longer on cold start). Reserves exact card height so the home
+  // scroll doesn't jump when the real card swaps in.
+  if (!initialLoaded) {
+    return (
+      <View
+        style={[
+          styles.card,
+          styles.skeletonCard,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <SkeletonLoader width={44} height={44} borderRadius={12} />
+        <View style={styles.info}>
+          <SkeletonLoader width={70} height={10} />
+          <SkeletonLoader width={180} height={15} style={{ marginTop: 6 }} />
+          <SkeletonLoader width={140} height={12} style={{ marginTop: 4 }} />
+        </View>
+        <SkeletonLoader width={64} height={28} borderRadius={14} />
+      </View>
+    )
+  }
 
   const totalWords = stats?.totalWords ?? 0
   const dueNow = stats?.dueNow ?? 0
   const mastered = stats?.byStage?.mastered ?? 0
+  const streak = stats?.streak ?? 0
 
   let headline: string
   let subline: string
   let ctaLabel: string
   let ctaAction: () => void
-  let iconName: keyof typeof Ionicons.glyphMap
+  let iconName: IconName
 
   if (totalWords === 0) {
-    headline = 'Start your vocabulary'
-    subline = 'Tap a word while reading to save it and begin practicing.'
-    ctaLabel = 'Learn more'
+    headline = t('home.vocabCard.emptyTitle')
+    subline = t('home.vocabCard.emptySubline')
+    ctaLabel = t('home.vocabCard.learnMoreCta')
     iconName = 'school-outline'
     ctaAction = () => router.push('/(tabs)/vocabulary' as never)
   } else if (dueNow > 0) {
-    headline = `${dueNow} word${dueNow === 1 ? '' : 's'} ready to review`
-    subline = `${totalWords} saved · ${mastered} mastered`
-    ctaLabel = 'Review'
+    const titleKey = dueNow === 1 ? 'home.vocabCard.dueTitleOne' : 'home.vocabCard.dueTitleMany'
+    headline = interpolate(t(titleKey), { count: dueNow })
+    // Streak is the strongest retention signal when available; fall back to
+    // mastered count otherwise.
+    if (streak > 0) {
+      subline = interpolate(t('home.vocabCard.sublineStreak'), {
+        saved: totalWords,
+        streak,
+      })
+    } else {
+      subline = interpolate(t('home.vocabCard.sublineMastered'), {
+        saved: totalWords,
+        mastered,
+      })
+    }
+    ctaLabel = t('home.vocabCard.reviewCta')
     iconName = 'flash'
-    ctaAction = () => router.push('/vocabulary/review?reviewMode=blitz' as never)
+    ctaAction = () =>
+      router.push('/vocabulary/review?reviewMode=blitz' as never)
   } else {
-    headline = `${totalWords} word${totalWords === 1 ? '' : 's'} saved`
-    subline = mastered > 0 ? `${mastered} mastered — keep it up.` : 'Nothing due. Check back later.'
-    ctaLabel = 'Open'
+    const titleKey = totalWords === 1 ? 'home.vocabCard.savedTitleOne' : 'home.vocabCard.savedTitleMany'
+    headline = interpolate(t(titleKey), { count: totalWords })
+    if (mastered > 0) {
+      subline = interpolate(t('home.vocabCard.sublineMasteredKeepUp'), {
+        mastered,
+      })
+    } else {
+      subline = t('home.vocabCard.sublineNothingDue')
+    }
+    ctaLabel = t('home.vocabCard.openCta')
     iconName = 'school'
     ctaAction = () => router.push('/(tabs)/vocabulary' as never)
   }
 
   const isActionable = dueNow > 0
+
+  // Stitch together a single accessibility label so VoiceOver reads the card
+  // as one coherent announcement instead of three separate children.
+  const a11yLabel = `${t('home.vocabCard.label')}. ${headline}. ${subline}`
 
   return (
     <PressableScale
@@ -93,6 +182,9 @@ export function VocabularyReviewCard() {
         },
       ]}
       onPress={ctaAction}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={ctaLabel}
     >
       <View
         style={[
@@ -107,7 +199,9 @@ export function VocabularyReviewCard() {
         />
       </View>
       <View style={styles.info}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Vocabulary</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {t('home.vocabCard.label')}
+        </Text>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
           {headline}
         </Text>
@@ -150,6 +244,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     gap: 12,
+  },
+  // Reserves the same footprint as the real card while the initial cache read
+  // resolves. Keep styles identical to `.card` so swap-in is invisible.
+  skeletonCard: {
+    minHeight: 68,
   },
   iconBubble: {
     width: 44,
