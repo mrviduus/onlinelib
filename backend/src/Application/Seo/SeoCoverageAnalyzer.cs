@@ -52,7 +52,8 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
 
     public async Task<List<GapRow>> GetAuthorGapsAsync(string? language, int limit, CancellationToken ct)
     {
-        var q = db.Authors.AsNoTracking().Where(a => a.Indexable && a.SeoSource != SeoSource.Manual);
+        // Include Manual-source authors if they still have empty fields
+        var q = db.Authors.AsNoTracking().Where(a => a.Indexable);
         // Language filter keyed on author's first edition
         var list = await q.OrderBy(a => a.Name).Take(limit).ToListAsync(ct);
         return list.Select(a =>
@@ -70,8 +71,10 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
 
     public async Task<List<GapRow>> GetEditionGapsAsync(string? language, int limit, CancellationToken ct)
     {
+        // Include Manual-source editions if they still have empty fields —
+        // the Manual flag should protect filled content from overwrite, not hide gaps.
         var q = db.Editions.AsNoTracking()
-            .Where(e => e.Indexable && e.Status == EditionStatus.Published && e.SeoSource != SeoSource.Manual);
+            .Where(e => e.Indexable && e.Status == EditionStatus.Published);
         if (!string.IsNullOrWhiteSpace(language)) q = q.Where(e => e.Language == language);
 
         var list = await q.OrderBy(e => e.Title).Take(limit).ToListAsync(ct);
@@ -90,7 +93,8 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
 
     public async Task<List<GapRow>> GetGenreGapsAsync(int limit, CancellationToken ct)
     {
-        var q = db.Genres.AsNoTracking().Where(g => g.Indexable && g.SeoSource != SeoSource.Manual);
+        // Include Manual-source genres if they still have empty fields
+        var q = db.Genres.AsNoTracking().Where(g => g.Indexable);
         var list = await q.OrderBy(g => g.Name).Take(limit).ToListAsync(ct);
         return list.Select(g =>
         {
@@ -105,7 +109,8 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
     public async Task<List<GapRow>> GetBlogPostGapsAsync(string? language, int limit, CancellationToken ct)
     {
         var q = db.BlogPosts.AsNoTracking()
-            .Where(p => p.Status == BlogPostStatus.Published && p.SeoSource != SeoSource.Manual);
+            // Include Manual-source posts if they still have empty fields
+            .Where(p => p.Status == BlogPostStatus.Published);
         if (!string.IsNullOrWhiteSpace(language)) q = q.Where(p => p.Language == language);
 
         var list = await q.OrderBy(p => p.Title).Take(limit).ToListAsync(ct);
