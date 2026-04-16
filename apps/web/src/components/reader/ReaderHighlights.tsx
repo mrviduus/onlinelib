@@ -20,6 +20,7 @@ import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
+import { TtsHighlightOverlay } from './TtsHighlightOverlay'
 import { Toast } from '../Toast'
 import { useAuth } from '../../context/AuthContext'
 
@@ -316,10 +317,19 @@ export function ReaderHighlights({
   }, [editingHighlight, removeHighlight, closeNoteEditor])
 
   // --- TTS ---
-  const { speak } = useTts()
+  const { speak, stop: stopTts, isPlaying: ttsPlaying, timestamps: ttsTimestamps, currentWordIndex: ttsCurrentWord } = useTts()
+  // Captured at speak() time so the overlay has text to split + highlight even
+  // after the selection is cleared. Cleared explicitly on stop() — relying on
+  // `isPlaying` alone would leave the last text flashing between playbacks.
+  const [ttsSpokenText, setTtsSpokenText] = useState<string | null>(null)
   const handleSpeak = useCallback((text: string, lang?: string) => {
+    setTtsSpokenText(text)
     speak(text, lang || bookLanguage, undefined, ttsSpeed)
   }, [speak, bookLanguage, ttsSpeed])
+  const handleStopTts = useCallback(() => {
+    stopTts()
+    setTtsSpokenText(null)
+  }, [stopTts])
 
   // Auto-play TTS when popup opens on a new word (not on every translation/definition update).
   useEffect(() => {
@@ -485,6 +495,17 @@ export function ReaderHighlights({
           onClick={() => { dismissIdbUnavailable(); openAuthModal() }}
         />
       )}
+
+      {/* Floating overlay with per-word highlighting during multi-word TTS.
+          Skip single-word playback (handled by WordPopup's own speaker icon)
+          so a word tap doesn't pop a redundant bar at the bottom. */}
+      <TtsHighlightOverlay
+        text={ttsSpokenText ?? ''}
+        timestamps={ttsTimestamps}
+        currentWordIndex={ttsCurrentWord}
+        visible={ttsPlaying && !!ttsSpokenText && countWords(ttsSpokenText) > 1}
+        onStop={handleStopTts}
+      />
     </div>
   )
 }

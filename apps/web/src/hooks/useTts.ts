@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchTtsAudio, TtsRateLimitError } from '../api/tts'
+import { fetchTtsAudio, fetchTtsTimestamps, TtsRateLimitError, WordTimestamp } from '../api/tts'
 import { getCachedTtsAudio, cacheTtsAudio } from '../lib/offlineDb'
 
 // Shared playback element + blob URL — a single TTS stream at a time.
@@ -94,7 +94,14 @@ export function useTts() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<TtsError>(null)
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null)
+  const [timestamps, setTimestamps] = useState<WordTimestamp[]>([])
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
+  const rafRef = useRef<number | null>(null)
+  // Timestamps kept on a ref so the rAF tick doesn't re-close over stale
+  // state. State is still surfaced via `timestamps` for consumers that want
+  // to render the word list.
+  const timestampsRef = useRef<WordTimestamp[]>([])
 
   // Stable per-instance callback — used as identity to tell owner-me apart
   // from owner-other-instance in currentOwnerReset.
@@ -104,6 +111,14 @@ export function useTts() {
     setIsLoading(false)
   }
   const localReset = useCallback(() => localResetRef.current(), [])
+
+  const stopTracking = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    setCurrentWordIndex(-1)
+  }, [])
 
   const stop = useCallback(() => {
     abortRef.current?.abort()
@@ -117,10 +132,11 @@ export function useTts() {
     audio.onerror = null
     audio.src = ''
     cleanup()
+    stopTracking()
     setIsPlaying(false)
     setIsLoading(false)
     if (currentOwnerReset === localReset) currentOwnerReset = null
-  }, [localReset])
+  }, [localReset, stopTracking])
 
   // On unmount, release ownership so we don't leak a stale reset callback
   // that closes over dead React state.
@@ -143,6 +159,8 @@ export function useTts() {
     }
     setError(null)
     setRetryAfterSeconds(null)
+    setTimestamps([])
+    timestampsRef.current = []
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -168,6 +186,19 @@ export function useTts() {
         try { await cacheTtsAudio(lang, text, audioData) } catch { /* ignore */ }
       }
 
+      // Timestamps are cheap on cache hit (same key as audio) — fetch in
+      // parallel-ish with audio decode. Failure here is non-fatal: if the
+      // timestamps endpoint fails we still play audio without highlighting.
+      // IndexedDB is NOT used for timestamps today — the HTTP ETag/304 path
+      // is sufficient given the small JSON payload.
+      fetchTtsTimestamps(text, lang, voice, speed, controller.signal)
+        .then(ts => {
+          if (controller.signal.aborted) return
+          timestampsRef.current = ts
+          setTimestamps(ts)
+        })
+        .catch(() => { /* non-fatal */ })
+
       if (controller.signal.aborted) return
 
       // Play
@@ -180,6 +211,7 @@ export function useTts() {
       audio.onended = () => {
         setIsPlaying(false)
         cleanup()
+        stopTracking()
         if (currentOwnerReset === localReset) currentOwnerReset = null
       }
       audio.onerror = () => {
@@ -187,6 +219,7 @@ export function useTts() {
         // just goes silent with no indicator — user thinks it worked.
         setIsPlaying(false)
         cleanup()
+        stopTracking()
         setError('failed')
         if (currentOwnerReset === localReset) currentOwnerReset = null
       }
@@ -197,6 +230,31 @@ export function useTts() {
       currentOwnerReset = localReset
       setIsLoading(false)
       setIsPlaying(true)
+
+      // Track currentWordIndex via rAF. Linear scan from `lastIndex` rather
+      // than bisecting — audio plays forward, so the scan is O(1) per frame.
+      // We don't tick from `timeupdate`: that fires at only ~4Hz in Chrome
+      // and would lag behind visible word changes.
+      let lastIndex = -1
+      const tick = () => {
+        const nowMs = audio.currentTime * 1000
+        const ts = timestampsRef.current
+        if (ts.length > 0) {
+          let idx = lastIndex < 0 ? 0 : lastIndex
+          // Advance while next words are due.
+          while (idx < ts.length - 1 && ts[idx + 1].startMs <= nowMs) idx++
+          // Before first word starts → -1 so nothing is highlighted during
+          // the leading silence.
+          if (nowMs < ts[0].startMs) idx = -1
+          if (idx !== lastIndex) {
+            lastIndex = idx
+            setCurrentWordIndex(idx)
+          }
+        }
+        rafRef.current = requestAnimationFrame(tick)
+      }
+      rafRef.current = requestAnimationFrame(tick)
+
       try {
         await audio.play()
       } catch (err) {
@@ -204,6 +262,7 @@ export function useTts() {
         const name = (err as { name?: string })?.name
         setIsPlaying(false)
         cleanup()
+        stopTracking()
         setError(name === 'NotAllowedError' ? 'blocked' : 'failed')
         // Re-arm the unlock path so the next user gesture tries again. Without
         // this, audioUnlocked stays true after a permission revoke and every
@@ -216,6 +275,7 @@ export function useTts() {
         console.error('TTS error:', err)
         setIsLoading(false)
         setIsPlaying(false)
+        stopTracking()
         if (err instanceof TtsRateLimitError) {
           setRetryAfterSeconds(err.retryAfterSeconds)
           setError('rate_limited')
@@ -224,7 +284,7 @@ export function useTts() {
         }
       }
     }
-  }, [stop, localReset])
+  }, [stop, localReset, stopTracking])
 
-  return { speak, stop, isPlaying, isLoading, error, retryAfterSeconds }
+  return { speak, stop, isPlaying, isLoading, error, retryAfterSeconds, timestamps, currentWordIndex }
 }

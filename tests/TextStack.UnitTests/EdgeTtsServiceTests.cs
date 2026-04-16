@@ -206,20 +206,23 @@ public class EdgeTtsServiceTests
         var service = CreateService(tmpDir);
         await service.StartAsync(CancellationToken.None);
 
-        // Pre-seed the cache with a known file
+        // Pre-seed BOTH files — paired cache requires .mp3 + .ts.json to hit.
         var method = typeof(EdgeTtsService).GetMethod(
             "ComputeCacheKey",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
         var key = (string)method.Invoke(null, ["cached-word", "en-US-AriaNeural", "+0%"])!;
-        var cachePath = Path.Combine(tmpDir, $"{key}.mp3");
+        var audioPath = Path.Combine(tmpDir, $"{key}.mp3");
+        var tsPath = Path.Combine(tmpDir, $"{key}.ts.json");
         var fakeAudio = new byte[] { 0xFF, 0xFB, 0x90, 0x00 }; // fake MP3 header
-        await File.WriteAllBytesAsync(cachePath, fakeAudio);
+        await File.WriteAllBytesAsync(audioPath, fakeAudio);
+        await File.WriteAllTextAsync(tsPath, "[]");
 
         var result = await service.SynthesizeAsync("cached-word", "en", null, 1.0, CancellationToken.None);
 
         Assert.Equal(fakeAudio, result);
         Directory.Delete(tmpDir, true);
     }
+
 
     private static string GetCachePath(EdgeTtsService service)
     {
