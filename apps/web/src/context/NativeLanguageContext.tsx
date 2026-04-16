@@ -128,10 +128,15 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
       }
     }
     if (!user || user.isGuest) return
+    // Logged-in non-guest → always dismiss the pulse. The user has an account;
+    // nagging them to "pick a language" is pointless even if server field is empty.
+    if (!hasConfirmedLanguage) {
+      setHasConfirmedLanguage(true)
+      try { localStorage.setItem(CONFIRMED_KEY, '1') } catch {}
+    }
     const serverLang = user.nativeLanguage
     if (!serverLang || !isSupported(serverLang)) return
     if (serverLang !== nativeLanguage) setNativeLanguageState(serverLang)
-    if (!hasConfirmedLanguage) setHasConfirmedLanguage(true)
     try {
       localStorage.setItem(STORAGE_KEY, serverLang)
       localStorage.setItem(CONFIRMED_KEY, '1')
