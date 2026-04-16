@@ -1,14 +1,32 @@
 import { useRef, type ReactNode } from 'react'
-import { Pressable, Animated, type ViewStyle, type StyleProp } from 'react-native'
+import {
+  Pressable,
+  Animated,
+  type AccessibilityRole,
+  type ViewStyle,
+  type StyleProp,
+} from 'react-native'
 
 interface PressableScaleProps {
   onPress?: () => void
   style?: StyleProp<ViewStyle>
   children: ReactNode
   disabled?: boolean
+  /** Forwarded to the underlying Pressable — keep screen-reader semantics intact. */
+  accessibilityRole?: AccessibilityRole
+  accessibilityLabel?: string
+  accessibilityHint?: string
 }
 
-export function PressableScale({ onPress, style, children, disabled }: PressableScaleProps) {
+export function PressableScale({
+  onPress,
+  style,
+  children,
+  disabled,
+  accessibilityRole,
+  accessibilityLabel,
+  accessibilityHint,
+}: PressableScaleProps) {
   const scale = useRef(new Animated.Value(1)).current
 
   const onPressIn = () => {
@@ -20,7 +38,15 @@ export function PressableScale({ onPress, style, children, disabled }: Pressable
   }
 
   return (
-    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={disabled}>
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+    >
       <Animated.View style={[style, { transform: [{ scale }] }]}>
         {children}
       </Animated.View>

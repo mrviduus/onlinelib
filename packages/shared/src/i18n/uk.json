@@ -61,6 +61,22 @@
       "recents": "Книги, які ви читали, з'являться тут.",
       "collections": "Підбірки з'являться незабаром.",
       "browseBooks": "Переглянути книги"
+    },
+    "vocabCard": {
+      "label": "Словник",
+      "emptyTitle": "Почніть словник",
+      "emptySubline": "Торкніться слова під час читання, щоб зберегти його та почати тренуватися.",
+      "learnMoreCta": "Дізнатися",
+      "dueTitleOne": "1 слово готове до повторення",
+      "dueTitleMany": "Готові до повторення: {count}",
+      "savedTitleOne": "1 слово збережено",
+      "savedTitleMany": "Збережено слів: {count}",
+      "sublineStreak": "{saved} у словнику · серія {streak} д.",
+      "sublineMastered": "{saved} у словнику · {mastered} вивчено",
+      "sublineNothingDue": "Нічого немає. Поверніться пізніше.",
+      "sublineMasteredKeepUp": "{mastered} вивчено — так тримати.",
+      "reviewCta": "Повторити",
+      "openCta": "Відкрити"
     }
   },
   "common": {

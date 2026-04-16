@@ -61,6 +61,22 @@
       "recents": "Books you read will show up here.",
       "collections": "Collections will appear soon.",
       "browseBooks": "Browse books"
+    },
+    "vocabCard": {
+      "label": "Vocabulary",
+      "emptyTitle": "Start your vocabulary",
+      "emptySubline": "Tap a word while reading to save it and begin practicing.",
+      "learnMoreCta": "Learn more",
+      "dueTitleOne": "1 word ready to review",
+      "dueTitleMany": "{count} words ready to review",
+      "savedTitleOne": "1 word saved",
+      "savedTitleMany": "{count} words saved",
+      "sublineStreak": "{saved} saved · {streak}-day streak",
+      "sublineMastered": "{saved} saved · {mastered} mastered",
+      "sublineNothingDue": "Nothing due. Check back later.",
+      "sublineMasteredKeepUp": "{mastered} mastered — keep it up.",
+      "reviewCta": "Review",
+      "openCta": "Open"
     }
   },
   "common": {
@@ -368,7 +384,13 @@
   "reader": {
     "reviewNow": "Review Now",
     "later": "Later",
-    "wordsSaved": "{count} word(s) saved"
+    "wordsSaved": "{count} word(s) saved",
+    "toastWordAdded": "Added to vocabulary",
+    "toastWordAddedCount": "Added · {count} this session",
+    "toastTapToReview": "Tap to review",
+    "coachmarkTitle": "Tap any word",
+    "coachmarkSubtitle": "Tap a word to save it to your vocabulary.",
+    "coachmarkDismiss": "Got it"
   },
   "review": {
     "excellent": "Excellent!",
