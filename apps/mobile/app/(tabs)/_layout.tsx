@@ -26,10 +26,11 @@ function AnimatedTabIcon({ name, size, color, focused }: {
 }
 
 const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-  Read:    { active: 'book', inactive: 'book-outline' },
-  Discover:  { active: 'compass', inactive: 'compass-outline' },
-  Library: { active: 'library', inactive: 'library-outline' },
-  Profile: { active: 'person', inactive: 'person-outline' },
+  Read:       { active: 'book', inactive: 'book-outline' },
+  Discover:   { active: 'compass', inactive: 'compass-outline' },
+  Library:    { active: 'library', inactive: 'library-outline' },
+  Vocabulary: { active: 'school', inactive: 'school-outline' },
+  Profile:    { active: 'person', inactive: 'person-outline' },
 }
 
 export default function TabLayout() {
@@ -80,6 +81,15 @@ export default function TabLayout() {
           title: t('nav.library'),
           tabBarIcon: ({ focused, color }) => (
             <AnimatedTabIcon name={focused ? TAB_ICONS.Library.active : TAB_ICONS.Library.inactive} size={22} color={color} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="vocabulary"
+        options={{
+          title: t('nav.vocabulary'),
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedTabIcon name={focused ? TAB_ICONS.Vocabulary.active : TAB_ICONS.Vocabulary.inactive} size={22} color={color} focused={focused} />
           ),
         }}
       />

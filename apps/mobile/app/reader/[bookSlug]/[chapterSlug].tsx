@@ -93,31 +93,43 @@ export default function ReaderScreen() {
     isAuthenticated,
   })
 
+  const hideBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (!barsVisibleRef.current) return
+    barsVisibleRef.current = false
+    setBarsVisible(false)
+    Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+  }, [barsAnim])
+
+  const showBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (barsVisibleRef.current) return
+    barsVisibleRef.current = true
+    setBarsVisible(true)
+    Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
+  }, [barsAnim])
+
   const startHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => {
-      barsVisibleRef.current = false
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+      hideBars()
     }, 3000)
-  }, [barsAnim])
+  }, [hideBars])
 
   const toggleBars = useCallback(() => {
-    const visible = barsVisibleRef.current
-    if (visible) {
-      barsVisibleRef.current = false
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    } else {
-      barsVisibleRef.current = true
-      setBarsVisible(true)
-      Animated.timing(barsAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start()
-      startHideTimer()
-    }
-  }, [barsAnim, startHideTimer])
+    if (barsVisibleRef.current) hideBars()
+    else showBars()
+  }, [hideBars, showBars])
 
-  // Start hide timer when chapter loads
+  // When chapter first loads, show bars briefly then auto-hide so the
+  // reader has chrome to orient with. From there on, visibility is
+  // driven entirely by scroll direction (see handleMessage 'scrollDir').
   useEffect(() => {
     if (!loading && chapter) startHideTimer()
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
@@ -228,6 +240,12 @@ export default function ReaderScreen() {
       const data = JSON.parse(event.nativeEvent.data)
       if (data.type === 'tap') {
         toggleBars()
+      } else if (data.type === 'scrollDir') {
+        // ElevenReader-style reveal: scrolling back up (re-reading)
+        // brings chrome back; scrolling forward hides it. Tap remains
+        // as a manual toggle for discoverability.
+        if (data.dir === 'up') showBars()
+        else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
@@ -313,7 +331,7 @@ export default function ReaderScreen() {
         }
       }
     } catch {}
-  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars])
+  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars, showBars, hideBars])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -555,9 +573,6 @@ export default function ReaderScreen() {
             </View>
           )}
           <View style={styles.topBarRight}>
-            <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
-              <Ionicons name="search-outline" size={20} color={barText} />
-            </TouchableOpacity>
             {isAuthenticated && (
               <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
                 <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
