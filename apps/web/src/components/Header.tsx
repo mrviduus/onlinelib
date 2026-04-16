@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
 import { LocalizedLink } from './LocalizedLink'
-import { LanguageSwitcher } from './LanguageSwitcher'
+import { DiscoverMenu } from './DiscoverMenu'
 import { LoginButton } from './auth/LoginButton'
 import { UserMenu } from './auth/UserMenu'
 import { useAuth } from '../context/AuthContext'
@@ -20,8 +19,6 @@ export function Header() {
   const { isDark, toggleTheme } = useDarkMode()
   const { t } = useTranslation()
   const quickStats = useQuickStats()
-  const location = useLocation()
-  const isHomePage = /^\/(en|uk)?\/?$/.test(location.pathname)
 
   return (
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
@@ -30,9 +27,7 @@ export function Header() {
           <span className="site-header__wordmark">TextStack</span>
         </LocalizedLink>
         <nav className="site-header__nav-links">
-          <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
-            {t('nav.catalog')}
-          </LocalizedLink>
+          <DiscoverMenu />
           <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
             {t('nav.vocabulary')}
           </LocalizedLink>
@@ -45,7 +40,6 @@ export function Header() {
         </nav>
       </div>
       <div className="site-header__right">
-        {!isHomePage && <LanguageSwitcher />}
         <button
           className="site-header__icon-btn"
           onClick={toggleTheme}

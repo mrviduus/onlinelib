@@ -153,6 +153,30 @@
   cursor: not-allowed;
 }
 
+.profile-modal__lang-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.profile-modal__lang-flag {
+  flex: 0 0 auto;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.profile-modal__lang-select {
+  margin-bottom: 0;
+}
+
+.profile-modal__hint {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.9rem;
+  line-height: 1.4;
+}
+
 .profile-modal__error {
   color: #ef4444;
   font-size: 0.82rem;

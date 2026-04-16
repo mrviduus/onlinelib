@@ -29,6 +29,11 @@
       "viewAll": "View all books",
       "read": "Read"
     },
+    "recommended": {
+      "title": "Recommended for You",
+      "subtitle": "Highest-rated books in our catalog",
+      "viewAll": "View all books"
+    },
     "seo": {
       "content": "TextStack Reader is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
     },
@@ -60,7 +65,7 @@
       },
       "tts": {
         "title": "Natural voices",
-        "description": "200+ text-to-speech voices. Hear native pronunciation while you read."
+        "description": "Built-in text-to-speech. Hear native pronunciation while you read."
       }
     },
     "howItWorks": {
@@ -80,6 +85,95 @@
       "heading": "Start your reading journey today.",
       "body": "Free. No credit card. Works right in your browser.",
       "button": "Start reading free"
+    },
+    "testimonials": {
+      "heading": "Loved by language learners",
+      "subheading": "Real readers, real progress.",
+      "reader1": {
+        "quote": "I finished my first English novel in two weeks. The tap-to-translate feature is a game changer — I never lose momentum.",
+        "name": "Maria K.",
+        "role": "Learning English, B1 level"
+      },
+      "reader2": {
+        "quote": "The SRS flashcards actually work. I went from forgetting every word to recognizing them in real conversations.",
+        "name": "Tomas R.",
+        "role": "University student, Czech Republic"
+      },
+      "reader3": {
+        "quote": "I switched from Kindle because I wanted vocabulary tools built into the reader. TextStack nails it.",
+        "name": "Yuki S.",
+        "role": "Software engineer, Japan"
+      },
+      "reader4": {
+        "quote": "Being able to upload my own books and read them with translation is incredible. And it is free!",
+        "name": "Elena V.",
+        "role": "Teacher, Ukraine"
+      },
+      "reader5": {
+        "quote": "The reading stats keep me motivated — my streak is 47 days and counting. Best reading app I have used.",
+        "name": "Carlos M.",
+        "role": "Learning English, A2 level"
+      }
+    },
+    "faq": {
+      "heading": "Frequently asked questions",
+      "subheading": "Everything you need to know about TextStack.",
+      "whatIs": {
+        "q": "What is TextStack?",
+        "a": "TextStack is a free reading platform for language learners. Read classic English books with built-in translation, vocabulary flashcards, text-to-speech, and reading statistics — all in one app."
+      },
+      "isFree": {
+        "q": "Is TextStack really free?",
+        "a": "Yes. The full catalog, reader, translation, SRS flashcards, and reading statistics are completely free. No credit card required, no hidden limits."
+      },
+      "languages": {
+        "q": "Which languages are supported?",
+        "a": "You can translate English text into 18+ languages including Spanish, French, German, Ukrainian, Japanese, Korean, Chinese, Portuguese, and more. The interface is available in English and Ukrainian."
+      },
+      "tapTranslate": {
+        "q": "How does tap-to-translate work?",
+        "a": "While reading, simply tap or click any word. You will instantly see the translation in your native language, a dictionary definition, and can hear the pronunciation. No switching apps or copying text."
+      },
+      "uploadBooks": {
+        "q": "Can I upload my own books?",
+        "a": "Absolutely. Upload EPUB, PDF, or FB2 files and read them with the full TextStack toolkit — translation, flashcards, TTS, and progress tracking."
+      },
+      "srsCards": {
+        "q": "How do the SRS flashcards work?",
+        "a": "When you save a word, it becomes an SRS flashcard. The system uses 5 stages — from Recognition to Mastered — spacing reviews so you remember long-term. Smart distractors make each review meaningful."
+      },
+      "offline": {
+        "q": "Does TextStack work offline?",
+        "a": "Yes. Download books for offline reading. Your progress, bookmarks, and vocabulary sync automatically when you reconnect."
+      },
+      "mobileApp": {
+        "q": "Is there a mobile app?",
+        "a": "A mobile app for iOS and Android is in active development and coming soon. In the meantime, TextStack works great on mobile browsers."
+      },
+      "vsFriends": {
+        "q": "How is TextStack different from Kindle or LingQ?",
+        "a": "TextStack combines the reading experience of Kindle with the language-learning tools of LingQ — and it is free. Tap-to-translate, SRS flashcards, built-in text-to-speech, offline reading, and detailed statistics, all in one clean reader."
+      }
+    },
+    "comparison": {
+      "heading": "How TextStack compares",
+      "subheading": "The features you need — without the price tag.",
+      "feature": "Feature",
+      "competitors": {
+        "textstack": "TextStack",
+        "lingq": "LingQ",
+        "kindle": "Kindle",
+        "speechify": "Speechify"
+      },
+      "features": {
+        "tapTranslate": "Tap-to-translate",
+        "srsCards": "SRS flashcards",
+        "uploadBooks": "Upload your books",
+        "tts": "Text-to-speech",
+        "offline": "Offline reading",
+        "stats": "Reading statistics",
+        "free": "Free to use"
+      }
     }
   },
   "reader": {
@@ -142,6 +236,7 @@
   },
   "nav": {
     "catalog": "Catalog",
+    "discover": "Discover",
     "vocabulary": "Vocabulary",
     "highlights": "Highlights",
     "about": "About",
@@ -149,7 +244,18 @@
     "genres": "Genres",
     "browseBooks": "Browse all books",
     "browseGenres": "Browse genres",
-    "aboutTextStack": "About TextStack Reader"
+    "aboutTextStack": "About TextStack Reader",
+    "discoverMenu": {
+      "trendingGenres": "Trending Genres",
+      "quickLinks": "Quick Links",
+      "latestAuthors": "Latest Authors",
+      "allBooks": "All Books",
+      "topFreeBooks": "Top Free Books",
+      "blogPosts": "Blog Posts",
+      "allGenres": "All genres",
+      "browseAuthors": "Browse Latest Books",
+      "browseAuthorsDesc": "Read classic literature with built-in translation and vocabulary tools."
+    }
   },
   "footer": {
     "description": "TextStack Reader is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
