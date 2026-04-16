@@ -393,7 +393,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           if (_showInlineTranslations && entry.translation) {
             var span = document.createElement('span');
             span.className = 'vocab-inline-translation';
-            span.style.cssText = 'position:absolute;left:50%;bottom:100%;transform:translateX(-50%);white-space:nowrap;font-size:0.5em;font-style:italic;opacity:0.4;line-height:1;pointer-events:none;user-select:none;max-width:150%;overflow:hidden;text-overflow:ellipsis;';
+            span.style.cssText = 'position:absolute;left:50%;bottom:calc(100% - 4px);transform:translateX(-50%);white-space:nowrap;font-size:0.5em;font-style:italic;opacity:0.4;line-height:1;pointer-events:none;user-select:none;max-width:150%;overflow:hidden;text-overflow:ellipsis;';
             span.textContent = entry.translation;
             mark.appendChild(span);
           }

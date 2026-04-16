@@ -2005,13 +2005,12 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 }
 
 /* Inline translation above the word.
-   bottom: calc(100% + 4px) guarantees a real gap from the word's top, so it
-   can't visually collide with underlines / descenders of the line above even
-   at tight line-heights. */
+   bottom: calc(100% - 4px) keeps the label close to the word top so it
+   doesn't float too far above the text at normal line-heights. */
 .vocab-inline-translation {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 4px);
+  bottom: calc(100% - 4px);
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: 0.5em;
