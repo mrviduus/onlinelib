@@ -285,6 +285,179 @@
   }
 }
 
+/* ==========================================================================
+   Discover Mega Menu
+   ========================================================================== */
+.discover-menu {
+  position: relative;
+}
+
+.discover-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.discover-menu__trigger--open {
+  color: var(--color-text);
+}
+
+.discover-menu__chevron {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.discover-menu__trigger--open .discover-menu__chevron {
+  transform: rotate(180deg);
+}
+
+.discover-menu__panel {
+  position: absolute;
+  top: calc(100% + 20px);
+  left: -16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 0;
+  min-width: 680px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  padding: 24px;
+  z-index: 200;
+  animation: discover-panel-in 0.15s ease-out;
+}
+
+@keyframes discover-panel-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.discover-menu__col {
+  padding: 0 20px;
+}
+
+.discover-menu__col:first-child {
+  padding-left: 0;
+}
+
+.discover-menu__col:last-child {
+  padding-right: 0;
+}
+
+.discover-menu__col:not(:last-child) {
+  border-right: 1px solid var(--color-border, #e0e0e0);
+}
+
+.discover-menu__col-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+}
+
+.discover-menu__col-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.discover-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.discover-menu__link {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.discover-menu__link:hover {
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.06));
+}
+
+.discover-menu__link--all {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.discover-menu__link--all:hover {
+  color: var(--color-text);
+}
+
+/* Cover collage grid */
+.discover-menu__covers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  text-decoration: none;
+}
+
+.discover-menu__cover-img {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  border-radius: 4px;
+  transition: transform 0.2s ease;
+}
+
+.discover-menu__covers:hover .discover-menu__cover-img {
+  transform: scale(1.03);
+}
+
+/* Author chips */
+.discover-menu__authors-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discover-menu__author-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary, #f5f5f5);
+  border-radius: 9999px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.discover-menu__author-chip:hover {
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
+  color: var(--color-text);
+}
+
+/* Hide mega-menu on small screens — show simple link instead */
+@media (max-width: 768px) {
+  .discover-menu__panel {
+    display: none;
+  }
+}
+
 /* User Menu */
 .user-menu {
   position: relative;

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { LocalizedLink } from './LocalizedLink'
+import { DiscoverMenu } from './DiscoverMenu'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { LoginButton } from './auth/LoginButton'
 import { UserMenu } from './auth/UserMenu'
@@ -30,6 +31,7 @@ export function Header() {
           <span className="site-header__wordmark">TextStack</span>
         </LocalizedLink>
         <nav className="site-header__nav-links">
+          <DiscoverMenu />
           <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
             {t('nav.catalog')}
           </LocalizedLink>
