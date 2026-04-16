@@ -29,6 +29,11 @@
       "viewAll": "View all books",
       "read": "Read"
     },
+    "recommended": {
+      "title": "Recommended for You",
+      "subtitle": "Top-rated books loved by our readers",
+      "viewAll": "View all books"
+    },
     "seo": {
       "content": "TextStack Reader is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
     },

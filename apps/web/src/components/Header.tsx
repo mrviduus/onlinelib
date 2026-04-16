@@ -32,9 +32,6 @@ export function Header() {
         </LocalizedLink>
         <nav className="site-header__nav-links">
           <DiscoverMenu />
-          <LocalizedLink to="/books" className="site-header__nav-link" title={t('nav.browseBooks')}>
-            {t('nav.catalog')}
-          </LocalizedLink>
           <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
             {t('nav.vocabulary')}
           </LocalizedLink>

@@ -1,9 +1,7 @@
 import { SeoHead } from '../components/SeoHead'
 import { HeroSection } from '../components/home/HeroSection'
-import { FeaturesSection } from '../components/home/FeaturesSection'
 import { StatsBar } from '../components/home/StatsBar'
-import { RecentAuthorsSection } from '../components/home/RecentAuthorsSection'
-import { RecentBooksSection } from '../components/home/RecentBooksSection'
+import { RecommendedSection } from '../components/home/RecommendedSection'
 import { TestimonialsSection } from '../components/home/TestimonialsSection'
 import { ComparisonSection } from '../components/home/ComparisonSection'
 import { FaqSection } from '../components/home/FaqSection'
@@ -23,10 +21,8 @@ export function HomePage() {
           description={t('home.hero.seoDescription')}
         />
         <HeroSection />
-        <FeaturesSection />
         <StatsBar />
-        <RecentBooksSection />
-        <RecentAuthorsSection />
+        <RecommendedSection />
         <TestimonialsSection />
         <ComparisonSection />
         <FaqSection />
