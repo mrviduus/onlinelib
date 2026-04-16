@@ -18,7 +18,6 @@ import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
-import { OnboardingOverlay, shouldShowOnboarding } from '../../../src/components/OnboardingOverlay'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
@@ -86,12 +85,6 @@ export default function ReaderScreen() {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-
-  // Check onboarding flag
-  useEffect(() => {
-    shouldShowOnboarding().then(show => { if (show) setShowOnboarding(true) })
-  }, [])
 
   // Reading session tracking
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
@@ -702,11 +695,6 @@ export default function ReaderScreen() {
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />
-
-        {/* Onboarding overlay — first-time reader */}
-        {showOnboarding && (
-          <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
-        )}
 
         {/* Exit summary — words saved + review prompt */}
         {exitSummary && (
