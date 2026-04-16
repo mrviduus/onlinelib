@@ -1,7 +1,7 @@
 import { useState, useRef, FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
-import { POPULAR_LANGUAGES, getLanguage } from '../../data/languages'
+import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -104,29 +104,41 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               onChange={e => setName(e.target.value)}
               placeholder="Your name"
             />
-            <label className="profile-modal__label">Native language</label>
-            <select
-              className="profile-modal__input"
-              value={nativeLanguage}
-              onChange={e => setNativeLanguage(e.target.value)}
-            >
-              <option value="">— not set —</option>
-              {POPULAR_LANGUAGES.map(l => (
-                <option key={l.code} value={l.code}>
-                  {l.englishName} ({l.nativeName})
-                </option>
-              ))}
-              {user.nativeLanguage && !POPULAR_LANGUAGES.some(l => l.code === user.nativeLanguage) && (() => {
-                const lang = getLanguage(user.nativeLanguage!)
-                return lang ? (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.englishName} ({lang.nativeName})
+            <label className="profile-modal__label">My language</label>
+            <div className="profile-modal__lang-row">
+              {nativeLanguage && getFlagUrl(nativeLanguage) && (
+                <img
+                  src={getFlagUrl(nativeLanguage)}
+                  alt=""
+                  width="20"
+                  height="15"
+                  className="profile-modal__lang-flag"
+                />
+              )}
+              <select
+                className="profile-modal__input profile-modal__lang-select"
+                value={nativeLanguage}
+                onChange={e => setNativeLanguage(e.target.value)}
+              >
+                <option value="">— not set —</option>
+                {POPULAR_LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>
+                    {l.englishName} ({l.nativeName})
                   </option>
-                ) : (
-                  <option value={user.nativeLanguage!}>{user.nativeLanguage}</option>
-                )
-              })()}
-            </select>
+                ))}
+                {user.nativeLanguage && !POPULAR_LANGUAGES.some(l => l.code === user.nativeLanguage) && (() => {
+                  const lang = getLanguage(user.nativeLanguage!)
+                  return lang ? (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.englishName} ({lang.nativeName})
+                    </option>
+                  ) : (
+                    <option value={user.nativeLanguage!}>{user.nativeLanguage}</option>
+                  )
+                })()}
+              </select>
+            </div>
+            <p className="profile-modal__hint">Used for translations, word definitions, and vocabulary cards in the reader.</p>
             <label className="profile-modal__label">Email</label>
             <input
               type="email"

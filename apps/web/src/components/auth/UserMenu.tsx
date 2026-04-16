@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { LocalizedLink } from '../LocalizedLink'
 import { ProfileModal } from './ProfileModal'
+import { getLanguage, getFlagUrl } from '../../data/languages'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -33,6 +34,8 @@ export function UserMenu() {
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null
 
+  const nativeLang = user.nativeLanguage ? getLanguage(user.nativeLanguage) : null
+
   return (
     <>
       <div className="user-menu" ref={menuRef}>
@@ -56,6 +59,29 @@ export function UserMenu() {
               <span className="user-menu__email">{user.email}</span>
             </div>
             <hr className="user-menu__divider" />
+            <button
+              className="user-menu__item user-menu__item--lang"
+              onClick={() => { setOpen(false); setShowProfile(true) }}
+              title="Change your native language — used for translations in the reader"
+            >
+              <span className="user-menu__item-label">My language</span>
+              <span className="user-menu__item-value">
+                {nativeLang ? (
+                  <>
+                    <img
+                      src={getFlagUrl(nativeLang.code)}
+                      alt=""
+                      width="16"
+                      height="12"
+                      className="user-menu__flag"
+                    />
+                    {nativeLang.englishName}
+                  </>
+                ) : (
+                  <span className="user-menu__item-placeholder">Set language</span>
+                )}
+              </span>
+            </button>
             <button
               className="user-menu__item"
               onClick={() => { setOpen(false); setShowProfile(true) }}

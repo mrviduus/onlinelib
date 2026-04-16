@@ -552,6 +552,38 @@
   background: var(--color-bg-secondary, #F5F0E8);
 }
 
+.user-menu__item--lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.user-menu__item-label {
+  font-size: 12px;
+  color: var(--color-text-secondary, #555);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.user-menu__item-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-menu__item-placeholder {
+  color: var(--color-brand, #C4704B);
+  font-weight: 500;
+}
+
+.user-menu__flag {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--color-border, #E8E2D9);
+}
+
 .user-menu__item--danger {
   color: #dc2626;
 }
