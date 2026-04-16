@@ -17,7 +17,6 @@ import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
   { label: 'Reading Stats', icon: 'stats-chart-outline' as const, route: '/stats/' },
-  { label: 'Vocabulary', icon: 'book-outline' as const, route: '/vocabulary/' },
   { label: 'Highlights', icon: 'color-wand-outline' as const, route: '/highlights/' },
   { label: 'Blog', icon: 'newspaper-outline' as const, route: '/blog/' },
 ]

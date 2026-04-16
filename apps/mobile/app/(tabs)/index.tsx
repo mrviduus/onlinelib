@@ -51,6 +51,7 @@ import {
 } from '../../src/components/home/HorizontalBookList'
 import { QuickActionGrid } from '../../src/components/home/QuickActionGrid'
 import { CollectionsCarousel } from '../../src/components/home/CollectionsCarousel'
+import { VocabularyReviewCard } from '../../src/components/home/VocabularyReviewCard'
 
 type GreetingSlot = 'morning' | 'afternoon' | 'evening' | 'night'
 
@@ -265,6 +266,9 @@ export default function HomeScreen() {
 
       {/* Continue reading card (authenticated) */}
       {isAuthenticated ? <ContinueReadingCard /> : null}
+
+      {/* Vocabulary review card (authenticated) */}
+      {isAuthenticated ? <VocabularyReviewCard /> : null}
 
       {/* Quick action grid */}
       <QuickActionGrid

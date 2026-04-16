@@ -4,7 +4,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter, Stack, useFocusEffect } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { vocabularyApi, getVocabLevel } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -111,147 +111,144 @@ export default function VocabularyScreen() {
   const hasMore = words.length < total
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Vocabulary', headerShown: true }} />
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        {/* Stats bar */}
-        {stats && (
-          <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
-            <StatBox label="Total" value={stats.totalWords} />
-            <StatBox label="Due" value={dueCount} color={dueCount > 0 ? colors.primary : undefined} />
-            <StatBox label="Mastered" value={stats.byStage.mastered || 0} color="#10B981" />
-            <StatBox label="Streak" value={stats.streak || 0} color={stats.streak > 0 ? '#F59E0B' : undefined} />
-            {getVocabLevel(stats.byStage.mastered).level > 0 && (
-              <StatBox label="Level" value={getVocabLevel(stats.byStage.mastered).label} color="#8B5CF6" />
-            )}
-            {stats.practicedToday > 0 && <StatBox label="Practiced" value={stats.practicedToday} color={colors.primary} />}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Stats bar */}
+      {stats && (
+        <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
+          <StatBox label="Total" value={stats.totalWords} />
+          <StatBox label="Due" value={dueCount} color={dueCount > 0 ? colors.primary : undefined} />
+          <StatBox label="Mastered" value={stats.byStage.mastered || 0} color="#10B981" />
+          <StatBox label="Streak" value={stats.streak || 0} color={stats.streak > 0 ? '#F59E0B' : undefined} />
+          {getVocabLevel(stats.byStage.mastered).level > 0 && (
+            <StatBox label="Level" value={getVocabLevel(stats.byStage.mastered).label} color="#8B5CF6" />
+          )}
+          {stats.practicedToday > 0 && <StatBox label="Practiced" value={stats.practicedToday} color={colors.primary} />}
+        </View>
+      )}
+
+      {/* Mode selector + Review/Practice buttons */}
+      {stats && stats.totalWords > 0 && (
+        <>
+          <View style={[styles.modeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {(['blitz', 'classic'] as ReviewMode[]).map(m => (
+              <PressableScale
+                key={m}
+                onPress={() => setReviewMode(m)}
+                style={[styles.modeToggleItem, reviewMode === m && { backgroundColor: colors.primary }]}
+              >
+                <Ionicons
+                  name={m === 'blitz' ? 'flash' : 'layers'}
+                  size={14}
+                  color={reviewMode === m ? '#fff' : colors.textSecondary}
+                />
+                <Text style={[styles.modeToggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
+                  {m === 'blitz' ? 'Blitz' : 'Flashcards'}
+                </Text>
+              </PressableScale>
+            ))}
           </View>
-        )}
-
-        {/* Mode selector + Review/Practice buttons */}
-        {stats && stats.totalWords > 0 && (
-          <>
-            <View style={[styles.modeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {(['blitz', 'classic'] as ReviewMode[]).map(m => (
-                <PressableScale
-                  key={m}
-                  onPress={() => setReviewMode(m)}
-                  style={[styles.modeToggleItem, reviewMode === m && { backgroundColor: colors.primary }]}
-                >
-                  <Ionicons
-                    name={m === 'blitz' ? 'flash' : 'layers'}
-                    size={14}
-                    color={reviewMode === m ? '#fff' : colors.textSecondary}
-                  />
-                  <Text style={[styles.modeToggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
-                    {m === 'blitz' ? 'Blitz' : 'Flashcards'}
-                  </Text>
-                </PressableScale>
-              ))}
+          {dueCount > 0 && (
+            <View style={styles.reviewRow}>
+              <TouchableOpacity
+                style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
+              >
+                <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Practice ({dueCount})</Text>
+              </TouchableOpacity>
             </View>
-            {dueCount > 0 && (
-              <View style={styles.reviewRow}>
-                <TouchableOpacity
-                  style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
-                  onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
-                >
-                  <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Practice ({dueCount})</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
-        )}
+          )}
+        </>
+      )}
 
-        {/* Filter tabs */}
-        <View style={styles.tabs}>
-          {TABS.map(t => (
+      {/* Filter tabs */}
+      <View style={styles.tabs}>
+        {TABS.map(t => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }, tab === t.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+            onPress={() => setTab(t.key)}
+          >
+            <Text style={[styles.tabText, { color: colors.textSecondary, fontFamily: fonts.sansMedium }, tab === t.key && { color: '#fff' }]}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Search + Sort row */}
+      <View style={styles.searchSortRow}>
+        <TextInput
+          style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+          placeholder="Search words..."
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <View style={styles.sortRow}>
+          {SORT_OPTIONS.map(s => (
             <TouchableOpacity
-              key={t.key}
-              style={[styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }, tab === t.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-              onPress={() => setTab(t.key)}
+              key={s.key}
+              onPress={() => setSort(s.key)}
+              style={[styles.sortChip, sort === s.key && { backgroundColor: colors.primaryLight }]}
             >
-              <Text style={[styles.tabText, { color: colors.textSecondary, fontFamily: fonts.sansMedium }, tab === t.key && { color: '#fff' }]}>
-                {t.label}
+              <Text style={[styles.sortText, { color: sort === s.key ? colors.primary : colors.textSecondary, fontFamily: fonts.sans }]}>
+                {s.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Search + Sort row */}
-        <View style={styles.searchSortRow}>
-          <TextInput
-            style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
-            placeholder="Search words..."
-            placeholderTextColor={colors.textSecondary}
-            value={search}
-            onChangeText={setSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <View style={styles.sortRow}>
-            {SORT_OPTIONS.map(s => (
-              <TouchableOpacity
-                key={s.key}
-                onPress={() => setSort(s.key)}
-                style={[styles.sortChip, sort === s.key && { backgroundColor: colors.primaryLight }]}
-              >
-                <Text style={[styles.sortText, { color: sort === s.key ? colors.primary : colors.textSecondary, fontFamily: fonts.sans }]}>
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {loading ? (
-          <View style={styles.listContent}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
-                <View style={styles.wordHeader}>
-                  <View style={{ flex: 1 }}>
-                    <SkeletonLoader width={100} height={16} />
-                    <SkeletonLoader width={140} height={13} style={{ marginTop: 4 }} />
-                  </View>
-                  <SkeletonLoader width={60} height={20} borderRadius={4} />
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : words.length === 0 ? (
-          <EmptyState
-            icon="book-outline"
-            title={t('vocabulary.empty')}
-            buttonLabel={t('library.browseBooks')}
-            onButtonPress={() => router.push('/(tabs)/search')}
-          />
-        ) : (
-          <FlatList
-            data={words}
-            keyExtractor={item => item.id}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            contentContainerStyle={styles.listContent}
-            onEndReached={() => { if (hasMore && !loading) loadData(true) }}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={hasMore ? (
-              <Text style={{ textAlign: 'center', padding: 12, fontSize: 12, color: colors.textSecondary, fontFamily: fonts.sans }}>
-                {words.length} of {total} words
-              </Text>
-            ) : null}
-            renderItem={({ item }) => (
-              <WordRow
-                word={item}
-                expanded={expandedId === item.id}
-                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                onDelete={() => handleDelete(item.id)}
-                onEdit={(data) => handleEdit(item.id, data)}
-                onSpeak={(text) => toggleTts(text)}
-              />
-            )}
-          />
-        )}
       </View>
-    </>
+
+      {loading ? (
+        <View style={styles.listContent}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.wordHeader}>
+                <View style={{ flex: 1 }}>
+                  <SkeletonLoader width={100} height={16} />
+                  <SkeletonLoader width={140} height={13} style={{ marginTop: 4 }} />
+                </View>
+                <SkeletonLoader width={60} height={20} borderRadius={4} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : words.length === 0 ? (
+        <EmptyState
+          icon="book-outline"
+          title={t('vocabulary.empty')}
+          buttonLabel={t('library.browseBooks')}
+          onButtonPress={() => router.push('/(tabs)/search')}
+        />
+      ) : (
+        <FlatList
+          data={words}
+          keyExtractor={item => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={styles.listContent}
+          onEndReached={() => { if (hasMore && !loading) loadData(true) }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={hasMore ? (
+            <Text style={{ textAlign: 'center', padding: 12, fontSize: 12, color: colors.textSecondary, fontFamily: fonts.sans }}>
+              {words.length} of {total} words
+            </Text>
+          ) : null}
+          renderItem={({ item }) => (
+            <WordRow
+              word={item}
+              expanded={expandedId === item.id}
+              onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+              onDelete={() => handleDelete(item.id)}
+              onEdit={(data) => handleEdit(item.id, data)}
+              onSpeak={(text) => toggleTts(text)}
+            />
+          )}
+        />
+      )}
+    </View>
   )
 }
 

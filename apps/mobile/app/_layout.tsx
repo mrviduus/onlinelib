@@ -28,7 +28,6 @@ function AppContent() {
         <Stack.Screen name="book/[slug]" />
         <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="reader/[bookSlug]/focus/[chapterSlug]" options={{ animation: 'fade' }} />
-        <Stack.Screen name="vocabulary/index" />
         <Stack.Screen name="vocabulary/review" />
         <Stack.Screen name="stats/index" />
         <Stack.Screen name="author/[slug]" />

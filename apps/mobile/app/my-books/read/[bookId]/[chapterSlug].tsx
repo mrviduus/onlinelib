@@ -59,33 +59,51 @@ export default function UserBookReaderScreen() {
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
 
-  // Immersive mode — auto-hide bars
+  // Immersive mode — bars hide on scroll down, reveal on scroll up.
+  // See `readerHtml.ts` for the scroll-direction detector that drives
+  // the `scrollDir` message handled below.
   const [barsVisible, setBarsVisible] = useState(true)
+  const barsVisibleRef = useRef(true)
   const barsAnim = useRef(new Animated.Value(1)).current
   const topBarTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [-topBarHeight, 0] })
   const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const hideBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (!barsVisibleRef.current) return
+    barsVisibleRef.current = false
+    setBarsVisible(false)
+    Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+  }, [barsAnim])
+
+  const showBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (barsVisibleRef.current) return
+    barsVisibleRef.current = true
+    setBarsVisible(true)
+    Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
+  }, [barsAnim])
+
   const startHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => {
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+      hideBars()
     }, 3000)
-  }, [barsAnim])
+  }, [hideBars])
 
   const toggleBars = useCallback(() => {
-    if (barsVisible) {
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
-    } else {
-      setBarsVisible(true)
-      Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
-      startHideTimer()
-    }
-  }, [barsVisible, barsAnim, startHideTimer])
+    if (barsVisibleRef.current) hideBars()
+    else showBars()
+  }, [hideBars, showBars])
 
-  useEffect(() => { if (chapter) startHideTimer() }, [chapter])
+  useEffect(() => { if (chapter) startHideTimer() }, [chapter, startHideTimer])
 
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: null,
@@ -162,6 +180,9 @@ export default function UserBookReaderScreen() {
       const data = JSON.parse(event.nativeEvent.data)
       if (data.type === 'tap') {
         toggleBars()
+      } else if (data.type === 'scrollDir') {
+        if (data.dir === 'up') showBars()
+        else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
@@ -393,9 +414,6 @@ export default function UserBookReaderScreen() {
             </TouchableOpacity>
             <TouchableOpacity onPress={handleToggleBookmark} style={styles.iconBtn}>
               <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={isCurrentBookmarked ? colors.primary : barText} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
-              <Ionicons name="search-outline" size={20} color={barText} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push(`/my-books/read/${bookId}/focus/${chapterSlug}`)}

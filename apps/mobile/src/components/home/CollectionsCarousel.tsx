@@ -21,6 +21,11 @@ import {
 import type { MoodDto } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { fonts } from '../../theme/typography'
+import {
+  collectionTilesLight,
+  collectionTilesDark,
+  collectionTileText,
+} from '../../theme/colors'
 
 interface Props {
   title: string
@@ -35,24 +40,15 @@ const CARD_HEIGHT = 88
 const CARD_GAP = 10
 
 // Deterministic color wheel per slug so the same mood always gets the
-// same background across sessions. Soft, bookish palette.
-const CARD_COLORS = [
-  '#FDE7E3', // blush
-  '#E3F0FD', // sky
-  '#E8F3E6', // sage
-  '#FFF4D6', // butter
-  '#F1E7FB', // lilac
-  '#FEE5D1', // apricot
-  '#E3F4F1', // mint
-  '#FBE7F2', // rose
-]
-
-function pickColor(slug: string): string {
+// same background across sessions. The palette itself comes from the
+// theme module so dark-mode gets desaturated equivalents (see
+// `collectionTilesLight` / `collectionTilesDark` in `theme/colors.ts`).
+function pickColor(slug: string, palette: readonly string[]): string {
   let h = 0
   for (let i = 0; i < slug.length; i++) {
     h = (h * 31 + slug.charCodeAt(i)) | 0
   }
-  return CARD_COLORS[Math.abs(h) % CARD_COLORS.length]
+  return palette[Math.abs(h) % palette.length]
 }
 
 export const CollectionsCarousel = memo(function CollectionsCarousel({
@@ -62,7 +58,9 @@ export const CollectionsCarousel = memo(function CollectionsCarousel({
   emptyText,
   onSelect,
 }: Props) {
-  const { colors } = useTheme()
+  const { colors, isDark } = useTheme()
+  const tilePalette = isDark ? collectionTilesDark : collectionTilesLight
+  const tileTextColor = isDark ? collectionTileText.dark : collectionTileText.light
 
   return (
     <View style={styles.wrap}>
@@ -94,7 +92,7 @@ export const CollectionsCarousel = memo(function CollectionsCarousel({
                 {
                   width: CARD_WIDTH,
                   height: CARD_HEIGHT,
-                  backgroundColor: pickColor(mood.slug),
+                  backgroundColor: pickColor(mood.slug, tilePalette),
                 },
               ]}
               onPress={() => onSelect(mood)}
@@ -104,7 +102,7 @@ export const CollectionsCarousel = memo(function CollectionsCarousel({
                 <Text style={styles.emoji}>{mood.emoji}</Text>
               ) : null}
               <Text
-                style={[styles.cardLabel, { color: '#1F2937' }]}
+                style={[styles.cardLabel, { color: tileTextColor }]}
                 numberOfLines={2}
               >
                 {mood.name}
