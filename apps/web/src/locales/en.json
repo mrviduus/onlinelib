@@ -31,7 +31,7 @@
     },
     "recommended": {
       "title": "Recommended for You",
-      "subtitle": "Top-rated books loved by our readers",
+      "subtitle": "Highest-rated books in our catalog",
       "viewAll": "View all books"
     },
     "seo": {
@@ -65,7 +65,7 @@
       },
       "tts": {
         "title": "Natural voices",
-        "description": "200+ text-to-speech voices. Hear native pronunciation while you read."
+        "description": "Built-in text-to-speech. Hear native pronunciation while you read."
       }
     },
     "howItWorks": {
@@ -152,7 +152,7 @@
       },
       "vsFriends": {
         "q": "How is TextStack different from Kindle or LingQ?",
-        "a": "TextStack combines the reading experience of Kindle with the language-learning tools of LingQ — and it is free. Tap-to-translate, SRS flashcards, 200+ TTS voices, offline reading, and detailed statistics, all in one clean reader."
+        "a": "TextStack combines the reading experience of Kindle with the language-learning tools of LingQ — and it is free. Tap-to-translate, SRS flashcards, built-in text-to-speech, offline reading, and detailed statistics, all in one clean reader."
       }
     },
     "comparison": {
