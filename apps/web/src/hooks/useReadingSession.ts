@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { submitSession, type SubmitSessionResponse } from '../api/readingTracking'
+import { trackReadingSessionEnd } from '../lib/analytics'
 
 const PENDING_SESSIONS_KEY = 'reading.pendingSessions'
 const HEARTBEAT_INTERVAL = 30_000 // 30s
@@ -105,6 +106,18 @@ export function useReadingSession(options: UseReadingSessionOptions) {
       const payload = JSON.stringify(session)
       navigator.sendBeacon('/api/me/reading/sessions', new Blob([payload], { type: 'application/json' }))
     }
+
+    // GA4: session end = core engagement Key Event. Fires only for authenticated
+    // sessions (matches server-side tracking). Guest engagement is measured via
+    // book_opened + GuestLimitsContext pageviews, not session duration.
+    trackReadingSessionEnd({
+      durationSeconds: session.durationSeconds,
+      wordsRead: session.wordsRead,
+      startPercent: session.startPercent,
+      endPercent: session.endPercent,
+      editionId: session.editionId,
+      userBookId: session.userBookId,
+    })
   }, [isAuthenticated, editionId, userBookId, totalWords])
 
   // Heartbeat: track active time

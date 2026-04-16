@@ -6,6 +6,7 @@ import {
   createGuestSession as createGuestSessionApi,
 } from '../api/auth'
 import { flushLocalProgress } from '../lib/progressSync'
+import { trackLogin, trackSignUp } from '../lib/analytics'
 
 interface AuthContextValue {
   user: User | null
@@ -76,6 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return authResponse.user
       })
       setShowAuthModal(false)
+      // Distinguish new signups from returning logins via createdAt recency.
+      // Backend doesn't surface an isNew flag yet; 60s window is a safe heuristic.
+      const createdAtMs = Date.parse(authResponse.user.createdAt)
+      const isFreshAccount = Number.isFinite(createdAtMs) && Date.now() - createdAtMs < 60_000
+      if (isFreshAccount) trackSignUp('google')
+      else trackLogin('google')
       // Fire-and-forget: flush any anonymous localStorage progress to server.
       void flushLocalProgress().catch(() => {})
     } catch (error) {
@@ -218,7 +225,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const openAuthModal = useCallback(() => setShowAuthModal(true), [])
   const closeAuthModal = useCallback(() => setShowAuthModal(false), [])
 
-  const authenticateAndClose = useCallback(async (apiCall: () => Promise<{ user: User }>) => {
+  const authenticateAndClose = useCallback(async (
+    apiCall: () => Promise<{ user: User }>,
+    kind: 'login' | 'sign_up',
+  ) => {
     const response = await apiCall()
     // Only show the "progress kept" reassurance when user actually transitioned from
     // anonymous/guest to real. A returning real user re-authenticating had nothing at risk.
@@ -228,17 +238,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return response.user
     })
     setShowAuthModal(false)
+    if (kind === 'sign_up') trackSignUp('email')
+    else trackLogin('email')
     // Fire-and-forget: flush any anonymous localStorage progress to server (server LWW is safe).
     void flushLocalProgress().catch(() => {})
   }, [])
 
   const loginWithEmail = useCallback(
-    (email: string, password: string) => authenticateAndClose(() => loginWithEmailApi(email, password)),
+    (email: string, password: string) => authenticateAndClose(() => loginWithEmailApi(email, password), 'login'),
     [authenticateAndClose],
   )
 
   const registerWithEmail = useCallback(
-    (email: string, password: string, name?: string) => authenticateAndClose(() => registerWithEmailApi(email, password, name)),
+    (email: string, password: string, name?: string) => authenticateAndClose(() => registerWithEmailApi(email, password, name), 'sign_up'),
     [authenticateAndClose],
   )
 

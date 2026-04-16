@@ -42,6 +42,7 @@ import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { calculateETF, calculateChapterETF } from '../lib/etf'
+import { trackBookOpened } from '../lib/analytics'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
@@ -437,6 +438,27 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   useEffect(() => {
     readingSession.updatePercent(overallProgress)
   }, [overallProgress, readingSession])
+
+  // GA4: fire once per mount when the book is first resolved. Keyed on
+  // editionId/userBookId so a re-mount on navigation fires again, but
+  // re-renders within the same open don't double-count.
+  const bookOpenedFiredRef = useRef<string | null>(null)
+  useEffect(() => {
+    const editionId = mode === 'public' ? publicBook?.id : undefined
+    const userBookId = mode === 'userbook' ? id : undefined
+    const key = editionId || userBookId
+    if (!key) return
+    if (bookOpenedFiredRef.current === key) return
+    bookOpenedFiredRef.current = key
+    trackBookOpened({
+      source: mode === 'public' ? 'library' : 'userbook',
+      editionId: editionId || null,
+      userBookId: userBookId || null,
+      // NormalizedBook doesn't carry language; fall back to the UI language
+      // from the route, which is the same locale the reader is rendered in.
+      language: mode === 'public' ? publicBook?.language : language,
+    })
+  }, [mode, publicBook?.id, publicBook?.language, id, language])
 
   // ETF & reader stats
   const quickStats = useQuickStats()
