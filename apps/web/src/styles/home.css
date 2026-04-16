@@ -91,6 +91,13 @@
   vertical-align: middle;
 }
 
+.home-hero__lang-globe {
+  width: 20px;
+  height: 15px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
 .home-hero__lang-popover {
   position: absolute;
   bottom: calc(100% + 8px);

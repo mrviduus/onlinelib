@@ -31,6 +31,8 @@ export function HeroSection() {
   const langTriggerRef = useRef<HTMLDivElement>(null)
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
   const nativeLang = getLanguage(nativeLanguage)
+  const isCollision = nativeLanguage === language
+  const showPulse = !hasConfirmedLanguage || isCollision
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640)
@@ -101,19 +103,32 @@ export function HeroSection() {
           <span className="home-hero__lang-trigger-wrap" ref={langTriggerRef}>
             <button
               type="button"
-              className={`home-hero__lang-trigger${!hasConfirmedLanguage ? ' home-hero__lang-trigger--pulse' : ''}`}
+              className={`home-hero__lang-trigger${showPulse ? ' home-hero__lang-trigger--pulse' : ''}`}
               onClick={() => setLangPickerOpen(o => !o)}
             >
-              {nativeLang && (
-                <img
-                  className="home-hero__lang-flag"
-                  src={getFlagUrl(nativeLang.code)}
-                  alt=""
-                  width="20"
-                  height="15"
-                />
+              {isCollision ? (
+                <>
+                  <svg className="home-hero__lang-globe" viewBox="0 0 20 15" fill="none" aria-hidden="true">
+                    <circle cx="10" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.2" />
+                    <ellipse cx="10" cy="7.5" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1.2" />
+                    <path d="M4 7.5h12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                  {t('home.hero.yourLanguage')}
+                </>
+              ) : (
+                <>
+                  {nativeLang && (
+                    <img
+                      className="home-hero__lang-flag"
+                      src={getFlagUrl(nativeLang.code)}
+                      alt=""
+                      width="20"
+                      height="15"
+                    />
+                  )}
+                  {nativeLang?.nativeName ?? nativeLanguage}
+                </>
               )}
-              {nativeLang?.nativeName ?? nativeLanguage}
             </button>
             {langPickerOpen && (
               <div className="home-hero__lang-popover">

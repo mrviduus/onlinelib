@@ -12,7 +12,8 @@
       "ctaPrimary": "Start reading",
       "ctaSecondary": "Upload your book",
       "ctaReturning": "Continue where you left off",
-      "searchPlaceholder": "Search by title, author, or genre..."
+      "searchPlaceholder": "Search by title, author, or genre...",
+      "yourLanguage": "your language"
     },
     "stats": {
       "books": "books",

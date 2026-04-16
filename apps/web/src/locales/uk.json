@@ -12,7 +12,8 @@
       "ctaPrimary": "Почати читати",
       "ctaSecondary": "Завантажити свою книгу",
       "ctaReturning": "Продовжити читання",
-      "searchPlaceholder": "Пошук за назвою, автором або жанром..."
+      "searchPlaceholder": "Пошук за назвою, автором або жанром...",
+      "yourLanguage": "вашу мову"
     },
     "stats": {
       "books": "книг",
