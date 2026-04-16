@@ -1159,7 +1159,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   return (
     <div className={`reader-page ${fullscreenClass} ${immersiveClass} ${scrollModeClass}`}>
-      <SeoHead title={seoTitle} description={seoDescription} />
+      <SeoHead title={seoTitle} description={seoDescription} noindex />
       <a href="#reader-content" className="skip-link">Skip to content</a>
       <ReaderTopBar
         visible={visible}

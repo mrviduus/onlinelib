@@ -38,6 +38,12 @@ public static class SeoEndpoints
         {
             sb.AppendLine("Disallow: /admin");
             sb.AppendLine("Disallow: /api/");
+            // Private user pages — not indexable, save crawl budget
+            sb.AppendLine("Disallow: /*/library/my/");
+            sb.AppendLine("Disallow: /*/vocabulary");
+            sb.AppendLine("Disallow: /*/highlights");
+            sb.AppendLine("Disallow: /*/stats");
+            sb.AppendLine("Disallow: /*/reset-password");
             sb.AppendLine();
             sb.AppendLine($"Sitemap: {baseUrl}/sitemap.xml");
         }
