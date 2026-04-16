@@ -1312,6 +1312,13 @@ export const adminApi = {
     return fetchJson<SeoCoverageStat[]>('/admin/seo/coverage')
   },
 
+  getSeoGaps: async (params: { entityType: string; language?: string; limit?: number }): Promise<SeoGapRow[]> => {
+    const qs = new URLSearchParams({ entityType: params.entityType })
+    if (params.language) qs.set('language', params.language)
+    if (params.limit !== undefined) qs.set('limit', String(params.limit))
+    return fetchJson<SeoGapRow[]>(`/admin/seo/gaps?${qs}`)
+  },
+
   getSeoTemplates: async (params?: { entityType?: string; onlyActive?: boolean }): Promise<SeoTemplateListItem[]> => {
     const qs = new URLSearchParams()
     if (params?.entityType) qs.set('entityType', params.entityType)
@@ -1406,6 +1413,14 @@ export interface SeoCoverageStat {
   total: number
   populated: number
   missing: number
+}
+
+export interface SeoGapRow {
+  entityType: string
+  entityId: string
+  label: string
+  language: string
+  missingFields: string[]
 }
 
 export interface SeoTemplateListItem {
