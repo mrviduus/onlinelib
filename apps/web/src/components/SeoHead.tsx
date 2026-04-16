@@ -17,6 +17,18 @@ interface SeoHeadProps {
 const HREFLANG_DATA_ATTR = 'data-hreflang-managed'
 const OG_DATA_ATTR = 'data-og-managed'
 
+// SEO length limits (Ahrefs thresholds)
+const MAX_TITLE_LENGTH = 70
+const MAX_DESCRIPTION_LENGTH = 300
+
+/** Truncate text to maxLen, breaking at last word boundary and appending ellipsis */
+function truncateSeo(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  const trimmed = text.slice(0, maxLen - 1)
+  const lastSpace = trimmed.lastIndexOf(' ')
+  return (lastSpace > maxLen * 0.6 ? trimmed.slice(0, lastSpace) : trimmed) + '…'
+}
+
 // Get canonical origin - use primaryDomain from site config, env var, or fallback to window.location
 function getCanonicalOrigin(primaryDomain: string | undefined): string {
   // 1. Use primaryDomain from site context if available
@@ -74,11 +86,12 @@ export function SeoHead({
       pathname: location.pathname,
       search: location.search,
     })
-    const fullTitle = title
+    const rawTitle = title
       ? title.toLowerCase().includes('textstack')
         ? title
         : `${title} | TextStack Reader`
       : 'TextStack Reader'
+    const fullTitle = truncateSeo(rawTitle, MAX_TITLE_LENGTH)
 
     // Set canonical URL (always set, will update when site loads)
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
@@ -94,15 +107,16 @@ export function SeoHead({
       document.title = fullTitle
     }
 
-    // Set description
-    if (description) {
+    // Set description (truncated to SEO-optimal length)
+    const safeDescription = description ? truncateSeo(description, MAX_DESCRIPTION_LENGTH) : undefined
+    if (safeDescription) {
       let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null
       if (!meta) {
         meta = document.createElement('meta')
         meta.name = 'description'
         document.head.appendChild(meta)
       }
-      meta.content = description
+      meta.content = safeDescription
     }
 
     // Set robots meta
@@ -136,8 +150,8 @@ export function SeoHead({
     setMeta('og:url', canonicalUrl, 'property')
     setMeta('og:type', type, 'property')
     setMeta('og:site_name', 'TextStack Reader', 'property')
-    if (description) {
-      setMeta('og:description', description, 'property')
+    if (safeDescription) {
+      setMeta('og:description', safeDescription, 'property')
     }
     const ogImage = image
       ? (image.startsWith('http') ? image : `${origin}${image}`)
@@ -147,8 +161,8 @@ export function SeoHead({
     // Twitter Card tags
     setMeta('twitter:card', image ? 'summary_large_image' : 'summary', 'name')
     setMeta('twitter:title', fullTitle, 'name')
-    if (description) {
-      setMeta('twitter:description', description, 'name')
+    if (safeDescription) {
+      setMeta('twitter:description', safeDescription, 'name')
     }
     setMeta('twitter:image', ogImage, 'name')
 
