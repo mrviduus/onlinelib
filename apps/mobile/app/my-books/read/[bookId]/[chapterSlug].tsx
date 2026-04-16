@@ -23,6 +23,7 @@ import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
+import { trackBookOpened, trackVocabSaved } from '../../../../src/lib/analytics'
 
 export default function UserBookReaderScreen() {
   const { bookId, chapterSlug } = useLocalSearchParams<{ bookId: string; chapterSlug: string }>()
@@ -106,8 +107,13 @@ export default function UserBookReaderScreen() {
   }, [bookId, chapterSlug])
 
   // Load bookmarks + chapter list for TOC
+  const bookOpenedFiredRef = useRef(false)
   useEffect(() => {
     if (!bookId) return
+    if (!bookOpenedFiredRef.current) {
+      bookOpenedFiredRef.current = true
+      trackBookOpened({ source: 'userbook', userBookId: bookId })
+    }
     userBooksApi.getUserBookBookmarks(bookId).then(setBookmarks).catch(() => {})
     userBooksApi.getUserBook(bookId).then(b => {
       setChapters(b.chapters.map(ch => ({
@@ -213,7 +219,9 @@ export default function UserBookReaderScreen() {
           if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
             setDictOpen(true)
             if (isAuthenticated) {
-              vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null }).catch(() => {})
+              vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null })
+                .then(() => trackVocabSaved({ language: 'en', source: 'reader' }))
+                .catch(() => {})
             }
           }
         } else {
@@ -237,6 +245,7 @@ export default function UserBookReaderScreen() {
       vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
+      trackVocabSaved({ language: 'en', source: 'reader' })
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
     } catch {}
   }

@@ -12,6 +12,7 @@ import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader, BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { trackSearchPerformed } from '../../src/lib/analytics'
 
 /** Renders HTML search highlights with <b> tags as bold Text spans */
 function HighlightText({ html, style, boldStyle, numberOfLines }: {
@@ -143,6 +144,7 @@ export default function DiscoverScreen() {
       const { items } = await api.search(q, { limit: 100, highlight: true })
       setResults(items)
       saveRecent(q)
+      trackSearchPerformed({ query: q, resultsCount: items.length })
     } catch (e) {
       console.error('Search failed:', e)
     } finally {

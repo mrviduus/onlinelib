@@ -10,6 +10,7 @@ import { fonts } from '../../src/theme/typography'
 import { MoodSelector } from '../../src/components/MoodSelector'
 import { StarRating } from '../../src/components/StarRating'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
+import { trackBookOpened } from '../../src/lib/analytics'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -198,6 +199,7 @@ export default function UserBookDetailScreen() {
               style={[styles.readBtn, { backgroundColor: colors.primary }]}
               onPress={() => {
                 const slug = continueSlug || book.chapters[0]?.slug || `chapter-${book.chapters[0]?.chapterNumber}`
+                trackBookOpened({ source: 'userbook', userBookId: id })
                 router.push(`/my-books/read/${id}/${slug}`)
               }}
             >

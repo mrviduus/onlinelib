@@ -29,6 +29,7 @@ import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
+import { trackBookOpened, trackVocabSaved, trackTranslationUsed } from '../../../src/lib/analytics'
 
 /** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
 function getSlugFromLocator(locator: string): string {
@@ -130,6 +131,7 @@ export default function ReaderScreen() {
   }, [loading, chapter, startHideTimer])
 
   // Resolve editionId from bookSlug (needed for progress + bookmarks)
+  const bookOpenedFiredRef = useRef(false)
   useEffect(() => {
     if (!bookSlug) return
     const api = createBooksApi(language)
@@ -138,6 +140,10 @@ export default function ReaderScreen() {
         editionIdRef.current = b.id
         bookTitleRef.current = b.title
         setBookTitle(b.title)
+        if (!bookOpenedFiredRef.current) {
+          bookOpenedFiredRef.current = true
+          trackBookOpened({ source: 'library', editionId: b.id, language })
+        }
         if (b.chapters) {
           setChapters(b.chapters)
           totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
@@ -295,8 +301,10 @@ export default function ReaderScreen() {
                 injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
                 setWordSaved(true)
                 setSessionWordCount(c => c + 1)
+                trackVocabSaved({ language, nativeLanguage, source: 'reader' })
                 // Persist translation
                 const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+                trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
                 translationApi.translate(data.text, language, targetLang)
                   .then(res => {
                     if (res.translatedText && saved.id) {
@@ -358,8 +366,10 @@ export default function ReaderScreen() {
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
+      trackVocabSaved({ language, nativeLanguage, source: 'reader' })
       // Persist translation to saved word (fire-and-forget)
       const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+      trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
       translationApi.translate(selection.text, language, targetLang)
         .then(res => {
           if (res.translatedText && saved.id) {

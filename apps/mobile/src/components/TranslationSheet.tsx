@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
+import { trackTranslationUsed } from '../lib/analytics'
 
 interface TranslationSheetProps {
   visible: boolean
@@ -23,6 +24,7 @@ export function TranslationSheet({ visible, text, onClose, onSpeak }: Translatio
     setLoading(true)
     setError('')
     setTranslated('')
+    trackTranslationUsed({ fromLang: 'en', toLang: 'uk', kind: text.includes(' ') ? 'selection' : 'word' })
     translationApi.translate(text, 'en', 'uk')
       .then((res: any) => {
         setTranslated(res.translatedText || res.translation || '')

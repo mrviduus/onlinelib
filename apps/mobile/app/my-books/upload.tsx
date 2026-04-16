@@ -4,6 +4,7 @@ import { useRouter, Stack } from 'expo-router'
 import * as DocumentPicker from 'expo-document-picker'
 import { userBooksApi, getApiConfig } from '@textstack/shared'
 import { colors } from '../../src/theme/colors'
+import { trackBookUploaded } from '../../src/lib/analytics'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -73,6 +74,8 @@ export default function UploadScreen() {
         xhr.send(formData)
       })
 
+      const format = file.name.split('.').pop()?.toLowerCase() || 'unknown'
+      trackBookUploaded({ format, sizeBytes: file.size ?? 0 })
       router.back()
     } catch (e: any) {
       setError(e?.message || 'Upload failed')
