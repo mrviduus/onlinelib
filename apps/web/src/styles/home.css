@@ -49,18 +49,21 @@
 .home-hero__lang-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   /* Always read as a tappable chip — the previous "underline" styling was
      too subtle for a hero-level CTA, visitors walked past it. A soft filled
-     background + border gives it affordance without hijacking the copy. */
+     background + border gives it affordance without hijacking the copy.
+     Sized down (0.82em) so it reads as an accent inside the subtitle
+     instead of competing with the hero headline. */
   background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
   border: 1px solid rgba(255, 152, 0, 0.32);
   font: inherit;
+  font-size: 0.82em;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text);
   cursor: pointer;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   text-decoration: none;
   transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
@@ -166,15 +169,15 @@
 }
 
 .home-hero__lang-flag {
-  width: 20px;
-  height: 15px;
+  width: 16px;
+  height: 12px;
   border-radius: 2px;
   vertical-align: middle;
 }
 
 .home-hero__lang-globe {
-  width: 20px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   color: var(--color-text-secondary);
   flex-shrink: 0;
 }
@@ -1202,61 +1205,6 @@
   line-height: 1.5;
   color: var(--color-text-secondary);
   margin: 0;
-}
-
-/* Final CTA */
-.home-final-cta {
-  margin: 80px -24px 0;
-  padding: 80px 24px;
-  background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg) 100%);
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  text-align: center;
-}
-
-.home-final-cta__inner {
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.home-final-cta__heading {
-  font-family: 'Crimson Pro', 'Playfair Display', serif;
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 300;
-  line-height: 1.1;
-  margin: 0 0 16px;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.home-final-cta__body {
-  font-family: 'Crimson Pro', serif;
-  font-style: italic;
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
-  color: var(--color-text-secondary);
-  margin: 0 0 36px;
-  line-height: 1.5;
-}
-
-.home-final-cta__button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px 48px;
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--color-bg);
-  background: var(--color-text);
-  border-radius: 9999px;
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-  letter-spacing: -0.01em;
-}
-
-.home-final-cta__button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
-  opacity: 0.92;
 }
 
 /* ==========================================================================
