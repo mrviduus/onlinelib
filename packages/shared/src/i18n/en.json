@@ -61,6 +61,22 @@
       "recents": "Books you read will show up here.",
       "collections": "Collections will appear soon.",
       "browseBooks": "Browse books"
+    },
+    "vocabCard": {
+      "label": "Vocabulary",
+      "emptyTitle": "Start your vocabulary",
+      "emptySubline": "Tap a word while reading to save it and begin practicing.",
+      "learnMoreCta": "Learn more",
+      "dueTitleOne": "1 word ready to review",
+      "dueTitleMany": "{count} words ready to review",
+      "savedTitleOne": "1 word saved",
+      "savedTitleMany": "{count} words saved",
+      "sublineStreak": "{saved} saved · {streak}-day streak",
+      "sublineMastered": "{saved} saved · {mastered} mastered",
+      "sublineNothingDue": "Nothing due. Check back later.",
+      "sublineMasteredKeepUp": "{mastered} mastered — keep it up.",
+      "reviewCta": "Review",
+      "openCta": "Open"
     }
   },
   "common": {
@@ -93,6 +109,21 @@
     "next": "Next",
     "skip": "Skip",
     "gotIt": "Got it"
+  },
+  "profile": {
+    "vocabReminder": {
+      "label": "Daily review reminder",
+      "offSubtitle": "Off",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "notificationTitle": "Time to review",
+      "notificationBody": "Keep your streak going — your vocabulary is waiting.",
+      "permissionDeniedTitle": "Notifications off",
+      "permissionDeniedBody": "Enable notifications in Settings to receive review reminders.",
+      "unavailableTitle": "Not available",
+      "unavailableBody": "Reminders aren't available in this build. Install the latest app version to enable them."
+    }
   },
   "footer": {
     "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
@@ -368,7 +399,13 @@
   "reader": {
     "reviewNow": "Review Now",
     "later": "Later",
-    "wordsSaved": "{count} word(s) saved"
+    "wordsSaved": "{count} word(s) saved",
+    "toastWordAdded": "Added to vocabulary",
+    "toastWordAddedCount": "Added · {count} this session",
+    "toastTapToReview": "Tap to review",
+    "coachmarkTitle": "Tap any word",
+    "coachmarkSubtitle": "Tap a word to save it to your vocabulary.",
+    "coachmarkDismiss": "Got it"
   },
   "review": {
     "excellent": "Excellent!",

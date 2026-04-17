@@ -12,12 +12,12 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
+import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
   { label: 'Reading Stats', icon: 'stats-chart-outline' as const, route: '/stats/' },
-  { label: 'Vocabulary', icon: 'book-outline' as const, route: '/vocabulary/' },
   { label: 'Highlights', icon: 'color-wand-outline' as const, route: '/highlights/' },
   { label: 'Blog', icon: 'newspaper-outline' as const, route: '/blog/' },
 ]
@@ -235,6 +235,9 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
+
+        {/* Daily vocabulary review reminder */}
+        <VocabReminderSettingsRow />
 
         {/* Info pages */}
         {[

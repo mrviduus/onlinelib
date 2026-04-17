@@ -50,38 +50,119 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: none;
-  border: none;
+  /* Always read as a tappable chip — the previous "underline" styling was
+     too subtle for a hero-level CTA, visitors walked past it. A soft filled
+     background + border gives it affordance without hijacking the copy. */
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
+  border: 1px solid rgba(255, 152, 0, 0.32);
   font: inherit;
   font-style: normal;
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--color-text-secondary);
-  transition: background 0.15s, color 0.15s;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
   vertical-align: baseline;
+  /* transform on an inline-flex element doesn't affect the surrounding
+     baseline flow, so the bounce below is safe. */
+  will-change: transform, box-shadow;
 }
 
 .home-hero__lang-trigger:hover {
-  background: var(--color-warm-bg, rgba(255, 152, 0, 0.08));
+  background: var(--color-warm-bg, rgba(255, 152, 0, 0.18));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 152, 0, 0.28);
 }
 
+/* Attention mode: a clear bouncing-ball motion paired with a synced glow.
+   Physics feel comes from per-keyframe timing functions: ease-out on the way
+   up (pop), ease-in on the way down (gravity), plus a tiny rebound. The
+   cycle has a visible rest period at the bottom so each jump reads as a
+   discrete "hey, look here" rather than a continuous wobble. */
 .home-hero__lang-trigger--pulse {
-  animation: hero-lang-pulse 2.2s ease-in-out infinite;
+  animation:
+    hero-lang-bounce 1.9s infinite,
+    hero-lang-glow 1.9s ease-in-out infinite;
+  transform-origin: 50% 100%;
 }
 
-@keyframes hero-lang-pulse {
-  0%, 100% { background: transparent; }
-  50% { background: var(--color-warm-bg, rgba(255, 152, 0, 0.12)); }
+/* Classic "ball bouncing" motion — pre-squash (wind-up), big jump with
+   stretch, heavy squash on landing, one smaller rebound, then rest. Per-
+   keyframe `animation-timing-function` gives each phase the right feel:
+   ease-out on the way up (pop), ease-in on the way down (gravity). */
+@keyframes hero-lang-bounce {
+  /* Wind-up: tiny squash before the jump — the eye registers this as
+     "preparing to launch" and the actual jump feels more intentional. */
+  0% {
+    transform: translateY(0) scaleY(1) scaleX(1);
+    animation-timing-function: ease-out;
+  }
+  6% {
+    transform: translateY(0) scaleY(0.9) scaleX(1.08);
+    animation-timing-function: ease-out;
+  }
+  /* Main jump — much higher so the motion is unmistakable at hero scale. */
+  24% {
+    transform: translateY(-22px) scaleY(1.14) scaleX(0.92);
+    animation-timing-function: ease-in;
+  }
+  /* Brief hang at apex sells weightlessness. */
+  30% {
+    transform: translateY(-22px) scaleY(1.1) scaleX(0.94);
+    animation-timing-function: ease-in;
+  }
+  /* Impact squash — exaggerated horizontal stretch reads as "landing hard". */
+  42% {
+    transform: translateY(0) scaleY(0.82) scaleX(1.14);
+    animation-timing-function: ease-out;
+  }
+  /* Secondary rebound. */
+  56% {
+    transform: translateY(-8px) scaleY(1.04) scaleX(0.98);
+    animation-timing-function: ease-in;
+  }
+  66% {
+    transform: translateY(0) scaleY(0.95) scaleX(1.04);
+    animation-timing-function: ease-out;
+  }
+  /* Short rest before the next jump — long enough to feel like a pause,
+     short enough that visitors see the bounce repeatedly while on the page. */
+  74%, 100% {
+    transform: translateY(0) scaleY(1) scaleX(1);
+  }
+}
+
+@keyframes hero-lang-glow {
+  0%, 100% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0);
+    border-color: rgba(255, 152, 0, 0.32);
+  }
+  /* Peak of the jump — strongest glow so the element also "flashes" mid-air. */
+  24% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.28));
+    box-shadow: 0 14px 32px rgba(255, 152, 0, 0.55);
+    border-color: rgba(255, 152, 0, 0.85);
+  }
+  /* Landing — glow collapses downward, reinforcing the impact. */
+  42% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.2));
+    box-shadow: 0 2px 10px rgba(255, 152, 0, 0.35);
+    border-color: rgba(255, 152, 0, 0.6);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-hero__lang-trigger--pulse { animation: none; background: var(--color-warm-bg, rgba(255, 152, 0, 0.08)); }
+  .home-hero__lang-trigger--pulse {
+    animation: none;
+    /* Static emphasis substitute — still visibly different from the idle chip
+       so reduced-motion users aren't left with no visual cue. */
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.22));
+    border-color: rgba(255, 152, 0, 0.7);
+    box-shadow: 0 4px 14px rgba(255, 152, 0, 0.3);
+  }
 }
 
 .home-hero__lang-flag {

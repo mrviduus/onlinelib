@@ -9,6 +9,7 @@ import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { LanguageProvider } from '../src/context/LanguageContext'
 import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
+import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { useAppFonts } from '../src/theme/fonts'
 
@@ -28,7 +29,6 @@ function AppContent() {
         <Stack.Screen name="book/[slug]" />
         <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="reader/[bookSlug]/focus/[chapterSlug]" options={{ animation: 'fade' }} />
-        <Stack.Screen name="vocabulary/index" />
         <Stack.Screen name="vocabulary/review" />
         <Stack.Screen name="stats/index" />
         <Stack.Screen name="author/[slug]" />
@@ -76,7 +76,9 @@ export default function RootLayout() {
             <NativeLanguageProvider>
               <AuthProvider>
                 <DownloadProvider>
-                  <AppContent />
+                  <ToastProvider>
+                    <AppContent />
+                  </ToastProvider>
                 </DownloadProvider>
               </AuthProvider>
             </NativeLanguageProvider>

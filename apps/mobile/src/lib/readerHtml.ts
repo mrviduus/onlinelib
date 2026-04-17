@@ -112,6 +112,48 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       }
     }
     window.addEventListener('scroll', reportProgress, { passive: true });
+
+    /**
+     * Scroll direction detector — drives immersive chrome reveal.
+     *
+     * Mirrors ElevenReader's pattern: bars stay hidden while the reader
+     * moves forward (scrolls down), and reveal as soon as the reader
+     * starts going back (scrolls up) to re-read something. This is far
+     * more discoverable than the previous tap-only reveal.
+     *
+     * We track a floating "baseline" that resets whenever the user
+     * pivots direction. Crossing the per-direction threshold from that
+     * baseline fires a single 'scrollDir' message. Thresholds are
+     * asymmetric — easy to reveal (small UP_THRESHOLD), sticky to hide
+     * (larger DOWN_THRESHOLD) — to avoid flicker from tiny wobbles.
+     */
+    var scrollDirBaseline = window.scrollY;
+    var scrollDirLast = null; // 'up' | 'down' | null
+    var SCROLL_UP_THRESHOLD = 14;
+    var SCROLL_DOWN_THRESHOLD = 36;
+    function reportScrollDir() {
+      var y = window.scrollY;
+      var delta = y - scrollDirBaseline;
+      if (delta <= -SCROLL_UP_THRESHOLD) {
+        scrollDirBaseline = y;
+        if (scrollDirLast !== 'up') {
+          scrollDirLast = 'up';
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scrollDir', dir: 'up' }));
+        }
+      } else if (delta >= SCROLL_DOWN_THRESHOLD) {
+        scrollDirBaseline = y;
+        if (scrollDirLast !== 'down') {
+          scrollDirLast = 'down';
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scrollDir', dir: 'down' }));
+        }
+      } else if ((scrollDirLast === 'up' && delta > 0) || (scrollDirLast === 'down' && delta < 0)) {
+        // User pivoted — reset baseline so next threshold is measured
+        // from here, not from the far end of the previous run.
+        scrollDirBaseline = y;
+      }
+    }
+    window.addEventListener('scroll', reportScrollDir, { passive: true });
+
     window.addEventListener('load', function() {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'loaded',
@@ -220,6 +262,59 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       }));
     }
 
+    /**
+     * Tap-to-word: programmatically select the word under the tap point
+     * so single-tap behaves like the web reader (WordPopup + auto-save +
+     * auto-TTS). iOS WebView's default is long-press-to-select, which is
+     * too friction-heavy for vocab flow. We use caretPositionFromPoint /
+     * caretRangeFromPoint to resolve text-node + offset, expand to word
+     * boundaries with a unicode letter/number class, then set the native
+     * Selection — the existing selectionchange listener handles the
+     * rest (pulse, message dispatch, RN-side save + TTS).
+     */
+    var WORD_RE = /[\p{L}\p{N}'-]/u;
+    function wordRangeAtPoint(x, y) {
+      var node = null, offset = 0;
+      if (document.caretPositionFromPoint) {
+        var pos = document.caretPositionFromPoint(x, y);
+        if (pos) { node = pos.offsetNode; offset = pos.offset; }
+      }
+      if (!node && document.caretRangeFromPoint) {
+        var r = document.caretRangeFromPoint(x, y);
+        if (r) { node = r.startContainer; offset = r.startOffset; }
+      }
+      if (!node || node.nodeType !== 3) return null;
+      var text = node.textContent || '';
+      if (!text) return null;
+      // Skip vocab-inline-translation nodes (the small italic gloss
+      // above an underlined word) — tapping those should select the
+      // underlying word, not the translation text.
+      var parent = node.parentElement;
+      if (parent && parent.classList && parent.classList.contains('vocab-inline-translation')) return null;
+      var start = offset;
+      var end = offset;
+      while (start > 0 && WORD_RE.test(text.charAt(start - 1))) start--;
+      while (end < text.length && WORD_RE.test(text.charAt(end))) end++;
+      if (start === end) return null;
+      // Skip purely numeric "words"
+      var candidate = text.slice(start, end);
+      if (!/\p{L}/u.test(candidate)) return null;
+      if (candidate.length > 40) return null; // sanity cap
+      var range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      return range;
+    }
+    function selectWordAtPoint(x, y) {
+      var range = wordRangeAtPoint(x, y);
+      if (!range) return false;
+      var sel = window.getSelection();
+      if (!sel) return false;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    }
+
     // Tap detection for immersive mode (touchend, not click — click unreliable in RN WebView)
     var lastTapTime = 0;
     var tapTimeout = null;
@@ -229,16 +324,31 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       touchStartY = e.changedTouches[0].clientY;
     }, { passive: true });
     document.addEventListener('touchend', function(e) {
-      var dx = e.changedTouches[0].clientX - touchStartX;
-      var dy = e.changedTouches[0].clientY - touchStartY;
+      var tx = e.changedTouches[0].clientX;
+      var ty = e.changedTouches[0].clientY;
+      var dx = tx - touchStartX;
+      var dy = ty - touchStartY;
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return; // scroll, not tap
       var target = e.target;
       if (target.tagName === 'A' || target.closest('a')) return;
+
+      // Dismiss any native multi-word selection first. Single-word
+      // selections (ours from a prior tap) should NOT block re-tapping
+      // a different word — we'll just re-select below.
       var sel = window.getSelection();
       if (sel && !sel.isCollapsed) {
+        var txt = sel.toString().trim();
+        var isMulti = txt.indexOf(' ') !== -1 || txt.length > 40;
         sel.removeAllRanges();
-        return;
+        if (isMulti) return; // user dismissing a long-press selection
       }
+
+      // Try selecting the word under the tap. If it hits a word, the
+      // selectionchange listener takes over (pulse + RN message + save).
+      if (selectWordAtPoint(tx, ty)) return;
+
+      // Not on a word — empty space / between paragraphs. Fall back to
+      // immersive toggle, keeping double-tap suppression.
       var now = Date.now();
       if (now - lastTapTime < 300) {
         if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; }

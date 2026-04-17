@@ -61,6 +61,22 @@
       "recents": "Книги, які ви читали, з'являться тут.",
       "collections": "Підбірки з'являться незабаром.",
       "browseBooks": "Переглянути книги"
+    },
+    "vocabCard": {
+      "label": "Словник",
+      "emptyTitle": "Почніть словник",
+      "emptySubline": "Торкніться слова під час читання, щоб зберегти його та почати тренуватися.",
+      "learnMoreCta": "Дізнатися",
+      "dueTitleOne": "1 слово готове до повторення",
+      "dueTitleMany": "Готові до повторення: {count}",
+      "savedTitleOne": "1 слово збережено",
+      "savedTitleMany": "Збережено слів: {count}",
+      "sublineStreak": "{saved} у словнику · серія {streak} д.",
+      "sublineMastered": "{saved} у словнику · {mastered} вивчено",
+      "sublineNothingDue": "Нічого немає. Поверніться пізніше.",
+      "sublineMasteredKeepUp": "{mastered} вивчено — так тримати.",
+      "reviewCta": "Повторити",
+      "openCta": "Відкрити"
     }
   },
   "common": {
@@ -93,6 +109,21 @@
     "next": "Далі",
     "skip": "Пропустити",
     "gotIt": "Зрозуміло"
+  },
+  "profile": {
+    "vocabReminder": {
+      "label": "Щоденне нагадування",
+      "offSubtitle": "Вимкнено",
+      "morning": "Ранок",
+      "afternoon": "День",
+      "evening": "Вечір",
+      "notificationTitle": "Час повторити",
+      "notificationBody": "Підтримайте серію — ваш словник чекає.",
+      "permissionDeniedTitle": "Сповіщення вимкнено",
+      "permissionDeniedBody": "Увімкніть сповіщення в Налаштуваннях, щоб отримувати нагадування.",
+      "unavailableTitle": "Недоступно",
+      "unavailableBody": "Нагадування недоступні в цій збірці. Оновіть застосунок, щоб увімкнути їх."
+    }
   },
   "footer": {
     "description": "TextStack — платформа для вивчення мов через читання. Читайте класику, розширюйте словник з інтервальним повторенням, відстежуйте прогрес та розвивайте вправність — у спокійному середовищі без відволікань.",
@@ -368,7 +399,13 @@
   "reader": {
     "reviewNow": "Повторити зараз",
     "later": "Пізніше",
-    "wordsSaved": "{count} слів збережено"
+    "wordsSaved": "{count} слів збережено",
+    "toastWordAdded": "Додано до словника",
+    "toastWordAddedCount": "Додано · {count} за сесію",
+    "toastTapToReview": "Натисніть, щоб повторити",
+    "coachmarkTitle": "Торкніться слова",
+    "coachmarkSubtitle": "Торкніться будь-якого слова, щоб додати його в словник.",
+    "coachmarkDismiss": "Зрозуміло"
   },
   "review": {
     "excellent": "Чудово!",

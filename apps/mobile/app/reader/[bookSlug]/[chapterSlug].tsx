@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi } from '@textstack/shared'
+import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
 import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
@@ -18,9 +18,12 @@ import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
+import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
+import { useHaptics } from '../../../src/hooks/useHaptics'
+import { useToast } from '../../../src/context/ToastContext'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
@@ -33,6 +36,11 @@ import { trackBookOpened, trackVocabSaved, trackTranslationUsed } from '../../..
 /** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
 function getSlugFromLocator(locator: string): string {
   return locator.startsWith('chapter:') ? locator.slice(8) : locator
+}
+
+/** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
+function interpolate(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
 }
 
 export default function ReaderScreen() {
@@ -71,6 +79,28 @@ export default function ReaderScreen() {
   const { language } = useLanguage()
   const { nativeLanguage } = useNativeLanguage()
   const quickStats = useQuickStats(isAuthenticated)
+  const haptics = useHaptics()
+  const { show: showToast } = useToast()
+  const sessionWordCountRef = useRef(0)
+
+  // Single source of truth for "word added" feedback — keeps toast copy + haptic
+  // cue + session counter consistent across the two save paths (auto-save on
+  // single-word tap, and the manual "Save" button in SelectionActionBar).
+  const notifyWordSaved = useCallback(() => {
+    sessionWordCountRef.current += 1
+    const count = sessionWordCountRef.current
+    haptics.play('complete')
+    showToast({
+      variant: 'success',
+      message:
+        count > 1
+          ? interpolate(t(language, 'reader.toastWordAddedCount'), { count })
+          : t(language, 'reader.toastWordAdded'),
+      actionLabel: t(language, 'reader.toastTapToReview'),
+      onPress: () => router.push('/vocabulary'),
+      duration: 2400,
+    })
+  }, [haptics, showToast, language, router])
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const insets = useSafeAreaInsets()
   const topBarHeight = 56 + insets.top
@@ -93,31 +123,43 @@ export default function ReaderScreen() {
     isAuthenticated,
   })
 
+  const hideBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (!barsVisibleRef.current) return
+    barsVisibleRef.current = false
+    setBarsVisible(false)
+    Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+  }, [barsAnim])
+
+  const showBars = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    if (barsVisibleRef.current) return
+    barsVisibleRef.current = true
+    setBarsVisible(true)
+    Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
+  }, [barsAnim])
+
   const startHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => {
-      barsVisibleRef.current = false
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+      hideBars()
     }, 3000)
-  }, [barsAnim])
+  }, [hideBars])
 
   const toggleBars = useCallback(() => {
-    const visible = barsVisibleRef.current
-    if (visible) {
-      barsVisibleRef.current = false
-      setBarsVisible(false)
-      Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    } else {
-      barsVisibleRef.current = true
-      setBarsVisible(true)
-      Animated.timing(barsAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start()
-      startHideTimer()
-    }
-  }, [barsAnim, startHideTimer])
+    if (barsVisibleRef.current) hideBars()
+    else showBars()
+  }, [hideBars, showBars])
 
-  // Start hide timer when chapter loads
+  // When chapter first loads, show bars briefly then auto-hide so the
+  // reader has chrome to orient with. From there on, visibility is
+  // driven entirely by scroll direction (see handleMessage 'scrollDir').
   useEffect(() => {
     if (!loading && chapter) startHideTimer()
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
@@ -228,6 +270,12 @@ export default function ReaderScreen() {
       const data = JSON.parse(event.nativeEvent.data)
       if (data.type === 'tap') {
         toggleBars()
+      } else if (data.type === 'scrollDir') {
+        // ElevenReader-style reveal: scrolling back up (re-reading)
+        // brings chrome back; scrolling forward hides it. Tap remains
+        // as a manual toggle for discoverability.
+        if (data.dir === 'up') showBars()
+        else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
         progressRef.current = data.progress
         setProgress(data.progress)
@@ -294,6 +342,7 @@ export default function ReaderScreen() {
                 injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
                 setWordSaved(true)
                 setSessionWordCount(c => c + 1)
+                notifyWordSaved()
                 trackVocabSaved({ language, nativeLanguage, source: 'reader' })
                 // Persist translation
                 const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
@@ -313,7 +362,7 @@ export default function ReaderScreen() {
         }
       }
     } catch {}
-  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars])
+  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars, showBars, hideBars, notifyWordSaved])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -359,6 +408,7 @@ export default function ReaderScreen() {
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
+      notifyWordSaved()
       trackVocabSaved({ language, nativeLanguage, source: 'reader' })
       // Persist translation to saved word (fire-and-forget)
       const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
@@ -555,9 +605,6 @@ export default function ReaderScreen() {
             </View>
           )}
           <View style={styles.topBarRight}>
-            <TouchableOpacity onPress={() => setSearchOpen(true)} style={styles.iconBtn}>
-              <Ionicons name="search-outline" size={20} color={barText} />
-            </TouchableOpacity>
             {isAuthenticated && (
               <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
                 <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
@@ -640,6 +687,9 @@ export default function ReaderScreen() {
             {Math.round(progress * 100)}% · ~{etfDisplay}
           </Text>
         </Animated.View>
+
+        {/* First-run tap-to-save hint — self-gated by AsyncStorage flag */}
+        <ReaderTapCoachmark />
 
         {/* Reading stats widget */}
         {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
