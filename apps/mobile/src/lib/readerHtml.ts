@@ -312,7 +312,32 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (!sel) return false;
       sel.removeAllRanges();
       sel.addRange(range);
+      // Android WebView does not fire selectionchange for programmatic
+      // selection — push the message directly. iOS fires it twice (once
+      // here, once from the listener), but the second emit is a no-op
+      // because the popup re-renders to the same state.
+      dispatchSelection();
       return true;
+    }
+
+    var _suppressNextSelectionChange = false;
+    function dispatchSelection() {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      var text = sel.toString().trim();
+      if (!text || text.length > 300) return;
+      if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
+      var sentence = '';
+      try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
+      var anchor = null;
+      try { anchor = getSelectionAnchor(); } catch(e) {}
+      _suppressNextSelectionChange = true;
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'selection',
+        text: text,
+        sentence: sentence,
+        anchor: anchor
+      }));
     }
 
     // Tap detection for immersive mode (touchend, not click — click unreliable in RN WebView)
@@ -551,6 +576,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     document.addEventListener('selectionchange', function() {
+      if (_suppressNextSelectionChange) {
+        _suppressNextSelectionChange = false;
+        return;
+      }
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
