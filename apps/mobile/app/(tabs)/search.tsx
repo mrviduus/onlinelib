@@ -85,6 +85,12 @@ export default function DiscoverScreen() {
   const [page, setPage] = useState(1)
   const [expandedEditions, setExpandedEditions] = useState<Set<string>>(new Set())
   const inputRef = useRef<TextInput>(null)
+  // Generation counter so a slow response for an abandoned query can't
+  // clobber results from the latest one (B-15). The shared API doesn't
+  // accept AbortController yet, so this is the next-best guard — it
+  // discards stale payloads cheaply without touching the package layer.
+  const searchGenRef = useRef(0)
+  useEffect(() => () => { searchGenRef.current = -1 }, [])
 
   // Catalog data
   const [books, setBooks] = useState<Edition[]>([])
@@ -96,45 +102,65 @@ export default function DiscoverScreen() {
 
   // Load recent searches
   useEffect(() => {
+    let cancelled = false
     AsyncStorage.getItem(RECENT_KEY).then(v => {
-      if (v) try { setRecentSearches(JSON.parse(v)) } catch {}
-    })
+      if (cancelled || !v) return
+      try { setRecentSearches(JSON.parse(v)) } catch {}
+    }).catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
-  // Fetch catalog data
+  // Fetch catalog data. Cancellation guards against a language flip
+  // landing the previous language's catalog on screen.
   useEffect(() => {
+    let cancelled = false
     const api = createBooksApi(language)
     Promise.all([
       api.getBooks({ limit: BOOK_LIMIT }),
       api.getAuthors({ limit: AUTHOR_LIMIT, sort: 'recent' }),
       api.getGenres(),
     ]).then(([booksRes, authorsRes, genresRes]) => {
+      if (cancelled) return
       setBooks(booksRes.items)
       setAuthors(authorsRes.items)
       setCatalogStats({ books: booksRes.total, authors: authorsRes.total, genres: genresRes.total })
-    }).catch(e => console.error('Catalog fetch failed:', e))
-      .finally(() => setCatalogLoading(false))
+    }).catch(e => {
+      if (!cancelled) console.error('Catalog fetch failed:', e)
+    })
+      .finally(() => { if (!cancelled) setCatalogLoading(false) })
+    return () => { cancelled = true }
   }, [language])
 
-  const saveRecent = async (q: string) => {
-    const updated = [q, ...recentSearches.filter(s => s !== q)].slice(0, MAX_RECENT)
-    setRecentSearches(updated)
-    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(updated)).catch(() => {})
-  }
+  // Use functional setState so saveRecent/removeRecent don't need
+  // `recentSearches` in their deps — that previously leaked into doSearch's
+  // deps, which made doSearch churn on every save (P2-5) and risked stale
+  // closures for `language` (P1-1).
+  const saveRecent = useCallback(async (q: string) => {
+    let nextList: string[] = []
+    setRecentSearches(prev => {
+      nextList = [q, ...prev.filter(s => s !== q)].slice(0, MAX_RECENT)
+      return nextList
+    })
+    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(nextList)).catch(() => {})
+  }, [])
 
-  const removeRecent = async (q: string) => {
-    const updated = recentSearches.filter(s => s !== q)
-    setRecentSearches(updated)
-    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(updated)).catch(() => {})
-  }
+  const removeRecent = useCallback(async (q: string) => {
+    let nextList: string[] = []
+    setRecentSearches(prev => {
+      nextList = prev.filter(s => s !== q)
+      return nextList
+    })
+    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(nextList)).catch(() => {})
+  }, [])
 
-  const clearRecent = async () => {
+  const clearRecent = useCallback(async () => {
     setRecentSearches([])
     await AsyncStorage.removeItem(RECENT_KEY).catch(() => {})
-  }
+  }, [])
 
   const doSearch = useCallback(async (q: string) => {
     if (q.length < 2) return
+    const gen = ++searchGenRef.current
     setLoading(true)
     setSearched(true)
     setPage(1)
@@ -142,24 +168,32 @@ export default function DiscoverScreen() {
     try {
       const api = createBooksApi(language)
       const { items } = await api.search(q, { limit: 100, highlight: true })
+      // Bail if the user typed something else while this fetch was in
+      // flight. Without this, a slow response for "har" would overwrite
+      // the results for "harry" that arrived first.
+      if (gen !== searchGenRef.current) return
       setResults(items)
       saveRecent(q)
       trackSearchPerformed({ query: q, resultsCount: items.length })
     } catch (e) {
+      if (gen !== searchGenRef.current) return
       console.error('Search failed:', e)
     } finally {
-      setLoading(false)
+      if (gen === searchGenRef.current) setLoading(false)
     }
-  }, [recentSearches, language])
+  }, [language, saveRecent])
 
-  // Auto-search on debounced query change
+  // Auto-search on debounced query change. `doSearch` is now stable against
+  // recentSearches churn (see comment above), so including it is cheap and
+  // guarantees a fresh closure over `language` when the user switches
+  // native language mid-session (P1-1).
   useEffect(() => {
     if (debouncedQuery.length >= 2) doSearch(debouncedQuery)
     else if (debouncedQuery.length === 0 && searched) {
       setResults([])
       setSearched(false)
     }
-  }, [debouncedQuery])
+  }, [debouncedQuery, doSearch, searched])
 
   const grouped = groupByEdition(results)
   const totalPages = Math.ceil(grouped.length / RESULTS_PER_PAGE)

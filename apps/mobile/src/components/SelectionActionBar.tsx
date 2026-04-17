@@ -32,11 +32,13 @@ interface SelectionActionBarProps {
   wordSaved?: boolean
   vocabStage?: number | null
   isAuthenticated?: boolean
+  /** Distance from bottom — typically reader footer height. */
+  bottomOffset?: number
 }
 
 export function SelectionActionBar({
   selectedText, isMultiWord, onDictionary, onTranslate, onSpeak, onSaveWord, onHighlight,
-  onMarkKnown, isSpeaking, wordSaved, vocabStage, isAuthenticated,
+  onMarkKnown, isSpeaking, wordSaved, vocabStage, isAuthenticated, bottomOffset = 0,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
 
@@ -45,7 +47,16 @@ export function SelectionActionBar({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          bottom: bottomOffset,
+        },
+      ]}
+    >
       {/* Highlight color buttons */}
       {isAuthenticated && onHighlight && (
         <>
@@ -54,24 +65,47 @@ export function SelectionActionBar({
               key={h.key}
               style={[styles.colorBtn, { backgroundColor: h.color }]}
               onPress={() => onHighlight(h.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Highlight in ${h.key}`}
             />
           ))}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
         </>
       )}
 
-      <TouchableOpacity style={styles.btn} onPress={handleCopy}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={handleCopy}
+        accessibilityRole="button"
+        accessibilityLabel="Copy selection"
+      >
         <Ionicons name="copy-outline" size={18} color={colors.text} />
       </TouchableOpacity>
       {!isMultiWord && (
-        <TouchableOpacity style={styles.btn} onPress={onDictionary}>
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={onDictionary}
+          accessibilityRole="button"
+          accessibilityLabel="Look up in dictionary"
+        >
           <Ionicons name="book-outline" size={18} color={colors.text} />
         </TouchableOpacity>
       )}
-      <TouchableOpacity style={styles.btn} onPress={onTranslate}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={onTranslate}
+        accessibilityRole="button"
+        accessibilityLabel="Translate selection"
+      >
         <Ionicons name="language-outline" size={18} color={colors.text} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.btn} onPress={onSpeak}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={onSpeak}
+        accessibilityRole="button"
+        accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
+        accessibilityState={{ selected: !!isSpeaking }}
+      >
         <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={18} color={colors.text} />
       </TouchableOpacity>
       {isAuthenticated && !isMultiWord && (() => {
@@ -79,12 +113,20 @@ export function SelectionActionBar({
         return (
           <>
             {stage && (
-              <View style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}>
+              <View
+                style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}
+                accessibilityLabel={`Vocabulary stage ${stage.label}`}
+              >
                 <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.label}</Text>
               </View>
             )}
             {stage && vocabStage !== 4 && onMarkKnown && (
-              <TouchableOpacity style={styles.btn} onPress={onMarkKnown}>
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={onMarkKnown}
+                accessibilityRole="button"
+                accessibilityLabel="Mark word as known"
+              >
                 <Ionicons name="checkmark-done" size={18} color="#22c55e" />
               </TouchableOpacity>
             )}
@@ -93,6 +135,9 @@ export function SelectionActionBar({
                 style={[styles.btn, wordSaved && { opacity: 0.5 }]}
                 onPress={onSaveWord}
                 disabled={wordSaved}
+                accessibilityRole="button"
+                accessibilityLabel={wordSaved ? 'Word saved' : 'Save word to vocabulary'}
+                accessibilityState={{ disabled: !!wordSaved }}
               >
                 <Ionicons
                   name={wordSaved ? 'checkmark-circle' : 'add-circle-outline'}
@@ -110,6 +155,12 @@ export function SelectionActionBar({
 
 const styles = StyleSheet.create({
   container: {
+    // Floating selection toolbar — pinned above the reader footer so it's
+    // not occluded by progress chrome. `bottom` is set inline from prop.
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   Alert, Platform, TextInput, KeyboardAvoidingView, ScrollView,
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { authApi } from '@textstack/shared'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
+import Constants from 'expo-constants'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
@@ -20,9 +21,24 @@ function isFreshAccount(createdAt: string | undefined): boolean {
   return Number.isFinite(ms) && Date.now() - ms < 60_000
 }
 
+// Google OAuth Client IDs, sourced from app.json → expo.extra.googleAuth.
+// Keeping them out of source makes it possible to ship different IDs per
+// build profile (dev vs. prod) without editing code, and surfaces the
+// configuration mistake that caused B-03 (webClientId must be a "Web
+// application" OAuth 2.0 client — using the iOS client here breaks Android
+// sign-in and causes backend audience mismatch).
+const googleAuth = (Constants.expoConfig?.extra?.googleAuth ?? {}) as {
+  iosClientId?: string
+  webClientId?: string
+}
+if (__DEV__ && (!googleAuth.iosClientId || !googleAuth.webClientId)) {
+  console.warn(
+    '[auth] googleAuth.iosClientId / googleAuth.webClientId missing from app.json expo.extra — Google Sign-In will fail.',
+  )
+}
 GoogleSignin.configure({
-  iosClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
-  webClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
+  iosClientId: googleAuth.iosClientId,
+  webClientId: googleAuth.webClientId,
 })
 
 // Dynamic import — expo-apple-authentication crashes on web
@@ -44,10 +60,19 @@ export default function LoginScreen() {
   const [error, setError] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
 
+  // Keyboard "next/go" chain so the device keyboard advances focus instead of
+  // the user tapping each input. Matches the PWA form ergonomics where the
+  // browser handles this automatically via tab order.
+  const emailRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInput>(null)
+
   const resetForm = () => { setEmail(''); setPassword(''); setName(''); setError(''); setForgotSent(false) }
   const switchMode = (m: Mode) => { resetForm(); setMode(m) }
 
   const handleEmailAuth = async () => {
+    // Guard: the submit button is disabled while `loading`, but keyboard
+    // "go"/"return" can still fire onSubmitEditing while a request is in-flight.
+    if (loading) return
     setError('')
     if (!email.trim()) { setError('Email is required.'); return }
     if (mode !== 'forgot' && password.length < 8) { setError('Password must be at least 8 characters.'); return }
@@ -208,10 +233,16 @@ export default function LoginScreen() {
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => emailRef.current?.focus()}
               />
             )}
 
             <TextInput
+              ref={emailRef}
               style={inputStyle}
               placeholder="Email"
               placeholderTextColor={colors.textSecondary}
@@ -219,11 +250,21 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType={mode === 'forgot' ? 'go' : 'next'}
+              blurOnSubmit={mode === 'forgot'}
+              onSubmitEditing={
+                mode === 'forgot'
+                  ? handleEmailAuth
+                  : () => passwordRef.current?.focus()
+              }
             />
 
             {mode !== 'forgot' && (
               <TextInput
+                ref={passwordRef}
                 style={inputStyle}
                 placeholder="Password"
                 placeholderTextColor={colors.textSecondary}
@@ -231,6 +272,11 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete={mode === 'register' ? 'password-new' : 'password'}
+                textContentType={mode === 'register' ? 'newPassword' : 'password'}
+                returnKeyType="go"
+                onSubmitEditing={handleEmailAuth}
               />
             )}
 

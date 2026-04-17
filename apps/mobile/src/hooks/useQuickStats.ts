@@ -14,13 +14,21 @@ export function useQuickStats(isAuthenticated: boolean) {
   const [stats, setStats] = useState<QuickStats | null>(null)
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    // On sign-out (or if the hook is called unauthenticated) clear any
+    // previous-user stats so the next sign-in doesn't render their
+    // counters while the new fetch is in flight.
+    if (!isAuthenticated) {
+      setStats(null)
+      return
+    }
+    let cancelled = false
     Promise.all([
       readingTrackingApi.getStats(),
       readingTrackingApi.getGoals(),
       vocabularyApi.getVocabularyStats().catch(() => null),
     ])
       .then(([s, goals, v]) => {
+        if (cancelled) return
         const dailyGoal = goals.find(g => g.goalType === 'daily_minutes')
         setStats({
           todaySeconds: s.todaySeconds,
@@ -32,6 +40,9 @@ export function useQuickStats(isAuthenticated: boolean) {
         })
       })
       .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [isAuthenticated])
 
   return stats

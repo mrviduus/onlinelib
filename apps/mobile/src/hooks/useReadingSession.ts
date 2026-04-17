@@ -66,16 +66,46 @@ export function useReadingSession(config: SessionConfig) {
     })
   }, [config.isAuthenticated, config.editionId, config.userBookId, config.wordCount])
 
+  const clearAutoEndTimer = useCallback(() => {
+    if (autoEndTimerRef.current) {
+      clearTimeout(autoEndTimerRef.current)
+      autoEndTimerRef.current = null
+    }
+  }, [])
+
   const resetAutoEndTimer = useCallback(() => {
-    if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+    clearAutoEndTimer()
     autoEndTimerRef.current = setTimeout(() => {
       submit() // auto-end after 5min idle
     }, AUTO_END_MS)
-  }, [submit])
+  }, [submit, clearAutoEndTimer])
 
-  // Heartbeat: increment active seconds only if not idle
+  /**
+   * Reset every piece of session state so a switch between books
+   * (editionId/userBookId change) doesn't leak old counters or the
+   * `submittedRef=true` latch. Keeps behaviour symmetric with the
+   * AppState 'active' resume branch.
+   */
+  const resetSessionState = useCallback(() => {
+    const now = Date.now()
+    submittedRef.current = false
+    startTimeRef.current = now
+    lastTickRef.current = now
+    lastActivityRef.current = now
+    activeSecondsRef.current = 0
+    startPercentRef.current = currentPercentRef.current
+  }, [])
+
+  // Heartbeat: increment active seconds only while a session is live
+  // and the user has been active recently.
   useEffect(() => {
     const interval = setInterval(() => {
+      if (submittedRef.current) {
+        // Session already submitted — no-op until AppState or a
+        // sessionKey change resets state.
+        lastTickRef.current = Date.now()
+        return
+      }
       const now = Date.now()
       const sinceActivity = now - lastActivityRef.current
       if (sinceActivity < IDLE_THRESHOLD_MS) {
@@ -87,34 +117,36 @@ export function useReadingSession(config: SessionConfig) {
     return () => clearInterval(interval)
   }, [])
 
-  // AppState: submit on background
+  // AppState: submit on background, resume on foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') {
         submit()
-        if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+        clearAutoEndTimer()
       } else if (state === 'active' && submittedRef.current) {
         // Resuming — start new session
-        submittedRef.current = false
-        startTimeRef.current = Date.now()
-        lastTickRef.current = Date.now()
-        lastActivityRef.current = Date.now()
-        activeSecondsRef.current = 0
-        startPercentRef.current = currentPercentRef.current
+        resetSessionState()
         resetAutoEndTimer()
       }
     })
     return () => sub.remove()
-  }, [submit, resetAutoEndTimer])
+  }, [submit, resetAutoEndTimer, clearAutoEndTimer, resetSessionState])
 
-  // Submit on unmount
+  // Per-book lifecycle: start a fresh session when the tracked book
+  // changes, submit + stop timers when the hook unmounts or switches
+  // books. Keyed off (editionId, userBookId) so a navigation between
+  // public/user books inside one hook instance still starts a clean
+  // session (R-2).
+  const sessionKey = config.editionId ?? config.userBookId ?? null
   useEffect(() => {
+    if (!sessionKey) return
+    resetSessionState()
     resetAutoEndTimer()
     return () => {
       submit()
-      if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
+      clearAutoEndTimer()
     }
-  }, [submit, resetAutoEndTimer])
+  }, [sessionKey, submit, resetAutoEndTimer, clearAutoEndTimer, resetSessionState])
 
   const updateProgress = useCallback((progress: number) => {
     lastActivityRef.current = Date.now() // user is active (scrolling)
@@ -123,12 +155,11 @@ export function useReadingSession(config: SessionConfig) {
     }
     currentPercentRef.current = progress
 
-    // Reset auto-end timer on activity
-    if (autoEndTimerRef.current) clearTimeout(autoEndTimerRef.current)
-    autoEndTimerRef.current = setTimeout(() => {
-      submit()
-    }, AUTO_END_MS)
-  }, [submit])
+    // No point arming the auto-end after the session is closed —
+    // otherwise we'd resurrect a dead session and resubmit it.
+    if (submittedRef.current) return
+    resetAutoEndTimer()
+  }, [resetAutoEndTimer])
 
   return { updateProgress, sessionStartedAt: startTimeRef.current }
 }

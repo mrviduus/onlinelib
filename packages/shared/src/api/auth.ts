@@ -120,7 +120,14 @@ export async function uploadAvatar(imageUri: string, accessToken: string): Promi
   })
   if (!res.ok) {
     const data = await res.json().catch(() => null)
-    throw new Error(data?.error || 'Upload failed')
+    // Attach the HTTP status so callers can render granular copy
+    // (413 → "too large", 415 → "wrong format", etc.) instead of a
+    // single generic "Upload failed" (B-20). Kept as a property rather
+    // than a subclass to avoid breaking existing `catch (e) { e.message }`
+    // callers in web + tests.
+    const err = new Error(data?.error || 'Upload failed') as Error & { status?: number }
+    err.status = res.status
+    throw err
   }
   return res.json()
 }

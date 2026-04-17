@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { vocabularyApi } from '@textstack/shared'
 import type { ReviewCardDto, SubmitReviewResponse, SelfAssessment, ReviewMode } from '@textstack/shared'
 
@@ -26,6 +26,19 @@ export function useVocabularyReview() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
   const [showingNewWord, setShowingNewWord] = useState(false)
 
+  // Guards against state updates after unmount. The two async calls below
+  // (getReviewQueue, submitReview) can resolve after the user has navigated
+  // away from the review screen — without this, React logs an "update on
+  // unmounted component" warning and we could resurrect the review session in
+  // memory. Cheap insurance.
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
   const resetAnswerState = useCallback(() => {
     setLastResult(null)
     setLastAnswerCorrect(false)
@@ -47,14 +60,16 @@ export function useVocabularyReview() {
     resetAnswerState()
     try {
       const queue = await vocabularyApi.getReviewQueue(limit)
+      if (!mountedRef.current) return
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
       setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
       showNewWordIfNeeded(queue.cards, 0)
     } catch (err) {
+      if (!mountedRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load review')
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }, [resetAnswerState, showNewWordIfNeeded])
 
@@ -78,6 +93,7 @@ export function useVocabularyReview() {
         responseTimeMs,
         selfAssessment,
       })
+      if (!mountedRef.current) return
       setLastResult(result)
       setLastAnswerCorrect(isCorrect)
       setAnswerRevealed(true)
@@ -87,9 +103,10 @@ export function useVocabularyReview() {
         correct: prev.correct + (isCorrect ? 1 : 0),
       }))
     } catch (err) {
+      if (!mountedRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to submit')
     } finally {
-      setSubmitting(false)
+      if (mountedRef.current) setSubmitting(false)
     }
   }, [cards, currentIndex, submitting])
 

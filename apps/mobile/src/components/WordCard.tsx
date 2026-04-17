@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator }
 import { Ionicons } from '@expo/vector-icons'
 import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { fonts } from '../theme/typography'
 
 const HIGHLIGHT_COLORS = [
@@ -22,6 +23,13 @@ const STAGE_LABELS: Record<number, { label: string; color: string }> = {
 
 interface WordCardProps {
   word: string
+  /**
+   * Monotonic id per selection *event* — lets useEffect reset the
+   * auto-dismiss timer even when the word text is unchanged (B-12).
+   * Without this, rapid re-taps on the same word kept the original 3s
+   * timer running, often causing the card to vanish mid-interaction.
+   */
+  selectionId?: number
   onSave: () => void
   onSpeak: () => void
   onDictionary: () => void
@@ -32,16 +40,29 @@ interface WordCardProps {
   wordSaved?: boolean
   vocabStage?: number | null
   isAuthenticated?: boolean
+  /**
+   * Book/reading language — used as the translation source. The target
+   * language (user's native, or a sensible fallback) is resolved inside
+   * via `useTargetLanguage()`. Kept named `language` for call-site
+   * back-compat with the reader screen.
+   */
   language?: string
   sessionWordCount?: number
+  /**
+   * Pixels to lift the card above the bottom edge. Typically the reader's
+   * footer height (including safe-area inset) so the card floats cleanly
+   * above the progress bar instead of being hidden by it.
+   */
+  bottomOffset?: number
 }
 
 export function WordCard({
-  word, onSave, onSpeak, onDictionary, onHighlight, onMarkKnown,
-  onDismiss, isSpeaking, wordSaved, vocabStage, isAuthenticated, language = 'en',
-  sessionWordCount = 0,
+  word, selectionId = 0, onSave, onSpeak, onDictionary, onHighlight, onMarkKnown,
+  onDismiss, isSpeaking, wordSaved, vocabStage, isAuthenticated, language,
+  sessionWordCount = 0, bottomOffset = 0,
 }: WordCardProps) {
   const { colors } = useTheme()
+  const { fromLang, toLang } = useTargetLanguage(language)
   const [expanded, setExpanded] = useState(false)
   const [translation, setTranslation] = useState('')
   const [translating, setTranslating] = useState(true)
@@ -55,21 +76,25 @@ export function WordCard({
     if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
   }, [])
 
-  // Auto-dismiss after 3s unless user interacts
+  // Auto-dismiss after 3s unless user interacts. Reset the timer on every
+  // selection event (not just word changes) — otherwise tapping the same
+  // word twice lets the original timer fire mid-interaction (B-12).
   useEffect(() => {
     dismissTimerRef.current = setTimeout(onDismiss, 3000)
     return () => { if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number) }
-  }, [word]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch translation on mount
+  // Fetch translation on mount. Source/target come from useTargetLanguage —
+  // previously the pair was hardcoded en↔uk which broke for users reading
+  // non-English books or whose native language isn't Ukrainian (B-07).
   useEffect(() => {
     setTranslation('')
     setTranslating(true)
-    translationApi.translate(word, language, language === 'en' ? 'uk' : 'en')
+    translationApi.translate(word, fromLang, toLang)
       .then((res: any) => setTranslation(res.translatedText || res.translation || ''))
       .catch(() => setTranslation(''))
       .finally(() => setTranslating(false))
-  }, [word, language])
+  }, [word, fromLang, toLang])
 
   // Entry animation
   useEffect(() => {
@@ -98,7 +123,13 @@ export function WordCard({
   return (
     <Animated.View style={[
       styles.container,
-      { backgroundColor: colors.surface, borderColor: colors.border, transform: [{ translateY }], opacity: slideAnim },
+      {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        bottom: bottomOffset + 8,
+        transform: [{ translateY }],
+        opacity: slideAnim,
+      },
     ]}>
       {/* Level 1: Word + translation + save */}
       <TouchableOpacity activeOpacity={0.9} onPress={() => { cancelAutoDismiss(); setExpanded(!expanded) }} style={styles.mainRow}>
@@ -189,8 +220,12 @@ export function WordCard({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 12,
-    marginBottom: 8,
+    // Floating card — positioned above the reader footer via `bottom` prop
+    // computed at render time from the parent's footerHeight.
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 20,
     borderRadius: 14,
     borderWidth: 1,
     shadowColor: '#000',

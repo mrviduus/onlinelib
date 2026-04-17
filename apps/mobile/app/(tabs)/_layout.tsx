@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Tabs } from 'expo-router'
 import { Platform, Animated } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -36,6 +37,14 @@ const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inacti
 export default function TabLayout() {
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const insets = useSafeAreaInsets()
+
+  // On iOS the old hardcoded 88 already approximated the home-indicator
+  // safe area. On Android the 60 didn't account for 3-button nav bars or
+  // gesture bars, so icons overlapped the system UI (B-13). Use real
+  // insets on both platforms — iOS keeps parity, Android gains padding.
+  const baseHeight = Platform.OS === 'ios' ? 52 : 56
+  const tabBarHeight = baseHeight + insets.bottom
 
   return (
     <Tabs
@@ -47,7 +56,8 @@ export default function TabLayout() {
           borderTopColor: colors.border,
           backgroundColor: colors.background,
           paddingTop: 4,
-          height: Platform.OS === 'ios' ? 88 : 60,
+          paddingBottom: insets.bottom,
+          height: tabBarHeight,
         },
         tabBarLabelStyle: typography.tabLabel,
         headerShown: true,

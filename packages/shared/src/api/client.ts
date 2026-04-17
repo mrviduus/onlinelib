@@ -1,7 +1,13 @@
 export interface ApiConfig {
   baseUrl: string
   getAccessToken: () => Promise<string | null>
-  onUnauthorized: () => Promise<string | null> // should refresh and return new token, or null
+  /**
+   * Called on a 401. Should refresh the access token and return the new
+   * one, or null if refresh failed (user truly unauthenticated). Must be
+   * single-flight internally — multiple concurrent 401s should share one
+   * refresh.
+   */
+  onUnauthorized: () => Promise<string | null>
 }
 
 let config: ApiConfig | null = null
@@ -13,6 +19,23 @@ export function initApi(c: ApiConfig) {
 export function getApiConfig(): ApiConfig {
   if (!config) throw new Error('API not initialized. Call initApi() first.')
   return config
+}
+
+/**
+ * Wrapper around `fetch` that translates network/DNS/abort failures into
+ * an `ApiError` with `isNetworkError === true`. Without this the caller
+ * sees a raw `TypeError: Network request failed` and can't distinguish
+ * "offline" from "backend crashed" or "parse error".
+ */
+async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const err = new ApiError(0, msg || 'Network request failed')
+    err.isNetworkError = true
+    throw err
+  }
 }
 
 export function getStorageUrl(path: string | null | undefined): string | undefined {
@@ -31,6 +54,19 @@ function parseJsonSafe<T>(text: string, status: number): T {
   return JSON.parse(text)
 }
 
+async function errorFromResponse(res: Response, fallbackStatus = res.status): Promise<ApiError> {
+  const text = await res.text().catch(() => '')
+  let message = `API error: ${fallbackStatus}`
+  try {
+    const json = JSON.parse(text)
+    if (json?.error) message = json.error
+    else if (json?.message) message = json.message
+  } catch {
+    // non-JSON body — keep the generic status message
+  }
+  return new ApiError(fallbackStatus, message)
+}
+
 export async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const { baseUrl, getAccessToken, onUnauthorized } = getApiConfig()
 
@@ -42,27 +78,26 @@ export async function authFetch<T>(path: string, options?: RequestInit): Promise
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${baseUrl}${path}`, { ...options, headers })
+  const res = await safeFetch(`${baseUrl}${path}`, { ...options, headers })
 
   if (res.status === 401) {
     const newToken = await onUnauthorized()
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`
-      const retry = await fetch(`${baseUrl}${path}`, { ...options, headers })
-      if (!retry.ok) throw new ApiError(retry.status, 'Unauthorized')
+      const retry = await safeFetch(`${baseUrl}${path}`, { ...options, headers })
+      if (!retry.ok) {
+        // Surface the *real* status/message from the retry, not a
+        // generic "Unauthorized". Otherwise a 403/5xx after a
+        // successful refresh looks like the refresh itself failed.
+        throw await errorFromResponse(retry)
+      }
       return parseJsonSafe<T>(await retry.text(), retry.status)
     }
     throw new ApiError(401, 'Unauthorized')
   }
 
   if (!res.ok) {
-    const text = await res.text()
-    let message = `API error: ${res.status}`
-    try {
-      const json = JSON.parse(text)
-      if (json.error) message = json.error
-    } catch {}
-    throw new ApiError(res.status, message)
+    throw await errorFromResponse(res)
   }
 
   return parseJsonSafe<T>(await res.text(), res.status)
@@ -71,16 +106,10 @@ export async function authFetch<T>(path: string, options?: RequestInit): Promise
 export async function publicFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const { baseUrl } = getApiConfig()
 
-  const res = await fetch(`${baseUrl}${path}`, options)
+  const res = await safeFetch(`${baseUrl}${path}`, options)
 
   if (!res.ok) {
-    const text = await res.text()
-    let message = `API error: ${res.status}`
-    try {
-      const json = JSON.parse(text)
-      if (json.error) message = json.error
-    } catch {}
-    throw new ApiError(res.status, message)
+    throw await errorFromResponse(res)
   }
 
   return parseJsonSafe<T>(await res.text(), res.status)
@@ -106,6 +135,13 @@ export function jsonBody(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', data: unkn
 }
 
 export class ApiError extends Error {
+  /**
+   * True when the request never reached the server (offline, DNS,
+   * aborted, CORS, TLS). Status is 0 in that case. UIs can show "check
+   * your connection" instead of a generic server error.
+   */
+  isNetworkError = false
+
   constructor(
     public status: number,
     message: string,

@@ -3,6 +3,8 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator } fr
 import { Ionicons } from '@expo/vector-icons'
 import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useTargetLanguage } from '../hooks/useTargetLanguage'
+import { getLanguage } from '../data/languages'
 import { fonts } from '../theme/typography'
 import { trackTranslationUsed } from '../lib/analytics'
 
@@ -11,10 +13,21 @@ interface TranslationSheetProps {
   text: string
   onClose: () => void
   onSpeak: (text: string) => void
+  /**
+   * Override the source language (book language). Falls back to the UI
+   * reading language from `useLanguage()` when omitted.
+   */
+  fromLang?: string
 }
 
-export function TranslationSheet({ visible, text, onClose, onSpeak }: TranslationSheetProps) {
+export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fromOverride }: TranslationSheetProps) {
   const { colors } = useTheme()
+  const { fromLang, toLang } = useTargetLanguage(fromOverride)
+  // Human-readable native labels for the sheet header. Fall back to the
+  // uppercased language code (e.g. "EN") when the code isn't in our
+  // catalogue — no throw, no blank space.
+  const fromLabel = getLanguage(fromLang)?.nativeName ?? fromLang.toUpperCase()
+  const toLabel = getLanguage(toLang)?.nativeName ?? toLang.toUpperCase()
   const [translated, setTranslated] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,23 +37,28 @@ export function TranslationSheet({ visible, text, onClose, onSpeak }: Translatio
     setLoading(true)
     setError('')
     setTranslated('')
-    trackTranslationUsed({ fromLang: 'en', toLang: 'uk', kind: text.includes(' ') ? 'selection' : 'word' })
-    translationApi.translate(text, 'en', 'uk')
+    trackTranslationUsed({ fromLang, toLang, kind: text.includes(' ') ? 'selection' : 'word' })
+    translationApi.translate(text, fromLang, toLang)
       .then((res: any) => {
         setTranslated(res.translatedText || res.translation || '')
       })
       .catch(() => setError('Translation failed'))
       .finally(() => setLoading(false))
-  }, [visible, text])
+  }, [visible, text, fromLang, toLang])
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 }} />
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Translation</Text>
-            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+            <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Translation</Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ padding: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close translation"
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -48,8 +66,12 @@ export function TranslationSheet({ visible, text, onClose, onSpeak }: Translatio
           <View style={styles.body}>
             <View style={styles.textBlock}>
               <View style={styles.langRow}>
-                <Text style={[styles.langLabel, { color: colors.primary }]}>English</Text>
-                <TouchableOpacity onPress={() => onSpeak(text)}>
+                <Text style={[styles.langLabel, { color: colors.primary }]}>{fromLabel}</Text>
+                <TouchableOpacity
+                  onPress={() => onSpeak(text)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pronounce in ${fromLabel}`}
+                >
                   <Ionicons name="volume-high-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
               </View>
@@ -59,9 +81,9 @@ export function TranslationSheet({ visible, text, onClose, onSpeak }: Translatio
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             <View style={styles.textBlock}>
-              <Text style={[styles.langLabel, { color: colors.primary }]}>Українська</Text>
-              {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />}
-              {error ? <Text style={{ color: colors.error, marginTop: 8 }}>{error}</Text> : null}
+              <Text style={[styles.langLabel, { color: colors.primary }]}>{toLabel}</Text>
+              {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} accessibilityLabel="Translating" />}
+              {error ? <Text style={{ color: colors.error, marginTop: 8 }} accessibilityRole="alert">{error}</Text> : null}
               {translated ? <Text style={[styles.translatedText, { color: colors.text }]}>{translated}</Text> : null}
             </View>
           </View>

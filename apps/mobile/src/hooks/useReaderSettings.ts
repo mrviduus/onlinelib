@@ -44,7 +44,9 @@ export function useReaderSettings() {
   const [settings, setSettings] = useState<ReaderSettings>(defaults)
 
   useEffect(() => {
+    let cancelled = false
     AsyncStorage.getItem(STORAGE_KEY).then(async raw => {
+      if (cancelled) return
       if (raw) {
         try {
           setSettings({ ...defaults, ...JSON.parse(raw) })
@@ -53,6 +55,7 @@ export function useReaderSettings() {
       }
       // Migrate from v1
       const legacy = await AsyncStorage.getItem(LEGACY_KEY)
+      if (cancelled) return
       if (legacy) {
         try {
           const old = JSON.parse(legacy)
@@ -63,7 +66,10 @@ export function useReaderSettings() {
           AsyncStorage.removeItem(LEGACY_KEY)
         } catch {}
       }
-    })
+    }).catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const update = useCallback((patch: Partial<ReaderSettings>) => {

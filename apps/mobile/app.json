@@ -81,6 +81,11 @@
       "router": {},
       "eas": {
         "projectId": "204518f7-24cf-4984-962d-f636508be861"
+      },
+      "googleAuth": {
+        "_comment": "iosClientId: OAuth 2.0 Client ID of type 'iOS' from Google Cloud Console. webClientId: OAuth 2.0 Client ID of type 'Web application' — required for Android sign-in and the audience the backend verifies against. Using an iOS client ID here will break Android auth (B-03). Both fields are optional at config time; falls back to hardcoded dev default if absent.",
+        "iosClientId": "301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com",
+        "webClientId": "301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com"
       }
     },
     "owner": "textstack"

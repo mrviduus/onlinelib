@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
@@ -11,6 +11,7 @@ import { ReaderSettingsDrawer } from '../../../../src/components/ReaderSettingsD
 import { SelectionActionBar } from '../../../../src/components/SelectionActionBar'
 import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
+import { HighlightNoteModal } from '../../../../src/components/HighlightNoteModal'
 import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
 import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
 import { TocSheet } from '../../../../src/components/TocSheet'
@@ -42,7 +43,11 @@ export default function UserBookReaderScreen() {
   const [chapter, setChapter] = useState<UserBookChapterDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [selection, setSelection] = useState<{ text: string; sentence: string; anchor?: any } | null>(null)
+  // See main reader screen: re-tap on the same word toggles dismiss (B-12).
+  const [selection, setSelection] = useState<
+    { text: string; sentence: string; anchor?: any; selectionId: number } | null
+  >(null)
+  const selectionIdRef = useRef(0)
   const [wordSaved, setWordSaved] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
@@ -54,6 +59,8 @@ export default function UserBookReaderScreen() {
   const [tocOpen, setTocOpen] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
   const [chapters, setChapters] = useState<{ slug: string; title: string; chapterNumber?: number }[]>([])
+  // See main reader: cross-platform replacement for Alert.prompt (B-02).
+  const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const quickStats = useQuickStats(isAuthenticated)
@@ -143,14 +150,19 @@ export default function UserBookReaderScreen() {
 
   useEffect(() => {
     if (!bookId || !chapterSlug) return
+    let cancelled = false
     setLoading(true)
     userBooksApi.getUserBookChapter(bookId, chapterSlug)
       .then(ch => {
+        if (cancelled) return
         setChapter(ch)
         wordCountRef.current = ch.wordCount || 0
       })
-      .catch(e => console.error('Failed to load user book chapter:', e))
-      .finally(() => setLoading(false))
+      .catch(e => {
+        if (!cancelled) console.error('Failed to load user book chapter:', e)
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [bookId, chapterSlug])
 
   // Load bookmarks + chapter list for TOC
@@ -184,8 +196,15 @@ export default function UserBookReaderScreen() {
       return slug === activeSlug
     })
     if (existing) {
-      await userBooksApi.deleteUserBookBookmark(bookId, existing.id).catch(() => {})
+      // Optimistic remove — restore + toast if the server rejects so the
+      // UI doesn't silently lie about state (mirrors B-29 on public reader).
       setBookmarks(prev => prev.filter(b => b.id !== existing.id))
+      try {
+        await userBooksApi.deleteUserBookBookmark(bookId, existing.id)
+      } catch {
+        setBookmarks(prev => (prev.some(b => b.id === existing.id) ? prev : [...prev, existing]))
+        showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
+      }
     } else {
       try {
         const bm = await userBooksApi.createUserBookBookmark(bookId, {
@@ -194,14 +213,24 @@ export default function UserBookReaderScreen() {
           title: chapter.title,
         })
         setBookmarks(prev => [...prev, bm])
-      } catch {}
+      } catch {
+        showToast({ message: 'Could not add bookmark. Try again.', variant: 'error' })
+      }
     }
   }
 
   const handleDeleteBookmark = async (bmId: string) => {
     if (!bookId) return
-    await userBooksApi.deleteUserBookBookmark(bookId, bmId).catch(() => {})
+    const snapshot = bookmarks.find(b => b.id === bmId) ?? null
     setBookmarks(prev => prev.filter(b => b.id !== bmId))
+    try {
+      await userBooksApi.deleteUserBookBookmark(bookId, bmId)
+    } catch {
+      if (snapshot) {
+        setBookmarks(prev => (prev.some(b => b.id === bmId) ? prev : [...prev, snapshot]))
+      }
+      showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
+    }
   }
 
   const handleMessage = useCallback((event: any) => {
@@ -238,33 +267,21 @@ export default function UserBookReaderScreen() {
         setSearchCurrentMatch(data.currentMatch || 0)
       } else if (data.type === 'highlightTap') {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
-        if (hl) {
-          Alert.prompt(
-            'Highlight Note',
-            `"${hl.selectedText.substring(0, 60)}${hl.selectedText.length > 60 ? '...' : ''}"`,
-            [
-              { text: 'Delete', style: 'destructive', onPress: async () => {
-                try {
-                  await highlightsApi.deleteHighlight(hl.id)
-                  injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-                  highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-                } catch {}
-              }},
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Save', onPress: async (noteText?: string) => {
-                try {
-                  const updated = await highlightsApi.updateHighlight(hl.id, { noteText: noteText?.trim() || null })
-                  highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-                } catch {}
-              }},
-            ],
-            'plain-text',
-            hl.noteText || '',
-          )
-        }
+        if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
         if (data.text) {
-          setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
+          setSelection(prev => {
+            if (prev && prev.text === data.text && !data.text.includes(' ')) {
+              return null
+            }
+            const nextId = ++selectionIdRef.current
+            return {
+              text: data.text,
+              sentence: data.sentence || '',
+              anchor: data.anchor || null,
+              selectionId: nextId,
+            }
+          })
           setWordSaved(false)
           if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
             setDictOpen(true)
@@ -336,36 +353,46 @@ export default function UserBookReaderScreen() {
     }
   }
 
-  // Load existing highlights for user book
+  // Load existing highlights for user book. Keyed on `chapter?.id` (not
+  // the full object) so a refetch that resolves to the same chapter
+  // doesn't re-run the load, matches the public-reader pattern (B-41).
   useEffect(() => {
-    if (!isAuthenticated || !bookId || !chapter) return
+    const chapterId = chapter?.id
+    if (!isAuthenticated || !bookId || !chapterId) return
+    let cancelled = false
     highlightsApi.getUserBookHighlights(bookId)
       .then(highlights => {
-        const chapterHighlights = highlights.filter(h => h.userChapterId === chapter.id)
+        if (cancelled) return
+        const chapterHighlights = highlights.filter(h => h.userChapterId === chapterId)
         highlightsRef.current = chapterHighlights
         for (const h of chapterHighlights) {
           injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
         }
       })
       .catch(() => {})
-  }, [isAuthenticated, bookId, chapter])
+    return () => { cancelled = true }
+  }, [isAuthenticated, bookId, chapter?.id])
 
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string }>>({})
 
-  // Load and render vocab word underlines
+  // Load and render vocab word underlines. Keyed on chapter.id with
+  // cancellation so fast chapter nav doesn't render stale word map.
   useEffect(() => {
-    if (!isAuthenticated || !chapter) return
+    const chapterId = chapter?.id
+    if (!isAuthenticated || !chapterId) return
+    let cancelled = false
     vocabularyApi.getReaderVocab()
       .then(words => {
-        if (words.length === 0) return
+        if (cancelled || words.length === 0) return
         const map: Record<string, { stage: number; id: string }> = {}
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
       })
       .catch(() => {})
-  }, [isAuthenticated, chapter])
+    return () => { cancelled = true }
+  }, [isAuthenticated, chapter?.id])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
@@ -480,7 +507,7 @@ export default function UserBookReaderScreen() {
             isMultiWord={isMultiWord}
             onDictionary={() => setDictOpen(true)}
             onTranslate={() => setTranslateOpen(true)}
-            onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+            onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
             onSaveWord={handleSaveWord}
             onHighlight={handleHighlight}
             onMarkKnown={handleMarkKnown}
@@ -525,14 +552,16 @@ export default function UserBookReaderScreen() {
           visible={dictOpen}
           word={selection?.text || ''}
           onClose={() => setDictOpen(false)}
-          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
+          fromLang={language}
         />
 
         <TranslationSheet
           visible={translateOpen}
           text={selection?.text || ''}
           onClose={() => setTranslateOpen(false)}
-          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
+          fromLang={language}
         />
 
         <BookmarksSheet
@@ -556,6 +585,35 @@ export default function UserBookReaderScreen() {
           }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
+        />
+
+        {/* Highlight note editor — Android-safe replacement for Alert.prompt */}
+        <HighlightNoteModal
+          visible={!!editingHighlight}
+          snippet={editingHighlight
+            ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
+            : ''}
+          initialNote={editingHighlight?.noteText || ''}
+          onCancel={() => setEditingHighlight(null)}
+          onSave={async (note) => {
+            const hl = editingHighlight
+            setEditingHighlight(null)
+            if (!hl) return
+            try {
+              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
+              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+            } catch {}
+          }}
+          onDelete={async () => {
+            const hl = editingHighlight
+            setEditingHighlight(null)
+            if (!hl) return
+            try {
+              await highlightsApi.deleteHighlight(hl.id)
+              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
+              highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
+            } catch {}
+          }}
         />
       </View>
     </>

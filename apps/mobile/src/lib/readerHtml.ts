@@ -118,37 +118,50 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
      *
      * Mirrors ElevenReader's pattern: bars stay hidden while the reader
      * moves forward (scrolls down), and reveal as soon as the reader
-     * starts going back (scrolls up) to re-read something. This is far
-     * more discoverable than the previous tap-only reveal.
+     * starts going back (scrolls up) to re-read something.
      *
-     * We track a floating "baseline" that resets whenever the user
-     * pivots direction. Crossing the per-direction threshold from that
-     * baseline fires a single 'scrollDir' message. Thresholds are
-     * asymmetric — easy to reveal (small UP_THRESHOLD), sticky to hide
-     * (larger DOWN_THRESHOLD) — to avoid flicker from tiny wobbles.
+     * Design note (user feedback): "one swipe up should be enough".
+     * Previously we required an UP threshold of 14px AFTER a baseline
+     * reset on pivot — so exiting a down-run actually needed ~20px of
+     * upward travel before bars appeared. That felt laggy. Now: once
+     * the user has pivoted from a down-run, ANY upward motion reveals
+     * bars immediately (no threshold). We still apply a mild UP
+     * threshold from the bars-visible state so incidental upward drift
+     * while reading doesn't endlessly re-fire the reveal.
+     *
+     * Thresholds are asymmetric — trivial to reveal, sticky to hide
+     * (larger DOWN_THRESHOLD) — to avoid flicker from tiny wobbles
+     * while reading.
      */
     var scrollDirBaseline = window.scrollY;
     var scrollDirLast = null; // 'up' | 'down' | null
-    var SCROLL_UP_THRESHOLD = 14;
-    var SCROLL_DOWN_THRESHOLD = 36;
+    var SCROLL_UP_THRESHOLD = 6;
+    var SCROLL_DOWN_THRESHOLD = 48;
+    function emitScrollDir(dir, y) {
+      scrollDirBaseline = y;
+      if (scrollDirLast !== dir) {
+        scrollDirLast = dir;
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scrollDir', dir: dir }));
+      }
+    }
     function reportScrollDir() {
       var y = window.scrollY;
       var delta = y - scrollDirBaseline;
-      if (delta <= -SCROLL_UP_THRESHOLD) {
-        scrollDirBaseline = y;
-        if (scrollDirLast !== 'up') {
-          scrollDirLast = 'up';
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scrollDir', dir: 'up' }));
+      if (delta < 0) {
+        // Any upward motion while we were scrolling DOWN (or haven't
+        // decided yet) reveals bars immediately — one swipe is enough.
+        // If bars are already revealed (scrollDirLast === 'up'), wait
+        // for the small UP threshold so baseline drifts smoothly with
+        // continued upward motion without spamming messages.
+        if (scrollDirLast !== 'up' || delta <= -SCROLL_UP_THRESHOLD) {
+          emitScrollDir('up', y);
         }
       } else if (delta >= SCROLL_DOWN_THRESHOLD) {
-        scrollDirBaseline = y;
-        if (scrollDirLast !== 'down') {
-          scrollDirLast = 'down';
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scrollDir', dir: 'down' }));
-        }
-      } else if ((scrollDirLast === 'up' && delta > 0) || (scrollDirLast === 'down' && delta < 0)) {
-        // User pivoted — reset baseline so next threshold is measured
-        // from here, not from the far end of the previous run.
+        emitScrollDir('down', y);
+      } else if (scrollDirLast === 'up' && delta > 0) {
+        // Small downward reflex while bars are visible — reset baseline
+        // but don't hide yet; we require the full DOWN threshold from
+        // here so a brief wobble doesn't dismiss chrome mid-read.
         scrollDirBaseline = y;
       }
     }
@@ -299,7 +312,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       // Skip purely numeric "words"
       var candidate = text.slice(start, end);
       if (!/\p{L}/u.test(candidate)) return null;
-      if (candidate.length > 40) return null; // sanity cap
+      // Sanity cap. 40 was rejecting legitimate long compounds like
+      // "Unterscheidungsvermögen" / "Schadenfreudegesellschaft" (B-11).
+      // 80 is well past any real word but still blocks entire
+      // paragraph-blob pathological cases.
+      if (candidate.length > 80) return null;
       var range = document.createRange();
       range.setStart(node, start);
       range.setEnd(node, end);
@@ -320,7 +337,19 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       return true;
     }
 
-    var _suppressNextSelectionChange = false;
+    /**
+     * Suppress the selectionchange listener briefly after a programmatic
+     * dispatch. iOS WebKit may fire multiple selectionchange events for a
+     * single removeAllRanges() + addRange() pair (one for each mutation).
+     * A boolean flag only absorbs the first — a later "empty" event would
+     * race through and post { text: '' } → RN clears the popup.
+     *
+     * Timestamp guard absorbs all events inside the window, which covers
+     * the typical 50-100ms settle time on iOS 17+ WebKit.
+     */
+    var _suppressSelectionChangeUntil = 0;
+    var _lastDispatchedText = '';
+
     function dispatchSelection() {
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed) return;
@@ -331,7 +360,8 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
       var anchor = null;
       try { anchor = getSelectionAnchor(); } catch(e) {}
-      _suppressNextSelectionChange = true;
+      _suppressSelectionChangeUntil = Date.now() + 200;
+      _lastDispatchedText = text;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,
@@ -576,23 +606,28 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     document.addEventListener('selectionchange', function() {
-      if (_suppressNextSelectionChange) {
-        _suppressNextSelectionChange = false;
-        return;
-      }
+      // Inside suppression window — swallow the event entirely. Covers the
+      // transient "empty selection" that fires between removeAllRanges and
+      // addRange during a programmatic tap-to-select.
+      if (Date.now() < _suppressSelectionChangeUntil) return;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
+        _lastDispatchedText = '';
         return;
       }
       var text = sel.toString().trim();
       if (text.length > 300) return;
+      // Drop duplicates — if the user re-selected the exact same text (e.g.
+      // iOS magnifier re-firing), don't re-render the popup.
+      if (text === _lastDispatchedText) return;
       // Single word pulse
       if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
       var anchor = null;
       try { anchor = getSelectionAnchor(); } catch(e) {}
+      _lastDispatchedText = text;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,

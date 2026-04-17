@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIn
 import { Ionicons } from '@expo/vector-icons'
 import { dictionaryApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { fonts } from '../theme/typography'
 
 interface DictionaryEntry {
@@ -19,10 +20,18 @@ interface DictionarySheetProps {
   word: string
   onClose: () => void
   onSpeak: (text: string) => void
+  /**
+   * Override the source language (book language). Falls back to the UI
+   * reading language from `useLanguage()` when omitted. The Free Dictionary
+   * API only supports a subset of languages — non-English lookups may 404
+   * and surface "No definition found".
+   */
+  fromLang?: string
 }
 
-export function DictionarySheet({ visible, word, onClose, onSpeak }: DictionarySheetProps) {
+export function DictionarySheet({ visible, word, onClose, onSpeak, fromLang: fromOverride }: DictionarySheetProps) {
   const { colors } = useTheme()
+  const { fromLang } = useTargetLanguage(fromOverride)
   const [entry, setEntry] = useState<DictionaryEntry | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -32,7 +41,7 @@ export function DictionarySheet({ visible, word, onClose, onSpeak }: DictionaryS
     setLoading(true)
     setError('')
     setEntry(null)
-    dictionaryApi.lookupWord('en', word)
+    dictionaryApi.lookupWord(fromLang, word)
       .then((data: any) => {
         if (Array.isArray(data) && data.length > 0) {
           setEntry(data[0])
@@ -44,31 +53,41 @@ export function DictionarySheet({ visible, word, onClose, onSpeak }: DictionaryS
       })
       .catch(() => setError('Failed to load definition'))
       .finally(() => setLoading(false))
-  }, [visible, word])
+  }, [visible, word, fromLang])
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 }} />
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Text style={[styles.word, { color: colors.text }]}>{word}</Text>
+              <Text style={[styles.word, { color: colors.text }]} accessibilityRole="header">{word}</Text>
               {entry?.phonetic && <Text style={[styles.phonetic, { color: colors.textSecondary }]}>{entry.phonetic}</Text>}
             </View>
             <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.speakBtn} onPress={() => onSpeak(word)}>
+              <TouchableOpacity
+                style={styles.speakBtn}
+                onPress={() => onSpeak(word)}
+                accessibilityRole="button"
+                accessibilityLabel={`Pronounce ${word}`}
+              >
                 <Ionicons name="volume-high-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={{ padding: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close dictionary"
+              >
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
 
           <ScrollView style={styles.body}>
-            {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />}
-            {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
+            {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} accessibilityLabel="Loading definition" />}
+            {error ? <Text style={[styles.error, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
             {entry?.meanings?.map((m, i) => (
               <View key={i} style={styles.meaningBlock}>
                 <Text style={[styles.pos, { color: colors.primary }]}>{m.partOfSpeech}</Text>

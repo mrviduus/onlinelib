@@ -67,7 +67,32 @@ export default function ProfileScreen() {
       const res = await authApi.uploadAvatar(result.assets[0].uri, token)
       await updateUser(res.user)
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Upload failed')
+      // Map HTTP status → actionable copy (B-20). Before this, every failure
+      // surfaced as the same generic "Upload failed" even though the fix
+      // depends entirely on *why* it failed (wrong size vs wrong format vs
+      // network). The backend error message comes through as `e.message`
+      // for anything the codes below don't cover.
+      const status: number | undefined = e?.status
+      let title = 'Upload failed'
+      let message = e?.message || 'Something went wrong. Please try again.'
+      if (status === 413) {
+        title = 'Image too large'
+        message = 'The photo is over the server limit. Pick a smaller image and try again.'
+      } else if (status === 415 || status === 400) {
+        title = 'Unsupported image'
+        message = 'TextStack accepts JPG or PNG photos. Try a different file.'
+      } else if (status === 401 || status === 403) {
+        title = 'Not signed in'
+        message = 'Your session expired. Sign in again and retry the upload.'
+      } else if (typeof status === 'number' && status >= 500) {
+        title = 'Server error'
+        message = 'Our servers are having trouble. Please try again in a minute.'
+      } else if (!status) {
+        // No HTTP response = network-level failure (offline, DNS, etc.)
+        title = 'Network error'
+        message = 'Check your connection and try again.'
+      }
+      Alert.alert(title, message)
     } finally {
       setSaving(false)
     }

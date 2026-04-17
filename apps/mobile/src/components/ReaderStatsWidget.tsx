@@ -12,12 +12,21 @@ interface ReaderStatsWidgetProps {
 
 export function ReaderStatsWidget({ sessionStartedAt, todaySeconds, dailyGoalMinutes }: ReaderStatsWidgetProps) {
   const { colors } = useTheme()
-  const [elapsed, setElapsed] = useState(0)
+  // Initialise from `sessionStartedAt` rather than 0 so the widget doesn't
+  // flash a stale "0m" when remounted mid-session (e.g. after bars fade
+  // back in). Before this the first useEffect tick was up to 10s away and
+  // the number felt frozen (B-09).
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000)),
+  )
 
   useEffect(() => {
+    // 1s tick so the minute boundary is picked up within one second
+    // instead of up to ten — negligible cost for a visible widget.
+    setElapsed(Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000)))
     const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - sessionStartedAt) / 1000))
-    }, 10_000)
+      setElapsed(Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000)))
+    }, 1000)
     return () => clearInterval(interval)
   }, [sessionStartedAt])
 

@@ -34,14 +34,24 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
   const { colors } = useTheme()
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable style={styles.overlay} onPress={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close reader settings"
+      >
         <Pressable style={[styles.drawer, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
           <View style={styles.handle} />
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.text }]}>Reading Settings</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Reading Settings</Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close reader settings"
+              >
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -52,6 +62,8 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               <TouchableOpacity
                 style={[styles.sizeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => onUpdate({ fontSize: Math.max(14, settings.fontSize - 2) })}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease font size"
               >
                 <Text style={[styles.sizeText, { color: colors.text }]}>A-</Text>
               </TouchableOpacity>
@@ -61,6 +73,8 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               <TouchableOpacity
                 style={[styles.sizeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => onUpdate({ fontSize: Math.min(28, settings.fontSize + 2) })}
+                accessibilityRole="button"
+                accessibilityLabel="Increase font size"
               >
                 <Text style={[styles.sizeText, { color: colors.text }]}>A+</Text>
               </TouchableOpacity>
@@ -75,6 +89,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
                   style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
                     settings.lineHeight === lh && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   onPress={() => onUpdate({ lineHeight: lh })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Line height ${lh}`}
+                  accessibilityState={{ selected: settings.lineHeight === lh }}
                 >
                   <Text style={[styles.chipText, { color: colors.text },
                     settings.lineHeight === lh && { color: '#fff' }]}>{lh}</Text>
@@ -91,6 +108,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
                   style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
                     settings.textAlign === a.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   onPress={() => onUpdate({ textAlign: a.key })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Text align ${a.label}`}
+                  accessibilityState={{ selected: settings.textAlign === a.key }}
                 >
                   <Text style={[styles.chipText, { color: colors.text },
                     settings.textAlign === a.key && { color: '#fff' }]}>{a.label}</Text>
@@ -107,6 +127,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
                   style={[styles.themeChip, { backgroundColor: themeStyles[t.key].backgroundColor, borderColor: colors.border },
                     settings.theme === t.key && { borderColor: colors.primary }]}
                   onPress={() => onUpdate({ theme: t.key })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t.label} theme`}
+                  accessibilityState={{ selected: settings.theme === t.key }}
                 >
                   <View style={[styles.themeCircle, { backgroundColor: themeStyles[t.key].backgroundColor, borderColor: themeStyles[t.key].textColor + '40' }]} />
                   <Text style={[styles.themeLabel, { color: themeStyles[t.key].textColor }]}>{t.label}</Text>
@@ -123,6 +146,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
                   style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border },
                     settings.fontFamily === f.key && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   onPress={() => onUpdate({ fontFamily: f.key })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${f.label} font`}
+                  accessibilityState={{ selected: settings.fontFamily === f.key }}
                 >
                   <Text style={[styles.chipText, { color: colors.text },
                     settings.fontFamily === f.key && { color: '#fff' }]}>{f.label}</Text>
@@ -139,6 +165,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
                   style={[styles.chipSmall, { backgroundColor: colors.surface, borderColor: colors.border },
                     settings.ttsSpeed === s && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   onPress={() => onUpdate({ ttsSpeed: s })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`TTS speed ${s}x`}
+                  accessibilityState={{ selected: settings.ttsSpeed === s }}
                 >
                   <Text style={[styles.chipText, { color: colors.text },
                     settings.ttsSpeed === s && { color: '#fff' }]}>{s}x</Text>
@@ -150,21 +179,39 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INSTANT DICTIONARY</Text>
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: colors.text }]}>Auto-lookup & save words on select</Text>
-              <Switch value={settings.autoLookup} onValueChange={v => onUpdate({ autoLookup: v })} trackColor={{ true: colors.primary }} />
+              <Switch
+                value={settings.autoLookup}
+                onValueChange={v => onUpdate({ autoLookup: v })}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor="#fff"
+                ios_backgroundColor={colors.border}
+              />
             </View>
 
             {/* Inline Translations */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INLINE TRANSLATIONS</Text>
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: colors.text }]}>Show translations for saved words</Text>
-              <Switch value={settings.showInlineTranslations} onValueChange={v => onUpdate({ showInlineTranslations: v })} trackColor={{ true: colors.primary }} />
+              <Switch
+                value={settings.showInlineTranslations}
+                onValueChange={v => onUpdate({ showInlineTranslations: v })}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor="#fff"
+                ios_backgroundColor={colors.border}
+              />
             </View>
 
             {/* Reading Stats */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>READING STATS</Text>
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left</Text>
-              <Switch value={settings.showReaderStats} onValueChange={v => onUpdate({ showReaderStats: v })} trackColor={{ true: colors.primary }} />
+              <Switch
+                value={settings.showReaderStats}
+                onValueChange={v => onUpdate({ showReaderStats: v })}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor="#fff"
+                ios_backgroundColor={colors.border}
+              />
             </View>
           </ScrollView>
         </Pressable>

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
-import { initApi, type ApiConfig } from '@textstack/shared'
+import { initApi } from '@textstack/shared'
+import { emitAuthFailure } from './authEvents'
 
 // SecureStore shim: native → expo-secure-store, web → localStorage
 const SecureStore = {
@@ -22,10 +23,32 @@ const SecureStore = {
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://textstack.app/api'
 
+/**
+ * Single-flight guard: multiple concurrent 401s share one refresh call.
+ * Without this the server would invalidate the first rotated refresh
+ * token mid-flight and the second caller would get stuck in a loop.
+ */
 let refreshPromise: Promise<string | null> | null = null
+
+/**
+ * True once we've emitted an auth-failure for the *current* session.
+ * Prevents floods of signOut()s when 20 hooks all fire after a stale
+ * token. Reset on successful refresh or explicit sign-in.
+ */
+let authFailureLatched = false
 
 async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync('access_token')
+}
+
+/** Clears tokens and notifies the AuthContext (once) that the session is gone. */
+async function handleTerminalAuthFailure(): Promise<void> {
+  await SecureStore.deleteItemAsync('access_token').catch(() => {})
+  await SecureStore.deleteItemAsync('refresh_token').catch(() => {})
+  if (!authFailureLatched) {
+    authFailureLatched = true
+    emitAuthFailure()
+  }
 }
 
 async function onUnauthorized(): Promise<string | null> {
@@ -34,23 +57,38 @@ async function onUnauthorized(): Promise<string | null> {
   refreshPromise = (async () => {
     try {
       const refreshToken = await SecureStore.getItemAsync('refresh_token')
-      if (!refreshToken) return null
+      if (!refreshToken) {
+        await handleTerminalAuthFailure()
+        return null
+      }
 
-      const res = await fetch(`${API_URL}/auth/refresh-mobile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      })
+      let res: Response
+      try {
+        res = await fetch(`${API_URL}/auth/refresh-mobile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        })
+      } catch {
+        // Network failure — keep the refresh token around so a retry
+        // when we're back online can still succeed. Do NOT clear tokens
+        // and do NOT emit a terminal auth failure.
+        return null
+      }
 
       if (!res.ok) {
-        await SecureStore.deleteItemAsync('access_token')
-        await SecureStore.deleteItemAsync('refresh_token')
+        // Explicit rejection by the server (401/403/410) — session is
+        // really gone. Wipe tokens and tell the UI.
+        if (res.status >= 400 && res.status < 500) {
+          await handleTerminalAuthFailure()
+        }
         return null
       }
 
       const data = await res.json()
       await SecureStore.setItemAsync('access_token', data.accessToken)
       await SecureStore.setItemAsync('refresh_token', data.refreshToken)
+      authFailureLatched = false
       return data.accessToken as string
     } catch {
       return null
@@ -60,6 +98,11 @@ async function onUnauthorized(): Promise<string | null> {
   })()
 
   return refreshPromise
+}
+
+/** Reset the latch so a re-login in the same process can trigger signOut again later. */
+export function resetAuthFailureLatch(): void {
+  authFailureLatched = false
 }
 
 export function setupApi() {

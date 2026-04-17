@@ -26,13 +26,29 @@ export function BookmarksSheet({
   const { colors } = useTheme()
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable style={styles.overlay} onPress={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close bookmarks"
+      >
         <Pressable style={[styles.sheet, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 }} />
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Bookmarks</Text>
-            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primaryLight }]} onPress={onToggleCurrent}>
+            <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Bookmarks</Text>
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: colors.primaryLight }]}
+              onPress={onToggleCurrent}
+              accessibilityRole="button"
+              accessibilityLabel={isCurrentBookmarked ? 'Remove bookmark from this chapter' : 'Bookmark this chapter'}
+              accessibilityState={{ selected: isCurrentBookmarked }}
+            >
               <Text style={[styles.addBtnText, { color: colors.primary }]}>
                 {isCurrentBookmarked ? 'Remove Bookmark' : 'Bookmark This Chapter'}
               </Text>
@@ -46,32 +62,49 @@ export function BookmarksSheet({
               data={bookmarks}
               keyExtractor={item => item.id}
               style={styles.list}
-              renderItem={({ item }) => (
-                <View style={[styles.row, { borderBottomColor: colors.border }]}>
-                  <TouchableOpacity
-                    style={styles.rowContent}
-                    onPress={() => { onNavigate(getSlugFromLocator(item.locator)); onClose() }}
-                  >
-                    <Text style={[
-                      styles.rowTitle,
-                      { color: colors.text },
-                      getSlugFromLocator(item.locator) === currentChapterSlug && { color: colors.primary, fontWeight: '600' },
-                    ]} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={[styles.rowDate, { color: colors.textSecondary }]}>
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id)}>
-                    <Ionicons name="close" size={18} color="#DC2626" />
-                  </TouchableOpacity>
-                </View>
-              )}
+              renderItem={({ item }) => {
+                const slug = getSlugFromLocator(item.locator)
+                const isCurrent = slug === currentChapterSlug
+                return (
+                  <View style={[styles.row, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity
+                      style={styles.rowContent}
+                      onPress={() => { onNavigate(slug); onClose() }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Go to bookmark: ${item.title}`}
+                      accessibilityState={{ selected: isCurrent }}
+                    >
+                      <Text style={[
+                        styles.rowTitle,
+                        { color: colors.text },
+                        isCurrent && { color: colors.primary, fontWeight: '600' },
+                      ]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.rowDate, { color: colors.textSecondary }]}>
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteBtn}
+                      onPress={() => onDelete(item.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete bookmark: ${item.title}`}
+                    >
+                      <Ionicons name="close" size={18} color="#DC2626" />
+                    </TouchableOpacity>
+                  </View>
+                )
+              }}
             />
           )}
 
-          <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.primary }]} onPress={onClose}>
+          <TouchableOpacity
+            style={[styles.closeBtn, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close bookmarks"
+          >
             <Text style={styles.closeBtnText}>Done</Text>
           </TouchableOpacity>
         </Pressable>

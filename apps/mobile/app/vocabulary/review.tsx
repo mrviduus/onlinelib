@@ -133,7 +133,7 @@ export default function VocabularyReviewScreen() {
               <NewWordCard
                 card={card}
                 onContinue={review.dismissNewWord}
-                onSpeak={(t) => toggleTts(t)}
+                onSpeak={(t) => toggleTts(t, { lang: language })}
               />
             ) : review.answerRevealed && review.lastResult ? (
               <ReviewFeedback
@@ -141,7 +141,7 @@ export default function VocabularyReviewScreen() {
                 result={review.lastResult}
                 isCorrect={review.lastAnswerCorrect}
                 reviewMode={review.reviewMode}
-                onSpeak={(t) => toggleTts(t)}
+                onSpeak={(t) => toggleTts(t, { lang: language })}
                 onNext={review.nextCard}
                 language={language}
               />
@@ -151,7 +151,7 @@ export default function VocabularyReviewScreen() {
                 onAnswer={(isCorrect, responseTimeMs, selfAssessment) =>
                   handleAnswer(isCorrect, responseTimeMs, selfAssessment)
                 }
-                onSpeak={(t) => toggleTts(t)}
+                onSpeak={(t) => toggleTts(t, { lang: language })}
                 onFlip={handleFlip}
                 disabled={review.submitting}
               />
@@ -159,7 +159,7 @@ export default function VocabularyReviewScreen() {
               <MultipleChoiceCard
                 card={card}
                 onAnswer={(isCorrect, responseTimeMs) => handleAnswer(isCorrect, responseTimeMs)}
-                onSpeak={(t) => toggleTts(t)}
+                onSpeak={(t) => toggleTts(t, { lang: language })}
                 disabled={review.submitting}
               />
             )}
