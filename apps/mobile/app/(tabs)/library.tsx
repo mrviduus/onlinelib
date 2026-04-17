@@ -37,9 +37,17 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Generation counter guards against:
+  //  1. Out-of-order resolution — pull-to-refresh racing a focus-effect
+  //     reload; the slower response would otherwise overwrite fresher data.
+  //  2. Set-state-after-unmount — tab swap during an in-flight request.
+  // Set to -1 on unmount so trailing resolutions are dropped (B-10).
+  const loadGenRef = useRef(0)
+  useEffect(() => () => { loadGenRef.current = -1 }, [])
 
   const loadData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
+    const myGen = ++loadGenRef.current
     try {
       const [lib, progress, books, ratings] = await Promise.all([
         libraryApi.getLibrary(),
@@ -47,6 +55,7 @@ export default function LibraryScreen() {
         userBooksApi.getUserBooks(),
         reviewsApi.getAllRatings().catch(() => [] as UserRatingDto[]),
       ])
+      if (myGen !== loadGenRef.current) return // superseded or unmounted
       setLibrary(lib)
       setUserBooks(books)
       setReviews(ratings.filter(r => r.reviewText))
@@ -54,9 +63,10 @@ export default function LibraryScreen() {
       for (const p of progress) map[p.editionId] = p
       setProgressMap(map)
     } catch (e) {
+      if (myGen !== loadGenRef.current) return
       console.error('Library load error:', e)
     } finally {
-      setLoading(false)
+      if (myGen === loadGenRef.current) setLoading(false)
     }
   }, [isAuthenticated])
 

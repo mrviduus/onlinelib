@@ -55,6 +55,13 @@ export interface ToastOptions {
   onPress?: () => void
   /** Optional CTA label shown on the right. Requires onPress. */
   actionLabel?: string
+  /**
+   * Optional pixel value (above the home indicator) for this toast.
+   * Use when the screen has no tab bar (modal, reader) and the default
+   * offset would float in dead space. Falls back to the provider default
+   * (sized to clear the bottom tab bar).
+   */
+  bottomOffset?: number
 }
 
 interface ToastContextValue {
@@ -68,6 +75,10 @@ const ToastContext = createContext<ToastContextValue>({
 })
 
 const DEFAULT_DURATION = 2200
+// Matches `(tabs)/_layout.tsx`: tab bar = 52 (iOS) / 56 (Android) + insets.
+// Add a small visual gap so the toast doesn't kiss the tab bar border.
+const TAB_BAR_VISUAL_HEIGHT = 56
+const TOAST_GAP = 12
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<ToastOptions | null>(null)
@@ -154,10 +165,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ? 'alert-circle'
         : 'information-circle'
   const iconName = current?.icon ?? defaultIcon
-  // Bottom offset: sit above the tab bar (~60-88px on iOS). Callers inside
-  // modals without a tab bar still render OK — safe-area insets keep it off
-  // the home indicator.
-  const bottomOffset = insets.bottom + 72
+  // Bottom offset: per-call override → tab-bar-clearing default → safe
+  // area. Screens without a tab bar (reader, modals) pass a smaller
+  // `bottomOffset` per call to avoid floating in dead space (B-18).
+  const bottomOffset =
+    insets.bottom + (current?.bottomOffset ?? TAB_BAR_VISUAL_HEIGHT + TOAST_GAP)
 
   return (
     <ToastContext.Provider value={value}>

@@ -22,7 +22,7 @@
  * shape.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -84,8 +84,22 @@ export default function HomeScreen() {
   const [loadingBooks, setLoadingBooks] = useState(true)
   const [loadingMoods, setLoadingMoods] = useState(true)
 
-  // Greeting recomputes once on mount (TODO: re-evaluate near midnight).
-  const slot = useMemo<GreetingSlot>(() => currentSlot(), [])
+  // Greeting re-evaluates every minute. The previous once-on-mount
+  // computation was stale if the home screen stayed mounted across a
+  // slot boundary (e.g. user opens the app at 11:58am — "good morning" —
+  // puts phone down, reopens at 12:05pm still reading "good morning"),
+  // which also skewed the `slotReady` copy (B-19). A 60s tick costs
+  // nothing — currentSlot() is two integer comparisons — and lets the
+  // screen stay honest without a full re-mount.
+  const [slot, setSlot] = useState<GreetingSlot>(() => currentSlot())
+  useEffect(() => {
+    const tick = () => {
+      const next = currentSlot()
+      setSlot(prev => (prev === next ? prev : next))
+    }
+    const interval = setInterval(tick, 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadContent = useCallback(async () => {
     const api = createBooksApi(language)

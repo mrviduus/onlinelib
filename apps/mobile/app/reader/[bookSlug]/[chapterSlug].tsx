@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
@@ -15,6 +15,7 @@ import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
 import { WordCard } from '../../../src/components/WordCard'
 import { DictionarySheet } from '../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../src/components/TranslationSheet'
+import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
@@ -50,10 +51,24 @@ export default function ReaderScreen() {
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
   const [chapter, setChapter] = useState<Chapter | null>(null)
   const [loading, setLoading] = useState(true)
+  /**
+   * Non-null when we have nothing to render: either no cached copy and the
+   * network failed (`'offline'`), or the server says the chapter is gone
+   * (`'notfound'`). Used to replace the eternal spinner with a real
+   * empty-state (R-4).
+   */
+  const [chapterError, setChapterError] = useState<'offline' | 'notfound' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
-  const [selection, setSelection] = useState<{ text: string; sentence: string; anchor?: any } | null>(null)
+  // `selectionId` increments per selection *event* (even when the user taps
+  // the same word twice). WordCard uses it as a useEffect dep so the
+  // auto-dismiss timer resets on each re-select (B-12) — and we use it at
+  // the parent to toggle dismiss when the same word is re-tapped.
+  const [selection, setSelection] = useState<
+    { text: string; sentence: string; anchor?: any; selectionId: number } | null
+  >(null)
+  const selectionIdRef = useRef(0)
   const [wordSaved, setWordSaved] = useState(false)
   const [sessionWordCount, setSessionWordCount] = useState(0)
   const [exitSummary, setExitSummary] = useState(false)
@@ -63,6 +78,9 @@ export default function ReaderScreen() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchMatchCount, setSearchMatchCount] = useState(0)
   const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
+  // Cross-platform edit-note sheet for tapped highlights. Replaces the
+  // iOS-only `Alert.prompt` which silently did nothing on Android (B-02).
+  const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
   const [chapters, setChapters] = useState<ChapterSummary[]>([])
   const [progress, setProgress] = useState(0)
   const [bookTitle, setBookTitle] = useState('')
@@ -165,13 +183,18 @@ export default function ReaderScreen() {
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   }, [loading, chapter, startHideTimer])
 
-  // Resolve editionId from bookSlug (needed for progress + bookmarks)
+  // Resolve editionId from bookSlug (needed for progress + bookmarks).
+  // On network failure fall back to the offline book catalog so a fully
+  // downloaded book still picks up its editionId, bookmarks, and progress
+  // events keep working.
   const bookOpenedFiredRef = useRef(false)
   useEffect(() => {
     if (!bookSlug) return
+    let cancelled = false
     const api = createBooksApi(language)
     api.getBook(bookSlug)
       .then(b => {
+        if (cancelled) return
         editionIdRef.current = b.id
         bookTitleRef.current = b.title
         setBookTitle(b.title)
@@ -185,56 +208,92 @@ export default function ReaderScreen() {
         }
         if (isAuthenticated) {
           bookmarksApi.getBookmarks(b.id)
-            .then(setBookmarks)
+            .then(res => { if (!cancelled) setBookmarks(res) })
             .catch(() => {})
         }
       })
       .catch(() => {
         getAllCachedBooks().then(books => {
+          if (cancelled) return
           const match = books.find(b => b.slug === bookSlug)
-          if (match) editionIdRef.current = match.editionId
+          if (match) {
+            editionIdRef.current = match.editionId
+            bookTitleRef.current = match.title
+            setBookTitle(match.title)
+          }
         }).catch(() => {})
       })
+    return () => { cancelled = true }
   }, [bookSlug, isAuthenticated, language])
 
+  // Chapter fetch — network first, then SQLite cache. Adds cancellation so
+  // rapid chapter navigation can't let a stale response stomp the current
+  // chapter (R-4) and updates the offline-miss path to surface a real
+  // empty-state rather than leaving the user on a permanent spinner.
   useEffect(() => {
     if (!bookSlug || !chapterSlug) return
+    let cancelled = false
+    setLoading(true)
+    setChapterError(null)
 
     ;(async () => {
+      let onlineError: unknown = null
       try {
         const api = createBooksApi(language)
         const ch = await api.getChapter(bookSlug, chapterSlug)
+        if (cancelled) return
         setChapter(ch)
         wordCountRef.current = ch.wordCount || 0
-      } catch {
-        try {
-          const books = await getAllCachedBooks()
-          for (const book of books) {
-            if (book.slug === bookSlug) {
-              const cached = await getCachedChapter(book.editionId, chapterSlug)
-              if (cached) {
-                setChapter({
-                  id: '',
-                  chapterNumber: 0,
-                  slug: cached.chapterSlug,
-                  title: cached.title,
-                  html: cached.html,
-                  wordCount: cached.wordCount,
-                  prev: cached.prev,
-                  next: cached.next,
-                })
-                break
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Offline cache failed:', e)
-        }
-      } finally {
         setLoading(false)
+        return
+      } catch (err) {
+        onlineError = err
       }
+
+      // Online fetch failed — try the offline cache. Prefer the
+      // already-resolved editionId from the book effect; fall back to
+      // iterating cached books so a cold start (no book meta yet) still
+      // works.
+      try {
+        let editionId = editionIdRef.current
+        if (!editionId) {
+          const books = await getAllCachedBooks()
+          if (cancelled) return
+          editionId = books.find(b => b.slug === bookSlug)?.editionId ?? null
+        }
+        if (editionId) {
+          const cached = await getCachedChapter(editionId, chapterSlug)
+          if (cancelled) return
+          if (cached) {
+            setChapter({
+              id: '',
+              chapterNumber: 0,
+              slug: cached.chapterSlug,
+              title: cached.title,
+              html: cached.html,
+              wordCount: cached.wordCount,
+              prev: cached.prev,
+              next: cached.next,
+            })
+            wordCountRef.current = cached.wordCount || 0
+            setLoading(false)
+            return
+          }
+        }
+      } catch (e) {
+        if (!cancelled) console.error('Offline cache read failed:', e)
+      }
+
+      // No online response AND no cached copy — show a proper empty state.
+      if (cancelled) return
+      const status = (onlineError as { status?: number } | null)?.status
+      setChapter(null)
+      setChapterError(status === 404 ? 'notfound' : 'offline')
+      setLoading(false)
     })()
-  }, [bookSlug, chapterSlug])
+
+    return () => { cancelled = true }
+  }, [bookSlug, chapterSlug, language])
 
   const saveProgress = useCallback(() => {
     if (!editionIdRef.current || !chapter || !chapterSlug) return
@@ -297,37 +356,28 @@ export default function ReaderScreen() {
         loadNextChapter()
       } else if (data.type === 'highlightTap') {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
-        if (hl) {
-          Alert.prompt(
-            'Highlight Note',
-            `"${hl.selectedText.substring(0, 60)}${hl.selectedText.length > 60 ? '...' : ''}"`,
-            [
-              { text: 'Delete', style: 'destructive', onPress: async () => {
-                try {
-                  await highlightsApi.deleteHighlight(hl.id)
-                  injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-                  highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-                } catch {}
-              }},
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Save', onPress: async (noteText?: string) => {
-                try {
-                  const updated = await highlightsApi.updateHighlight(hl.id, { noteText: noteText?.trim() || null })
-                  highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-                } catch {}
-              }},
-            ],
-            'plain-text',
-            hl.noteText || '',
-          )
-        }
+        if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
         if (data.text) {
-          setSelection({ text: data.text, sentence: data.sentence || '', anchor: data.anchor || null })
+          // Re-tap on the same word dismisses the card (B-12). Multi-word
+          // selections always show — changing the selection range counts as a
+          // new interaction, not a toggle.
+          setSelection(prev => {
+            if (prev && prev.text === data.text && !data.text.includes(' ')) {
+              return null
+            }
+            const nextId = ++selectionIdRef.current
+            return {
+              text: data.text,
+              sentence: data.sentence || '',
+              anchor: data.anchor || null,
+              selectionId: nextId,
+            }
+          })
           setWordSaved(false)
           // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
           if (!data.text.includes(' ')) {
-            toggleTts(data.text, settings.ttsSpeed)
+            toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
             if (isAuthenticated && !vocabMapRef.current[data.text.toLowerCase()]) {
               vocabularyApi.saveWord({
                 word: data.text,
@@ -376,8 +426,15 @@ export default function ReaderScreen() {
     if (!isAuthenticated || !editionIdRef.current || !chapter || !activeSlug) return
     const existing = bookmarks.find(b => getSlugFromLocator(b.locator) === activeSlug)
     if (existing) {
-      await bookmarksApi.deleteBookmark(existing.id).catch(() => {})
+      // Optimistic remove — restore the bookmark if the server rejects it
+      // so the UI doesn't silently lie about state (P2-3).
       setBookmarks(prev => prev.filter(b => b.id !== existing.id))
+      try {
+        await bookmarksApi.deleteBookmark(existing.id)
+      } catch {
+        setBookmarks(prev => (prev.some(b => b.id === existing.id) ? prev : [...prev, existing]))
+        showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
+      }
     } else {
       try {
         const bm = await bookmarksApi.createBookmark({
@@ -387,7 +444,9 @@ export default function ReaderScreen() {
           title: chapter.title,
         })
         setBookmarks(prev => [...prev, bm])
-      } catch {}
+      } catch {
+        showToast({ message: 'Could not add bookmark. Try again.', variant: 'error' })
+      }
     }
   }
 
@@ -479,36 +538,50 @@ export default function ReaderScreen() {
     }
   }
 
-  // Load and render existing highlights when chapter loads
+  // Load and render existing highlights when chapter loads.
+  // Depending on the `chapter` object reference re-ran this effect any
+  // time the chapter was refetched (e.g. retry), even though the id was
+  // identical. Keying off `chapter?.id` (P3-4) makes the re-fetch fire
+  // only when we actually switch chapters.
   useEffect(() => {
-    if (!isAuthenticated || !editionIdRef.current || !chapter) return
-    highlightsApi.getHighlights(editionIdRef.current)
+    const editionId = editionIdRef.current
+    const chapterId = chapter?.id
+    if (!isAuthenticated || !editionId || !chapterId) return
+    let cancelled = false
+    highlightsApi.getHighlights(editionId)
       .then(highlights => {
-        const chapterHighlights = highlights.filter(h => h.chapterId === chapter.id)
+        if (cancelled) return
+        const chapterHighlights = highlights.filter(h => h.chapterId === chapterId)
         highlightsRef.current = chapterHighlights
         for (const h of chapterHighlights) {
           injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
         }
       })
       .catch(() => {})
-  }, [isAuthenticated, chapter])
+    return () => { cancelled = true }
+  }, [isAuthenticated, chapter?.id])
 
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
 
-  // Load and render vocab word underlines
+  // Load and render vocab word underlines. Keyed on `chapter?.id` so a
+  // chapter refetch that yields the same id doesn't re-run the fetch
+  // (P3-4).
   useEffect(() => {
-    if (!isAuthenticated || !chapter) return
+    const chapterId = chapter?.id
+    if (!isAuthenticated || !chapterId) return
+    let cancelled = false
     vocabularyApi.getReaderVocab()
       .then(words => {
-        if (words.length === 0) return
+        if (cancelled || words.length === 0) return
         const map: Record<string, { stage: number; id: string; translation?: string }> = {}
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id, translation: w.translation }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
       })
       .catch(() => {})
-  }, [isAuthenticated, chapter])
+    return () => { cancelled = true }
+  }, [isAuthenticated, chapter?.id])
 
   // Sync inline translations setting to WebView
   useEffect(() => {
@@ -518,8 +591,19 @@ export default function ReaderScreen() {
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
   const deleteBookmark = async (id: string) => {
-    await bookmarksApi.deleteBookmark(id).catch(() => {})
+    // Snapshot the row we're removing so we can restore it on failure
+    // (P2-3). Without the rollback the bookmark disappears from the
+    // sheet even though it's still on the server.
+    const snapshot = bookmarks.find(b => b.id === id)
     setBookmarks(prev => prev.filter(b => b.id !== id))
+    try {
+      await bookmarksApi.deleteBookmark(id)
+    } catch {
+      if (snapshot) {
+        setBookmarks(prev => (prev.some(b => b.id === id) ? prev : [...prev, snapshot]))
+      }
+      showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
+    }
   }
 
   const injectJs = (js: string) => webViewRef.current?.injectJavaScript(js + ';true;')
@@ -549,22 +633,78 @@ export default function ReaderScreen() {
   const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
   const etfDisplay = etfMinutes >= 60 ? `${Math.floor(etfMinutes / 60)}h ${etfMinutes % 60}m` : `${etfMinutes}m`
 
-  if (loading || !chapter) {
+  if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
 
-  const html = buildReaderHtml(chapter.html, {
-    fontSize: settings.fontSize,
-    lineHeight: settings.lineHeight,
-    fontFamily: resolvedFontFamily,
-    textAlign: settings.textAlign,
-    backgroundColor: resolvedTheme.backgroundColor,
-    textColor: resolvedTheme.textColor,
-  }, chapterSlug, { top: insets.top, bottom: insets.bottom })
+  if (!chapter) {
+    // `chapterError` is 'offline' when we couldn't reach the server and
+    // had no cached copy, 'notfound' on a confirmed 404 (R-4).
+    const isNotFound = chapterError === 'notfound'
+    return (
+      <>
+        <Stack.Screen options={{ title: '', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text, headerShadowVisible: false }} />
+        <View style={[styles.center, styles.errorWrap, { backgroundColor: colors.background }]}>
+          <Ionicons
+            name={isNotFound ? 'help-circle-outline' : 'cloud-offline-outline'}
+            size={56}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            {isNotFound ? "We couldn't find this chapter" : "This chapter isn't available offline"}
+          </Text>
+          <Text style={[styles.errorBody, { color: colors.textSecondary }]}>
+            {isNotFound
+              ? 'The chapter may have been removed or the link is outdated.'
+              : 'Download the book for offline reading, or connect to the internet and try again.'}
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 16, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.primary, borderRadius: 10 }}
+            onPress={() => router.back()}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            activeOpacity={0.85}
+          >
+            <Text style={{ color: '#fff', fontFamily: fonts.sansMedium, fontSize: 15 }}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      </>
+    )
+  }
+
+  // Large HTML string. Rebuilding every render burns CPU and — if the
+  // source prop object is recreated — triggers WebView work. Memoize on
+  // only the primitives the template actually reads (R-3).
+  const html = useMemo(
+    () => buildReaderHtml(chapter.html, {
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
+      fontFamily: resolvedFontFamily,
+      textAlign: settings.textAlign,
+      backgroundColor: resolvedTheme.backgroundColor,
+      textColor: resolvedTheme.textColor,
+    }, chapterSlug, { top: insets.top, bottom: insets.bottom }),
+    [
+      chapter.html,
+      settings.fontSize,
+      settings.lineHeight,
+      resolvedFontFamily,
+      settings.textAlign,
+      resolvedTheme.backgroundColor,
+      resolvedTheme.textColor,
+      chapterSlug,
+      insets.top,
+      insets.bottom,
+    ],
+  )
+  // WebView source prop is compared shallowly; keeping the object
+  // stable across renders avoids any accidental reloads on platforms
+  // that key off reference.
+  const webViewSource = useMemo(() => ({ html }), [html])
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -577,7 +717,7 @@ export default function ReaderScreen() {
         {/* Reader WebView — rendered first so overlay bars sit on top */}
         <WebView
           ref={webViewRef}
-          source={{ html }}
+          source={webViewSource}
           style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
           onMessage={handleMessage}
           originWhitelist={['*']}
@@ -642,7 +782,9 @@ export default function ReaderScreen() {
           </View>
         )}
 
-        {/* Selection: WordCard for single words, ActionBar for multi-word */}
+        {/* Selection: WordCard for single words, ActionBar for multi-word.
+            Both are absolutely positioned above the footer via `bottomOffset`
+            so they're not occluded by the progress chrome. */}
         {selection && (
           isMultiWord ? (
             <SelectionActionBar
@@ -650,7 +792,7 @@ export default function ReaderScreen() {
               isMultiWord
               onDictionary={() => setDictOpen(true)}
               onTranslate={() => setTranslateOpen(true)}
-              onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+              onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
               onSaveWord={handleSaveWord}
               onHighlight={handleHighlight}
               onMarkKnown={handleMarkKnown}
@@ -658,12 +800,14 @@ export default function ReaderScreen() {
               wordSaved={wordSaved}
               vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
               isAuthenticated={isAuthenticated}
+              bottomOffset={footerHeight}
             />
           ) : (
             <WordCard
               word={selection.text}
+              selectionId={selection.selectionId}
               onSave={handleSaveWord}
-              onSpeak={() => toggleTts(selection.text, settings.ttsSpeed)}
+              onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
               onDictionary={() => setDictOpen(true)}
               onHighlight={handleHighlight}
               onMarkKnown={handleMarkKnown}
@@ -674,6 +818,7 @@ export default function ReaderScreen() {
               isAuthenticated={isAuthenticated}
               language={language}
               sessionWordCount={sessionWordCount}
+              bottomOffset={footerHeight}
             />
           )
         )}
@@ -725,7 +870,8 @@ export default function ReaderScreen() {
           visible={dictOpen}
           word={selection?.text || ''}
           onClose={() => setDictOpen(false)}
-          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
+          fromLang={language}
         />
 
         {/* Translation sheet */}
@@ -733,7 +879,8 @@ export default function ReaderScreen() {
           visible={translateOpen}
           text={selection?.text || ''}
           onClose={() => setTranslateOpen(false)}
-          onSpeak={(t) => toggleTts(t, settings.ttsSpeed)}
+          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
+          fromLang={language}
         />
 
         {/* TOC sheet */}
@@ -744,6 +891,35 @@ export default function ReaderScreen() {
           bookmarks={bookmarks.map(b => ({ chapterSlug: getSlugFromLocator(b.locator) }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
+        />
+
+        {/* Highlight note editor — Android-safe replacement for Alert.prompt */}
+        <HighlightNoteModal
+          visible={!!editingHighlight}
+          snippet={editingHighlight
+            ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
+            : ''}
+          initialNote={editingHighlight?.noteText || ''}
+          onCancel={() => setEditingHighlight(null)}
+          onSave={async (note) => {
+            const hl = editingHighlight
+            setEditingHighlight(null)
+            if (!hl) return
+            try {
+              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
+              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+            } catch {}
+          }}
+          onDelete={async () => {
+            const hl = editingHighlight
+            setEditingHighlight(null)
+            if (!hl) return
+            try {
+              await highlightsApi.deleteHighlight(hl.id)
+              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
+              highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
+            } catch {}
+          }}
         />
 
         {/* Exit summary — words saved + review prompt */}
@@ -778,6 +954,23 @@ export default function ReaderScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorWrap: {
+    paddingHorizontal: 32,
+    gap: 6,
+  },
+  errorTitle: {
+    fontFamily: fonts.serifBold,
+    fontSize: 20,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 320,
+  },
   container: { flex: 1 },
   // Top bar — absolute overlay, slides down on tap
   topBar: {

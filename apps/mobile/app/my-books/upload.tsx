@@ -21,12 +21,47 @@ export default function UploadScreen() {
   const [fileName, setFileName] = useState<string | null>(null)
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
   const xhrRef = useRef<XMLHttpRequest | null>(null)
+  const unmountedRef = useRef(false)
 
   useEffect(() => {
     userBooksApi.getStorageQuota()
       .then(setQuota)
-      .catch(() => {})
+      .catch(err => console.warn('getStorageQuota failed:', err))
   }, [])
+
+  // Abort any in-flight upload on unmount so the user doesn't silently
+  // consume bandwidth after navigating away, and so a subsequent retry
+  // doesn't race the abandoned request (P1-3).
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true
+      if (xhrRef.current) {
+        try { xhrRef.current.abort() } catch {}
+        xhrRef.current = null
+      }
+    }
+  }, [])
+
+  /** Map HTTP status to user-visible copy so errors are actionable (P3-3). */
+  const uploadErrorMessage = (status: number): string => {
+    if (status === 413) return 'File is too large. Try a smaller book.'
+    if (status === 415) return 'Unsupported file format. Use EPUB, PDF, or FB2.'
+    if (status === 400) return 'This file looks invalid. Try another one.'
+    if (status === 401 || status === 403) return 'Sign in to upload books.'
+    if (status === 429) return 'Too many uploads. Take a breather and retry.'
+    if (status >= 500) return 'Server error. Try again in a bit.'
+    return `Upload failed (${status}).`
+  }
+
+  const handleCancel = () => {
+    if (xhrRef.current) {
+      try { xhrRef.current.abort() } catch {}
+      xhrRef.current = null
+    }
+    setUploading(false)
+    setUploadProgress(0)
+    setFileName(null)
+  }
 
   const pickAndUpload = async () => {
     setError(null)
@@ -66,21 +101,38 @@ export default function UploadScreen() {
         }
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve()
-          else reject(new Error(`Upload failed (${xhr.status})`))
+          else {
+            const err = new Error(uploadErrorMessage(xhr.status)) as Error & { status?: number }
+            err.status = xhr.status
+            reject(err)
+          }
         }
-        xhr.onerror = () => reject(new Error('Upload failed'))
+        xhr.onerror = () => reject(new Error('Network error — check your connection.'))
+        // `onabort` fires when we call xhr.abort() (unmount / Cancel button).
+        // We surface a distinct error type so the finally-block and the UI
+        // can tell "user cancelled" apart from a real failure.
+        xhr.onabort = () => {
+          const err = new Error('Upload cancelled') as Error & { aborted?: boolean }
+          err.aborted = true
+          reject(err)
+        }
         xhr.open('POST', `${baseUrl}/me/books/upload`)
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
         xhr.send(formData)
       })
 
+      if (unmountedRef.current) return
       const format = file.name.split('.').pop()?.toLowerCase() || 'unknown'
       trackBookUploaded({ format, sizeBytes: file.size ?? 0 })
       router.back()
     } catch (e: any) {
+      if (unmountedRef.current) return
+      // Cancellation is an intentional user action — don't show an error
+      // banner, just reset state.
+      if (e?.aborted) return
       setError(e?.message || 'Upload failed')
     } finally {
-      setUploading(false)
+      if (!unmountedRef.current) setUploading(false)
       xhrRef.current = null
     }
   }
@@ -114,9 +166,22 @@ export default function UploadScreen() {
                 <View style={[styles.uploadProgressFill, { width: `${Math.round(uploadProgress)}%` as any }]} />
               </View>
               <Text style={styles.uploadingText}>{Math.round(uploadProgress)}% uploading {fileName}...</Text>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={handleCancel}
+                accessibilityLabel="Cancel upload"
+                accessibilityRole="button"
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity style={styles.pickBtn} onPress={pickAndUpload}>
+            <TouchableOpacity
+              style={styles.pickBtn}
+              onPress={pickAndUpload}
+              accessibilityLabel="Choose file to upload"
+              accessibilityRole="button"
+            >
               <Text style={styles.pickBtnText}>Choose File</Text>
             </TouchableOpacity>
           )}
@@ -161,5 +226,14 @@ const styles = StyleSheet.create({
   },
   uploadProgressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
   uploadingText: { fontSize: 14, color: colors.textSecondary },
+  cancelBtn: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.textSecondary + '66',
+  },
+  cancelBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   error: { color: '#DC2626', fontSize: 14, marginTop: 16, textAlign: 'center' },
 })

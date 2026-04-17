@@ -55,14 +55,21 @@ export default function VocabularyScreen() {
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
   const offsetRef = useRef(0)
+  // Tracks the newest loadData call. Prevents stale filter/search responses
+  // from overwriting current results when the user types quickly or flips
+  // tabs mid-flight (B-10). Set to -1 on unmount.
+  const loadGenRef = useRef(0)
+  useEffect(() => () => { loadGenRef.current = -1 }, [])
 
   const loadData = useCallback(async (loadMore = false) => {
+    const myGen = ++loadGenRef.current
     try {
       const currentOffset = loadMore ? offsetRef.current : 0
       const [res, st] = await Promise.all([
         vocabularyApi.getWords({ stage: activeFilter, search: search || undefined, sort, limit: 50, offset: currentOffset }),
         loadMore ? Promise.resolve(null) : vocabularyApi.getVocabularyStats(),
       ])
+      if (myGen !== loadGenRef.current) return
       if (loadMore) {
         setWords(prev => [...prev, ...res.items])
       } else {
@@ -72,9 +79,10 @@ export default function VocabularyScreen() {
       offsetRef.current = currentOffset + res.items.length
       if (!loadMore && st) setStats(st)
     } catch (e) {
+      if (myGen !== loadGenRef.current) return
       console.error('Vocab load error:', e)
     } finally {
-      setLoading(false)
+      if (myGen === loadGenRef.current) setLoading(false)
     }
   }, [activeFilter, search, sort])
 
@@ -243,7 +251,7 @@ export default function VocabularyScreen() {
               onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
               onDelete={() => handleDelete(item.id)}
               onEdit={(data) => handleEdit(item.id, data)}
-              onSpeak={(text) => toggleTts(text)}
+              onSpeak={(text) => toggleTts(text, { lang: item.language })}
             />
           )}
         />

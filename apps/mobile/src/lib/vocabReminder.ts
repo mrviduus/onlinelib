@@ -68,6 +68,23 @@ function loadNotifications(): NotificationsModule | null {
   return cached
 }
 
+/**
+ * Serialize schedule/cancel operations so a focus-effect schedule() can never
+ * complete *after* a profile-toggle cancel() and leave a zombie notification
+ * armed. With multiple screens (Home card resets daily copy on focus, Profile
+ * row toggles enabled, etc.) calling into this module independently, an unsync
+ * version would race: read settings → user toggles off → cancel runs → our
+ * schedule() lands. Last-write-wins via a per-module promise chain.
+ */
+let opChain: Promise<unknown> = Promise.resolve()
+function enqueue<T>(op: () => Promise<T>): Promise<T> {
+  const next = opChain.then(op, op)
+  // Swallow rejection on the chain itself so a single failure doesn't poison
+  // every subsequent op. Callers still see their own rejection via `next`.
+  opChain = next.catch(() => {})
+  return next
+}
+
 async function getSettings(): Promise<ReminderSettings> {
   try {
     const raw = await AsyncStorage.getItem(SETTINGS_KEY)
@@ -117,42 +134,48 @@ interface ScheduleOptions {
 /**
  * Schedule (or reschedule) the daily reminder. Always cancels any existing
  * instance first so we never end up with two triggers firing at 19:00.
+ *
+ * Serialized via `enqueue` — see opChain above.
  */
-async function schedule(opts: ScheduleOptions): Promise<boolean> {
-  const N = loadNotifications()
-  if (!N) return false
-  const granted = await ensurePermission()
-  if (!granted) return false
-  try {
-    await N.cancelScheduledNotificationAsync(NOTIFICATION_ID).catch(() => {})
-    await N.scheduleNotificationAsync({
-      identifier: NOTIFICATION_ID,
-      content: {
-        title: opts.title,
-        body: opts.body,
-        sound: 'default',
-      },
-      trigger: {
-        // Repeat at the specified local time every day.
-        type: 'daily' as any,
-        hour: opts.hour,
-        minute: opts.minute,
-      } as any,
-    })
-    return true
-  } catch {
-    return false
-  }
+function schedule(opts: ScheduleOptions): Promise<boolean> {
+  return enqueue(async () => {
+    const N = loadNotifications()
+    if (!N) return false
+    const granted = await ensurePermission()
+    if (!granted) return false
+    try {
+      await N.cancelScheduledNotificationAsync(NOTIFICATION_ID).catch(() => {})
+      await N.scheduleNotificationAsync({
+        identifier: NOTIFICATION_ID,
+        content: {
+          title: opts.title,
+          body: opts.body,
+          sound: 'default',
+        },
+        trigger: {
+          // Repeat at the specified local time every day.
+          type: 'daily' as any,
+          hour: opts.hour,
+          minute: opts.minute,
+        } as any,
+      })
+      return true
+    } catch {
+      return false
+    }
+  })
 }
 
-async function cancel(): Promise<void> {
-  const N = loadNotifications()
-  if (!N) return
-  try {
-    await N.cancelScheduledNotificationAsync(NOTIFICATION_ID)
-  } catch {
-    // Identifier may not exist — that's fine.
-  }
+function cancel(): Promise<void> {
+  return enqueue(async () => {
+    const N = loadNotifications()
+    if (!N) return
+    try {
+      await N.cancelScheduledNotificationAsync(NOTIFICATION_ID)
+    } catch {
+      // Identifier may not exist — that's fine.
+    }
+  })
 }
 
 /** Whether expo-notifications is usable in this runtime. */

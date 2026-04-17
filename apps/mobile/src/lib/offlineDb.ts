@@ -115,6 +115,32 @@ export async function countCachedChapters(editionId: string): Promise<number> {
   return row?.count ?? 0
 }
 
+/**
+ * Minimal chapter listing for offline rendering. Cache only stores the
+ * fields we had at download time — no chapterNumber, so we sort by
+ * cachedAt to roughly preserve reading order (chapters are downloaded in
+ * sequence in DownloadContext).
+ */
+export interface CachedChapterSummary {
+  slug: string
+  title: string
+  wordCount: number | null
+}
+
+export async function listCachedChapters(editionId: string): Promise<CachedChapterSummary[]> {
+  const d = await getDb()
+  if (!d) return []
+  const rows = await d.getAllAsync(
+    'SELECT chapter_slug, title, word_count FROM chapters WHERE edition_id = ? ORDER BY cached_at ASC',
+    [editionId],
+  ) as { chapter_slug: string; title: string; word_count: number | null }[]
+  return rows.map(r => ({
+    slug: r.chapter_slug,
+    title: r.title,
+    wordCount: r.word_count,
+  }))
+}
+
 export async function deleteChaptersByEdition(editionId: string): Promise<void> {
   const d = await getDb()
   if (!d) return

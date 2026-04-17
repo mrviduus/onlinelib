@@ -93,7 +93,11 @@ export function ContinueReadingCard() {
         if (book.type === 'edition') {
           router.push(book.chapterSlug ? `/reader/${book.slug}/${book.chapterSlug}` : `/book/${book.slug}`)
         } else {
-          router.push(book.chapterSlug ? `/my-books/${book.id}/read/${book.chapterSlug}` : `/my-books/${book.id}`)
+          // Route is `/my-books/read/[bookId]/[chapterSlug]` — the segments
+          // were swapped here, so expo-router couldn't match the path and
+          // silently fell back to `/my-books/[id]`, making Continue Reading
+          // look broken for user-uploaded books.
+          router.push(book.chapterSlug ? `/my-books/read/${book.id}/${book.chapterSlug}` : `/my-books/${book.id}`)
         }
       }}
     >

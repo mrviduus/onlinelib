@@ -32,6 +32,23 @@ export async function getLocalProgress(editionId: string): Promise<LocalProgress
   }
 }
 
+/**
+ * Wipe every locally-cached reading-progress row. Called on sign-out so
+ * user A's last page never leaks to user B when they sign in on the same
+ * device. Never throws — progress is non-critical transient state (server
+ * is the source of truth once the next user reads anything).
+ */
+export async function clearAllLocalProgress(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys()
+    const progressKeys = keys.filter(k => k.startsWith(KEY_PREFIX))
+    if (progressKeys.length === 0) return
+    await AsyncStorage.multiRemove(progressKeys)
+  } catch {
+    // Storage unavailable — ignore; next successful write will resume.
+  }
+}
+
 /** Load all cached progress records keyed by editionId. Used by home/continue-reading. */
 export async function getAllLocalProgress(): Promise<Map<string, LocalProgress>> {
   const map = new Map<string, LocalProgress>()

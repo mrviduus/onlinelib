@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { userBooksApi, getStorageUrl, getApiConfig } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { MoodSelector } from '../../src/components/MoodSelector'
 import { StarRating } from '../../src/components/StarRating'
@@ -16,11 +17,18 @@ export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const { colors } = useTheme()
+  const { show: showToast } = useToast()
   const [book, setBook] = useState<UserBookDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unmountedRef = useRef(false)
+
+  useEffect(() => {
+    unmountedRef.current = false
+    return () => { unmountedRef.current = true }
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -28,30 +36,87 @@ export default function UserBookDetailScreen() {
       try {
         const [b, p] = await Promise.all([
           userBooksApi.getUserBook(id),
-          userBooksApi.getUserBookProgress(id).catch(() => null),
+          userBooksApi.getUserBookProgress(id).catch(err => {
+            // Progress failures are non-fatal (guest with no progress yet, offline),
+            // but log so they don't hide real bugs (P3-2).
+            console.warn('getUserBookProgress failed:', err)
+            return null
+          }),
         ])
+        if (unmountedRef.current) return
         setBook(b)
         if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent })
       } catch (e) {
         console.error('Failed to load user book:', e)
       } finally {
-        setLoading(false)
+        if (!unmountedRef.current) setLoading(false)
       }
     })()
   }, [id])
 
-  // Auto-refresh while processing
+  // Auto-refresh while processing. Uses recursive setTimeout (not setInterval)
+  // so we can implement exponential backoff on repeated failures and avoid
+  // hammering the API during an outage (P1-2). Stops immediately once status
+  // leaves 'processing'. Guards against `id` going undefined mid-flight (P0-1).
   useEffect(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current)
+      pollTimeoutRef.current = null
+    }
+    if (!id) return
     if (!book || book.status.toLowerCase() !== 'processing') return
-    pollRef.current = setInterval(async () => {
+
+    let cancelled = false
+    let consecutiveFailures = 0
+    let delayMs = 5000
+    const MAX_DELAY_MS = 60_000
+    const FAILURE_TOAST_THRESHOLD = 3
+
+    const scheduleNext = () => {
+      if (cancelled || unmountedRef.current) return
+      pollTimeoutRef.current = setTimeout(tick, delayMs)
+    }
+
+    const tick = async () => {
+      if (cancelled || unmountedRef.current) return
+      // Re-check id every iteration — route params can change under us
+      // (user backs out + taps another book) before a prior in-flight call resolves.
+      if (!id) return
       try {
-        const b = await userBooksApi.getUserBook(id!)
+        const b = await userBooksApi.getUserBook(id)
+        if (cancelled || unmountedRef.current) return
+        consecutiveFailures = 0
+        delayMs = 5000
         setBook(b)
-      } catch {}
-    }, 5000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [book?.status, id])
+        // If processing finished, the status-change effect dep will re-run
+        // and tear this poll loop down; no need to schedule another tick.
+        if (b.status.toLowerCase() === 'processing') scheduleNext()
+      } catch (err) {
+        if (cancelled || unmountedRef.current) return
+        consecutiveFailures += 1
+        console.warn(`Poll ${consecutiveFailures} failed for user book ${id}:`, err)
+        if (consecutiveFailures === FAILURE_TOAST_THRESHOLD) {
+          showToast({
+            message: 'Still trying to check processing status…',
+            variant: 'info',
+            duration: 2600,
+          })
+        }
+        // Exponential backoff: 5s → 10 → 20 → 40 → 60 (capped).
+        delayMs = Math.min(delayMs * 2, MAX_DELAY_MS)
+        scheduleNext()
+      }
+    }
+
+    scheduleNext()
+    return () => {
+      cancelled = true
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current)
+        pollTimeoutRef.current = null
+      }
+    }
+  }, [book?.status, id, showToast])
 
   const isReady = book?.status.toLowerCase() === 'ready'
   const isFailed = book?.status.toLowerCase() === 'failed'
@@ -62,15 +127,26 @@ export default function UserBookDetailScreen() {
     : null
 
   const handleDelete = () => {
+    if (!id) return
     Alert.alert('Delete Book', 'Are you sure you want to delete this book?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
+          if (deleting) return
           setDeleting(true)
           try {
-            await userBooksApi.deleteUserBook(id!)
+            await userBooksApi.deleteUserBook(id)
+            // Don't reset `deleting` on success — the screen unmounts on router.back()
+            // and any lingering state change would warn. (P2-2)
             router.back()
-          } catch {
+          } catch (err) {
+            console.warn('deleteUserBook failed:', err)
+            // Surface the failure so the user knows retry is OK.
+            showToast({
+              message: "Couldn't delete this book. Try again.",
+              variant: 'error',
+              duration: 2600,
+            })
             setDeleting(false)
           }
         },
@@ -79,16 +155,29 @@ export default function UserBookDetailScreen() {
   }
 
   const handleMarkComplete = async () => {
-    if (!book) return
+    if (!book || !id) return
+    const prevCompletedAt = book.completedAt
+    // Optimistic UI — flip first, roll back on failure so the switch doesn't
+    // look frozen and errors don't silently swallow the user's intent.
+    const optimistic = prevCompletedAt
+      ? { ...book, completedAt: null }
+      : { ...book, completedAt: new Date().toISOString() }
+    setBook(optimistic)
     try {
-      if (book.completedAt) {
-        await userBooksApi.unmarkUserBookComplete(id!)
-        setBook({ ...book, completedAt: null })
+      if (prevCompletedAt) {
+        await userBooksApi.unmarkUserBookComplete(id)
       } else {
-        await userBooksApi.markUserBookComplete(id!)
-        setBook({ ...book, completedAt: new Date().toISOString() })
+        await userBooksApi.markUserBookComplete(id)
       }
-    } catch {}
+    } catch (err) {
+      console.warn('markUserBookComplete failed:', err)
+      setBook({ ...book, completedAt: prevCompletedAt })
+      showToast({
+        message: "Couldn't update read status.",
+        variant: 'error',
+        duration: 2400,
+      })
+    }
   }
 
   const handleDownloadEpub = async () => {
