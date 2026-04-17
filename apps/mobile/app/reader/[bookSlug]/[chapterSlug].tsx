@@ -18,7 +18,6 @@ import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
-import { OnboardingOverlay, shouldShowOnboarding } from '../../../src/components/OnboardingOverlay'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
@@ -29,6 +28,7 @@ import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
+import { trackBookOpened, trackVocabSaved, trackTranslationUsed } from '../../../src/lib/analytics'
 
 /** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
 function getSlugFromLocator(locator: string): string {
@@ -85,12 +85,6 @@ export default function ReaderScreen() {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-
-  // Check onboarding flag
-  useEffect(() => {
-    shouldShowOnboarding().then(show => { if (show) setShowOnboarding(true) })
-  }, [])
 
   // Reading session tracking
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
@@ -130,6 +124,7 @@ export default function ReaderScreen() {
   }, [loading, chapter, startHideTimer])
 
   // Resolve editionId from bookSlug (needed for progress + bookmarks)
+  const bookOpenedFiredRef = useRef(false)
   useEffect(() => {
     if (!bookSlug) return
     const api = createBooksApi(language)
@@ -138,6 +133,10 @@ export default function ReaderScreen() {
         editionIdRef.current = b.id
         bookTitleRef.current = b.title
         setBookTitle(b.title)
+        if (!bookOpenedFiredRef.current) {
+          bookOpenedFiredRef.current = true
+          trackBookOpened({ source: 'library', editionId: b.id, language })
+        }
         if (b.chapters) {
           setChapters(b.chapters)
           totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
@@ -295,8 +294,10 @@ export default function ReaderScreen() {
                 injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
                 setWordSaved(true)
                 setSessionWordCount(c => c + 1)
+                trackVocabSaved({ language, nativeLanguage, source: 'reader' })
                 // Persist translation
                 const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+                trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
                 translationApi.translate(data.text, language, targetLang)
                   .then(res => {
                     if (res.translatedText && saved.id) {
@@ -358,8 +359,10 @@ export default function ReaderScreen() {
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
+      trackVocabSaved({ language, nativeLanguage, source: 'reader' })
       // Persist translation to saved word (fire-and-forget)
       const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+      trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
       translationApi.translate(selection.text, language, targetLang)
         .then(res => {
           if (res.translatedText && saved.id) {
@@ -692,11 +695,6 @@ export default function ReaderScreen() {
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
         />
-
-        {/* Onboarding overlay — first-time reader */}
-        {showOnboarding && (
-          <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
-        )}
 
         {/* Exit summary — words saved + review prompt */}
         {exitSummary && (

@@ -1,13 +1,9 @@
 import { useEffect } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import { LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { setupApi } from '../src/lib/api'
-import { setupNotifications, requestPermissions, scheduleSmartReminder } from '../src/lib/notifications'
-
-LogBox.ignoreLogs(['Calling the \'getRegistrationInfoAsync\'', 'Calling the \'setBadgeCountAsync\''])
 import { AuthProvider } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
@@ -62,14 +58,6 @@ export default function RootLayout() {
   useEffect(() => {
     console.log('[TextStack] RootLayout mounted, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
   }, [fontsLoaded, fontError])
-
-  useEffect(() => {
-    try { setupNotifications() } catch {}
-
-    requestPermissions()
-      .then(granted => { if (granted) return scheduleSmartReminder() })
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

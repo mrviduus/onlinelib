@@ -10,6 +10,15 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { trackLogin, trackSignUp } from '../../src/lib/analytics'
+
+/** Mirror web heuristic: backend doesn't surface an isNew flag, so a fresh
+ *  createdAt (<60s ago) means OAuth auto-provisioned a new account. */
+function isFreshAccount(createdAt: string | undefined): boolean {
+  if (!createdAt) return false
+  const ms = Date.parse(createdAt)
+  return Number.isFinite(ms) && Date.now() - ms < 60_000
+}
 
 GoogleSignin.configure({
   iosClientId: '301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com',
@@ -51,10 +60,12 @@ export default function LoginScreen() {
       } else if (mode === 'register') {
         const result = await authApi.registerWithEmail(email.trim(), password, name.trim() || undefined)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
+        trackSignUp('email')
         router.back()
       } else {
         const result = await authApi.loginWithEmail(email.trim(), password)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
+        trackLogin('email')
         router.back()
       }
     } catch (e: any) {
@@ -74,6 +85,8 @@ export default function LoginScreen() {
 
       const result = await authApi.loginWithGoogle(idToken)
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
+      if (isFreshAccount(result.user.createdAt)) trackSignUp('google')
+      else trackLogin('google')
       router.back()
     } catch (e: any) {
       if (e.code !== 'SIGN_IN_CANCELLED') {
@@ -112,6 +125,8 @@ export default function LoginScreen() {
       )
 
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
+      if (isFreshAccount(result.user.createdAt)) trackSignUp('apple')
+      else trackLogin('apple')
       router.back()
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') {

@@ -37,7 +37,6 @@
     "expo-image": "~55.0.6",
     "expo-image-picker": "~55.0.14",
     "expo-linking": "~55.0.9",
-    "expo-notifications": "~55.0.14",
     "expo-router": "~55.0.8",
     "expo-secure-store": "~55.0.9",
     "expo-speech": "~55.0.9",
@@ -54,10 +53,10 @@
     "react-native-webview": "13.16.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/react": "~19.2.2",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
-    "@playwright/test": "^1.52.0",
     "typescript": "~5.9.2"
   },
   "private": true
