@@ -174,8 +174,7 @@ export function VocabularyReviewCard() {
     }
     ctaLabel = t('home.vocabCard.reviewCta')
     iconName = 'flash'
-    ctaAction = () =>
-      router.push('/vocabulary/review?reviewMode=blitz' as never)
+    ctaAction = () => router.push('/vocabulary/review' as never)
   } else {
     const titleKey = totalWords === 1 ? 'home.vocabCard.savedTitleOne' : 'home.vocabCard.savedTitleMany'
     headline = interpolate(t(titleKey), { count: totalWords })
