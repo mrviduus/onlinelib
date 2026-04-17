@@ -23,7 +23,7 @@ export function useVocabularyReview() {
   const [lastResult, setLastResult] = useState<SubmitReviewResponse | null>(null)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
   const [answerRevealed, setAnswerRevealed] = useState(false)
-  const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
   const [showingNewWord, setShowingNewWord] = useState(false)
 
   const resetAnswerState = useCallback(() => {

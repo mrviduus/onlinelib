@@ -50,7 +50,7 @@ export default function VocabularyScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
-  const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
