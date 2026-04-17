@@ -76,34 +76,81 @@
   box-shadow: 0 4px 14px rgba(255, 152, 0, 0.28);
 }
 
-/* Attention mode: combine a slow vertical bounce with a synced glow pulse.
-   Two parallel animations keep the effect lively without a single overbearing
-   keyframe, and the 2.6s period is long enough to feel intentional rather
-   than frantic. */
+/* Attention mode: a clear bouncing-ball motion paired with a synced glow.
+   Physics feel comes from per-keyframe timing functions: ease-out on the way
+   up (pop), ease-in on the way down (gravity), plus a tiny rebound. The
+   cycle has a visible rest period at the bottom so each jump reads as a
+   discrete "hey, look here" rather than a continuous wobble. */
 .home-hero__lang-trigger--pulse {
   animation:
-    hero-lang-bounce 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite,
-    hero-lang-glow 2.6s ease-in-out infinite;
+    hero-lang-bounce 1.9s infinite,
+    hero-lang-glow 1.9s ease-in-out infinite;
+  transform-origin: 50% 100%;
 }
 
+/* Classic "ball bouncing" motion — pre-squash (wind-up), big jump with
+   stretch, heavy squash on landing, one smaller rebound, then rest. Per-
+   keyframe `animation-timing-function` gives each phase the right feel:
+   ease-out on the way up (pop), ease-in on the way down (gravity). */
 @keyframes hero-lang-bounce {
-  0%, 100% { transform: translateY(0) scale(1); }
-  40%      { transform: translateY(-6px) scale(1.04); }
-  55%      { transform: translateY(0) scale(1); }
-  65%      { transform: translateY(-3px) scale(1.02); }
-  80%      { transform: translateY(0) scale(1); }
+  /* Wind-up: tiny squash before the jump — the eye registers this as
+     "preparing to launch" and the actual jump feels more intentional. */
+  0% {
+    transform: translateY(0) scaleY(1) scaleX(1);
+    animation-timing-function: ease-out;
+  }
+  6% {
+    transform: translateY(0) scaleY(0.9) scaleX(1.08);
+    animation-timing-function: ease-out;
+  }
+  /* Main jump — much higher so the motion is unmistakable at hero scale. */
+  24% {
+    transform: translateY(-22px) scaleY(1.14) scaleX(0.92);
+    animation-timing-function: ease-in;
+  }
+  /* Brief hang at apex sells weightlessness. */
+  30% {
+    transform: translateY(-22px) scaleY(1.1) scaleX(0.94);
+    animation-timing-function: ease-in;
+  }
+  /* Impact squash — exaggerated horizontal stretch reads as "landing hard". */
+  42% {
+    transform: translateY(0) scaleY(0.82) scaleX(1.14);
+    animation-timing-function: ease-out;
+  }
+  /* Secondary rebound. */
+  56% {
+    transform: translateY(-8px) scaleY(1.04) scaleX(0.98);
+    animation-timing-function: ease-in;
+  }
+  66% {
+    transform: translateY(0) scaleY(0.95) scaleX(1.04);
+    animation-timing-function: ease-out;
+  }
+  /* Short rest before the next jump — long enough to feel like a pause,
+     short enough that visitors see the bounce repeatedly while on the page. */
+  74%, 100% {
+    transform: translateY(0) scaleY(1) scaleX(1);
+  }
 }
 
 @keyframes hero-lang-glow {
   0%, 100% {
     background: var(--color-warm-bg, rgba(255, 152, 0, 0.1));
-    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.0);
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0);
     border-color: rgba(255, 152, 0, 0.32);
   }
-  50% {
-    background: var(--color-warm-bg, rgba(255, 152, 0, 0.22));
-    box-shadow: 0 6px 22px rgba(255, 152, 0, 0.45);
-    border-color: rgba(255, 152, 0, 0.7);
+  /* Peak of the jump — strongest glow so the element also "flashes" mid-air. */
+  24% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.28));
+    box-shadow: 0 14px 32px rgba(255, 152, 0, 0.55);
+    border-color: rgba(255, 152, 0, 0.85);
+  }
+  /* Landing — glow collapses downward, reinforcing the impact. */
+  42% {
+    background: var(--color-warm-bg, rgba(255, 152, 0, 0.2));
+    box-shadow: 0 2px 10px rgba(255, 152, 0, 0.35);
+    border-color: rgba(255, 152, 0, 0.6);
   }
 }
 
