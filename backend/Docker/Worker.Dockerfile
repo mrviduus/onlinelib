@@ -18,44 +18,48 @@ RUN dotnet publish backend/src/Worker/Worker.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-# Install Node.js, fonts, and Chromium dependencies for SSG prerender
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    fontconfig \
-    libfreetype6 \
-    fonts-dejavu-core \
-    # Skia dependencies for PDF cover rendering
-    libfontconfig1 \
-    libgl1 \
-    libice6 \
-    libsm6 \
-    libx11-6 \
-    libxext6 \
-    libxrender1 \
-    # Node.js for SSG prerender
-    nodejs \
-    npm \
-    # Chromium dependencies for Puppeteer (puppeteer downloads its own chromium)
-    ca-certificates \
-    libnss3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2t64 \
-    libxfixes3 \
-    libxcursor1 \
-    libxi6 \
-    libxtst6 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libcairo2 \
-    && rm -rf /var/lib/apt/lists/* \
-    && fc-cache -fv
+# Install Node.js, fonts, and Chromium dependencies for SSG prerender.
+# Retry the whole sequence up to 5× to ride out transient archive.ubuntu.com
+# flakiness in CI (apt update + install can fail mid-fetch; `--fix-missing`
+# resumes partial fetches on retry).
+RUN set -eux; \
+    for i in 1 2 3 4 5; do \
+        apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+            fontconfig \
+            libfreetype6 \
+            fonts-dejavu-core \
+            libfontconfig1 \
+            libgl1 \
+            libice6 \
+            libsm6 \
+            libx11-6 \
+            libxext6 \
+            libxrender1 \
+            nodejs \
+            npm \
+            ca-certificates \
+            libnss3 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2t64 \
+            libxfixes3 \
+            libxcursor1 \
+            libxi6 \
+            libxtst6 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libcairo2 \
+        && break || { echo "apt attempt $i failed — retrying in 15s"; sleep 15; }; \
+    done; \
+    rm -rf /var/lib/apt/lists/*; \
+    fc-cache -fv
 
 # Puppeteer cache location (scripts mounted via docker-compose volume)
 ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
