@@ -110,15 +110,6 @@ jobs:
           grep -q 'map.*is_bot' /etc/nginx/sites-available/textstack || { echo "FAIL: bot map missing from nginx"; exit 1; }
           echo "Bot map found in nginx config"
 
-      - name: Remove stale data/ssg directory
-        run: |
-          # Old SSG output location (Jan 2026) — mount moved to apps/web/dist/ssg
-          # but orphaned files remained and confused validation. One-time cleanup.
-          if [ -d "$PROJECT_DIR/data/ssg" ]; then
-            echo "Removing stale $PROJECT_DIR/data/ssg"
-            rm -rf "$PROJECT_DIR/data/ssg"
-          fi
-
       - name: Wait for SSG rebuild to complete
         run: |
           # Queue SSG rebuild step is async. Poll until the job finishes.
