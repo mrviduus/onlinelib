@@ -56,6 +56,22 @@ jobs:
           cd $PROJECT_DIR
           docker compose up -d --build
 
+      - name: Sync nginx config
+        run: |
+          cd $PROJECT_DIR
+          # /etc/nginx/sites-available/textstack is vasyl:vasyl 664, so cp works
+          # without sudo. Only nginx -t and reload need sudo (passwordless via
+          # sudoers for nginx/systemctl).
+          if ! diff -q infra/nginx/textstack.conf /etc/nginx/sites-available/textstack > /dev/null 2>&1; then
+            echo "nginx config changed — syncing"
+            cp infra/nginx/textstack.conf /etc/nginx/sites-available/textstack
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "nginx reloaded"
+          else
+            echo "nginx config unchanged — skip reload"
+          fi
+
       - name: Wait for services
         run: sleep 30
 
@@ -94,11 +110,21 @@ jobs:
           grep -q 'map.*is_bot' /etc/nginx/sites-available/textstack || { echo "FAIL: bot map missing from nginx"; exit 1; }
           echo "Bot map found in nginx config"
 
+      - name: Remove stale data/ssg directory
+        run: |
+          # Old SSG output location (Jan 2026) — mount moved to apps/web/dist/ssg
+          # but orphaned files remained and confused validation. One-time cleanup.
+          if [ -d "$PROJECT_DIR/data/ssg" ]; then
+            echo "Removing stale $PROJECT_DIR/data/ssg"
+            rm -rf "$PROJECT_DIR/data/ssg"
+          fi
+
       - name: Wait for SSG rebuild to complete
         run: |
-          # Queue SSG rebuild step is async. Poll until the job finishes
-          # (files get atomic-swapped by ssg-worker into $PROJECT_DIR/data/ssg).
-          SSG_DIR=$PROJECT_DIR/data/ssg
+          # Queue SSG rebuild step is async. Poll until the job finishes.
+          # ssg-worker bind mount: ./apps/web/dist:/app/dist, so files atomic-swapped
+          # by worker appear at $PROJECT_DIR/apps/web/dist/ssg on host.
+          SSG_DIR=$PROJECT_DIR/apps/web/dist/ssg
           [ -d "$SSG_DIR" ] || { echo "No SSG dir yet — skipping wait"; exit 0; }
 
           DEADLINE=$(( $(date +%s) + 600 ))  # 10 min max
@@ -114,7 +140,7 @@ jobs:
         run: |
           # Catch skeleton-only SSG files (empty <h1>, only skeleton divs). Silent-save bug
           # from before P0.5 left 247 stale shells on disk for 3 months.
-          SSG_DIR=$PROJECT_DIR/data/ssg
+          SSG_DIR=$PROJECT_DIR/apps/web/dist/ssg
           [ -d "$SSG_DIR" ] || { echo "SSG dir missing: $SSG_DIR (skipping — first deploy)"; exit 0; }
 
           TOTAL=$(find "$SSG_DIR" -name index.html | wc -l)
