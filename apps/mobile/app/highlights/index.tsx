@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
 import { Image } from 'expo-image'
@@ -55,12 +55,22 @@ export default function HighlightsScreen() {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [collapsedBooks, setCollapsedBooks] = useState<Set<string>>(new Set())
 
+  // Generation counter prevents stale filter/sort responses from
+  // overwriting fresh ones when the user toggles chips quickly.
+  // loadingMoreRef guards onEndReached against concurrent re-entrance
+  // (same pattern as vocabulary list — B-54).
+  const genRef = useRef(0)
+  const loadingMoreRef = useRef(false)
+
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
     return () => clearTimeout(t)
   }, [search])
 
   const fetchHighlights = useCallback(async (offset = 0) => {
+    if (offset > 0 && loadingMoreRef.current) return
+    if (offset > 0) loadingMoreRef.current = true
+    const gen = ++genRef.current
     try {
       const res = await highlightsApi.getAllHighlights({
         sort,
@@ -70,6 +80,7 @@ export default function HighlightsScreen() {
         search: searchDebounced || undefined,
         bookType: bookType === 'all' ? undefined : bookType,
       })
+      if (gen !== genRef.current) return
       if (offset === 0) {
         setHighlights(res.items)
       } else {
@@ -77,12 +88,14 @@ export default function HighlightsScreen() {
       }
       setTotal(res.totalCount)
     } catch (e) {
-      console.error('Failed to load highlights:', e)
+      if (gen === genRef.current) console.warn('Failed to load highlights:', e)
+    } finally {
+      if (offset > 0) loadingMoreRef.current = false
+      if (gen === genRef.current) setLoading(false)
     }
-    setLoading(false)
   }, [sort, colorFilter, searchDebounced, bookType])
 
-  useEffect(() => { setLoading(true); fetchHighlights() }, [sort, colorFilter, searchDebounced, bookType])
+  useEffect(() => { setLoading(true); fetchHighlights() }, [fetchHighlights])
 
   // Group by book
   const sections = useMemo<BookSection[]>(() => {
@@ -266,7 +279,10 @@ export default function HighlightsScreen() {
             renderSectionHeader={renderSectionHeader}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.list}
-            onEndReached={() => { if (highlights.length < total) fetchHighlights(highlights.length) }}
+            onEndReached={() => {
+              if (loadingMoreRef.current) return
+              if (highlights.length < total) fetchHighlights(highlights.length)
+            }}
             onEndReachedThreshold={0.5}
             stickySectionHeadersEnabled={false}
           />

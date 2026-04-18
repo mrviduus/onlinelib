@@ -181,10 +181,23 @@ export default function UserBookDetailScreen() {
   }
 
   const handleDownloadEpub = async () => {
+    if (!id) return
     try {
       const { baseUrl } = getApiConfig()
-      await Linking.openURL(`${baseUrl}/me/books/${id}/export/epub`)
-    } catch {}
+      const url = `${baseUrl}/me/books/${id}/export/epub`
+      // iOS/Android will hand the URL off to the system browser or a PDF/EPUB
+      // reader. Linking.openURL can reject if no handler exists — surface a
+      // toast rather than failing silently (B-76).
+      const supported = await Linking.canOpenURL(url)
+      if (!supported) {
+        showToast({ message: "Can't open EPUB download on this device", variant: 'error' })
+        return
+      }
+      await Linking.openURL(url)
+    } catch (e) {
+      console.warn('Download EPUB failed:', e)
+      showToast({ message: 'Could not start EPUB download', variant: 'error' })
+    }
   }
 
   const handleShare = async () => {
@@ -192,7 +205,13 @@ export default function UserBookDetailScreen() {
       await Share.share({
         message: `${book?.title || 'Book'}${book?.author ? ` — ${book.author}` : ''}`,
       })
-    } catch {}
+    } catch (e) {
+      // Share.share rejects with `ActivityDoesNotExist` on some Android
+      // variants and a generic dismissal on iOS. Dismissal is expected, but
+      // we still want the log to catch real failures — no toast here because
+      // user-dismiss isn't an error they want to see reported.
+      console.warn('Share failed:', e)
+    }
   }
 
   if (loading || !book) {
@@ -317,17 +336,33 @@ export default function UserBookDetailScreen() {
         {/* Secondary actions */}
         {isReady && (
           <View style={styles.secondaryActions}>
-            <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleMarkComplete}>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              onPress={handleMarkComplete}
+              accessibilityRole="button"
+              accessibilityLabel={book.completedAt ? 'Mark book as unread' : 'Mark book as read'}
+              accessibilityState={{ selected: !!book.completedAt }}
+            >
               <Ionicons name={book.completedAt ? 'close-circle-outline' : 'checkmark-circle-outline'} size={18} color={colors.text} />
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
                 {book.completedAt ? 'Mark as unread' : 'Mark as read'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleDownloadEpub}>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              onPress={handleDownloadEpub}
+              accessibilityRole="button"
+              accessibilityLabel="Download EPUB"
+            >
               <Ionicons name="download-outline" size={18} color={colors.text} />
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Download EPUB</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleShare}>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${book.title || 'book'}`}
+            >
               <Ionicons name="share-outline" size={18} color={colors.text} />
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Share</Text>
             </TouchableOpacity>

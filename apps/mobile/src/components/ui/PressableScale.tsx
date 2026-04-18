@@ -3,6 +3,7 @@ import {
   Pressable,
   Animated,
   type AccessibilityRole,
+  type AccessibilityState,
   type ViewStyle,
   type StyleProp,
 } from 'react-native'
@@ -16,6 +17,7 @@ interface PressableScaleProps {
   accessibilityRole?: AccessibilityRole
   accessibilityLabel?: string
   accessibilityHint?: string
+  accessibilityState?: AccessibilityState
 }
 
 export function PressableScale({
@@ -26,6 +28,7 @@ export function PressableScale({
   accessibilityRole,
   accessibilityLabel,
   accessibilityHint,
+  accessibilityState,
 }: PressableScaleProps) {
   const scale = useRef(new Animated.Value(1)).current
 
@@ -46,6 +49,7 @@ export function PressableScale({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
+      accessibilityState={accessibilityState}
     >
       <Animated.View style={[style, { transform: [{ scale }] }]}>
         {children}

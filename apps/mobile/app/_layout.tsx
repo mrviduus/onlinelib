@@ -56,13 +56,19 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useAppFonts()
 
   useEffect(() => {
-    console.log('[TextStack] RootLayout mounted, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
+    if (__DEV__) {
+      console.log('[TextStack] RootLayout mounted, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
+    }
   }, [fontsLoaded, fontError])
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      console.log('[TextStack] Hiding splash, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
-      SplashScreen.hideAsync()
+      if (__DEV__) {
+        console.log('[TextStack] Hiding splash, fontsLoaded:', fontsLoaded, 'fontError:', fontError)
+      }
+      // Can reject with "No native splash screen registered" on some platforms
+      // or if already hidden — swallow with a warn rather than crashing the UI.
+      SplashScreen.hideAsync().catch(e => console.warn('Splash hide failed:', e))
     }
   }, [fontsLoaded, fontError])
 

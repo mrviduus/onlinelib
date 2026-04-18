@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { View, Text, FlatList, ScrollView as HScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter, Stack } from 'expo-router'
@@ -29,9 +29,20 @@ export default function BlogScreen() {
     return [...tags]
   }, [posts])
 
+  // `loadingMoreRef` guards against `onEndReached` firing in rapid
+  // succession on short lists (small screens, fast scroll). `genRef` is a
+  // generation counter so that a stale language/tag response can't overwrite
+  // a newer one when the user switches filters quickly.
+  const loadingMoreRef = useRef(false)
+  const genRef = useRef(0)
+
   const fetchPosts = useCallback(async (offset = 0, filterTag = '') => {
+    if (offset > 0 && loadingMoreRef.current) return
+    if (offset > 0) loadingMoreRef.current = true
+    const gen = ++genRef.current
     try {
       const res = await blogApi.getBlogPosts({ language, limit: PAGE_SIZE, offset, tag: filterTag || undefined })
+      if (gen !== genRef.current) return // superseded
       if (offset === 0) {
         setPosts(res.items)
       } else {
@@ -39,12 +50,14 @@ export default function BlogScreen() {
       }
       setTotal(res.total)
     } catch (e) {
-      console.error('Failed to load blog posts:', e)
+      if (gen === genRef.current) console.warn('Failed to load blog posts:', e)
+    } finally {
+      if (offset > 0) loadingMoreRef.current = false
+      if (gen === genRef.current) setLoading(false)
     }
-    setLoading(false)
   }, [language])
 
-  useEffect(() => { fetchPosts() }, [language])
+  useEffect(() => { fetchPosts() }, [language, fetchPosts])
 
   const handleTagFilter = (newTag: string) => {
     const t = tag === newTag ? '' : newTag

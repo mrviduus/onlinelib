@@ -111,6 +111,10 @@ export function QuickActionGrid({
             ]}
             onPress={tile.onPress}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={tile.label}
+            accessibilityHint={tile.sub}
+            accessibilityState={tile.comingSoon ? { disabled: true } : undefined}
           >
             <View
               style={[

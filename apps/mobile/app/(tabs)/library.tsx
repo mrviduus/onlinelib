@@ -13,6 +13,7 @@ import type { UserLibraryItem, UserBookDto, ReadingProgressDto, UserRatingDto } 
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -27,6 +28,7 @@ export default function LibraryScreen() {
   const { isAuthenticated, user } = useAuth()
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const { show: showToast } = useToast()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -80,7 +82,11 @@ export default function LibraryScreen() {
       try {
         const books = await userBooksApi.getUserBooks()
         setUserBooks(books)
-      } catch {}
+      } catch (e) {
+        // Don't toast here — polling errors should stay quiet, otherwise a
+        // flaky connection would spam the user once every 5s. Just log.
+        console.warn('Library user-books poll failed:', e)
+      }
     }, 5000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [userBooks])
@@ -194,6 +200,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const router = useRouter()
   const { colors } = useTheme()
   const { language, t } = useLanguage()
+  const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
   const [sort, setSort] = useState<SavedSort>('recent')
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
@@ -220,17 +227,29 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
             ...prev,
             [item.editionId]: { ...prev[item.editionId], editionId: item.editionId, percent: isRead ? 0 : 1, chapterSlug: ch.slug, updatedAt: new Date().toISOString() },
           }))
-        } catch {}
+        } catch (e) {
+          console.warn('Toggle read state failed:', e)
+          showToast({ message: 'Could not update progress. Try again.', variant: 'error' })
+        }
       },
     })
 
     buttons.push({
       text: 'Remove from Library', style: 'destructive',
       onPress: async () => {
+        // Optimistic remove + rollback. The action sits behind Alert.alert
+        // so double-tap isn't a concern, but a 5xx response used to leave
+        // the book in state while the server thought it was gone — next
+        // sync would flap.
+        const snapshot = library
+        setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
         try {
           await libraryApi.removeFromLibrary(item.editionId)
-          setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
-        } catch {}
+        } catch (e) {
+          console.warn('Remove from library failed:', e)
+          setLibrary(snapshot)
+          showToast({ message: 'Could not remove book. Try again.', variant: 'error' })
+        }
       },
     })
 
@@ -388,14 +407,32 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
   const router = useRouter()
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
   const [sort, setSort] = useState<UploadSort>('recent')
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
 
+  // Re-fetch quota when the books count changes — deleting/uploading flips
+  // usedBytes, and users checking the quota bar expect it to update without
+  // a manual pull-to-refresh.
   useEffect(() => {
-    userBooksApi.getStorageQuota().then(setQuota).catch(() => {})
+    userBooksApi.getStorageQuota().then(setQuota).catch(e =>
+      console.warn('Storage quota fetch failed:', e),
+    )
   }, [books.length])
+
+  // Small helper so each action handler can't silently swallow failures —
+  // every API rejection now surfaces a toast the user can actually see.
+  const runAction = async (fn: () => Promise<unknown>, label: string) => {
+    try {
+      await fn()
+      onRefresh()
+    } catch (e) {
+      console.warn(`${label} failed:`, e)
+      showToast({ message: `${label} failed. Try again.`, variant: 'error' })
+    }
+  }
 
   const handleBookAction = (item: UserBookDto) => {
     const s = item.status.toLowerCase()
@@ -409,30 +446,26 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
       buttons.push({ text: 'View Details', onPress: () => router.push(`/my-books/${item.id}`) })
       if (!item.completedAt) {
         buttons.push({
-          text: 'Mark as Read', onPress: async () => {
-            try { await userBooksApi.markUserBookComplete(item.id); onRefresh() } catch {}
-          },
+          text: 'Mark as Read',
+          onPress: () => runAction(() => userBooksApi.markUserBookComplete(item.id), 'Mark as read'),
         })
       } else {
         buttons.push({
-          text: 'Mark as Unread', onPress: async () => {
-            try { await userBooksApi.unmarkUserBookComplete(item.id); onRefresh() } catch {}
-          },
+          text: 'Mark as Unread',
+          onPress: () => runAction(() => userBooksApi.unmarkUserBookComplete(item.id), 'Mark as unread'),
         })
       }
     }
     if (isFailed) {
       buttons.push({
-        text: 'Retry', onPress: async () => {
-          try { await userBooksApi.retryUserBook(item.id); onRefresh() } catch {}
-        },
+        text: 'Retry',
+        onPress: () => runAction(() => userBooksApi.retryUserBook(item.id), 'Retry'),
       })
     }
     if (isProcessing) {
       buttons.push({
-        text: 'Cancel', style: 'destructive', onPress: async () => {
-          try { await userBooksApi.cancelUserBook(item.id); onRefresh() } catch {}
-        },
+        text: 'Cancel', style: 'destructive',
+        onPress: () => runAction(() => userBooksApi.cancelUserBook(item.id), 'Cancel upload'),
       })
     }
     buttons.push({
@@ -440,9 +473,8 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
         Alert.alert('Delete Book', `Delete "${item.title || 'Untitled'}"? This cannot be undone.`, [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Delete', style: 'destructive', onPress: async () => {
-              try { await userBooksApi.deleteUserBook(item.id); onRefresh() } catch {}
-            },
+            text: 'Delete', style: 'destructive',
+            onPress: () => runAction(() => userBooksApi.deleteUserBook(item.id), 'Delete book'),
           },
         ])
       },
@@ -626,12 +658,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
                   {isFailed && (
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start' }}
-                      onPress={async () => {
-                        try {
-                          await userBooksApi.retryUserBook(item.id)
-                          onRefresh()
-                        } catch {}
-                      }}
+                      onPress={() => runAction(() => userBooksApi.retryUserBook(item.id), 'Retry')}
                     >
                       <Ionicons name="refresh-outline" size={14} color={colors.primary} />
                       <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: colors.primary }}>Retry</Text>

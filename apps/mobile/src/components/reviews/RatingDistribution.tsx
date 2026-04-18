@@ -21,7 +21,10 @@ export function RatingDistribution({ stats }: Props) {
   ]
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      accessibilityLabel={`Average rating ${stats.avgRating.toFixed(1)} from ${stats.totalRatings} ${stats.totalRatings === 1 ? 'rating' : 'ratings'}`}
+    >
       <View style={styles.avgRow}>
         <Ionicons name="star" size={20} color="#F59E0B" />
         <Text style={[styles.avgText, { color: colors.text }]}>

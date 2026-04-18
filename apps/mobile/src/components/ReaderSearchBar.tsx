@@ -25,24 +25,51 @@ export function ReaderSearchBar({ onSearch, onNext, onPrev, onClose, matchCount,
   return (
     <View style={[styles.container, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
       <TextInput
-        style={[styles.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
+        style={[styles.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border, fontFamily: fonts.sans }]}
         value={query}
         onChangeText={handleChange}
         placeholder="Search in chapter..."
         placeholderTextColor={colors.textSecondary}
         autoFocus
         returnKeyType="search"
+        autoCorrect={false}
+        autoCapitalize="none"
+        accessibilityLabel="Search in chapter"
       />
       {matchCount > 0 && (
-        <Text style={[styles.count, { color: colors.textSecondary }]}>{currentMatch}/{matchCount}</Text>
+        <Text
+          style={[styles.count, { color: colors.textSecondary }]}
+          accessibilityLabel={`Match ${currentMatch} of ${matchCount}`}
+        >
+          {currentMatch}/{matchCount}
+        </Text>
       )}
-      <TouchableOpacity onPress={onPrev} style={styles.navBtn} disabled={matchCount === 0}>
+      <TouchableOpacity
+        onPress={onPrev}
+        style={styles.navBtn}
+        disabled={matchCount === 0}
+        accessibilityRole="button"
+        accessibilityLabel="Previous match"
+        accessibilityState={{ disabled: matchCount === 0 }}
+      >
         <Ionicons name="chevron-up" size={18} color={matchCount === 0 ? colors.textSecondary : colors.primary} style={matchCount === 0 ? { opacity: 0.3 } : undefined} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onNext} style={styles.navBtn} disabled={matchCount === 0}>
+      <TouchableOpacity
+        onPress={onNext}
+        style={styles.navBtn}
+        disabled={matchCount === 0}
+        accessibilityRole="button"
+        accessibilityLabel="Next match"
+        accessibilityState={{ disabled: matchCount === 0 }}
+      >
         <Ionicons name="chevron-down" size={18} color={matchCount === 0 ? colors.textSecondary : colors.primary} style={matchCount === 0 ? { opacity: 0.3 } : undefined} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+      <TouchableOpacity
+        onPress={onClose}
+        style={styles.closeBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Close search"
+      >
         <Ionicons name="close" size={22} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>

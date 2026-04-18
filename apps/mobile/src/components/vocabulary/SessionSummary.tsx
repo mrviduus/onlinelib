@@ -61,7 +61,12 @@ export function SessionSummary({
         <Ionicons name="checkmark-circle-outline" size={56} color={colors.success} />
         <Text style={[styles.title, { color: colors.text }]}>All caught up!</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>No words due for review.</Text>
-        <PressableScale onPress={onBack} style={[styles.primaryBtn, { backgroundColor: colors.primary }]}>
+        <PressableScale
+          onPress={onBack}
+          style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Vocabulary"
+        >
           <Text style={styles.primaryBtnText}>Back to Vocabulary</Text>
         </PressableScale>
       </View>
@@ -102,6 +107,9 @@ export function SessionSummary({
               key={m}
               onPress={() => onModeChange(m)}
               style={[styles.toggleItem, reviewMode === m && { backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel={m === 'blitz' ? 'Blitz mode' : 'Flashcards mode'}
+              accessibilityState={{ selected: reviewMode === m }}
             >
               <Ionicons
                 name={m === 'blitz' ? 'flash' : 'layers'}
@@ -129,6 +137,9 @@ export function SessionSummary({
                 { borderColor: batchSize === n ? colors.primary : colors.border },
                 batchSize === n && { backgroundColor: colors.primaryLight },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Batch of ${n} cards`}
+              accessibilityState={{ selected: batchSize === n }}
             >
               <Text style={[styles.batchText, { color: batchSize === n ? colors.primary : colors.textSecondary }]}>
                 {n}
@@ -140,14 +151,24 @@ export function SessionSummary({
 
       {/* Actions */}
       <View style={styles.actions}>
-        <PressableScale onPress={onAgain} style={[styles.actionBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
+        <PressableScale
+          onPress={onAgain}
+          style={[styles.actionBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Practice again${dueCount > 0 ? `, ${dueCount} due` : ''}`}
+        >
           <Ionicons name="refresh-outline" size={18} color={colors.primary} />
           <Text style={[styles.actionBtnText, { color: colors.primary }]}>
             Practice Again{dueCount > 0 ? ` (${dueCount} due)` : ''}
           </Text>
         </PressableScale>
 
-        <PressableScale onPress={onBack} style={[styles.actionBtn, { backgroundColor: colors.primary }]}>
+        <PressableScale
+          onPress={onBack}
+          style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Vocabulary"
+        >
           <Text style={[styles.actionBtnText, { color: '#fff' }]}>Back to Vocabulary</Text>
         </PressableScale>
       </View>

@@ -138,6 +138,12 @@ export default function ProfileScreen() {
               placeholder="Name"
               placeholderTextColor={colors.textSecondary}
               autoFocus
+              autoCorrect={false}
+              textContentType="name"
+              autoComplete="name"
+              returnKeyType="done"
+              onSubmitEditing={saveProfile}
+              accessibilityLabel="Edit display name"
             />
             <TouchableOpacity onPress={saveProfile} disabled={saving} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
               {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontFamily: fonts.sansMedium }}>Save</Text>}

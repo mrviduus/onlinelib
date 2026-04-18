@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { createBooksApi, getStorageUrl } from '@textstack/shared'
@@ -17,15 +17,58 @@ export default function GenreScreen() {
   const { language } = useLanguage()
   const [genre, setGenre] = useState<GenreDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
     if (!slug) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
     const api = createBooksApi(language)
     api.getGenre(slug)
-      .then(setGenre)
-      .catch(e => console.error('Failed to load genre:', e))
-      .finally(() => setLoading(false))
-  }, [slug, language])
+      .then(g => { if (!cancelled) { setGenre(g); setError(null) } })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Failed to load genre:', e)
+        const status = (e as { status?: number })?.status
+        setError(status === 404 ? 'notfound' : 'network')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [slug, language, retryNonce])
+
+  const retry = useCallback(() => setRetryNonce(n => n + 1), [])
+
+  if (!loading && error) {
+    const isNotFound = error === 'notfound'
+    return (
+      <>
+        <Stack.Screen options={{ title: '', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text, headerShadowVisible: false }} />
+        <View style={[styles.container, styles.errorBox, { backgroundColor: colors.background }]}>
+          <Ionicons name={isNotFound ? 'help-circle-outline' : 'cloud-offline-outline'} size={48} color={colors.textSecondary} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            {isNotFound ? 'Genre not found' : "Couldn't load this genre"}
+          </Text>
+          <Text style={[styles.errorSub, { color: colors.textSecondary }]}>
+            {isNotFound
+              ? 'This genre may have been removed or renamed.'
+              : 'Check your connection and try again.'}
+          </Text>
+          <View style={styles.errorActions}>
+            {!isNotFound && (
+              <TouchableOpacity onPress={retry} style={[styles.errorBtn, { borderColor: colors.primary }]}>
+                <Text style={{ color: colors.primary, fontFamily: fonts.sansMedium }}>Retry</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => router.back()} style={[styles.errorBtn, { borderColor: colors.border }]}>
+              <Text style={{ color: colors.text, fontFamily: fonts.sansMedium }}>Go back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </>
+    )
+  }
 
   if (loading || !genre) {
     return (
@@ -97,4 +140,9 @@ const styles = StyleSheet.create({
   description: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 22, marginTop: 12 },
   sectionTitle: { fontFamily: fonts.serifBold, fontSize: 20, paddingHorizontal: 16, marginBottom: 12 },
   booksGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, justifyContent: 'space-between' },
+  errorBox: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 80, gap: 10 },
+  errorTitle: { fontFamily: fonts.serifBold, fontSize: 20, textAlign: 'center', marginTop: 12 },
+  errorSub: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  errorActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  errorBtn: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10, borderWidth: 1 },
 })

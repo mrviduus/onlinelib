@@ -51,7 +51,12 @@ export function FlashCard({ card, onAnswer, onSpeak, onFlip, disabled }: Props) 
 
   return (
     <View>
-      <Pressable onPress={handleFlip} disabled={flipped}>
+      <Pressable
+        onPress={handleFlip}
+        disabled={flipped}
+        accessibilityRole="button"
+        accessibilityLabel={flipped ? 'Card flipped — answer visible' : `Tap to reveal translation of ${card.word}`}
+      >
         <View style={styles.cardContainer}>
           {/* Front */}
           <Animated.View style={[
@@ -103,6 +108,7 @@ export function FlashCard({ card, onAnswer, onSpeak, onFlip, disabled }: Props) 
                 onPress={() => handleAssess(key)}
                 disabled={disabled}
                 style={[styles.assessBtn, { backgroundColor: assessColors[key] }]}
+                accessibilityLabel={label}
               >
                 <Text style={styles.assessBtnText}>{label}{key === 'knew' ? ' \u2713' : ''}</Text>
               </PressableScale>

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, getApiConfig, libraryApi, readingProgressApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, libraryApi, readingProgressApi } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useToast } from '../../src/context/ToastContext'
 import {
   isBookFullyCached,
   getAllCachedBooks,
@@ -27,6 +28,7 @@ export default function BookDetailScreen() {
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
   const { language } = useLanguage()
+  const toast = useToast()
   const { downloads, startDownload, cancelDownload, removeDownload, retryFailed } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -344,25 +346,32 @@ export default function BookDetailScreen() {
           </>
         )}
 
-        {/* EPUB Download + Share — skip EPUB offline (needs backend). */}
+        {/*
+          Share only. Public-book EPUB download was deprecated on the web
+          2026-04-15 (see CLAUDE.md) — the backend route still responds but
+          the UI anchor is gone. Mobile aligns: button removed to avoid
+          surfacing a dead path to users. If re-enabled, open the URL
+          `${baseUrl}/${language}/books/${slug}/export/epub` via Linking
+          wrapped in try/catch + toast on failure (B-76).
+        */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16, gap: 10 }}>
-          {!offlineMode && (
-            <TouchableOpacity
-              style={[styles.secondaryButton, { borderColor: colors.border }]}
-              onPress={() => {
-                const { baseUrl } = getApiConfig()
-                Linking.openURL(`${baseUrl}/${language}/books/${slug}/export/epub`).catch(() => {})
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="download-outline" size={18} color={colors.text} />
-              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Download EPUB</Text>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: colors.border }]}
-            onPress={() => Share.share({ message: `${book.title} — Read on TextStack: https://textstack.app/en/books/${slug}` }).catch(() => {})}
+            onPress={async () => {
+              try {
+                // Use the current UI language for the shared link so a Ukrainian
+                // user shares the Ukrainian URL, not hardcoded `/en/`.
+                await Share.share({
+                  message: `${book.title} — Read on TextStack: https://textstack.app/${language}/books/${slug}`,
+                })
+              } catch (e) {
+                console.warn('Share failed:', e)
+                toast.show({ message: 'Could not open share sheet', variant: 'error' })
+              }
+            }}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${book.title}`}
           >
             <Ionicons name="share-outline" size={18} color={colors.text} />
             <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Share</Text>

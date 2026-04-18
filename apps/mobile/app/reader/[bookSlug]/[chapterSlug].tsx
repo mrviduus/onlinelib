@@ -281,7 +281,7 @@ export default function ReaderScreen() {
           }
         }
       } catch (e) {
-        if (!cancelled) console.error('Offline cache read failed:', e)
+        if (!cancelled) console.warn('Offline cache read failed:', e)
       }
 
       // No online response AND no cached copy — show a proper empty state.
@@ -475,12 +475,15 @@ export default function ReaderScreen() {
       translationApi.translate(selection.text, language, targetLang)
         .then(res => {
           if (res.translatedText && saved.id) {
-            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(e => console.warn('Word translation persist failed:', e))
             vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
           }
         })
-        .catch(() => {})
-    } catch {}
+        .catch(e => console.warn('Word translation lookup failed:', e))
+    } catch (e) {
+      console.warn('Save word failed:', e)
+      showToast({ message: 'Could not save word. Try again.', variant: 'error' })
+    }
   }
 
   const handleMarkKnown = async () => {
@@ -493,7 +496,39 @@ export default function ReaderScreen() {
       vocabMapRef.current[key] = { ...entry, stage: 4 }
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
       setSelection(null)
-    } catch {}
+    } catch (e) {
+      console.warn('Mark as known failed:', e)
+      showToast({ message: 'Could not mark as known. Try again.', variant: 'error' })
+    }
+  }
+
+  // B-79 web-parity: Ignore (remove) an already-saved word directly from the
+  // WordCard. Optimistic update — we drop the word locally and re-mark the
+  // WebView map immediately so the UI feels instant. On network failure the
+  // snapshot is restored and a toast surfaces so the user knows to retry.
+  // Note: no dedicated `removeVocabWord` helper in readerHtml.ts — the
+  // existing `markVocabWords` re-renders the map from scratch, so passing
+  // the updated map is sufficient.
+  const handleRemoveWord = async () => {
+    if (!selection || !isAuthenticated) return
+    const key = selection.text.toLowerCase()
+    const entry = vocabMapRef.current[key]
+    if (!entry) return
+    const snapshot = { ...entry }
+    delete vocabMapRef.current[key]
+    injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+    setWordSaved(false)
+    try {
+      await vocabularyApi.deleteWord(entry.id)
+      setSelection(null)
+    } catch (e) {
+      console.warn('Remove word failed:', e)
+      // Rollback optimistic update
+      vocabMapRef.current[key] = snapshot
+      injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+      setWordSaved(true)
+      showToast({ message: 'Could not remove word. Try again.', variant: 'error' })
+    }
   }
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -534,7 +569,8 @@ export default function ReaderScreen() {
       highlightsRef.current = [...highlightsRef.current, hl]
       setSelection(null)
     } catch (e) {
-      console.error('Failed to create highlight:', e)
+      console.warn('Failed to create highlight:', e)
+      showToast({ message: 'Could not add highlight. Try again.', variant: 'error' })
     }
   }
 
@@ -633,6 +669,47 @@ export default function ReaderScreen() {
   const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
   const etfDisplay = etfMinutes >= 60 ? `${Math.floor(etfMinutes / 60)}h ${etfMinutes % 60}m` : `${etfMinutes}m`
 
+  // Large HTML string. Rebuilding every render burns CPU and — if the
+  // source prop object is recreated — triggers WebView work. Memoize on
+  // only the primitives the template actually reads (R-3).
+  //
+  // CRITICAL (B-77): these useMemo calls MUST run on every render — not
+  // behind the `loading` / `!chapter` early returns below. Placing hooks
+  // after early returns made React count fewer hooks on the loading frame
+  // than on the loaded frame, tripping "Rendered more hooks than during
+  // the previous render" and ErrorBoundary-unmounting the whole reader.
+  // That cascade explained the symptoms the user reported: system Android
+  // selection menu (no WebView overlay left to catch the tap), no
+  // WordCard popup, and no translation.
+  const html = useMemo(
+    () => chapter
+      ? buildReaderHtml(chapter.html, {
+          fontSize: settings.fontSize,
+          lineHeight: settings.lineHeight,
+          fontFamily: resolvedFontFamily,
+          textAlign: settings.textAlign,
+          backgroundColor: resolvedTheme.backgroundColor,
+          textColor: resolvedTheme.textColor,
+        }, chapterSlug, { top: insets.top, bottom: insets.bottom })
+      : '',
+    [
+      chapter?.html,
+      settings.fontSize,
+      settings.lineHeight,
+      resolvedFontFamily,
+      settings.textAlign,
+      resolvedTheme.backgroundColor,
+      resolvedTheme.textColor,
+      chapterSlug,
+      insets.top,
+      insets.bottom,
+    ],
+  )
+  // WebView source prop is compared shallowly; keeping the object
+  // stable across renders avoids any accidental reloads on platforms
+  // that key off reference.
+  const webViewSource = useMemo(() => ({ html }), [html])
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -675,36 +752,6 @@ export default function ReaderScreen() {
       </>
     )
   }
-
-  // Large HTML string. Rebuilding every render burns CPU and — if the
-  // source prop object is recreated — triggers WebView work. Memoize on
-  // only the primitives the template actually reads (R-3).
-  const html = useMemo(
-    () => buildReaderHtml(chapter.html, {
-      fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight,
-      fontFamily: resolvedFontFamily,
-      textAlign: settings.textAlign,
-      backgroundColor: resolvedTheme.backgroundColor,
-      textColor: resolvedTheme.textColor,
-    }, chapterSlug, { top: insets.top, bottom: insets.bottom }),
-    [
-      chapter.html,
-      settings.fontSize,
-      settings.lineHeight,
-      resolvedFontFamily,
-      settings.textAlign,
-      resolvedTheme.backgroundColor,
-      resolvedTheme.textColor,
-      chapterSlug,
-      insets.top,
-      insets.bottom,
-    ],
-  )
-  // WebView source prop is compared shallowly; keeping the object
-  // stable across renders avoids any accidental reloads on platforms
-  // that key off reference.
-  const webViewSource = useMemo(() => ({ html }), [html])
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -808,8 +855,7 @@ export default function ReaderScreen() {
               selectionId={selection.selectionId}
               onSave={handleSaveWord}
               onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
-              onDictionary={() => setDictOpen(true)}
-              onHighlight={handleHighlight}
+              onRemove={handleRemoveWord}
               onMarkKnown={handleMarkKnown}
               onDismiss={() => { setSelection(null); setWordSaved(false) }}
               isSpeaking={isSpeaking}
@@ -908,7 +954,10 @@ export default function ReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-            } catch {}
+            } catch (e) {
+              console.warn('Highlight note save failed:', e)
+              showToast({ message: 'Could not save note. Try again.', variant: 'error' })
+            }
           }}
           onDelete={async () => {
             const hl = editingHighlight
@@ -918,7 +967,10 @@ export default function ReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-            } catch {}
+            } catch (e) {
+              console.warn('Highlight delete failed:', e)
+              showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
+            }
           }}
         />
 

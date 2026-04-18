@@ -1,17 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { translationApi } from '@textstack/shared'
+import { translationApi, dictionaryApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
+import { getLanguage } from '../data/languages'
+import { LanguagePickerModal } from './LanguagePickerModal'
 import { fonts } from '../theme/typography'
-
-const HIGHLIGHT_COLORS = [
-  { key: 'yellow', color: '#fef08a' },
-  { key: 'green', color: '#bbf7d0' },
-  { key: 'pink', color: '#fbcfe8' },
-  { key: 'blue', color: '#bfdbfe' },
-] as const
 
 const STAGE_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: 'New', color: '#3b82f6' },
@@ -32,8 +28,12 @@ interface WordCardProps {
   selectionId?: number
   onSave: () => void
   onSpeak: () => void
-  onDictionary: () => void
-  onHighlight?: (color: string) => void
+  /**
+   * Optional: called when the user taps "Ignore" on an already-saved word —
+   * removes the word from vocabulary. Only rendered when `wordSaved` is true
+   * AND this callback is provided. Matches web WordPopup parity (B-79).
+   */
+  onRemove?: () => void
   onMarkKnown?: () => void
   onDismiss: () => void
   isSpeaking?: boolean
@@ -57,15 +57,19 @@ interface WordCardProps {
 }
 
 export function WordCard({
-  word, selectionId = 0, onSave, onSpeak, onDictionary, onHighlight, onMarkKnown,
+  word, selectionId = 0, onSave, onSpeak, onRemove, onMarkKnown,
   onDismiss, isSpeaking, wordSaved, vocabStage, isAuthenticated, language,
   sessionWordCount = 0, bottomOffset = 0,
 }: WordCardProps) {
   const { colors } = useTheme()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   const { fromLang, toLang } = useTargetLanguage(language)
-  const [expanded, setExpanded] = useState(false)
   const [translation, setTranslation] = useState('')
   const [translating, setTranslating] = useState(true)
+  const [phonetic, setPhonetic] = useState<string | null>(null)
+  const [definition, setDefinition] = useState<string | null>(null)
+  const [definitionLoading, setDefinitionLoading] = useState(true)
+  const [showLangPicker, setShowLangPicker] = useState(false)
   const [showSavedText, setShowSavedText] = useState(false)
   const slideAnim = useRef(new Animated.Value(0)).current
   const saveAnim = useRef(new Animated.Value(1)).current
@@ -79,22 +83,70 @@ export function WordCard({
   // Auto-dismiss after 3s unless user interacts. Reset the timer on every
   // selection event (not just word changes) — otherwise tapping the same
   // word twice lets the original timer fire mid-interaction (B-12).
+  //
+  // When the lang picker is open we cancel this so the user isn't chased
+  // off the card while choosing a language.
   useEffect(() => {
+    if (showLangPicker) return
     dismissTimerRef.current = setTimeout(onDismiss, 3000)
     return () => { if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number) }
-  }, [word, selectionId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId, showLangPicker]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch translation on mount. Source/target come from useTargetLanguage —
   // previously the pair was hardcoded en↔uk which broke for users reading
   // non-English books or whose native language isn't Ukrainian (B-07).
+  //
+  // Cancellation flag: rapid re-taps on different words could land the
+  // first response after the second — overwriting the current translation
+  // with stale text (B-72). The cancelled-check before each setState
+  // prevents that without aborting the underlying request.
   useEffect(() => {
+    let cancelled = false
     setTranslation('')
     setTranslating(true)
     translationApi.translate(word, fromLang, toLang)
-      .then((res: any) => setTranslation(res.translatedText || res.translation || ''))
-      .catch(() => setTranslation(''))
-      .finally(() => setTranslating(false))
+      .then((res: { translatedText?: string; translation?: string }) => {
+        if (cancelled) return
+        setTranslation(res.translatedText || res.translation || '')
+      })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Translate failed:', e)
+        setTranslation('')
+      })
+      .finally(() => {
+        if (!cancelled) setTranslating(false)
+      })
+    return () => { cancelled = true }
   }, [word, fromLang, toLang])
+
+  // Dictionary lookup for phonetic + inline definition (B-79). Previously
+  // both lived in `DictionarySheet` behind an extra tap — web parity needs
+  // them inline. Cancellation flag guards against rapid re-taps landing a
+  // stale entry on the new word. Errors are swallowed quietly (many words
+  // just aren't in the dictionary — 404 is expected, not a real failure).
+  useEffect(() => {
+    let cancelled = false
+    setPhonetic(null)
+    setDefinition(null)
+    setDefinitionLoading(true)
+    dictionaryApi.lookupWord(fromLang, word)
+      .then(entry => {
+        if (cancelled) return
+        setPhonetic(entry.phonetic?.trim() || null)
+        const first = entry.meanings?.[0]
+        const def = first?.definitions?.[0]?.definition || null
+        const pos = first?.partOfSpeech
+        setDefinition(def ? (pos ? `(${pos}) ${def}` : def) : null)
+      })
+      .catch(() => {
+        // Silent — 404 (word not in dict) is the normal case.
+      })
+      .finally(() => {
+        if (!cancelled) setDefinitionLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [word, fromLang])
 
   // Entry animation
   useEffect(() => {
@@ -119,102 +171,195 @@ export function WordCard({
 
   const stage = vocabStage != null ? STAGE_LABELS[vocabStage] : null
   const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] })
+  const isSameLang = fromLang === toLang
+  const nativeLabel = getLanguage(toLang)?.nativeName || toLang
+  const footerLabel = isSameLang
+    ? `Looking up definition`
+    : `Translating to ${nativeLabel}`
 
   return (
-    <Animated.View style={[
-      styles.container,
-      {
-        backgroundColor: colors.surface,
-        borderColor: colors.border,
-        bottom: bottomOffset + 8,
-        transform: [{ translateY }],
-        opacity: slideAnim,
-      },
-    ]}>
-      {/* Level 1: Word + translation + save */}
-      <TouchableOpacity activeOpacity={0.9} onPress={() => { cancelAutoDismiss(); setExpanded(!expanded) }} style={styles.mainRow}>
-        <View style={styles.wordCol}>
-          <View style={styles.wordRow}>
-            <Text style={[styles.word, { color: colors.text }]}>{word}</Text>
+    <>
+      <Animated.View style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          bottom: bottomOffset + 8,
+          transform: [{ translateY }],
+          opacity: slideAnim,
+        },
+      ]}>
+        {/* Header: word + phonetic + close */}
+        <View style={styles.header}>
+          <View style={styles.headerWordRow}>
+            <Text style={[styles.word, { color: colors.text }]} numberOfLines={1}>
+              {word}
+            </Text>
+            {phonetic && (
+              <Text
+                style={[styles.phonetic, { color: colors.textSecondary }]}
+                numberOfLines={1}
+                accessibilityLabel={`pronunciation ${phonetic}`}
+              >
+                {phonetic}
+              </Text>
+            )}
             {stage && (
               <View style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}>
                 <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.label}</Text>
               </View>
             )}
           </View>
-          {translating ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
-          ) : translation ? (
-            <Text style={[styles.translation, { color: colors.textSecondary }]} numberOfLines={1}>{translation}</Text>
-          ) : null}
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => { cancelAutoDismiss(); onDismiss() }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close word card"
+          >
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        {/* TTS button */}
-        <TouchableOpacity style={styles.iconBtn} onPress={() => { cancelAutoDismiss(); onSpeak() }}>
-          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.primary} />
-        </TouchableOpacity>
-
-        {/* Save / Stage action */}
-        {isAuthenticated && (
-          <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
-            {wordSaved ? (
-              <View style={[styles.savedBtn, { backgroundColor: '#10B981' }]}>
-                <Ionicons name="checkmark" size={16} color="#fff" />
-              </View>
-            ) : stage ? (
-              stage.label !== '✓' && onMarkKnown ? (
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#22c55e' }]} onPress={onMarkKnown}>
-                  <Ionicons name="checkmark-done" size={16} color="#fff" />
-                </TouchableOpacity>
-              ) : null
+        {/* Translation — primary content, accent color matching web */}
+        {(translating || translation) && (
+          <View style={styles.translationRow}>
+            {translating ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.textSecondary}
+                accessibilityLabel="Translating"
+              />
             ) : (
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#10B981' }]} onPress={onSave}>
+              <Text style={[styles.translation, { color: '#C4704B' }]} numberOfLines={3}>
+                {translation}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Definition — secondary content, fills the information role that
+            used to require opening DictionarySheet (B-79). */}
+        {(definitionLoading || definition) && (
+          <View style={styles.definitionRow}>
+            {definitionLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.textSecondary}
+                accessibilityLabel="Loading definition"
+              />
+            ) : definition ? (
+              <Text style={[styles.definition, { color: colors.text }]} numberOfLines={4}>
+                {definition}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        {/* Actions: TTS + saved status + Ignore / Save + MarkKnown */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => { cancelAutoDismiss(); onSpeak() }}
+            accessibilityRole="button"
+            accessibilityLabel={isSpeaking ? 'Stop speaking' : 'Speak word'}
+            accessibilityState={{ selected: !!isSpeaking }}
+          >
+            <Ionicons
+              name={isSpeaking ? 'stop' : 'volume-high-outline'}
+              size={20}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+
+          {isAuthenticated && wordSaved && (
+            <Animated.View style={[styles.savedStatus, { transform: [{ scale: saveAnim }] }]}>
+              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+              <Text style={[styles.savedStatusText, { color: '#10B981' }]}>
+                Saved to vocabulary
+              </Text>
+            </Animated.View>
+          )}
+
+          <View style={{ flex: 1 }} />
+
+          {/* Ignore (remove saved word) — parity with web's delete_outline btn */}
+          {isAuthenticated && wordSaved && onRemove && (
+            <TouchableOpacity
+              style={[styles.ghostBtn, { borderColor: colors.border }]}
+              onPress={() => { cancelAutoDismiss(); onRemove() }}
+              accessibilityRole="button"
+              accessibilityLabel="Ignore word"
+            >
+              <Ionicons name="trash-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>
+                Ignore
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Save CTA (when unsaved + no stage) */}
+          {isAuthenticated && !wordSaved && !stage && (
+            <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: '#10B981' }]}
+                onPress={() => { cancelAutoDismiss(); onSave() }}
+                accessibilityRole="button"
+                accessibilityLabel="Save word to vocabulary"
+              >
                 <Ionicons name="add" size={18} color="#fff" />
                 <Text style={styles.saveBtnText}>Save</Text>
               </TouchableOpacity>
-            )}
-          </Animated.View>
-        )}
-      </TouchableOpacity>
-
-      {/* "Saved!" confirmation text with session count */}
-      {showSavedText && (
-        <Animated.Text style={[styles.savedText, { color: '#10B981', opacity: savedTextOpacity }]}>
-          {sessionWordCount > 1 ? `${sessionWordCount} words saved this session` : 'Saved!'}
-        </Animated.Text>
-      )}
-
-      {/* Level 2: Expanded — highlights + dictionary + actions */}
-      {expanded && (
-        <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-          {/* Highlight colors */}
-          {isAuthenticated && onHighlight && (
-            <View style={styles.highlightRow}>
-              <Text style={[styles.expandLabel, { color: colors.textSecondary }]}>Highlight</Text>
-              {HIGHLIGHT_COLORS.map(h => (
-                <TouchableOpacity
-                  key={h.key}
-                  style={[styles.colorBtn, { backgroundColor: h.color }]}
-                  onPress={() => onHighlight(h.key)}
-                />
-              ))}
-            </View>
+            </Animated.View>
           )}
 
-          {/* Action buttons */}
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={onDictionary}>
-              <Ionicons name="book-outline" size={16} color={colors.text} />
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>Dictionary</Text>
+          {/* Mark-known (when already in SRS pool but not mastered) */}
+          {isAuthenticated && !wordSaved && stage && stage.label !== '✓' && onMarkKnown && (
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: '#22c55e' }]}
+              onPress={() => { cancelAutoDismiss(); onMarkKnown() }}
+              accessibilityRole="button"
+              accessibilityLabel="Mark word as known"
+            >
+              <Ionicons name="checkmark-done" size={16} color="#fff" />
+              <Text style={styles.saveBtnText}>Known</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={onDismiss}>
-              <Ionicons name="close-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>Dismiss</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
-      )}
-    </Animated.View>
+
+        {/* Saved-this-session counter fade (after save action) */}
+        {showSavedText && sessionWordCount > 1 && (
+          <Animated.Text style={[styles.sessionCount, { color: '#10B981', opacity: savedTextOpacity }]}>
+            {sessionWordCount} words saved this session
+          </Animated.Text>
+        )}
+
+        {/* Language footer — "Translating to X · Change" */}
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <Text style={[styles.footerLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+            {footerLabel}
+          </Text>
+          <TouchableOpacity
+            style={styles.changeBtn}
+            onPress={() => { cancelAutoDismiss(); setShowLangPicker(true) }}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Change target language"
+          >
+            <Text style={[styles.changeBtnText, { color: colors.primary }]}>
+              Change
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      <LanguagePickerModal
+        visible={showLangPicker}
+        onClose={() => setShowLangPicker(false)}
+        value={nativeLanguage}
+        onChange={(code) => setNativeLanguage(code)}
+      />
+    </>
   )
 }
 
@@ -235,29 +380,28 @@ const styles = StyleSheet.create({
     elevation: 5,
     overflow: 'hidden',
   },
-  mainRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 8,
   },
-  wordCol: {
+  headerWordRow: {
     flex: 1,
-    gap: 2,
-  },
-  wordRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
     gap: 8,
   },
   word: {
     fontFamily: fonts.sansBold,
-    fontSize: 17,
+    fontSize: 18,
   },
-  translation: {
+  phonetic: {
     fontFamily: fonts.sans,
-    fontSize: 14,
-    marginTop: 1,
+    fontSize: 13,
   },
   stageBadge: {
     paddingHorizontal: 6,
@@ -269,12 +413,66 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fonts.sansMedium,
   },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  translationRow: {
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 4,
+  },
+  translation: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 15,
+  },
+  definitionRow: {
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 8,
+  },
+  definition: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
   iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  savedStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  savedStatusText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+  },
+  ghostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  ghostBtnText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
   },
   saveBtn: {
     flexDirection: 'row',
@@ -289,58 +487,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
-  savedBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  savedText: {
+  sessionCount: {
     fontFamily: fonts.sansMedium,
     fontSize: 12,
     textAlign: 'center',
     paddingBottom: 6,
   },
-  // Expanded section (Level 2)
-  expandedSection: {
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  highlightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  expandLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    marginRight: 2,
-  },
-  colorBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.12)',
-  },
-  actionsRow: {
-    flexDirection: 'row',
+    paddingVertical: 8,
     gap: 8,
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1,
+  footerLabel: {
+    flex: 1,
+    fontFamily: fonts.sans,
+    fontSize: 12,
   },
-  actionBtnText: {
+  changeBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  changeBtnText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 12,
   },
 })

@@ -19,11 +19,17 @@ export default function GenresScreen() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
     const api = createBooksApi(language)
     api.getGenres()
-      .then(res => setGenres(Array.isArray(res) ? res : res.items))
-      .catch(e => console.error('Failed to fetch genres:', e))
-      .finally(() => setLoading(false))
+      .then(res => {
+        if (cancelled) return
+        setGenres(Array.isArray(res) ? res : res.items)
+      })
+      .catch(e => { if (!cancelled) console.warn('Failed to fetch genres:', e) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [language])
 
   return (

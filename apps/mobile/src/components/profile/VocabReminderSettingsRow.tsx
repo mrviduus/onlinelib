@@ -47,7 +47,11 @@ export function VocabReminderSettingsRow() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    vocabReminder.getSettings().then(setSettings)
+    let cancelled = false
+    vocabReminder.getSettings()
+      .then(s => { if (!cancelled) setSettings(s) })
+      .catch(e => { if (!cancelled) console.warn('Reminder settings load failed:', e) })
+    return () => { cancelled = true }
   }, [])
 
   const persist = useCallback(async (next: ReminderSettings) => {

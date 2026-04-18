@@ -24,17 +24,30 @@ export default function HighlightReviewScreen() {
   const [reviewed, setReviewed] = useState(0)
 
   useEffect(() => {
+    // The review screen is short-lived — user can back-gesture mid-fetch,
+    // at which point setItems / setLoading would warn. Cancellation flag
+    // keeps state updates bound to the current mount.
+    let cancelled = false
     highlightsApi.getHighlightsForReview(20)
-      .then(setItems)
-      .catch(e => console.error('Failed to load review items:', e))
-      .finally(() => setLoading(false))
+      .then(res => { if (!cancelled) setItems(res) })
+      .catch(e => { if (!cancelled) console.warn('Failed to load review items:', e) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const current = items[index]
 
   const handleNext = async () => {
     if (current) {
-      await highlightsApi.markHighlightReviewed(current.id).catch(() => {})
+      try {
+        await highlightsApi.markHighlightReviewed(current.id)
+      } catch (e) {
+        // Non-fatal — review progress is a convenience, not a hard state.
+        // Log so QA can spot bursts of failures, but keep the flow moving.
+        console.warn('Failed to mark highlight reviewed:', e)
+      }
       setReviewed(r => r + 1)
     }
     if (index < items.length - 1) {

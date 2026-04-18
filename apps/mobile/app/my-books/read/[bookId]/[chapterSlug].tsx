@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
@@ -159,7 +159,7 @@ export default function UserBookReaderScreen() {
         wordCountRef.current = ch.wordCount || 0
       })
       .catch(e => {
-        if (!cancelled) console.error('Failed to load user book chapter:', e)
+        if (!cancelled) console.warn('Failed to load user book chapter:', e)
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -173,14 +173,21 @@ export default function UserBookReaderScreen() {
       bookOpenedFiredRef.current = true
       trackBookOpened({ source: 'userbook', userBookId: bookId })
     }
-    userBooksApi.getUserBookBookmarks(bookId).then(setBookmarks).catch(() => {})
+    // Failures here don't block reading — log so QA can see flaps, but
+    // we intentionally don't toast (the page is functional without TOC
+    // or bookmarks on first load).
+    userBooksApi.getUserBookBookmarks(bookId).then(setBookmarks).catch(e => {
+      console.warn('Failed to load user-book bookmarks:', e)
+    })
     userBooksApi.getUserBook(bookId).then(b => {
       setChapters(b.chapters.map(ch => ({
         slug: ch.slug || `chapter-${ch.chapterNumber}`,
         title: ch.title,
         chapterNumber: ch.chapterNumber,
       })))
-    }).catch(() => {})
+    }).catch(e => {
+      console.warn('Failed to load user-book chapter list:', e)
+    })
   }, [bookId])
 
   const activeSlug = visibleChapterSlug ?? chapterSlug
@@ -201,7 +208,8 @@ export default function UserBookReaderScreen() {
       setBookmarks(prev => prev.filter(b => b.id !== existing.id))
       try {
         await userBooksApi.deleteUserBookBookmark(bookId, existing.id)
-      } catch {
+      } catch (e) {
+        console.warn('Delete user-book bookmark failed:', e)
         setBookmarks(prev => (prev.some(b => b.id === existing.id) ? prev : [...prev, existing]))
         showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
       }
@@ -213,7 +221,8 @@ export default function UserBookReaderScreen() {
           title: chapter.title,
         })
         setBookmarks(prev => [...prev, bm])
-      } catch {
+      } catch (e) {
+        console.warn('Create user-book bookmark failed:', e)
         showToast({ message: 'Could not add bookmark. Try again.', variant: 'error' })
       }
     }
@@ -225,7 +234,8 @@ export default function UserBookReaderScreen() {
     setBookmarks(prev => prev.filter(b => b.id !== bmId))
     try {
       await userBooksApi.deleteUserBookBookmark(bookId, bmId)
-    } catch {
+    } catch (e) {
+      console.warn('Delete user-book bookmark (sheet) failed:', e)
       if (snapshot) {
         setBookmarks(prev => (prev.some(b => b.id === bmId) ? prev : [...prev, snapshot]))
       }
@@ -250,10 +260,13 @@ export default function UserBookReaderScreen() {
           setVisibleChapterSlug(data.chapterSlug)
         }
         if (bookId) {
+          // Progress save is fire-and-forget; a 4xx/5xx shouldn't
+          // interrupt reading, but silent loss made it hard to notice
+          // when the backend fell over for a whole session.
           userBooksApi.updateUserBookProgress(bookId, {
             percent: data.progress,
             chapterSlug: data.chapterSlug || chapterSlug,
-          }).catch(() => {})
+          }).catch(e => { console.warn('Failed to save user-book progress:', e) })
         }
       } else if (data.type === 'loaded') {
         if (chapter?.next) {
@@ -291,7 +304,7 @@ export default function UserBookReaderScreen() {
                   notifyWordSaved()
                   trackVocabSaved({ language: 'en', source: 'reader' })
                 })
-                .catch(() => {})
+                .catch(e => { console.warn('Auto-save vocab word failed:', e) })
             }
           }
         } else {
@@ -318,7 +331,10 @@ export default function UserBookReaderScreen() {
       notifyWordSaved()
       trackVocabSaved({ language: 'en', source: 'reader' })
       setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
-    } catch {}
+    } catch (e) {
+      console.warn('Save vocab word failed:', e)
+      showToast({ message: 'Could not save word. Try again.', variant: 'error' })
+    }
   }
 
   const handleMarkKnown = async () => {
@@ -331,7 +347,10 @@ export default function UserBookReaderScreen() {
       vocabMapRef.current[key] = { ...entry, stage: 4 }
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
       setSelection(null)
-    } catch {}
+    } catch (e) {
+      console.warn('Mark word as known failed:', e)
+      showToast({ message: 'Could not mark word as known. Try again.', variant: 'error' })
+    }
   }
 
   const handleHighlight = async (color: string) => {
@@ -349,7 +368,11 @@ export default function UserBookReaderScreen() {
       highlightsRef.current = [...highlightsRef.current, hl]
       setSelection(null)
     } catch (e) {
-      console.error('Failed to create highlight:', e)
+      // Match convention elsewhere (`console.warn`). Surfacing a toast
+      // here matters because the user just picked a colour and expects
+      // the marker to show up — silence would look like a dead tap.
+      console.warn('Failed to create highlight:', e)
+      showToast({ message: 'Could not highlight. Try again.', variant: 'error' })
     }
   }
 
@@ -369,7 +392,7 @@ export default function UserBookReaderScreen() {
           injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
         }
       })
-      .catch(() => {})
+      .catch(e => { if (!cancelled) console.warn('Failed to load user-book highlights:', e) })
     return () => { cancelled = true }
   }, [isAuthenticated, bookId, chapter?.id])
 
@@ -390,7 +413,7 @@ export default function UserBookReaderScreen() {
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
       })
-      .catch(() => {})
+      .catch(e => { if (!cancelled) console.warn('Failed to load reader vocab:', e) })
     return () => { cancelled = true }
   }, [isAuthenticated, chapter?.id])
 
@@ -416,13 +439,36 @@ export default function UserBookReaderScreen() {
       wordCountRef.current += ch.wordCount || 0
       nextChapterRef.current = ch.next || null
       if (!ch.next) injectJs('disableInfiniteScroll()')
-    } catch {
+    } catch (e) {
+      // If we can't load the next chapter, turn off infinite scroll so
+      // we don't retry-loop on every scroll gesture. A warn tells QA
+      // the network (not the content) dropped us.
+      console.warn('Failed to load next user-book chapter:', e)
       injectJs('disableInfiniteScroll()')
     }
   }
 
   const wordsLeft = wordCountRef.current * (1 - progress)
   const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
+
+  // Memoize HTML + WebView source — without this, every render (bars
+  // toggle, progress tick, selection set) rebuilt the full chapter HTML
+  // string AND created a new `{ html }` object, causing the WebView to
+  // throw away its DOM and re-render. Public reader fixed this in B-36;
+  // user-book reader was overlooked. Keep deps to actual style inputs.
+  const html = useMemo(() => {
+    if (!chapter) return ''
+    return buildReaderHtml(chapter.html, {
+      fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
+      fontFamily: resolvedFontFamily,
+      textAlign: settings.textAlign,
+      backgroundColor: resolvedTheme.backgroundColor,
+      textColor: resolvedTheme.textColor,
+    }, undefined, { top: insets.top, bottom: insets.bottom })
+  }, [chapter, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign, resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom])
+
+  const webViewSource = useMemo(() => ({ html }), [html])
 
   if (loading || !chapter) {
     return (
@@ -431,15 +477,6 @@ export default function UserBookReaderScreen() {
       </View>
     )
   }
-
-  const html = buildReaderHtml(chapter.html, {
-    fontSize: settings.fontSize,
-    lineHeight: settings.lineHeight,
-    fontFamily: resolvedFontFamily,
-    textAlign: settings.textAlign,
-    backgroundColor: resolvedTheme.backgroundColor,
-    textColor: resolvedTheme.textColor,
-  }, undefined, { top: insets.top, bottom: insets.bottom })
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -452,7 +489,7 @@ export default function UserBookReaderScreen() {
         {/* WebView first — overlay bars rendered after so they sit on top of native layer */}
         <WebView
           ref={webViewRef}
-          source={{ html }}
+          source={webViewSource}
           style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
           onMessage={handleMessage}
           originWhitelist={['*']}
@@ -602,7 +639,10 @@ export default function UserBookReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-            } catch {}
+            } catch (e) {
+              console.warn('Update highlight note failed:', e)
+              showToast({ message: 'Could not save note. Try again.', variant: 'error' })
+            }
           }}
           onDelete={async () => {
             const hl = editingHighlight
@@ -612,7 +652,10 @@ export default function UserBookReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-            } catch {}
+            } catch (e) {
+              console.warn('Delete highlight failed:', e)
+              showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
+            }
           }}
         />
       </View>

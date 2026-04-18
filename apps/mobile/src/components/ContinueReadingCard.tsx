@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { libraryApi, readingProgressApi, userBooksApi, getStorageUrl } from '@textstack/shared'
 import type { UserLibraryItem, ReadingProgressDto, UserBookDto } from '@textstack/shared'
@@ -19,68 +19,77 @@ export function ContinueReadingCard() {
   const router = useRouter()
   const [book, setBook] = useState<ContinueBook | null>(null)
 
-  useEffect(() => {
-    ;(async () => {
-      try {
-        // Server calls can 401 or fail when offline — tolerate each independently so a
-        // single failure doesn't wipe out the card. Local progress is the offline fallback.
-        const [library, serverProgress, userBooks, localMap] = await Promise.all([
-          libraryApi.getLibrary().catch(() => [] as UserLibraryItem[]),
-          readingProgressApi.getAllProgress().catch(() => [] as ReadingProgressDto[]),
-          userBooksApi.getUserBooks().catch(() => [] as UserBookDto[]),
-          getAllLocalProgress(),
-        ])
+  // Refetch on focus so the card reflects the latest progress after the user
+  // returns from the reader. Plain useEffect would leave stale data on the home tab.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false
+      ;(async () => {
+        try {
+          // Server calls can 401 or fail when offline — tolerate each independently so a
+          // single failure doesn't wipe out the card. Local progress is the offline fallback.
+          const [library, serverProgress, userBooks, localMap] = await Promise.all([
+            libraryApi.getLibrary().catch(() => [] as UserLibraryItem[]),
+            readingProgressApi.getAllProgress().catch(() => [] as ReadingProgressDto[]),
+            userBooksApi.getUserBooks().catch(() => [] as UserBookDto[]),
+            getAllLocalProgress(),
+          ])
+          if (cancelled) return
 
-        const progressMap = new Map<string, ReadingProgressDto>()
-        for (const p of serverProgress) progressMap.set(p.editionId, p)
+          const progressMap = new Map<string, ReadingProgressDto>()
+          for (const p of serverProgress) progressMap.set(p.editionId, p)
 
-        let best: ContinueBook | null = null
-        // Normalized to epoch ms so local (Date.now) and server (ISO) comparisons are apples-to-apples.
-        let bestUpdatedAtMs = 0
+          let best: ContinueBook | null = null
+          // Normalized to epoch ms so local (Date.now) and server (ISO) comparisons are apples-to-apples.
+          let bestUpdatedAtMs = 0
 
-        // Check library editions. LWW merge: prefer whichever source (server | local) has a
-        // newer updatedAt. Covers the "read offline, server still on stale record" case.
-        for (const item of library) {
-          const server = progressMap.get(item.editionId)
-          const local = localMap.get(item.editionId)
-          const serverMs = server?.updatedAt ? Date.parse(server.updatedAt) : 0
-          const localMs = local?.updatedAt ?? 0
+          // Check library editions. LWW merge: prefer whichever source (server | local) has a
+          // newer updatedAt. Covers the "read offline, server still on stale record" case.
+          for (const item of library) {
+            const server = progressMap.get(item.editionId)
+            const local = localMap.get(item.editionId)
+            const serverMs = server?.updatedAt ? Date.parse(server.updatedAt) : 0
+            const localMs = local?.updatedAt ?? 0
 
-          let percent: number | null = null
-          let chapterSlug: string | null = null
-          let updatedAtMs = 0
-          if (localMs > serverMs && local) {
-            percent = local.percent
-            chapterSlug = local.chapterSlug
-            updatedAtMs = localMs
-          } else if (server && server.percent != null) {
-            percent = server.percent
-            chapterSlug = server.chapterSlug
-            updatedAtMs = serverMs
+            let percent: number | null = null
+            let chapterSlug: string | null = null
+            let updatedAtMs = 0
+            if (localMs > serverMs && local) {
+              percent = local.percent
+              chapterSlug = local.chapterSlug
+              updatedAtMs = localMs
+            } else if (server && server.percent != null) {
+              percent = server.percent
+              chapterSlug = server.chapterSlug
+              updatedAtMs = serverMs
+            }
+
+            if (percent == null || percent >= 1) continue
+            if (!best || updatedAtMs > bestUpdatedAtMs) {
+              best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent, chapterSlug }
+              bestUpdatedAtMs = updatedAtMs
+            }
           }
 
-          if (percent == null || percent >= 1) continue
-          if (!best || updatedAtMs > bestUpdatedAtMs) {
-            best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent, chapterSlug }
-            bestUpdatedAtMs = updatedAtMs
+          // Check user-uploaded books
+          for (const ub of userBooks) {
+            if (ub.status.toLowerCase() !== 'ready' || !ub.progressPercent || ub.progressPercent >= 1) continue
+            if (!ub.progressUpdatedAt) continue
+            const ubMs = Date.parse(ub.progressUpdatedAt)
+            if (!best || ubMs > bestUpdatedAtMs) {
+              best = { type: 'userbook', id: ub.id, title: ub.title || 'Untitled', coverPath: ub.coverPath, percent: ub.progressPercent, chapterSlug: ub.progressChapterSlug }
+              bestUpdatedAtMs = ubMs
+            }
           }
+
+          if (!cancelled) setBook(best)
+        } catch (e) {
+          if (!cancelled) console.warn('Continue reading load failed:', e)
         }
-
-        // Check user-uploaded books
-        for (const ub of userBooks) {
-          if (ub.status.toLowerCase() !== 'ready' || !ub.progressPercent || ub.progressPercent >= 1) continue
-          if (!ub.progressUpdatedAt) continue
-          const ubMs = Date.parse(ub.progressUpdatedAt)
-          if (!best || ubMs > bestUpdatedAtMs) {
-            best = { type: 'userbook', id: ub.id, title: ub.title || 'Untitled', coverPath: ub.coverPath, percent: ub.progressPercent, chapterSlug: ub.progressChapterSlug }
-            bestUpdatedAtMs = ubMs
-          }
-        }
-
-        setBook(best)
-      } catch {}
-    })()
-  }, [])
+      })()
+      return () => { cancelled = true }
+    }, [])
+  )
 
   if (!book) return null
 
@@ -89,6 +98,8 @@ export function ContinueReadingCard() {
   return (
     <PressableScale
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Continue reading ${book.title}, ${percentDisplay} percent complete`}
       onPress={() => {
         if (book.type === 'edition') {
           router.push(book.chapterSlug ? `/reader/${book.slug}/${book.chapterSlug}` : `/book/${book.slug}`)

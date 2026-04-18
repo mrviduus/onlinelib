@@ -97,6 +97,8 @@ export const CollectionsCarousel = memo(function CollectionsCarousel({
               ]}
               onPress={() => onSelect(mood)}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Browse ${mood.name} collection`}
             >
               {mood.emoji ? (
                 <Text style={styles.emoji}>{mood.emoji}</Text>

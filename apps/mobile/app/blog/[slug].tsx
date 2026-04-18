@@ -27,47 +27,66 @@ export default function BlogPostScreen() {
 
   useEffect(() => {
     if (!slug) return
-    Promise.all([
-      blogApi.getBlogPost(slug, language),
-    ]).then(([p]) => {
-      setPost(p)
-      setLiked(p.isLikedByMe)
-      setLikeCount(p.likeCount)
-      return blogApi.getBlogPostComments(p.id)
-    }).then(c => {
-      setComments(c.items)
-    }).catch(e => console.error('Failed to load blog post:', e))
-      .finally(() => setLoading(false))
+    // Two-step load — post first, comments second — so we can surface the
+    // post even if the comments endpoint fails. Both steps honour `cancelled`
+    // so fast nav away doesn't setState on an unmounted component.
+    let cancelled = false
+    setLoading(true)
+    blogApi.getBlogPost(slug, language)
+      .then(p => {
+        if (cancelled) return null
+        setPost(p)
+        setLiked(p.isLikedByMe)
+        setLikeCount(p.likeCount)
+        return blogApi.getBlogPostComments(p.id)
+      })
+      .then(c => {
+        if (cancelled || !c) return
+        setComments(c.items)
+      })
+      .catch(e => { if (!cancelled) console.warn('Failed to load blog post:', e) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => {
+      cancelled = true
+    }
   }, [slug, language])
 
   const handleLike = async () => {
     if (!post) return
+    // Optimistic toggle + rollback. The previous impl just swallowed errors
+    // and left the UI frozen on the pre-tap state — which looked like
+    // "nothing happened" if the like request 500'd.
+    const prevLiked = liked
+    const prevCount = likeCount
+    setLiked(!prevLiked)
+    setLikeCount(prevCount + (prevLiked ? -1 : 1))
     try {
-      if (liked) {
-        const res = await blogApi.unlikeBlogPost(post.id)
-        setLiked(false)
-        setLikeCount(res.likeCount)
-      } else {
-        const res = await blogApi.likeBlogPost(post.id)
-        setLiked(true)
-        setLikeCount(res.likeCount)
-      }
-    } catch {}
+      const res = prevLiked
+        ? await blogApi.unlikeBlogPost(post.id)
+        : await blogApi.likeBlogPost(post.id)
+      setLikeCount(res.likeCount)
+    } catch (e) {
+      console.warn('Blog like toggle failed:', e)
+      setLiked(prevLiked)
+      setLikeCount(prevCount)
+    }
   }
 
   const handleComment = async () => {
-    if (!post || !commentText.trim()) return
+    if (!post || !commentText.trim() || submitting) return
     setSubmitting(true)
     try {
       const c = await blogApi.addBlogComment(post.id, commentText.trim())
       setComments(prev => [c, ...prev])
       setCommentText('')
-    } catch {}
+    } catch (e) {
+      console.warn('Post blog comment failed:', e)
+    }
     setSubmitting(false)
   }
 
   const handleReply = async (parentId: string) => {
-    if (!post || !replyText.trim()) return
+    if (!post || !replyText.trim() || submitting) return
     setSubmitting(true)
     try {
       const r = await blogApi.addBlogComment(post.id, replyText.trim(), parentId)
@@ -76,7 +95,9 @@ export default function BlogPostScreen() {
       ))
       setReplyText('')
       setReplyTo(null)
-    } catch {}
+    } catch (e) {
+      console.warn('Post blog reply failed:', e)
+    }
     setSubmitting(false)
   }
 
@@ -94,7 +115,9 @@ export default function BlogPostScreen() {
             } else {
               setComments(prev => prev.filter(c => c.id !== commentId))
             }
-          } catch {}
+          } catch (e) {
+            console.warn('Delete blog comment failed:', e)
+          }
         },
       },
     ])

@@ -50,6 +50,8 @@ export function NewWordCard({ card, onContinue, onSpeak }: Props) {
       <PressableScale
         onPress={onContinue}
         style={[styles.continueBtn, { backgroundColor: colors.primary }]}
+        accessibilityRole="button"
+        accessibilityLabel="Continue to next card"
       >
         <Text style={styles.continueBtnText}>Continue</Text>
       </PressableScale>

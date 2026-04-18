@@ -46,6 +46,10 @@ export function ReaderTapCoachmark() {
   const [visible, setVisible] = useState(false)
   const opacity = useRef(new Animated.Value(0)).current
   const fingerScale = useRef(new Animated.Value(1)).current
+  // Hold a handle on the pulse loop so we can stop it on dismiss/unmount.
+  // Without this, `Animated.loop` keeps running in the background after the
+  // coachmark is hidden, retaining the Animated node and wasting a frame callback.
+  const pulseRef = useRef<Animated.CompositeAnimation | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -66,7 +70,7 @@ export function ReaderTapCoachmark() {
           }).start()
 
           // Gentle pulse on the finger icon to communicate "tap".
-          Animated.loop(
+          const pulse = Animated.loop(
             Animated.sequence([
               Animated.timing(fingerScale, {
                 toValue: 1.12,
@@ -81,17 +85,25 @@ export function ReaderTapCoachmark() {
                 useNativeDriver: true,
               }),
             ]),
-          ).start()
+          )
+          pulseRef.current = pulse
+          pulse.start()
         }, SHOW_DELAY_MS)
-      } catch {
+      } catch (e) {
         // If AsyncStorage fails, default to not-shown rather than spamming
         // the coachmark every open.
+        console.warn('Coachmark seen-check failed:', e)
       }
     })()
 
     return () => {
       cancelled = true
       if (delayTimer) clearTimeout(delayTimer)
+      // Stop the pulse animation so it doesn't continue after unmount.
+      if (pulseRef.current) {
+        pulseRef.current.stop()
+        pulseRef.current = null
+      }
     }
   }, [opacity, fingerScale])
 
@@ -104,9 +116,13 @@ export function ReaderTapCoachmark() {
     }).start(({ finished }) => {
       if (finished) setVisible(false)
     })
+    if (pulseRef.current) {
+      pulseRef.current.stop()
+      pulseRef.current = null
+    }
     // Persist immediately — we don't want a double-show if they navigate away
     // during the fade-out animation.
-    AsyncStorage.setItem(STORAGE_KEY, '1').catch(() => {})
+    AsyncStorage.setItem(STORAGE_KEY, '1').catch(e => console.warn('Coachmark persist failed:', e))
   }
 
   if (!visible) return null
