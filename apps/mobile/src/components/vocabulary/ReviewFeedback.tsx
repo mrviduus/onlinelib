@@ -41,7 +41,11 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
     return () => { cancelled = true }
   }, [card.word, card.definition, language])
 
-  // Mini feedback for classic mode
+  // Mini feedback for classic mode.
+  // Previously the whole card was `alignItems: 'center'` which made the Next
+  // button shrink to text-width — tap target looked tiny (B-78). Pull the
+  // button out of that center-alignment with `alignSelf: 'stretch'` so it
+  // fills the card width, and bump padding to match the blitz-mode CTA.
   if (reviewMode === 'classic') {
     return (
       <View style={[styles.mini, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -57,7 +61,7 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
         )}
         <PressableScale
           onPress={onNext}
-          style={[styles.nextBtn, { backgroundColor: colors.primary }]}
+          style={[styles.miniNextBtn, { backgroundColor: colors.primary }]}
           accessibilityRole="button"
           accessibilityLabel="Next card"
         >
@@ -148,5 +152,15 @@ const styles = StyleSheet.create({
   stageRow: { borderTopWidth: 1, paddingTop: 12, marginBottom: 12 },
   stageChange: { fontSize: 13, fontFamily: 'Inter-Medium' },
   nextBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  // Mini variant: stretch across the card so tap target is full-width,
+  // matching the visual weight of the blitz-mode CTA.
+  miniNextBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginTop: 8,
+  },
   nextBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter-SemiBold' },
 })
