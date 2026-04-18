@@ -10,6 +10,11 @@ namespace Api.Endpoints;
 
 public static class SeoEndpoints
 {
+    // Single source of truth for sitemap language filter. UK pages exist in routing
+    // but have no published content yet — excluding them prevents Google indexing
+    // near-empty pages and counting them as thin content.
+    private static readonly string[] SupportedSitemapLanguages = { "en" };
+
     public static void MapSeoEndpoints(this WebApplication app)
     {
         app.MapGet("/robots.txt", GetRobots).WithName("GetRobots").WithTags("SEO");
@@ -107,7 +112,7 @@ public static class SeoEndpoints
         sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
 
         // Only individual book detail pages - no homepage or list pages
-        foreach (var book in books)
+        foreach (var book in books.Where(b => SupportedSitemapLanguages.Contains(b.Language)))
         {
             var loc = CanonicalUrlBuilder.BuildSitemapUrl(site.PrimaryDomain, $"/{book.Language}/books/{book.Slug}");
             sb.AppendLine("  <url>");
@@ -211,6 +216,7 @@ public static class SeoEndpoints
 
         var posts = await db.BlogPosts
             .Where(p => p.SiteId == site.SiteId && p.Status == BlogPostStatus.Published)
+            .Where(p => SupportedSitemapLanguages.Contains(p.Language))
             .OrderByDescending(p => p.PublishedAt)
             .Select(p => new { p.Slug, p.Language, p.UpdatedAt })
             .ToListAsync(ct);
@@ -244,8 +250,8 @@ public static class SeoEndpoints
         var baseUrl = CanonicalUrlBuilder.GetCanonicalBase(site.PrimaryDomain);
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-        // Static pages for each supported language
-        var languages = new[] { "en", "uk" };
+        // Static pages for each supported language (UK dropped: no content yet)
+        var languages = SupportedSitemapLanguages;
         var listPages = new[] { "books", "authors", "genres", "about", "blog" };
 
         var sb = new StringBuilder();

@@ -461,7 +461,8 @@ public class SitemapEndpointTests : IClassFixture<LiveApiFixture>
         var locs = doc.Descendants(SitemapNs + "loc").Select(e => e.Value).ToList();
 
         Assert.Contains(locs, loc => loc.EndsWith("/en/"));
-        Assert.Contains(locs, loc => loc.EndsWith("/uk/"));
+        // UK dropped from pages sitemap until UK has real content — SupportedSitemapLanguages filter
+        Assert.DoesNotContain(locs, loc => loc.EndsWith("/uk/"));
     }
 
     #endregion
