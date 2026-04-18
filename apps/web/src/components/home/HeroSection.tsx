@@ -11,6 +11,7 @@ import { LocalizedLink } from '../LocalizedLink'
 import { uploadUserBook } from '../../api/userBooks'
 import { useContinueReading } from '../../hooks/useContinueReading'
 import { ContinueReadingCard } from './ContinueReadingCard'
+import { FazierBadge } from './FazierBadge'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
 
 export function HeroSection() {
@@ -154,6 +155,8 @@ export function HeroSection() {
           {t('home.hero.subtitleAfter')}
         </p>
         <p className="home-hero__brand-line">{t('home.hero.brandLine')}</p>
+
+        <FazierBadge />
 
         {showGuestCta && (
           <div className="home-hero__cta-group">
