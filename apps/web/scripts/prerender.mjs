@@ -235,6 +235,21 @@ async function renderRoute(browser, routeObj) {
   const page = await browser.newPage();
   const startTime = Date.now();
 
+  // Capture diagnostics for timeout reporting
+  const consoleMessages = [];
+  const failedRequests = [];
+  page.on('console', msg => {
+    const type = msg.type();
+    if (type === 'error' || type === 'warning') {
+      consoleMessages.push(`[${type}] ${msg.text()}`);
+    }
+  });
+  page.on('pageerror', err => consoleMessages.push(`[pageerror] ${err.message}`));
+  page.on('requestfailed', req => failedRequests.push(`${req.method()} ${req.url()} — ${req.failure()?.errorText || 'unknown'}`));
+  page.on('response', res => {
+    if (res.status() >= 400) failedRequests.push(`HTTP ${res.status()} ${res.url()}`);
+  });
+
   try {
     // Set viewport for consistent rendering
     await page.setViewport({ width: 1280, height: 800 });
@@ -275,22 +290,40 @@ async function renderRoute(browser, routeObj) {
       }
 
       // Check if still loading (skeleton visible)
-      const skeleton = document.querySelector('.book-detail__skeleton, .books-grid__skeleton, .author-detail__skeleton, .genre-detail__skeleton');
+      const skeleton = document.querySelector('.book-detail__skeleton, .books-grid__skeleton, .author-detail__skeleton, .author-detail__header--skeleton, .genre-detail__skeleton');
       if (skeleton) return 'skeleton';
 
-      // Check for loaded content
-      const bookDetail = document.querySelector('.book-detail__header h1');
+      // Check for loaded content (match H1 tags specifically, not shared skeleton classes)
+      const bookDetail = document.querySelector('h1.book-hero__title, .book-detail__header h1');
       const booksList = document.querySelector('.books-grid .book-card:not(.book-card--skeleton)');
-      const authorDetail = document.querySelector('.author-detail__name');
-      const genreDetail = document.querySelector('.genre-detail__title');
+      const authorDetail = document.querySelector('h1.author-detail__name');
+      const genreDetail = document.querySelector('h1.genre-detail__title, .genre-detail__title');
       const staticPage = document.querySelector('.about-page, .static-content, main h1');
+      const homePage = document.querySelector('.home-hero__title');
+      const listPage = document.querySelector('.authors-page h1, .genres-page h1, .blog-page h1');
 
-      if (bookDetail || booksList || authorDetail || genreDetail || staticPage) {
+      if (bookDetail || booksList || authorDetail || genreDetail || staticPage || homePage || listPage) {
         return 'content';
       }
 
       return null; // Keep waiting
     }, { timeout: 5000 }).then(h => h?.jsonValue()).catch(() => 'timeout');
+
+    // Fail loudly on timeout or skeleton — previously we silently saved empty shells,
+    // producing 247 SSG files with no H1, canonical, or og:image. Bots got nothing.
+    if (renderState === 'timeout' || renderState === 'skeleton') {
+      const bodySnippet = await page.evaluate(() => {
+        const root = document.querySelector('#root');
+        return (root?.innerHTML || document.body?.innerHTML || '').slice(0, 500);
+      }).catch(() => '<unavailable>');
+      const diag = [
+        `renderState=${renderState}`,
+        `console: ${consoleMessages.slice(-10).join(' | ') || '<none>'}`,
+        `failedRequests: ${failedRequests.slice(-10).join(' | ') || '<none>'}`,
+        `bodySnippet: ${bodySnippet.replace(/\s+/g, ' ')}`,
+      ].join('\n    ');
+      throw new Error(`prerender failed for ${route}\n    ${diag}`);
+    }
 
     // Small stabilization delay for successful content
     if (renderState === 'content') {
