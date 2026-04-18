@@ -94,6 +94,49 @@ jobs:
           grep -q 'map.*is_bot' /etc/nginx/sites-available/textstack || { echo "FAIL: bot map missing from nginx"; exit 1; }
           echo "Bot map found in nginx config"
 
+      - name: Wait for SSG rebuild to complete
+        run: |
+          # Queue SSG rebuild step is async. Poll until the job finishes
+          # (files get atomic-swapped by ssg-worker into $PROJECT_DIR/data/ssg).
+          SSG_DIR=$PROJECT_DIR/data/ssg
+          [ -d "$SSG_DIR" ] || { echo "No SSG dir yet — skipping wait"; exit 0; }
+
+          DEADLINE=$(( $(date +%s) + 600 ))  # 10 min max
+          SENTINEL="$SSG_DIR/en/books/dracula/index.html"
+          until [ -f "$SENTINEL" ] && [ "$(find "$SENTINEL" -mmin -15)" ]; do
+            [ "$(date +%s)" -ge "$DEADLINE" ] && { echo "Timeout waiting for SSG rebuild"; exit 0; }
+            echo "Waiting for SSG rebuild… ($(date))"
+            sleep 30
+          done
+          echo "SSG rebuild complete"
+
+      - name: Validate SSG content
+        run: |
+          # Catch skeleton-only SSG files (empty <h1>, only skeleton divs). Silent-save bug
+          # from before P0.5 left 247 stale shells on disk for 3 months.
+          SSG_DIR=$PROJECT_DIR/data/ssg
+          [ -d "$SSG_DIR" ] || { echo "SSG dir missing: $SSG_DIR (skipping — first deploy)"; exit 0; }
+
+          TOTAL=$(find "$SSG_DIR" -name index.html | wc -l)
+          [ "$TOTAL" -eq 0 ] && { echo "No SSG files yet (rebuild pending) — skip"; exit 0; }
+
+          BAD=0
+          SAMPLES=""
+          while IFS= read -r f; do
+            # Must have a real H1, and must not end with a bare skeleton div
+            if ! grep -q '<h1' "$f" || grep -q '__skeleton"></div></div></div>$' "$f"; then
+              BAD=$((BAD + 1))
+              [ "$BAD" -le 3 ] && SAMPLES="$SAMPLES\n  $f"
+            fi
+          done < <(find "$SSG_DIR" -name index.html)
+
+          echo "SSG files: $TOTAL, bad: $BAD"
+          if [ "$BAD" -gt 0 ]; then
+            printf "FAIL: %d SSG files lack <h1> or are skeleton-only. Samples:%b\n" "$BAD" "$SAMPLES"
+            exit 1
+          fi
+          echo "SSG content validation passed"
+
           echo "All SEO checks passed"
 
       - name: Restart systemd pollers
