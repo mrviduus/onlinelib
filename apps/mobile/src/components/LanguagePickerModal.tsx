@@ -63,8 +63,18 @@ export function LanguagePickerModal({ visible, onClose, value, onChange }: Props
         >
           <View style={styles.grabber} />
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Select language</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              accessibilityRole="header"
+            >
+              Select language
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close language picker"
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -80,6 +90,8 @@ export function LanguagePickerModal({ visible, onClose, value, onChange }: Props
               autoCorrect={false}
               autoCapitalize="none"
               autoFocus
+              accessibilityLabel="Search language"
+              returnKeyType="search"
             />
           </View>
 
@@ -98,7 +110,10 @@ export function LanguagePickerModal({ visible, onClose, value, onChange }: Props
               renderItem={({ item }) => {
                 if (item.kind === 'section') {
                   return (
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[styles.sectionLabel, { color: colors.textSecondary }]}
+                      accessibilityRole="header"
+                    >
                       {item.title}
                     </Text>
                   )
@@ -114,6 +129,13 @@ export function LanguagePickerModal({ visible, onClose, value, onChange }: Props
                     ]}
                     onPress={() => handleSelect(lang.code)}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      lang.englishName === lang.nativeName
+                        ? lang.nativeName
+                        : `${lang.nativeName}, ${lang.englishName}`
+                    }
+                    accessibilityState={{ selected }}
                   >
                     <Text style={styles.flag}>{getFlagEmoji(lang.code)}</Text>
                     <View style={{ flex: 1 }}>

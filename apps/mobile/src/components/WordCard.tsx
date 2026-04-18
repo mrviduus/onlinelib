@@ -87,13 +87,29 @@ export function WordCard({
   // Fetch translation on mount. Source/target come from useTargetLanguage —
   // previously the pair was hardcoded en↔uk which broke for users reading
   // non-English books or whose native language isn't Ukrainian (B-07).
+  //
+  // Cancellation flag: rapid re-taps on different words could land the
+  // first response after the second — overwriting the current translation
+  // with stale text (B-72). The cancelled-check before each setState
+  // prevents that without aborting the underlying request.
   useEffect(() => {
+    let cancelled = false
     setTranslation('')
     setTranslating(true)
     translationApi.translate(word, fromLang, toLang)
-      .then((res: any) => setTranslation(res.translatedText || res.translation || ''))
-      .catch(() => setTranslation(''))
-      .finally(() => setTranslating(false))
+      .then((res: { translatedText?: string; translation?: string }) => {
+        if (cancelled) return
+        setTranslation(res.translatedText || res.translation || '')
+      })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Translate failed:', e)
+        setTranslation('')
+      })
+      .finally(() => {
+        if (!cancelled) setTranslating(false)
+      })
+    return () => { cancelled = true }
   }, [word, fromLang, toLang])
 
   // Entry animation
@@ -132,7 +148,15 @@ export function WordCard({
       },
     ]}>
       {/* Level 1: Word + translation + save */}
-      <TouchableOpacity activeOpacity={0.9} onPress={() => { cancelAutoDismiss(); setExpanded(!expanded) }} style={styles.mainRow}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => { cancelAutoDismiss(); setExpanded(!expanded) }}
+        style={styles.mainRow}
+        accessibilityRole="button"
+        accessibilityLabel={`Word: ${word}${translation ? `, translation: ${translation}` : ''}`}
+        accessibilityHint={expanded ? 'Tap to collapse details' : 'Tap to expand actions'}
+        accessibilityState={{ expanded }}
+      >
         <View style={styles.wordCol}>
           <View style={styles.wordRow}>
             <Text style={[styles.word, { color: colors.text }]}>{word}</Text>
@@ -143,14 +167,20 @@ export function WordCard({
             )}
           </View>
           {translating ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
+            <ActivityIndicator size="small" color={colors.textSecondary} style={{ alignSelf: 'flex-start', marginTop: 2 }} accessibilityLabel="Translating" />
           ) : translation ? (
             <Text style={[styles.translation, { color: colors.textSecondary }]} numberOfLines={1}>{translation}</Text>
           ) : null}
         </View>
 
         {/* TTS button */}
-        <TouchableOpacity style={styles.iconBtn} onPress={() => { cancelAutoDismiss(); onSpeak() }}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => { cancelAutoDismiss(); onSpeak() }}
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? 'Stop speaking' : 'Speak word'}
+          accessibilityState={{ selected: !!isSpeaking }}
+        >
           <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.primary} />
         </TouchableOpacity>
 
@@ -158,17 +188,31 @@ export function WordCard({
         {isAuthenticated && (
           <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
             {wordSaved ? (
-              <View style={[styles.savedBtn, { backgroundColor: '#10B981' }]}>
+              <View
+                style={[styles.savedBtn, { backgroundColor: '#10B981' }]}
+                accessibilityRole="image"
+                accessibilityLabel="Word saved"
+              >
                 <Ionicons name="checkmark" size={16} color="#fff" />
               </View>
             ) : stage ? (
               stage.label !== '✓' && onMarkKnown ? (
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#22c55e' }]} onPress={onMarkKnown}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#22c55e' }]}
+                  onPress={onMarkKnown}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark word as known"
+                >
                   <Ionicons name="checkmark-done" size={16} color="#fff" />
                 </TouchableOpacity>
               ) : null
             ) : (
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#10B981' }]} onPress={onSave}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: '#10B981' }]}
+                onPress={onSave}
+                accessibilityRole="button"
+                accessibilityLabel="Save word to vocabulary"
+              >
                 <Ionicons name="add" size={18} color="#fff" />
                 <Text style={styles.saveBtnText}>Save</Text>
               </TouchableOpacity>
@@ -196,6 +240,8 @@ export function WordCard({
                   key={h.key}
                   style={[styles.colorBtn, { backgroundColor: h.color }]}
                   onPress={() => onHighlight(h.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Highlight in ${h.key}`}
                 />
               ))}
             </View>
@@ -203,11 +249,21 @@ export function WordCard({
 
           {/* Action buttons */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={onDictionary}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.border }]}
+              onPress={onDictionary}
+              accessibilityRole="button"
+              accessibilityLabel="Look up in dictionary"
+            >
               <Ionicons name="book-outline" size={16} color={colors.text} />
               <Text style={[styles.actionBtnText, { color: colors.text }]}>Dictionary</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={onDismiss}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.border }]}
+              onPress={onDismiss}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss word card"
+            >
               <Ionicons name="close-outline" size={16} color={colors.textSecondary} />
               <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>Dismiss</Text>
             </TouchableOpacity>

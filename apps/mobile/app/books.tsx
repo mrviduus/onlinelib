@@ -27,15 +27,32 @@ export default function BooksScreen() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [query, setQuery] = useState('')
+  const [queryDebounced, setQueryDebounced] = useState('')
   const [sort, setSort] = useState('')
   const [genre, setGenre] = useState('')
   const [genres, setGenres] = useState<Genre[]>([])
   const lastFetchRef = useRef(0)
+  const genresGenRef = useRef(0)
+
+  // Debounce search input — 300ms mirrors highlights + search screens.
+  // Without it every keystroke fired a request, burning bandwidth and
+  // creating bursts of stale responses the generation counter has to
+  // throw away.
+  useEffect(() => {
+    const h = setTimeout(() => setQueryDebounced(query), 300)
+    return () => clearTimeout(h)
+  }, [query])
 
   useEffect(() => {
+    const gen = ++genresGenRef.current
     createBooksApi(language).getGenres()
-      .then(res => setGenres(res.items))
-      .catch(() => {})
+      .then(res => {
+        if (gen !== genresGenRef.current) return
+        setGenres(res.items)
+      })
+      .catch(e => {
+        if (gen === genresGenRef.current) console.warn('Failed to load genres:', e)
+      })
   }, [language])
 
   const fetchBooks = useCallback(async (reset = true) => {
@@ -48,7 +65,7 @@ export default function BooksScreen() {
       const res = await api.getBooks({
         limit: PAGE_SIZE,
         offset,
-        search: query || undefined,
+        search: queryDebounced || undefined,
         genre: genre || undefined,
         sort: sort || undefined,
       })
@@ -56,14 +73,16 @@ export default function BooksScreen() {
       setBooks(prev => reset ? res.items : [...prev, ...res.items])
       setTotal(res.total)
     } catch (e) {
-      console.error('Failed to fetch books:', e)
+      if (id === lastFetchRef.current) console.warn('Failed to fetch books:', e)
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (id === lastFetchRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
-  }, [query, sort, genre, books.length, language])
+  }, [queryDebounced, sort, genre, books.length, language])
 
-  useEffect(() => { fetchBooks(true) }, [query, sort, genre, language])
+  useEffect(() => { fetchBooks(true) }, [queryDebounced, sort, genre, language])
 
   const loadMore = () => {
     if (!loadingMore && books.length < total) fetchBooks(false)

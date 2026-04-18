@@ -9,6 +9,7 @@ import { vocabularyApi, getVocabLevel } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -41,6 +42,7 @@ export default function VocabularyScreen() {
   const { t } = useLanguage()
   const router = useRouter()
   const { toggle: toggleTts } = useTts()
+  const { show: showToast } = useToast()
   const [words, setWords] = useState<VocabularyWordDto[]>([])
   const [stats, setStats] = useState<VocabularyStatsDto | null>(null)
   const [tab, setTab] = useState<TabKey>('all')
@@ -59,9 +61,14 @@ export default function VocabularyScreen() {
   // from overwriting current results when the user types quickly or flips
   // tabs mid-flight (B-10). Set to -1 on unmount.
   const loadGenRef = useRef(0)
+  // Blocks re-entrant loadData(true) from `onEndReached` — FlatList can fire
+  // the callback multiple times while a fetch is in flight on short lists.
+  const loadingMoreRef = useRef(false)
   useEffect(() => () => { loadGenRef.current = -1 }, [])
 
   const loadData = useCallback(async (loadMore = false) => {
+    if (loadMore && loadingMoreRef.current) return
+    if (loadMore) loadingMoreRef.current = true
     const myGen = ++loadGenRef.current
     try {
       const currentOffset = loadMore ? offsetRef.current : 0
@@ -80,8 +87,9 @@ export default function VocabularyScreen() {
       if (!loadMore && st) setStats(st)
     } catch (e) {
       if (myGen !== loadGenRef.current) return
-      console.error('Vocab load error:', e)
+      console.warn('Vocab load error:', e)
     } finally {
+      if (loadMore) loadingMoreRef.current = false
       if (myGen === loadGenRef.current) setLoading(false)
     }
   }, [activeFilter, search, sort])
@@ -100,19 +108,32 @@ export default function VocabularyScreen() {
   }
 
   const handleDelete = async (id: string) => {
+    // Optimistic remove + rollback on error. Prior impl silently swallowed
+    // failures — the row stayed, user tapped again thinking nothing happened,
+    // spamming the API. Snapshot → filter → rollback + toast if API rejects.
+    const snapshot = words
+    const snapshotTotal = total
+    setWords(prev => prev.filter(w => w.id !== id))
+    setTotal(prev => prev - 1)
+    setExpandedId(null)
     try {
       await vocabularyApi.deleteWord(id)
-      setWords(prev => prev.filter(w => w.id !== id))
-      setTotal(prev => prev - 1)
-      setExpandedId(null)
-    } catch {}
+    } catch (e) {
+      console.warn('Delete vocab word failed:', e)
+      setWords(snapshot)
+      setTotal(snapshotTotal)
+      showToast({ message: 'Could not delete word. Try again.', variant: 'error' })
+    }
   }
 
   const handleEdit = async (id: string, data: { translation?: string; definition?: string }) => {
     try {
       const updated = await vocabularyApi.updateWord(id, data)
       setWords(prev => prev.map(w => w.id === id ? updated : w))
-    } catch {}
+    } catch (e) {
+      console.warn('Edit vocab word failed:', e)
+      showToast({ message: 'Could not save changes. Try again.', variant: 'error' })
+    }
   }
 
   const dueCount = stats?.dueNow ?? 0

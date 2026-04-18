@@ -63,7 +63,13 @@ export const HorizontalBookList = memo(function HorizontalBookList({
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
         {onViewAll && (
-          <TouchableOpacity onPress={onViewAll} activeOpacity={0.6} hitSlop={8}>
+          <TouchableOpacity
+            onPress={onViewAll}
+            activeOpacity={0.6}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={viewAllLabel ?? `See all ${title}`}
+          >
             <Text style={[styles.viewAll, { color: colors.primary }]}>
               {viewAllLabel ?? 'See all'}
             </Text>

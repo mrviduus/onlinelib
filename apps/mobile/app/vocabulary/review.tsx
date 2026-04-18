@@ -38,13 +38,27 @@ export default function VocabularyReviewScreen() {
     if (params.reviewMode === 'classic' || params.reviewMode === 'blitz') {
       review.setReviewMode(params.reviewMode)
     }
+    // Intentionally only on mount — params shouldn't re-trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Start session
   useEffect(() => {
     sessionStartRef.current = Date.now()
     review.startSession(batchSize, review.reviewMode)
+    // `review` is stable per-hook, review.reviewMode read at call time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchSize])
+
+  // Haptic on session-complete — must be in an effect, not render, or
+  // it re-fires on every re-render while the summary is visible.
+  const sessionComplete = review.isSessionComplete || !review.hasCards
+  useEffect(() => {
+    if (sessionComplete && !review.loading) {
+      haptics.play('complete')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionComplete, review.loading])
 
   const handleAnswer = async (isCorrect: boolean, responseTimeMs: number, selfAssessment?: SelfAssessment) => {
     haptics.play(isCorrect ? 'correct' : 'wrong')
@@ -68,9 +82,8 @@ export default function VocabularyReviewScreen() {
     )
   }
 
-  // Session complete
-  if (review.isSessionComplete || !review.hasCards) {
-    haptics.play('complete')
+  // Session complete (haptic fires from the effect above, not here)
+  if (sessionComplete) {
     return (
       <>
         <Stack.Screen options={{ title: review.hasCards ? 'Session Complete' : 'Practice', headerShown: true }} />

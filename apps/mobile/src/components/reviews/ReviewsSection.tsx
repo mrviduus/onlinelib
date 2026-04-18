@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
 import { reviewsApi } from '@textstack/shared'
 import type { PublicReviewDto, ReviewStatsDto } from '@textstack/shared/api/reviews'
 import { ReviewCard } from './ReviewCard'
@@ -26,29 +25,50 @@ export function ReviewsSection({ editionId }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [sort, setSort] = useState<'popular' | 'newest' | 'oldest'>('popular')
   const [ratingFilter, setRatingFilter] = useState<number | null>(null)
+  const fetchGenRef = useRef(0)
+  const loadingMoreRef = useRef(false)
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    const gen = ++fetchGenRef.current
     setLoading(true)
     try {
       const [s, r] = await Promise.all([
         reviewsApi.getBookReviewStats(editionId),
         reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE, rating: ratingFilter || undefined }),
       ])
+      if (gen !== fetchGenRef.current) return
       setStats(s)
       setReviews(r.items)
       setTotal(r.total)
-    } catch {}
-    setLoading(false)
-  }
+    } catch (e) {
+      if (gen === fetchGenRef.current) console.warn('Reviews fetch failed:', e)
+    } finally {
+      if (gen === fetchGenRef.current) setLoading(false)
+    }
+  }, [editionId, sort, ratingFilter])
 
-  useEffect(() => { fetchAll() }, [editionId, sort, ratingFilter])
+  useEffect(() => { fetchAll() }, [fetchAll])
 
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    const gen = fetchGenRef.current
     try {
-      const r = await reviewsApi.getBookReviews(editionId, { sort, limit: PAGE_SIZE, offset: reviews.length, rating: ratingFilter || undefined })
+      const r = await reviewsApi.getBookReviews(editionId, {
+        sort,
+        limit: PAGE_SIZE,
+        offset: reviews.length,
+        rating: ratingFilter || undefined,
+      })
+      // Filter may have changed mid-request — drop stale results.
+      if (gen !== fetchGenRef.current) return
       setReviews(prev => [...prev, ...r.items])
-    } catch {}
-  }
+    } catch (e) {
+      console.warn('Reviews load more failed:', e)
+    } finally {
+      loadingMoreRef.current = false
+    }
+  }, [editionId, sort, ratingFilter, reviews.length])
 
   const handleRatingFilter = (r: number) => {
     setRatingFilter(ratingFilter === r ? null : r)
@@ -63,7 +83,12 @@ export function ReviewsSection({ editionId }: Props) {
       <View style={styles.headerRow}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Reviews</Text>
         {isAuthenticated && !showForm && (
-          <TouchableOpacity onPress={() => setShowForm(true)} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setShowForm(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Write a review"
+          >
             <Text style={[styles.writeButton, { color: colors.primary }]}>Write Review</Text>
           </TouchableOpacity>
         )}
@@ -88,6 +113,9 @@ export function ReviewsSection({ editionId }: Props) {
               onPress={() => handleRatingFilter(r)}
               style={[styles.sortChip, ratingFilter === r && { backgroundColor: colors.primaryLight }]}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by ${r} stars`}
+              accessibilityState={{ selected: ratingFilter === r }}
             >
               <Text style={[styles.sortText, { color: ratingFilter === r ? colors.primary : colors.textSecondary }]}>
                 {r}★
@@ -106,6 +134,9 @@ export function ReviewsSection({ editionId }: Props) {
               onPress={() => setSort(s)}
               style={[styles.sortChip, sort === s && { backgroundColor: colors.primaryLight }]}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Sort by ${label}`}
+              accessibilityState={{ selected: sort === s }}
             >
               <Text style={[styles.sortText, { color: sort === s ? colors.primary : colors.textSecondary }]}>
                 {label}
@@ -121,13 +152,19 @@ export function ReviewsSection({ editionId }: Props) {
           review={r}
           editionId={editionId}
           isAuthenticated={isAuthenticated}
-          onLike={() => reviewsApi.likeReview(r.id).catch(() => {})}
-          onUnlike={() => reviewsApi.unlikeReview(r.id).catch(() => {})}
+          onLike={() => reviewsApi.likeReview(r.id).catch(e => console.warn('Like review failed:', e))}
+          onUnlike={() => reviewsApi.unlikeReview(r.id).catch(e => console.warn('Unlike review failed:', e))}
         />
       ))}
 
       {reviews.length < total && (
-        <TouchableOpacity onPress={loadMore} style={[styles.loadMore, { borderColor: colors.border }]} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={loadMore}
+          style={[styles.loadMore, { borderColor: colors.border }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Load more reviews"
+        >
           <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More</Text>
         </TouchableOpacity>
       )}

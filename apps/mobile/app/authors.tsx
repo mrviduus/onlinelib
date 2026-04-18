@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput,
 } from 'react-native'
@@ -23,31 +23,45 @@ export default function AuthorsScreen() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [query, setQuery] = useState('')
+  const [queryDebounced, setQueryDebounced] = useState('')
   const [sort, setSort] = useState<'' | 'recent'>('')
+  const lastFetchRef = useRef(0)
+
+  // Debounce search input — same 300ms as books/highlights/search so
+  // each keystroke doesn't fire its own request, and stale responses
+  // can't overwrite fresh ones while the user is still typing.
+  useEffect(() => {
+    const h = setTimeout(() => setQueryDebounced(query), 300)
+    return () => clearTimeout(h)
+  }, [query])
 
   const fetchAuthors = useCallback(async (reset = true) => {
     const api = createBooksApi(language)
     const offset = reset ? 0 : authors.length
     if (reset) setLoading(true)
     else setLoadingMore(true)
+    const id = ++lastFetchRef.current
     try {
       const res = await api.getAuthors({
         limit: PAGE_SIZE,
         offset,
         sort: sort || undefined,
-        search: query || undefined,
+        search: queryDebounced || undefined,
       })
+      if (id !== lastFetchRef.current) return
       setAuthors(prev => reset ? res.items : [...prev, ...res.items])
       setTotal(res.total)
     } catch (e) {
-      console.error('Failed to fetch authors:', e)
+      if (id === lastFetchRef.current) console.warn('Failed to fetch authors:', e)
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (id === lastFetchRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
-  }, [query, sort, authors.length, language])
+  }, [queryDebounced, sort, authors.length, language])
 
-  useEffect(() => { fetchAuthors(true) }, [query, sort, language])
+  useEffect(() => { fetchAuthors(true) }, [queryDebounced, sort, language])
 
   const loadMore = () => {
     if (!loadingMore && authors.length < total) fetchAuthors(false)

@@ -46,7 +46,12 @@ export default function NotFoundScreen() {
       <Stack.Screen options={{ title: 'Not Found', headerShown: true }} />
       <View style={styles.center}>
         <Text style={styles.title}>Page not found</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => router.replace('/')}>
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => router.replace('/')}
+          accessibilityRole="button"
+          accessibilityLabel="Go to home screen"
+        >
           <Text style={styles.btnText}>Go Home</Text>
         </TouchableOpacity>
       </View>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, TextInput as TextInputNative,
@@ -11,6 +11,7 @@ import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -33,8 +34,14 @@ export default function StatsScreen() {
   const [year, setYear] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // Generation counter — stats screen can refocus mid-fetch (push to
+  // Goals detail → back) or change the `year` filter quickly; without
+  // this, a stale 7-way response would overwrite the fresh one.
+  const genRef = useRef(0)
+  const { show: showToast } = useToast()
 
   const loadData = useCallback(async () => {
+    const gen = ++genRef.current
     try {
       const tz = -new Date().getTimezoneOffset()
       const [s, d, a, g, bs, vs, vd] = await Promise.all([
@@ -46,6 +53,7 @@ export default function StatsScreen() {
         vocabularyApi.getVocabularyStats().catch(() => null as VocabularyStatsDto | null),
         vocabularyApi.getVocabularyDailyStats(tz).catch(() => [] as VocabDailyStatDto[]),
       ])
+      if (gen !== genRef.current) return
       setStats(s)
       setDaily(d)
       setAchievements(a)
@@ -54,14 +62,19 @@ export default function StatsScreen() {
       setVocabStats(vs)
       setVocabDaily(vd)
     } catch (e) {
-      console.error('Stats load error:', e)
+      if (gen === genRef.current) console.warn('Stats load error:', e)
     } finally {
-      setLoading(false)
+      if (gen === genRef.current) setLoading(false)
     }
   }, [year])
 
   useEffect(() => { loadData() }, [loadData])
-  useFocusEffect(useCallback(() => { if (!loading) loadData() }, [loading, loadData]))
+  useFocusEffect(useCallback(() => {
+    // Refresh on focus, but only after first load completes so we don't
+    // double-fetch on mount. `loadData` itself carries a generation
+    // counter, so refocusing mid-in-flight is safe.
+    if (!loading) loadData()
+  }, [loading, loadData]))
 
   const onRefresh = async () => {
     setRefreshing(true)
@@ -429,6 +442,7 @@ function AchievementsSection({
 
 function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => void }) {
   const { colors } = useTheme()
+  const { show: showToast } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [goalType, setGoalType] = useState<'daily_minutes' | 'books_per_year'>('daily_minutes')
   const [target, setTarget] = useState('')
@@ -446,15 +460,24 @@ function GoalsSection({ goals, onUpdate }: { goals: GoalDto[]; onUpdate: () => v
       setTarget('')
       setStreakMin('')
       onUpdate()
-    } catch {}
-    setSaving(false)
+    } catch (e) {
+      console.warn('Create goal failed:', e)
+      showToast({ message: 'Could not create goal. Try again.', variant: 'error' })
+    } finally {
+      // Always release the saving lock — silent catch used to leave it
+      // stuck at `true`, disabling the Save button forever.
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
     try {
       await readingTrackingApi.deleteGoal(id)
       onUpdate()
-    } catch {}
+    } catch (e) {
+      console.warn('Delete goal failed:', e)
+      showToast({ message: 'Could not delete goal. Try again.', variant: 'error' })
+    }
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch, ActivityIndicator } from 'react-native'
 import { reviewsApi } from '@textstack/shared'
 import { StarRatingInput } from './StarRatingInput'
@@ -19,8 +19,15 @@ export function ReviewForm({ editionId, onSubmit, onCancel }: ReviewFormProps) {
   const [isSpoiler, setIsSpoiler] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const handleSubmit = async () => {
+    if (saving) return
     if (rating < 1) { setError('Please select a rating'); return }
     if (!reviewText.trim()) { setError('Please write a review'); return }
     setSaving(true)
@@ -32,11 +39,15 @@ export function ReviewForm({ editionId, onSubmit, onCancel }: ReviewFormProps) {
         reviewText: reviewText.trim(),
         isSpoiler,
       })
+      if (!mountedRef.current) return
       onSubmit()
-    } catch (e: any) {
-      setError(e.message || 'Failed to submit')
+    } catch (e: unknown) {
+      if (!mountedRef.current) return
+      const msg = e instanceof Error ? e.message : 'Failed to submit'
+      console.warn('Submit review failed:', e)
+      setError(msg)
     } finally {
-      setSaving(false)
+      if (mountedRef.current) setSaving(false)
     }
   }
 
@@ -75,7 +86,13 @@ export function ReviewForm({ editionId, onSubmit, onCancel }: ReviewFormProps) {
       {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={[styles.cancelButton, { borderColor: colors.border }]} onPress={onCancel} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[styles.cancelButton, { borderColor: colors.border }]}
+          onPress={onCancel}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel review"
+        >
           <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -83,6 +100,9 @@ export function ReviewForm({ editionId, onSubmit, onCancel }: ReviewFormProps) {
           onPress={handleSubmit}
           disabled={saving}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Submit review"
+          accessibilityState={{ disabled: saving, busy: saving }}
         >
           {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitText}>Submit</Text>}
         </TouchableOpacity>

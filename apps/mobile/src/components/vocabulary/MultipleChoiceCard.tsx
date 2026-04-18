@@ -56,6 +56,9 @@ export function MultipleChoiceCard({ card, onAnswer, onSpeak, disabled }: Props)
             onPress={() => submitChoice(idx === card.correctOptionIndex)}
             disabled={submitted || disabled}
             style={[styles.option, getOptionStyle(idx)]}
+            accessibilityRole="button"
+            accessibilityLabel={`Option ${idx + 1}: ${opt}`}
+            accessibilityState={{ disabled: submitted || disabled }}
           >
             <Text style={[styles.optionText, { color: getOptionTextColor(idx) }]}>{opt}</Text>
           </PressableScale>

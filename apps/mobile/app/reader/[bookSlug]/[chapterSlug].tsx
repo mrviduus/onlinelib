@@ -281,7 +281,7 @@ export default function ReaderScreen() {
           }
         }
       } catch (e) {
-        if (!cancelled) console.error('Offline cache read failed:', e)
+        if (!cancelled) console.warn('Offline cache read failed:', e)
       }
 
       // No online response AND no cached copy — show a proper empty state.
@@ -475,12 +475,15 @@ export default function ReaderScreen() {
       translationApi.translate(selection.text, language, targetLang)
         .then(res => {
           if (res.translatedText && saved.id) {
-            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(e => console.warn('Word translation persist failed:', e))
             vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
           }
         })
-        .catch(() => {})
-    } catch {}
+        .catch(e => console.warn('Word translation lookup failed:', e))
+    } catch (e) {
+      console.warn('Save word failed:', e)
+      showToast({ message: 'Could not save word. Try again.', variant: 'error' })
+    }
   }
 
   const handleMarkKnown = async () => {
@@ -493,7 +496,10 @@ export default function ReaderScreen() {
       vocabMapRef.current[key] = { ...entry, stage: 4 }
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
       setSelection(null)
-    } catch {}
+    } catch (e) {
+      console.warn('Mark as known failed:', e)
+      showToast({ message: 'Could not mark as known. Try again.', variant: 'error' })
+    }
   }
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -534,7 +540,8 @@ export default function ReaderScreen() {
       highlightsRef.current = [...highlightsRef.current, hl]
       setSelection(null)
     } catch (e) {
-      console.error('Failed to create highlight:', e)
+      console.warn('Failed to create highlight:', e)
+      showToast({ message: 'Could not add highlight. Try again.', variant: 'error' })
     }
   }
 
@@ -908,7 +915,10 @@ export default function ReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-            } catch {}
+            } catch (e) {
+              console.warn('Highlight note save failed:', e)
+              showToast({ message: 'Could not save note. Try again.', variant: 'error' })
+            }
           }}
           onDelete={async () => {
             const hl = editingHighlight
@@ -918,7 +928,10 @@ export default function ReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-            } catch {}
+            } catch (e) {
+              console.warn('Highlight delete failed:', e)
+              showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
+            }
           }}
         />
 

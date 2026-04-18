@@ -81,12 +81,12 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
       .then((saved) => {
         if (saved === 'light' || saved === 'dark' || saved === 'system') setThemePref(saved)
       })
-      .catch(() => {})
+      .catch(e => console.warn('FocusReader theme read failed:', e))
   }, [])
   const cycleTheme = useCallback(() => {
     setThemePref((p) => {
       const next: ThemePref = p === 'system' ? 'light' : p === 'light' ? 'dark' : 'system'
-      AsyncStorage.setItem(THEME_KEY, next).catch(() => {})
+      AsyncStorage.setItem(THEME_KEY, next).catch(e => console.warn('FocusReader theme persist failed:', e))
       return next
     })
   }, [])
@@ -178,14 +178,14 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
           }
         }
       })
-      .catch(() => {})
+      .catch(e => console.warn('FocusReader position read failed:', e))
     // only once per chapter
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, sentences.length])
 
   useEffect(() => {
     if (!storageKey) return
-    AsyncStorage.setItem(storageKey, String(currentIndex)).catch(() => {})
+    AsyncStorage.setItem(storageKey, String(currentIndex)).catch(e => console.warn('FocusReader position persist failed:', e))
   }, [storageKey, currentIndex])
 
   // Exit → return to classic reader
@@ -277,6 +277,7 @@ export function FocusReader({ mode, bookSlug, bookId, chapterSlug }: Props) {
       } catch (err) {
         if (ctrl.signal.aborted) return
         if ((err as { name?: string })?.name === 'AbortError') return
+        console.warn('FocusReader translate failed:', err)
         setTap({ key, text: '—', loading: false })
       }
     },

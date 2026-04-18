@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { reviewsApi } from '@textstack/shared'
 import { StarRatingDisplay } from './StarRatingInput'
 import { useTheme } from '../../context/ThemeContext'
+import { useToast } from '../../context/ToastContext'
 import { fonts } from '../../theme/typography'
 import type { PublicReviewDto, ReviewCommentDto } from '@textstack/shared/api/reviews'
 
@@ -18,6 +19,7 @@ interface ReviewCardProps {
 
 export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticated }: ReviewCardProps) {
   const { colors } = useTheme()
+  const toast = useToast()
   const [showSpoiler, setShowSpoiler] = useState(false)
   const [liked, setLiked] = useState(review.isLikedByMe)
   const [helpfulCount, setHelpfulCount] = useState(review.helpfulCount)
@@ -25,6 +27,13 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
   const [comments, setComments] = useState<ReviewCommentDto[]>([])
   const [commentText, setCommentText] = useState('')
   const [loadingComments, setLoadingComments] = useState(false)
+  const [submittingComment, setSubmittingComment] = useState(false)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const toggleComments = async () => {
     if (commentsOpen) { setCommentsOpen(false); return }
@@ -34,25 +43,43 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
       setLoadingComments(true)
       try {
         const res = await reviewsApi.getReviewComments(editionId, review.id)
+        if (!mountedRef.current) return
         setComments(res.items)
-      } catch {}
-      setLoadingComments(false)
+      } catch (e) {
+        if (mountedRef.current) {
+          console.warn('Load comments failed:', e)
+          toast.show({ message: 'Could not load comments', variant: 'error' })
+        }
+      } finally {
+        if (mountedRef.current) setLoadingComments(false)
+      }
     }
   }
 
   const submitComment = async () => {
-    if (!commentText.trim()) return
+    const body = commentText.trim()
+    if (!body || submittingComment) return
+    setSubmittingComment(true)
     try {
-      const c = await reviewsApi.addReviewComment(review.id, commentText.trim())
+      const c = await reviewsApi.addReviewComment(review.id, body)
+      if (!mountedRef.current) return
       setComments(prev => [...prev, c])
       setCommentText('')
-    } catch {}
+    } catch (e) {
+      if (mountedRef.current) {
+        console.warn('Submit comment failed:', e)
+        toast.show({ message: 'Could not post comment', variant: 'error' })
+      }
+    } finally {
+      if (mountedRef.current) setSubmittingComment(false)
+    }
   }
 
   const handleLike = () => {
+    // Clamp helpful count so rapid flips can't drive it negative.
     if (liked) {
       setLiked(false)
-      setHelpfulCount(c => c - 1)
+      setHelpfulCount(c => Math.max(0, c - 1))
       onUnlike?.()
     } else {
       setLiked(true)
@@ -94,7 +121,11 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
 
       {/* Body */}
       {review.isSpoiler && !showSpoiler ? (
-        <TouchableOpacity onPress={() => setShowSpoiler(true)}>
+        <TouchableOpacity
+          onPress={() => setShowSpoiler(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Reveal spoiler review"
+        >
           <Text style={[styles.spoilerText, { color: colors.textSecondary }]}>
             This review contains spoilers. Tap to reveal.
           </Text>
@@ -106,7 +137,14 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
       {/* Actions */}
       <View style={styles.actions}>
         {isAuthenticated && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleLike} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleLike}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={liked ? `Unlike review (${helpfulCount} helpful)` : `Mark review helpful (${helpfulCount})`}
+            accessibilityState={{ selected: liked }}
+          >
             <Ionicons
               name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
               size={16}
@@ -120,7 +158,14 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
           </TouchableOpacity>
         )}
         {review.commentCount > 0 || isAuthenticated ? (
-          <TouchableOpacity style={styles.actionButton} onPress={toggleComments} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={toggleComments}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={commentsOpen ? 'Hide comments' : `Show comments (${review.commentCount})`}
+            accessibilityState={{ expanded: commentsOpen }}
+          >
             <Ionicons name="chatbubble-outline" size={16} color={colors.textSecondary} />
             {review.commentCount > 0 && (
               <Text style={[styles.actionText, { color: colors.textSecondary }]}>{review.commentCount}</Text>
@@ -155,8 +200,15 @@ export function ReviewCard({ review, editionId, onLike, onUnlike, isAuthenticate
                     placeholderTextColor={colors.textSecondary}
                     multiline
                   />
-                  <TouchableOpacity onPress={submitComment} disabled={!commentText.trim()} activeOpacity={0.7}>
-                    <Ionicons name="send" size={18} color={commentText.trim() ? colors.primary : colors.textSecondary} />
+                  <TouchableOpacity
+                    onPress={submitComment}
+                    disabled={!commentText.trim() || submittingComment}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Post comment"
+                    accessibilityState={{ disabled: !commentText.trim() || submittingComment }}
+                  >
+                    <Ionicons name="send" size={18} color={commentText.trim() && !submittingComment ? colors.primary : colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               )}

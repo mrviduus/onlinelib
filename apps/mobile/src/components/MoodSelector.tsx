@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { moodsApi } from '@textstack/shared'
 import type { MoodDto } from '@textstack/shared/api/moods'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useToast } from '../context/ToastContext'
 import { fonts } from '../theme/typography'
 
 interface MoodSelectorProps {
@@ -14,32 +15,61 @@ interface MoodSelectorProps {
 export function MoodSelector({ editionId, userBookId }: MoodSelectorProps) {
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
+  const toast = useToast()
   const [moods, setMoods] = useState<MoodDto[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const mountedRef = useRef(true)
 
   const bookId = userBookId || editionId
   const isUserBook = !!userBookId
 
   useEffect(() => {
-    moodsApi.getAllMoods().then(setMoods).catch(() => {})
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
   }, [])
 
+  // Cancellation flag prevents stale mood-list responses from a previous
+  // language overwriting the current list during fast theme/lang switches.
+  useEffect(() => {
+    let cancelled = false
+    moodsApi.getAllMoods()
+      .then(m => { if (!cancelled) setMoods(m) })
+      .catch(e => { if (!cancelled) console.warn('Moods load failed:', e) })
+    return () => { cancelled = true }
+  }, [])
+
+  // Per-book moods. Cancellation handles fast book switching that previously
+  // could leave the wrong book's mood selection visible.
   useEffect(() => {
     if (!isAuthenticated || !bookId) return
+    let cancelled = false
+    setLoaded(false)
     const fetchMoods = isUserBook
       ? moodsApi.getMoodsForUserBook(bookId)
       : moodsApi.getMoodsForEdition(bookId)
     fetchMoods
-      .then((ids) => { setSelected(new Set(ids)); setLoaded(true) })
-      .catch(() => setLoaded(true))
+      .then(ids => {
+        if (cancelled) return
+        setSelected(new Set(ids))
+        setLoaded(true)
+      })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Book moods load failed:', e)
+        setLoaded(true)
+      })
+    return () => { cancelled = true }
   }, [isAuthenticated, bookId, isUserBook])
 
-  if (!isAuthenticated || moods.length === 0 || !loaded) return null
-
-  const toggle = async (moodId: string) => {
+  const toggle = useCallback(async (moodId: string) => {
     if (saving || !bookId) return
+    // Snapshot for rollback. The previous implementation rolled back via
+    // `setSelected(selected)` which works only because of the saving guard
+    // (no concurrent mutations possible) — making it explicit avoids future
+    // foot-guns if the guard ever moves.
+    const snapshot = new Set(selected)
     const next = new Set(selected)
     if (next.has(moodId)) {
       next.delete(moodId)
@@ -52,11 +82,18 @@ export function MoodSelector({ editionId, userBookId }: MoodSelectorProps) {
     try {
       const setMoodsFn = isUserBook ? moodsApi.setMoodsForUserBook : moodsApi.setMoodsForEdition
       await setMoodsFn(bookId, Array.from(next))
-    } catch {
-      setSelected(selected)
+    } catch (e) {
+      console.warn('Save moods failed:', e)
+      if (mountedRef.current) {
+        setSelected(snapshot)
+        toast.show({ message: 'Could not save mood', variant: 'error' })
+      }
+    } finally {
+      if (mountedRef.current) setSaving(false)
     }
-    setSaving(false)
-  }
+  }, [saving, bookId, selected, isUserBook, toast])
+
+  if (!isAuthenticated || moods.length === 0 || !loaded) return null
 
   return (
     <View style={styles.container}>
@@ -77,6 +114,9 @@ export function MoodSelector({ editionId, userBookId }: MoodSelectorProps) {
               onPress={() => toggle(mood.id)}
               disabled={disabled}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Mood: ${mood.name}`}
+              accessibilityState={{ selected: isActive, disabled }}
             >
               {mood.emoji && <Text style={styles.emoji}>{mood.emoji}</Text>}
               <Text style={[styles.chipText, { color: isActive ? colors.primary : colors.text }]}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -17,19 +17,24 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   const handleSubmit = async () => {
+    if (loading) return
     setError('')
     if (!token) return
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
     setLoading(true)
     try {
       await authApi.resetPassword(token, password)
-      setSuccess(true)
+      if (mountedRef.current) setSuccess(true)
     } catch (e: any) {
+      if (!mountedRef.current) return
+      console.warn('Reset password failed:', e)
       setError(e?.message || 'Reset failed.')
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }
 
@@ -92,6 +97,10 @@ export default function ResetPasswordScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 onSubmitEditing={handleSubmit}
+                returnKeyType="go"
+                textContentType="newPassword"
+                autoComplete="password-new"
+                accessibilityLabel="New password"
               />
               {error ? <Text style={[styles.error, { color: colors.error || '#DC2626', fontFamily: fonts.sans }]}>{error}</Text> : null}
               <TouchableOpacity

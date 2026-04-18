@@ -25,14 +25,20 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
 
   useEffect(() => {
     if (card.definition || !language) return
+    let cancelled = false
+    // Reset any stale result from the previous card before the new lookup lands.
+    setFetchedDef(null)
     dictionaryApi.lookupWord(language, card.word).then(data => {
-      if (!data?.meanings?.length) return
+      if (cancelled || !data?.meanings?.length) return
       const parts = data.meanings.slice(0, 3)
       const defs = parts.map(m =>
         `(${m.partOfSpeech}) ${(m.definitions || []).slice(0, 2).map(d => d.definition).join('; ')}`
       ).join('\n')
-      setFetchedDef(defs)
-    }).catch(() => {})
+      if (!cancelled) setFetchedDef(defs)
+    }).catch(e => {
+      if (!cancelled) console.warn('Dictionary lookup failed:', e)
+    })
+    return () => { cancelled = true }
   }, [card.word, card.definition, language])
 
   // Mini feedback for classic mode
@@ -49,7 +55,12 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
             {STAGE_NAMES[result.previousStage]} → {STAGE_NAMES[result.newStage]}
           </Text>
         )}
-        <PressableScale onPress={onNext} style={[styles.nextBtn, { backgroundColor: colors.primary }]}>
+        <PressableScale
+          onPress={onNext}
+          style={[styles.nextBtn, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Next card"
+        >
           <Text style={styles.nextBtnText}>Next</Text>
         </PressableScale>
       </View>

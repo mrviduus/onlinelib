@@ -22,7 +22,7 @@
  * shape.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -84,6 +84,13 @@ export default function HomeScreen() {
   const [loadingBooks, setLoadingBooks] = useState(true)
   const [loadingMoods, setLoadingMoods] = useState(true)
 
+  // Generation counters guard against language-switch races: if the user
+  // toggles EN↔UK before the in-flight Promise.all settles, the stale
+  // response would otherwise overwrite the fresh language's content.
+  // Same pattern used in blog list (B-51).
+  const booksGenRef = useRef(0)
+  const moodsGenRef = useRef(0)
+
   // Greeting re-evaluates every minute. The previous once-on-mount
   // computation was stale if the home screen stayed mounted across a
   // slot boundary (e.g. user opens the app at 11:58am — "good morning" —
@@ -102,6 +109,7 @@ export default function HomeScreen() {
   }, [])
 
   const loadContent = useCallback(async () => {
+    const gen = ++booksGenRef.current
     const api = createBooksApi(language)
     try {
       setLoadingBooks(true)
@@ -113,24 +121,34 @@ export default function HomeScreen() {
           api.getBooks({ limit: 12 }),
         ),
       ])
+      if (gen !== booksGenRef.current) return
       setForYouItems(recent.items)
       setPopularItems(popular.items)
-    } catch {
-      // Empty states already handle the no-data case.
+    } catch (e) {
+      if (gen === booksGenRef.current) {
+        // Empty states already handle the no-data case — just surface
+        // the failure in logs for diagnostics.
+        console.warn('Home loadContent failed:', e)
+      }
     } finally {
-      setLoadingBooks(false)
+      if (gen === booksGenRef.current) setLoadingBooks(false)
     }
   }, [language])
 
   const loadMoods = useCallback(async () => {
+    const gen = ++moodsGenRef.current
     try {
       setLoadingMoods(true)
       const list = await moodsApi.getAllMoods()
+      if (gen !== moodsGenRef.current) return
       setMoods(list)
-    } catch {
-      setMoods([])
+    } catch (e) {
+      if (gen === moodsGenRef.current) {
+        console.warn('Home loadMoods failed:', e)
+        setMoods([])
+      }
     } finally {
-      setLoadingMoods(false)
+      if (gen === moodsGenRef.current) setLoadingMoods(false)
     }
   }, [])
 
