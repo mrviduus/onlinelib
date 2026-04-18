@@ -263,6 +263,24 @@
   letter-spacing: 0.01em;
 }
 
+/* Fazier Badge */
+.fazier-badge {
+  display: inline-block;
+  margin-top: 24px;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.fazier-badge:hover {
+  opacity: 1;
+}
+
+.fazier-badge img {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
 /* CTA Buttons */
 .home-hero__cta-group {
   display: flex;
@@ -935,6 +953,30 @@
 
 .site-footer__link:hover {
   color: var(--color-text);
+}
+
+.site-footer__badges {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.site-footer__badge {
+  display: inline-block;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.site-footer__badge:hover {
+  opacity: 1;
+}
+
+.site-footer__badge img {
+  display: block;
+  max-width: 250px;
+  height: auto;
 }
 
 .site-footer__bottom {

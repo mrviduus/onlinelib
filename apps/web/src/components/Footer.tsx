@@ -21,6 +21,23 @@ export function Footer() {
           <LocalizedLink to="/terms" className="site-footer__link">{t('footer.terms')}</LocalizedLink>
           <LocalizedLink to="/contact" className="site-footer__link">{t('footer.contact')}</LocalizedLink>
         </nav>
+        <div className="site-footer__badges">
+          <a
+            href="https://fazier.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="site-footer__badge"
+            aria-label="Featured on Fazier"
+          >
+            <img
+              src="https://fazier.com/api/v1/public/badges/embed_image.svg?badge_type=featured"
+              alt="Featured on Fazier"
+              width="250"
+              height="54"
+              loading="lazy"
+            />
+          </a>
+        </div>
         <div className="site-footer__bottom">
           <span className="site-footer__logo">TextStack</span>
           <span className="site-footer__copyright">&copy; {new Date().getFullYear()} TextStack Reader Library Project.</span>
