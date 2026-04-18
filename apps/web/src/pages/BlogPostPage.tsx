@@ -4,6 +4,7 @@ import { getBlogPost, likeBlogPost, unlikeBlogPost, type BlogPostDetailDto } fro
 import { getStorageUrl } from '../api/client'
 import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Footer } from '../components/Footer'
 import { ShareButtons } from '../components/blog/ShareButtons'
 import { BlogComments } from '../components/blog/BlogComments'
@@ -143,6 +144,14 @@ export function BlogPostPage() {
             datePublished: post.publishedAt || undefined,
             inLanguage: post.language,
           }}
+        />
+
+        {/* Breadcrumbs: Home → Blog → Post Title */}
+        <Breadcrumbs
+          items={[
+            { label: t('breadcrumbs.blog'), to: '/blog' },
+            { label: post.title },
+          ]}
         />
 
         <LocalizedLink to="/blog" className="blog-post__back">

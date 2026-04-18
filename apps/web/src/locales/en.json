@@ -760,7 +760,10 @@
   },
   "breadcrumbs": {
     "home": "Home",
-    "books": "Books"
+    "books": "Books",
+    "authors": "Authors",
+    "genres": "Genres",
+    "blog": "Blog"
   },
   "tts": {
     "listen": "Listen",
