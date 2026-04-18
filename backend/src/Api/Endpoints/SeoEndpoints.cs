@@ -209,8 +209,9 @@ public static class SeoEndpoints
         if (!site.SitemapEnabled)
             return Results.NotFound();
 
+        // UK blog posts excluded until UK content ships (see GetPagesSitemap note).
         var posts = await db.BlogPosts
-            .Where(p => p.SiteId == site.SiteId && p.Status == BlogPostStatus.Published)
+            .Where(p => p.SiteId == site.SiteId && p.Status == BlogPostStatus.Published && p.Language == "en")
             .OrderByDescending(p => p.PublishedAt)
             .Select(p => new { p.Slug, p.Language, p.UpdatedAt })
             .ToListAsync(ct);
@@ -244,8 +245,10 @@ public static class SeoEndpoints
         var baseUrl = CanonicalUrlBuilder.GetCanonicalBase(site.PrimaryDomain);
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-        // Static pages for each supported language
-        var languages = new[] { "en", "uk" };
+        // Static pages for each supported language.
+        // UK dropped until UK content ships — sitemap advertising empty /uk/ pages
+        // caused Ahrefs to report thin-content warnings.
+        var languages = new[] { "en" };
         var listPages = new[] { "books", "authors", "genres", "about", "blog" };
 
         var sb = new StringBuilder();

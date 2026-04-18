@@ -10,9 +10,10 @@ public class SeoService(IAppDbContext db)
 {
     public async Task<List<SitemapBookDto>> GetBooksForSitemapAsync(Guid siteId, CancellationToken ct)
     {
-        // Get all published, indexable editions with their Work's other editions
+        // Get all published, indexable editions with their Work's other editions.
+        // UK excluded until UK content ships (see GetPagesSitemap).
         var editions = await db.Editions
-            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published && e.Indexable)
+            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published && e.Indexable && e.Language == "en")
             .Include(e => e.Work)
                 .ThenInclude(w => w.Editions.Where(oe => oe.Status == EditionStatus.Published && oe.Indexable))
             .OrderByDescending(e => e.UpdatedAt)
