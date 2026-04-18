@@ -760,7 +760,10 @@
   },
   "breadcrumbs": {
     "home": "Головна",
-    "books": "Книги"
+    "books": "Книги",
+    "authors": "Автори",
+    "genres": "Жанри",
+    "blog": "Блог"
   },
   "tts": {
     "listen": "Прослухати",

@@ -4,14 +4,17 @@ import { useApi } from '../hooks/useApi'
 import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
+import { useTranslation } from '../hooks/useTranslation'
 import { isNotFoundError } from '../lib/errorUtils'
 import type { GenreDetail } from '../types/api'
 
 export function GenreDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { language } = useLanguage()
+  const { t } = useTranslation()
   const api = useApi()
   const [genre, setGenre] = useState<GenreDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -82,6 +85,14 @@ export function GenreDetailPage() {
     <>
     <div className="genre-detail">
       <SeoHead title={seoTitle} description={seoDescription} />
+
+      {/* Breadcrumbs: Home → Genres → Genre Name */}
+      <Breadcrumbs
+        items={[
+          { label: t('breadcrumbs.genres'), to: '/genres' },
+          { label: genre.name },
+        ]}
+      />
 
       <div className="genre-detail__header">
         <h1 className="genre-detail__name">{genre.name}</h1>

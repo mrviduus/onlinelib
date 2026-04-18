@@ -10,6 +10,7 @@ import { useSite } from '../context/SiteContext'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { getCachedBookMeta } from '../lib/offlineDb'
@@ -211,28 +212,15 @@ export function BookDetailPage() {
         }}
       />
 
-      {/* Breadcrumbs */}
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <ol>
-          <li><LocalizedLink to="/">{t('breadcrumbs.home')}</LocalizedLink></li>
-          <li><LocalizedLink to="/books">{t('breadcrumbs.books')}</LocalizedLink></li>
-          {genres.length > 0 && (
-            <li><LocalizedLink to={`/genres/${genres[0].slug}`}>{genres[0].name}</LocalizedLink></li>
-          )}
-          <li aria-current="page">{book.title}</li>
-        </ol>
-      </nav>
-      <JsonLd
-        data={{
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
-          itemListElement: [
-            { '@type': 'ListItem', position: 1, name: t('breadcrumbs.home'), item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}` }) },
-            { '@type': 'ListItem', position: 2, name: t('breadcrumbs.books'), item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/books` }) },
-            ...(genres.length > 0 ? [{ '@type': 'ListItem', position: 3, name: genres[0].name, item: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/genres/${genres[0].slug}` }) }] : []),
-            { '@type': 'ListItem', position: genres.length > 0 ? 4 : 3, name: book.title },
-          ],
-        }}
+      {/* Breadcrumbs: Home → Books → [Genre if present] → Book Title */}
+      <Breadcrumbs
+        items={[
+          { label: t('breadcrumbs.books'), to: '/books' },
+          ...(genres.length > 0
+            ? [{ label: genres[0].name, to: `/genres/${genres[0].slug}` }]
+            : []),
+          { label: book.title },
+        ]}
       />
 
       {/* Hero Section */}

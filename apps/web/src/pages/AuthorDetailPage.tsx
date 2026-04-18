@@ -5,10 +5,12 @@ import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
+import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
 import { useSite } from '../context/SiteContext'
-import { getCanonicalOrigin } from '../lib/canonicalUrl'
+import { useTranslation } from '../hooks/useTranslation'
+import { getCanonicalOrigin, buildCanonicalUrl } from '../lib/canonicalUrl'
 import { ShareButtons } from '../components/ShareButtons'
 import {
   generateAboutText,
@@ -24,6 +26,7 @@ export function AuthorDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { language } = useLanguage()
   const { site } = useSite()
+  const { t } = useTranslation()
   const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
   const api = useApi()
   const [author, setAuthor] = useState<AuthorDetail | null>(null)
@@ -122,9 +125,20 @@ export function AuthorDetailPage() {
           '@type': 'Person',
           name: author.name,
           description: author.bio || undefined,
-          image: author.photoPath ? getStorageUrl(author.photoPath) : undefined,
-          url: window.location.href,
+          image: author.photoPath ? (() => {
+            const url = getStorageUrl(author.photoPath)
+            return url?.startsWith('http') ? url : `${canonicalOrigin}${url}`
+          })() : undefined,
+          url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/authors/${author.slug}` }),
         }}
+      />
+
+      {/* Breadcrumbs: Home → Authors → Author Name */}
+      <Breadcrumbs
+        items={[
+          { label: t('breadcrumbs.authors'), to: '/authors' },
+          { label: author.name },
+        ]}
       />
 
       <div className="author-detail__header">
