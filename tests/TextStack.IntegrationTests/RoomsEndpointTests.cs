@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace TextStack.IntegrationTests;
 
@@ -146,5 +147,28 @@ public class RoomsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixture<A
         var resp = await _auth.Client.SendAsync(req, TestContext.Current.CancellationToken);
         if (ShouldSkip(resp)) return;
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListRooms_Summary_Shape_HasBookFields()
+    {
+        if (!_auth.IsAuthenticated) return;
+
+        var req = _auth.CreateRequest(HttpMethod.Get, "/me/rooms?limit=5&active=true");
+        var resp = await _auth.Client.SendAsync(req, TestContext.Current.CancellationToken);
+        if (ShouldSkip(resp)) return;
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var items = await resp.Content.ReadFromJsonAsync<List<JsonElement>>(TestContext.Current.CancellationToken);
+        Assert.NotNull(items);
+        foreach (var e in items!)
+        {
+            Assert.True(e.TryGetProperty("id", out _));
+            Assert.True(e.TryGetProperty("targetType", out _));
+            Assert.True(e.TryGetProperty("bookTitle", out _));
+            Assert.True(e.TryGetProperty("bookSlug", out _));
+            Assert.True(e.TryGetProperty("bookLanguage", out _));
+            Assert.True(e.TryGetProperty("firstChapterSlug", out _));
+        }
     }
 }

@@ -105,31 +105,45 @@ public class RoomService
                 m.Room.Name,
                 MemberCount = m.Room.Members.Count(x => x.LeftAt == null),
                 m.Room.LastActivityAt,
-                IsOwner = m.Room.OwnerUserId == userId,
-                Edition = m.Room.TargetType == ReadingRoomTargetType.Edition
-                    ? _db.Editions
-                        .Where(e => e.Id == m.Room.TargetId)
-                        .Select(e => new
-                        {
-                            e.Title,
-                            e.Slug,
-                            e.Language,
-                            e.CoverPath,
-                            FirstChapterSlug = e.Chapters
-                                .OrderBy(c => c.ChapterNumber)
-                                .Select(c => c.Slug)
-                                .FirstOrDefault()
-                        })
-                        .FirstOrDefault()
-                    : null
+                IsOwner = m.Room.OwnerUserId == userId
             })
             .ToListAsync(ct);
 
-        return rows.Select(r => new RoomSummary(
-            r.RoomId, r.TargetType, r.TargetId, r.Name, r.MemberCount,
-            r.LastActivityAt, r.IsOwner,
-            r.Edition?.Title, r.Edition?.Slug, r.Edition?.Language,
-            r.Edition?.CoverPath, r.Edition?.FirstChapterSlug)).ToList();
+        var editionIds = rows
+            .Where(r => r.TargetType == ReadingRoomTargetType.Edition)
+            .Select(r => r.TargetId)
+            .Distinct()
+            .ToList();
+
+        var editions = editionIds.Count == 0
+            ? new Dictionary<Guid, (string Title, string Slug, string Language, string? CoverPath, string? FirstChapterSlug)>()
+            : await _db.Editions
+                .Where(e => editionIds.Contains(e.Id))
+                .Select(e => new
+                {
+                    e.Id,
+                    e.Title,
+                    e.Slug,
+                    e.Language,
+                    e.CoverPath,
+                    FirstChapterSlug = e.Chapters
+                        .OrderBy(c => c.ChapterNumber)
+                        .Select(c => c.Slug)
+                        .FirstOrDefault()
+                })
+                .ToDictionaryAsync(
+                    x => x.Id,
+                    x => (x.Title, x.Slug, x.Language, x.CoverPath, x.FirstChapterSlug),
+                    ct);
+
+        return rows.Select(r =>
+        {
+            editions.TryGetValue(r.TargetId, out var ed);
+            return new RoomSummary(
+                r.RoomId, r.TargetType, r.TargetId, r.Name, r.MemberCount,
+                r.LastActivityAt, r.IsOwner,
+                ed.Title, ed.Slug, ed.Language, ed.CoverPath, ed.FirstChapterSlug);
+        }).ToList();
     }
 
     public async Task<RoomResult<RoomView>> GetAsync(Guid userId, Guid roomId, CancellationToken ct)
