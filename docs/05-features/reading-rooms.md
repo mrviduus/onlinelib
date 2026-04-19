@@ -434,7 +434,13 @@ When changing room behavior:
 - **Polling vs WebSocket** — 5s lag is acceptable for highlights; if real-time becomes a hard requirement, switch to SignalR.
 - **Multi-tab race** — same user with `?room=A` in tab 1 and `?room=B` in tab 2 will race on `current_chapter`. We accept the last-write-wins behavior; not worth a `tab_id` column unless complaints arrive.
 - **Anchor fallback** — `findTextByAnchor` is fuzzy; if a chapter is heavily re-ingested between when A highlighted and B viewed, the overlay rect may misplace. Same risk owners already accept for their own highlights.
-- **Idle cleanup worker** — orphan rooms (owner deleted, no recent activity) accumulate until we add `ReadingRoomCleanupWorker` (see plan §"Resolved config" → 30-day idle expiry).
+
+## Background maintenance
+
+`backend/src/Worker/Services/ReadingRoomCleanupWorker.cs` runs every 24h:
+
+- Auto-closes rooms idle >30 days (`last_activity_at` cutoff). Soft close — sets `closed_at`, no row delete.
+- Purges invites whose `expires_at` is more than 7 days in the past (audit window).
 
 ---
 

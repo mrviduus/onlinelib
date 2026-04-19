@@ -7,7 +7,6 @@ public enum RoomError
     None,
     NotFound,
     Forbidden,
-    AlreadyMember,
     NotMember,
     RoomClosed,
     InviteInvalid,

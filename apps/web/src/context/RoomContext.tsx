@@ -17,7 +17,6 @@ import {
   leaveRoom as apiLeaveRoom,
   closeRoom as apiCloseRoom,
   createInvite as apiCreateInvite,
-  revokeInvite as apiRevokeInvite,
   type RoomView,
   type RoomMemberView,
   type SharedHighlightView,
@@ -48,7 +47,6 @@ interface RoomContextValue {
   leaveRoom: () => Promise<void>
   closeRoom: () => Promise<void>
   createInvite: (opts?: { expiresInSeconds?: number; maxUses?: number }) => Promise<CreateInviteResult>
-  revokeInvite: (inviteId: string) => Promise<void>
 
   sendHeartbeat: (body: { chapterId?: string | null; percent?: number | null; showProgress?: boolean }) => void
   toggleMyProgress: (show: boolean) => Promise<void>
@@ -252,11 +250,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     return apiCreateInvite(roomId, opts)
   }, [roomId])
 
-  const revokeInvite = useCallback(async (inviteId: string) => {
-    if (!roomId) return
-    await apiRevokeInvite(roomId, inviteId)
-  }, [roomId])
-
   const toggleMyProgress = useCallback(async (show: boolean) => {
     if (!roomId) return
     lastHeartbeatBodyRef.current.showProgress = show
@@ -269,11 +262,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     return {
       roomId, room, members, sharedHighlights, isOwner, isConnected, error, inviteOpen,
       setActiveRoom, setInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
-      createInvite, revokeInvite, sendHeartbeat, toggleMyProgress,
+      createInvite, sendHeartbeat, toggleMyProgress,
     }
   }, [roomId, room, members, sharedHighlights, isConnected, error, inviteOpen, user,
       setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
-      createInvite, revokeInvite, sendHeartbeat, toggleMyProgress])
+      createInvite, sendHeartbeat, toggleMyProgress])
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>
 }

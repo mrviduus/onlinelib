@@ -195,7 +195,6 @@ public static class ReadingRoomsEndpoints
         RoomError.NotFound => Results.NotFound(),
         RoomError.Forbidden => Results.Forbid(),
         RoomError.NotMember => Results.Forbid(),
-        RoomError.AlreadyMember => Results.Conflict(new { error = "already_member" }),
         RoomError.RoomClosed => Results.StatusCode(StatusCodes.Status410Gone),
         RoomError.InviteInvalid => Results.BadRequest(new { error = "invite_invalid" }),
         RoomError.InviteExpired => Results.StatusCode(StatusCodes.Status410Gone),

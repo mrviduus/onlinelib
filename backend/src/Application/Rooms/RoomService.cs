@@ -157,7 +157,7 @@ public class RoomService
             .AnyAsync(m => m.RoomId == roomId && m.UserId == userId && m.LeftAt == null, ct);
         if (!isMember) return RoomResult<RoomView>.Fail(RoomError.Forbidden);
 
-        var members = await LoadMemberViewsAsync(roomId, includeHiddenProgress: false, forUserId: userId, ct);
+        var members = await LoadMemberViewsAsync(roomId, userId, ct);
 
         string? bookTitle = null, bookSlug = null, bookLanguage = null, bookCoverPath = null, firstChapterSlug = null;
         if (room.TargetType == ReadingRoomTargetType.Edition)
@@ -346,7 +346,7 @@ public class RoomService
             .AnyAsync(m => m.RoomId == roomId && m.UserId == userId && m.LeftAt == null, ct);
         if (!isMember) return RoomResult<RoomStateView>.Fail(RoomError.Forbidden);
 
-        var members = await LoadMemberViewsAsync(roomId, includeHiddenProgress: false, forUserId: userId, ct);
+        var members = await LoadMemberViewsAsync(roomId, userId, ct);
 
         var highlights = new List<SharedHighlightView>();
         if (room.TargetType == ReadingRoomTargetType.Edition)
@@ -401,7 +401,7 @@ public class RoomService
     }
 
     private async Task<List<RoomMemberView>> LoadMemberViewsAsync(
-        Guid roomId, bool includeHiddenProgress, Guid forUserId, CancellationToken ct)
+        Guid roomId, Guid forUserId, CancellationToken ct)
     {
         return await _db.ReadingRoomMembers
             .Where(m => m.RoomId == roomId && m.LeftAt == null)
