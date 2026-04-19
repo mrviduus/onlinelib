@@ -49,7 +49,12 @@ public record RoomView(
     string? Name,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt,
-    List<RoomMemberView> Members);
+    List<RoomMemberView> Members,
+    string? BookTitle,
+    string? BookSlug,
+    string? BookLanguage,
+    string? BookCoverPath,
+    string? FirstChapterSlug);
 
 public record RoomSummary(
     Guid Id,

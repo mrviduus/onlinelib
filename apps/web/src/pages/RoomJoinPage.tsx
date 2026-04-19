@@ -32,9 +32,16 @@ export function RoomJoinPage() {
       try {
         const roomId = await joinRoom(token)
         const room = await getRoom(roomId)
-        if (room.targetType === 'Edition') {
-          // We need book slug + chapter slug to deep-link; fall back to library page with ?room=
-          navigate(`/${language}/library?room=${roomId}`, { replace: true })
+        if (
+          room.targetType === 'Edition' &&
+          room.bookSlug &&
+          room.bookLanguage &&
+          room.firstChapterSlug
+        ) {
+          navigate(
+            `/${room.bookLanguage}/books/${room.bookSlug}/${room.firstChapterSlug}?room=${roomId}`,
+            { replace: true }
+          )
         } else {
           navigate(`/${language}/library?room=${roomId}`, { replace: true })
         }

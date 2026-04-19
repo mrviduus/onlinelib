@@ -24,6 +24,11 @@ export interface RoomView {
   createdAt: string
   closedAt: string | null
   members: RoomMemberView[]
+  bookTitle: string | null
+  bookSlug: string | null
+  bookLanguage: string | null
+  bookCoverPath: string | null
+  firstChapterSlug: string | null
 }
 
 export interface RoomSummary {

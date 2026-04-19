@@ -157,9 +157,38 @@ public class RoomService
         if (!isMember) return RoomResult<RoomView>.Fail(RoomError.Forbidden);
 
         var members = await LoadMemberViewsAsync(roomId, includeHiddenProgress: false, forUserId: userId, ct);
+
+        string? bookTitle = null, bookSlug = null, bookLanguage = null, bookCoverPath = null, firstChapterSlug = null;
+        if (room.TargetType == ReadingRoomTargetType.Edition)
+        {
+            var ed = await _db.Editions
+                .Where(e => e.Id == room.TargetId)
+                .Select(e => new
+                {
+                    e.Title,
+                    e.Slug,
+                    e.Language,
+                    e.CoverPath,
+                    FirstChapterSlug = e.Chapters
+                        .OrderBy(c => c.ChapterNumber)
+                        .Select(c => c.Slug)
+                        .FirstOrDefault()
+                })
+                .FirstOrDefaultAsync(ct);
+            if (ed != null)
+            {
+                bookTitle = ed.Title;
+                bookSlug = ed.Slug;
+                bookLanguage = ed.Language;
+                bookCoverPath = ed.CoverPath;
+                firstChapterSlug = ed.FirstChapterSlug;
+            }
+        }
+
         return RoomResult<RoomView>.Ok(new RoomView(
             room.Id, room.TargetType, room.TargetId, room.OwnerUserId,
-            room.Name, room.CreatedAt, room.ClosedAt, members));
+            room.Name, room.CreatedAt, room.ClosedAt, members,
+            bookTitle, bookSlug, bookLanguage, bookCoverPath, firstChapterSlug));
     }
 
     public async Task<RoomResult<CreateInviteResult>> CreateInviteAsync(
