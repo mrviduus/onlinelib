@@ -116,7 +116,7 @@ public class RoomService
             .ToList();
 
         var editions = editionIds.Count == 0
-            ? new Dictionary<Guid, (string Title, string Slug, string Language, string? CoverPath, string? FirstChapterSlug)>()
+            ? new Dictionary<Guid, (string? Title, string? Slug, string? Language, string? CoverPath, string? FirstChapterSlug)>()
             : await _db.Editions
                 .Where(e => editionIds.Contains(e.Id))
                 .Select(e => new
@@ -133,7 +133,7 @@ public class RoomService
                 })
                 .ToDictionaryAsync(
                     x => x.Id,
-                    x => (x.Title, x.Slug, x.Language, x.CoverPath, x.FirstChapterSlug),
+                    x => (Title: (string?)x.Title, Slug: (string?)x.Slug, Language: (string?)x.Language, CoverPath: x.CoverPath, FirstChapterSlug: x.FirstChapterSlug),
                     ct);
 
         return rows.Select(r =>

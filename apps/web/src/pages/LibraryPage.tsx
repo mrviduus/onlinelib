@@ -130,7 +130,10 @@ export function LibraryPage() {
 
   // Fetch active reading rooms
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated) {
+      setRooms([])
+      return
+    }
     listMyRooms(5, true)
       .then(setRooms)
       .catch(() => {})
@@ -243,8 +246,10 @@ export function LibraryPage() {
             <h2 className="library-rooms__title">{t('rooms.sectionTitle')}</h2>
             <ul className="library-rooms__list">
               {rooms.map((r) => {
-                const dest = r.bookSlug && r.bookLanguage && r.firstChapterSlug
-                  ? `/${r.bookLanguage}/books/${r.bookSlug}/${r.firstChapterSlug}?room=${r.id}`
+                const progressSlug = progressMap[r.targetId]?.chapterSlug
+                const chapterSlug = progressSlug ?? r.firstChapterSlug
+                const dest = r.bookSlug && r.bookLanguage && chapterSlug
+                  ? `/${r.bookLanguage}/books/${r.bookSlug}/${chapterSlug}?room=${r.id}`
                   : null
                 const title = r.name ?? r.bookTitle ?? t('rooms.defaultName')
                 return (
