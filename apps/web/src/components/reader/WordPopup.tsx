@@ -89,11 +89,13 @@ export function WordPopup({
   const popupRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
-  // Auto-expand language picker when the user hasn't confirmed native yet —
-  // this is the contextual gate: word tap triggers the prompt exactly when
-  // native language becomes relevant, instead of front-loading an onboarding
-  // modal on the landing page. After confirm, picker collapses normally.
-  const [showLangPicker, setShowLangPicker] = useState(!hasConfirmedLanguage)
+  // Auto-expand language picker when the user hasn't confirmed native yet,
+  // OR when native equals the book language (nothing to translate to — user
+  // must pick a real native). Contextual gate: word tap triggers the prompt
+  // exactly when native language becomes relevant.
+  const [showLangPicker, setShowLangPicker] = useState(
+    !hasConfirmedLanguage || nativeLanguage === bookLanguage,
+  )
   const [langQuery, setLangQuery] = useState('')
   const [showMoreLangs, setShowMoreLangs] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -106,13 +108,13 @@ export function WordPopup({
     if (!q) return null
     return LANGUAGES.filter(
       (l) =>
-        l.code !== nativeLanguage && (
+        l.code !== nativeLanguage && l.code !== bookLanguage && (
           l.englishName.toLowerCase().includes(q) ||
           l.nativeName.toLowerCase().includes(q) ||
           l.code.toLowerCase().startsWith(q)
         ),
     )
-  }, [langQuery, nativeLanguage])
+  }, [langQuery, nativeLanguage, bookLanguage])
 
   // Use ref-based guard (state lags behind batching → rapid calls leak timers + onClose×N).
   const animatedClose = useCallback(() => {
@@ -469,13 +471,13 @@ export function WordPopup({
               ) : (
                 <>
                   <div className="word-popup__lang-section">{t('reader.wordPopup.popularLanguages')}</div>
-                  {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
+                  {POPULAR_LANGUAGES.filter(l => l.code !== nativeLanguage && l.code !== bookLanguage).map((l) => (
                     <LangOption key={l.code} lang={l} onSelect={selectLang} />
                   ))}
                   {showMoreLangs ? (
                     <>
                       <div className="word-popup__lang-section">{t('reader.wordPopup.allLanguages')}</div>
-                      {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage).map((l) => (
+                      {OTHER_LANGUAGES.filter(l => l.code !== nativeLanguage && l.code !== bookLanguage).map((l) => (
                         <LangOption key={l.code} lang={l} onSelect={selectLang} />
                       ))}
                     </>
