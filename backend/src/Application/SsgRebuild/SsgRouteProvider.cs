@@ -50,6 +50,8 @@ public class SsgRouteProvider : ISsgRouteProvider
         routes.Add(new SsgRoute($"/{lang}/books", "static"));
         routes.Add(new SsgRoute($"/{lang}/authors", "static"));
         routes.Add(new SsgRoute($"/{lang}/genres", "static"));
+        // HTML sitemap — indexable internal-linking hub for Google crawlers.
+        routes.Add(new SsgRoute($"/{lang}/sitemap", "static"));
     }
 
     private async Task AddBookRoutesAsync(

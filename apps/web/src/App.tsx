@@ -33,6 +33,7 @@ import { LearnEnglishSpainPage } from './pages/LearnEnglishSpainPage'
 import { ReadBooksInEnglishPage } from './pages/ReadBooksInEnglishPage'
 import { BooksWithTranslationPage } from './pages/BooksWithTranslationPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { SitemapPage } from './pages/SitemapPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
@@ -114,6 +115,7 @@ function LanguageRoutes() {
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="/library/my/:id/focus/:chapterSlug" element={<FocusReaderPage mode="userbook" />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/sitemap" element={<SitemapPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </LanguageProvider>

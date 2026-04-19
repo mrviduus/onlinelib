@@ -252,7 +252,8 @@ public static class SeoEndpoints
 
         // Static pages for each supported language (UK dropped: no content yet)
         var languages = SupportedSitemapLanguages;
-        var listPages = new[] { "books", "authors", "genres", "about", "blog" };
+        // sitemap = HTML sitemap hub that links to every book/author/genre/post.
+        var listPages = new[] { "books", "authors", "genres", "about", "blog", "sitemap" };
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");

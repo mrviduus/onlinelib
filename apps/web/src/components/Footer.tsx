@@ -20,6 +20,7 @@ export function Footer() {
           <LocalizedLink to="/privacy" className="site-footer__link">{t('footer.privacy')}</LocalizedLink>
           <LocalizedLink to="/terms" className="site-footer__link">{t('footer.terms')}</LocalizedLink>
           <LocalizedLink to="/contact" className="site-footer__link">{t('footer.contact')}</LocalizedLink>
+          <LocalizedLink to="/sitemap" className="site-footer__link">{t('footer.sitemap')}</LocalizedLink>
         </nav>
         <div className="site-footer__badges">
           <a
