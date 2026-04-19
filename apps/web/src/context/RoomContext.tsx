@@ -201,15 +201,15 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const setActiveRoom = useCallback((rid: string | null) => {
     setRoomId(rid)
-    if (!rid) {
-      setRoom(null)
-      setMembers([])
-      setSharedHighlights([])
-      cursorRef.current = null
-      setIsConnected(false)
-      setError(null)
-      lastHeartbeatBodyRef.current = {}
-    }
+    // Clear stale cross-room state on both activate and deactivate so a room
+    // switch (A → B) doesn't briefly render A's members/highlights while B boots.
+    setRoom(null)
+    setMembers([])
+    setSharedHighlights([])
+    cursorRef.current = null
+    setError(null)
+    lastHeartbeatBodyRef.current = {}
+    if (!rid) setIsConnected(false)
   }, [])
 
   const createRoom: RoomContextValue['createRoom'] = useCallback(async (targetType, targetId, name) => {
