@@ -26,7 +26,7 @@ export function StartRoomButton({ editionId, bookSlug, firstChapterSlug, classNa
     setBusy(true); setErr(null)
     try {
       const roomId = await createRoom('Edition', editionId)
-      navigate(`/${language}/books/${bookSlug}/${firstChapterSlug}?room=${roomId}`)
+      navigate(`/${language}/books/${bookSlug}/${firstChapterSlug}?room=${roomId}&openInvite=1`)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'failed')
     } finally {

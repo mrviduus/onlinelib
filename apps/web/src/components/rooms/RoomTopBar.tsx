@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRoom, isMemberOnline } from '../../context/RoomContext'
 import { useTranslation } from '../../hooks/useTranslation'
 import { RoomInviteModal } from './RoomInviteModal'
@@ -10,6 +10,20 @@ export function RoomTopBar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Auto-open invite modal once when ?openInvite=1 (fresh room creation flow).
+  const autoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (autoOpenedRef.current || !roomId) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('openInvite') !== '1') return
+    autoOpenedRef.current = true
+    setInviteOpen(true)
+    params.delete('openInvite')
+    const qs = params.toString()
+    const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
+    window.history.replaceState(null, '', next)
+  }, [roomId])
 
   if (!roomId || !room) return null
 

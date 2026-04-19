@@ -734,9 +734,17 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Send heartbeat on chapter/progress change (debounced inside context 2s)
+  // Send heartbeat on chapter change or >=1% progress delta.
+  // Avoids 60fps churn on scroll — context debounces 2s but clearing+resetting
+  // the timer every frame means immediate updates never land between 30s ticks.
+  const lastBeatRef = useRef<{ chapterId: string; percent: number } | null>(null)
   useEffect(() => {
     if (!ctxRoomId || !chapter?.id) return
+    const last = lastBeatRef.current
+    const chapterChanged = !last || last.chapterId !== chapter.id
+    const percentDelta = last ? Math.abs(last.percent - overallProgress) : 1
+    if (!chapterChanged && percentDelta < 0.01) return
+    lastBeatRef.current = { chapterId: chapter.id, percent: overallProgress }
     sendRoomHeartbeat({ chapterId: chapter.id, percent: overallProgress })
   }, [ctxRoomId, chapter?.id, overallProgress, sendRoomHeartbeat])
 
