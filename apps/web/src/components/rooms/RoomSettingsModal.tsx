@@ -17,6 +17,13 @@ export function RoomSettingsModal({ isOwner, onClose }: Props) {
 
   const myMember = user ? members.find(m => m.userId === user.id) : undefined
   const [showProgress, setShowProgress] = useState<boolean>(myMember?.showProgress ?? false)
+  const [dirty, setDirty] = useState(false)
+
+  // Sync with live member updates (polling) unless user just toggled.
+  useEffect(() => {
+    if (dirty) return
+    if (myMember) setShowProgress(myMember.showProgress)
+  }, [myMember, dirty])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -40,8 +47,15 @@ export function RoomSettingsModal({ isOwner, onClose }: Props) {
 
   const runToggle = async (val: boolean) => {
     setShowProgress(val)
-    try { await toggleMyProgress(val) }
-    catch (e) { setError(e instanceof Error ? e.message : 'failed'); setShowProgress(!val) }
+    setDirty(true)
+    try {
+      await toggleMyProgress(val)
+      setDirty(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed')
+      setShowProgress(!val)
+      setDirty(false)
+    }
   }
 
   return (
