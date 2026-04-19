@@ -28,6 +28,7 @@ public class RoomService
             return RoomResult<CreateRoomResult>.Fail(RoomError.TargetNotFound);
 
         var now = DateTimeOffset.UtcNow;
+        var trimmedName = name?.Trim();
         var room = new ReadingRoom
         {
             Id = Guid.NewGuid(),
@@ -35,7 +36,7 @@ public class RoomService
             TargetType = targetType,
             TargetId = targetId,
             OwnerUserId = userId,
-            Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim()[..Math.Min(name.Trim().Length, 120)],
+            Name = string.IsNullOrEmpty(trimmedName) ? null : trimmedName[..Math.Min(trimmedName.Length, 120)],
             CreatedAt = now,
             LastActivityAt = now
         };
@@ -349,16 +350,15 @@ public class RoomService
         var highlights = new List<SharedHighlightView>();
         if (room.TargetType == ReadingRoomTargetType.Edition)
         {
-            var memberUserIds = await _db.ReadingRoomMembers
-                .Where(m => m.RoomId == roomId && m.LeftAt == null)
-                .Select(m => m.UserId)
-                .ToListAsync(ct);
+            // Derive user ids + color map from already-loaded members — avoid 2 extra round-trips.
+            var memberUserIds = members.Select(m => m.UserId).ToList();
+            var colorByUser = members.ToDictionary(m => m.UserId, m => m.Color);
 
             var hq = _db.Highlights
                 .Where(h => h.EditionId == room.TargetId
                     && memberUserIds.Contains(h.UserId));
             if (since.HasValue)
-                hq = hq.Where(h => h.UpdatedAt > since.Value);
+                hq = hq.Where(h => h.UpdatedAt >= since.Value);
 
             var rows = await hq
                 .OrderBy(h => h.UpdatedAt)
@@ -369,10 +369,6 @@ public class RoomService
                     h.SelectedText, h.NoteText, h.UpdatedAt
                 })
                 .ToListAsync(ct);
-
-            var colorByUser = await _db.ReadingRoomMembers
-                .Where(m => m.RoomId == roomId && m.LeftAt == null)
-                .ToDictionaryAsync(m => m.UserId, m => m.Color, ct);
 
             foreach (var r in rows)
             {
