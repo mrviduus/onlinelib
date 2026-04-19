@@ -39,17 +39,13 @@ interface ReaderHighlightsProps {
   children: React.ReactNode
 }
 
-/**
- * Resolve target language for translation. Returns null (= definition mode /
- * no translation fetch) when:
- * - native not yet confirmed (value is a `navigator.language` guess we shouldn't
- *   trust — saving vocab with a guessed native poisons SRS explanations), OR
- * - native equals book language (user has nothing to translate into).
- */
-function resolveTargetLang(nativeLang: string, bookLang: string, hasConfirmed: boolean): string | null {
-  if (!hasConfirmed) return null
-  if (nativeLang !== bookLang) return nativeLang
-  return null
+// Returns null (= definition mode) when native equals book language.
+// We deliberately do NOT gate on hasConfirmedLanguage here: onboarding
+// wow factor requires a translation on first tap. Save-path has its own
+// confirmation gate (handleSave throws 'native_language_not_confirmed'),
+// so translating here cannot poison the SRS pipeline.
+function resolveTargetLang(nativeLang: string, bookLang: string): string | null {
+  return nativeLang !== bookLang ? nativeLang : null
 }
 
 /** Count words in a trimmed selection string. */
@@ -76,7 +72,7 @@ export function ReaderHighlights({
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
   const { t } = useTranslation()
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const targetLang = resolveTargetLang(nativeLanguage, bookLanguage, hasConfirmedLanguage)
+  const targetLang = resolveTargetLang(nativeLanguage, bookLanguage)
 
   // --- Text selection ---
   const { selection, clearSelection, hasSelection } = useTextSelection(containerRef)
@@ -410,7 +406,12 @@ export function ReaderHighlights({
         overlayHighlights={sharedHighlights}
       />
 
-      <VocabWordLayer containerRef={containerRef} vocabMap={vocabMap} showInlineTranslations={showInlineTranslations} />
+      <VocabWordLayer
+        containerRef={containerRef}
+        vocabMap={vocabMap}
+        showInlineTranslations={showInlineTranslations}
+        activeBubble={bubble ? { word: bubble.word, translation: bubble.translation } : null}
+      />
 
       {/* Multi-word selection → full highlights toolbar */}
       {hasSelection && !isSingleWord && !showTranslation && (

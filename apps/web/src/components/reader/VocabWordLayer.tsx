@@ -2,28 +2,42 @@ import { useEffect } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
 import { tokenizeVocabWords, normalizeVocabKey, vocabStageClass } from '../../lib/vocabKey'
 
+export interface ActiveBubbleSnapshot {
+  word: string
+  translation: string | null
+}
+
 interface VocabWordLayerProps {
   containerRef: React.RefObject<HTMLElement | null>
   vocabMap: VocabMap
   showInlineTranslations?: boolean
+  activeBubble?: ActiveBubbleSnapshot | null
 }
 
 const MARK_ATTR = 'data-vocab-mark'
 
-export function VocabWordLayer({ containerRef, vocabMap, showInlineTranslations = false }: VocabWordLayerProps) {
+export function VocabWordLayer({
+  containerRef,
+  vocabMap,
+  showInlineTranslations = false,
+  activeBubble = null,
+}: VocabWordLayerProps) {
   useEffect(() => {
     const container = containerRef.current
-    if (!container || vocabMap.size === 0) return
+    if (!container) return
+    if (vocabMap.size === 0 && !activeBubble) return
 
-    // Debounce to avoid marking during rapid DOM changes
-    const timer = setTimeout(() => markWords(container, vocabMap, showInlineTranslations), 150)
+    const snapshot = activeBubble
+    const timer = setTimeout(
+      () => markWords(container, vocabMap, showInlineTranslations, snapshot),
+      150
+    )
 
     return () => {
       clearTimeout(timer)
-      // Clean up marks on unmount or vocab change
       removeMarks(container)
     }
-  }, [containerRef, vocabMap, showInlineTranslations])
+  }, [containerRef, vocabMap, showInlineTranslations, activeBubble?.word, activeBubble?.translation])
 
   return null
 }
@@ -40,9 +54,16 @@ function removeMarks(container: HTMLElement) {
   })
 }
 
-function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTranslations: boolean) {
+function markWords(
+  container: HTMLElement,
+  vocabMap: VocabMap,
+  showInlineTranslations: boolean,
+  activeBubble: ActiveBubbleSnapshot | null,
+) {
   // First remove existing marks
   removeMarks(container)
+
+  const activeKey = activeBubble ? normalizeVocabKey(activeBubble.word) : null
 
   // Walk all text nodes
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
@@ -73,7 +94,10 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
     if (!text.trim()) continue
 
     const tokens = tokenizeVocabWords(text)
-    const matchedTokens = tokens.filter((t) => vocabMap.has(normalizeVocabKey(t.word)))
+    const matchedTokens = tokens.filter((t) => {
+      const key = normalizeVocabKey(t.word)
+      return vocabMap.has(key) || (activeKey !== null && key === activeKey)
+    })
     if (matchedTokens.length === 0) continue
 
     // Build replacement fragment
@@ -86,17 +110,22 @@ function markWords(container: HTMLElement, vocabMap: VocabMap, showInlineTransla
         frag.appendChild(document.createTextNode(text.slice(lastEnd, token.start)))
       }
 
-      const entry = vocabMap.get(normalizeVocabKey(token.word))!
+      const key = normalizeVocabKey(token.word)
+      const entry = vocabMap.get(key)
+      const isActive = !entry && activeKey !== null && key === activeKey
+      const translation = entry?.translation ?? (isActive ? activeBubble!.translation : null)
+      const stage = entry?.stage ?? 0
+
       const mark = document.createElement('mark')
       mark.setAttribute(MARK_ATTR, 'true')
-      mark.className = `vocab-underline ${vocabStageClass(entry.stage)}`
+      mark.className = `vocab-underline ${vocabStageClass(stage)}`
       mark.textContent = text.slice(token.start, token.end)
 
       // Translation positioned absolutely inside mark — no text reflow
-      if (showInlineTranslations && entry.translation) {
+      if (showInlineTranslations && translation) {
         const span = document.createElement('span')
         span.className = 'vocab-inline-translation'
-        span.textContent = entry.translation
+        span.textContent = translation
         span.setAttribute('aria-hidden', 'true')
         mark.appendChild(span)
       }
