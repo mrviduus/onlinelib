@@ -8,22 +8,24 @@ export function RoomTopBar() {
   const { roomId, room, members, isOwner, isConnected } = useRoom()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  // Auto-open invite modal once when ?openInvite=1 (fresh room creation flow).
+  // Lazy init ensures we capture the URL flag before any effect can strip it.
+  const [inviteOpen, setInviteOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('openInvite') === '1',
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Auto-open invite modal once when ?openInvite=1 (fresh room creation flow).
-  const autoOpenedRef = useRef(false)
+  const strippedRef = useRef(false)
   useEffect(() => {
-    if (autoOpenedRef.current || !roomId) return
+    if (strippedRef.current) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('openInvite') !== '1') return
-    autoOpenedRef.current = true
-    setInviteOpen(true)
+    strippedRef.current = true
     params.delete('openInvite')
     const qs = params.toString()
     const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
     window.history.replaceState(null, '', next)
-  }, [roomId])
+  }, [])
 
   if (!roomId || !room) return null
 
