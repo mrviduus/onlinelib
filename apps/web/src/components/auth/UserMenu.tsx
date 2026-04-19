@@ -102,6 +102,13 @@ export function UserMenu() {
             >
               Highlights
             </LocalizedLink>
+            <LocalizedLink
+              to="/vocabulary"
+              className="user-menu__item"
+              onClick={() => setOpen(false)}
+            >
+              Vocabulary
+            </LocalizedLink>
             <hr className="user-menu__divider" />
             <button
               className="user-menu__item user-menu__item--danger"

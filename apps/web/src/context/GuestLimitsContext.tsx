@@ -11,7 +11,7 @@ interface GuestState {
 const LIMITS = {
   maxPages: 3,
   maxPracticeSessions: 1,
-  commitmentThreshold: 1,  // guest создаётся на первом tap (onboarding wow)
+  commitmentThreshold: 3,  // demand-driven; ReaderPage pre-warms guest on mount
 } as const
 
 // Legacy key — cleaned up once on mount. Guest state no longer persisted (cookie session is SoT).

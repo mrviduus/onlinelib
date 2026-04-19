@@ -90,7 +90,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const chapterIdentifier = mode === 'public' ? chapterSlug : userChapterSlug
 
   const api = useApi()
-  const { isAuthenticated, openAuthModal } = useAuth()
+  const { isAuthenticated, openAuthModal, ensureSession } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -172,8 +172,19 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     prevChapterRef.current = chapterIdentifier
   }, [chapterIdentifier, isAuthenticated])
 
+  // Pre-warm guest session on reader mount so first-word-tap doesn't race
+  // ensureSession mid-popup, which would flip isAuthenticated and re-run the
+  // chapter-fetch effect (reader reload + dropped popup). Single-flight inside.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      ensureSession().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot on mount
+  }, [])
+
   const libraryAddedRef = useRef(false)
   const editionIdRef = useRef<string | null>(null)
+  const fetchedKeyRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen()
   const showBarsInFullscreen = useFullscreenBars(isFullscreen)
@@ -938,6 +949,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     // User mode requires id and chapterSlug, plus auth
     if (mode === 'userbook' && (!id || !userChapterSlug || !isAuthenticated)) return
 
+    const fetchKey = mode === 'public'
+      ? `public:${bookSlug}:${chapterSlug}`
+      : `userbook:${id}:${userChapterSlug}`
+    // Already loaded this exact path — an isAuthenticated flip (guest creation)
+    // or unrelated re-render shouldn't force a loading flash / drop the popup.
+    if (fetchedKeyRef.current === fetchKey) return
+
     let cancelled = false
     if (mode === 'public') markFetchStart()
 
@@ -994,6 +1012,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
               } catch {
                 // Book fetch failed but chapter from cache - ok
               }
+              fetchedKeyRef.current = fetchKey
               setLoading(false)
               return
             }
@@ -1036,6 +1055,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
           // Cache for offline use
           cacheChapter(bk.id, ch).catch(() => {})
+          fetchedKeyRef.current = fetchKey
         } else {
           // User book mode - now uses slug
           const [bk, ch] = await Promise.all([
@@ -1068,6 +1088,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
               wordCount: c.wordCount,
             })),
           })
+          fetchedKeyRef.current = fetchKey
         }
       } catch (err) {
         if (cancelled) return
