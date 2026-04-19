@@ -59,6 +59,9 @@ public interface IAppDbContext
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
+    DbSet<ReadingRoom> ReadingRooms { get; }
+    DbSet<ReadingRoomMember> ReadingRoomMembers { get; }
+    DbSet<ReadingRoomInvite> ReadingRoomInvites { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 

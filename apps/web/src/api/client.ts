@@ -10,6 +10,15 @@ export function getStorageUrl(path: string | null | undefined): string | undefin
   return `${STORAGE_BASE}/storage/${path}`
 }
 
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+    this.name = 'ApiError'
+  }
+}
+
 /** Authenticated fetch w/ auto token refresh on 401, error message parsing */
 export async function authFetch<T>(path: string, options?: RequestInit, retry = true): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -23,17 +32,17 @@ export async function authFetch<T>(path: string, options?: RequestInit, retry = 
         await refreshToken()
         return authFetch<T>(path, options, false)
       } catch {
-        throw new Error('Unauthorized')
+        throw new ApiError(401, 'Unauthorized')
       }
     }
-    if (res.status === 401) throw new Error('Unauthorized')
+    if (res.status === 401) throw new ApiError(401, 'Unauthorized')
     const text = await res.text()
     let error = `API error: ${res.status}`
     try {
       const json = JSON.parse(text)
       if (json.error) error = json.error
     } catch {}
-    throw new Error(error)
+    throw new ApiError(res.status, error)
   }
 
   const text = await res.text()

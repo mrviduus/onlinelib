@@ -42,6 +42,7 @@
 - Star ratings (0–5, half-step), written reviews
 - Threaded review comments, upvotes
 - Reading mood tagging for emotional tracking
+- [Reading Rooms](docs/05-features/reading-rooms.md) — co-read a public book with friends, see each other's highlights & notes overlaid in real time
 
 **SEO**
 - SSG prerendered pages (Puppeteer worker, polls DB every 5s) — books, authors, genres, blog
@@ -177,3 +178,14 @@ SSG auto-rebuilds every 24h. Manual rebuild via admin panel or `make rebuild-ssg
 ## Docs
 
 See [docs/](docs/) for architecture decisions, deployment guides, and API reference.
+
+**Feature docs** (in `docs/05-features/`):
+- [Reading Rooms](docs/05-features/reading-rooms.md) — social co-reading, shared highlights overlay, invite links
+- [Vocabulary SRS](docs/05-features/vocabulary-srs.md) — spaced repetition, MC/typed/context modes, Ollama distractors
+- [Reader](docs/05-features/reader.md) — Kindle-like reader internals
+- [Offline Reading](docs/05-features/offline-reading.md) — PWA + IndexedDB caching
+- [User Auth](docs/05-features/user-auth.md) — Google/Apple/email auth, guest flow
+- [Search](docs/05-features/feat-0006-search-library.md) — Postgres FTS / Meilisearch
+- [Text Extraction](docs/05-features/feat-0003-text-extraction-core.md) — EPUB/PDF/FB2 parsers
+- [SSG Rebuild](docs/05-features/SSG_REBUILD.md) — Puppeteer prerender pipeline
+- [Observability](docs/05-features/feat-0005-observability-opentelemetry.md) — OpenTelemetry + Aspire

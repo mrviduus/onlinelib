@@ -3,6 +3,7 @@ import { SiteProvider, useSite } from './context/SiteContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
+import { RoomProvider, useRoom } from './context/RoomContext'
 import { GuestLimitsProvider } from './context/GuestLimitsContext'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
 import { HomePage } from './pages/HomePage'
@@ -34,6 +35,7 @@ import { ReadBooksInEnglishPage } from './pages/ReadBooksInEnglishPage'
 import { BooksWithTranslationPage } from './pages/BooksWithTranslationPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SitemapPage } from './pages/SitemapPage'
+import { RoomJoinPage } from './pages/RoomJoinPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
@@ -59,6 +61,14 @@ function AuthSuccessToast() {
   return <Toast message={t('auth.progressSavedToast')} duration={4000} onClose={dismissAuthSuccessToast} />
 }
 
+function RoomErrorToast() {
+  const { error, clearError } = useRoom()
+  const { t } = useTranslation()
+  if (error !== 'room_closed' && error !== 'room_not_found') return null
+  const message = error === 'room_closed' ? t('rooms.closedNotice') : t('rooms.notFoundNotice')
+  return <Toast message={message} duration={5000} onClose={clearError} />
+}
+
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
   const location = useLocation()
@@ -79,6 +89,7 @@ function LanguageRoutes() {
     <LanguageProvider>
       {!isReaderPage && !isUserBookReaderPage && !isFocusReaderPage && <Header />}
       <AuthSuccessToast />
+      <RoomErrorToast />
       <ExitIntentModal />
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -115,6 +126,7 @@ function LanguageRoutes() {
         <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
         <Route path="/library/my/:id/focus/:chapterSlug" element={<FocusReaderPage mode="userbook" />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/rooms/join/:token" element={<RoomJoinPage />} />
         <Route path="/sitemap" element={<SitemapPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -171,8 +183,10 @@ function App() {
           <GuestLimitsProvider>
           <NativeLanguageProvider>
           <DownloadProvider>
-            <AppRoutes />
-            <DownloadProgressBar />
+            <RoomProvider>
+              <AppRoutes />
+              <DownloadProgressBar />
+            </RoomProvider>
           </DownloadProvider>
           </NativeLanguageProvider>
           </GuestLimitsProvider>

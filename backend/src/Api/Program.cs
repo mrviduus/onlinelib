@@ -201,6 +201,52 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // Rooms: create is the most abusable (DB writes + invite generation).
+    // Partition by userId when authenticated (fall back to IP) so shared-NAT
+    // clients (CI, offices) don't throttle each other.
+    options.AddPolicy("room-create", httpContext =>
+    {
+        var key = RoomPartitionKey(httpContext);
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(5),
+            PermitLimit = 5,
+            QueueLimit = 0,
+        });
+    });
+    // Rooms: join by invite token — per-IP to slow enumeration (pre-auth safe).
+    options.AddPolicy("room-join", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(5),
+            PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
+    // Rooms: state polling — 60/min per user covers 5s polling.
+    options.AddPolicy("room-state", httpContext =>
+    {
+        var key = RoomPartitionKey(httpContext);
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 60,
+            QueueLimit = 0,
+        });
+    });
+    // Rooms: heartbeat — 30/min per user (default 30s interval + debounced updates).
+    options.AddPolicy("room-heartbeat", httpContext =>
+    {
+        var key = RoomPartitionKey(httpContext);
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 30,
+            QueueLimit = 0,
+        });
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     // Emit Retry-After so clients can back off intelligently instead of
     // hammering in a tight retry loop. RateLimiter exposes the metadata
@@ -340,6 +386,7 @@ app.MapTtsEndpoints();
 app.MapExportEndpoints();
 app.MapInternalEndpoints();
 app.MapInternalSeoEndpoints();
+app.MapReadingRoomsEndpoints();
 
 // CLI: import-textstack command
 if (args.Length > 0 && args[0] == "import-textstack")
@@ -552,3 +599,13 @@ if (args.Length > 0 && args[0] == "reindex-search")
 }
 
 app.Run();
+
+static string RoomPartitionKey(HttpContext ctx)
+{
+    var token = ctx.Request.Cookies["access_token"];
+    if (!string.IsNullOrEmpty(token)) return "u:" + token;
+    var auth = ctx.Request.Headers.Authorization.ToString();
+    if (auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        return "u:" + auth["Bearer ".Length..].Trim();
+    return "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+}

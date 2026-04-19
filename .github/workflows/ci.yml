@@ -214,6 +214,10 @@ jobs:
           path: apps/web/e2e/playwright-report/
           retention-days: 14
 
+      - name: Dump API logs on failure
+        if: failure()
+        run: docker compose logs --no-color api migrator
+
       - name: Stop services
         if: always()
         run: docker compose down

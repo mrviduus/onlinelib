@@ -5,6 +5,7 @@ using Application.Auth;
 using Application.Authors;
 using Application.Books;
 using Application.Reprocessing;
+using Application.Rooms;
 using Application.Seo;
 using Application.SeoCrawl;
 using Application.Export;
@@ -35,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ReprocessingService>();
         services.AddScoped<SeoCrawlService>();
         services.AddScoped<EpubExportService>();
+        services.AddScoped<RoomService>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

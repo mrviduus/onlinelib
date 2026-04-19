@@ -75,6 +75,9 @@ builder.Services.AddHostedService<SeoCrawlWorker>();
 // Guest cleanup (purge inactive guests every 6h)
 builder.Services.AddHostedService<GuestCleanupWorker>();
 
+// ReadingRoom cleanup (auto-close idle rooms, purge old invites — 24h interval)
+builder.Services.AddHostedService<ReadingRoomCleanupWorker>();
+
 // TextStack watcher (optional, enable via config)
 if (builder.Configuration.GetValue("TextStack:EnableWatcher", false))
 {

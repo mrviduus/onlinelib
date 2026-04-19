@@ -17,6 +17,7 @@ import { getUserBooks, getUserBookCoverUrl, type UserBook } from '../api/userBoo
 import { getAllRatings, type UserRatingDto } from '../api/userRatings'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
+import { listMyRooms, type RoomSummary } from '../api/rooms'
 
 type ViewMode = 'list' | 'grid'
 type SortOption = 'recent' | 'title' | 'progress'
@@ -33,6 +34,7 @@ export function LibraryPage() {
   const [userBooksLoading, setUserBooksLoading] = useState(false)
   const [myReviews, setMyReviews] = useState<UserRatingDto[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [rooms, setRooms] = useState<RoomSummary[]>([])
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('library-view') as ViewMode) || 'list'
@@ -124,6 +126,25 @@ export function LibraryPage() {
         setProgressMap(map)
       })
       .catch(() => {})
+  }, [isAuthenticated])
+
+  // Fetch active reading rooms (refetch on focus / visibility change)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setRooms([])
+      return
+    }
+    const fetchRooms = () => {
+      listMyRooms(5, true).then(setRooms).catch(() => {})
+    }
+    fetchRooms()
+    const onVis = () => { if (!document.hidden) fetchRooms() }
+    window.addEventListener('focus', fetchRooms)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', fetchRooms)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [isAuthenticated])
 
   // Sort items
@@ -227,6 +248,66 @@ export function LibraryPage() {
           <h1 className="library-header__title">{t('library.title')}</h1>
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
+
+        {rooms.length > 0 && (
+          <section className="library-rooms">
+            <h2 className="library-rooms__title">{t('rooms.sectionTitle')}</h2>
+            <ul className="library-rooms__list">
+              {rooms.map((r) => {
+                const progressSlug = progressMap[r.targetId]?.chapterSlug
+                const chapterSlug = progressSlug ?? r.firstChapterSlug
+                const dest = r.bookSlug && r.bookLanguage && chapterSlug
+                  ? `/${r.bookLanguage}/books/${r.bookSlug}/${chapterSlug}?room=${r.id}`
+                  : null
+                const title = r.name ?? r.bookTitle ?? t('rooms.defaultName')
+                return (
+                  <li key={r.id} className="library-rooms__item">
+                    {dest ? (
+                      <Link to={dest} className="library-rooms__card">
+                        {r.bookCoverPath ? (
+                          <img
+                            src={getStorageUrl(r.bookCoverPath)}
+                            alt={r.bookTitle ?? title}
+                            className="library-rooms__cover"
+                          />
+                        ) : (
+                          <div
+                            className="library-rooms__cover library-rooms__cover--placeholder"
+                            style={{ backgroundColor: stringToColor(title) }}
+                          >
+                            {title[0]?.toUpperCase() ?? '?'}
+                          </div>
+                        )}
+                        <div className="library-rooms__info">
+                          <span className="library-rooms__name">{title}</span>
+                          <span className="library-rooms__meta">
+                            {r.memberCount} {t('rooms.membersShort')}
+                            {r.isOwner && <> · {t('rooms.ownerTag')}</>}
+                          </span>
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="library-rooms__card library-rooms__card--disabled">
+                        <div
+                          className="library-rooms__cover library-rooms__cover--placeholder"
+                          style={{ backgroundColor: stringToColor(title) }}
+                        >
+                          {title[0]?.toUpperCase() ?? '?'}
+                        </div>
+                        <div className="library-rooms__info">
+                          <span className="library-rooms__name">{title}</span>
+                          <span className="library-rooms__meta">
+                            {r.memberCount} {t('rooms.membersShort')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
 
         {activeTab === 'saved' && (
           <>

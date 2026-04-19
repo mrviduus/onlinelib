@@ -65,6 +65,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<SeoTemplate> SeoTemplates => Set<SeoTemplate>();
     public DbSet<SeoBackfillJob> SeoBackfillJobs => Set<SeoBackfillJob>();
     public DbSet<SeoBackfillSettings> SeoBackfillSettings => Set<SeoBackfillSettings>();
+    public DbSet<ReadingRoom> ReadingRooms => Set<ReadingRoom>();
+    public DbSet<ReadingRoomMember> ReadingRoomMembers => Set<ReadingRoomMember>();
+    public DbSet<ReadingRoomInvite> ReadingRoomInvites => Set<ReadingRoomInvite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -675,6 +678,38 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             e.Property(x => x.LanguageFilter).HasColumnType("text[]");
             e.Property(x => x.EntityTypeFilter).HasColumnType("text[]");
+        });
+
+        // ReadingRoom
+        modelBuilder.Entity<ReadingRoom>(e =>
+        {
+            e.HasIndex(x => new { x.TargetType, x.TargetId });
+            e.HasIndex(x => x.OwnerUserId);
+            e.HasIndex(x => x.LastActivityAt);
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.TargetType).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.OwnerUser).WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ReadingRoomMember>(e =>
+        {
+            e.HasIndex(x => x.RoomId);
+            e.HasIndex(x => new { x.RoomId, x.UserId }).IsUnique().HasFilter("left_at IS NULL");
+            e.Property(x => x.Color).HasMaxLength(32);
+            e.Property(x => x.Role).HasConversion<string>().HasMaxLength(16);
+            e.HasOne(x => x.Room).WithMany(x => x.Members).HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CurrentChapter).WithMany().HasForeignKey(x => x.CurrentChapterId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ReadingRoomInvite>(e =>
+        {
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.RoomId);
+            e.Property(x => x.TokenHash).HasMaxLength(128);
+            e.HasOne(x => x.Room).WithMany(x => x.Invites).HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // seo_source on SEO-bearing entities — default 'Manual' (0) preserves existing rows.

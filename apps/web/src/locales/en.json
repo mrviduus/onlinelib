@@ -237,7 +237,8 @@
     "noBooksYet": "No books available yet.",
     "noAuthorsYet": "No authors available yet.",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "home": "Home"
   },
   "nav": {
     "catalog": "Catalog",
@@ -818,5 +819,35 @@
     "uploadBook": "Upload your book",
     "uploading": "Uploading...",
     "expiryBanner": "Your books are saved for 3 days. Sign up to keep them permanently."
+  },
+  "rooms": {
+    "topBarLabel": "Reading room",
+    "defaultName": "Reading together",
+    "anonymous": "Anonymous",
+    "invite": "Invite",
+    "settings": "Settings",
+    "inviteTitle": "Invite to room",
+    "expiresIn": "Expires in",
+    "maxUses": "Max uses",
+    "maxUsesPlaceholder": "unlimited",
+    "generating": "Generating…",
+    "generateLink": "Generate link",
+    "copied": "Copied",
+    "copy": "Copy",
+    "settingsTitle": "Room settings",
+    "showMyProgress": "Show my progress",
+    "showMyProgressHint": "Let other members see your current chapter and position.",
+    "closeRoom": "Close room",
+    "leaveRoom": "Leave room",
+    "joinTitle": "Join reading room",
+    "joinNeedLogin": "Sign in to join the room.",
+    "joining": "Joining…",
+    "joinFailed": "Failed to join room.",
+    "readTogether": "Read together",
+    "sectionTitle": "Reading together",
+    "membersShort": "members",
+    "ownerTag": "owner",
+    "closedNotice": "The reading room was closed.",
+    "notFoundNotice": "This reading room no longer exists."
   }
 }
