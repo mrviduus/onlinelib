@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { getStorageUrl } from '../api/client'
@@ -20,7 +20,10 @@ import {
   generateThemeDescription,
 } from '../lib/authorSeo'
 import { isNotFoundError } from '../lib/errorUtils'
-import type { AuthorDetail } from '../types/api'
+import type { AuthorDetail, Author, Genre } from '../types/api'
+
+const EXPLORE_GENRES_LIMIT = 10
+const OTHER_AUTHORS_LIMIT = 12
 
 export function AuthorDetailPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -32,6 +35,8 @@ export function AuthorDetailPage() {
   const [author, setAuthor] = useState<AuthorDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const [allGenres, setAllGenres] = useState<Genre[]>([])
+  const [otherAuthors, setOtherAuthors] = useState<Author[]>([])
 
   useEffect(() => {
     if (!slug) return
@@ -42,6 +47,35 @@ export function AuthorDetailPage() {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [api, slug])
+
+  // Fetch sibling hubs (genres + authors) once — used for contextual internal linking.
+  // These calls are best-effort; silent failure keeps the page usable.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      api.getGenres({ language }).catch(() => ({ items: [] as Genre[] })),
+      api.getAuthors({ sort: 'recent', limit: OTHER_AUTHORS_LIMIT + 4 }).catch(() => ({ items: [] as Author[] })),
+    ]).then(([genres, authors]) => {
+      if (cancelled) return
+      setAllGenres(genres.items)
+      setOtherAuthors(authors.items)
+    })
+    return () => { cancelled = true }
+  }, [api, language])
+
+  const exploreGenres = useMemo(() => {
+    return allGenres
+      .filter((g) => g.bookCount > 0)
+      .sort((a, b) => b.bookCount - a.bookCount || a.name.localeCompare(b.name))
+      .slice(0, EXPLORE_GENRES_LIMIT)
+  }, [allGenres])
+
+  const relatedAuthors = useMemo(() => {
+    if (!author || !otherAuthors.length) return []
+    return otherAuthors
+      .filter((a) => a.slug !== author.slug && a.bookCount > 0)
+      .slice(0, OTHER_AUTHORS_LIMIT)
+  }, [author, otherAuthors])
 
   if (loading) {
     return (
@@ -201,6 +235,51 @@ export function AuthorDetailPage() {
             </LocalizedLink>
           ))}
         </div>
+      )}
+
+      {exploreGenres.length > 0 && (
+        <section className="author-related" aria-labelledby="author-explore-genres">
+          <h2 id="author-explore-genres">
+            {language === 'uk' ? 'Досліджуйте за жанром' : 'Explore by genre'}
+          </h2>
+          <ul className="author-related__genres">
+            {exploreGenres.map((g) => (
+              <li key={g.slug}>
+                <LocalizedLink to={`/genres/${g.slug}`} className="author-related__chip">
+                  {g.name}
+                  <span className="author-related__chip-count"> · {g.bookCount}</span>
+                </LocalizedLink>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {relatedAuthors.length > 0 && (
+        <section className="author-related" aria-labelledby="author-other-authors">
+          <h2 id="author-other-authors">
+            {language === 'uk' ? 'Інші автори' : 'Other authors you may enjoy'}
+          </h2>
+          <ul className="author-related__authors">
+            {relatedAuthors.map((a) => (
+              <li key={a.slug}>
+                <LocalizedLink to={`/authors/${a.slug}`} className="author-related__author">
+                  <div className="author-related__author-photo">
+                    {a.photoPath ? (
+                      <img src={getStorageUrl(a.photoPath)} alt={a.name} loading="lazy" />
+                    ) : (
+                      <span className="author-related__author-initials">{a.name?.[0] || '?'}</span>
+                    )}
+                  </div>
+                  <span className="author-related__author-name">{a.name}</span>
+                  <span className="author-related__author-count">
+                    {a.bookCount} {language === 'uk' ? (a.bookCount === 1 ? 'книга' : 'книг') : (a.bookCount === 1 ? 'book' : 'books')}
+                  </span>
+                </LocalizedLink>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* Relevance Section */}
