@@ -164,11 +164,17 @@ public class RoomsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixture<A
         foreach (var e in items!)
         {
             Assert.True(e.TryGetProperty("id", out _));
-            Assert.True(e.TryGetProperty("targetType", out _));
+            Assert.True(e.TryGetProperty("targetType", out var tt));
             Assert.True(e.TryGetProperty("bookTitle", out _));
-            Assert.True(e.TryGetProperty("bookSlug", out _));
-            Assert.True(e.TryGetProperty("bookLanguage", out _));
+            Assert.True(e.TryGetProperty("bookSlug", out var slug));
+            Assert.True(e.TryGetProperty("bookLanguage", out var lang));
             Assert.True(e.TryGetProperty("firstChapterSlug", out _));
+            // Edition-type rooms must carry book fields
+            if (tt.GetString() == "Edition")
+            {
+                Assert.False(string.IsNullOrEmpty(slug.GetString()));
+                Assert.False(string.IsNullOrEmpty(lang.GetString()));
+            }
         }
     }
 }

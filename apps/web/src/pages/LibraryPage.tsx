@@ -128,15 +128,23 @@ export function LibraryPage() {
       .catch(() => {})
   }, [isAuthenticated])
 
-  // Fetch active reading rooms
+  // Fetch active reading rooms (refetch on focus / visibility change)
   useEffect(() => {
     if (!isAuthenticated) {
       setRooms([])
       return
     }
-    listMyRooms(5, true)
-      .then(setRooms)
-      .catch(() => {})
+    const fetchRooms = () => {
+      listMyRooms(5, true).then(setRooms).catch(() => {})
+    }
+    fetchRooms()
+    const onVis = () => { if (!document.hidden) fetchRooms() }
+    window.addEventListener('focus', fetchRooms)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', fetchRooms)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [isAuthenticated])
 
   // Sort items
