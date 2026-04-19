@@ -38,10 +38,10 @@ interface RoomContextValue {
   isOwner: boolean
   isConnected: boolean
   error: string | null
-  pendingInviteOpen: boolean
+  inviteOpen: boolean
 
   setActiveRoom: (roomId: string | null, options?: { autoOpenInvite?: boolean }) => void
-  consumePendingInviteOpen: () => void
+  setInviteOpen: (open: boolean) => void
   clearError: () => void
   createRoom: (targetType: 'Edition' | 'UserBook', targetId: string, name?: string) => Promise<string>
   joinRoom: (token: string) => Promise<string>
@@ -64,7 +64,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [sharedHighlights, setSharedHighlights] = useState<SharedHighlightView[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingInviteOpen, setPendingInviteOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   const cursorRef = useRef<string | null>(null)
   const pollTimerRef = useRef<number | null>(null)
@@ -215,15 +215,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       lastHeartbeatBodyRef.current = {}
       if (!rid) {
         setIsConnected(false)
-        setPendingInviteOpen(false)
+        setInviteOpen(false)
       } else if (options?.autoOpenInvite) {
-        setPendingInviteOpen(true)
+        setInviteOpen(true)
       }
     },
     [],
   )
-
-  const consumePendingInviteOpen = useCallback(() => setPendingInviteOpen(false), [])
 
   const createRoom: RoomContextValue['createRoom'] = useCallback(async (targetType, targetId, name) => {
     const res = await apiCreateRoom(targetType, targetId, name)
@@ -269,12 +267,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const value = useMemo<RoomContextValue>(() => {
     const isOwner = !!room && !!user && room.ownerUserId === user.id
     return {
-      roomId, room, members, sharedHighlights, isOwner, isConnected, error, pendingInviteOpen,
-      setActiveRoom, consumePendingInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
+      roomId, room, members, sharedHighlights, isOwner, isConnected, error, inviteOpen,
+      setActiveRoom, setInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress,
     }
-  }, [roomId, room, members, sharedHighlights, isConnected, error, pendingInviteOpen, user,
-      setActiveRoom, consumePendingInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
+  }, [roomId, room, members, sharedHighlights, isConnected, error, inviteOpen, user,
+      setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress])
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>

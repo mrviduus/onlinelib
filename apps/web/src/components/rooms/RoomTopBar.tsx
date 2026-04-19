@@ -7,20 +7,15 @@ import { RoomSettingsModal } from './RoomSettingsModal'
 export function RoomTopBar() {
   const {
     roomId, room, members, isOwner, isConnected,
-    pendingInviteOpen, consumePendingInviteOpen,
+    inviteOpen, setInviteOpen,
   } = useRoom()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Context signals "auto-open invite" for the fresh-room-creation flow.
-  // Open once, then consume so future re-renders don't force it back open.
+  // Once auto-opened, strip ?openInvite=1 from URL so reload doesn't re-trigger.
   useEffect(() => {
-    if (!pendingInviteOpen) return
-    setInviteOpen(true)
-    consumePendingInviteOpen()
-    // Strip ?openInvite=1 from URL if still present.
+    if (!inviteOpen) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('openInvite') === '1') {
       params.delete('openInvite')
@@ -28,7 +23,7 @@ export function RoomTopBar() {
       const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
       window.history.replaceState(null, '', next)
     }
-  }, [pendingInviteOpen, consumePendingInviteOpen])
+  }, [inviteOpen])
 
   if (!roomId || !room) return null
 
