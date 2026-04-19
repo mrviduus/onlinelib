@@ -719,21 +719,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [isAuthenticated, bookSlug, chapterIdentifier, setGuestCurrentBook])
 
   // --- Reading room wiring ---
-  // Activate/deactivate room via ?room= url param
-  useEffect(() => {
-    if (activeRoomId && activeRoomId !== ctxRoomId) {
-      setActiveRoom(activeRoomId)
-    } else if (!activeRoomId && ctxRoomId) {
-      setActiveRoom(null)
-    }
-  }, [activeRoomId, ctxRoomId, setActiveRoom])
-
-  // When user leaves/closes a room, ctxRoomId drops to null while URL still
-  // carries ?room= — strip it so the activation effect above doesn't re-enter.
-  // Gate with a ref so we don't strip on initial mount before activation fires.
+  // Unified effect: URL ?room= is the source of truth until the context drops
+  // the room (leave/close/410). When ctxRoomId just went null while the URL
+  // still carries ?room=, strip the URL instead of re-activating.
   const hasActivatedRoomRef = useRef(false)
   useEffect(() => {
     if (ctxRoomId) hasActivatedRoomRef.current = true
+
+    // Context just deactivated an active room — strip URL, don't re-activate.
     if (hasActivatedRoomRef.current && activeRoomId && ctxRoomId === null) {
       hasActivatedRoomRef.current = false
       setSearchParams(prev => {
@@ -742,8 +735,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         next.delete('openInvite')
         return next
       }, { replace: true })
+      return
     }
-  }, [activeRoomId, ctxRoomId, setSearchParams])
+
+    if (activeRoomId && activeRoomId !== ctxRoomId) {
+      setActiveRoom(activeRoomId)
+    } else if (!activeRoomId && ctxRoomId) {
+      setActiveRoom(null)
+    }
+  }, [activeRoomId, ctxRoomId, setActiveRoom, setSearchParams])
 
   // Release room on unmount (e.g. leaving reader)
   useEffect(() => () => {
