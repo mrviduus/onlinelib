@@ -360,9 +360,10 @@ public class RoomService
             if (since.HasValue)
                 hq = hq.Where(h => h.UpdatedAt >= since.Value);
 
+            const int pageSize = 500;
             var rows = await hq
                 .OrderBy(h => h.UpdatedAt)
-                .Take(500)
+                .Take(pageSize)
                 .Select(h => new
                 {
                     h.Id, h.UserId, h.ChapterId, h.AnchorJson, h.Color,
@@ -376,6 +377,14 @@ public class RoomService
                     r.Id, r.UserId,
                     colorByUser.TryGetValue(r.UserId, out var c) ? c : MemberColor.ForUser(r.UserId),
                     r.ChapterId, r.AnchorJson, r.Color, r.SelectedText, r.NoteText, r.UpdatedAt));
+            }
+
+            // Truncated page: advance cursor to max loaded UpdatedAt so next poll (filter >= since)
+            // picks up orphaned rows 501+. Client dedupes by id.
+            if (rows.Count == pageSize)
+            {
+                var cursor = rows[^1].UpdatedAt;
+                return RoomResult<RoomStateView>.Ok(new RoomStateView(members, highlights, [], cursor));
             }
         }
 
