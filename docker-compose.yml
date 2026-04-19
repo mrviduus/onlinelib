@@ -90,8 +90,6 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
-      aspire-dashboard:
-        condition: service_started
     deploy:
       resources:
         limits:
@@ -120,8 +118,6 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
-      aspire-dashboard:
-        condition: service_started
     deploy:
       resources:
         limits:
@@ -212,6 +208,7 @@ services:
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
     container_name: textstack_aspire_prod
+    profiles: ["observability"]
     ports:
       - "127.0.0.1:18888:18888"   # Dashboard UI (localhost only)
     environment:
