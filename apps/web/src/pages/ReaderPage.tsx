@@ -294,7 +294,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const targetChapter = book.chapters.find(c => c.chapterNumber === legacyChapterNum)
     if (targetChapter) {
       // Navigate to the saved chapter using slug
-      navigate(`/${language}/library/my/${id}/read/${targetChapter.identifier}`, { replace: true })
+      const qs = window.location.search
+      navigate(`/${language}/library/my/${id}/read/${targetChapter.identifier}` + qs, { replace: true })
     }
   }, [mode, userProgress.legacyProgress, book?.chapters, navigate, language, id])
 
@@ -808,7 +809,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const chapterExists = publicBook.chapters.some(c => c.slug === targetChapterSlug)
     hasNavigatedRef.current = true
     if (chapterExists) {
-      navigate(getLocalizedPath(`/books/${bookSlug}/${targetChapterSlug}`), { replace: true })
+      const qs = window.location.search
+      navigate(getLocalizedPath(`/books/${bookSlug}/${targetChapterSlug}`) + qs, { replace: true })
     }
     // else: saved chapter is stale — stay put, user lands at page 0 of current chapter.
   }, [shouldNavigate, targetChapterSlug, bookSlug, navigate, getLocalizedPath, mode, publicBook?.chapters])
