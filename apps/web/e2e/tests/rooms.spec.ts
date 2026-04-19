@@ -83,7 +83,7 @@ test.describe('Reading rooms', () => {
     const ctx = await browser.newContext() // no auth cookies
     const page = await ctx.newPage()
     await page.goto(`/en/rooms/join/${inviteToken}`)
-    await expect(page.getByText(/sign in|увійдіть/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/sign in to join the room|увійдіть/i)).toBeVisible({ timeout: 5000 })
     await ctx.close()
 
     await request.delete(`${API_URL}/me/rooms/${roomId}`, { headers: HEADERS })

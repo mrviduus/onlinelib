@@ -75,7 +75,7 @@ const css = `
   padding: 6px 12px; font-size: 13px;
   background: var(--reader-bar-bg, #fafafa);
   border-bottom: 1px solid var(--border, #e5e5e5);
-  position: relative;
+  position: fixed; top: 56px; left: 0; right: 0; z-index: 101;
 }
 .room-topbar__dot { width: 8px; height: 8px; border-radius: 50%; background: #bbb; display:inline-block; }
 .room-topbar__dot[data-online='true'] { background: #22c55e; }
