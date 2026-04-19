@@ -40,6 +40,7 @@ interface RoomContextValue {
   error: string | null
 
   setActiveRoom: (roomId: string | null) => void
+  clearError: () => void
   createRoom: (targetType: 'Edition' | 'UserBook', targetId: string, name?: string) => Promise<string>
   joinRoom: (token: string) => Promise<string>
   leaveRoom: () => Promise<void>
@@ -196,6 +197,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     [roomId]
   )
 
+  const clearError = useCallback(() => setError(null), [])
+
   const setActiveRoom = useCallback((rid: string | null) => {
     setRoomId(rid)
     if (!rid) {
@@ -254,11 +257,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const isOwner = !!room && !!user && room.ownerUserId === user.id
     return {
       roomId, room, members, sharedHighlights, isOwner, isConnected, error,
-      setActiveRoom, createRoom, joinRoom, leaveRoom, closeRoom,
+      setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress,
     }
   }, [roomId, room, members, sharedHighlights, isConnected, error, user,
-      setActiveRoom, createRoom, joinRoom, leaveRoom, closeRoom,
+      setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress])
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>

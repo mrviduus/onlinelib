@@ -3,7 +3,7 @@ import { SiteProvider, useSite } from './context/SiteContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
-import { RoomProvider } from './context/RoomContext'
+import { RoomProvider, useRoom } from './context/RoomContext'
 import { GuestLimitsProvider } from './context/GuestLimitsContext'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
 import { HomePage } from './pages/HomePage'
@@ -61,6 +61,14 @@ function AuthSuccessToast() {
   return <Toast message={t('auth.progressSavedToast')} duration={4000} onClose={dismissAuthSuccessToast} />
 }
 
+function RoomErrorToast() {
+  const { error, clearError } = useRoom()
+  const { t } = useTranslation()
+  if (error !== 'room_closed' && error !== 'room_not_found') return null
+  const message = error === 'room_closed' ? t('rooms.closedNotice') : t('rooms.notFoundNotice')
+  return <Toast message={message} duration={5000} onClose={clearError} />
+}
+
 function LanguageRoutes() {
   const { lang } = useParams<{ lang: string }>()
   const location = useLocation()
@@ -81,6 +89,7 @@ function LanguageRoutes() {
     <LanguageProvider>
       {!isReaderPage && !isUserBookReaderPage && !isFocusReaderPage && <Header />}
       <AuthSuccessToast />
+      <RoomErrorToast />
       <ExitIntentModal />
       <Routes>
         <Route path="/" element={<HomePage />} />

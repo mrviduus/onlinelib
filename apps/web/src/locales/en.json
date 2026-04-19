@@ -846,6 +846,8 @@
     "readTogether": "Read together",
     "sectionTitle": "Reading together",
     "membersShort": "members",
-    "ownerTag": "owner"
+    "ownerTag": "owner",
+    "closedNotice": "The reading room was closed.",
+    "notFoundNotice": "This reading room no longer exists."
   }
 }

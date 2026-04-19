@@ -846,6 +846,8 @@
     "readTogether": "Читати разом",
     "sectionTitle": "Читання разом",
     "membersShort": "учасників",
-    "ownerTag": "власник"
+    "ownerTag": "власник",
+    "closedNotice": "Кімнату читання закрито.",
+    "notFoundNotice": "Ця кімната більше не існує."
   }
 }
