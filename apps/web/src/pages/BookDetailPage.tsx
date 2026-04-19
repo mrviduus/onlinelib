@@ -24,6 +24,7 @@ import {
 import { StarRating } from '../components/StarRating'
 import { MoodSelector } from '../components/MoodSelector'
 import { ShareButtons } from '../components/ShareButtons'
+import { StartRoomButton } from '../components/rooms/StartRoomButton'
 import { ReviewsList } from '../components/reviews/ReviewsList'
 import { isNotFoundError } from '../lib/errorUtils'
 import type { BookDetail } from '../types/api'
@@ -344,6 +345,15 @@ export function BookDetailPage() {
               >
                 {continueSlug ? t('bookDetail.continueReading') : t('bookDetail.startReading')}
               </LocalizedLink>
+            )}
+
+            {firstChapter && book.id && (
+              <StartRoomButton
+                editionId={book.id}
+                bookSlug={book.slug}
+                firstChapterSlug={continueSlug ?? firstChapter.slug}
+                className="book-hero__read-btn book-hero__read-btn--secondary"
+              />
             )}
 
             {book.id && isDownloading(book.id) && (

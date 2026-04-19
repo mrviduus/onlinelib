@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useRoom } from '../context/RoomContext'
+import { RoomTopBar } from '../components/rooms/RoomTopBar'
+import type { OverlayHighlight } from '../components/reader/HighlightLayer'
 import type { Chapter, BookDetail } from '../types/api'
 import { getUserBook, getUserBookChapter } from '../api/userBooks'
 import { useReaderSettings } from '../hooks/useReaderSettings'
@@ -90,6 +93,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { isAuthenticated, openAuthModal } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const activeRoomId = searchParams.get('room')
+  const {
+    roomId: ctxRoomId,
+    setActiveRoom,
+    members: roomMembers,
+    sharedHighlights: roomSharedHighlights,
+    sendHeartbeat: sendRoomHeartbeat,
+  } = useRoom()
   // Raw state for public books (needed for scroll reader, caching, etc.)
   const [publicChapter, setPublicChapter] = useState<Chapter | null>(null)
   const [publicBook, setPublicBook] = useState<BookDetail | null>(null)
@@ -706,6 +718,43 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     setGuestCurrentBook({ bookSlug, chapterSlug: chapterIdentifier })
   }, [isAuthenticated, bookSlug, chapterIdentifier, setGuestCurrentBook])
 
+  // --- Reading room wiring ---
+  // Activate/deactivate room via ?room= url param
+  useEffect(() => {
+    if (activeRoomId && activeRoomId !== ctxRoomId) {
+      setActiveRoom(activeRoomId)
+    } else if (!activeRoomId && ctxRoomId) {
+      setActiveRoom(null)
+    }
+  }, [activeRoomId, ctxRoomId, setActiveRoom])
+
+  // Release room on unmount (e.g. leaving reader)
+  useEffect(() => () => {
+    if (activeRoomId) setActiveRoom(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Send heartbeat on chapter/progress change (debounced inside context 2s)
+  useEffect(() => {
+    if (!ctxRoomId || !chapter?.id) return
+    sendRoomHeartbeat({ chapterId: chapter.id, percent: overallProgress })
+  }, [ctxRoomId, chapter?.id, overallProgress, sendRoomHeartbeat])
+
+  // Overlay highlights: filter to current chapter, map to OverlayHighlight[]
+  const overlayHighlights: OverlayHighlight[] | undefined = useMemo(() => {
+    if (!ctxRoomId || !chapter?.id) return undefined
+    const memberById = new Map(roomMembers.map(m => [m.userId, m]))
+    return roomSharedHighlights
+      .filter(h => h.chapterId === chapter.id)
+      .map(h => ({
+        id: h.id,
+        color: h.memberColor,
+        anchorJson: h.anchorJson,
+        userName: memberById.get(h.userId)?.userName ?? null,
+        noteText: h.noteText,
+      }))
+  }, [ctxRoomId, chapter?.id, roomSharedHighlights, roomMembers])
+
   // Auto-add to library after page 2 or 1% progress (for single-page chapters)
   useEffect(() => {
     if (!book?.id || libraryAddedRef.current) return
@@ -1213,6 +1262,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         }}
       />
 
+      {ctxRoomId && <RoomTopBar />}
+
       {/* Hide side navigation in scroll mode - content scrolls continuously */}
       {!useScrollMode && (
         <ReaderPageNav
@@ -1235,6 +1286,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
+            sharedHighlights={overlayHighlights}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1261,6 +1313,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
+            sharedHighlights={overlayHighlights}
           >
             <ReaderContent
               ref={contentRef}

@@ -15,7 +15,7 @@ import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
-import { HighlightLayer } from './HighlightLayer'
+import { HighlightLayer, type OverlayHighlight } from './HighlightLayer'
 import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { WordPopup } from './WordPopup'
@@ -35,6 +35,7 @@ interface ReaderHighlightsProps {
   ttsSpeed?: number
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
+  sharedHighlights?: OverlayHighlight[]
   children: React.ReactNode
 }
 
@@ -69,6 +70,7 @@ export function ReaderHighlights({
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
+  sharedHighlights,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
@@ -405,6 +407,7 @@ export function ReaderHighlights({
         highlights={highlights}
         containerRef={containerRef}
         onHighlightClick={handleHighlightClick}
+        overlayHighlights={sharedHighlights}
       />
 
       <VocabWordLayer containerRef={containerRef} vocabMap={vocabMap} showInlineTranslations={showInlineTranslations} />
