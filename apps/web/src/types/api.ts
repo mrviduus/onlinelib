@@ -118,6 +118,7 @@ export interface AuthorDetail extends Author {
   seoRelevanceText: string | null
   seoThemesJson: string | null
   seoFaqsJson: string | null
+  externalLinksJson: string | null
   editions: Edition[]
 }
 

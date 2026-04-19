@@ -197,6 +197,7 @@ export interface AuthorDetail {
   seoRelevanceText: string | null
   seoThemesJson: string | null
   seoFaqsJson: string | null
+  externalLinksJson: string | null
   bookCount: number
   createdAt: string
   books: AuthorBook[]
@@ -811,6 +812,7 @@ export const adminApi = {
     seoRelevanceText?: string | null
     seoThemesJson?: string | null
     seoFaqsJson?: string | null
+    externalLinksJson?: string | null
   }): Promise<void> => {
     await fetchVoid(`/admin/authors/${id}`, {
       method: 'PUT',

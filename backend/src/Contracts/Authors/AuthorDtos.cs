@@ -19,6 +19,7 @@ public record AuthorDetailDto(
     string? SeoRelevanceText,
     string? SeoThemesJson,
     string? SeoFaqsJson,
+    string? ExternalLinksJson,
     List<AuthorEditionDto> Editions
 );
 

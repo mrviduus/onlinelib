@@ -124,6 +124,20 @@ export function AuthorDetailPage() {
 
   if (!author) return null
 
+  // Parse external authority links for schema.org sameAs.
+  // Shape stored in DB: { wikipedia?, goodreads?, gutenberg?, website?, twitter? }.
+  // Invalid JSON or non-http values are silently dropped so the JSON-LD stays clean.
+  const sameAs = (() => {
+    if (!author.externalLinksJson) return [] as string[]
+    try {
+      const parsed = JSON.parse(author.externalLinksJson) as Record<string, unknown>
+      return Object.values(parsed)
+        .filter((v): v is string => typeof v === 'string' && /^https?:\/\//.test(v))
+    } catch {
+      return [] as string[]
+    }
+  })()
+
   const seoTitle = language === 'uk'
     ? `${author.name} — книги автора`
     : `${author.name} — books by author`
@@ -164,6 +178,7 @@ export function AuthorDetailPage() {
             return url?.startsWith('http') ? url : `${canonicalOrigin}${url}`
           })() : undefined,
           url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/authors/${author.slug}` }),
+          sameAs: sameAs.length > 0 ? sameAs : undefined,
         }}
       />
 

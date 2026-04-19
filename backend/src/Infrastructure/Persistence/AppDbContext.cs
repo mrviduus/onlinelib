@@ -268,6 +268,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
             e.Property(x => x.Slug).HasMaxLength(255);
             e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.ExternalLinksJson).HasColumnType("jsonb");
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 

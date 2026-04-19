@@ -66,6 +66,7 @@ public class AuthorsService(IAppDbContext db)
                 a.SeoRelevanceText,
                 a.SeoThemesJson,
                 a.SeoFaqsJson,
+                a.ExternalLinksJson,
                 a.EditionAuthors
                     .Where(ea => ea.Edition.Status == EditionStatus.Published)
                     .OrderBy(ea => ea.Order)
