@@ -29,6 +29,9 @@ test.describe('Reading rooms', () => {
       headers: HEADERS,
       data: { targetType: 'Edition', targetId: enBook!.editionId },
     })
+    if (!resp.ok()) {
+      console.error(`POST /me/rooms failed: ${resp.status()} ${await resp.text()}`)
+    }
     expect(resp.ok()).toBeTruthy()
     const body = await resp.json()
     const roomId = body.roomId
@@ -71,6 +74,9 @@ test.describe('Reading rooms', () => {
       headers: HEADERS,
       data: { targetType: 'Edition', targetId: enBook!.editionId },
     })
+    if (!roomResp.ok()) {
+      console.error(`POST /me/rooms failed: ${roomResp.status()} ${await roomResp.text()}`)
+    }
     const { roomId, inviteToken } = await roomResp.json()
     expect(inviteToken).toBeTruthy()
 
@@ -90,6 +96,9 @@ test.describe('Reading rooms', () => {
       headers: HEADERS,
       data: { targetType: 'Edition', targetId: enBook!.editionId },
     })
+    if (!roomResp.ok()) {
+      console.error(`POST /me/rooms failed: ${roomResp.status()} ${await roomResp.text()}`)
+    }
     const { roomId, inviteToken } = await roomResp.json()
 
     // Second user context
@@ -99,6 +108,9 @@ test.describe('Reading rooms', () => {
       headers: HEADERS,
       data: { token: inviteToken },
     })
+    if (!joinResp.ok()) {
+      console.error(`POST /rooms/join failed: ${joinResp.status()} ${await joinResp.text()}`)
+    }
     expect(joinResp.ok()).toBeTruthy()
     const page = await ctx.newPage()
     await page.goto(`/en/books/${enBook!.slug}/${enBook!.firstChapterSlug}?room=${roomId}`)
