@@ -17,9 +17,11 @@ interface SeoHeadProps {
 const HREFLANG_DATA_ATTR = 'data-hreflang-managed'
 const OG_DATA_ATTR = 'data-og-managed'
 
-// SEO length limits (Ahrefs thresholds)
+// SEO length limits
+// - Title: Google SERP truncates ~60 chars desktop; Ahrefs flags >70
+// - Description: Google SERP truncates ~155-160 chars desktop; Ahrefs flags >160
 const MAX_TITLE_LENGTH = 70
-const MAX_DESCRIPTION_LENGTH = 300
+const MAX_DESCRIPTION_LENGTH = 160
 
 /** Truncate text to maxLen, breaking at last word boundary and appending ellipsis */
 function truncateSeo(text: string, maxLen: number): string {

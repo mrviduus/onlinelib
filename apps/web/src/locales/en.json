@@ -775,6 +775,7 @@
   },
   "blog": {
     "title": "Blog",
+    "seoDesc": "Articles, reading lists, and book recommendations from the TextStack Reader team. Discover curated guides, classic literature essays, and tips for lifelong readers.",
     "readMore": "Read more",
     "noPostsYet": "No posts yet",
     "publishedOn": "Published on",
