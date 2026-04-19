@@ -19,7 +19,7 @@ export interface RoomView {
   id: string
   targetType: RoomTargetType
   targetId: string
-  ownerUserId: string
+  ownerUserId: string | null
   name: string | null
   createdAt: string
   closedAt: string | null

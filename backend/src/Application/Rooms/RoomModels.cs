@@ -45,7 +45,7 @@ public record RoomView(
     Guid Id,
     ReadingRoomTargetType TargetType,
     Guid TargetId,
-    Guid OwnerUserId,
+    Guid? OwnerUserId,
     string? Name,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt,
