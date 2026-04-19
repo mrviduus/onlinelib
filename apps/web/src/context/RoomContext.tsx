@@ -23,6 +23,7 @@ import {
   type SharedHighlightView,
   type CreateInviteResult,
 } from '../api/rooms'
+import { ApiError } from '../api/client'
 import { useAuth } from './AuthContext'
 
 const POLL_MS = 5000
@@ -98,6 +99,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setIsConnected(true)
       setError(null)
     } catch (e) {
+      // Room closed or vanished — deactivate so UI doesn't keep polling ghosts.
+      if (e instanceof ApiError && (e.status === 410 || e.status === 404)) {
+        setRoomId(null)
+        setRoom(null)
+        setMembers([])
+        setSharedHighlights([])
+        cursorRef.current = null
+        setIsConnected(false)
+        setError(e.status === 410 ? 'room_closed' : 'room_not_found')
+        lastHeartbeatBodyRef.current = {}
+        return
+      }
       setIsConnected(false)
       setError(e instanceof Error ? e.message : 'state error')
     }

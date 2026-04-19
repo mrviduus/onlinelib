@@ -340,6 +340,7 @@ public class RoomService
     {
         var room = await _db.ReadingRooms.FirstOrDefaultAsync(r => r.Id == roomId, ct);
         if (room == null) return RoomResult<RoomStateView>.Fail(RoomError.NotFound);
+        if (room.ClosedAt != null) return RoomResult<RoomStateView>.Fail(RoomError.RoomClosed);
 
         var isMember = await _db.ReadingRoomMembers
             .AnyAsync(m => m.RoomId == roomId && m.UserId == userId && m.LeftAt == null, ct);

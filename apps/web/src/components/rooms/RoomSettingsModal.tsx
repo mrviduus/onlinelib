@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useRoom } from '../../context/RoomContext'
 import { useTranslation } from '../../hooks/useTranslation'
@@ -17,13 +17,13 @@ export function RoomSettingsModal({ isOwner, onClose }: Props) {
 
   const myMember = user ? members.find(m => m.userId === user.id) : undefined
   const [showProgress, setShowProgress] = useState<boolean>(myMember?.showProgress ?? false)
-  const [dirty, setDirty] = useState(false)
+  const pendingRef = useRef(0)
 
-  // Sync with live member updates (polling) unless user just toggled.
+  // Sync with live member updates (polling) unless user has a toggle in flight.
   useEffect(() => {
-    if (dirty) return
+    if (pendingRef.current > 0) return
     if (myMember) setShowProgress(myMember.showProgress)
-  }, [myMember, dirty])
+  }, [myMember])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -47,14 +47,14 @@ export function RoomSettingsModal({ isOwner, onClose }: Props) {
 
   const runToggle = async (val: boolean) => {
     setShowProgress(val)
-    setDirty(true)
+    pendingRef.current += 1
     try {
       await toggleMyProgress(val)
-      setDirty(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed')
-      setShowProgress(!val)
-      setDirty(false)
+      setShowProgress(prev => prev === val ? !val : prev)
+    } finally {
+      pendingRef.current = Math.max(0, pendingRef.current - 1)
     }
   }
 
