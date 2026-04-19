@@ -38,8 +38,10 @@ interface RoomContextValue {
   isOwner: boolean
   isConnected: boolean
   error: string | null
+  pendingInviteOpen: boolean
 
-  setActiveRoom: (roomId: string | null) => void
+  setActiveRoom: (roomId: string | null, options?: { autoOpenInvite?: boolean }) => void
+  consumePendingInviteOpen: () => void
   clearError: () => void
   createRoom: (targetType: 'Edition' | 'UserBook', targetId: string, name?: string) => Promise<string>
   joinRoom: (token: string) => Promise<string>
@@ -62,6 +64,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [sharedHighlights, setSharedHighlights] = useState<SharedHighlightView[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingInviteOpen, setPendingInviteOpen] = useState(false)
 
   const cursorRef = useRef<string | null>(null)
   const pollTimerRef = useRef<number | null>(null)
@@ -199,22 +202,32 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), [])
 
-  const setActiveRoom = useCallback((rid: string | null) => {
-    setRoomId(rid)
-    // Clear stale cross-room state on both activate and deactivate so a room
-    // switch (A → B) doesn't briefly render A's members/highlights while B boots.
-    setRoom(null)
-    setMembers([])
-    setSharedHighlights([])
-    cursorRef.current = null
-    setError(null)
-    lastHeartbeatBodyRef.current = {}
-    if (!rid) setIsConnected(false)
-  }, [])
+  const setActiveRoom = useCallback(
+    (rid: string | null, options?: { autoOpenInvite?: boolean }) => {
+      setRoomId(rid)
+      // Clear stale cross-room state on both activate and deactivate so a room
+      // switch (A → B) doesn't briefly render A's members/highlights while B boots.
+      setRoom(null)
+      setMembers([])
+      setSharedHighlights([])
+      cursorRef.current = null
+      setError(null)
+      lastHeartbeatBodyRef.current = {}
+      if (!rid) {
+        setIsConnected(false)
+        setPendingInviteOpen(false)
+      } else if (options?.autoOpenInvite) {
+        setPendingInviteOpen(true)
+      }
+    },
+    [],
+  )
+
+  const consumePendingInviteOpen = useCallback(() => setPendingInviteOpen(false), [])
 
   const createRoom: RoomContextValue['createRoom'] = useCallback(async (targetType, targetId, name) => {
     const res = await apiCreateRoom(targetType, targetId, name)
-    setActiveRoom(res.roomId)
+    setActiveRoom(res.roomId, { autoOpenInvite: true })
     return res.roomId
   }, [setActiveRoom])
 
@@ -256,12 +269,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const value = useMemo<RoomContextValue>(() => {
     const isOwner = !!room && !!user && room.ownerUserId === user.id
     return {
-      roomId, room, members, sharedHighlights, isOwner, isConnected, error,
-      setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
+      roomId, room, members, sharedHighlights, isOwner, isConnected, error, pendingInviteOpen,
+      setActiveRoom, consumePendingInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress,
     }
-  }, [roomId, room, members, sharedHighlights, isConnected, error, user,
-      setActiveRoom, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
+  }, [roomId, room, members, sharedHighlights, isConnected, error, pendingInviteOpen, user,
+      setActiveRoom, consumePendingInviteOpen, clearError, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress])
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>

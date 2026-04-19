@@ -1,31 +1,34 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRoom, isMemberOnline } from '../../context/RoomContext'
 import { useTranslation } from '../../hooks/useTranslation'
 import { RoomInviteModal } from './RoomInviteModal'
 import { RoomSettingsModal } from './RoomSettingsModal'
 
 export function RoomTopBar() {
-  const { roomId, room, members, isOwner, isConnected } = useRoom()
+  const {
+    roomId, room, members, isOwner, isConnected,
+    pendingInviteOpen, consumePendingInviteOpen,
+  } = useRoom()
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
-  // Auto-open invite modal once when ?openInvite=1 (fresh room creation flow).
-  // Lazy init ensures we capture the URL flag before any effect can strip it.
-  const [inviteOpen, setInviteOpen] = useState(
-    () => new URLSearchParams(window.location.search).get('openInvite') === '1',
-  )
+  const [inviteOpen, setInviteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const strippedRef = useRef(false)
+  // Context signals "auto-open invite" for the fresh-room-creation flow.
+  // Open once, then consume so future re-renders don't force it back open.
   useEffect(() => {
-    if (strippedRef.current) return
+    if (!pendingInviteOpen) return
+    setInviteOpen(true)
+    consumePendingInviteOpen()
+    // Strip ?openInvite=1 from URL if still present.
     const params = new URLSearchParams(window.location.search)
-    if (params.get('openInvite') !== '1') return
-    strippedRef.current = true
-    params.delete('openInvite')
-    const qs = params.toString()
-    const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
-    window.history.replaceState(null, '', next)
-  }, [])
+    if (params.get('openInvite') === '1') {
+      params.delete('openInvite')
+      const qs = params.toString()
+      const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
+      window.history.replaceState(null, '', next)
+    }
+  }, [pendingInviteOpen, consumePendingInviteOpen])
 
   if (!roomId || !room) return null
 

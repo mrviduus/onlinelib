@@ -740,11 +740,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
 
     if (activeRoomId && activeRoomId !== ctxRoomId) {
-      setActiveRoom(activeRoomId)
+      const autoOpenInvite = searchParams.get('openInvite') === '1'
+      setActiveRoom(activeRoomId, autoOpenInvite ? { autoOpenInvite: true } : undefined)
     } else if (!activeRoomId && ctxRoomId) {
       setActiveRoom(null)
     }
-  }, [activeRoomId, ctxRoomId, setActiveRoom, setSearchParams])
+  }, [activeRoomId, ctxRoomId, setActiveRoom, setSearchParams, searchParams])
 
   // Release room on unmount (e.g. leaving reader)
   useEffect(() => () => {
