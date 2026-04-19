@@ -367,8 +367,14 @@ public class RoomService
                 .Take(pageSize)
                 .Select(h => new
                 {
-                    h.Id, h.UserId, h.ChapterId, h.AnchorJson, h.Color,
-                    h.SelectedText, h.NoteText, h.UpdatedAt
+                    h.Id,
+                    h.UserId,
+                    h.ChapterId,
+                    h.AnchorJson,
+                    h.Color,
+                    h.SelectedText,
+                    h.NoteText,
+                    h.UpdatedAt
                 })
                 .ToListAsync(ct);
 
