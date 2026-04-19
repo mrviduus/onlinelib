@@ -93,7 +93,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { isAuthenticated, openAuthModal } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const activeRoomId = searchParams.get('room')
   const {
     roomId: ctxRoomId,
@@ -727,6 +727,23 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       setActiveRoom(null)
     }
   }, [activeRoomId, ctxRoomId, setActiveRoom])
+
+  // When user leaves/closes a room, ctxRoomId drops to null while URL still
+  // carries ?room= — strip it so the activation effect above doesn't re-enter.
+  // Gate with a ref so we don't strip on initial mount before activation fires.
+  const hasActivatedRoomRef = useRef(false)
+  useEffect(() => {
+    if (ctxRoomId) hasActivatedRoomRef.current = true
+    if (hasActivatedRoomRef.current && activeRoomId && ctxRoomId === null) {
+      hasActivatedRoomRef.current = false
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.delete('room')
+        next.delete('openInvite')
+        return next
+      }, { replace: true })
+    }
+  }, [activeRoomId, ctxRoomId, setSearchParams])
 
   // Release room on unmount (e.g. leaving reader)
   useEffect(() => () => {

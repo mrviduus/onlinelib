@@ -8,7 +8,7 @@ public static class MemberColor
         var hash = 0;
         foreach (var b in userId.ToByteArray())
             hash = unchecked(hash * 31 + b);
-        var hue = Math.Abs(hash) % 360;
+        var hue = (hash & int.MaxValue) % 360;
         return $"hsl({hue}, 65%, 55%)";
     }
 }

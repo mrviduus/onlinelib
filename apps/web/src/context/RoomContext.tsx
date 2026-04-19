@@ -23,6 +23,7 @@ import {
   type SharedHighlightView,
   type CreateInviteResult,
 } from '../api/rooms'
+import { useAuth } from './AuthContext'
 
 const POLL_MS = 5000
 const HEARTBEAT_MS = 30000
@@ -52,6 +53,7 @@ interface RoomContextValue {
 const RoomContext = createContext<RoomContextValue | null>(null)
 
 export function RoomProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [roomId, setRoomId] = useState<string | null>(null)
   const [room, setRoom] = useState<RoomView | null>(null)
   const [members, setMembers] = useState<RoomMemberView[]>([])
@@ -236,13 +238,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [roomId, fetchState])
 
   const value = useMemo<RoomContextValue>(() => {
-    const isOwner = !!room && members.some(m => m.userId === room.ownerUserId && m.role === 'Owner')
+    const isOwner = !!room && !!user && room.ownerUserId === user.id
     return {
       roomId, room, members, sharedHighlights, isOwner, isConnected, error,
       setActiveRoom, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress,
     }
-  }, [roomId, room, members, sharedHighlights, isConnected, error,
+  }, [roomId, room, members, sharedHighlights, isConnected, error, user,
       setActiveRoom, createRoom, joinRoom, leaveRoom, closeRoom,
       createInvite, revokeInvite, sendHeartbeat, toggleMyProgress])
 
