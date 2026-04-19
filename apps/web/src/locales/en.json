@@ -843,6 +843,9 @@
     "joinNeedLogin": "Sign in to join the room.",
     "joining": "Joining…",
     "joinFailed": "Failed to join room.",
-    "readTogether": "Read together"
+    "readTogether": "Read together",
+    "sectionTitle": "Reading together",
+    "membersShort": "members",
+    "ownerTag": "owner"
   }
 }

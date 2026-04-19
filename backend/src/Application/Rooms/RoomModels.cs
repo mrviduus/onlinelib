@@ -58,7 +58,12 @@ public record RoomSummary(
     string? Name,
     int MemberCount,
     DateTimeOffset LastActivityAt,
-    bool IsOwner);
+    bool IsOwner,
+    string? BookTitle,
+    string? BookSlug,
+    string? BookLanguage,
+    string? BookCoverPath,
+    string? FirstChapterSlug);
 
 public record SharedHighlightView(
     Guid Id,

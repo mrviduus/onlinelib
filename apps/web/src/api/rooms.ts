@@ -34,6 +34,11 @@ export interface RoomSummary {
   memberCount: number
   lastActivityAt: string
   isOwner: boolean
+  bookTitle: string | null
+  bookSlug: string | null
+  bookLanguage: string | null
+  bookCoverPath: string | null
+  firstChapterSlug: string | null
 }
 
 export interface SharedHighlightView {

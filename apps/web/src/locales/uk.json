@@ -843,6 +843,9 @@
     "joinNeedLogin": "Увійдіть, щоб приєднатися.",
     "joining": "Приєднання…",
     "joinFailed": "Не вдалось приєднатися.",
-    "readTogether": "Читати разом"
+    "readTogether": "Читати разом",
+    "sectionTitle": "Читання разом",
+    "membersShort": "учасників",
+    "ownerTag": "власник"
   }
 }

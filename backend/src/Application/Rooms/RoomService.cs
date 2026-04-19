@@ -94,18 +94,42 @@ public class RoomService
         if (activeOnly)
             q = q.Where(m => m.Room.ClosedAt == null);
 
-        return await q
+        var rows = await q
             .OrderByDescending(m => m.Room.LastActivityAt)
             .Take(Math.Clamp(limit, 1, 50))
-            .Select(m => new RoomSummary(
-                m.Room.Id,
+            .Select(m => new
+            {
+                RoomId = m.Room.Id,
                 m.Room.TargetType,
                 m.Room.TargetId,
                 m.Room.Name,
-                m.Room.Members.Count(x => x.LeftAt == null),
+                MemberCount = m.Room.Members.Count(x => x.LeftAt == null),
                 m.Room.LastActivityAt,
-                m.Room.OwnerUserId == userId))
+                IsOwner = m.Room.OwnerUserId == userId,
+                Edition = m.Room.TargetType == ReadingRoomTargetType.Edition
+                    ? _db.Editions
+                        .Where(e => e.Id == m.Room.TargetId)
+                        .Select(e => new
+                        {
+                            e.Title,
+                            e.Slug,
+                            e.Language,
+                            e.CoverPath,
+                            FirstChapterSlug = e.Chapters
+                                .OrderBy(c => c.ChapterNumber)
+                                .Select(c => c.Slug)
+                                .FirstOrDefault()
+                        })
+                        .FirstOrDefault()
+                    : null
+            })
             .ToListAsync(ct);
+
+        return rows.Select(r => new RoomSummary(
+            r.RoomId, r.TargetType, r.TargetId, r.Name, r.MemberCount,
+            r.LastActivityAt, r.IsOwner,
+            r.Edition?.Title, r.Edition?.Slug, r.Edition?.Language,
+            r.Edition?.CoverPath, r.Edition?.FirstChapterSlug)).ToList();
     }
 
     public async Task<RoomResult<RoomView>> GetAsync(Guid userId, Guid roomId, CancellationToken ct)
