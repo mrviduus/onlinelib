@@ -32,6 +32,7 @@ public record AdminAuthorDetailDto(
     string? SeoRelevanceText,
     string? SeoThemesJson,
     string? SeoFaqsJson,
+    string? ExternalLinksJson,
     int BookCount,
     DateTimeOffset CreatedAt,
     List<AdminAuthorBookDto> Books
@@ -66,7 +67,8 @@ public record UpdateAuthorRequest(
     string? CanonicalOverride,
     string? SeoRelevanceText,
     string? SeoThemesJson,
-    string? SeoFaqsJson
+    string? SeoFaqsJson,
+    string? ExternalLinksJson
 );
 
 public record AdminAuthorStatsDto(

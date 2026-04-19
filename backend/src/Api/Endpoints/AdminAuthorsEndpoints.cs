@@ -264,6 +264,7 @@ public static class AdminAuthorsEndpoints
                 a.SeoRelevanceText,
                 a.SeoThemesJson,
                 a.SeoFaqsJson,
+                a.ExternalLinksJson,
                 a.EditionAuthors.Count,
                 a.CreatedAt,
                 a.EditionAuthors
@@ -333,6 +334,8 @@ public static class AdminAuthorsEndpoints
         author.SeoRelevanceText = req.SeoRelevanceText;
         author.SeoThemesJson = req.SeoThemesJson;
         author.SeoFaqsJson = req.SeoFaqsJson;
+        // Normalise empty/whitespace external links to null so JSONB stores nothing
+        author.ExternalLinksJson = string.IsNullOrWhiteSpace(req.ExternalLinksJson) ? null : req.ExternalLinksJson;
 
         await db.SaveChangesAsync(ct);
 

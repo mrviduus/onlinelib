@@ -24,6 +24,13 @@ public class Author
     public string? SeoThemesJson { get; set; }
     public string? SeoFaqsJson { get; set; }
 
+    /// <summary>
+    /// External authority links for schema.org sameAs. Stored as JSON (jsonb).
+    /// Shape: {"wikipedia":"https://…","goodreads":"…","gutenberg":"…","website":"…","twitter":"…"}.
+    /// Keys with null/empty values are filtered out at render time.
+    /// </summary>
+    public string? ExternalLinksJson { get; set; }
+
     /// <summary>Provenance of the SEO fields on this entity. Drives auto-skip logic during bulk backfill.</summary>
     public SeoSource SeoSource { get; set; } = SeoSource.Manual;
 

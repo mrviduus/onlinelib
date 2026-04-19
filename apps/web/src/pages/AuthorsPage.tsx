@@ -5,14 +5,21 @@ import { useDebounce } from '../hooks/useDebounce'
 import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { JsonLd } from '../components/JsonLd'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
+import { useLanguage } from '../context/LanguageContext'
+import { useSite } from '../context/SiteContext'
+import { getCanonicalOrigin } from '../lib/canonicalUrl'
+import { buildItemListSchema } from '../lib/itemListSchema'
 import type { Author } from '../types/api'
 
 const AUTHORS_PER_PAGE = 12
 
 export function AuthorsPage() {
   const { t } = useTranslation()
+  const { language } = useLanguage()
+  const { site } = useSite()
   const api = useApi()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -77,6 +84,8 @@ export function AuthorsPage() {
 
   const totalPages = Math.ceil(total / AUTHORS_PER_PAGE)
   const hasFilters = !!(q || sort)
+  const isIndexable = page === 1 && !hasFilters
+  const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
 
   return (
     <>
@@ -90,6 +99,20 @@ export function AuthorsPage() {
         description={t('authors.seoDesc')}
         noindex={page > 1 || hasFilters}
       />
+      {isIndexable && authors.length > 0 && (
+        <JsonLd
+          data={buildItemListSchema({
+            origin: canonicalOrigin,
+            name: t('authors.title'),
+            description: t('authors.seoDesc'),
+            items: authors.map((a) => ({
+              url: `/${language}/authors/${a.slug}`,
+              name: a.name,
+              image: a.photoPath ? getStorageUrl(a.photoPath) : null,
+            })),
+          })}
+        />
+      )}
       <h1>{t('authors.title')}</h1>
 
       {/* Filters */}

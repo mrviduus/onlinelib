@@ -5,10 +5,14 @@ import { useDebounce } from '../hooks/useDebounce'
 import { getStorageUrl } from '../api/client'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { JsonLd } from '../components/JsonLd'
 import { Footer } from '../components/Footer'
 import { useTranslation } from '../hooks/useTranslation'
 import { useLanguage } from '../context/LanguageContext'
+import { useSite } from '../context/SiteContext'
 import { stringToColor } from '../utils/colors'
+import { getCanonicalOrigin } from '../lib/canonicalUrl'
+import { buildItemListSchema } from '../lib/itemListSchema'
 import type { Edition, Genre } from '../types/api'
 
 const BOOKS_PER_PAGE = 12
@@ -16,6 +20,7 @@ const BOOKS_PER_PAGE = 12
 export function BooksPage() {
   const { t } = useTranslation()
   const { language } = useLanguage()
+  const { site } = useSite()
   const api = useApi()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -93,6 +98,10 @@ export function BooksPage() {
 
   const totalPages = Math.ceil(total / BOOKS_PER_PAGE)
   const hasFilters = !!(q || genre || sort)
+  // Only emit ItemList on the canonical indexable version of this page,
+  // otherwise crawlers would ingest structured duplicates for every filter combo.
+  const isIndexable = page === 1 && !hasFilters
+  const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
 
   return (
     <>
@@ -109,6 +118,20 @@ export function BooksPage() {
         description={t('books.seoDesc')}
         noindex={page > 1 || hasFilters}
       />
+      {isIndexable && books.length > 0 && (
+        <JsonLd
+          data={buildItemListSchema({
+            origin: canonicalOrigin,
+            name: t('books.title'),
+            description: t('books.seoDesc'),
+            items: books.map((b) => ({
+              url: `/${language}/books/${b.slug}`,
+              name: b.title,
+              image: b.coverPath ? getStorageUrl(b.coverPath) : null,
+            })),
+          })}
+        />
+      )}
       <h1>{t('books.title')}</h1>
 
       {/* Filters */}

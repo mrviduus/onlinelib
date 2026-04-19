@@ -2,16 +2,22 @@ import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
+import { JsonLd } from '../components/JsonLd'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
+import { useSite } from '../context/SiteContext'
+import { getCanonicalOrigin } from '../lib/canonicalUrl'
+import { buildItemListSchema } from '../lib/itemListSchema'
 import type { Genre } from '../types/api'
 
 export function GenresPage() {
   const { language } = useLanguage()
+  const { site } = useSite()
   const api = useApi()
   const [genres, setGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const canonicalOrigin = getCanonicalOrigin(site?.primaryDomain)
 
   useEffect(() => {
     api.getGenres()
@@ -55,6 +61,19 @@ export function GenresPage() {
     <>
     <div className="genres-page">
       <SeoHead title={title} description={description} />
+      {genres.length > 0 && (
+        <JsonLd
+          data={buildItemListSchema({
+            origin: canonicalOrigin,
+            name: title,
+            description,
+            items: genres.map((g) => ({
+              url: `/${language}/genres/${g.slug}`,
+              name: g.name,
+            })),
+          })}
+        />
+      )}
       <h1>{title}</h1>
       {genres.length === 0 ? (
         <p>{language === 'uk' ? 'Жанрів поки немає.' : 'No genres available yet.'}</p>

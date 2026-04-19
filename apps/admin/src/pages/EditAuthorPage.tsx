@@ -29,6 +29,12 @@ export function EditAuthorPage() {
   const [seoRelevanceText, setSeoRelevanceText] = useState('')
   const [seoThemes, setSeoThemes] = useState<string[]>([])
   const [seoFaqs, setSeoFaqs] = useState<FAQItem[]>([])
+  // External authority links (schema.org sameAs)
+  const [linkWikipedia, setLinkWikipedia] = useState('')
+  const [linkGoodreads, setLinkGoodreads] = useState('')
+  const [linkGutenberg, setLinkGutenberg] = useState('')
+  const [linkWebsite, setLinkWebsite] = useState('')
+  const [linkTwitter, setLinkTwitter] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -45,6 +51,18 @@ export function EditAuthorPage() {
         setSeoRelevanceText(data.seoRelevanceText || '')
         setSeoThemes(data.seoThemesJson ? JSON.parse(data.seoThemesJson) : [])
         setSeoFaqs(data.seoFaqsJson ? JSON.parse(data.seoFaqsJson) : [])
+        if (data.externalLinksJson) {
+          try {
+            const links = JSON.parse(data.externalLinksJson) as Record<string, string | undefined>
+            setLinkWikipedia(links.wikipedia || '')
+            setLinkGoodreads(links.goodreads || '')
+            setLinkGutenberg(links.gutenberg || '')
+            setLinkWebsite(links.website || '')
+            setLinkTwitter(links.twitter || '')
+          } catch {
+            // ignore malformed
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load author')
       } finally {
@@ -59,6 +77,15 @@ export function EditAuthorPage() {
     if (!id) return
     setSaving(true)
     try {
+      const externalLinks: Record<string, string> = {}
+      if (linkWikipedia.trim()) externalLinks.wikipedia = linkWikipedia.trim()
+      if (linkGoodreads.trim()) externalLinks.goodreads = linkGoodreads.trim()
+      if (linkGutenberg.trim()) externalLinks.gutenberg = linkGutenberg.trim()
+      if (linkWebsite.trim()) externalLinks.website = linkWebsite.trim()
+      if (linkTwitter.trim()) externalLinks.twitter = linkTwitter.trim()
+      const externalLinksJson = Object.keys(externalLinks).length > 0
+        ? JSON.stringify(externalLinks)
+        : null
       await adminApi.updateAuthor(id, {
         name,
         bio: bio || null,
@@ -69,6 +96,7 @@ export function EditAuthorPage() {
         seoRelevanceText: seoRelevanceText || null,
         seoThemesJson: seoThemes.length > 0 ? JSON.stringify(seoThemes) : null,
         seoFaqsJson: seoFaqs.length > 0 ? JSON.stringify(seoFaqs) : null,
+        externalLinksJson,
       })
       const updated = await adminApi.getAuthor(id)
       setAuthor(updated)
@@ -277,6 +305,68 @@ export function EditAuthorPage() {
             faqs={seoFaqs}
             onFaqsChange={setSeoFaqs}
           />
+        </div>
+
+        <div className="form-section">
+          <h2>External Links</h2>
+          <p className="text-muted" style={{ marginTop: 0 }}>
+            Authority links for schema.org <code>sameAs</code>. Leave empty fields blank.
+          </p>
+
+          <div className="form-group">
+            <label htmlFor="linkWikipedia">Wikipedia URL</label>
+            <input
+              id="linkWikipedia"
+              type="url"
+              value={linkWikipedia}
+              onChange={(e) => setLinkWikipedia(e.target.value)}
+              placeholder="https://en.wikipedia.org/wiki/..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="linkGoodreads">Goodreads URL</label>
+            <input
+              id="linkGoodreads"
+              type="url"
+              value={linkGoodreads}
+              onChange={(e) => setLinkGoodreads(e.target.value)}
+              placeholder="https://www.goodreads.com/author/show/..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="linkGutenberg">Project Gutenberg URL</label>
+            <input
+              id="linkGutenberg"
+              type="url"
+              value={linkGutenberg}
+              onChange={(e) => setLinkGutenberg(e.target.value)}
+              placeholder="https://www.gutenberg.org/ebooks/author/..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="linkWebsite">Official Website</label>
+            <input
+              id="linkWebsite"
+              type="url"
+              value={linkWebsite}
+              onChange={(e) => setLinkWebsite(e.target.value)}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="linkTwitter">Twitter / X URL</label>
+            <input
+              id="linkTwitter"
+              type="url"
+              value={linkTwitter}
+              onChange={(e) => setLinkTwitter(e.target.value)}
+              placeholder="https://twitter.com/..."
+            />
+          </div>
         </div>
 
         <div className="form-actions">
