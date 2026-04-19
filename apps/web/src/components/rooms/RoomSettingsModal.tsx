@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { useRoom } from '../../context/RoomContext'
 import { useTranslation } from '../../hooks/useTranslation'
 
@@ -9,17 +10,19 @@ interface Props {
 
 export function RoomSettingsModal({ isOwner, onClose }: Props) {
   const { room, members, toggleMyProgress, leaveRoom, closeRoom } = useRoom()
+  const { user } = useAuth()
   const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // We can't know `userId` directly here — derive from members whose role === 'Owner' if I'm owner,
-  // otherwise we accept toggleMyProgress sends heartbeat with showProgress=value (server applies to caller).
-  // Current showProgress: best-effort — we use false as default until heartbeat roundtrip.
-  const myMember = isOwner
-    ? members.find(m => m.role === 'Owner')
-    : undefined
+  const myMember = user ? members.find(m => m.userId === user.id) : undefined
   const [showProgress, setShowProgress] = useState<boolean>(myMember?.showProgress ?? false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   if (!room) return null
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRoom } from '../../context/RoomContext'
 import { useTranslation } from '../../hooks/useTranslation'
 
@@ -21,6 +21,12 @@ export function RoomInviteModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   if (!roomId) return null
 
   const handleGenerate = async () => {
@@ -28,7 +34,7 @@ export function RoomInviteModal({ onClose }: Props) {
     setError(null)
     try {
       const opts: { expiresInSeconds?: number; maxUses?: number } = { expiresInSeconds }
-      if (typeof maxUses === 'number' && maxUses > 0) opts.maxUses = maxUses
+      if (typeof maxUses === 'number' && maxUses > 0) opts.maxUses = Math.floor(maxUses)
       const inv = await createInvite(opts)
       const url = `${window.location.origin}/rooms/join/${inv.token}`
       setLink(url)
@@ -71,9 +77,15 @@ export function RoomInviteModal({ onClose }: Props) {
           <input
             type="number"
             min={1}
+            step={1}
             placeholder={t('rooms.maxUsesPlaceholder')}
             value={maxUses}
-            onChange={e => setMaxUses(e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={e => {
+              const v = e.target.value
+              if (v === '') { setMaxUses(''); return }
+              const n = Math.floor(Number(v))
+              setMaxUses(Number.isFinite(n) && n > 0 ? n : '')
+            }}
           />
         </label>
 
