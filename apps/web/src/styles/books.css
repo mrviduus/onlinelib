@@ -4784,6 +4784,22 @@ html.dark .book-hero__read-btn {
   color: #0a0a0a;
 }
 
+.book-hero__read-btn--secondary {
+  background: transparent;
+  color: var(--color-text);
+  border: 2px solid var(--color-text);
+  box-shadow: none;
+  cursor: pointer;
+}
+.book-hero__read-btn--secondary:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+html.dark .book-hero__read-btn--secondary {
+  background: transparent;
+  color: #fff;
+  border-color: #fff;
+}
+
 /* Chapters Section */
 /* Book Tabs (Chapters / Reviews) */
 .book-tabs {
