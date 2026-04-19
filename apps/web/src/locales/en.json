@@ -267,7 +267,24 @@
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "authors": "Authors",
-    "contact": "Contact Us"
+    "contact": "Contact Us",
+    "sitemap": "Sitemap"
+  },
+  "sitemap": {
+    "title": "Sitemap",
+    "seoTitle": "Sitemap — All Books, Authors, Genres",
+    "seoDesc": "Browse the full TextStack Reader catalogue: every book, author, genre, and blog post in one place.",
+    "navigation": "Navigation",
+    "books": "Books",
+    "authors": "Authors",
+    "genres": "Genres",
+    "blog": "Blog",
+    "help": "Help & About",
+    "loading": "Loading sitemap…",
+    "totalBooks": "{count} books",
+    "totalAuthors": "{count} authors",
+    "totalGenres": "{count} genres",
+    "totalPosts": "{count} posts"
   },
   "about": {
     "seoTitle": "About TextStack Reader",
@@ -775,6 +792,7 @@
   },
   "blog": {
     "title": "Blog",
+    "seoDesc": "Articles, reading lists, and book recommendations from the TextStack Reader team. Discover curated guides, classic literature essays, and tips for lifelong readers.",
     "readMore": "Read more",
     "noPostsYet": "No posts yet",
     "publishedOn": "Published on",

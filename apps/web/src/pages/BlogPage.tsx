@@ -66,7 +66,15 @@ export function BlogPage() {
   return (
     <>
       <div className="blog-page">
-        <SeoHead title={t('blog.title')} description={t('blog.title')} />
+        {/*
+          Real SEO description (was duplicating the title).
+          Tag-filtered views are noindexed to avoid duplicate-meta clones of /blog.
+        */}
+        <SeoHead
+          title={t('blog.title')}
+          description={t('blog.seoDesc')}
+          noindex={!!tag}
+        />
         <h1>{t('blog.title')}</h1>
 
         {allTags.length > 0 && (

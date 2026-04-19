@@ -76,11 +76,20 @@ export function AuthorsPage() {
   }, [api, page, q, sort])
 
   const totalPages = Math.ceil(total / AUTHORS_PER_PAGE)
+  const hasFilters = !!(q || sort)
 
   return (
     <>
     <div className="authors-page">
-      <SeoHead title={t('authors.title')} description={t('authors.seoDesc')} />
+      {/*
+        Noindex filtered / paginated catalogue views to prevent duplicate meta
+        and thin result pages. Only the canonical page 1 is indexable.
+      */}
+      <SeoHead
+        title={t('authors.title')}
+        description={t('authors.seoDesc')}
+        noindex={page > 1 || hasFilters}
+      />
       <h1>{t('authors.title')}</h1>
 
       {/* Filters */}

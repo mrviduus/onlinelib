@@ -192,24 +192,53 @@ export function BookDetailPage() {
         availableLanguages={availableLanguages}
       />
       <JsonLd
-        data={{
-          '@context': 'https://schema.org',
-          '@type': 'Book',
-          name: book.title,
-          description: book.description || undefined,
-          inLanguage: book.language,
-          image: book.coverPath ? (() => {
-            const url = getStorageUrl(book.coverPath)
-            return url?.startsWith('http') ? url : `${canonicalOrigin}${url}`
-          })() : undefined,
-          author: book.authors.map((a) => ({
-            '@type': 'Person',
-            name: a.name,
-            url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/authors/${a.slug}` }),
-          })),
-          genre: genres.map((g) => g.name),
-          url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: location.pathname }),
-        }}
+        data={(() => {
+          // Sum chapter word counts to estimate page count (~250 words per page is standard)
+          const totalWords = book.chapters.reduce((sum, c) => sum + (c.wordCount ?? 0), 0)
+          const numberOfPages = totalWords > 0 ? Math.max(1, Math.round(totalWords / 250)) : undefined
+
+          // Only emit AggregateRating if we have at least 1 rating with a value
+          const hasRating = book.ratingCount > 0 && book.avgRating != null
+          const aggregateRating = hasRating
+            ? {
+                '@type': 'AggregateRating',
+                ratingValue: Number(book.avgRating!.toFixed(2)),
+                ratingCount: book.ratingCount,
+                reviewCount: book.reviewCount,
+                bestRating: 5,
+                worstRating: 1,
+              }
+            : undefined
+
+          // datePublished must be ISO 8601 (YYYY-MM-DD) for schema.org
+          const datePublished = book.publishedAt
+            ? new Date(book.publishedAt).toISOString().split('T')[0]
+            : undefined
+
+          return {
+            '@context': 'https://schema.org',
+            '@type': 'Book',
+            name: book.title,
+            description: book.description || undefined,
+            inLanguage: book.language,
+            bookFormat: 'https://schema.org/EBook',
+            isAccessibleForFree: true,
+            datePublished,
+            numberOfPages,
+            aggregateRating,
+            image: book.coverPath ? (() => {
+              const url = getStorageUrl(book.coverPath)
+              return url?.startsWith('http') ? url : `${canonicalOrigin}${url}`
+            })() : undefined,
+            author: book.authors.map((a) => ({
+              '@type': 'Person',
+              name: a.name,
+              url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: `/${language}/authors/${a.slug}` }),
+            })),
+            genre: genres.map((g) => g.name),
+            url: buildCanonicalUrl({ origin: canonicalOrigin, pathname: location.pathname }),
+          }
+        })()}
       />
 
       {/* Breadcrumbs: Home → Books → [Genre if present] → Book Title */}

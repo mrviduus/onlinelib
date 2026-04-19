@@ -97,7 +97,18 @@ export function BooksPage() {
   return (
     <>
     <div className="books-page">
-      <SeoHead title={t('books.title')} description={t('books.seoDesc')} />
+      {/*
+        Noindex filtered / paginated catalogue views to prevent:
+          - duplicate meta (every page?2..N shares the same title/description)
+          - thin or near-duplicate result pages
+          - infinite URL permutations from ?q= / ?genre= / ?sort= combinations
+        Page 1 with no filters remains indexable as the canonical list.
+      */}
+      <SeoHead
+        title={t('books.title')}
+        description={t('books.seoDesc')}
+        noindex={page > 1 || hasFilters}
+      />
       <h1>{t('books.title')}</h1>
 
       {/* Filters */}
