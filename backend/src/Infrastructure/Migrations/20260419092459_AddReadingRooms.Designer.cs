@@ -1782,8 +1782,8 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("Color")
                         .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("color");
 
                     b.Property<Guid?>("CurrentChapterId")

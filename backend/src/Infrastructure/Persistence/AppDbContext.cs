@@ -696,7 +696,7 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             e.HasIndex(x => x.RoomId);
             e.HasIndex(x => new { x.RoomId, x.UserId }).IsUnique().HasFilter("left_at IS NULL");
-            e.Property(x => x.Color).HasMaxLength(16);
+            e.Property(x => x.Color).HasMaxLength(32);
             e.Property(x => x.Role).HasConversion<string>().HasMaxLength(16);
             e.HasOne(x => x.Room).WithMany(x => x.Members).HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);

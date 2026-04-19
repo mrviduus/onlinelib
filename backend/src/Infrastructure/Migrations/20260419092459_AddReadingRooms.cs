@@ -81,7 +81,7 @@ namespace Infrastructure.Migrations
                     room_id = table.Column<Guid>(type: "uuid", nullable: false),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     role = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
-                    color = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
+                    color = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     show_progress = table.Column<bool>(type: "boolean", nullable: false),
                     joined_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     last_seen_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
