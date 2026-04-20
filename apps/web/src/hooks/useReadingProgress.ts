@@ -10,7 +10,6 @@ interface UseReadingProgressOptions {
   chapterSlug?: string
 }
 
-// Store for pending sync (used by lifecycle triggers)
 interface PendingSync {
   editionId: string
   chapterId: string
@@ -26,16 +25,12 @@ export function useReadingProgress(
 ) {
   const { isAuthenticated } = useAuth()
   const serverSyncRef = useRef<number | null>(null)
-  const lastSyncedPercentRef = useRef<number>(0)
-  const lastSyncedLocatorRef = useRef<string>('')
+  // Only advanced after server ACK — transient fails won't lock out retries.
+  const lastAckedKeyRef = useRef<string>('')
   const pendingSyncRef = useRef<PendingSync | null>(null)
   const { editionId, chapterId, chapterSlug: optionsChapterSlug } = options || {}
   const resolvedChapterSlug = optionsChapterSlug || chapterSlug
 
-  // Update progress (called by reader when page changes)
-  // page: page number for paginated mode
-  // scrollLocator: custom locator string for scroll mode (e.g., "scroll:chapter-slug:offset")
-  // overrideChapterId/overrideChapterSlug: for scroll mode where visible chapter differs
   const updateProgress = useCallback((
     percent: number,
     page?: number,
@@ -48,7 +43,6 @@ export function useReadingProgress(
 
     if (!editionId || !effectiveChapterId) return
 
-    // Build locator early to check for changes
     let locator: string
     if (scrollLocator) {
       locator = scrollLocator
@@ -58,18 +52,8 @@ export function useReadingProgress(
       locator = `percent:${percent.toFixed(4)}`
     }
 
-    // Skip if same values synced recently (check both percent AND locator)
-    const percentUnchanged = Math.abs(percent - lastSyncedPercentRef.current) < 0.01
-    const locatorUnchanged = locator === lastSyncedLocatorRef.current
-    if (percentUnchanged && locatorUnchanged) return
-    lastSyncedPercentRef.current = percent
-    lastSyncedLocatorRef.current = locator
-
-    // Timestamp is the source of truth for LWW merge in useRestoreProgress.
-    // Single monotonic stamp shared by localStorage + server payload so both sides merge identically.
     const updatedAt = Date.now()
 
-    // Always save to localStorage (works offline, fallback if API fails)
     try {
       localStorage.setItem(`${STORAGE_KEY}${editionId}`, JSON.stringify({
         chapterId: effectiveChapterId,
@@ -82,7 +66,6 @@ export function useReadingProgress(
       // localStorage might be full or disabled
     }
 
-    // Store pending sync data for lifecycle triggers
     pendingSyncRef.current = {
       editionId,
       chapterId: effectiveChapterId,
@@ -91,63 +74,72 @@ export function useReadingProgress(
       updatedAt,
     }
 
-    // Also sync to server if authenticated (debounced)
-    if (isAuthenticated) {
-      if (serverSyncRef.current) clearTimeout(serverSyncRef.current)
-      serverSyncRef.current = window.setTimeout(() => {
-        upsertProgress(editionId, {
-          chapterId: effectiveChapterId,
-          locator,
-          percent,
-          updatedAt: new Date(updatedAt).toISOString(),
-        }).catch(() => {})
-        pendingSyncRef.current = null
-      }, 2000)
-    }
+    if (!isAuthenticated) return
+
+    const dedupeKey = `${locator}:${percent.toFixed(4)}`
+    // Skip server sync only if the last *successful* sync matches — not if we merely
+    // attempted the same payload. That way a failed sync stays retriable.
+    if (dedupeKey === lastAckedKeyRef.current) return
+
+    if (serverSyncRef.current) clearTimeout(serverSyncRef.current)
+    serverSyncRef.current = window.setTimeout(() => {
+      const payload = pendingSyncRef.current
+      if (!payload) return
+      upsertProgress(payload.editionId, {
+        chapterId: payload.chapterId,
+        locator: payload.locator,
+        percent: payload.percent,
+        updatedAt: new Date(payload.updatedAt).toISOString(),
+      })
+        .then(() => {
+          lastAckedKeyRef.current = `${payload.locator}:${payload.percent.toFixed(4)}`
+          if (pendingSyncRef.current === payload) pendingSyncRef.current = null
+        })
+        .catch(() => {
+          // Leave lastAckedKeyRef as-is so subsequent updateProgress retries.
+        })
+    }, 2000)
   }, [bookSlug, chapterSlug, isAuthenticated, editionId, chapterId, resolvedChapterSlug])
 
-  // Flush pending sync immediately (bypasses debounce)
+  // Flush pending sync immediately via keepalive fetch (bypasses debounce).
   const flushSave = useCallback(() => {
-    if (!pendingSyncRef.current || !isAuthenticated) return
+    const payload = pendingSyncRef.current
+    if (!payload || !isAuthenticated) return
 
-    // Cancel pending debounced sync
     if (serverSyncRef.current) {
       clearTimeout(serverSyncRef.current)
       serverSyncRef.current = null
     }
 
-    const { editionId, chapterId, locator, percent, updatedAt } = pendingSyncRef.current
-    const payload = JSON.stringify({
-      chapterId,
-      locator,
-      percent,
-      updatedAt: new Date(updatedAt).toISOString(),
+    const body = JSON.stringify({
+      chapterId: payload.chapterId,
+      locator: payload.locator,
+      percent: payload.percent,
+      updatedAt: new Date(payload.updatedAt).toISOString(),
     })
-    const url = `/api/me/progress/${editionId}`
 
-    // Use fetch with keepalive (survives page unload like sendBeacon, but supports PUT)
-    fetch(url, {
+    fetch(`/api/me/progress/${payload.editionId}`, {
       method: 'PUT',
-      body: payload,
+      body,
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       keepalive: true,
-    }).catch(() => {})
+    })
+      .then(() => {
+        lastAckedKeyRef.current = `${payload.locator}:${payload.percent.toFixed(4)}`
+      })
+      .catch(() => {})
 
     pendingSyncRef.current = null
   }, [isAuthenticated])
 
-  // Lifecycle event triggers (ADR-007 section 3.3)
+  // Belt-and-suspenders lifecycle flush. The caller (ReaderPage) also flushes explicitly
+  // after its own debounced write — whichever handler fires first wins.
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        flushSave()
-      }
+      if (document.visibilityState === 'hidden') flushSave()
     }
-
-    const handleBeforeUnload = () => {
-      flushSave()
-    }
+    const handleBeforeUnload = () => flushSave()
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('beforeunload', handleBeforeUnload)

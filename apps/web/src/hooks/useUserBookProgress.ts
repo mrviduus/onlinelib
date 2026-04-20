@@ -24,7 +24,8 @@ export function useUserBookProgress(bookId: string) {
   // Legacy progress requiring migration (has chapterNumber, needs slug)
   const [legacyProgress, setLegacyProgress] = useState<LegacyProgress | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const lastSavedRef = useRef<{ slug: string; locator?: string } | null>(null)
+  // Only advanced after server ACK — transient fails stay retriable.
+  const lastAckedKeyRef = useRef<string>('')
   const serverSyncTimerRef = useRef<number | null>(null)
   const pendingSyncRef = useRef<SavedProgress | null>(null)
 
@@ -91,24 +92,31 @@ export function useUserBookProgress(bookId: string) {
     return () => { cancelled = true }
   }, [bookId])
 
-  // Sync to server (debounced)
+  // Sync to server (debounced). Advance lastAckedKeyRef only on success.
   const syncToServer = useCallback((data: SavedProgress) => {
     pendingSyncRef.current = data
+    const dedupeKey = `${data.chapterSlug}:${data.locator ?? ''}`
+    if (dedupeKey === lastAckedKeyRef.current) return
+
     if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current)
 
     serverSyncTimerRef.current = window.setTimeout(() => {
       const toSync = pendingSyncRef.current
       if (!toSync || !bookId) return
-      pendingSyncRef.current = null
 
       saveUserBookProgress(bookId, {
         chapterSlug: toSync.chapterSlug,
         locator: toSync.locator,
         percent: toSync.percent,
         updatedAt: new Date(toSync.updatedAt).toISOString(),
-      }).catch(() => {
-        // Server unavailable, localStorage is still saved
       })
+        .then(() => {
+          lastAckedKeyRef.current = `${toSync.chapterSlug}:${toSync.locator ?? ''}`
+          if (pendingSyncRef.current === toSync) pendingSyncRef.current = null
+        })
+        .catch(() => {
+          // Leave ref so next save retries.
+        })
     }, DEBOUNCE_MS)
   }, [bookId])
 
@@ -138,7 +146,11 @@ export function useUserBookProgress(bookId: string) {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       keepalive: true,
-    }).catch(() => {})
+    })
+      .then(() => {
+        lastAckedKeyRef.current = `${toSync.chapterSlug}:${toSync.locator ?? ''}`
+      })
+      .catch(() => {})
 
     pendingSyncRef.current = null
   }, [bookId])
@@ -170,11 +182,6 @@ export function useUserBookProgress(bookId: string) {
   const saveProgress = useCallback((chapterSlug: string, _page: number, percent: number, locator?: string) => {
     if (!bookId) return
 
-    // Skip if same position
-    const last = lastSavedRef.current
-    if (last && last.slug === chapterSlug && last.locator === locator) return
-    lastSavedRef.current = { slug: chapterSlug, locator }
-
     const data: SavedProgress = {
       chapterSlug,
       locator,
@@ -182,7 +189,7 @@ export function useUserBookProgress(bookId: string) {
       updatedAt: Date.now(),
     }
 
-    // Save to localStorage immediately
+    // Save to localStorage immediately (always — offline/fallback safety)
     try {
       localStorage.setItem(`${STORAGE_KEY}${bookId}`, JSON.stringify(data))
       setLegacyProgress(null)
@@ -191,7 +198,7 @@ export function useUserBookProgress(bookId: string) {
       // localStorage full or disabled
     }
 
-    // Sync to server (debounced)
+    // Sync to server (debounced, server-side dedupe)
     syncToServer(data)
   }, [bookId, syncToServer])
 
@@ -211,6 +218,7 @@ export function useUserBookProgress(bookId: string) {
     legacyProgress, // For migration: caller can use chapterNumber to look up slug
     isLoading,
     saveProgress,
+    flushSave,
     clearProgress,
   }
 }
