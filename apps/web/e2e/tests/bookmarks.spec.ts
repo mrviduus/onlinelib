@@ -106,36 +106,28 @@ test.describe('QA-004: Bookmarks', () => {
 })
 
 test.describe('QA-004: Autosave', () => {
-  test('auto-save on page change (desktop)', async ({ authedPage: page }) => {
+  test('auto-save on scroll (desktop)', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate to next page
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
+    // Scroll to create progress
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
 
-      // If clicking next navigated to a new chapter, wait for it to load
-      await waitForReaderLoad(page)
+    // Wait for auto-save (3s stable position + buffer)
+    await page.waitForTimeout(4000)
 
-      // Wait for auto-save (3s stable position + buffer)
-      await page.waitForTimeout(4000)
+    const progressKeys = await page.evaluate(() => {
+      return Object.keys(localStorage).filter(k => k.startsWith('reading.progress.'))
+    })
+    expect(progressKeys.length).toBeGreaterThan(0)
 
-      // Check localStorage for any reading progress key
-      const progressKeys = await page.evaluate(() => {
-        return Object.keys(localStorage).filter(k => k.startsWith('reading.progress.'))
-      })
-      expect(progressKeys.length).toBeGreaterThan(0)
-
-      // Also verify the value is valid JSON with expected fields
-      if (progressKeys.length > 0) {
-        const value = await page.evaluate((key) => localStorage.getItem(key), progressKeys[0])
-        const parsed = JSON.parse(value!)
-        expect(parsed).toHaveProperty('locator')
-        expect(parsed).toHaveProperty('percent')
-      }
+    if (progressKeys.length > 0) {
+      const value = await page.evaluate((key) => localStorage.getItem(key), progressKeys[0])
+      const parsed = JSON.parse(value!)
+      expect(parsed).toHaveProperty('locator')
+      expect(parsed).toHaveProperty('percent')
     }
   })
 
@@ -172,12 +164,9 @@ test.describe('QA-004: Autosave', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate pages to trigger save
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(4000)
-    }
+    // Scroll to trigger save
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(4000)
 
     // Progress should have been synced to server
     // (PUT /me/progress/{editionId} call)

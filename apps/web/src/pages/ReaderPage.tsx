@@ -6,22 +6,15 @@ import { useLanguage } from '../context/LanguageContext'
 import type { Chapter, BookDetail } from '../types/api'
 import { getUserBook, getUserBookChapter } from '../api/userBooks'
 import { useReaderSettings } from '../hooks/useReaderSettings'
-import { useAutoHideBar } from '../hooks/useAutoHideBar'
 import { useReadingProgress } from '../hooks/useReadingProgress'
 import { useRestoreProgress } from '../hooks/useRestoreProgress'
 import { useUserBookProgress } from '../hooks/useUserBookProgress'
 import { useBookmarks } from '../hooks/useBookmarks'
 import { useUserBookBookmarks } from '../hooks/useUserBookBookmarks'
 import { useInBookSearch } from '../hooks/useInBookSearch'
-import { useFullscreen } from '../hooks/useFullscreen'
-import { usePagination } from '../hooks/usePagination'
-import { useSwipe } from '../hooks/useSwipe'
 import { useLibrary } from '../hooks/useLibrary'
-import { useIsMobile } from '../hooks/useIsMobile'
 import { useNetworkRecovery } from '../hooks/useNetworkRecovery'
 import { useReaderKeyboard } from '../hooks/useReaderKeyboard'
-import { useReaderNavigation } from '../hooks/useReaderNavigation'
-import { useFullscreenBars } from '../hooks/useFullscreenBars'
 import { useImmersiveMode } from '../hooks/useImmersiveMode'
 import { getCachedChapter, cacheChapter } from '../lib/offlineDb'
 import { InvalidContentTypeError } from '../lib/fetchWithRetry'
@@ -30,13 +23,10 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { Toast } from '../components/Toast'
 import { ReaderTopBar } from '../components/reader/ReaderTopBar'
 import { ReaderContent } from '../components/reader/ReaderContent'
-import { ScrollReaderContent } from '../components/reader/ScrollReaderContent'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
-import { ReaderPageNav } from '../components/reader/ReaderPageNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { ReaderTocDrawer, type AutoSaveInfo, type TocChapter } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
-import { ReaderShortcutsModal } from '../components/reader/ReaderShortcutsModal'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
@@ -103,18 +93,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
   const [scrollToHighlightId] = useState(() => new URLSearchParams(window.location.search).get('highlight'))
 
-  // Refs for pagination
-  const contentRef = useRef<HTMLElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const { settings, update } = useReaderSettings()
-  const { visible } = useAutoHideBar()
 
   // Bookmarks: server sync for both public and userbook modes
   // Public mode uses useBookmarks with editionId for server sync
@@ -174,15 +159,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const editionIdRef = useRef<string | null>(null)
   const fetchedKeyRef = useRef<string | null>(null)
   const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
-  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen()
-  const showBarsInFullscreen = useFullscreenBars(isFullscreen)
 
-  // Mobile immersive mode
-  const isMobile = useIsMobile()
-  const { immersiveMode, showBars: showImmersiveBars } = useImmersiveMode(isMobile, loading)
-
-  // Scroll mode for mobile continuous reading (both public and userbook)
-  const useScrollMode = isMobile
+  const { immersiveMode, showBars: showImmersiveBars } = useImmersiveMode(true, loading)
 
   // Adapted book data for scroll reader (normalized to identifier-based interface)
   const scrollReaderBook = useMemo(() => {
@@ -235,20 +213,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     fetchChapter: mode === 'public' ? fetchPublicChapter : fetchUserChapter,
   })
 
-  // In scroll mode, use visible chapter for bookmarks (URL chapterSlug doesn't update on replaceState)
-  const activeChapterIdentifier = useScrollMode && scrollReader.visibleIdentifier
-    ? scrollReader.visibleIdentifier
-    : chapterIdentifier || ''
-  const activeChapter = useScrollMode
-    ? book?.chapters.find(c => c.identifier === activeChapterIdentifier)
-    : chapter
+  // Use visible chapter for bookmarks — URL chapterSlug doesn't update on replaceState
+  const activeChapterIdentifier = scrollReader.visibleIdentifier || chapterIdentifier || ''
+  const activeChapter = book?.chapters.find(c => c.identifier === activeChapterIdentifier)
 
   // Track current URL chapter (may differ from chapterSlug after replaceState)
   const currentUrlChapterRef = useRef(chapterIdentifier)
 
   // Sync URL with visible chapter from scroll reader
   useEffect(() => {
-    if (!useScrollMode) return
     const visibleId = scrollReader.visibleIdentifier
     if (!visibleId || visibleId === currentUrlChapterRef.current) return
 
@@ -257,19 +230,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       : `/${language}/library/my/${id}/read/${visibleId}`
     window.history.replaceState(null, '', newPath)
     currentUrlChapterRef.current = visibleId
-  }, [useScrollMode, mode, scrollReader.visibleIdentifier, bookSlug, id, language, getLocalizedPath])
-
-
-  // Page-based pagination
-  const {
-    currentPage,
-    totalPages,
-    progress,
-    nextPage,
-    prevPage,
-    goToPage,
-    recalculate,
-  } = usePagination(contentRef, containerRef)
+  }, [mode, scrollReader.visibleIdentifier, bookSlug, id, language, getLocalizedPath])
 
   // Reading progress sync (with server when authenticated) - public mode only
   const publicProgress = useReadingProgress(
@@ -297,13 +258,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       navigate(`/${language}/library/my/${id}/read/${targetChapter.identifier}` + qs, { replace: true })
     }
   }, [mode, userProgress.legacyProgress, book?.chapters, navigate, language, id])
-
-  // Unified progress interface
-  const updateProgress = mode === 'public'
-    ? publicProgress.updateProgress
-    : (percent: number, page?: number, locator?: string) => {
-        userProgress.saveProgress(chapterIdentifier || '', page || 0, percent, locator)
-      }
 
   // Restore progress on mount - public mode only (user books restore handled separately)
   const { savedProgress, shouldNavigate, targetChapterSlug, isLoading: progressLoading } =
@@ -355,82 +309,43 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // Refs for restore logic
   const hasNavigatedRef = useRef(false)
-  const restoredRef = useRef(false)
   const scrollRestoredRef = useRef(false)
+
+  // Current chapter progress (0..1) based on scroll within the visible chapter.
+  // Drives both book-level overallProgress and chapter-level ETF.
+  const chapterScrollProgress = useMemo(() => {
+    const currentId = scrollReader.visibleIdentifier
+    if (!currentId) return 0
+    const chapterEl = scrollReader.chapterRefs.current.get(currentId)
+    if (!chapterEl) return 0
+    const h = chapterEl.scrollHeight
+    if (h <= 0) return 0
+    return Math.min(1, Math.max(0, scrollReader.scrollOffset / h))
+  }, [scrollReader.visibleIdentifier, scrollReader.scrollOffset, scrollReader.chapterRefs])
 
   // Calculate overall book progress based on word counts
   const calculatedProgress = useMemo(() => {
-    // For scroll mode (both public and userbook)
-    if (useScrollMode && scrollReaderBook) {
-      const chapters = scrollReaderBook.chapters
-      const currentId = scrollReader.visibleIdentifier
-      if (!currentId) return 0
+    if (!scrollReaderBook) return 0
+    const chapters = scrollReaderBook.chapters
+    const currentId = scrollReader.visibleIdentifier
+    if (!currentId) return 0
 
-      const currentChapterIndex = chapters.findIndex(c => c.identifier === currentId)
-      if (currentChapterIndex === -1) return 0
+    const currentChapterIndex = chapters.findIndex(c => c.identifier === currentId)
+    if (currentChapterIndex === -1) return 0
 
-      // Calculate progress within current chapter based on scroll offset
-      const chapterEl = scrollReader.chapterRefs.current.get(currentId)
-      let chapterProgress = 0
-      if (chapterEl) {
-        const chapterHeight = chapterEl.scrollHeight
-        if (chapterHeight > 0) {
-          chapterProgress = Math.min(1, Math.max(0, scrollReader.scrollOffset / chapterHeight))
-        }
-      }
-
-      // Calculate using word counts for accuracy (public has wordCount, userbook doesn't)
-      const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
-      if (totalWords === 0) {
-        // Fallback: simple chapter-based progress (for userbook)
-        return (currentChapterIndex + chapterProgress) / chapters.length
-      }
-
-      const wordsBeforeCurrent = chapters
-        .slice(0, currentChapterIndex)
-        .reduce((sum, c) => sum + (c.wordCount || 0), 0)
-      const currentChapterWords = chapters[currentChapterIndex].wordCount || 0
-      const wordsRead = wordsBeforeCurrent + currentChapterWords * chapterProgress
-
-      return wordsRead / totalWords
+    const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
+    if (totalWords === 0) {
+      return (currentChapterIndex + chapterScrollProgress) / chapters.length
     }
 
-    // For public mode pagination
-    if (mode === 'public' && publicBook) {
-      const chapters = publicBook.chapters
-      if (!chapterSlug || totalPages === 0) return 0
+    const wordsBeforeCurrent = chapters
+      .slice(0, currentChapterIndex)
+      .reduce((sum, c) => sum + (c.wordCount || 0), 0)
+    const currentChapterWords = chapters[currentChapterIndex].wordCount || 0
+    const wordsRead = wordsBeforeCurrent + currentChapterWords * chapterScrollProgress
 
-      const currentChapterIndex = chapters.findIndex(c => c.slug === chapterSlug)
-      if (currentChapterIndex === -1) return 0
-
-      const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
-      if (totalWords === 0) {
-        return (currentChapterIndex + progress) / chapters.length
-      }
-
-      const wordsBeforeCurrent = chapters
-        .slice(0, currentChapterIndex)
-        .reduce((sum, c) => sum + (c.wordCount || 0), 0)
-      const currentChapterWords = chapters[currentChapterIndex].wordCount || 0
-      const wordsRead = wordsBeforeCurrent + currentChapterWords * progress
-
-      return wordsRead / totalWords
-    }
-
-    // For userbook mode: simple chapter-based progress
-    if (mode === 'userbook' && book) {
-      const chapters = book.chapters
-      if (!chapterIdentifier || totalPages === 0) return 0
-
-      const currentChapterIndex = chapters.findIndex(c => c.identifier === chapterIdentifier)
-      if (currentChapterIndex === -1) return 0
-
-      // Simple chapter + page progress (no word counts for user books)
-      return (currentChapterIndex + progress) / chapters.length
-    }
-
-    return 0
-  }, [mode, publicBook, book, scrollReaderBook, chapterSlug, chapterIdentifier, progress, totalPages, useScrollMode, scrollReader.visibleIdentifier, scrollReader.scrollOffset, scrollReader.chapterRefs])
+    return wordsRead / totalWords
+  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterScrollProgress])
 
   // Force 100% when book is completed
   const overallProgress = bookCompleted ? 1 : calculatedProgress
@@ -493,12 +408,11 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const chapterEtf = useMemo(() => {
     if (!chapter?.wordCount) return null
-    return calculateChapterETF(chapter.wordCount, progress, userWpm)
-  }, [chapter?.wordCount, progress, userWpm])
+    return calculateChapterETF(chapter.wordCount, chapterScrollProgress, userWpm)
+  }, [chapter?.wordCount, chapterScrollProgress, userWpm])
 
-  // Track scroll activity for reading session (scroll mode)
+  // Track scroll activity for reading session
   useEffect(() => {
-    if (!useScrollMode) return
     let lastScroll = 0
     const handleScroll = () => {
       const now = Date.now()
@@ -509,19 +423,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [useScrollMode, readingSession])
+  }, [readingSession])
 
-  // Sync progress when page changes (pagination mode only)
-  useEffect(() => {
-    if (useScrollMode) return // Scroll mode has its own save effect
-    if (!restoredRef.current) return // Don't save until position is restored
-    if (totalPages > 0 && book?.id && chapter?.id) {
-      const locator = `page:${currentPage}`
-      updateProgress(overallProgress, currentPage, locator)
-    }
-  }, [useScrollMode, currentPage, totalPages, overallProgress, book?.id, chapter?.id, updateProgress])
-
-  // Sync progress when scroll position changes (scroll mode)
+  // Sync progress when scroll position changes
   // Time-based skip: avoid redundant saves within 2s window (aligns with 600ms debounce)
   const lastScrollSaveRef = useRef<{ identifier: string; offset: number; timestamp: number } | null>(null)
   const scrollSaveTimerRef = useRef<number | null>(null)
@@ -559,7 +463,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [mode, publicBook?.chapters, publicProgress, userProgress])
 
   useEffect(() => {
-    if (!useScrollMode) return
     if (!scrollRestoredRef.current) return // Don't save until scroll position is restored
 
     const visibleId = scrollReader.visibleIdentifier
@@ -606,12 +509,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       pendingScrollSaveRef.current = null
       scrollSaveTimerRef.current = null
     }, 600)
-  }, [useScrollMode, mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
+  }, [mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
 
-  // Lifecycle handlers for scroll mode: flush pending save on visibility hidden or unload
+  // Flush pending save on visibility hidden or unload
   useEffect(() => {
-    if (!useScrollMode) return
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         flushScrollSave()
@@ -631,14 +532,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       // Flush on unmount as well
       flushScrollSave()
     }
-  }, [useScrollMode, flushScrollSave])
+  }, [flushScrollSave])
 
-  // Time-based auto-save for scroll mode: save every 30s if position changed at all
-  // This catches small scrolls (<500px) that bypass the threshold-based save
+  // Time-based auto-save: save every 30s if position changed at all.
+  // Catches small scrolls that bypass the distance threshold.
   const lastAutoSavePositionRef = useRef<{ identifier: string; offset: number } | null>(null)
   useEffect(() => {
-    if (!useScrollMode) return
-
     const intervalId = setInterval(() => {
       if (!scrollRestoredRef.current) return // Don't save until scroll position is restored
       const visibleId = scrollReader.visibleIdentifier
@@ -666,51 +565,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }, 30000) // 30 seconds
 
     return () => clearInterval(intervalId)
-  }, [useScrollMode, mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
-
-  // Time-on-position trigger (ADR-007 section 3.2): save if user stays at same position for 3s
-  // Only for pagination mode - scroll mode has its own save effect
-  const stablePositionTimerRef = useRef<number | null>(null)
-  const lastStablePositionRef = useRef<{ page: number; progress: number } | null>(null)
-  const useScrollModeRef = useRef(useScrollMode)
-  useScrollModeRef.current = useScrollMode // Keep ref in sync
-  useEffect(() => {
-    if (useScrollMode) return // Scroll mode has its own save effect
-    if (!book?.id || !chapter?.id) return
-
-    const currentPosition = { page: currentPage, progress: overallProgress }
-    const lastPosition = lastStablePositionRef.current
-
-    // If position unchanged, don't restart timer
-    if (lastPosition &&
-        lastPosition.page === currentPosition.page &&
-        Math.abs(lastPosition.progress - currentPosition.progress) < 0.001) {
-      return
-    }
-
-    // Position changed - update ref and start new 3s timer
-    lastStablePositionRef.current = currentPosition
-
-    if (stablePositionTimerRef.current) {
-      clearTimeout(stablePositionTimerRef.current)
-    }
-
-    stablePositionTimerRef.current = window.setTimeout(() => {
-      // Double-check scroll mode hasn't changed since timer was set
-      if (useScrollModeRef.current) return
-      // Don't save until position is restored (check at execution time, not effect time)
-      if (!restoredRef.current) return
-      // User has been at same position for 3s - trigger save
-      const locator = `page:${currentPage}`
-      updateProgress(overallProgress, currentPage, locator)
-    }, 3000)
-
-    return () => {
-      if (stablePositionTimerRef.current) {
-        clearTimeout(stablePositionTimerRef.current)
-      }
-    }
-  }, [useScrollMode, currentPage, overallProgress, book?.id, chapter?.id, updateProgress])
+  }, [mode, publicBook?.chapters, scrollReader.visibleIdentifier, scrollReader.scrollOffset, overallProgress, publicProgress, userProgress])
 
   // Track current book for guest returning user feature
   useEffect(() => {
@@ -718,11 +573,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     setGuestCurrentBook({ bookSlug, chapterSlug: chapterIdentifier })
   }, [isAuthenticated, bookSlug, chapterIdentifier, setGuestCurrentBook])
 
-  // Auto-add to library after page 2 or 1% progress (for single-page chapters)
+  // Auto-add to library after 1% overall progress
   useEffect(() => {
     if (!book?.id || libraryAddedRef.current) return
-    // Trigger on page 2 OR 1% overall progress (handles single-page chapters)
-    if (currentPage < 1 && overallProgress < 0.01) return
+    if (overallProgress < 0.01) return
     if (isInLibrary(book.id)) {
       libraryAddedRef.current = true
       return
@@ -731,7 +585,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     addToLibrary(book.id)
       .then(() => setToastMessage('Added to library'))
       .catch(() => {}) // silent fail
-  }, [currentPage, overallProgress, book?.id, isInLibrary, addToLibrary])
+  }, [overallProgress, book?.id, isInLibrary, addToLibrary])
 
   // Navigate to saved chapter if different from current.
   // Stale-progress guard: wait until TOC is loaded, then only navigate if the saved
@@ -752,47 +606,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     // else: saved chapter is stale — stay put, user lands at page 0 of current chapter.
   }, [shouldNavigate, targetChapterSlug, bookSlug, navigate, getLocalizedPath, mode, publicBook?.chapters])
 
-  // Restore page position after pagination is ready (pagination mode)
+  // Restore scroll position
   useEffect(() => {
-    if (useScrollMode) return // Skip for scroll mode
-    // Wait for: pagination ready, progress loaded, book data available
-    const bookReady = !!book?.id
-    if (restoredRef.current || totalPages === 0 || effectiveLoading || shouldNavigate || !bookReady) return
-
-    restoredRef.current = true
-
-    // No saved progress - go to page 0
-    if (!effectiveProgress) {
-      goToPage(0)
-      return
-    }
-
-    // Saved-for-different-chapter guard: if effectiveProgress belongs to another chapter
-    // (stale saved chapter that failed TOC validation, or user clicked Next/Prev to a new
-    // chapter while savedProgress still points at the original), don't apply its locator
-    // to this chapter's pagination — that lands the user mid-way in the wrong chapter.
-    if (effectiveProgress.chapterSlug && effectiveProgress.chapterSlug !== chapterIdentifier) {
-      goToPage(0)
-      return
-    }
-
-    // Restore to saved position
-    const { locator } = effectiveProgress
-    if (locator.startsWith('page:')) {
-      const page = parseInt(locator.split(':')[1], 10)
-      if (!isNaN(page)) goToPage(Math.min(page, totalPages - 1))
-    } else if (locator.startsWith('percent:')) {
-      const pct = parseFloat(locator.split(':')[1])
-      if (!isNaN(pct)) goToPage(Math.floor(pct * (totalPages - 1)))
-    } else if (effectiveProgress.percent != null && effectiveProgress.percent > 0) {
-      // Fallback for scroll: or other formats
-      goToPage(Math.floor(effectiveProgress.percent * (totalPages - 1)))
-    }
-  }, [useScrollMode, totalPages, effectiveProgress, effectiveLoading, shouldNavigate, goToPage, book?.id, chapterIdentifier])
-
-  // Restore scroll position (scroll mode)
-  useEffect(() => {
-    if (!useScrollMode) return // Only for scroll mode
     if (scrollRestoredRef.current || effectiveLoading || shouldNavigate) return
     if (scrollReader.chapters.length === 0) return // Wait for chapters to load
 
@@ -845,11 +660,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
 
     requestAnimationFrame(tryScroll)
-  }, [useScrollMode, effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
+  }, [effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
 
   // Reset restore refs on chapter change
   useEffect(() => {
-    restoredRef.current = false
     scrollRestoredRef.current = false
     hasNavigatedRef.current = false
   }, [chapterIdentifier])
@@ -1036,35 +850,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return () => { cancelled = true }
   }, [mode, bookSlug, chapterSlug, id, userChapterSlug, isAuthenticated, api, markFetchStart, wasAbortedDueToWake])
 
-  // Recalculate pagination when settings change
-  useEffect(() => {
-    recalculate()
-  }, [settings, recalculate])
-
-  // Recalculate pagination when chapter content changes
-  useEffect(() => {
-    if (!chapterHtml) return
-    // Reset transform immediately
-    if (contentRef.current) {
-      contentRef.current.style.transform = 'translateX(0)'
-    }
-    // Wait for CSS columns to settle, then recalculate (page position handled by restore effect)
-    const timer = setTimeout(() => {
-      recalculate()
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [chapterHtml, recalculate])
-
-  // Keyboard shortcuts
-  const toggleBookmark = useCallback(() => {
-    const bookmark = getBookmarkForChapter(activeChapterIdentifier)
-    if (bookmark) {
-      removeBookmark(bookmark.id)
-    } else if (activeChapter) {
-      addBookmark(activeChapterIdentifier, activeChapter.title)
-    }
-  }, [activeChapterIdentifier, activeChapter, getBookmarkForChapter, removeBookmark, addBookmark])
-
   // Chapter URL helper
   const getChapterUrl = useCallback((identifier: string) => {
     if (mode === 'public') {
@@ -1078,74 +863,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     ? `/books/${bookSlug}`
     : `/${language}/library/my/${id}`
 
-  // Navigation handlers
-  const navigateToChapterCustom = useCallback((identifier: string) => {
-    setBookCompleted(false)
-    navigate(getChapterUrl(identifier))
-  }, [navigate, getChapterUrl])
-
-  const handlePrevPageCustom = useCallback(() => {
-    readingSession.recordActivity()
-    if (currentPage > 0) {
-      prevPage()
-    } else if (chapter?.prev) {
-      navigateToChapterCustom(chapter.prev.identifier)
-    }
-  }, [currentPage, chapter?.prev, prevPage, navigateToChapterCustom, readingSession])
-
-  const handleNextPageCustom = useCallback(() => {
-    readingSession.recordActivity()
-    if (currentPage < totalPages - 1) {
-      nextPage()
-    } else if (chapter?.next) {
-      navigateToChapterCustom(chapter.next.identifier)
-    } else if (currentPage >= totalPages - 1 && !chapter?.next) {
-      setBookCompleted(true)
-      updateProgress(1, currentPage)
-    }
-  }, [currentPage, totalPages, chapter?.next, nextPage, navigateToChapterCustom, readingSession, updateProgress])
-
-  // Legacy navigation hook (still needed for keyboard shortcuts compatibility)
-  const { navigateToChapter } = useReaderNavigation({
-    bookSlug: bookSlug || '',
-    currentPage,
-    totalPages,
-    prevChapterSlug: mode === 'public' ? chapter?.prev?.identifier : undefined,
-    nextChapterSlug: mode === 'public' ? chapter?.next?.identifier : undefined,
-    prevPage,
-    nextPage,
-  })
-
   useReaderKeyboard({
-    currentPage,
-    totalPages,
-    prevPage: handlePrevPageCustom,
-    nextPage: handleNextPageCustom,
-    prevChapterSlug: chapter?.prev?.identifier,
-    nextChapterSlug: chapter?.next?.identifier,
-    navigateToChapter: mode === 'public' ? navigateToChapter : navigateToChapterCustom,
     tocOpen,
     settingsOpen,
     searchOpen,
-    shortcutsOpen,
     setTocOpen,
     setSettingsOpen,
     setSearchOpen,
-    setShortcutsOpen,
     clearSearch,
-    activeChapterSlug: activeChapterIdentifier,
-    toggleBookmark,
-    settings,
-    updateSettings: update,
-    toggleFullscreen,
-  })
-
-  // Swipe navigation - disabled on mobile (use tap zones instead)
-  useSwipe({
-    onSwipeLeft: handleNextPageCustom,
-    onSwipeRight: handlePrevPageCustom,
-    threshold: 50,
-    enabled: !isMobile && !tocOpen && !settingsOpen && !searchOpen,
   })
 
   // Auth check for userbook mode
@@ -1198,21 +923,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const seoTitle = `${chapter.title} — ${book.title}`
   const seoDescription = `Read ${chapter.title} from ${book.title} online | TextStack Reader`
 
-  const fullscreenClass = isFullscreen ? (showBarsInFullscreen ? 'fullscreen-bars-visible' : 'fullscreen-bars-hidden') : ''
   const immersiveClass = immersiveMode ? 'immersive-mode' : ''
-  const scrollModeClass = useScrollMode ? 'reader-page--scroll-mode' : ''
 
   return (
-    <div className={`reader-page ${fullscreenClass} ${immersiveClass} ${scrollModeClass}`}>
+    <div className={`reader-page ${immersiveClass}`}>
       <SeoHead title={seoTitle} description={seoDescription} noindex />
       <a href="#reader-content" className="skip-link">Skip to content</a>
       <ReaderTopBar
-        visible={visible}
+        visible={!immersiveMode}
         title={book.title}
         chapterTitle={activeChapter?.title || chapter.title}
         progress={overallProgress}
         isBookmarked={isBookmarked(activeChapterIdentifier)}
-        isFullscreen={isFullscreen}
         backUrl={backUrl}
         useLocalizedLink={mode === 'public'}
         onSearchClick={() => setSearchOpen(true)}
@@ -1226,8 +948,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             addBookmark(activeChapterIdentifier, activeChapter.title)
           }
         }}
-        onFullscreenClick={toggleFullscreen}
-        onHelpClick={() => setShortcutsOpen(true)}
         onFocusClick={() => {
           const target = mode === 'public'
             ? `/${language}/books/${bookSlug}/focus/${activeChapterIdentifier}`
@@ -1236,76 +956,32 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         }}
       />
 
-      {/* Hide side navigation in scroll mode - content scrolls continuously */}
-      {!useScrollMode && (
-        <ReaderPageNav
-          direction="prev"
-          disabled={currentPage === 0 && !chapter.prev}
-          onClick={handlePrevPageCustom}
-        />
-      )}
-
       <main id="reader-content" className="reader-main">
-        {useScrollMode ? (
-          <ReaderHighlights
-            editionId={book?.id || ''}
-            chapterId={activeChapter?.id || ''}
-            containerRef={scrollContainerRef}
-            isAuthenticated={isAuthenticated}
-            bookLanguage={publicBook?.language}
-            bookTitle={book?.title}
-            userBookId={mode === 'userbook' ? id : undefined}
-            ttsSpeed={settings.ttsSpeed}
-            showInlineTranslations={settings.showInlineTranslations}
-            scrollToHighlightId={scrollToHighlightId}
-          >
-            <div ref={scrollContainerRef}>
-              <ScrollReaderContent
-                chapters={scrollReader.chapters}
-                settings={settings}
-                isLoadingMore={scrollReader.isLoadingMore}
-                onLoadMore={scrollReader.loadMore}
-                onLoadPrev={scrollReader.loadPrev}
-                chapterRefs={scrollReader.chapterRefs}
-                onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
-                onDoubleTap={isMobile ? toggleFullscreen : undefined}
-              />
-            </div>
-          </ReaderHighlights>
-        ) : (
-          <ReaderHighlights
-            editionId={book.id}
-            chapterId={chapter.id}
-            containerRef={containerRef}
-            isAuthenticated={isAuthenticated}
-            bookLanguage={publicBook?.language}
-            bookTitle={book.title}
-            userBookId={mode === 'userbook' ? id : undefined}
-            ttsSpeed={settings.ttsSpeed}
-            showInlineTranslations={settings.showInlineTranslations}
-            scrollToHighlightId={scrollToHighlightId}
-          >
+        <ReaderHighlights
+          editionId={book?.id || ''}
+          chapterId={activeChapter?.id || ''}
+          containerRef={scrollContainerRef}
+          isAuthenticated={isAuthenticated}
+          bookLanguage={publicBook?.language}
+          bookTitle={book?.title}
+          userBookId={mode === 'userbook' ? id : undefined}
+          ttsSpeed={settings.ttsSpeed}
+          showInlineTranslations={settings.showInlineTranslations}
+          scrollToHighlightId={scrollToHighlightId}
+        >
+          <div ref={scrollContainerRef}>
             <ReaderContent
-              ref={contentRef}
-              containerRef={containerRef}
-              html={chapter.html}
+              chapters={scrollReader.chapters}
               settings={settings}
-              onTap={() => { readingSession.recordActivity(); if (isMobile) { showImmersiveBars(); } }}
-              onDoubleTap={isMobile ? toggleFullscreen : undefined}
-              onLeftTap={isMobile ? handlePrevPageCustom : undefined}
-              onRightTap={isMobile ? handleNextPageCustom : undefined}
+              isLoadingMore={scrollReader.isLoadingMore}
+              onLoadMore={scrollReader.loadMore}
+              onLoadPrev={scrollReader.loadPrev}
+              chapterRefs={scrollReader.chapterRefs}
+              onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
             />
-          </ReaderHighlights>
-        )}
+          </div>
+        </ReaderHighlights>
       </main>
-
-      {!useScrollMode && (
-        <ReaderPageNav
-          direction="next"
-          disabled={currentPage === totalPages - 1 && !chapter.next}
-          onClick={handleNextPageCustom}
-        />
-      )}
 
       {settings.showReaderStats && (
         <ReaderStatsWidget
@@ -1332,15 +1008,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         useLocalizedLink={mode === 'public'}
         onClose={() => setTocOpen(false)}
         onRemoveBookmark={removeBookmark}
-        onChapterSelect={useScrollMode ? (identifier) => {
-          // In scroll mode: scroll to chapter if loaded, else navigate
+        onChapterSelect={(identifier) => {
           const isLoaded = scrollReader.chapters.some(c => c.identifier === identifier)
           if (isLoaded) {
             scrollReader.scrollToChapter(identifier)
           } else {
             navigate(getChapterUrl(identifier) + '?direct=1')
           }
-        } : undefined}
+        }}
       />
 
       <ReaderSettingsDrawer
@@ -1363,11 +1038,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           setSearchOpen(false)
           clearSearch()
         }}
-      />
-
-      <ReaderShortcutsModal
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
       />
 
       {toastMessage && (
@@ -1400,7 +1070,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         </div>
       )}
 
-      <WordHint containerRef={useScrollMode ? scrollContainerRef : containerRef} />
+      <WordHint containerRef={scrollContainerRef} />
 
       <SaveProgressPrompt
         visible={showChapterReminder}

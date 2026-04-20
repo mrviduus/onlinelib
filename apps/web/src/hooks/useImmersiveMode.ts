@@ -1,41 +1,82 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
+const SCROLL_UP_THRESHOLD = 6
+const SCROLL_DOWN_THRESHOLD = 48
+const AUTO_HIDE_DELAY = 3000
+
 /**
- * Manages immersive mode for mobile reading.
- * Auto-hides UI after 3 seconds, shows on tap.
+ * Auto-hides reader chrome (top bar + footer) to mirror the mobile reader.
+ * - 3s after load → hide
+ * - Scroll down ≥48px → hide immediately
+ * - Scroll up ≥6px (or any up while bars hidden) → show immediately
+ * - Tap handler calls showBars() to reveal and restart the timer
  */
-export function useImmersiveMode(isMobile: boolean, isLoading: boolean) {
+export function useImmersiveMode(_enabled: boolean, isLoading: boolean) {
   const [immersiveMode, setImmersiveMode] = useState(false)
   const timerRef = useRef<number | null>(null)
+  const baselineRef = useRef<number>(0)
+  const lastDirRef = useRef<'up' | 'down' | null>(null)
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
 
   const startTimer = useCallback(() => {
-    if (!isMobile) return
-
-    if (timerRef.current) clearTimeout(timerRef.current)
-
+    clearTimer()
     timerRef.current = window.setTimeout(() => {
       setImmersiveMode(true)
-    }, 3000)
-  }, [isMobile])
+      lastDirRef.current = 'down'
+    }, AUTO_HIDE_DELAY)
+  }, [])
 
   const showBars = useCallback(() => {
     setImmersiveMode(false)
+    lastDirRef.current = 'up'
+    baselineRef.current = window.scrollY
     startTimer()
   }, [startTimer])
 
-  // Start timer when mobile and not loading
   useEffect(() => {
-    if (isMobile && !isLoading) {
-      startTimer()
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [isMobile, isLoading, startTimer])
+    if (isLoading) return
+    baselineRef.current = window.scrollY
+    startTimer()
+    return clearTimer
+  }, [isLoading, startTimer])
 
-  return {
-    immersiveMode,
-    showBars,
-    startTimer,
-  }
+  useEffect(() => {
+    if (isLoading) return
+
+    const onScroll = () => {
+      const y = window.scrollY
+      const delta = y - baselineRef.current
+
+      if (delta < 0) {
+        if (lastDirRef.current !== 'up' || delta <= -SCROLL_UP_THRESHOLD) {
+          baselineRef.current = y
+          if (lastDirRef.current !== 'up') {
+            lastDirRef.current = 'up'
+            setImmersiveMode(false)
+            clearTimer()
+          }
+        }
+      } else if (delta >= SCROLL_DOWN_THRESHOLD) {
+        baselineRef.current = y
+        if (lastDirRef.current !== 'down') {
+          lastDirRef.current = 'down'
+          setImmersiveMode(true)
+          clearTimer()
+        }
+      } else if (lastDirRef.current === 'up' && delta > 0) {
+        baselineRef.current = y
+      }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [isLoading])
+
+  return { immersiveMode, showBars, startTimer }
 }

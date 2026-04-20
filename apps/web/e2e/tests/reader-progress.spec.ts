@@ -29,14 +29,11 @@ test.describe('QA-001: Reading Progress', () => {
     const initialProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
     expect(initialProgress).toBeGreaterThanOrEqual(0)
 
-    // Navigate to next page (if pagination mode)
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
-      const newProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
-      expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
-    }
+    // Scroll to advance progress (single scroll-mode render path)
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
+    const newProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
+    expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
   })
 
   test('TOC navigation uses ?direct=1', async ({ authedPage: page }) => {
@@ -68,12 +65,9 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate forward to create progress
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(1000)
-    }
+    // Scroll to create progress
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(1000)
 
     // Wait for auto-save
     await page.waitForTimeout(3500)
@@ -110,12 +104,9 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Trigger a page navigation to force progress save
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
-    }
+    // Trigger scroll to force progress save
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
 
     // Wait for position restore + auto-save (3s stable position + CI overhead)
     await expect(async () => {
