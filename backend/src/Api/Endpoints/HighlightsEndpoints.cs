@@ -152,7 +152,9 @@ public static class HighlightsEndpoints
                 h.ChapterId != null ? h.Chapter!.Title : null,
                 h.UserChapterId != null ? h.UserChapter!.Title : null,
                 h.ChapterId != null ? h.Chapter!.Slug : null,
-                h.UserChapterId != null ? h.UserChapter!.Slug : null
+                h.UserChapterId != null ? h.UserChapter!.Slug : null,
+                h.IsPublic,
+                h.LikeCount
             ))
             .ToListAsync(ct);
 
@@ -547,7 +549,9 @@ public record HighlightListItemDto(
     string? ChapterTitle,
     string? UserChapterTitle,
     string? ChapterSlug,
-    string? UserChapterSlug
+    string? UserChapterSlug,
+    bool IsPublic,
+    int LikeCount
 );
 
 public record HighlightReviewDto(
