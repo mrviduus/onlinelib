@@ -1,13 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { getAnonymousReaderName } from './getAnonymousReaderName'
+import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
 
 describe('getAnonymousReaderName', () => {
   it('same seed returns same pseudonym', () => {
     const a = getAnonymousReaderName('abc-123')
     const b = getAnonymousReaderName('abc-123')
-    const c = getAnonymousReaderName('abc-123')
     expect(a).toBe(b)
-    expect(b).toBe(c)
   })
 
   it('different seeds produce variety', () => {
@@ -16,7 +14,7 @@ describe('getAnonymousReaderName', () => {
     expect(names.size).toBeGreaterThan(5)
   })
 
-  it('null / undefined / empty string → "Quiet Owl"', () => {
+  it('null / undefined / empty string → fallback', () => {
     expect(getAnonymousReaderName(null)).toBe('Quiet Owl')
     expect(getAnonymousReaderName(undefined)).toBe('Quiet Owl')
     expect(getAnonymousReaderName('')).toBe('Quiet Owl')
@@ -32,5 +30,27 @@ describe('getAnonymousReaderName', () => {
 
   it('fixture snapshot — guards against accidental hash/list drift', () => {
     expect(getAnonymousReaderName('eda2099c0e4f44738f69782d2a2d1bb5')).toBe('Bright Rabbit')
+  })
+})
+
+describe('getAnonymousReaderColor', () => {
+  it('same seed returns same color', () => {
+    const a = getAnonymousReaderColor('abc-123')
+    const b = getAnonymousReaderColor('abc-123')
+    expect(a).toBe(b)
+  })
+
+  it('output is a hex color #rrggbb', () => {
+    const re = /^#[0-9a-f]{6}$/i
+    for (let i = 0; i < 30; i++) {
+      expect(getAnonymousReaderColor(`seed-${i}`)).toMatch(re)
+    }
+  })
+
+  it('null / undefined / empty → fallback hex', () => {
+    const re = /^#[0-9a-f]{6}$/i
+    expect(getAnonymousReaderColor(null)).toMatch(re)
+    expect(getAnonymousReaderColor(undefined)).toMatch(re)
+    expect(getAnonymousReaderColor('')).toMatch(re)
   })
 })

@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons'
 import {
   createBooksApi,
   moodsApi,
+  getAnonymousReaderName,
   type Edition,
   type MoodDto,
 } from '@textstack/shared'
@@ -185,8 +186,11 @@ export default function HomeScreen() {
     [openBook],
   )
 
-  const greetingPrimary = user?.name
-    ? `${t(`home.greeting.${slot}`)}, ${firstName(user.name)}`
+  const greetingNameRaw = user?.isGuest
+    ? getAnonymousReaderName(user.id)
+    : (user?.name || '')
+  const greetingPrimary = greetingNameRaw
+    ? `${t(`home.greeting.${slot}`)}, ${firstName(greetingNameRaw)}`
     : t(`home.greeting.${slot}`)
   const greetingSecondary = t(`home.greeting.${slot}Ready`)
 

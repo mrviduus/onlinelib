@@ -2,7 +2,7 @@ import { useState, useRef, FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
-import { getAnonymousReaderName } from '../../lib/getAnonymousReaderName'
+import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -77,7 +77,13 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
           <h2 className="profile-modal__title">Edit profile</h2>
           <form onSubmit={handleSubmit}>
             <div className="profile-modal__avatar-section">
-              <div className="profile-modal__avatar" onClick={() => fileRef.current?.click()}>
+              <div
+                className="profile-modal__avatar"
+                onClick={() => fileRef.current?.click()}
+                style={isGuest && !(avatarSrc && avatarSrc !== '__remove__')
+                  ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' }
+                  : undefined}
+              >
                 {avatarSrc && avatarSrc !== '__remove__' ? (
                   <img src={avatarSrc} alt="" referrerPolicy="no-referrer" />
                 ) : (

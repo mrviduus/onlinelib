@@ -13,7 +13,7 @@ import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLan
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
-import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
+import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
@@ -33,6 +33,15 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
   const [langPickerOpen, setLangPickerOpen] = useState(false)
+
+  const isGuest = !!user?.isGuest
+  const anonName = user ? getAnonymousReaderName(user.id) : ''
+  const anonColor = user ? getAnonymousReaderColor(user.id) : colors.primary
+  const displayName = isGuest ? anonName : (user?.name || user?.email || '')
+  const displaySubtitle = isGuest ? 'Anonymous reader' : (user?.email || '')
+  const avatarLetter = isGuest
+    ? anonName.split(' ').map(n => n[0]).join('').toUpperCase()
+    : (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
   const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
 
@@ -117,13 +126,11 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
+        <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: isGuest && !user?.picture ? anonColor : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
           {user?.picture ? (
             <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
           ) : (
-            <Text style={styles.avatarLetter}>
-              {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
-            </Text>
+            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
           )}
           <View style={styles.avatarBadge}>
             <Ionicons name="camera" size={14} color="#fff" />
@@ -154,11 +161,11 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <TouchableOpacity onPress={startEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[styles.name, { color: colors.text }]}>{user?.name || user?.email}</Text>
-            <Ionicons name="pencil" size={14} color={colors.textSecondary} />
+            <Text style={[styles.name, { color: colors.text }]}>{displayName}</Text>
+            {!isGuest && <Ionicons name="pencil" size={14} color={colors.textSecondary} />}
           </TouchableOpacity>
         )}
-        <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
+        <Text style={[styles.email, { color: colors.textSecondary }]}>{displaySubtitle}</Text>
       </View>
 
       <View style={styles.menu}>

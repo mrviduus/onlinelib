@@ -4,7 +4,7 @@ import { LocalizedLink } from '../LocalizedLink'
 import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
 import { useTranslation } from '../../hooks/useTranslation'
-import { getAnonymousReaderName } from '../../lib/getAnonymousReaderName'
+import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -56,7 +56,10 @@ export function UserMenu() {
           {avatarSrc ? (
             <img src={avatarSrc} alt="" className="user-menu__avatar-img" referrerPolicy="no-referrer" />
           ) : (
-            <span className="user-menu__avatar">{initials}</span>
+            <span
+              className="user-menu__avatar"
+              style={isGuest ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' } : undefined}
+            >{initials}</span>
           )}
         </button>
 

@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import {
   libraryApi, readingProgressApi, userBooksApi, reviewsApi, getStorageUrl, createBooksApi,
 } from '@textstack/shared'
-import type { UserLibraryItem, UserBookDto, ReadingProgressDto, UserRatingDto } from '@textstack/shared'
+import { getAnonymousReaderName, type UserLibraryItem, type UserBookDto, type ReadingProgressDto, type UserRatingDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -144,8 +144,10 @@ export default function LibraryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {user?.email && (
-        <Text style={[styles.emailText, { color: colors.textSecondary }]}>{user.email}</Text>
+      {user && (
+        <Text style={[styles.emailText, { color: colors.textSecondary }]}>
+          {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
+        </Text>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
