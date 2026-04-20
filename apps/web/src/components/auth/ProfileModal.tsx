@@ -2,6 +2,7 @@ import { useState, useRef, FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
+import { getAnonymousReaderName } from '../../lib/getAnonymousReaderName'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -19,9 +20,12 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null)
 
-  const initials = user.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user.email[0].toUpperCase()
+  const isGuest = !!user.isGuest
+  const initials = isGuest
+    ? getAnonymousReaderName(user.id).split(' ').map(n => n[0]).join('').toUpperCase()
+    : user.name
+      ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      : user.email[0].toUpperCase()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -139,13 +143,17 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
             <p className="profile-modal__hint">Used for translations, word definitions, and vocabulary cards in the reader.</p>
-            <label className="profile-modal__label">Email</label>
-            <input
-              type="email"
-              className="profile-modal__input profile-modal__input--disabled"
-              value={user.email}
-              disabled
-            />
+            {!isGuest && (
+              <>
+                <label className="profile-modal__label">Email</label>
+                <input
+                  type="email"
+                  className="profile-modal__input profile-modal__input--disabled"
+                  value={user.email}
+                  disabled
+                />
+              </>
+            )}
             {error && <p className="profile-modal__error">{error}</p>}
             <button className="profile-modal__btn" type="submit" disabled={loading}>
               {loading ? 'Saving...' : 'Save changes'}

@@ -1,4 +1,7 @@
 {
+  "userMenu": {
+    "anonymousReader": "Anonymous reader"
+  },
   "home": {
     "hero": {
       "title": "Read books in English without stopping",

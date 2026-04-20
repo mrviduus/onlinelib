@@ -3,9 +3,12 @@ import { useAuth } from '../../context/AuthContext'
 import { LocalizedLink } from '../LocalizedLink'
 import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
+import { useTranslation } from '../../hooks/useTranslation'
+import { getAnonymousReaderName } from '../../lib/getAnonymousReaderName'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -26,9 +29,14 @@ export function UserMenu() {
 
   if (!user) return null
 
-  const initials = user.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user.email[0].toUpperCase()
+  const isGuest = !!user.isGuest
+  const displayName = isGuest ? getAnonymousReaderName(user.id) : (user.name || 'User')
+  const displaySubtitle = isGuest ? t('userMenu.anonymousReader') : user.email
+  const initials = isGuest
+    ? displayName.split(' ').map(n => n[0]).join('').toUpperCase()
+    : user.name
+      ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      : user.email[0].toUpperCase()
 
   const avatarSrc = user.picture?.startsWith('http')
     ? user.picture
@@ -55,8 +63,8 @@ export function UserMenu() {
         {open && (
           <div className="user-menu__dropdown">
             <div className="user-menu__info">
-              <span className="user-menu__name">{user.name || 'User'}</span>
-              <span className="user-menu__email">{user.email}</span>
+              <span className="user-menu__name">{displayName}</span>
+              <span className="user-menu__email">{displaySubtitle}</span>
             </div>
             <hr className="user-menu__divider" />
             <button
