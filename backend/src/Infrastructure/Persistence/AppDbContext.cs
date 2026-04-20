@@ -45,6 +45,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserBookBookmark> UserBookBookmarks => Set<UserBookBookmark>();
     public DbSet<AdminSettings> AdminSettings => Set<AdminSettings>();
     public DbSet<Highlight> Highlights => Set<Highlight>();
+    public DbSet<HighlightLike> HighlightLikes => Set<HighlightLike>();
+    public DbSet<HighlightReport> HighlightReports => Set<HighlightReport>();
     public DbSet<ReadingSession> ReadingSessions => Set<ReadingSession>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
@@ -227,6 +229,10 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.UserBookId);
             e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).HasFilter("edition_id IS NOT NULL");
             e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).HasFilter("user_book_id IS NOT NULL");
+            // Fast lookup of public highlights per chapter for hotspot rendering
+            e.HasIndex(x => new { x.EditionId, x.ChapterId, x.IsPublic, x.IsDeleted })
+                .HasFilter("is_public = true AND is_deleted = false")
+                .HasDatabaseName("ix_highlights_public_per_chapter");
             e.Property(x => x.AnchorJson).HasColumnType("jsonb");
             e.Property(x => x.Color).HasMaxLength(20);
             e.HasOne(x => x.User).WithMany(x => x.Highlights).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
@@ -234,6 +240,29 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserChapter).WithMany().HasForeignKey(x => x.UserChapterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // HighlightLike
+        modelBuilder.Entity<HighlightLike>(e =>
+        {
+            e.HasIndex(x => new { x.HighlightId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.HighlightId);
+            e.HasOne(x => x.Highlight).WithMany(x => x.Likes).HasForeignKey(x => x.HighlightId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // HighlightReport
+        modelBuilder.Entity<HighlightReport>(e =>
+        {
+            e.HasIndex(x => x.HighlightId);
+            e.HasIndex(x => x.ResolvedAt);
+            e.Property(x => x.Reason).HasMaxLength(40);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.Resolution).HasMaxLength(40);
+            e.HasOne(x => x.Highlight).WithMany(x => x.Reports).HasForeignKey(x => x.HighlightId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ReportedByUser).WithMany().HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 

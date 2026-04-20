@@ -83,6 +83,8 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
             color: sh.color as HighlightColor,
             selectedText: sh.selectedText,
             noteText: sh.noteText ?? undefined,
+            isPublic: sh.isPublic ?? false,
+            likeCount: sh.likeCount ?? 0,
             syncStatus: 'synced' as const,
             version: sh.version,
             createdAt: new Date(sh.createdAt).getTime(),
@@ -125,9 +127,11 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
     async (
       anchor: TextAnchor,
       color: HighlightColor,
-      selectedText: string
+      selectedText: string,
+      options?: { isPublic?: boolean }
     ): Promise<StoredHighlight> => {
       const now = Date.now()
+      const isPublic = !!options?.isPublic
       const highlight: StoredHighlight = {
         id: generateId(),
         editionId: isUserBook ? '' : bookId,
@@ -137,6 +141,8 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
         anchor,
         color,
         selectedText,
+        isPublic,
+        likeCount: 0,
         syncStatus: 'pending',
         version: 1,
         createdAt: now,
@@ -154,6 +160,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
                   anchorJson: JSON.stringify(anchor),
                   color,
                   selectedText,
+                  isPublic,
                 }
               : {
                   editionId: bookId,
@@ -161,12 +168,15 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
                   anchorJson: JSON.stringify(anchor),
                   color,
                   selectedText,
+                  isPublic,
                 }
           )
 
           highlight.id = serverHighlight.id
           highlight.syncStatus = 'synced'
           highlight.version = serverHighlight.version
+          highlight.isPublic = serverHighlight.isPublic ?? isPublic
+          highlight.likeCount = serverHighlight.likeCount ?? 0
           highlight.createdAt = new Date(serverHighlight.createdAt).getTime()
           highlight.updatedAt = new Date(serverHighlight.updatedAt).getTime()
         } catch {
@@ -184,7 +194,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
   const updateHighlight = useCallback(
     async (
       id: string,
-      updates: { color?: HighlightColor; noteText?: string | null }
+      updates: { color?: HighlightColor; noteText?: string | null; isPublic?: boolean }
     ): Promise<StoredHighlight | null> => {
       const existing = highlights.find((h) => h.id === id)
       if (!existing) return null
@@ -194,6 +204,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
         ...updates,
         // Convert null to undefined for storage
         noteText: updates.noteText === null ? undefined : (updates.noteText ?? existing.noteText),
+        isPublic: updates.isPublic ?? existing.isPublic,
         updatedAt: Date.now(),
         version: existing.version + 1,
         syncStatus: 'pending',
@@ -205,11 +216,14 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
           const serverHighlight = await updatePublicHighlight(id, {
             color: updates.color,
             noteText: updates.noteText,
+            isPublic: updates.isPublic,
             version: existing.version,
           })
 
           updated.syncStatus = 'synced'
           updated.version = serverHighlight.version
+          updated.isPublic = serverHighlight.isPublic ?? updated.isPublic
+          updated.likeCount = serverHighlight.likeCount ?? updated.likeCount
           updated.updatedAt = new Date(serverHighlight.updatedAt).getTime()
         } catch {
           // Continue with local update

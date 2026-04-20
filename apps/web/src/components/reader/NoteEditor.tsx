@@ -6,7 +6,7 @@ interface NoteEditorProps {
   highlight: StoredHighlight
   rect: DOMRect | null
   containerRef: React.RefObject<HTMLElement | null>
-  onSave: (noteText: string | null) => void
+  onSave: (noteText: string | null, isPublic: boolean) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -23,6 +23,7 @@ export function NoteEditor({
   const editorRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [noteText, setNoteText] = useState(highlight.noteText ?? '')
+  const [isPublic, setIsPublic] = useState(!!highlight.isPublic)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
   // useLayoutEffect: reposition before paint, no flash when editor mounts or rect changes.
@@ -64,9 +65,9 @@ export function NoteEditor({
 
   const handleSave = useCallback(() => {
     const trimmed = noteText.trim()
-    onSave(trimmed || null)
+    onSave(trimmed || null, isPublic)
     onClose()
-  }, [noteText, onSave, onClose])
+  }, [noteText, isPublic, onSave, onClose])
 
   // Close on click outside
   useEffect(() => {
@@ -142,6 +143,26 @@ export function NoteEditor({
         placeholder={t('reader.noteEditor.placeholder')}
         rows={4}
       />
+
+      <div className="note-editor__visibility" role="group" aria-label={t('reader.noteEditor.visibility.label')}>
+        <button
+          type="button"
+          className={`note-editor__vis-btn${isPublic ? '' : ' is-active'}`}
+          onClick={() => setIsPublic(false)}
+          aria-pressed={!isPublic}
+        >
+          {t('reader.noteEditor.visibility.private')}
+        </button>
+        <button
+          type="button"
+          className={`note-editor__vis-btn${isPublic ? ' is-active' : ''}`}
+          onClick={() => setIsPublic(true)}
+          aria-pressed={isPublic}
+          title={t('reader.noteEditor.visibility.publicHint')}
+        >
+          {t('reader.noteEditor.visibility.public')}
+        </button>
+      </div>
 
       <div className="note-editor__footer">
         <button

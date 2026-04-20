@@ -217,7 +217,38 @@
       "placeholder": "Add a note...",
       "deleteHighlight": "Delete highlight",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "visibility": {
+        "label": "Visibility",
+        "private": "Private",
+        "public": "Public",
+        "publicHint": "Public notes may be shown to other readers."
+      }
+    },
+    "hotspot": {
+      "title": "What other readers say",
+      "count": "{{count}} readers highlighted this",
+      "close": "Close",
+      "reader": "Reader",
+      "noNotes": "No notes yet.",
+      "like": "Like",
+      "unlike": "Unlike",
+      "report": "Report"
+    },
+    "report": {
+      "title": "Report this note",
+      "close": "Close",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "submitting": "Sending…",
+      "error": "Could not send report. Try again.",
+      "notePlaceholder": "Add details (optional)…",
+      "reason": {
+        "spam": "Spam",
+        "offensive": "Offensive or harmful",
+        "misinformation": "Misinformation",
+        "other": "Other"
+      }
     },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words."
   },

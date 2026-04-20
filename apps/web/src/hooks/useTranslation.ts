@@ -27,12 +27,15 @@ export function useTranslation() {
   // renders and only change when the language actually changes. Without this,
   // every render returns new fn identities and any consumer using them in
   // useEffect/useCallback deps re-fires on every parent re-render.
-  const t = useCallback((key: string): string => {
+  const t = useCallback((key: string, vars?: Record<string, string | number>): string => {
     const value = getNestedValue(translations[language], key)
-    if (typeof value === 'string') return value
-    const fallback = getNestedValue(translations.en, key)
-    if (typeof fallback === 'string') return fallback
-    return key
+    const str = typeof value === 'string'
+      ? value
+      : (typeof getNestedValue(translations.en, key) === 'string'
+          ? getNestedValue(translations.en, key) as string
+          : key)
+    if (!vars) return str
+    return str.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in vars ? String(vars[k]) : `{{${k}}}`))
   }, [language])
 
   const tArray = useCallback((key: string): string[] => {
