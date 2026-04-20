@@ -96,6 +96,36 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     html { scroll-behavior: smooth; }
   </style>
   <script>
+    // Diagnostic console forwarder — routes WebView console.log/warn/error
+    // and uncaught errors to RN via postMessage. RN surfaces via console.warn
+    // in __DEV__. Bug-report Phase 1: lets us see WHY word-tap / selection /
+    // highlight-render / TTS fail on device without attaching a remote debugger.
+    (function() {
+      function post(level, args) {
+        try {
+          var parts = [];
+          for (var i = 0; i < args.length; i++) {
+            var a = args[i];
+            if (typeof a === 'string') parts.push(a);
+            else { try { parts.push(JSON.stringify(a)); } catch (e) { parts.push(String(a)); } }
+          }
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'log', level: level, msg: parts.join(' ')
+          }));
+        } catch (e) {}
+      }
+      var orig = { log: console.log, warn: console.warn, error: console.error };
+      console.log = function() { post('log', arguments); orig.log.apply(console, arguments); };
+      console.warn = function() { post('warn', arguments); orig.warn.apply(console, arguments); };
+      console.error = function() { post('error', arguments); orig.error.apply(console, arguments); };
+      window.addEventListener('error', function(e) {
+        post('error', ['window.onerror:', e.message, e.filename + ':' + e.lineno + ':' + e.colno]);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        post('error', ['unhandledrejection:', e.reason && e.reason.message || String(e.reason)]);
+      });
+    })();
+
     let lastProgress = 0;
     function reportProgress() {
       const scrollTop = window.scrollY;
@@ -168,6 +198,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     window.addEventListener('scroll', reportScrollDir, { passive: true });
 
     window.addEventListener('load', function() {
+      console.log('[diag] load event — ua:', navigator.userAgent.slice(0, 80));
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'loaded',
         scrollHeight: document.documentElement.scrollHeight
@@ -285,7 +316,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
      * Selection — the existing selectionchange listener handles the
      * rest (pulse, message dispatch, RN-side save + TTS).
      */
-    var WORD_RE = /[\p{L}\p{N}'-]/u;
+    var WORD_RE = /[\\p{L}\\p{N}'-]/u;
     function wordRangeAtPoint(x, y) {
       var node = null, offset = 0;
       if (document.caretPositionFromPoint) {
@@ -311,7 +342,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (start === end) return null;
       // Skip purely numeric "words"
       var candidate = text.slice(start, end);
-      if (!/\p{L}/u.test(candidate)) return null;
+      if (!/\\p{L}/u.test(candidate)) return null;
       // Sanity cap. 40 was rejecting legitimate long compounds like
       // "Unterscheidungsvermögen" / "Schadenfreudegesellschaft" (B-11).
       // 80 is well past any real word but still blocks entire
@@ -324,17 +355,63 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     function selectWordAtPoint(x, y) {
       var range = wordRangeAtPoint(x, y);
-      if (!range) return false;
-      var sel = window.getSelection();
-      if (!sel) return false;
-      sel.removeAllRanges();
-      sel.addRange(range);
-      // Android WebView does not fire selectionchange for programmatic
-      // selection — push the message directly. iOS fires it twice (once
-      // here, once from the listener), but the second emit is a no-op
-      // because the popup re-renders to the same state.
-      dispatchSelection();
+      if (!range) { console.log('[diag] wordRangeAtPoint null at', x, y); return false; }
+      var text = range.toString().trim();
+      if (!text) return false;
+      console.log('[diag] selected word:', text);
+      // Do NOT touch window.getSelection() here. Android WebView reacts to
+      // a programmatic Selection by spawning its own ActionMode (Copy /
+      // Share / Select all), which immediately dismisses our RN popup.
+      // Instead, post the selection directly from the range — our popup
+      // opens, native UI stays silent. Drag-select still uses the normal
+      // Selection API flow via selectionchange.
+      try { applyTapPulseRange(range); } catch(e) {}
+      var sentence = '';
+      try { sentence = extractSentence(range.startContainer); } catch(e) {}
+      var anchor = null;
+      try { anchor = getRangeAnchor(range); } catch(e) {}
+      // Long suppression window: we never touch Selection API here, so any
+      // selectionchange that fires within ~1.5s of a tap is native noise
+      // (Android ActionMode spawn/dismiss) that would wrongly clear our popup.
+      _suppressSelectionChangeUntil = Date.now() + 1500;
+      _lastDispatchedText = text;
+      _lastDispatchWasTap = true;
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'selection',
+        text: text,
+        sentence: sentence,
+        anchor: anchor
+      }));
       return true;
+    }
+
+    function applyTapPulseRange(range) {
+      try {
+        var span = document.createElement('span');
+        span.className = 'tap-pulse';
+        range.surroundContents(span);
+        setTimeout(function() {
+          if (span.parentNode) {
+            var parent = span.parentNode;
+            while (span.firstChild) parent.insertBefore(span.firstChild, span);
+            parent.removeChild(span);
+            parent.normalize();
+          }
+        }, 650);
+      } catch(e) {}
+    }
+
+    function getRangeAnchor(range) {
+      var text = range.toString().trim();
+      var preRange = document.createRange();
+      preRange.setStart(document.body, 0);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      var prefix = preRange.toString().slice(-50);
+      var sufRange = document.createRange();
+      sufRange.setStart(range.endContainer, range.endOffset);
+      sufRange.setEnd(document.body, document.body.childNodes.length);
+      var suffix = sufRange.toString().substring(0, 50);
+      return { prefix: prefix, exact: text, suffix: suffix };
     }
 
     /**
@@ -349,12 +426,20 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
      */
     var _suppressSelectionChangeUntil = 0;
     var _lastDispatchedText = '';
+    // When the last dispatch came from the tap path (selectWordAtPoint),
+    // we MUST NOT notify the parent of a "selection cleared" event on the
+    // next native collapse — there is no selection to clear in the first
+    // place (tap doesn't touch window.getSelection). Without this guard
+    // the native ActionMode dismiss nukes the WordCard milliseconds after
+    // it opens.
+    var _lastDispatchWasTap = false;
 
     function dispatchSelection() {
       var sel = window.getSelection();
-      if (!sel || sel.isCollapsed) return;
+      if (!sel || sel.isCollapsed) { console.log('[diag] dispatchSelection: no selection'); return; }
       var text = sel.toString().trim();
-      if (!text || text.length > 300) return;
+      if (!text) { console.log('[diag] dispatchSelection: empty text'); return; }
+      if (text.length > 300) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
       if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
@@ -362,6 +447,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       try { anchor = getSelectionAnchor(); } catch(e) {}
       _suppressSelectionChangeUntil = Date.now() + 200;
       _lastDispatchedText = text;
+      _lastDispatchWasTap = false;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,
@@ -446,10 +532,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var HIGHLIGHT_BG = { yellow: 'rgba(254,240,138,0.5)', green: 'rgba(187,247,208,0.5)', pink: 'rgba(251,207,232,0.5)', blue: 'rgba(191,219,254,0.5)' };
 
     function renderHighlight(id, text, color) {
-      if (!text || !color) return;
+      if (!text || !color) { console.warn('[diag] renderHighlight: missing args', id, !!text, color); return; }
       var body = document.body;
       var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
       var node;
+      var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
       while (node = walker.nextNode()) {
         var idx = node.textContent.indexOf(text);
         if (idx === -1) continue;
@@ -465,9 +552,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           e.stopPropagation();
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
         });
-        try { range.surroundContents(mark); } catch(e) {}
-        break;
+        try { range.surroundContents(mark); console.log('[diag] renderHighlight matched:', id, snippet); } catch(e) { console.warn('[diag] surroundContents failed:', id, e.message); }
+        return;
       }
+      console.warn('[diag] renderHighlight NO MATCH:', id, snippet);
     }
 
     function removeHighlight(id) {
@@ -531,7 +619,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var textNodes = [];
       var node;
       while (node = walker.nextNode()) textNodes.push(node);
-      var re = /[\p{L}\p{N}'-]+/gu;
+      var re = /[\\p{L}\\p{N}'-]+/gu;
       for (var i = 0; i < textNodes.length; i++) {
         var tn = textNodes[i];
         var text = tn.textContent;
@@ -572,7 +660,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 
     var _currentVocabMap = {};
     function addVocabWord(word, stage) {
-      _currentVocabMap[word.toLowerCase()] = { stage: stage };
+      var key = word.toLowerCase();
+      var existing = _currentVocabMap[key] || {};
+      existing.stage = stage;
+      _currentVocabMap[key] = existing;
       markVocabWords(_currentVocabMap);
     }
 
@@ -605,6 +696,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       } catch(e) {}
     }
 
+    console.log('[diag] attaching selectionchange listener');
     document.addEventListener('selectionchange', function() {
       // Inside suppression window — swallow the event entirely. Covers the
       // transient "empty selection" that fires between removeAllRanges and
@@ -612,8 +704,16 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (Date.now() < _suppressSelectionChangeUntil) return;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
+        // Only notify parent of "selection cleared" when WE previously
+        // dispatched a drag-select via this listener. If the last dispatch
+        // was a tap, there was no Selection-API selection to begin with,
+        // so reporting "empty" would incorrectly tear down the WordCard.
+        if (_lastDispatchedText && !_lastDispatchWasTap) {
+          console.log('[diag] selectionchange: posting empty (prior drag-select collapsed)');
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
+        }
         _lastDispatchedText = '';
+        _lastDispatchWasTap = false;
         return;
       }
       var text = sel.toString().trim();

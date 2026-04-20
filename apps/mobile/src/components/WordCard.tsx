@@ -88,9 +88,21 @@ export function WordCard({
   // off the card while choosing a language.
   useEffect(() => {
     if (showLangPicker) return
-    dismissTimerRef.current = setTimeout(onDismiss, 3000)
-    return () => { if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number) }
+    if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId)
+    dismissTimerRef.current = setTimeout(() => {
+      if (__DEV__) console.log('[diag] WordCard auto-dismiss fired', word)
+      onDismiss()
+    }, 3000)
+    return () => {
+      if (__DEV__) console.log('[diag] WordCard effect cleanup', word, selectionId)
+      if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
+    }
   }, [word, selectionId, showLangPicker]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (__DEV__) console.log('[diag] WordCard MOUNT', word)
+    return () => { if (__DEV__) console.log('[diag] WordCard UNMOUNT', word) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch translation on mount. Source/target come from useTargetLanguage —
   // previously the pair was hardcoded en↔uk which broke for users reading
