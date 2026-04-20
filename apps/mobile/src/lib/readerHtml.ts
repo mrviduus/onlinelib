@@ -316,7 +316,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
      * Selection — the existing selectionchange listener handles the
      * rest (pulse, message dispatch, RN-side save + TTS).
      */
-    var WORD_RE = /[\p{L}\p{N}'-]/u;
+    var WORD_RE = /[\\p{L}\\p{N}'-]/u;
     function wordRangeAtPoint(x, y) {
       var node = null, offset = 0;
       if (document.caretPositionFromPoint) {
@@ -342,7 +342,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (start === end) return null;
       // Skip purely numeric "words"
       var candidate = text.slice(start, end);
-      if (!/\p{L}/u.test(candidate)) return null;
+      if (!/\\p{L}/u.test(candidate)) return null;
       // Sanity cap. 40 was rejecting legitimate long compounds like
       // "Unterscheidungsvermögen" / "Schadenfreudegesellschaft" (B-11).
       // 80 is well past any real word but still blocks entire
@@ -356,17 +356,58 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     function selectWordAtPoint(x, y) {
       var range = wordRangeAtPoint(x, y);
       if (!range) { console.log('[diag] wordRangeAtPoint null at', x, y); return false; }
-      var sel = window.getSelection();
-      if (!sel) { console.warn('[diag] getSelection() returned null'); return false; }
-      sel.removeAllRanges();
-      sel.addRange(range);
-      console.log('[diag] selected word:', range.toString());
-      // Android WebView does not fire selectionchange for programmatic
-      // selection — push the message directly. iOS fires it twice (once
-      // here, once from the listener), but the second emit is a no-op
-      // because the popup re-renders to the same state.
-      dispatchSelection();
+      var text = range.toString().trim();
+      if (!text) return false;
+      console.log('[diag] selected word:', text);
+      // Do NOT touch window.getSelection() here. Android WebView reacts to
+      // a programmatic Selection by spawning its own ActionMode (Copy /
+      // Share / Select all), which immediately dismisses our RN popup.
+      // Instead, post the selection directly from the range — our popup
+      // opens, native UI stays silent. Drag-select still uses the normal
+      // Selection API flow via selectionchange.
+      try { applyTapPulseRange(range); } catch(e) {}
+      var sentence = '';
+      try { sentence = extractSentence(range.startContainer); } catch(e) {}
+      var anchor = null;
+      try { anchor = getRangeAnchor(range); } catch(e) {}
+      _suppressSelectionChangeUntil = Date.now() + 200;
+      _lastDispatchedText = text;
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'selection',
+        text: text,
+        sentence: sentence,
+        anchor: anchor
+      }));
       return true;
+    }
+
+    function applyTapPulseRange(range) {
+      try {
+        var span = document.createElement('span');
+        span.className = 'tap-pulse';
+        range.surroundContents(span);
+        setTimeout(function() {
+          if (span.parentNode) {
+            var parent = span.parentNode;
+            while (span.firstChild) parent.insertBefore(span.firstChild, span);
+            parent.removeChild(span);
+            parent.normalize();
+          }
+        }, 650);
+      } catch(e) {}
+    }
+
+    function getRangeAnchor(range) {
+      var text = range.toString().trim();
+      var preRange = document.createRange();
+      preRange.setStart(document.body, 0);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      var prefix = preRange.toString().slice(-50);
+      var sufRange = document.createRange();
+      sufRange.setStart(range.endContainer, range.endOffset);
+      sufRange.setEnd(document.body, document.body.childNodes.length);
+      var suffix = sufRange.toString().substring(0, 50);
+      return { prefix: prefix, exact: text, suffix: suffix };
     }
 
     /**
@@ -566,7 +607,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var textNodes = [];
       var node;
       while (node = walker.nextNode()) textNodes.push(node);
-      var re = /[\p{L}\p{N}'-]+/gu;
+      var re = /[\\p{L}\\p{N}'-]+/gu;
       for (var i = 0; i < textNodes.length; i++) {
         var tn = textNodes[i];
         var text = tn.textContent;
