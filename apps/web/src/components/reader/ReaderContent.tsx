@@ -9,6 +9,10 @@ interface Props {
   chapters: LoadedChapter[]
   settings: ReaderSettings
   isLoadingMore: boolean
+  isAtEnd?: boolean
+  libraryHref?: string
+  homeHref?: string
+  bookDetailHref?: string
   onLoadMore: () => void
   onLoadPrev?: () => void
   chapterRefs: React.MutableRefObject<Map<string, HTMLElement>>
@@ -31,6 +35,10 @@ export function ReaderContent({
   chapters,
   settings,
   isLoadingMore,
+  isAtEnd,
+  libraryHref,
+  homeHref,
+  bookDetailHref,
   onLoadMore,
   onLoadPrev,
   chapterRefs,
@@ -45,6 +53,38 @@ export function ReaderContent({
   const tapTimeoutRef = useRef<number | null>(null)
   const prevScrollHeightRef = useRef<number>(0)
   const prevFirstIndexRef = useRef<number>(-1)
+  const prevSettingsRef = useRef(settings)
+  const settingsAnchorRef = useRef<{ id: string; top: number } | null>(null)
+
+  // If text-affecting settings changed, capture anchor (visible chapter + offset)
+  // BEFORE React commits new styles so we can restore scroll after reflow.
+  // Reading DOM during render is OK here — one-shot on settings change.
+  const settingsChanged =
+    prevSettingsRef.current.fontSize !== settings.fontSize ||
+    prevSettingsRef.current.lineHeight !== settings.lineHeight ||
+    prevSettingsRef.current.fontFamily !== settings.fontFamily
+  if (settingsChanged && !settingsAnchorRef.current) {
+    const viewportMid = window.innerHeight / 2
+    let pickId: string | null = null
+    let pickTop = 0
+    chapterRefs.current.forEach((el, identifier) => {
+      const rect = el.getBoundingClientRect()
+      if (rect.top <= viewportMid && rect.bottom >= viewportMid) {
+        pickId = identifier
+        pickTop = rect.top
+      }
+    })
+    if (!pickId) {
+      chapterRefs.current.forEach((el, identifier) => {
+        const rect = el.getBoundingClientRect()
+        if (pickId === null && rect.bottom > 0) {
+          pickId = identifier
+          pickTop = rect.top
+        }
+      })
+    }
+    if (pickId) settingsAnchorRef.current = { id: pickId, top: pickTop }
+  }
 
   // Capture-phase error listener for images (error events don't bubble).
   // Retry once after 1s (survives transient 503s from burst rate-limiting),
@@ -189,6 +229,23 @@ export function ReaderContent({
     }
   }, [chapters])
 
+  // Restore scroll anchor after font/line-height change so reader stays in place
+  useLayoutEffect(() => {
+    const anchor = settingsAnchorRef.current
+    if (!anchor) {
+      prevSettingsRef.current = settings
+      return
+    }
+    const el = chapterRefs.current.get(anchor.id)
+    if (el) {
+      const newTop = el.getBoundingClientRect().top
+      const delta = newTop - anchor.top
+      if (delta !== 0) window.scrollBy({ top: delta, behavior: 'instant' })
+    }
+    settingsAnchorRef.current = null
+    prevSettingsRef.current = settings
+  }, [settings, chapterRefs])
+
   if (chapters.length === 0) {
     return (
       <div className="scroll-reader scroll-reader--loading">
@@ -239,13 +296,38 @@ export function ReaderContent({
         </Fragment>
       ))}
 
-      {/* Bottom sentinel for infinite scroll */}
-      <div ref={bottomSentinelRef} className="scroll-reader__sentinel" />
+      {/* Bottom sentinel for infinite scroll (disabled once at end) */}
+      {!isAtEnd && <div ref={bottomSentinelRef} className="scroll-reader__sentinel" />}
 
       {/* Loading indicator */}
       {isLoadingMore && (
         <div className="scroll-reader__loading">
           <span>Loading more...</span>
+        </div>
+      )}
+
+      {isAtEnd && (
+        <div className="scroll-reader__end" role="region" aria-label="End of book">
+          <div className="scroll-reader__end-ornament">❦</div>
+          <h2 className="scroll-reader__end-title">The End</h2>
+          <p className="scroll-reader__end-text">You reached the end of this book.</p>
+          <div className="scroll-reader__end-actions">
+            {bookDetailHref && (
+              <a className="scroll-reader__end-btn scroll-reader__end-btn--primary" href={`${bookDetailHref}#reviews`}>
+                Rate &amp; review
+              </a>
+            )}
+            {libraryHref && (
+              <a className="scroll-reader__end-btn" href={libraryHref}>
+                My library
+              </a>
+            )}
+            {homeHref && (
+              <a className="scroll-reader__end-btn" href={homeHref}>
+                Find another book
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>

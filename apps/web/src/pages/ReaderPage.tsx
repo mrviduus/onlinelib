@@ -220,16 +220,22 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Track current URL chapter (may differ from chapterSlug after replaceState)
   const currentUrlChapterRef = useRef(chapterIdentifier)
 
-  // Sync URL with visible chapter from scroll reader
+  // Sync URL with visible chapter from scroll reader (debounced 500ms — avoids
+  // history.replaceState spam while user scrolls rapidly across chapter seams).
   useEffect(() => {
     const visibleId = scrollReader.visibleIdentifier
     if (!visibleId || visibleId === currentUrlChapterRef.current) return
 
-    const newPath = mode === 'public'
-      ? getLocalizedPath(`/books/${bookSlug}/${visibleId}`)
-      : `/${language}/library/my/${id}/read/${visibleId}`
-    window.history.replaceState(null, '', newPath)
-    currentUrlChapterRef.current = visibleId
+    const timer = window.setTimeout(() => {
+      if (visibleId === currentUrlChapterRef.current) return
+      const newPath = mode === 'public'
+        ? getLocalizedPath(`/books/${bookSlug}/${visibleId}`)
+        : `/${language}/library/my/${id}/read/${visibleId}`
+      window.history.replaceState(null, '', newPath)
+      currentUrlChapterRef.current = visibleId
+    }, 500)
+
+    return () => clearTimeout(timer)
   }, [mode, scrollReader.visibleIdentifier, bookSlug, id, language, getLocalizedPath])
 
   // Reading progress sync (with server when authenticated) - public mode only
@@ -946,6 +952,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
               chapters={scrollReader.chapters}
               settings={settings}
               isLoadingMore={scrollReader.isLoadingMore}
+              isAtEnd={scrollReader.isAtEnd}
+              libraryHref={mode === 'public' ? getLocalizedPath('/library') : `/${language}/library/my`}
+              homeHref={mode === 'public' ? getLocalizedPath('/') : `/${language}`}
+              bookDetailHref={mode === 'public' && bookSlug ? getLocalizedPath(`/books/${bookSlug}`) : undefined}
               onLoadMore={scrollReader.loadMore}
               onLoadPrev={scrollReader.loadPrev}
               chapterRefs={scrollReader.chapterRefs}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 
 export interface LoadedChapter {
   identifier: string // slug for both public and userbook
@@ -35,6 +35,7 @@ interface UseScrollReaderResult {
   isLoadingMore: boolean
   loadError: string | null
   scrollOffset: number
+  isAtEnd: boolean
   loadMore: () => Promise<void>
   loadPrev: () => Promise<void>
   scrollToChapter: (identifier: string) => void
@@ -42,6 +43,9 @@ interface UseScrollReaderResult {
 }
 
 const CHAPTERS_BUFFER = 2 // Load 2 chapters ahead/behind
+// Keep this many chapters on each side of visible; evict beyond. Matches
+// CHAPTERS_BUFFER*2 so a user skimming never loses the ones they'd fetch next.
+const CHAPTERS_EVICT_WINDOW = CHAPTERS_BUFFER * 2
 
 export function useScrollReader({
   book,
@@ -59,17 +63,29 @@ export function useScrollReader({
   const loadingRef = useRef(false)
   const loadedIdsRef = useRef<Set<string>>(new Set())
   const lastInitialIdRef = useRef(initialIdentifier)
+  const evictAnchorRef = useRef<{ id: string; top: number } | null>(null)
 
-  // Reset when navigating to a different chapter
+  // Reset when navigating to a different chapter.
+  // Back-button preserves session: if target chapter is already loaded, just
+  // scroll to it instead of wiping state (B11).
   useEffect(() => {
-    if (lastInitialIdRef.current !== initialIdentifier) {
-      lastInitialIdRef.current = initialIdentifier
-      setChapters([])
-      setVisibleIdentifier(initialIdentifier)
-      setScrollOffset(0)
-      loadedIdsRef.current.clear()
-      chapterRefs.current.clear()
+    if (lastInitialIdRef.current === initialIdentifier) return
+    lastInitialIdRef.current = initialIdentifier
+
+    if (loadedIdsRef.current.has(initialIdentifier)) {
+      const el = chapterRefs.current.get(initialIdentifier)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setVisibleIdentifier(initialIdentifier)
+        return
+      }
     }
+
+    setChapters([])
+    setVisibleIdentifier(initialIdentifier)
+    setScrollOffset(0)
+    loadedIdsRef.current.clear()
+    chapterRefs.current.clear()
   }, [initialIdentifier])
 
   // Get chapter index from book
@@ -217,53 +233,106 @@ export function useScrollReader({
     }
   }, [book, chapters, isLoadingMore, loadChapter])
 
-  // Track scroll offset and visible chapter
+  // Evict chapters outside [visible - WINDOW, visible + WINDOW] to cap memory.
+  // Snapshots visible chapter's top so layout effect can restore scroll after
+  // React commits the shrunk list (removing top chapters shifts content up).
   useEffect(() => {
-    let timeoutId: number
+    if (chapters.length <= CHAPTERS_EVICT_WINDOW * 2 + 1) return
+    const visibleArrayIdx = chapters.findIndex((c) => c.identifier === visibleIdentifier)
+    if (visibleArrayIdx === -1) return
 
-    const handleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = window.setTimeout(() => {
-        // Find which chapter is visible at top of viewport
-        const viewportTop = window.innerHeight * 0.25 // Check within top 25%
-        let foundId: string | null = null
-        let foundTop = -Infinity
+    const kept = chapters.filter((_, i) => Math.abs(i - visibleArrayIdx) <= CHAPTERS_EVICT_WINDOW)
+    if (kept.length === chapters.length) return
 
-        chapterRefs.current.forEach((el, identifier) => {
-          const rect = el.getBoundingClientRect()
-          // Chapter is visible if:
-          // 1. Its top is within the top portion of viewport OR scrolled past (negative)
-          // 2. Its bottom is still visible (positive)
-          if (rect.top < viewportTop && rect.bottom > 0) {
-            // Pick the chapter with highest top (most recently scrolled into)
-            if (rect.top > foundTop) {
-              foundId = identifier
-              foundTop = rect.top
-            }
-          }
-        })
-
-        if (foundId && foundId !== visibleIdentifier) {
-          setVisibleIdentifier(foundId)
-        }
-
-        // Calculate offset relative to visible chapter
-        const visibleEl = chapterRefs.current.get(foundId || visibleIdentifier)
-        if (visibleEl) {
-          const rect = visibleEl.getBoundingClientRect()
-          setScrollOffset(Math.abs(rect.top))
-        }
-      }, 100)
+    const visibleEl = chapterRefs.current.get(visibleIdentifier)
+    if (visibleEl) {
+      evictAnchorRef.current = {
+        id: visibleIdentifier,
+        top: visibleEl.getBoundingClientRect().top,
+      }
     }
 
+    const keptIds = new Set(kept.map((c) => c.identifier))
+    chapters.forEach((c) => {
+      if (!keptIds.has(c.identifier)) {
+        loadedIdsRef.current.delete(c.identifier)
+        chapterRefs.current.delete(c.identifier)
+      }
+    })
+    setChapters(kept)
+  }, [visibleIdentifier, chapters])
+
+  // Restore scroll anchor after eviction so the user's viewport doesn't jump
+  useLayoutEffect(() => {
+    const anchor = evictAnchorRef.current
+    if (!anchor) return
+    const el = chapterRefs.current.get(anchor.id)
+    if (el) {
+      const newTop = el.getBoundingClientRect().top
+      const delta = newTop - anchor.top
+      if (delta !== 0) window.scrollBy({ top: delta, behavior: 'instant' })
+    }
+    evictAnchorRef.current = null
+  }, [chapters])
+
+  // Track visible chapter via IntersectionObserver (midline heuristic: chapter
+  // whose bounds cross the viewport center is "active"). Avoids flipping to
+  // next chapter while user is still reading tail of previous one.
+  useEffect(() => {
+    if (chapters.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Prefer the entry that's intersecting (crosses viewport middle).
+        // Fallback: if multiple, pick the one with smallest abs(boundingClientRect.top).
+        const intersecting = entries.filter((e) => e.isIntersecting)
+        if (intersecting.length === 0) return
+
+        let pick = intersecting[0]
+        let pickTop = Math.abs(pick.boundingClientRect.top)
+        for (let i = 1; i < intersecting.length; i++) {
+          const t = Math.abs(intersecting[i].boundingClientRect.top)
+          if (t < pickTop) {
+            pick = intersecting[i]
+            pickTop = t
+          }
+        }
+
+        const identifier = (pick.target as HTMLElement).dataset.chapterId
+        if (identifier) {
+          setVisibleIdentifier((prev) => (prev === identifier ? prev : identifier))
+        }
+      },
+      { rootMargin: '-50% 0px -50% 0px', threshold: 0 }
+    )
+
+    chapterRefs.current.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [chapters])
+
+  // Track scroll offset relative to visible chapter (used for progress %).
+  // Separate RAF-throttled listener — cheap, runs always.
+  useEffect(() => {
+    let rafId = 0
+    const updateOffset = () => {
+      rafId = 0
+      const visibleEl = chapterRefs.current.get(visibleIdentifier)
+      if (visibleEl) {
+        const rect = visibleEl.getBoundingClientRect()
+        setScrollOffset(Math.abs(rect.top))
+      }
+    }
+    const handleScroll = () => {
+      if (rafId) return
+      rafId = window.requestAnimationFrame(updateOffset)
+    }
     window.addEventListener('scroll', handleScroll, { passive: true })
-    // Initial check
-    handleScroll()
+    updateOffset()
     return () => {
-      clearTimeout(timeoutId)
+      if (rafId) cancelAnimationFrame(rafId)
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [visibleIdentifier, chapters])
+  }, [visibleIdentifier])
 
   // Scroll to a specific chapter
   const scrollToChapter = useCallback((identifier: string) => {
@@ -273,12 +342,18 @@ export function useScrollReader({
     }
   }, [])
 
+  const isAtEnd =
+    !!book &&
+    chapters.length > 0 &&
+    chapters[chapters.length - 1].index === book.chapters.length - 1
+
   return {
     chapters,
     visibleIdentifier,
     isLoadingMore,
     loadError,
     scrollOffset,
+    isAtEnd,
     loadMore,
     loadPrev,
     scrollToChapter,
