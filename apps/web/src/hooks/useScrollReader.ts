@@ -43,9 +43,10 @@ interface UseScrollReaderResult {
 }
 
 const CHAPTERS_BUFFER = 2 // Load 2 chapters ahead/behind
-// Keep this many chapters on each side of visible; evict beyond. Matches
-// CHAPTERS_BUFFER*2 so a user skimming never loses the ones they'd fetch next.
-const CHAPTERS_EVICT_WINDOW = CHAPTERS_BUFFER * 2
+// Keep this many chapters on each side of visible; evict beyond.
+// Window = BUFFER+1 (3) → max ~7 kept; tight enough to actually kick in on
+// mid-length books (13-ch Alice) while preserving the prefetch frontier.
+const CHAPTERS_EVICT_WINDOW = CHAPTERS_BUFFER + 1
 
 export function useScrollReader({
   book,

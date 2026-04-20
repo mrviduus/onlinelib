@@ -265,8 +265,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
   }, [mode, userProgress.legacyProgress, book?.chapters, navigate, language, id])
 
-  // Restore progress on mount - public mode only (user books restore handled separately)
-  const { savedProgress, shouldNavigate, targetChapterSlug, isLoading: progressLoading } =
+  // Restore progress on mount - public mode only (user books restore handled separately).
+  // URL is authoritative: we never auto-navigate away from a typed chapter URL.
+  const { savedProgress, isLoading: progressLoading } =
     useRestoreProgress(mode === 'public' ? publicBook?.id : undefined, chapterSlug)
 
   // Unified progress for restore effects (public + userbook)
@@ -314,7 +315,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [mode, publicBook?.id, publicBook?.chapters, book?.chapters, userProgress.savedProgress])
 
   // Refs for restore logic
-  const hasNavigatedRef = useRef(false)
   const scrollRestoredRef = useRef(false)
 
   // Current chapter progress (0..1) based on scroll within the visible chapter.
@@ -565,28 +565,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       .catch(() => {}) // silent fail
   }, [overallProgress, book?.id, isInLibrary, addToLibrary])
 
-  // Navigate to saved chapter if different from current.
-  // Stale-progress guard: wait until TOC is loaded, then only navigate if the saved
-  // chapter still exists. If it doesn't (renamed/deleted), keep the user on the
-  // current chapter instead of redirecting to a 404.
-  useEffect(() => {
-    if (!shouldNavigate || !targetChapterSlug || hasNavigatedRef.current) return
-    if (mode !== 'public') return
-    // Need TOC to validate. publicBook is set after the book fetch resolves.
-    if (!publicBook?.chapters) return
-
-    const chapterExists = publicBook.chapters.some(c => c.slug === targetChapterSlug)
-    hasNavigatedRef.current = true
-    if (chapterExists) {
-      const qs = window.location.search
-      navigate(getLocalizedPath(`/books/${bookSlug}/${targetChapterSlug}`) + qs, { replace: true })
-    }
-    // else: saved chapter is stale — stay put, user lands at page 0 of current chapter.
-  }, [shouldNavigate, targetChapterSlug, bookSlug, navigate, getLocalizedPath, mode, publicBook?.chapters])
-
   // Restore scroll position
   useEffect(() => {
-    if (scrollRestoredRef.current || effectiveLoading || shouldNavigate) return
+    if (scrollRestoredRef.current || effectiveLoading) return
     if (scrollReader.chapters.length === 0) return // Wait for chapters to load
 
     // Parse scroll locator: scroll:{chapterSlug}:{offset}
@@ -638,12 +619,11 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
 
     requestAnimationFrame(tryScroll)
-  }, [effectiveLoading, shouldNavigate, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
+  }, [effectiveLoading, effectiveProgress, scrollReader.chapters, scrollReader.chapterRefs])
 
   // Reset restore refs on chapter change
   useEffect(() => {
     scrollRestoredRef.current = false
-    hasNavigatedRef.current = false
   }, [chapterIdentifier])
 
   // Search hook needs chapter html, use empty string until loaded
