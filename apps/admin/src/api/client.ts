@@ -1413,16 +1413,15 @@ export const adminApi = {
     limit?: number
     offset?: number
   }): Promise<{ items: HighlightReport[]; totalCount: number }> => {
-    const query = new URLSearchParams()
+    const query = new URLSearchParams({ siteId: DEFAULT_SITE_ID })
     if (params?.status) query.set('status', params.status)
     if (params?.limit) query.set('limit', String(params.limit))
     if (params?.offset) query.set('offset', String(params.offset))
-    const qs = query.toString()
-    return fetchJson(`/admin/highlights/reports${qs ? `?${qs}` : ''}`)
+    return fetchJson(`/admin/highlights/reports?${query.toString()}`)
   },
 
   resolveHighlightReport: async (id: string, action: 'dismiss' | 'delete'): Promise<void> => {
-    await fetchVoid(`/admin/highlights/reports/${id}/resolve`, {
+    await fetchVoid(`/admin/highlights/reports/${id}/resolve?siteId=${DEFAULT_SITE_ID}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
@@ -1430,7 +1429,7 @@ export const adminApi = {
   },
 
   deleteHighlight: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/highlights/${id}`, { method: 'DELETE' })
+    await fetchVoid(`/admin/highlights/${id}?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
   },
 }
 

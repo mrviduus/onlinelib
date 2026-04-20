@@ -1,4 +1,3 @@
-using Api.Sites;
 using Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,12 +18,12 @@ public static class AdminHighlightsEndpoints
     private static async Task<IResult> GetReports(
         HttpContext ctx,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         [FromQuery] string status = "open",
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0,
         CancellationToken ct = default)
     {
-        var siteId = ctx.GetSiteId();
         limit = Math.Clamp(limit, 1, 200);
 
         var query = db.HighlightReports
@@ -69,9 +68,9 @@ public static class AdminHighlightsEndpoints
         [FromBody] ResolveReportRequest request,
         HttpContext ctx,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = ctx.GetSiteId();
         var adminId = TryGetAdminUserId(ctx);
 
         var report = await db.HighlightReports
@@ -110,9 +109,9 @@ public static class AdminHighlightsEndpoints
         Guid id,
         HttpContext ctx,
         IAppDbContext db,
+        [FromQuery] Guid siteId,
         CancellationToken ct)
     {
-        var siteId = ctx.GetSiteId();
         var adminId = TryGetAdminUserId(ctx);
 
         var highlight = await db.Highlights
