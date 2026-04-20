@@ -23,7 +23,9 @@ public class AuthenticatedApiFixture : IAsyncLifetime
     {
         var baseUrl = Environment.GetEnvironmentVariable("API_URL") ?? "http://localhost:8080";
 
-        Client = new HttpClient
+        // UseCookies=false: cookies added explicitly via Cookie header. Default
+        // jar would duplicate/accumulate Set-Cookie values across requests.
+        Client = new HttpClient(new HttpClientHandler { UseCookies = false })
         {
             BaseAddress = new Uri(baseUrl),
             Timeout = TimeSpan.FromSeconds(30)

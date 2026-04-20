@@ -18,7 +18,11 @@ public class LiveApiFixture : IDisposable
     {
         var baseUrl = Environment.GetEnvironmentVariable("API_URL") ?? "http://localhost:8080";
 
-        Client = new HttpClient
+        // UseCookies=false: tests pass the Cookie header explicitly via CreateRequest
+        // or Req() helpers. Default SocketsHttpHandler accumulates Set-Cookie across
+        // requests, which leaks auth from one test into "_WithoutAuth" tests and
+        // causes 404 (highlight not found) instead of 401.
+        Client = new HttpClient(new HttpClientHandler { UseCookies = false })
         {
             BaseAddress = new Uri(baseUrl),
             Timeout = TimeSpan.FromSeconds(30)
