@@ -9,6 +9,7 @@ try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useOnline } from '../../src/hooks/useOnline'
 import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false)
   const [langPickerOpen, setLangPickerOpen] = useState(false)
 
+  const online = useOnline()
   const isGuest = !!user?.isGuest
   const anonName = user ? getAnonymousReaderName(user.id) : ''
   const anonColor = user ? getAnonymousReaderColor(user.id) : colors.primary
@@ -126,16 +128,25 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: isGuest && !user?.picture ? anonColor : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
-          {user?.picture ? (
-            <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
-          ) : (
-            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-          )}
-          <View style={styles.avatarBadge}>
-            <Ionicons name="camera" size={14} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.avatarOuter}>
+          <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: isGuest && !user?.picture ? anonColor : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
+            {user?.picture ? (
+              <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+            )}
+            <View style={styles.avatarBadge}>
+              <Ionicons name="camera" size={14} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: online ? '#4caf50' : '#9e9e9e', borderColor: colors.background },
+            ]}
+            accessibilityLabel={online ? 'Online' : 'Offline'}
+          />
+        </View>
         {editing ? (
           <View style={styles.editRow}>
             <TextInput
@@ -330,13 +341,22 @@ const styles = StyleSheet.create({
   },
   loginText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 15 },
   header: { alignItems: 'center', paddingVertical: 32 },
+  avatarOuter: { position: 'relative', marginBottom: 14 },
+  statusDot: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
   avatarWrapper: {
     width: 88,
     height: 88,
     borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,

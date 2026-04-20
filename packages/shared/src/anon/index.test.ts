@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
+import { getAnonymousReaderName, getAnonymousReaderColor } from './index'
 
 describe('getAnonymousReaderName', () => {
   it('same seed returns same pseudonym', () => {

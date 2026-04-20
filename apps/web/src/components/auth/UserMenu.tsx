@@ -4,11 +4,13 @@ import { LocalizedLink } from '../LocalizedLink'
 import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
 import { useTranslation } from '../../hooks/useTranslation'
+import { useOnline } from '../../hooks/useOnline'
 import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
   const { t } = useTranslation()
+  const online = useOnline()
   const [open, setOpen] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -61,6 +63,11 @@ export function UserMenu() {
               style={isGuest ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' } : undefined}
             >{initials}</span>
           )}
+          <span
+            className={`user-menu__status-dot${online ? ' user-menu__status-dot--online' : ''}`}
+            title={online ? 'Online' : 'Offline'}
+            aria-label={online ? 'Online' : 'Offline'}
+          />
         </button>
 
         {open && (

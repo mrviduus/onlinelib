@@ -464,6 +464,7 @@
 }
 
 .user-menu__trigger {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -475,6 +476,22 @@
   color: #fff;
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.user-menu__status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-bg, #fff);
+  background: #9e9e9e;
+  pointer-events: none;
+}
+
+.user-menu__status-dot--online {
+  background: #4caf50;
 }
 
 .user-menu__trigger:hover {

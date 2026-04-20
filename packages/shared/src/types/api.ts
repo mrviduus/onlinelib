@@ -123,8 +123,8 @@ export interface UserDto {
   name: string | null
   picture: string | null
   createdAt: string
-  isGuest?: boolean
-  nativeLanguage?: string | null
+  isGuest: boolean
+  nativeLanguage: string | null
 }
 
 export interface AuthResponse {
