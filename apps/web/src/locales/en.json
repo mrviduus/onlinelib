@@ -217,7 +217,38 @@
       "placeholder": "Add a note...",
       "deleteHighlight": "Delete highlight",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "visibility": {
+        "label": "Visibility",
+        "private": "Private",
+        "public": "Public",
+        "publicHint": "Public notes may be shown to other readers."
+      }
+    },
+    "hotspot": {
+      "title": "What other readers say",
+      "count": "{{count}} readers highlighted this",
+      "close": "Close",
+      "reader": "Reader",
+      "noNotes": "No notes yet.",
+      "like": "Like",
+      "unlike": "Unlike",
+      "report": "Report"
+    },
+    "report": {
+      "title": "Report this note",
+      "close": "Close",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "submitting": "Sending…",
+      "error": "Could not send report. Try again.",
+      "notePlaceholder": "Add details (optional)…",
+      "reason": {
+        "spam": "Spam",
+        "offensive": "Offensive or harmful",
+        "misinformation": "Misinformation",
+        "other": "Other"
+      }
     },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words."
   },
@@ -819,35 +850,5 @@
     "uploadBook": "Upload your book",
     "uploading": "Uploading...",
     "expiryBanner": "Your books are saved for 3 days. Sign up to keep them permanently."
-  },
-  "rooms": {
-    "topBarLabel": "Reading room",
-    "defaultName": "Reading together",
-    "anonymous": "Anonymous",
-    "invite": "Invite",
-    "settings": "Settings",
-    "inviteTitle": "Invite to room",
-    "expiresIn": "Expires in",
-    "maxUses": "Max uses",
-    "maxUsesPlaceholder": "unlimited",
-    "generating": "Generating…",
-    "generateLink": "Generate link",
-    "copied": "Copied",
-    "copy": "Copy",
-    "settingsTitle": "Room settings",
-    "showMyProgress": "Show my progress",
-    "showMyProgressHint": "Let other members see your current chapter and position.",
-    "closeRoom": "Close room",
-    "leaveRoom": "Leave room",
-    "joinTitle": "Join reading room",
-    "joinNeedLogin": "Sign in to join the room.",
-    "joining": "Joining…",
-    "joinFailed": "Failed to join room.",
-    "readTogether": "Read together",
-    "sectionTitle": "Reading together",
-    "membersShort": "members",
-    "ownerTag": "owner",
-    "closedNotice": "The reading room was closed.",
-    "notFoundNotice": "This reading room no longer exists."
   }
 }

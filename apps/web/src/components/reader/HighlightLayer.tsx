@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { StoredHighlight, HighlightColor } from '../../lib/offlineDb'
 import { findTextByAnchor } from '../../lib/textAnchor'
+import type { Hotspot } from '../../api/socialHighlights'
 
 interface HighlightRect {
   id: string
@@ -9,31 +10,18 @@ interface HighlightRect {
   rects: DOMRect[]
 }
 
-export interface OverlayHighlight {
-  id: string
-  /** CSS color string (e.g. 'hsl(180, 65%, 55%)') */
-  color: string
-  /** JSON-serialized TextAnchor from backend */
-  anchorJson: string
-  userName?: string | null
-  noteText?: string | null
-}
-
-interface OverlayRect {
-  id: string
-  color: string
-  hasNote: boolean
+interface HotspotRect {
+  key: string
+  count: number
   rects: DOMRect[]
-  userName?: string | null
-  noteText?: string | null
 }
 
 interface HighlightLayerProps {
   highlights: StoredHighlight[]
   containerRef: React.RefObject<HTMLElement | null>
   onHighlightClick?: (highlight: StoredHighlight, rect: DOMRect) => void
-  overlayHighlights?: OverlayHighlight[]
-  onOverlayClick?: (overlay: OverlayHighlight, rect: DOMRect) => void
+  hotspots?: Hotspot[]
+  onHotspotClick?: (hotspot: Hotspot, rect: DOMRect) => void
 }
 
 const COLOR_MAP: Record<HighlightColor, string> = {
@@ -43,31 +31,40 @@ const COLOR_MAP: Record<HighlightColor, string> = {
   blue: 'rgba(191, 219, 254, 0.5)',
 }
 
+const MIN_HOTSPOT_COUNT = 2
+
+function normalize(s: string) {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 export function HighlightLayer({
   highlights,
   containerRef,
   onHighlightClick,
-  overlayHighlights,
-  onOverlayClick,
+  hotspots,
+  onHotspotClick,
 }: HighlightLayerProps) {
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([])
-  const [overlayRects, setOverlayRects] = useState<OverlayRect[]>([])
+  const [hotspotRects, setHotspotRects] = useState<HotspotRect[]>([])
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null)
   const rafRef = useRef<number | null>(null)
 
   const calculateRects = useCallback(() => {
     const container = containerRef.current
+    const ownHotspots = (hotspots ?? []).filter(h => h.count >= MIN_HOTSPOT_COUNT)
     const hasOwn = highlights.length > 0
-    const hasOverlay = (overlayHighlights?.length ?? 0) > 0
-    if (!container || (!hasOwn && !hasOverlay)) {
+    const hasHotspots = ownHotspots.length > 0
+    if (!container || (!hasOwn && !hasHotspots)) {
       setHighlightRects([])
-      setOverlayRects([])
+      setHotspotRects([])
       setContainerRect(null)
       return
     }
 
     const newContainerRect = container.getBoundingClientRect()
     setContainerRect(newContainerRect)
+
+    const ownNormalized = new Set(highlights.map(h => normalize(h.selectedText || '')))
 
     const rects: HighlightRect[] = []
     for (const highlight of highlights) {
@@ -86,71 +83,52 @@ export function HighlightLayer({
     }
     setHighlightRects(rects)
 
-    const oRects: OverlayRect[] = []
-    if (overlayHighlights) {
-      for (const o of overlayHighlights) {
-        let anchor: unknown
-        try { anchor = JSON.parse(o.anchorJson) } catch { continue }
-        // findTextByAnchor accepts a TextAnchor object; cast through unknown.
-        const range = findTextByAnchor(anchor as Parameters<typeof findTextByAnchor>[0], container)
-        if (range) {
-          const clientRects = Array.from(range.getClientRects())
-          if (clientRects.length > 0) {
-            oRects.push({
-              id: o.id,
-              color: o.color,
-              hasNote: !!o.noteText,
-              rects: clientRects,
-              userName: o.userName,
-              noteText: o.noteText,
-            })
-          }
+    const hRects: HotspotRect[] = []
+    for (const hot of ownHotspots) {
+      // Skip if user has their own highlight for the same text — don't double-render.
+      if (ownNormalized.has(normalize(hot.text))) continue
+      let anchor: unknown
+      try { anchor = JSON.parse(hot.anchorJson) } catch { continue }
+      const range = findTextByAnchor(anchor as Parameters<typeof findTextByAnchor>[0], container)
+      if (range) {
+        const clientRects = Array.from(range.getClientRects())
+        if (clientRects.length > 0) {
+          hRects.push({ key: hot.key, count: hot.count, rects: clientRects })
         }
       }
     }
-    setOverlayRects(oRects)
-  }, [highlights, overlayHighlights, containerRef])
+    setHotspotRects(hRects)
+  }, [highlights, hotspots, containerRef])
 
-  // Recalculate on highlights change
   useEffect(() => {
     calculateRects()
   }, [calculateRects])
 
-  // Recalculate on scroll/resize
   useEffect(() => {
     const handleUpdate = () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current)
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(calculateRects)
     }
 
     window.addEventListener('scroll', handleUpdate, { passive: true })
     window.addEventListener('resize', handleUpdate, { passive: true })
 
-    // Also observe container mutations (column changes, etc)
     const container = containerRef.current
     let observer: MutationObserver | null = null
     if (container) {
       observer = new MutationObserver(handleUpdate)
-      observer.observe(container, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      })
+      observer.observe(container, { childList: true, subtree: true, characterData: true })
     }
 
     return () => {
       window.removeEventListener('scroll', handleUpdate)
       window.removeEventListener('resize', handleUpdate)
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current)
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
       observer?.disconnect()
     }
   }, [containerRef, calculateRects])
 
-  if ((highlightRects.length === 0 && overlayRects.length === 0) || !containerRect) {
+  if ((highlightRects.length === 0 && hotspotRects.length === 0) || !containerRect) {
     return null
   }
 
@@ -162,11 +140,11 @@ export function HighlightLayer({
     }
   }
 
-  const handleOverlayClick = (id: string, rect: DOMRect) => {
-    const overlay = overlayHighlights?.find(o => o.id === id)
-    if (overlay && onOverlayClick) {
+  const handleHotspotClick = (key: string, rect: DOMRect) => {
+    const hot = hotspots?.find(h => h.key === key)
+    if (hot && onHotspotClick) {
       const viewportRect = new DOMRect(rect.left, rect.top, rect.width, rect.height)
-      onOverlayClick(overlay, viewportRect)
+      onHotspotClick(hot, viewportRect)
     }
   }
 
@@ -183,31 +161,41 @@ export function HighlightLayer({
         zIndex: 1,
       }}
     >
-      {/* Shared highlights from other room members — rendered below own so own stays readable on top */}
-      {overlayRects.map(({ id, color, hasNote, rects, userName, noteText }) =>
-        rects.map((rect, i) => (
-          <rect
-            key={`overlay-${id}-${i}`}
-            className={`overlay-highlight${hasNote ? ' has-note' : ''}`}
-            x={rect.left - containerRect.left}
-            y={rect.top - containerRect.top}
-            width={rect.width}
-            height={rect.height}
-            fill={color}
-            fillOpacity={0.25}
-            stroke={color}
-            strokeOpacity={0.7}
-            strokeWidth={1}
-            rx={2}
-            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-            onClick={() => handleOverlayClick(id, rect)}
-          >
-            <title>
-              {userName ? `${userName}${noteText ? `: ${noteText}` : ''}` : noteText ?? ''}
-            </title>
-          </rect>
-        ))
-      )}
+      {/* Hotspots — subtle underline below own highlights so user's own stay readable on top */}
+      {hotspotRects.map(({ key, count, rects }) => {
+        const lastRect = rects[rects.length - 1]
+        return (
+          <g key={`hotspot-${key}`}>
+            {rects.map((rect, i) => (
+              <rect
+                key={`hotspot-${key}-${i}`}
+                className="hotspot-underline"
+                x={rect.left - containerRect.left}
+                y={rect.bottom - containerRect.top - 2}
+                width={rect.width}
+                height={2}
+                fill="rgba(99, 102, 241, 0.55)"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                onClick={() => handleHotspotClick(key, rect)}
+              >
+                <title>{`${count} readers highlighted this`}</title>
+              </rect>
+            ))}
+            {lastRect && (
+              <g
+                transform={`translate(${lastRect.right - containerRect.left + 4}, ${lastRect.top - containerRect.top + lastRect.height / 2 - 9})`}
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                onClick={() => handleHotspotClick(key, lastRect)}
+              >
+                <rect width={28} height={18} rx={9} fill="rgba(99, 102, 241, 0.92)" />
+                <text x={14} y={13} textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">
+                  {`👥 ${count}`}
+                </text>
+              </g>
+            )}
+          </g>
+        )
+      })}
       {highlightRects.map(({ id, color, hasNote, rects }) =>
         rects.map((rect, i) => (
           <rect

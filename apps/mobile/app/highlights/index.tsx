@@ -161,13 +161,23 @@ export default function HighlightsScreen() {
               </Text>
             </View>
           )}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
             {chapterTitle ? (
               <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{chapterTitle}</Text>
-            ) : <View />}
-            <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-              {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
+            ) : <View style={{ flex: 1 }} />}
+            <View style={styles.badgeRow}>
+              {item.isPublic && (
+                <View style={styles.badge}>
+                  <Ionicons name="globe-outline" size={11} color={colors.primary} />
+                  {item.likeCount > 0 && (
+                    <Text style={[styles.badgeText, { color: colors.primary }]}>{item.likeCount}</Text>
+                  )}
+                </View>
+              )}
+              <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+                {new Date(item.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -316,5 +326,8 @@ const styles = StyleSheet.create({
   noteText: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 16, flex: 1 },
   metaText: { fontFamily: fonts.sans, fontSize: 11, flex: 1 },
   dateText: { fontFamily: fonts.sans, fontSize: 10 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  badgeText: { fontFamily: fonts.sansMedium, fontSize: 10 },
   emptyText: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', paddingVertical: 40, paddingHorizontal: 32 },
 })

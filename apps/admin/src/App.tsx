@@ -30,6 +30,7 @@ import { SeoBackfillPage } from './pages/SeoBackfillPage'
 import { BookQualityPage } from './pages/BookQualityPage'
 import { TaskBoardPage } from './pages/TaskBoardPage'
 import { UserUploadsPage } from './pages/UserUploadsPage'
+import { HighlightReportsPage } from './pages/HighlightReportsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
 
@@ -73,6 +74,7 @@ function App() {
             <Route path="autopublish" element={<AutoPublishPage />} />
             <Route path="seo-backfill" element={<SeoBackfillPage />} />
             <Route path="quality" element={<BookQualityPage />} />
+            <Route path="highlight-reports" element={<HighlightReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

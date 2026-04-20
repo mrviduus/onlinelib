@@ -41,6 +41,8 @@ export interface StoredHighlight {
   color: HighlightColor
   selectedText: string
   noteText?: string
+  isPublic?: boolean
+  likeCount?: number
   syncStatus: 'pending' | 'synced'
   version: number
   createdAt: number

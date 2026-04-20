@@ -38,6 +38,8 @@ public interface IAppDbContext
     DbSet<UserBookBookmark> UserBookBookmarks { get; }
     DbSet<Domain.Entities.AdminSettings> AdminSettings { get; }
     DbSet<Highlight> Highlights { get; }
+    DbSet<HighlightLike> HighlightLikes { get; }
+    DbSet<HighlightReport> HighlightReports { get; }
     DbSet<ReadingSession> ReadingSessions { get; }
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }
@@ -59,9 +61,6 @@ public interface IAppDbContext
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
-    DbSet<ReadingRoom> ReadingRooms { get; }
-    DbSet<ReadingRoomMember> ReadingRoomMembers { get; }
-    DbSet<ReadingRoomInvite> ReadingRoomInvites { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 
@@ -19,8 +20,10 @@ export interface HighlightNoteModalProps {
   snippet: string
   /** Existing note, prefilled into the text field when present. */
   initialNote?: string | null
+  /** Existing visibility, defaults to false (Private) when absent. */
+  initialIsPublic?: boolean
   onCancel: () => void
-  onSave: (note: string) => void
+  onSave: (note: string, isPublic: boolean) => void
   onDelete: () => void
 }
 
@@ -41,20 +44,22 @@ export function HighlightNoteModal({
   visible,
   snippet,
   initialNote,
+  initialIsPublic = false,
   onCancel,
   onSave,
   onDelete,
 }: HighlightNoteModalProps) {
   const { colors } = useTheme()
   const [note, setNote] = useState(initialNote || '')
+  const [isPublic, setIsPublic] = useState(initialIsPublic)
   const inputRef = useRef<TextInput>(null)
 
-  // Sync draft when the modal opens for a different highlight. The
-  // dependency list intentionally omits `note` — we only reset when the
-  // modal toggles or the source note changes.
   useEffect(() => {
-    if (visible) setNote(initialNote || '')
-  }, [visible, initialNote])
+    if (visible) {
+      setNote(initialNote || '')
+      setIsPublic(initialIsPublic)
+    }
+  }, [visible, initialNote, initialIsPublic])
 
   // Auto-focus the input shortly after mount so the keyboard comes up
   // without requiring a second tap. setTimeout avoids a race with the
@@ -65,7 +70,7 @@ export function HighlightNoteModal({
     return () => clearTimeout(t)
   }, [visible])
 
-  const handleSave = () => onSave(note.trim())
+  const handleSave = () => onSave(note.trim(), isPublic)
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -107,6 +112,31 @@ export function HighlightNoteModal({
                 },
               ]}
             />
+
+            <TouchableOpacity
+              onPress={() => setIsPublic(v => !v)}
+              style={[styles.visibilityRow, { borderColor: colors.border }]}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: isPublic }}
+              accessibilityLabel={isPublic ? 'Public highlight' : 'Private highlight'}
+            >
+              <Ionicons
+                name={isPublic ? 'globe-outline' : 'lock-closed-outline'}
+                size={16}
+                color={isPublic ? colors.primary : colors.textSecondary}
+              />
+              <View style={styles.visibilityText}>
+                <Text style={[styles.visibilityTitle, { color: colors.text }]}>
+                  {isPublic ? 'Public' : 'Private'}
+                </Text>
+                <Text style={[styles.visibilityHint, { color: colors.textSecondary }]}>
+                  {isPublic ? 'Others may see this note' : 'Only you can see this'}
+                </Text>
+              </View>
+              <View style={[styles.toggleTrack, { backgroundColor: isPublic ? colors.primary : colors.border }]}>
+                <View style={[styles.toggleThumb, isPublic && styles.toggleThumbOn]} />
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
@@ -199,4 +229,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   spacer: { flex: 1 },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    gap: 10,
+  },
+  visibilityText: { flex: 1 },
+  visibilityTitle: { fontFamily: fonts.sansMedium, fontSize: 13 },
+  visibilityHint: { fontFamily: fonts.sans, fontSize: 11, marginTop: 2 },
+  toggleTrack: {
+    width: 34,
+    height: 20,
+    borderRadius: 10,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  toggleThumbOn: { transform: [{ translateX: 14 }] },
 })

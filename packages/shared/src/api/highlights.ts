@@ -13,6 +13,9 @@ export interface PublicHighlight {
   version: number
   createdAt: string
   updatedAt: string
+  isPublic: boolean
+  likeCount: number
+  publishedAt: string | null
 }
 
 export interface HighlightListItem {
@@ -34,6 +37,26 @@ export interface HighlightListItem {
   userChapterTitle: string | null
   chapterSlug: string | null
   userChapterSlug: string | null
+  isPublic: boolean
+  likeCount: number
+}
+
+export interface HotspotTopNote {
+  highlightId: string
+  noteText: string | null
+  likeCount: number
+  color: string
+  userId: string
+  likedByMe: boolean
+}
+
+export interface Hotspot {
+  key: string
+  anchorJson: string
+  text: string
+  count: number
+  likeTotal: number
+  topNotes: HotspotTopNote[]
 }
 
 export interface HighlightListResponse {
@@ -89,6 +112,7 @@ export async function createHighlight(data: {
   color: string
   selectedText: string
   noteText?: string
+  isPublic?: boolean
 }): Promise<PublicHighlight> {
   return authFetch<PublicHighlight>('/me/highlights', jsonBody('POST', data))
 }
@@ -101,6 +125,7 @@ export async function updateHighlight(
     selectedText?: string
     noteText?: string | null
     version?: number
+    isPublic?: boolean
   }
 ): Promise<PublicHighlight> {
   return authFetch<PublicHighlight>(`/me/highlights/${id}`, jsonBody('PUT', data))
@@ -108,4 +133,28 @@ export async function updateHighlight(
 
 export async function deleteHighlight(id: string): Promise<void> {
   await authFetch<void>(`/me/highlights/${id}`, { method: 'DELETE' })
+}
+
+export async function getHotspots(editionId: string, chapterId: string): Promise<Hotspot[]> {
+  try {
+    return await authFetch<Hotspot[]>(`/books/${editionId}/chapters/${chapterId}/hotspots`)
+  } catch {
+    return []
+  }
+}
+
+export async function publishHighlight(id: string, isPublic: boolean): Promise<void> {
+  await authFetch<unknown>(`/me/highlights/${id}/publish`, jsonBody('POST', { isPublic }))
+}
+
+export async function likeHighlight(id: string): Promise<{ likeCount: number; liked: boolean }> {
+  return authFetch<{ likeCount: number; liked: boolean }>(`/me/highlights/${id}/like`, { method: 'POST' })
+}
+
+export async function unlikeHighlight(id: string): Promise<{ likeCount: number; liked: boolean }> {
+  return authFetch<{ likeCount: number; liked: boolean }>(`/me/highlights/${id}/like`, { method: 'DELETE' })
+}
+
+export async function reportHighlight(id: string, reason: string, note?: string): Promise<void> {
+  await authFetch<unknown>(`/me/highlights/${id}/report`, jsonBody('POST', { reason, note }))
 }

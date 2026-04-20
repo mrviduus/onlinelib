@@ -946,13 +946,14 @@ export default function ReaderScreen() {
             ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
             : ''}
           initialNote={editingHighlight?.noteText || ''}
+          initialIsPublic={editingHighlight?.isPublic ?? false}
           onCancel={() => setEditingHighlight(null)}
-          onSave={async (note) => {
+          onSave={async (note, isPublic) => {
             const hl = editingHighlight
             setEditingHighlight(null)
             if (!hl) return
             try {
-              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
+              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null, isPublic })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
             } catch (e) {
               console.warn('Highlight note save failed:', e)
