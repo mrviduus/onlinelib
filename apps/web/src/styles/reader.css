@@ -845,6 +845,20 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   margin: 1em auto;
 }
 
+/* Broken-image placeholder (src failed after one retry) */
+.scroll-reader__chapter img[data-broken="1"] {
+  min-width: 160px;
+  min-height: 100px;
+  max-width: 320px;
+  background: var(--reader-border, #e5e7eb);
+  border: 1px dashed var(--reader-secondary, #9ca3af);
+  object-fit: contain;
+  padding: 8px;
+  color: var(--reader-secondary, #9ca3af);
+  font-size: 12px;
+  font-style: italic;
+}
+
 /* Chapter separator */
 .chapter-separator {
   display: flex;

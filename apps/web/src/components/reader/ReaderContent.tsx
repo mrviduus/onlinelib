@@ -37,6 +37,7 @@ export function ReaderContent({
   onTap,
   onDoubleTap,
 }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const bottomSentinelRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const fontFamily = getFontFamily(settings.fontFamily)
@@ -44,6 +45,35 @@ export function ReaderContent({
   const tapTimeoutRef = useRef<number | null>(null)
   const prevScrollHeightRef = useRef<number>(0)
   const prevFirstIndexRef = useRef<number>(-1)
+
+  // Capture-phase error listener for images (error events don't bubble).
+  // Retry once after 1s (survives transient 503s from burst rate-limiting),
+  // mark as broken on second fail so CSS can show a placeholder.
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+
+    const handleError = (e: Event) => {
+      const target = e.target as HTMLElement
+      if (!target || target.tagName !== 'IMG') return
+      const img = target as HTMLImageElement
+      if (img.dataset.broken === '1') return
+      if (img.dataset.retried === '1') {
+        img.dataset.broken = '1'
+        return
+      }
+      img.dataset.retried = '1'
+      const original = img.getAttribute('src')
+      if (!original) return
+      window.setTimeout(() => {
+        const sep = original.includes('?') ? '&' : '?'
+        img.src = `${original}${sep}r=1`
+      }, 1000)
+    }
+
+    root.addEventListener('error', handleError, true)
+    return () => root.removeEventListener('error', handleError, true)
+  }, [chapters.length])
 
   // Handle tap with double-tap detection for fullscreen
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -168,7 +198,7 @@ export function ReaderContent({
   }
 
   return (
-    <div className="scroll-reader" onClick={handleClick}>
+    <div ref={rootRef} className="scroll-reader" onClick={handleClick}>
       {/* Top sentinel for loading previous chapters */}
       {onLoadPrev && chapters[0]?.index > 0 && (
         <>
