@@ -1,7 +1,7 @@
 import { test } from '../fixtures/auth.fixture'
 import { expect } from '@playwright/test'
 import { getTestData } from '../fixtures/test-data'
-import { waitForReaderLoad, getProgressFromLocalStorage } from '../helpers/reader'
+import { waitForReaderLoad, getProgressFromLocalStorage, clickTopBarBtn } from '../helpers/reader'
 
 test.describe('QA-001: Reading Progress', () => {
   test.describe.configure({ timeout: 60_000 })
@@ -41,8 +41,7 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    const tocBtn = page.locator('.reader-top-bar__btn').filter({ has: page.locator('svg') }).nth(2)
-    await tocBtn.click()
+    await clickTopBarBtn(page, 2) // TOC
     await expect(page.locator('.reader-toc-drawer')).toBeVisible()
 
     const chapters = page.locator('.reader-toc-drawer__item')
@@ -116,24 +115,17 @@ test.describe('QA-001: Reading Progress', () => {
   test('auto-add to library after >1% progress', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
 
-    // Start reading first chapter
-    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    // Start reading at chapter 2 directly (guarantees >1% progress on
+    // any multi-chapter book — avoids the TOC button which is hidden
+    // by .immersive-mode in CI). For single-chapter books we just
+    // scroll, which also exceeds 1%.
+    const startSlug = enBook.secondChapterSlug ?? enBook.firstChapterSlug
+    await page.goto(`/en/books/${enBook.slug}/${startSlug}?direct=1`)
     await waitForReaderLoad(page)
 
-    // Use TOC to jump to a later chapter (guarantees >1% progress)
-    const tocBtn = page.locator('.reader-top-bar__btn').filter({ has: page.locator('svg') }).nth(2)
-    await tocBtn.click()
-    await expect(page.locator('.reader-toc-drawer')).toBeVisible()
-
-    const chapters = page.locator('.reader-toc-drawer__item')
-    const total = await chapters.count()
-    // Jump to ~5% into the book
-    const targetIdx = Math.min(Math.ceil(total * 0.05), total - 1)
-    if (targetIdx > 0) {
-      await chapters.nth(targetIdx).click()
-      await page.waitForTimeout(2000)
-    }
-    await waitForReaderLoad(page)
+    // Scroll to push progress well above 1%
+    await page.evaluate(() => window.scrollBy(0, 1200))
+    await page.waitForTimeout(500)
 
     // Wait for auto-save
     await page.waitForTimeout(5000)
