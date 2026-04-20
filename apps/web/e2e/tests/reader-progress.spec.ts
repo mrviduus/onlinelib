@@ -36,26 +36,28 @@ test.describe('QA-001: Reading Progress', () => {
     expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
   })
 
-  test('TOC navigation uses ?direct=1', async ({ authedPage: page }) => {
+  test('TOC chapter click moves reader to that chapter', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Open TOC drawer
     const tocBtn = page.locator('.reader-top-bar__btn').filter({ has: page.locator('svg') }).nth(2)
     await tocBtn.click()
-
-    // Wait for drawer
     await expect(page.locator('.reader-toc-drawer')).toBeVisible()
 
-    // Click second chapter
     const chapters = page.locator('.reader-toc-drawer__item')
     const chapterCount = await chapters.count()
-    if (chapterCount > 1) {
-      await chapters.nth(1).click()
-      await page.waitForURL(/direct=1/)
-      expect(page.url()).toContain('direct=1')
-    }
+    if (chapterCount <= 1) return
+
+    const startPath = new URL(page.url()).pathname
+    await chapters.nth(1).click()
+
+    // Scroll-mode reader: pre-loaded chapter → scroll + replaceState;
+    // unloaded chapter → navigate with ?direct=1. Either way the URL
+    // must leave the starting path.
+    await expect
+      .poll(() => new URL(page.url()).pathname !== startPath || page.url().includes('direct=1'), { timeout: 10_000 })
+      .toBe(true)
   })
 
   test('library resume restores position without ?direct=1', async ({ authedPage: page }) => {
