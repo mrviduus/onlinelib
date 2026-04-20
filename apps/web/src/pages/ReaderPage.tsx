@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { useRoom } from '../context/RoomContext'
-import { RoomTopBar } from '../components/rooms/RoomTopBar'
-import type { OverlayHighlight } from '../components/reader/HighlightLayer'
 import type { Chapter, BookDetail } from '../types/api'
 import { getUserBook, getUserBookChapter } from '../api/userBooks'
 import { useReaderSettings } from '../hooks/useReaderSettings'
@@ -93,15 +90,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const { isAuthenticated, openAuthModal, ensureSession } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const activeRoomId = searchParams.get('room')
-  const {
-    roomId: ctxRoomId,
-    setActiveRoom,
-    members: roomMembers,
-    sharedHighlights: roomSharedHighlights,
-    sendHeartbeat: sendRoomHeartbeat,
-  } = useRoom()
   // Raw state for public books (needed for scroll reader, caching, etc.)
   const [publicChapter, setPublicChapter] = useState<Chapter | null>(null)
   const [publicBook, setPublicBook] = useState<BookDetail | null>(null)
@@ -730,69 +718,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     setGuestCurrentBook({ bookSlug, chapterSlug: chapterIdentifier })
   }, [isAuthenticated, bookSlug, chapterIdentifier, setGuestCurrentBook])
 
-  // --- Reading room wiring ---
-  // Unified effect: URL ?room= is the source of truth until the context drops
-  // the room (leave/close/410). When ctxRoomId just went null while the URL
-  // still carries ?room=, strip the URL instead of re-activating.
-  const hasActivatedRoomRef = useRef(false)
-  useEffect(() => {
-    if (ctxRoomId) hasActivatedRoomRef.current = true
-
-    // Context just deactivated an active room — strip URL, don't re-activate.
-    if (hasActivatedRoomRef.current && activeRoomId && ctxRoomId === null) {
-      hasActivatedRoomRef.current = false
-      setSearchParams(prev => {
-        const next = new URLSearchParams(prev)
-        next.delete('room')
-        next.delete('openInvite')
-        return next
-      }, { replace: true })
-      return
-    }
-
-    if (activeRoomId && activeRoomId !== ctxRoomId) {
-      const autoOpenInvite = searchParams.get('openInvite') === '1'
-      setActiveRoom(activeRoomId, autoOpenInvite ? { autoOpenInvite: true } : undefined)
-    } else if (!activeRoomId && ctxRoomId) {
-      setActiveRoom(null)
-    }
-  }, [activeRoomId, ctxRoomId, setActiveRoom, setSearchParams, searchParams])
-
-  // Release room on unmount (e.g. leaving reader)
-  useEffect(() => () => {
-    if (activeRoomId) setActiveRoom(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Send heartbeat on chapter change or >=1% progress delta.
-  // Avoids 60fps churn on scroll — context debounces 2s but clearing+resetting
-  // the timer every frame means immediate updates never land between 30s ticks.
-  const lastBeatRef = useRef<{ chapterId: string; percent: number } | null>(null)
-  useEffect(() => {
-    if (!ctxRoomId || !chapter?.id) return
-    const last = lastBeatRef.current
-    const chapterChanged = !last || last.chapterId !== chapter.id
-    const percentDelta = last ? Math.abs(last.percent - overallProgress) : 1
-    if (!chapterChanged && percentDelta < 0.01) return
-    lastBeatRef.current = { chapterId: chapter.id, percent: overallProgress }
-    sendRoomHeartbeat({ chapterId: chapter.id, percent: overallProgress })
-  }, [ctxRoomId, chapter?.id, overallProgress, sendRoomHeartbeat])
-
-  // Overlay highlights: filter to current chapter, map to OverlayHighlight[]
-  const overlayHighlights: OverlayHighlight[] | undefined = useMemo(() => {
-    if (!ctxRoomId || !chapter?.id) return undefined
-    const memberById = new Map(roomMembers.map(m => [m.userId, m]))
-    return roomSharedHighlights
-      .filter(h => h.chapterId === chapter.id)
-      .map(h => ({
-        id: h.id,
-        color: h.memberColor,
-        anchorJson: h.anchorJson,
-        userName: memberById.get(h.userId)?.userName ?? null,
-        noteText: h.noteText,
-      }))
-  }, [ctxRoomId, chapter?.id, roomSharedHighlights, roomMembers])
-
   // Auto-add to library after page 2 or 1% progress (for single-page chapters)
   useEffect(() => {
     if (!book?.id || libraryAddedRef.current) return
@@ -1311,8 +1236,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         }}
       />
 
-      {ctxRoomId && <RoomTopBar />}
-
       {/* Hide side navigation in scroll mode - content scrolls continuously */}
       {!useScrollMode && (
         <ReaderPageNav
@@ -1335,7 +1258,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
-            sharedHighlights={overlayHighlights}
           >
             <div ref={scrollContainerRef}>
               <ScrollReaderContent
@@ -1362,7 +1284,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             ttsSpeed={settings.ttsSpeed}
             showInlineTranslations={settings.showInlineTranslations}
             scrollToHighlightId={scrollToHighlightId}
-            sharedHighlights={overlayHighlights}
           >
             <ReaderContent
               ref={contentRef}
