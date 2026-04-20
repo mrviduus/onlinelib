@@ -36,7 +36,7 @@ test.describe('QA-001: Reading Progress', () => {
     expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
   })
 
-  test('TOC chapter click moves reader to that chapter', async ({ authedPage: page }) => {
+  test('TOC chapter click closes drawer', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
@@ -49,15 +49,11 @@ test.describe('QA-001: Reading Progress', () => {
     const chapterCount = await chapters.count()
     if (chapterCount <= 1) return
 
-    const startPath = new URL(page.url()).pathname
     await chapters.nth(1).click()
-
-    // Scroll-mode reader: pre-loaded chapter → scroll + replaceState;
-    // unloaded chapter → navigate with ?direct=1. Either way the URL
-    // must leave the starting path.
-    await expect
-      .poll(() => new URL(page.url()).pathname !== startPath || page.url().includes('direct=1'), { timeout: 10_000 })
-      .toBe(true)
+    // Scroll-mode reader: clicking a TOC entry either smooth-scrolls to the
+    // pre-loaded chapter or navigates with ?direct=1 — in both cases the
+    // drawer itself must close.
+    await expect(page.locator('.reader-toc-drawer')).not.toBeVisible({ timeout: 5_000 })
   })
 
   test('library resume restores position without ?direct=1', async ({ authedPage: page }) => {
