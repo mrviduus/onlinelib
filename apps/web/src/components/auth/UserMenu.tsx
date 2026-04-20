@@ -5,7 +5,8 @@ import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useOnline } from '../../hooks/useOnline'
-import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath } from '@textstack/shared'
+import { getAnonymousReader } from '@textstack/shared'
+import { getUserInitials } from '../../lib/userInitials'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -35,23 +36,17 @@ export function UserMenu() {
   if (!user) return null
 
   const isGuest = !!user.isGuest
-  const displayName = isGuest ? getAnonymousReaderName(user.id) : (user.name || 'User')
-  const displaySubtitle = isGuest ? t('userMenu.anonymousReader') : user.email
-  const initials = isGuest
-    ? displayName.split(' ').map(n => n[0]).join('').toUpperCase()
-    : user.name
-      ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-      : user.email[0].toUpperCase()
+  const anon = isGuest ? getAnonymousReader(user.id) : null
+  const displayName = anon ? anon.name : (user.name || 'User')
+  const displaySubtitle = anon ? t('userMenu.anonymousReader') : user.email
+  const tooltip = anon ? `${displayName} · ${t('userMenu.anonymousReader')}` : displayName
+  const initials = getUserInitials(user)
 
   const avatarSrc = user.picture?.startsWith('http')
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null
 
-  const anonPath = isGuest ? getAnonymousReaderAvatarPath(user.id) : null
-  const showAnimal = !avatarSrc && isGuest && anonPath && !anonImgFailed
-  const guestColor = isGuest ? getAnonymousReaderColor(user.id) : null
-  const tooltip = isGuest ? `${displayName} · ${t('userMenu.anonymousReader')}` : displayName
-
+  const showAnimal = !avatarSrc && !!anon?.avatarPath && !anonImgFailed
   const nativeLang = user.nativeLanguage ? getLanguage(user.nativeLanguage) : null
 
   return (
@@ -64,13 +59,13 @@ export function UserMenu() {
           aria-haspopup="true"
           title={tooltip}
           aria-label={tooltip}
-          style={guestColor ? { backgroundColor: guestColor } : undefined}
+          style={anon ? { backgroundColor: anon.color } : undefined}
         >
           {avatarSrc ? (
             <img src={avatarSrc} alt="" className="user-menu__avatar-img" referrerPolicy="no-referrer" />
           ) : showAnimal ? (
             <img
-              src={anonPath!}
+              src={anon!.avatarPath!}
               alt=""
               className="user-menu__avatar-anon"
               onError={() => setAnonImgFailed(true)}

@@ -14,8 +14,19 @@ const COLORS = [
   '#66bb6a', '#9ccc65', '#ffa726', '#8d6e63',
 ] as const
 
-const FALLBACK_NAME = 'Quiet Owl'
-const FALLBACK_COLOR = COLORS[3]
+const FALLBACK: AnonymousReader = {
+  name: 'Quiet Owl',
+  color: COLORS[3],
+  animal: null,
+  avatarPath: null,
+}
+
+export type AnonymousReader = {
+  name: string
+  color: string
+  animal: string | null
+  avatarPath: string | null
+}
 
 function hash(s: string): number {
   let h = 5381
@@ -23,30 +34,21 @@ function hash(s: string): number {
   return Math.abs(h)
 }
 
-function pickAnimal(seed: string): typeof ANIMALS[number] {
-  const h = hash(seed)
-  return ANIMALS[Math.floor(h / ADJECTIVES.length) % ANIMALS.length]
-}
-
-export function getAnonymousReaderAnimal(seed?: string | null): string | null {
-  if (!seed || typeof seed !== 'string') return null
-  return pickAnimal(seed).toLowerCase()
-}
-
-export function getAnonymousReaderName(seed?: string | null): string {
-  if (!seed || typeof seed !== 'string') return FALLBACK_NAME
+export function getAnonymousReader(seed?: string | null): AnonymousReader {
+  if (!seed || typeof seed !== 'string') return FALLBACK
   const h = hash(seed)
   const adj = ADJECTIVES[h % ADJECTIVES.length]
   const animal = ANIMALS[Math.floor(h / ADJECTIVES.length) % ANIMALS.length]
-  return `${adj} ${animal}`
+  const lower = animal.toLowerCase()
+  return {
+    name: `${adj} ${animal}`,
+    color: COLORS[h % COLORS.length],
+    animal: lower,
+    avatarPath: `/avatars/anon/${lower}.png`,
+  }
 }
 
-export function getAnonymousReaderColor(seed?: string | null): string {
-  if (!seed || typeof seed !== 'string') return FALLBACK_COLOR
-  return COLORS[hash(seed) % COLORS.length]
-}
-
-export function getAnonymousReaderAvatarPath(seed?: string | null): string | null {
-  const animal = getAnonymousReaderAnimal(seed)
-  return animal ? `/avatars/anon/${animal}.png` : null
-}
+export const getAnonymousReaderName = (seed?: string | null) => getAnonymousReader(seed).name
+export const getAnonymousReaderColor = (seed?: string | null) => getAnonymousReader(seed).color
+export const getAnonymousReaderAnimal = (seed?: string | null) => getAnonymousReader(seed).animal
+export const getAnonymousReaderAvatarPath = (seed?: string | null) => getAnonymousReader(seed).avatarPath

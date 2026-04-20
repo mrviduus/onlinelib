@@ -2,7 +2,8 @@ import { useState, useRef, FormEvent, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
-import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath } from '@textstack/shared'
+import { getAnonymousReader } from '@textstack/shared'
+import { getUserInitials } from '../../lib/userInitials'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -24,11 +25,10 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     : user.picture ? `/storage/${user.picture}` : null)
 
   const isGuest = !!user.isGuest
-  const initials = isGuest
-    ? getAnonymousReaderName(user.id).split(' ').map(n => n[0]).join('').toUpperCase()
-    : user.name
-      ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-      : user.email[0].toUpperCase()
+  const anon = isGuest ? getAnonymousReader(user.id) : null
+  const initials = getUserInitials(user)
+  const hasUserAvatar = !!(avatarSrc && avatarSrc !== '__remove__')
+  const showAnimal = !hasUserAvatar && !!anon?.avatarPath && !anonImgFailed
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -80,37 +80,28 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
           <h2 className="profile-modal__title">Edit profile</h2>
           <form onSubmit={handleSubmit}>
             <div className="profile-modal__avatar-section">
-              {(() => {
-                const hasUserAvatar = !!(avatarSrc && avatarSrc !== '__remove__')
-                const anonPath = isGuest ? getAnonymousReaderAvatarPath(user.id) : null
-                const showAnimal = !hasUserAvatar && isGuest && anonPath && !anonImgFailed
-                return (
-                  <div
-                    className="profile-modal__avatar"
-                    onClick={() => fileRef.current?.click()}
-                    title={isGuest ? getAnonymousReaderName(user.id) : undefined}
-                    style={isGuest && !hasUserAvatar
-                      ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' }
-                      : undefined}
-                  >
-                    {hasUserAvatar ? (
-                      <img src={avatarSrc!} alt="" referrerPolicy="no-referrer" />
-                    ) : showAnimal ? (
-                      <img
-                        src={anonPath!}
-                        alt=""
-                        className="profile-modal__avatar-anon"
-                        onError={() => setAnonImgFailed(true)}
-                      />
-                    ) : (
-                      <span>{initials}</span>
-                    )}
-                    <div className="profile-modal__avatar-overlay">
-                      <span className="material-icons-outlined">photo_camera</span>
-                    </div>
-                  </div>
-                )
-              })()}
+              <div
+                className="profile-modal__avatar"
+                onClick={() => fileRef.current?.click()}
+                title={anon?.name}
+                style={anon && !hasUserAvatar ? { backgroundColor: anon.color, color: '#fff' } : undefined}
+              >
+                {hasUserAvatar ? (
+                  <img src={avatarSrc!} alt="" referrerPolicy="no-referrer" />
+                ) : showAnimal ? (
+                  <img
+                    src={anon!.avatarPath!}
+                    alt=""
+                    className="profile-modal__avatar-anon"
+                    onError={() => setAnonImgFailed(true)}
+                  />
+                ) : (
+                  <span>{initials}</span>
+                )}
+                <div className="profile-modal__avatar-overlay">
+                  <span className="material-icons-outlined">photo_camera</span>
+                </div>
+              </div>
               <input
                 ref={fileRef}
                 type="file"

@@ -14,7 +14,7 @@ import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLan
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
-import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
+import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
 import { fonts } from '../../src/theme/typography'
 
@@ -38,13 +38,12 @@ export default function ProfileScreen() {
 
   const online = useOnline()
   const isGuest = !!user?.isGuest
-  const anonName = user ? getAnonymousReaderName(user.id) : ''
-  const anonColor = user ? getAnonymousReaderColor(user.id) : colors.primary
-  const anonSource = isGuest && user ? getAnonAvatarSource(user.id) : null
-  const displayName = isGuest ? anonName : (user?.name || user?.email || '')
-  const displaySubtitle = isGuest ? 'Anonymous reader' : (user?.email || '')
-  const avatarLetter = isGuest
-    ? anonName.split(' ').map(n => n[0]).join('').toUpperCase()
+  const anon = isGuest && user ? getAnonymousReader(user.id) : null
+  const anonSource = anon && user ? getAnonAvatarSource(user.id) : null
+  const displayName = anon ? anon.name : (user?.name || user?.email || '')
+  const displaySubtitle = anon ? 'Anonymous reader' : (user?.email || '')
+  const avatarLetter = anon
+    ? anon.name.split(' ').map(n => n[0]).join('').toUpperCase()
     : (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
   const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
@@ -131,7 +130,7 @@ export default function ProfileScreen() {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <View style={styles.avatarOuter}>
-          <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: isGuest && !user?.picture ? anonColor : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: anon && !user?.picture ? anon.color : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
             {user?.picture ? (
               <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
             ) : anonSource ? (

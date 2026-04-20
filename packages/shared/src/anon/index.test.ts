@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath, getAnonymousReaderAnimal } from './index'
+import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath, getAnonymousReaderAnimal, getAnonymousReader } from './index'
 
 describe('getAnonymousReaderName', () => {
   it('same seed returns same pseudonym', () => {
@@ -61,6 +61,25 @@ describe('getAnonymousReaderAvatarPath', () => {
     expect(getAnonymousReaderAvatarPath(null)).toBeNull()
     expect(getAnonymousReaderAvatarPath(undefined)).toBeNull()
     expect(getAnonymousReaderAvatarPath('')).toBeNull()
+  })
+})
+
+describe('getAnonymousReader (compound)', () => {
+  it('matches scalar helpers for same seed', () => {
+    const seed = 'abc-123'
+    const r = getAnonymousReader(seed)
+    expect(r.name).toBe(getAnonymousReaderName(seed))
+    expect(r.color).toBe(getAnonymousReaderColor(seed))
+    expect(r.animal).toBe(getAnonymousReaderAnimal(seed))
+    expect(r.avatarPath).toBe(getAnonymousReaderAvatarPath(seed))
+  })
+
+  it('null seed → fallback name + null animal/avatarPath', () => {
+    const r = getAnonymousReader(null)
+    expect(r.name).toBe('Quiet Owl')
+    expect(r.animal).toBeNull()
+    expect(r.avatarPath).toBeNull()
+    expect(r.color).toMatch(/^#[0-9a-f]{6}$/i)
   })
 })
 
