@@ -15,6 +15,7 @@ import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
+import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
   const isGuest = !!user?.isGuest
   const anonName = user ? getAnonymousReaderName(user.id) : ''
   const anonColor = user ? getAnonymousReaderColor(user.id) : colors.primary
+  const anonSource = isGuest && user ? getAnonAvatarSource(user.id) : null
   const displayName = isGuest ? anonName : (user?.name || user?.email || '')
   const displaySubtitle = isGuest ? 'Anonymous reader' : (user?.email || '')
   const avatarLetter = isGuest
@@ -132,6 +134,8 @@ export default function ProfileScreen() {
           <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: isGuest && !user?.picture ? anonColor : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
             {user?.picture ? (
               <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
+            ) : anonSource ? (
+              <Image source={anonSource} style={styles.anonAnimal} contentFit="contain" />
             ) : (
               <Text style={styles.avatarLetter}>{avatarLetter}</Text>
             )}
@@ -365,6 +369,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   avatar: { width: 88, height: 88, borderRadius: 44 },
+  anonAnimal: { width: 72, height: 72 },
   avatarLetter: { color: '#fff', fontFamily: fonts.serifBold, fontSize: 36 },
   name: { fontFamily: fonts.serifBold, fontSize: 20 },
   email: { fontFamily: fonts.sans, fontSize: 14, marginTop: 4 },

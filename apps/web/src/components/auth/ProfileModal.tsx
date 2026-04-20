@@ -1,8 +1,8 @@
-import { useState, useRef, FormEvent } from 'react'
+import { useState, useRef, FormEvent, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
-import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
+import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath } from '@textstack/shared'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -12,7 +12,10 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [anonImgFailed, setAnonImgFailed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setAnonImgFailed(false) }, [user?.id])
 
   if (!user) return null
 
@@ -77,22 +80,37 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
           <h2 className="profile-modal__title">Edit profile</h2>
           <form onSubmit={handleSubmit}>
             <div className="profile-modal__avatar-section">
-              <div
-                className="profile-modal__avatar"
-                onClick={() => fileRef.current?.click()}
-                style={isGuest && !(avatarSrc && avatarSrc !== '__remove__')
-                  ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' }
-                  : undefined}
-              >
-                {avatarSrc && avatarSrc !== '__remove__' ? (
-                  <img src={avatarSrc} alt="" referrerPolicy="no-referrer" />
-                ) : (
-                  <span>{initials}</span>
-                )}
-                <div className="profile-modal__avatar-overlay">
-                  <span className="material-icons-outlined">photo_camera</span>
-                </div>
-              </div>
+              {(() => {
+                const hasUserAvatar = !!(avatarSrc && avatarSrc !== '__remove__')
+                const anonPath = isGuest ? getAnonymousReaderAvatarPath(user.id) : null
+                const showAnimal = !hasUserAvatar && isGuest && anonPath && !anonImgFailed
+                return (
+                  <div
+                    className="profile-modal__avatar"
+                    onClick={() => fileRef.current?.click()}
+                    title={isGuest ? getAnonymousReaderName(user.id) : undefined}
+                    style={isGuest && !hasUserAvatar
+                      ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' }
+                      : undefined}
+                  >
+                    {hasUserAvatar ? (
+                      <img src={avatarSrc!} alt="" referrerPolicy="no-referrer" />
+                    ) : showAnimal ? (
+                      <img
+                        src={anonPath!}
+                        alt=""
+                        className="profile-modal__avatar-anon"
+                        onError={() => setAnonImgFailed(true)}
+                      />
+                    ) : (
+                      <span>{initials}</span>
+                    )}
+                    <div className="profile-modal__avatar-overlay">
+                      <span className="material-icons-outlined">photo_camera</span>
+                    </div>
+                  </div>
+                )
+              })()}
               <input
                 ref={fileRef}
                 type="file"

@@ -5,7 +5,7 @@ import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useOnline } from '../../hooks/useOnline'
-import { getAnonymousReaderName, getAnonymousReaderColor } from '@textstack/shared'
+import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath } from '@textstack/shared'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -13,7 +13,10 @@ export function UserMenu() {
   const online = useOnline()
   const [open, setOpen] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [anonImgFailed, setAnonImgFailed] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setAnonImgFailed(false) }, [user?.id])
 
   // Close on outside click
   useEffect(() => {
@@ -44,6 +47,11 @@ export function UserMenu() {
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null
 
+  const anonPath = isGuest ? getAnonymousReaderAvatarPath(user.id) : null
+  const showAnimal = !avatarSrc && isGuest && anonPath && !anonImgFailed
+  const guestColor = isGuest ? getAnonymousReaderColor(user.id) : null
+  const tooltip = isGuest ? `${displayName} · ${t('userMenu.anonymousReader')}` : displayName
+
   const nativeLang = user.nativeLanguage ? getLanguage(user.nativeLanguage) : null
 
   return (
@@ -54,14 +62,21 @@ export function UserMenu() {
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-haspopup="true"
+          title={tooltip}
+          aria-label={tooltip}
+          style={guestColor ? { backgroundColor: guestColor } : undefined}
         >
           {avatarSrc ? (
             <img src={avatarSrc} alt="" className="user-menu__avatar-img" referrerPolicy="no-referrer" />
+          ) : showAnimal ? (
+            <img
+              src={anonPath!}
+              alt=""
+              className="user-menu__avatar-anon"
+              onError={() => setAnonImgFailed(true)}
+            />
           ) : (
-            <span
-              className="user-menu__avatar"
-              style={isGuest ? { backgroundColor: getAnonymousReaderColor(user.id), color: '#fff' } : undefined}
-            >{initials}</span>
+            <span className="user-menu__avatar">{initials}</span>
           )}
           <span
             className={`user-menu__status-dot${online ? ' user-menu__status-dot--online' : ''}`}

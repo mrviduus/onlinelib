@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAnonymousReaderName, getAnonymousReaderColor } from './index'
+import { getAnonymousReaderName, getAnonymousReaderColor, getAnonymousReaderAvatarPath, getAnonymousReaderAnimal } from './index'
 
 describe('getAnonymousReaderName', () => {
   it('same seed returns same pseudonym', () => {
@@ -29,7 +29,53 @@ describe('getAnonymousReaderName', () => {
   })
 
   it('fixture snapshot — guards against accidental hash/list drift', () => {
-    expect(getAnonymousReaderName('eda2099c0e4f44738f69782d2a2d1bb5')).toBe('Bright Rabbit')
+    expect(getAnonymousReaderName('eda2099c0e4f44738f69782d2a2d1bb5')).toBe('Bright Koala')
+  })
+})
+
+describe('getAnonymousReaderAvatarPath', () => {
+  it('same seed returns same path', () => {
+    const a = getAnonymousReaderAvatarPath('abc-123')
+    const b = getAnonymousReaderAvatarPath('abc-123')
+    expect(a).toBe(b)
+  })
+
+  it('output matches /avatars/anon/<animal>.png', () => {
+    const re = /^\/avatars\/anon\/[a-z]+\.png$/
+    for (let i = 0; i < 30; i++) {
+      expect(getAnonymousReaderAvatarPath(`seed-${i}`)).toMatch(re)
+    }
+  })
+
+  it('animal in path matches animal in name', () => {
+    for (let i = 0; i < 20; i++) {
+      const seed = `seed-${i}`
+      const name = getAnonymousReaderName(seed)
+      const path = getAnonymousReaderAvatarPath(seed)!
+      const animalFromName = name.split(' ')[1].toLowerCase()
+      expect(path).toBe(`/avatars/anon/${animalFromName}.png`)
+    }
+  })
+
+  it('null / undefined / empty → null', () => {
+    expect(getAnonymousReaderAvatarPath(null)).toBeNull()
+    expect(getAnonymousReaderAvatarPath(undefined)).toBeNull()
+    expect(getAnonymousReaderAvatarPath('')).toBeNull()
+  })
+})
+
+describe('getAnonymousReaderAnimal', () => {
+  it('returns lowercase animal matching name', () => {
+    for (let i = 0; i < 20; i++) {
+      const seed = `seed-${i}`
+      expect(getAnonymousReaderAnimal(seed)).toBe(getAnonymousReaderName(seed).split(' ')[1].toLowerCase())
+    }
+  })
+
+  it('null / undefined / empty → null', () => {
+    expect(getAnonymousReaderAnimal(null)).toBeNull()
+    expect(getAnonymousReaderAnimal(undefined)).toBeNull()
+    expect(getAnonymousReaderAnimal('')).toBeNull()
   })
 })
 
