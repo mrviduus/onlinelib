@@ -7,15 +7,12 @@ interface Props {
   chapterTitle: string
   progress: number
   isBookmarked: boolean
-  isFullscreen: boolean
   backUrl: string
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
   onSearchClick: () => void
   onTocClick: () => void
   onSettingsClick: () => void
   onBookmarkClick: () => void
-  onFullscreenClick: () => void
-  onHelpClick: () => void
   onFocusClick?: () => void
 }
 
@@ -25,15 +22,12 @@ export function ReaderTopBar({
   chapterTitle,
   progress,
   isBookmarked,
-  isFullscreen,
   backUrl,
   useLocalizedLink = true,
   onSearchClick,
   onTocClick,
   onSettingsClick,
   onBookmarkClick,
-  onFullscreenClick,
-  onHelpClick,
   onFocusClick,
 }: Props) {
   const BackLink = useLocalizedLink ? LocalizedLink : Link
@@ -90,24 +84,6 @@ export function ReaderTopBar({
             <circle cx="8" cy="6" r="2" fill="currentColor" />
             <circle cx="16" cy="12" r="2" fill="currentColor" />
             <circle cx="10" cy="18" r="2" fill="currentColor" />
-          </svg>
-        </button>
-        <button onClick={onFullscreenClick} className="reader-top-bar__btn" title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
-          {isFullscreen ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-            </svg>
-          )}
-        </button>
-        <button onClick={onHelpClick} className="reader-top-bar__btn reader-top-bar__btn--desktop-only" title="Keyboard shortcuts (?)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <path d="M12 17h.01" />
           </svg>
         </button>
       </div>

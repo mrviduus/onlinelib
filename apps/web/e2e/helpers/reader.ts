@@ -47,6 +47,25 @@ export async function navigateToChapter(page: Page, chapterIndex: number) {
   await chapters.nth(chapterIndex).click()
 }
 
+/**
+ * Click a top-bar button by its index. The reader auto-hides bars 3s
+ * after load and `.immersive-mode` sets `pointer-events: none`, so
+ * Playwright's real-mouse click (even with `force: true`) is blocked
+ * by hit-testing. `HTMLElement.click()` fires the click event
+ * synchronously bypassing pointer-events, so React's onClick handler
+ * runs regardless of bar visibility.
+ *
+ * Button order in the right group: 0=Search, 1=Bookmark, 2=TOC, 3=Settings (or 3=Focus, 4=Settings if focus is enabled).
+ */
+export async function clickTopBarBtn(page: Page, index: number) {
+  // Ensure the button is mounted before JS-clicking it
+  await page.locator('.reader-top-bar__btn').nth(index).waitFor({ state: 'attached', timeout: 10_000 })
+  await page.evaluate((i) => {
+    const btns = document.querySelectorAll<HTMLButtonElement>('.reader-top-bar__btn')
+    btns[i]?.click()
+  }, index)
+}
+
 export async function goToNextPage(page: Page) {
   const nextBtn = page.locator('[data-testid="next-page-btn"], [aria-label="Next page"], button:has-text("→")')
   if (await nextBtn.isVisible()) {

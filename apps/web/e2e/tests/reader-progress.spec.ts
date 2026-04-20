@@ -1,7 +1,7 @@
 import { test } from '../fixtures/auth.fixture'
 import { expect } from '@playwright/test'
 import { getTestData } from '../fixtures/test-data'
-import { waitForReaderLoad, getProgressFromLocalStorage } from '../helpers/reader'
+import { waitForReaderLoad, getProgressFromLocalStorage, clickTopBarBtn } from '../helpers/reader'
 
 test.describe('QA-001: Reading Progress', () => {
   test.describe.configure({ timeout: 60_000 })
@@ -29,36 +29,30 @@ test.describe('QA-001: Reading Progress', () => {
     const initialProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
     expect(initialProgress).toBeGreaterThanOrEqual(0)
 
-    // Navigate to next page (if pagination mode)
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
-      const newProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
-      expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
-    }
+    // Scroll to advance progress (single scroll-mode render path)
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
+    const newProgress = Number(await progressBar.getAttribute('aria-valuenow') ?? '0')
+    expect(newProgress).toBeGreaterThanOrEqual(initialProgress)
   })
 
-  test('TOC navigation uses ?direct=1', async ({ authedPage: page }) => {
+  test('TOC chapter click closes drawer', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Open TOC drawer
-    const tocBtn = page.locator('.reader-top-bar__btn').filter({ has: page.locator('svg') }).nth(2)
-    await tocBtn.click()
-
-    // Wait for drawer
+    await clickTopBarBtn(page, 2) // TOC
     await expect(page.locator('.reader-toc-drawer')).toBeVisible()
 
-    // Click second chapter
     const chapters = page.locator('.reader-toc-drawer__item')
     const chapterCount = await chapters.count()
-    if (chapterCount > 1) {
-      await chapters.nth(1).click()
-      await page.waitForURL(/direct=1/)
-      expect(page.url()).toContain('direct=1')
-    }
+    if (chapterCount <= 1) return
+
+    await chapters.nth(1).click()
+    // Scroll-mode reader: clicking a TOC entry either smooth-scrolls to the
+    // pre-loaded chapter or navigates with ?direct=1 — in both cases the
+    // drawer itself must close.
+    await expect(page.locator('.reader-toc-drawer')).not.toBeVisible({ timeout: 5_000 })
   })
 
   test('library resume restores position without ?direct=1', async ({ authedPage: page }) => {
@@ -68,12 +62,9 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate forward to create progress
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(1000)
-    }
+    // Scroll to create progress
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(1000)
 
     // Wait for auto-save
     await page.waitForTimeout(3500)
@@ -110,12 +101,9 @@ test.describe('QA-001: Reading Progress', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Trigger a page navigation to force progress save
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
-    }
+    // Trigger scroll to force progress save
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
 
     // Wait for position restore + auto-save (3s stable position + CI overhead)
     await expect(async () => {
@@ -127,24 +115,17 @@ test.describe('QA-001: Reading Progress', () => {
   test('auto-add to library after >1% progress', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
 
-    // Start reading first chapter
-    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    // Start reading at chapter 2 directly (guarantees >1% progress on
+    // any multi-chapter book — avoids the TOC button which is hidden
+    // by .immersive-mode in CI). For single-chapter books we just
+    // scroll, which also exceeds 1%.
+    const startSlug = enBook.secondChapterSlug ?? enBook.firstChapterSlug
+    await page.goto(`/en/books/${enBook.slug}/${startSlug}?direct=1`)
     await waitForReaderLoad(page)
 
-    // Use TOC to jump to a later chapter (guarantees >1% progress)
-    const tocBtn = page.locator('.reader-top-bar__btn').filter({ has: page.locator('svg') }).nth(2)
-    await tocBtn.click()
-    await expect(page.locator('.reader-toc-drawer')).toBeVisible()
-
-    const chapters = page.locator('.reader-toc-drawer__item')
-    const total = await chapters.count()
-    // Jump to ~5% into the book
-    const targetIdx = Math.min(Math.ceil(total * 0.05), total - 1)
-    if (targetIdx > 0) {
-      await chapters.nth(targetIdx).click()
-      await page.waitForTimeout(2000)
-    }
-    await waitForReaderLoad(page)
+    // Scroll to push progress well above 1%
+    await page.evaluate(() => window.scrollBy(0, 1200))
+    await page.waitForTimeout(500)
 
     // Wait for auto-save
     await page.waitForTimeout(5000)

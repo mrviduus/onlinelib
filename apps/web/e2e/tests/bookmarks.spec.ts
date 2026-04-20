@@ -1,7 +1,7 @@
 import { test } from '../fixtures/auth.fixture'
 import { expect } from '@playwright/test'
 import { getTestData } from '../fixtures/test-data'
-import { waitForReaderLoad, getBookmarksFromIndexedDB } from '../helpers/reader'
+import { waitForReaderLoad, getBookmarksFromIndexedDB, clickTopBarBtn } from '../helpers/reader'
 
 test.describe('QA-004: Bookmarks', () => {
   test('add bookmark persists to IndexedDB', async ({ authedPage: page }) => {
@@ -9,23 +9,12 @@ test.describe('QA-004: Bookmarks', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Find and click bookmark button (SVG with fill="none" = not bookmarked)
-    const bookmarkBtn = page.locator('.reader-top-bar__btn').filter({
-      has: page.locator('svg[fill="none"], svg path[fill="none"]'),
-    }).first()
-
-    // Try clicking the bookmark button area
-    const topBarBtns = page.locator('.reader-top-bar__btn')
-    const btnCount = await topBarBtns.count()
-    // Bookmark is typically the first icon button in top bar
-    if (btnCount > 0) {
-      await topBarBtns.nth(1).click() // bookmark is usually 2nd btn
-      await page.waitForTimeout(500)
-    }
+    // Bookmark button is index 1 in the top bar right group
+    await clickTopBarBtn(page, 1)
+    await page.waitForTimeout(500)
 
     // Open TOC to check bookmarks tab
-    const tocBtn = topBarBtns.nth(2)
-    await tocBtn.click()
+    await clickTopBarBtn(page, 2)
     await expect(page.locator('.reader-toc-drawer')).toBeVisible()
 
     // Click Bookmarks tab
@@ -42,12 +31,11 @@ test.describe('QA-004: Bookmarks', () => {
     await waitForReaderLoad(page)
 
     // Add bookmark first
-    const topBarBtns = page.locator('.reader-top-bar__btn')
-    await topBarBtns.nth(1).click()
+    await clickTopBarBtn(page, 1)
     await page.waitForTimeout(500)
 
     // Click again to remove
-    await topBarBtns.nth(1).click()
+    await clickTopBarBtn(page, 1)
     await page.waitForTimeout(500)
   })
 
@@ -59,13 +47,12 @@ test.describe('QA-004: Bookmarks', () => {
     await waitForReaderLoad(page)
 
     // Click bookmark button (2nd in top bar) and wait for API confirmation
-    const topBarBtns = page.locator('.reader-top-bar__btn')
     const [bookmarkResp] = await Promise.all([
       page.waitForResponse(
         resp => resp.url().includes('/me/bookmarks') && resp.request().method() === 'POST' && resp.status() < 400,
         { timeout: 10_000 }
       ).catch(() => null),
-      topBarBtns.nth(1).click(),
+      clickTopBarBtn(page, 1),
     ])
 
     // Skip if bookmark API didn't respond (button index may differ)
@@ -89,8 +76,7 @@ test.describe('QA-004: Bookmarks', () => {
     await page.waitForTimeout(500)
 
     // Check bookmark is still there via TOC drawer
-    const topBarBtns2 = page.locator('.reader-top-bar__btn')
-    await topBarBtns2.nth(2).click()
+    await clickTopBarBtn(page, 2)
     await expect(page.locator('.reader-toc-drawer')).toBeVisible({ timeout: 5_000 })
 
     const bookmarksTab = page.locator('.reader-toc-drawer__tab').filter({ hasText: /bookmark/i })
@@ -106,36 +92,28 @@ test.describe('QA-004: Bookmarks', () => {
 })
 
 test.describe('QA-004: Autosave', () => {
-  test('auto-save on page change (desktop)', async ({ authedPage: page }) => {
+  test('auto-save on scroll (desktop)', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate to next page
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(500)
+    // Scroll to create progress
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
 
-      // If clicking next navigated to a new chapter, wait for it to load
-      await waitForReaderLoad(page)
+    // Wait for auto-save (3s stable position + buffer)
+    await page.waitForTimeout(4000)
 
-      // Wait for auto-save (3s stable position + buffer)
-      await page.waitForTimeout(4000)
+    const progressKeys = await page.evaluate(() => {
+      return Object.keys(localStorage).filter(k => k.startsWith('reading.progress.'))
+    })
+    expect(progressKeys.length).toBeGreaterThan(0)
 
-      // Check localStorage for any reading progress key
-      const progressKeys = await page.evaluate(() => {
-        return Object.keys(localStorage).filter(k => k.startsWith('reading.progress.'))
-      })
-      expect(progressKeys.length).toBeGreaterThan(0)
-
-      // Also verify the value is valid JSON with expected fields
-      if (progressKeys.length > 0) {
-        const value = await page.evaluate((key) => localStorage.getItem(key), progressKeys[0])
-        const parsed = JSON.parse(value!)
-        expect(parsed).toHaveProperty('locator')
-        expect(parsed).toHaveProperty('percent')
-      }
+    if (progressKeys.length > 0) {
+      const value = await page.evaluate((key) => localStorage.getItem(key), progressKeys[0])
+      const parsed = JSON.parse(value!)
+      expect(parsed).toHaveProperty('locator')
+      expect(parsed).toHaveProperty('percent')
     }
   })
 
@@ -172,12 +150,9 @@ test.describe('QA-004: Autosave', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    // Navigate pages to trigger save
-    const nextBtn = page.locator('.reader-page-nav button').last()
-    if (await nextBtn.isVisible()) {
-      await nextBtn.click()
-      await page.waitForTimeout(4000)
-    }
+    // Scroll to trigger save
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(4000)
 
     // Progress should have been synced to server
     // (PUT /me/progress/{editionId} call)
