@@ -10,5 +10,11 @@
     "./api": "./src/api/index.ts",
     "./types": "./src/types/api.ts",
     "./i18n": "./src/i18n/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   }
 }

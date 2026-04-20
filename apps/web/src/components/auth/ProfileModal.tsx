@@ -1,7 +1,9 @@
-import { useState, useRef, FormEvent } from 'react'
+import { useState, useRef, FormEvent, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
+import { getAnonymousReader } from '@textstack/shared'
+import { getUserInitials } from '../../lib/userInitials'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
@@ -11,7 +13,10 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [anonImgFailed, setAnonImgFailed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setAnonImgFailed(false) }, [user?.id])
 
   if (!user) return null
 
@@ -19,9 +24,11 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null)
 
-  const initials = user.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user.email[0].toUpperCase()
+  const isGuest = !!user.isGuest
+  const anon = isGuest ? getAnonymousReader(user.id) : null
+  const initials = getUserInitials(user)
+  const hasUserAvatar = !!(avatarSrc && avatarSrc !== '__remove__')
+  const showAnimal = !hasUserAvatar && !!anon?.avatarPath && !anonImgFailed
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -73,9 +80,21 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
           <h2 className="profile-modal__title">Edit profile</h2>
           <form onSubmit={handleSubmit}>
             <div className="profile-modal__avatar-section">
-              <div className="profile-modal__avatar" onClick={() => fileRef.current?.click()}>
-                {avatarSrc && avatarSrc !== '__remove__' ? (
-                  <img src={avatarSrc} alt="" referrerPolicy="no-referrer" />
+              <div
+                className="profile-modal__avatar"
+                onClick={() => fileRef.current?.click()}
+                title={anon?.name}
+                style={anon && !hasUserAvatar ? { backgroundColor: anon.color, color: '#fff' } : undefined}
+              >
+                {hasUserAvatar ? (
+                  <img src={avatarSrc!} alt="" referrerPolicy="no-referrer" />
+                ) : showAnimal ? (
+                  <img
+                    src={anon!.avatarPath!}
+                    alt=""
+                    className="profile-modal__avatar-anon"
+                    onError={() => setAnonImgFailed(true)}
+                  />
                 ) : (
                   <span>{initials}</span>
                 )}
@@ -139,13 +158,17 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
             <p className="profile-modal__hint">Used for translations, word definitions, and vocabulary cards in the reader.</p>
-            <label className="profile-modal__label">Email</label>
-            <input
-              type="email"
-              className="profile-modal__input profile-modal__input--disabled"
-              value={user.email}
-              disabled
-            />
+            {!isGuest && (
+              <>
+                <label className="profile-modal__label">Email</label>
+                <input
+                  type="email"
+                  className="profile-modal__input profile-modal__input--disabled"
+                  value={user.email}
+                  disabled
+                />
+              </>
+            )}
             {error && <p className="profile-modal__error">{error}</p>}
             <button className="profile-modal__btn" type="submit" disabled={loading}>
               {loading ? 'Saving...' : 'Save changes'}

@@ -24,6 +24,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "11.5.2",
     "@react-native-google-signin/google-signin": "^16.1.1",
     "expo": "~55.0.9",
     "expo-apple-authentication": "~55.0.9",

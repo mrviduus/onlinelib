@@ -3,12 +3,21 @@ import { useAuth } from '../../context/AuthContext'
 import { LocalizedLink } from '../LocalizedLink'
 import { ProfileModal } from './ProfileModal'
 import { getLanguage, getFlagUrl } from '../../data/languages'
+import { useTranslation } from '../../hooks/useTranslation'
+import { useOnline } from '../../hooks/useOnline'
+import { getAnonymousReader } from '@textstack/shared'
+import { getUserInitials } from '../../lib/userInitials'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
+  const online = useOnline()
   const [open, setOpen] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [anonImgFailed, setAnonImgFailed] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setAnonImgFailed(false) }, [user?.id])
 
   // Close on outside click
   useEffect(() => {
@@ -26,14 +35,18 @@ export function UserMenu() {
 
   if (!user) return null
 
-  const initials = user.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user.email[0].toUpperCase()
+  const isGuest = !!user.isGuest
+  const anon = isGuest ? getAnonymousReader(user.id) : null
+  const displayName = anon ? anon.name : (user.name || 'User')
+  const displaySubtitle = anon ? t('userMenu.anonymousReader') : user.email
+  const tooltip = anon ? `${displayName} · ${t('userMenu.anonymousReader')}` : displayName
+  const initials = getUserInitials(user)
 
   const avatarSrc = user.picture?.startsWith('http')
     ? user.picture
     : user.picture ? `/storage/${user.picture}` : null
 
+  const showAnimal = !avatarSrc && !!anon?.avatarPath && !anonImgFailed
   const nativeLang = user.nativeLanguage ? getLanguage(user.nativeLanguage) : null
 
   return (
@@ -44,19 +57,34 @@ export function UserMenu() {
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-haspopup="true"
+          title={tooltip}
+          aria-label={tooltip}
+          style={anon ? { backgroundColor: anon.color } : undefined}
         >
           {avatarSrc ? (
             <img src={avatarSrc} alt="" className="user-menu__avatar-img" referrerPolicy="no-referrer" />
+          ) : showAnimal ? (
+            <img
+              src={anon!.avatarPath!}
+              alt=""
+              className="user-menu__avatar-anon"
+              onError={() => setAnonImgFailed(true)}
+            />
           ) : (
             <span className="user-menu__avatar">{initials}</span>
           )}
+          <span
+            className={`user-menu__status-dot${online ? ' user-menu__status-dot--online' : ''}`}
+            title={online ? 'Online' : 'Offline'}
+            aria-label={online ? 'Online' : 'Offline'}
+          />
         </button>
 
         {open && (
           <div className="user-menu__dropdown">
             <div className="user-menu__info">
-              <span className="user-menu__name">{user.name || 'User'}</span>
-              <span className="user-menu__email">{user.email}</span>
+              <span className="user-menu__name">{displayName}</span>
+              <span className="user-menu__email">{displaySubtitle}</span>
             </div>
             <hr className="user-menu__divider" />
             <button

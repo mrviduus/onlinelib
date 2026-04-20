@@ -9,11 +9,13 @@ try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
+import { useOnline } from '../../src/hooks/useOnline'
 import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
-import { supportedLanguages, type Language, authApi, getStorageUrl } from '@textstack/shared'
+import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
+import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
 import { fonts } from '../../src/theme/typography'
 
 const MENU_ITEMS = [
@@ -33,6 +35,16 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
   const [langPickerOpen, setLangPickerOpen] = useState(false)
+
+  const online = useOnline()
+  const isGuest = !!user?.isGuest
+  const anon = isGuest && user ? getAnonymousReader(user.id) : null
+  const anonSource = anon && user ? getAnonAvatarSource(user.id) : null
+  const displayName = anon ? anon.name : (user?.name || user?.email || '')
+  const displaySubtitle = anon ? 'Anonymous reader' : (user?.email || '')
+  const avatarLetter = anon
+    ? anon.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    : (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
   const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
 
@@ -117,18 +129,27 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
-          {user?.picture ? (
-            <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
-          ) : (
-            <Text style={styles.avatarLetter}>
-              {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
-            </Text>
-          )}
-          <View style={styles.avatarBadge}>
-            <Ionicons name="camera" size={14} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.avatarOuter}>
+          <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: anon && !user?.picture ? anon.color : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
+            {user?.picture ? (
+              <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
+            ) : anonSource ? (
+              <Image source={anonSource} style={styles.anonAnimal} contentFit="contain" />
+            ) : (
+              <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+            )}
+            <View style={styles.avatarBadge}>
+              <Ionicons name="camera" size={14} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: online ? '#4caf50' : '#9e9e9e', borderColor: colors.background },
+            ]}
+            accessibilityLabel={online ? 'Online' : 'Offline'}
+          />
+        </View>
         {editing ? (
           <View style={styles.editRow}>
             <TextInput
@@ -154,11 +175,11 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <TouchableOpacity onPress={startEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[styles.name, { color: colors.text }]}>{user?.name || user?.email}</Text>
-            <Ionicons name="pencil" size={14} color={colors.textSecondary} />
+            <Text style={[styles.name, { color: colors.text }]}>{displayName}</Text>
+            {!isGuest && <Ionicons name="pencil" size={14} color={colors.textSecondary} />}
           </TouchableOpacity>
         )}
-        <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
+        <Text style={[styles.email, { color: colors.textSecondary }]}>{displaySubtitle}</Text>
       </View>
 
       <View style={styles.menu}>
@@ -323,13 +344,22 @@ const styles = StyleSheet.create({
   },
   loginText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 15 },
   header: { alignItems: 'center', paddingVertical: 32 },
+  avatarOuter: { position: 'relative', marginBottom: 14 },
+  statusDot: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
   avatarWrapper: {
     width: 88,
     height: 88,
     borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -338,6 +368,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   avatar: { width: 88, height: 88, borderRadius: 44 },
+  anonAnimal: { width: 72, height: 72 },
   avatarLetter: { color: '#fff', fontFamily: fonts.serifBold, fontSize: 36 },
   name: { fontFamily: fonts.serifBold, fontSize: 20 },
   email: { fontFamily: fonts.sans, fontSize: 14, marginTop: 4 },
