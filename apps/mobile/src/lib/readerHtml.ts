@@ -96,6 +96,36 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     html { scroll-behavior: smooth; }
   </style>
   <script>
+    // Diagnostic console forwarder — routes WebView console.log/warn/error
+    // and uncaught errors to RN via postMessage. RN surfaces via console.warn
+    // in __DEV__. Bug-report Phase 1: lets us see WHY word-tap / selection /
+    // highlight-render / TTS fail on device without attaching a remote debugger.
+    (function() {
+      function post(level, args) {
+        try {
+          var parts = [];
+          for (var i = 0; i < args.length; i++) {
+            var a = args[i];
+            if (typeof a === 'string') parts.push(a);
+            else { try { parts.push(JSON.stringify(a)); } catch (e) { parts.push(String(a)); } }
+          }
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'log', level: level, msg: parts.join(' ')
+          }));
+        } catch (e) {}
+      }
+      var orig = { log: console.log, warn: console.warn, error: console.error };
+      console.log = function() { post('log', arguments); orig.log.apply(console, arguments); };
+      console.warn = function() { post('warn', arguments); orig.warn.apply(console, arguments); };
+      console.error = function() { post('error', arguments); orig.error.apply(console, arguments); };
+      window.addEventListener('error', function(e) {
+        post('error', ['window.onerror:', e.message, e.filename + ':' + e.lineno + ':' + e.colno]);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        post('error', ['unhandledrejection:', e.reason && e.reason.message || String(e.reason)]);
+      });
+    })();
+
     let lastProgress = 0;
     function reportProgress() {
       const scrollTop = window.scrollY;
@@ -168,6 +198,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     window.addEventListener('scroll', reportScrollDir, { passive: true });
 
     window.addEventListener('load', function() {
+      console.log('[diag] load event — ua:', navigator.userAgent.slice(0, 80));
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'loaded',
         scrollHeight: document.documentElement.scrollHeight
@@ -324,11 +355,12 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     function selectWordAtPoint(x, y) {
       var range = wordRangeAtPoint(x, y);
-      if (!range) return false;
+      if (!range) { console.log('[diag] wordRangeAtPoint null at', x, y); return false; }
       var sel = window.getSelection();
-      if (!sel) return false;
+      if (!sel) { console.warn('[diag] getSelection() returned null'); return false; }
       sel.removeAllRanges();
       sel.addRange(range);
+      console.log('[diag] selected word:', range.toString());
       // Android WebView does not fire selectionchange for programmatic
       // selection — push the message directly. iOS fires it twice (once
       // here, once from the listener), but the second emit is a no-op
@@ -352,9 +384,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 
     function dispatchSelection() {
       var sel = window.getSelection();
-      if (!sel || sel.isCollapsed) return;
+      if (!sel || sel.isCollapsed) { console.log('[diag] dispatchSelection: no selection'); return; }
       var text = sel.toString().trim();
-      if (!text || text.length > 300) return;
+      if (!text) { console.log('[diag] dispatchSelection: empty text'); return; }
+      if (text.length > 300) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
       if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
@@ -446,10 +479,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var HIGHLIGHT_BG = { yellow: 'rgba(254,240,138,0.5)', green: 'rgba(187,247,208,0.5)', pink: 'rgba(251,207,232,0.5)', blue: 'rgba(191,219,254,0.5)' };
 
     function renderHighlight(id, text, color) {
-      if (!text || !color) return;
+      if (!text || !color) { console.warn('[diag] renderHighlight: missing args', id, !!text, color); return; }
       var body = document.body;
       var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
       var node;
+      var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
       while (node = walker.nextNode()) {
         var idx = node.textContent.indexOf(text);
         if (idx === -1) continue;
@@ -465,9 +499,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           e.stopPropagation();
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
         });
-        try { range.surroundContents(mark); } catch(e) {}
-        break;
+        try { range.surroundContents(mark); console.log('[diag] renderHighlight matched:', id, snippet); } catch(e) { console.warn('[diag] surroundContents failed:', id, e.message); }
+        return;
       }
+      console.warn('[diag] renderHighlight NO MATCH:', id, snippet);
     }
 
     function removeHighlight(id) {
@@ -605,6 +640,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       } catch(e) {}
     }
 
+    console.log('[diag] attaching selectionchange listener');
     document.addEventListener('selectionchange', function() {
       // Inside suppression window — swallow the event entirely. Covers the
       // transient "empty selection" that fires between removeAllRanges and

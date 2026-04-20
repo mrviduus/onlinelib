@@ -327,6 +327,13 @@ export default function ReaderScreen() {
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
+      if (data.type === 'log') {
+        if (__DEV__) {
+          const fn = data.level === 'error' ? console.error : data.level === 'warn' ? console.warn : console.log
+          fn('[WV]', data.msg)
+        }
+        return
+      }
       if (data.type === 'tap') {
         toggleBars()
       } else if (data.type === 'scrollDir') {
@@ -642,7 +649,11 @@ export default function ReaderScreen() {
     }
   }
 
-  const injectJs = (js: string) => webViewRef.current?.injectJavaScript(js + ';true;')
+  // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
+  // via the console bridge, instead of being silently swallowed by the
+  // `;true;` sentinel (diagnostics Phase 1).
+  const injectJs = (js: string) =>
+    webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
   const handleSearch = (q: string) => injectJs(`searchInContent(${JSON.stringify(q)})`)
   const handleSearchNext = () => injectJs('nextMatch()')
   const handleSearchPrev = () => injectJs('prevMatch()')
