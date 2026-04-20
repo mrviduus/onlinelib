@@ -370,8 +370,12 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       try { sentence = extractSentence(range.startContainer); } catch(e) {}
       var anchor = null;
       try { anchor = getRangeAnchor(range); } catch(e) {}
-      _suppressSelectionChangeUntil = Date.now() + 200;
+      // Long suppression window: we never touch Selection API here, so any
+      // selectionchange that fires within ~1.5s of a tap is native noise
+      // (Android ActionMode spawn/dismiss) that would wrongly clear our popup.
+      _suppressSelectionChangeUntil = Date.now() + 1500;
       _lastDispatchedText = text;
+      _lastDispatchWasTap = true;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,
@@ -422,6 +426,13 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
      */
     var _suppressSelectionChangeUntil = 0;
     var _lastDispatchedText = '';
+    // When the last dispatch came from the tap path (selectWordAtPoint),
+    // we MUST NOT notify the parent of a "selection cleared" event on the
+    // next native collapse — there is no selection to clear in the first
+    // place (tap doesn't touch window.getSelection). Without this guard
+    // the native ActionMode dismiss nukes the WordCard milliseconds after
+    // it opens.
+    var _lastDispatchWasTap = false;
 
     function dispatchSelection() {
       var sel = window.getSelection();
@@ -436,6 +447,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       try { anchor = getSelectionAnchor(); } catch(e) {}
       _suppressSelectionChangeUntil = Date.now() + 200;
       _lastDispatchedText = text;
+      _lastDispatchWasTap = false;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
         text: text,
@@ -689,8 +701,16 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (Date.now() < _suppressSelectionChangeUntil) return;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
+        // Only notify parent of "selection cleared" when WE previously
+        // dispatched a drag-select via this listener. If the last dispatch
+        // was a tap, there was no Selection-API selection to begin with,
+        // so reporting "empty" would incorrectly tear down the WordCard.
+        if (_lastDispatchedText && !_lastDispatchWasTap) {
+          console.log('[diag] selectionchange: posting empty (prior drag-select collapsed)');
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'selection', text: '' }));
+        }
         _lastDispatchedText = '';
+        _lastDispatchWasTap = false;
         return;
       }
       var text = sel.toString().trim();

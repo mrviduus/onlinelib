@@ -69,6 +69,9 @@ export default function ReaderScreen() {
     { text: string; sentence: string; anchor?: any; selectionId: number } | null
   >(null)
   const selectionIdRef = useRef(0)
+  useEffect(() => {
+    if (__DEV__) console.log('[diag] selection STATE:', selection?.text ?? 'null', 'id=', selection?.selectionId)
+  }, [selection])
   const [wordSaved, setWordSaved] = useState(false)
   const [sessionWordCount, setSessionWordCount] = useState(0)
   const [exitSummary, setExitSummary] = useState(false)
@@ -366,20 +369,13 @@ export default function ReaderScreen() {
         if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
         if (data.text) {
-          // Re-tap on the same word dismisses the card (B-12). Multi-word
-          // selections always show — changing the selection range counts as a
-          // new interaction, not a toggle.
-          setSelection(prev => {
-            if (prev && prev.text === data.text && !data.text.includes(' ')) {
-              return null
-            }
-            const nextId = ++selectionIdRef.current
-            return {
-              text: data.text,
-              sentence: data.sentence || '',
-              anchor: data.anchor || null,
-              selectionId: nextId,
-            }
+          if (__DEV__) console.log('[diag] setSelection OPEN', data.text)
+          const nextId = ++selectionIdRef.current
+          setSelection({
+            text: data.text,
+            sentence: data.sentence || '',
+            anchor: data.anchor || null,
+            selectionId: nextId,
           })
           setWordSaved(false)
           // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
@@ -415,6 +411,7 @@ export default function ReaderScreen() {
             }
           }
         } else {
+          if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
           setSelection(null)
         }
       }
@@ -502,6 +499,7 @@ export default function ReaderScreen() {
       await vocabularyApi.markAsKnown(entry.id)
       vocabMapRef.current[key] = { ...entry, stage: 4 }
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
+      if (__DEV__) console.log('[diag] setSelection NULL (markKnown)')
       setSelection(null)
     } catch (e) {
       console.warn('Mark as known failed:', e)
@@ -527,6 +525,7 @@ export default function ReaderScreen() {
     setWordSaved(false)
     try {
       await vocabularyApi.deleteWord(entry.id)
+      if (__DEV__) console.log('[diag] setSelection NULL (removeWord)')
       setSelection(null)
     } catch (e) {
       console.warn('Remove word failed:', e)
@@ -574,6 +573,7 @@ export default function ReaderScreen() {
       // Render highlight in WebView
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(selection.text)}, ${JSON.stringify(color)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
+      if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
       setSelection(null)
     } catch (e) {
       console.warn('Failed to create highlight:', e)
@@ -868,7 +868,10 @@ export default function ReaderScreen() {
               onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
               onRemove={handleRemoveWord}
               onMarkKnown={handleMarkKnown}
-              onDismiss={() => { setSelection(null); setWordSaved(false) }}
+              onDismiss={() => {
+                if (__DEV__) console.log('[diag] WordCard onDismiss fired')
+                setSelection(null); setWordSaved(false)
+              }}
               isSpeaking={isSpeaking}
               wordSaved={wordSaved}
               vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
