@@ -381,6 +381,7 @@ export default function ReaderScreen() {
           // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
           if (!data.text.includes(' ')) {
             toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
+            if (__DEV__) console.log('[diag] tap gate — auth:', isAuthenticated, 'already-saved:', !!vocabMapRef.current[data.text.toLowerCase()])
             if (isAuthenticated && !vocabMapRef.current[data.text.toLowerCase()]) {
               vocabularyApi.saveWord({
                 word: data.text,
@@ -392,6 +393,7 @@ export default function ReaderScreen() {
               }).then(saved => {
                 const key = saved.word.toLowerCase()
                 vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
+                if (__DEV__) console.log('[diag] saveWord OK → addVocabWord', key, saved.stage)
                 injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
                 setWordSaved(true)
                 setSessionWordCount(c => c + 1)
@@ -405,9 +407,14 @@ export default function ReaderScreen() {
                     if (res.translatedText && saved.id) {
                       vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
                       vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+                      if (__DEV__) console.log('[diag] translation → markVocabWords', key, res.translatedText)
+                      // Push full map so the inline-translation span renders above the underline.
+                      // addVocabWord alone only carries {stage}, wiping any prior translation in
+                      // _currentVocabMap and leaving the gray caption invisible.
+                      injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
                     }
-                  }).catch(() => {})
-              }).catch(() => {})
+                  }).catch((e) => { if (__DEV__) console.log('[diag] translate failed', e && e.message) })
+              }).catch((e) => { if (__DEV__) console.log('[diag] saveWord failed', e && e.message) })
             }
           }
         } else {

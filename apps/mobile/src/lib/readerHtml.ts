@@ -660,7 +660,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 
     var _currentVocabMap = {};
     function addVocabWord(word, stage) {
-      _currentVocabMap[word.toLowerCase()] = { stage: stage };
+      var key = word.toLowerCase();
+      var existing = _currentVocabMap[key] || {};
+      existing.stage = stage;
+      _currentVocabMap[key] = existing;
       markVocabWords(_currentVocabMap);
     }
 
