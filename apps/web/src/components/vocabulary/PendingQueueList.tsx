@@ -16,6 +16,7 @@ export function PendingQueueList({ onChange }: Props) {
   const [items, setItems] = useState<PendingVocabWordDto[] | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [stats, setStats] = useState<{ used: number; cap: number; remaining: number } | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const resp = await getPendingWords().catch(() => null)
@@ -28,10 +29,13 @@ export function PendingQueueList({ onChange }: Props) {
 
   const handlePromote = async (id: string) => {
     setBusyId(id)
+    setErrorMsg(null)
     try {
       await promotePendingWord(id)
       await refresh()
       onChange?.()
+    } catch {
+      setErrorMsg(t('vocabulary.pending.promoteFailed'))
     } finally {
       setBusyId(null)
     }
@@ -39,10 +43,13 @@ export function PendingQueueList({ onChange }: Props) {
 
   const handleDismiss = async (id: string) => {
     setBusyId(id)
+    setErrorMsg(null)
     try {
       await dismissPendingWord(id)
       await refresh()
       onChange?.()
+    } catch {
+      setErrorMsg(t('vocabulary.pending.dismissFailed'))
     } finally {
       setBusyId(null)
     }
@@ -69,6 +76,9 @@ export function PendingQueueList({ onChange }: Props) {
             .replace('{used}', String(stats.used))
             .replace('{cap}', String(stats.cap))}
         </div>
+      )}
+      {errorMsg && (
+        <div className="vocab-pending__error" role="alert">{errorMsg}</div>
       )}
       <ul className="vocab-pending__list">
         {items.map(p => (

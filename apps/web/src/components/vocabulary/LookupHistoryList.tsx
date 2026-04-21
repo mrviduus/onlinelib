@@ -15,6 +15,7 @@ export function LookupHistoryList({ onChange }: Props) {
   const { t } = useTranslation()
   const [items, setItems] = useState<WordLookupDto[] | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const resp = await getLookups({ limit: 200 }).catch(() => null)
@@ -26,10 +27,13 @@ export function LookupHistoryList({ onChange }: Props) {
 
   const handlePromote = async (id: string) => {
     setBusyId(id)
+    setErrorMsg(null)
     try {
       await promoteLookup(id)
       await refresh()
       onChange?.()
+    } catch {
+      setErrorMsg(t('vocabulary.lookups.promoteFailed'))
     } finally {
       setBusyId(null)
     }
@@ -37,10 +41,13 @@ export function LookupHistoryList({ onChange }: Props) {
 
   const handleDismiss = async (id: string) => {
     setBusyId(id)
+    setErrorMsg(null)
     try {
       await dismissLookup(id)
       await refresh()
       onChange?.()
+    } catch {
+      setErrorMsg(t('vocabulary.lookups.dismissFailed'))
     } finally {
       setBusyId(null)
     }
@@ -62,6 +69,9 @@ export function LookupHistoryList({ onChange }: Props) {
   return (
     <div className="vocab-pending">
       <div className="vocab-pending__stats">{t('vocabulary.lookups.intro')}</div>
+      {errorMsg && (
+        <div className="vocab-pending__error" role="alert">{errorMsg}</div>
+      )}
       <ul className="vocab-pending__list">
         {items.map(l => (
           <li key={l.id} className="vocab-pending__item">

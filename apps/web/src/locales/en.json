@@ -754,7 +754,9 @@
       "emptySubtitle": "Words you tap after your daily cap is reached will appear here.",
       "dailyStatus": "Today: {used}/{cap} new words in SRS",
       "promote": "Add now",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "promoteFailed": "Could not promote this word. Try again.",
+      "dismissFailed": "Could not remove this word. Try again."
     },
     "lookups": {
       "emptyTitle": "No lookups yet",
@@ -762,7 +764,9 @@
       "intro": "Rare words saved for reference. Tap \"Add to SRS\" to promote any of them into your study queue.",
       "taps": "{n} taps",
       "promote": "Add to SRS",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "promoteFailed": "Could not promote this word. Try again.",
+      "dismissFailed": "Could not remove this word. Try again."
     },
     "sort": {
       "recent": "Recent",

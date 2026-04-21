@@ -1725,6 +1725,157 @@
   50% { opacity: 0.5; }
 }
 
+/* Pending / Lookup queue list (shared) */
+.vocab-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.vocab-pending__stats {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #666);
+  padding: 10px 14px;
+  background: var(--color-bg-subtle, #f7f7f5);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+}
+
+.vocab-pending__error {
+  font-size: 0.85rem;
+  color: #9a1f1f;
+  background: #fdecec;
+  border: 1px solid #f5bcbc;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.vocab-pending__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--color-text-secondary, #666);
+  background: var(--color-bg-subtle, #f7f7f5);
+  border: 1px dashed var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+}
+
+.vocab-pending__empty p {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--color-text, #191919);
+}
+
+.vocab-pending__empty small {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.vocab-pending__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vocab-pending__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+}
+
+.vocab-pending__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.vocab-pending__word {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--color-text, #191919);
+}
+
+.vocab-pending__translation {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.vocab-pending__source {
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary, #888);
+  margin-top: 2px;
+}
+
+.vocab-pending__source--quote {
+  font-style: italic;
+  color: var(--color-text-secondary, #666);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.vocab-pending__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vocab-pending__promote,
+.vocab-pending__dismiss {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #191919);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vocab-pending__promote {
+  background: var(--color-brand, #c9a227);
+  border-color: var(--color-brand, #c9a227);
+  color: #fff;
+}
+
+.vocab-pending__promote:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.vocab-pending__dismiss:hover:not(:disabled) {
+  background: var(--color-bg-subtle, #f7f7f5);
+}
+
+.vocab-pending__promote:disabled,
+.vocab-pending__dismiss:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .vocab-pending__item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vocab-pending__actions {
+    justify-content: flex-end;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .speak-btn--playing { animation: none; }
   .flash-card { transition: none; }
