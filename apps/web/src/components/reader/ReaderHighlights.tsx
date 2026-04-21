@@ -100,6 +100,11 @@ export function ReaderHighlights({
     tapsRemaining: number | null
   } | null>(null)
   const [addAnywayBusy, setAddAnywayBusy] = useState(false)
+  // Word for which the auto-save POST is still in flight. WordPopup uses this
+  // to suspend its 3-8s auto-dismiss until the save resolves — otherwise a slow
+  // server response can close the popup before a lookup result arrives, and
+  // the user never sees RareWordNotice.
+  const [savingWord, setSavingWord] = useState<string | null>(null)
 
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
@@ -160,20 +165,29 @@ export function ReaderHighlights({
     const container = containerRef.current
     const sentence = range && container ? extractSentence(range, container) : undefined
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
-    const resp = await addWord({
-      word,
-      language: bookLanguage,
-      editionId: userBookId ? undefined : (editionId || undefined),
-      chapterId: userBookId ? undefined : (chapterId || undefined),
-      userBookId: userBookId || undefined,
-      sentence: sentence || undefined,
-      bookTitle: bookTitle || undefined,
-      // Send the actual confirmed native language (not `targetLang`, which is
-      // null in same-lang definition mode — but the user's explicit choice is
-      // still a valid native we want the backend to record for SRS enrichment).
-      nativeLanguage: nativeLanguage,
-      translation: currentTranslation || null,
-    }).catch(() => null)
+    setSavingWord(word)
+    let resp: Awaited<ReturnType<typeof addWord>> | null = null
+    try {
+      resp = await addWord({
+        word,
+        language: bookLanguage,
+        editionId: userBookId ? undefined : (editionId || undefined),
+        chapterId: userBookId ? undefined : (chapterId || undefined),
+        userBookId: userBookId || undefined,
+        sentence: sentence || undefined,
+        bookTitle: bookTitle || undefined,
+        // Send the actual confirmed native language (not `targetLang`, which is
+        // null in same-lang definition mode — but the user's explicit choice is
+        // still a valid native we want the backend to record for SRS enrichment).
+        nativeLanguage: nativeLanguage,
+        translation: currentTranslation || null,
+      }).catch(() => null)
+    } finally {
+      // Clear no matter what — keeps the popup's auto-dismiss from stalling
+      // forever if the backend is down. Only clear for this word to avoid
+      // stomping a newer in-flight save from a re-tap.
+      setSavingWord((prev) => (prev === word ? null : prev))
+    }
     if (resp?.outcome === 'pending') {
       setPendingToast(t('reader.vocab.queuedForTomorrow'))
     } else if (resp?.outcome === 'lookup' || resp?.outcome === 'lookup_pending') {
@@ -536,6 +550,7 @@ export function ReaderHighlights({
               : null}
             onAddAnyway={lookupState && lookupState.word === bubble.word ? handleAddAnyway : undefined}
             addAnywayBusy={addAnywayBusy}
+            saveInFlight={savingWord === bubble.word}
           />
         )
       })()}

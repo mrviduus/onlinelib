@@ -17,12 +17,13 @@ export function RareWordNotice({ kind, tapsRemaining, busy, onAddAnyway, t }: Pr
       <div className="rare-word-notice__body">{t('reader.rareWordNotice.body')}</div>
       <button
         type="button"
-        className="rare-word-notice__cta"
+        className={`rare-word-notice__cta${busy ? ' rare-word-notice__cta--busy' : ''}`}
         onMouseDown={(e) => e.preventDefault()}
         onClick={onAddAnyway}
         disabled={busy}
+        aria-busy={busy}
       >
-        {t('reader.rareWordNotice.cta')}
+        {busy ? t('reader.rareWordNotice.ctaBusy') : t('reader.rareWordNotice.cta')}
       </button>
     </div>
   )

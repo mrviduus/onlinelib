@@ -1374,6 +1374,13 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   opacity: 0.6;
   cursor: not-allowed;
 }
+.rare-word-notice__cta--busy {
+  animation: rare-word-notice-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rare-word-notice-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
 
 /* Language footer */
 .word-popup__lang-footer {

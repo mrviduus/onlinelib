@@ -264,7 +264,8 @@
     "rareWordNotice": {
       "title": "Rare word — saved to reference",
       "body": "We don't add rare words to your review queue automatically, so your SRS stays focused on the vocabulary you'll actually encounter.",
-      "cta": "Add to SRS anyway"
+      "cta": "Add to SRS anyway",
+      "ctaBusy": "Adding…"
     }
   },
   "onboarding": {

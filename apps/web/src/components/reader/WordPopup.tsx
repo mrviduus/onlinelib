@@ -76,6 +76,10 @@ interface WordPopupProps {
   lookupInfo?: { kind: 'lookup' | 'lookup_pending'; tapsRemaining: number | null } | null
   onAddAnyway?: () => void
   addAnywayBusy?: boolean
+  // True while auto-save POST is still in flight. Auto-dismiss stays parked
+  // until this clears so a slow save can't race the 3-8s timer and close the
+  // popup before a lookup outcome arrives.
+  saveInFlight?: boolean
 }
 
 export function WordPopup({
@@ -99,6 +103,7 @@ export function WordPopup({
   lookupInfo,
   onAddAnyway,
   addAnywayBusy,
+  saveInFlight,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -160,6 +165,10 @@ export function WordPopup({
 
   const scheduleAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
+    // Hold the timer while save is in flight — otherwise a slow server response
+    // can close the popup before a lookup outcome arrives, and the user never
+    // sees RareWordNotice. Timer is re-armed when `saveInFlight` flips false.
+    if (saveInFlight) return
     // Rare-word notice: give the user plenty of time to read + decide on
     // "Add anyway", but still bound it — a forgotten popup mustn't obscure
     // text under it indefinitely. Hover/click-in cancels the timer as usual.
@@ -167,17 +176,17 @@ export function WordPopup({
       ? LOOKUP_AUTO_DISMISS_MS
       : computeDismissMs(translation, definition)
     dismissTimerRef.current = setTimeout(animatedClose, ms)
-  }, [animatedClose, translation, definition, lookupInfo])
+  }, [animatedClose, translation, definition, lookupInfo, saveInFlight])
 
   // Start auto-dismiss timer on open / word change / same-word re-tap at new rect.
   // Keying on rect ensures re-tapping the same word restarts the timer — otherwise
   // the old timer (maybe about to fire) closes the popup right after the user re-engages.
-  // Also re-fires when lookupInfo flips (save resolves async after open) so the
-  // short 3-8s timer gets swapped for the 20s lookup timer and vice versa.
+  // Also re-fires when lookupInfo or saveInFlight flip so the timer strategy
+  // adapts as async results land (short → 20s for lookup; parked → armed when save done).
   useEffect(() => {
     scheduleAutoDismiss()
     return () => clearTimeout(dismissTimerRef.current)
-  }, [word, rect, !!lookupInfo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, rect, !!lookupInfo, saveInFlight]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cancel auto-dismiss when lang picker is open + autofocus search.
   // On close: clear query AND resume auto-dismiss — otherwise toggling the
