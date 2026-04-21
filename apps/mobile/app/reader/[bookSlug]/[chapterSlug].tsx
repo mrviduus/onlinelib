@@ -426,6 +426,9 @@ export default function ReaderScreen() {
                 }
                 if (resp.outcome === 'already_saved') {
                   if (__DEV__) console.log('[diag] saveWord already_saved')
+                  // vocabMapRef may not have this key (e.g. stale fetch) — let a
+                  // re-tap retry so underline can render on next interaction.
+                  autoSavedRef.current.delete(keyLc)
                   return
                 }
                 const saved = resp.word
@@ -572,6 +575,7 @@ export default function ReaderScreen() {
       setWordSaved(true)
       setSessionWordCount(c => c + 1)
       notifyWordSaved()
+      showToast({ message: t(language, 'reader.vocab.addedToSrs'), variant: 'success' })
       trackVocabSaved({ language, nativeLanguage, source: 'reader' })
       const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
       translationApi.translate(saved.word, language, targetLang)

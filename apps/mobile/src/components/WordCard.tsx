@@ -113,12 +113,14 @@ export function WordCard({
   //
   // When the lang picker is open we cancel this so the user isn't chased
   // off the card while choosing a language.
+  // Deps intentionally omit `translation` / `definition` — their values are
+  // read inside the effect body when the timer arms. Streaming updates would
+  // otherwise thrash the timer. Instead we re-trigger on loading → done
+  // transition via `translating` + `definitionLoading`, and on object-identity
+  // toggles (`!!lookupState`) rather than the whole object so busy-flips don't
+  // re-arm the 20s timer.
   useEffect(() => {
     if (showLangPicker) return
-    // Don't arm while either async fetch is still pending — otherwise a slow
-    // translation lands *after* the popup has already closed. Timer re-arms
-    // from scratch when loading flips false (deps include translating +
-    // definitionLoading).
     if (translating || definitionLoading) return
     const ms = lookupState ? LOOKUP_AUTO_DISMISS_MS : computeDismissMs(translation, definition)
     if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId, ms + 'ms')
@@ -130,7 +132,7 @@ export function WordCard({
       if (__DEV__) console.log('[diag] WordCard effect cleanup', word, selectionId)
       if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
     }
-  }, [word, selectionId, showLangPicker, lookupState, translating, definitionLoading, translation, definition]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId, showLangPicker, !!lookupState, translating, definitionLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (__DEV__) console.log('[diag] WordCard MOUNT', word)
