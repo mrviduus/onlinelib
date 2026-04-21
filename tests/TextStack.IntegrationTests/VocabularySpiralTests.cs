@@ -267,6 +267,11 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             Assert.Equal("pending", saveBody.GetProperty("outcome").GetString());
             pendingId = saveBody.GetProperty("pendingId").GetString();
 
+            var statsBefore = await _auth.Client.SendAsync(_auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/stats"), ct);
+            statsBefore.EnsureSuccessStatusCode();
+            var usedBefore = (await statsBefore.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct))
+                .GetProperty("dailyCap").GetProperty("used").GetInt32();
+
             // Promote endpoint bumps the cap up if needed — pending words are always promotable.
             var promote = await _auth.Client.SendAsync(
                 _auth.CreateRequest(HttpMethod.Post, $"/me/vocabulary/pending/{pendingId}/promote"), ct);
@@ -274,6 +279,14 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             var promotedBody = await promote.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
             wordId = promotedBody.GetProperty("id").GetString();
             Assert.False(string.IsNullOrEmpty(wordId));
+
+            // Promoted word sets ActivatedAt=now → counts toward dailyUsed
+            // (guards against silent cap-bypass regressions in DailyCapService.PromoteAsync).
+            var statsAfter = await _auth.Client.SendAsync(_auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/stats"), ct);
+            statsAfter.EnsureSuccessStatusCode();
+            var usedAfter = (await statsAfter.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct))
+                .GetProperty("dailyCap").GetProperty("used").GetInt32();
+            Assert.Equal(usedBefore + 1, usedAfter);
         }
         finally
         {
