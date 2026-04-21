@@ -51,8 +51,6 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
   const [weeklyBudgetText, setWeeklyBudgetText] = useState('')
 
   const scrollRef = useRef<ScrollView>(null)
-  const dailyCapRef = useRef<TextInput>(null)
-  const weeklyBudgetRef = useRef<TextInput>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -80,10 +78,6 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
     setError(msg)
     setInvalidField(field)
     scrollRef.current?.scrollTo({ y: 0, animated: true })
-    const target = field === 'dailyCap' ? dailyCapRef.current : weeklyBudgetRef.current
-    // Delay so scroll + setState finish before keyboard focuses (otherwise
-    // iOS can scroll the sheet under the keyboard and hide the error box).
-    setTimeout(() => target?.focus(), 120)
   }
 
   const handleSave = async () => {
@@ -192,7 +186,6 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                     {t('vocabulary.settings.dailyNewCapHint')}
                   </Text>
                   <TextInput
-                    ref={dailyCapRef}
                     style={[styles.input, { backgroundColor: colors.surface, borderColor: fieldBorder('dailyCap'), color: colors.text, fontFamily: fonts.sans }]}
                     value={dailyCapText}
                     onChangeText={onChangeDigits(setDailyCapText, 'dailyCap')}
@@ -210,7 +203,6 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                     {t('vocabulary.settings.weeklyBudgetHint')}
                   </Text>
                   <TextInput
-                    ref={weeklyBudgetRef}
                     style={[styles.input, { backgroundColor: colors.surface, borderColor: fieldBorder('weeklyBudget'), color: colors.text, fontFamily: fonts.sans }]}
                     value={weeklyBudgetText}
                     onChangeText={onChangeDigits(setWeeklyBudgetText, 'weeklyBudget')}
