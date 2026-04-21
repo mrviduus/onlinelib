@@ -183,6 +183,13 @@ export interface VocabularyWordDto {
   updatedAt: string
 }
 
+export interface WeeklyProgressDto {
+  used: number
+  budget: number
+  remaining: number
+  resetAt: string
+}
+
 export interface VocabularyStatsDto {
   totalWords: number
   byStage: {
@@ -193,6 +200,8 @@ export interface VocabularyStatsDto {
     mastered: number
   }
   dueNow: number
+  retiredCount: number
+  weeklyProgress: WeeklyProgressDto
   reviewedToday: number
   correctRateToday: number
   srsReviewedToday: number
@@ -203,6 +212,14 @@ export interface VocabularyStatsDto {
   overallCorrectRate: number
   streak: number
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
+}
+
+export interface VocabSettingsDto {
+  dailyNewCap: number
+  weeklyReviewBudget: number
+  frequencyFilterEnabled: boolean
+  clusteringEnabled: boolean
+  autoRetireEnabled: boolean
 }
 
 export interface VocabDailyStatDto {

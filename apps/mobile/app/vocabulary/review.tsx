@@ -82,6 +82,33 @@ export default function VocabularyReviewScreen() {
     )
   }
 
+  const budgetReached = !review.hasCards && (review.weeklyProgress?.remaining ?? 1) <= 0
+
+  // Budget-reached empty state — served when the backend returned no cards
+  // because the weekly budget is exhausted (not because nothing is due).
+  if (budgetReached) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Practice', headerShown: true }} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Ionicons name="checkmark-done-circle" size={64} color={colors.primary} />
+          <Text style={{ fontSize: 18, fontFamily: 'Inter-Medium', color: colors.text, marginTop: 16, textAlign: 'center' }}>
+            Weekly goal reached
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 8, textAlign: 'center' }}>
+            See you next week — keep reading to build vocabulary.
+          </Text>
+          <PressableScale
+            onPress={() => router.back()}
+            style={{ marginTop: 24, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 12 }}
+          >
+            <Text style={{ color: '#fff', fontFamily: 'Inter-Medium' }}>Back to reading</Text>
+          </PressableScale>
+        </SafeAreaView>
+      </>
+    )
+  }
+
   // Session complete (haptic fires from the effect above, not here)
   if (sessionComplete) {
     return (

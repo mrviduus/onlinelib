@@ -13,6 +13,7 @@ import { FlashCard } from '../components/vocabulary/FlashCard'
 import { NewWordCard } from '../components/vocabulary/NewWordCard'
 import { ReviewFeedback } from '../components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../components/vocabulary/SessionSummary'
+import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { EmptyState } from '../components/EmptyState'
 
 export function VocabularyReviewPage() {
@@ -54,12 +55,15 @@ export function VocabularyReviewPage() {
     if (review.isSessionComplete) playSound('complete')
   }, [review.isSessionComplete]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Redirect to practice if no cards available (instead of dead-end empty state)
+  const budgetReached = (review.weeklyProgress?.remaining ?? 1) <= 0
+
+  // Redirect to vocabulary if no cards available AND user hasn't hit weekly cap.
+  // When cap is reached, we show a dedicated "weekly goal" empty state instead.
   useEffect(() => {
-    if (!review.loading && !review.hasCards && !review.error && user) {
+    if (!review.loading && !review.hasCards && !review.error && user && !budgetReached) {
       navigate(`/${language}/vocabulary`, { replace: true })
     }
-  }, [review.loading, review.hasCards, review.error, user, language, navigate])
+  }, [review.loading, review.hasCards, review.error, user, language, navigate, budgetReached])
 
   if (!user) {
     return (
@@ -92,6 +96,20 @@ export function VocabularyReviewPage() {
   }
 
   if (!review.hasCards) {
+    if (budgetReached) {
+      return (
+        <div className="vocab-page">
+          {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
+          <EmptyState
+            icon="🎯"
+            title={t('vocabulary.banner.budgetReached')}
+            subtitle={t('vocabulary.weeklyBudget.emptyStateSubtitle')}
+            buttonLabel={t('vocabulary.weeklyBudget.backToReading')}
+            buttonTo="/library"
+          />
+        </div>
+      )
+    }
     return null // redirect effect handles this
   }
 
@@ -131,6 +149,8 @@ export function VocabularyReviewPage() {
           <SoundIcon on={soundOn} />
         </button>
       </div>
+
+      {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
 
       <div className="review-progress">
         <div className="review-progress__bar">

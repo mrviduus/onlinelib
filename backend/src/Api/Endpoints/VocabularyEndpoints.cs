@@ -7,6 +7,7 @@ using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Application.ReadingTracking;
+using Application.Vocabulary;
 using TextStack.Vocabulary;
 using TextStack.Vocabulary.Contracts;
 
@@ -32,6 +33,11 @@ public static class VocabularyEndpoints
         group.MapGet("/stats/daily", GetDailyStats).WithName("GetDailyVocabularyStats");
         group.MapGet("/words/reader", GetReaderVocab).WithName("GetReaderVocabulary");
         group.MapPut("/words/{id:guid}/known", MarkAsKnown).WithName("MarkVocabularyWordKnown");
+
+        // Anti-spiral settings + unretire (Phase 1)
+        group.MapGet("/settings", GetSettings).WithName("GetVocabularySettings");
+        group.MapPut("/settings", UpdateSettings).WithName("UpdateVocabularySettings");
+        group.MapPost("/words/{id:guid}/unretire", UnretireWord).WithName("UnretireVocabularyWord");
 
         // Admin: backfill definitions for words missing them
         app.MapPost("/admin/vocabulary/backfill-definitions", BackfillDefinitions)
@@ -331,6 +337,7 @@ public static class VocabularyEndpoints
         AuthService authService,
         IAppDbContext db,
         IReviewCardBuilder cardBuilder,
+        WeeklyBudgetService weeklyBudget,
         [FromQuery] int? limit,
         [FromQuery] string? mode,
         [FromQuery] bool? includeAll,
@@ -343,30 +350,51 @@ public static class VocabularyEndpoints
         var now = DateTimeOffset.UtcNow;
         var batchSize = Math.Min(limit ?? 10, 50);
 
-        var totalDue = await db.VocabularyWords
-            .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now, ct);
+        // Anti-spiral F5: clamp the batch by remaining weekly budget so a user
+        // who already reviewed 70 this week sees an empty queue instead of a
+        // bottomless backlog. ResetAt is when the oldest review in the 7d
+        // window rolls off — frontend shows "back tomorrow at X" messaging.
+        var weeklyProgress = await weeklyBudget.GetProgressAsync(userId.Value, siteId, ct);
+        var fetchLimit = Math.Min(batchSize, weeklyProgress.Remaining);
 
-        // SRS: return due words first
-        var dueWords = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId && w.NextReviewAt <= now)
+        // Retired rows (F4) are hidden from the queue — they already graduated.
+        var baseQuery = db.VocabularyWords
+            .Where(w => w.UserId == userId.Value && w.SiteId == siteId && !w.IsRetired);
+
+        var totalDue = await baseQuery
+            .CountAsync(w => w.NextReviewAt <= now, ct);
+
+        var weeklyProgressDto = new WeeklyProgressDto(
+            weeklyProgress.Used, weeklyProgress.Budget,
+            weeklyProgress.Remaining, weeklyProgress.ResetAt);
+
+        if (fetchLimit == 0)
+            return Results.Ok(new ReviewQueueResponse([], totalDue, weeklyProgressDto));
+
+        // SRS: return due words first. Tie-break by Priority (F5) — over-
+        // budgeted days surface the highest-value words first.
+        var dueWords = await baseQuery
+            .Where(w => w.NextReviewAt <= now)
             .OrderBy(w => w.NextReviewAt)
-            .Take(batchSize)
+            .ThenByDescending(w => w.Priority)
+            .Take(fetchLimit)
             .ToListAsync(ct);
 
         // When no due words and includeAll requested, return non-due words (closest to due first)
         if (dueWords.Count == 0 && includeAll == true)
         {
-            dueWords = await db.VocabularyWords
-                .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+            dueWords = await baseQuery
                 .OrderBy(w => w.NextReviewAt)
-                .Take(batchSize)
+                .ThenByDescending(w => w.Priority)
+                .Take(fetchLimit)
                 .ToListAsync(ct);
         }
 
         if (dueWords.Count == 0)
-            return Results.Ok(new ReviewQueueResponse([], totalDue));
+            return Results.Ok(new ReviewQueueResponse([], totalDue, weeklyProgressDto));
 
-        // Distractor pool: other user words (capped to prevent OOM)
+        // Distractor pool: other user words (capped to prevent OOM). Retired
+        // words are fine as distractors — they still belong to the same pool.
         var languages = dueWords.Select(w => w.Language).Distinct().ToList();
         var dueWordIds = dueWords.Select(w => w.Id).ToHashSet();
 
@@ -394,7 +422,7 @@ public static class VocabularyEndpoints
             c.ReviewMode, c.BlankSentence, c.OriginalSentence, c.BookTitle,
             c.Hint, c.Explanation, c.IsNew, c.Options, c.CorrectOptionIndex)).ToList();
 
-        return Results.Ok(new ReviewQueueResponse(cardDtos, totalDue));
+        return Results.Ok(new ReviewQueueResponse(cardDtos, totalDue, weeklyProgressDto));
     }
 
     // --- Submit Review ---
@@ -431,6 +459,16 @@ public static class VocabularyEndpoints
         if (request.IsCorrect) word.CorrectReviews++;
         word.UpdatedAt = now;
 
+        // Anti-spiral F4: retire immediately on threshold cross. Waiting for
+        // the 6h sweeper would re-surface the word in the next queue fetch,
+        // negating the "Mastered" graduation UX.
+        if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
+        {
+            word.IsRetired = true;
+            word.RetiredAt = now;
+            word.RetiredReason = "auto_3_correct_long_interval";
+        }
+
         var reviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
         var review = new VocabularyReview
         {
@@ -465,6 +503,7 @@ public static class VocabularyEndpoints
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
+        WeeklyBudgetService weeklyBudget,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -474,6 +513,9 @@ public static class VocabularyEndpoints
         var now = DateTimeOffset.UtcNow;
         var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
 
+        // Base scope: everything the user owns. Stage breakdown + totalWords
+        // keep retired rows (user still wants to see "2000 mastered" even if
+        // they no longer appear in the queue).
         var words = db.VocabularyWords
             .Where(w => w.UserId == userId.Value && w.SiteId == siteId);
 
@@ -485,7 +527,10 @@ public static class VocabularyEndpoints
             .ToListAsync(ct);
 
         var stageDict = byStage.ToDictionary(s => s.Stage, s => s.Count);
-        var dueNow = await words.CountAsync(w => w.NextReviewAt <= now, ct);
+        // dueNow intentionally excludes retired rows — matches what the review
+        // queue actually returns, so the banner never over-promises work.
+        var dueNow = await words.CountAsync(w => !w.IsRetired && w.NextReviewAt <= now, ct);
+        var retiredCount = await words.CountAsync(w => w.IsRetired, ct);
 
         // Single query for today's review stats
         var todayStats = await db.VocabularyReviews
@@ -545,6 +590,10 @@ public static class VocabularyEndpoints
             .Take(20)
             .ToListAsync(ct);
 
+        var progress = await weeklyBudget.GetProgressAsync(userId.Value, siteId, ct);
+        var weeklyProgress = new WeeklyProgressDto(
+            progress.Used, progress.Budget, progress.Remaining, progress.ResetAt);
+
         return Results.Ok(new
         {
             totalWords,
@@ -557,6 +606,8 @@ public static class VocabularyEndpoints
                 mastered = stageDict.GetValueOrDefault(4),
             },
             dueNow,
+            retiredCount,
+            weeklyProgress,
             reviewedToday,
             correctRateToday = reviewedToday > 0 ? Math.Round((double)correctToday / reviewedToday * 100, 1) : 0,
             srsReviewedToday,
@@ -752,6 +803,110 @@ public static class VocabularyEndpoints
         w.NextReviewAt, w.LastReviewedAt,
         w.TotalReviews, w.CorrectReviews,
         w.CreatedAt, w.UpdatedAt);
+
+    // --- Settings (Phase 1 anti-spiral) ---
+
+    private static async Task<IResult> GetSettings(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var settings = await db.UserVocabularySettings
+            .FirstOrDefaultAsync(s => s.UserId == userId.Value && s.SiteId == siteId, ct);
+
+        // First-time read: return defaults without persisting — settings row is
+        // created lazily on first PUT to avoid a write on every new user.
+        return Results.Ok(new VocabSettingsDto(
+            DailyNewCap: settings?.DailyNewCap ?? 15,
+            WeeklyReviewBudget: settings?.WeeklyReviewBudget ?? 70,
+            FrequencyFilterEnabled: settings?.FrequencyFilterEnabled ?? true,
+            ClusteringEnabled: settings?.ClusteringEnabled ?? true,
+            AutoRetireEnabled: settings?.AutoRetireEnabled ?? true));
+    }
+
+    private static async Task<IResult> UpdateSettings(
+        [FromBody] VocabSettingsDto request,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        if (request.DailyNewCap is < 5 or > 100)
+            return Results.BadRequest("DailyNewCap must be 5–100");
+        if (request.WeeklyReviewBudget is < 10 or > 500)
+            return Results.BadRequest("WeeklyReviewBudget must be 10–500");
+
+        var settings = await db.UserVocabularySettings
+            .FirstOrDefaultAsync(s => s.UserId == userId.Value && s.SiteId == siteId, ct);
+        var now = DateTimeOffset.UtcNow;
+
+        if (settings is null)
+        {
+            settings = new UserVocabularySettings
+            {
+                UserId = userId.Value,
+                SiteId = siteId,
+                CreatedAt = now,
+            };
+            db.UserVocabularySettings.Add(settings);
+        }
+
+        settings.DailyNewCap = request.DailyNewCap;
+        settings.WeeklyReviewBudget = request.WeeklyReviewBudget;
+        settings.FrequencyFilterEnabled = request.FrequencyFilterEnabled;
+        settings.ClusteringEnabled = request.ClusteringEnabled;
+        settings.AutoRetireEnabled = request.AutoRetireEnabled;
+        settings.UpdatedAt = now;
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(request);
+    }
+
+    // --- Unretire (Phase 1) ---
+
+    private static async Task<IResult> UnretireWord(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var word = await db.VocabularyWords
+            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        if (word == null) return Results.NotFound();
+
+        if (!word.IsRetired) return Results.Ok(ToDto(word));
+
+        // Drop back to Stage 3 (Context), not Stage 0 — the user once mastered
+        // this word, so we're only asking for one resurfacing review, not
+        // starting from scratch. ConsecutiveCorrect resets so the 3/14d
+        // retirement rule has to be re-earned.
+        var now = DateTimeOffset.UtcNow;
+        word.IsRetired = false;
+        word.RetiredAt = null;
+        word.RetiredReason = null;
+        word.Stage = 3;
+        word.ConsecutiveCorrect = 0;
+        word.IntervalDays = 1;
+        word.NextReviewAt = now;
+        word.UpdatedAt = now;
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(ToDto(word));
+    }
 }
 
 // --- DTOs ---
@@ -774,7 +929,9 @@ public record VocabWordDto(
     int TotalReviews, int CorrectReviews,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
-public record ReviewQueueResponse(List<ReviewCardDto> Cards, int TotalDue);
+public record ReviewQueueResponse(List<ReviewCardDto> Cards, int TotalDue, WeeklyProgressDto WeeklyProgress);
+
+public record WeeklyProgressDto(int Used, int Budget, int Remaining, DateTimeOffset ResetAt);
 
 public record ReviewCardDto(
     Guid WordId, string Word, string? Translation, string? Definition,
@@ -791,3 +948,10 @@ public record SubmitReviewResponse(
     int TotalReviews, int CorrectReviews);
 
 public record ReaderVocabWordDto(Guid Id, string Word, int Stage, string? Translation);
+
+public record VocabSettingsDto(
+    int DailyNewCap,
+    int WeeklyReviewBudget,
+    bool FrequencyFilterEnabled,
+    bool ClusteringEnabled,
+    bool AutoRetireEnabled);

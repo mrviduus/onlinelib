@@ -11,6 +11,7 @@ import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE, type ReviewMode } from '../lib/
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
+import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -269,6 +270,11 @@ export function VocabularyPage() {
           </div>
         )}
 
+        {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
+        {isAuthenticated && stats?.weeklyProgress && (
+          <WeeklyBudgetBar progress={stats.weeklyProgress} />
+        )}
+
         {/* Start practice card (from Practice) */}
         {isAuthenticated && stats && totalWords > 0 && (
           <div className="practice-page__card">
@@ -342,8 +348,8 @@ export function VocabularyPage() {
               <span className="vocab-stat__label">{t('vocabulary.totalWords')}</span>
             </div>
             <div className="vocab-stat">
-              <span className="vocab-stat__value">{stats.dueNow}</span>
-              <span className="vocab-stat__label">{t('vocabulary.dueToday')}</span>
+              <span className="vocab-stat__value">{stats.weeklyProgress?.remaining ?? stats.dueNow}</span>
+              <span className="vocab-stat__label">{t('vocabulary.weeklyBudget.label')}</span>
             </div>
             <div className="vocab-stat">
               <span className="vocab-stat__value">{stats.byStage.mastered}</span>

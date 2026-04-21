@@ -59,9 +59,25 @@ export interface ReviewCardDto {
   correctOptionIndex: number | null
 }
 
+export interface WeeklyProgressDto {
+  used: number
+  budget: number
+  remaining: number
+  resetAt: string
+}
+
 export interface ReviewQueueResponse {
   cards: ReviewCardDto[]
   totalDue: number
+  weeklyProgress: WeeklyProgressDto
+}
+
+export interface VocabSettingsDto {
+  dailyNewCap: number
+  weeklyReviewBudget: number
+  frequencyFilterEnabled: boolean
+  clusteringEnabled: boolean
+  autoRetireEnabled: boolean
 }
 
 export type SelfAssessment = 'forgot' | 'almost' | 'knew'
@@ -94,6 +110,8 @@ export interface VocabStatsDto {
     mastered: number
   }
   dueNow: number
+  retiredCount: number
+  weeklyProgress: WeeklyProgressDto
   reviewedToday: number
   correctRateToday: number
   srsReviewedToday: number
@@ -206,4 +224,22 @@ export async function getReaderVocab(): Promise<ReaderVocabWordDto[]> {
 
 export async function markAsKnown(id: string): Promise<VocabWordDto> {
   return authFetch<VocabWordDto>(`/me/vocabulary/words/${id}/known`, { method: 'PUT' })
+}
+
+// --- Anti-spiral (Phase 1) ---
+
+export async function getVocabSettings(): Promise<VocabSettingsDto> {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings')
+}
+
+export async function updateVocabSettings(data: VocabSettingsDto): Promise<VocabSettingsDto> {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export async function unretireWord(id: string): Promise<VocabWordDto> {
+  return authFetch<VocabWordDto>(`/me/vocabulary/words/${id}/unretire`, { method: 'POST' })
 }

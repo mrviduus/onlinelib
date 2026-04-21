@@ -51,4 +51,12 @@ public sealed class SrsEngine : ISrsEngine
             _ => "multiple_choice",
         };
     }
+
+    // Anti-spiral: Mastered words otherwise loop forever at 60-day cap.
+    // 2000 mastered = ~33 reviews/day silently — the real queue-balloon driver.
+    // Three consecutive correct at Stage 4 with interval ≥14d means the
+    // user has demonstrated real retention — retire from active review.
+    // Reader-tap unretires (falls back to Stage 3, one resurfacing review).
+    public bool ShouldAutoRetire(int stage, int consecutiveCorrect, double intervalDays)
+        => stage == MaxStage && consecutiveCorrect >= 3 && intervalDays >= 14;
 }

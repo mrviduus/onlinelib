@@ -192,4 +192,43 @@ public class SrsEngineTests
     {
         Assert.Equal("multiple_choice", _srs.GetReviewMode(99, false));
     }
+
+    // === ShouldAutoRetire (F4 anti-spiral) ===
+
+    [Fact]
+    public void ShouldAutoRetire_Mastered_3Correct_14Day_True()
+    {
+        Assert.True(_srs.ShouldAutoRetire(stage: 4, consecutiveCorrect: 3, intervalDays: 14));
+    }
+
+    [Fact]
+    public void ShouldAutoRetire_Mastered_3Correct_LongerInterval_True()
+    {
+        Assert.True(_srs.ShouldAutoRetire(stage: 4, consecutiveCorrect: 5, intervalDays: 60));
+    }
+
+    [Fact]
+    public void ShouldAutoRetire_NotMastered_False()
+    {
+        Assert.False(_srs.ShouldAutoRetire(stage: 3, consecutiveCorrect: 10, intervalDays: 60));
+    }
+
+    [Fact]
+    public void ShouldAutoRetire_Mastered_OnlyTwoCorrect_False()
+    {
+        Assert.False(_srs.ShouldAutoRetire(stage: 4, consecutiveCorrect: 2, intervalDays: 60));
+    }
+
+    [Fact]
+    public void ShouldAutoRetire_Mastered_IntervalBelow14_False()
+    {
+        Assert.False(_srs.ShouldAutoRetire(stage: 4, consecutiveCorrect: 5, intervalDays: 13));
+    }
+
+    [Fact]
+    public void ShouldAutoRetire_Mastered_IntervalExactly14_True()
+    {
+        // Boundary: interval == 14 is the promotion threshold (>= 14 per plan).
+        Assert.True(_srs.ShouldAutoRetire(stage: 4, consecutiveCorrect: 3, intervalDays: 14.0));
+    }
 }

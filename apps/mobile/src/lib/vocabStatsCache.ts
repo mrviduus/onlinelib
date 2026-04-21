@@ -17,7 +17,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { VocabularyStatsDto } from '@textstack/shared'
 
-const STORAGE_KEY = 'vocab.stats.last'
+// Bumped to v2 with the anti-spiral fields (weeklyProgress, retiredCount).
+// Old cached payloads would render a card without the weekly budget state.
+const STORAGE_KEY = 'vocab.stats.last.v2'
 
 export interface CachedVocabStats {
   stats: VocabularyStatsDto

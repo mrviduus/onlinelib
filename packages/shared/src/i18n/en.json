@@ -475,6 +475,21 @@
       "reviewedToday": "Reviewed today",
       "correctRate": "Correct rate",
       "streak": "Review streak"
+    },
+    "weeklyBudget": {
+      "label": "This week",
+      "progress": "{used} / {budget}",
+      "remaining": "{n} left this week",
+      "emptyStateSubtitle": "You've hit your weekly review target. Read — new reviews unlock as old ones age out.",
+      "backToReading": "Back to reading"
+    },
+    "banner": {
+      "budgetReached": "Weekly goal reached. See you next week!"
+    },
+    "retired": {
+      "title": "Mastered — retired",
+      "subtitle": "Graduated from review. Tap to bring back.",
+      "unretire": "Bring back to review"
     }
   }
 }

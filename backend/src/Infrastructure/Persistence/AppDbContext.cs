@@ -55,6 +55,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserMoodTag> UserMoodTags => Set<UserMoodTag>();
     public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
     public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
+    public DbSet<UserVocabularySettings> UserVocabularySettings => Set<UserVocabularySettings>();
     public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
     public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
@@ -574,7 +575,9 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<VocabularyWord>(e =>
         {
             e.HasIndex(x => new { x.UserId, x.SiteId });
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.NextReviewAt });
+            // Phase 1 anti-spiral: retired rows are excluded from queue — index on IsRetired
+            // so the filtered scan is a tight prefix read, not a full index scan + filter.
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.IsRetired, x.NextReviewAt });
             e.HasIndex(x => new { x.UserId, x.SiteId, x.Word, x.Language }).IsUnique();
             e.HasIndex(x => x.EditionId);
             e.Property(x => x.Word).HasMaxLength(200);
@@ -585,11 +588,21 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.BookTitle).HasMaxLength(500);
             e.Property(x => x.Hint).HasMaxLength(500);
             e.Property(x => x.Explanation).HasMaxLength(1000);
+            e.Property(x => x.Source).HasMaxLength(40);
+            e.Property(x => x.RetiredReason).HasMaxLength(60);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // UserVocabularySettings — one row per (user, site)
+        modelBuilder.Entity<UserVocabularySettings>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.SiteId });
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // VocabularyReview

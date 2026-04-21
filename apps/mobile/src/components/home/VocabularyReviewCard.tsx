@@ -140,7 +140,13 @@ export function VocabularyReviewCard() {
   }
 
   const totalWords = stats?.totalWords ?? 0
-  const dueNow = stats?.dueNow ?? 0
+  const dueNowRaw = stats?.dueNow ?? 0
+  const weeklyRemaining = stats?.weeklyProgress?.remaining
+  // Effective due clamps the server's raw due count by the remaining weekly
+  // review budget. When budget is exhausted we show the "goal reached" state
+  // instead of surfacing reviews the backend will refuse to serve.
+  const dueNow = weeklyRemaining != null ? Math.min(dueNowRaw, weeklyRemaining) : dueNowRaw
+  const budgetReached = weeklyRemaining != null && weeklyRemaining <= 0 && dueNowRaw > 0
   const mastered = stats?.byStage?.mastered ?? 0
   const streak = stats?.streak ?? 0
 
@@ -155,6 +161,13 @@ export function VocabularyReviewCard() {
     subline = t('home.vocabCard.emptySubline')
     ctaLabel = t('home.vocabCard.learnMoreCta')
     iconName = 'school-outline'
+    ctaAction = () => router.push('/(tabs)/vocabulary' as never)
+  } else if (budgetReached) {
+    const titleKey = totalWords === 1 ? 'home.vocabCard.savedTitleOne' : 'home.vocabCard.savedTitleMany'
+    headline = interpolate(t(titleKey), { count: totalWords })
+    subline = t('vocabulary.banner.budgetReached')
+    ctaLabel = t('home.vocabCard.openCta')
+    iconName = 'checkmark-done'
     ctaAction = () => router.push('/(tabs)/vocabulary' as never)
   } else if (dueNow > 0) {
     const titleKey = dueNow === 1 ? 'home.vocabCard.dueTitleOne' : 'home.vocabCard.dueTitleMany'
