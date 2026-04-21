@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<WeeklyBudgetService>();
         services.AddScoped<DailyCapService>();
         services.AddScoped<RetirementSweeper>();
+        services.AddSingleton<IFrequencyFilter, FrequencyFilter>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();
