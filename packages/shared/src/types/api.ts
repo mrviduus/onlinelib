@@ -209,6 +209,7 @@ export interface VocabularyStatsDto {
   retiredCount: number
   pendingCount: number
   lookupCount: number
+  clusterCount: number
   dailyCap: DailyCapDto
   weeklyProgress: WeeklyProgressDto
   reviewedToday: number
@@ -322,6 +323,29 @@ export interface SubmitReviewResponse {
   nextReviewAt: string
   totalReviews: number
   correctReviews: number
+}
+
+export interface WordClusterDto {
+  id: string
+  title: string
+  theme: string | null
+  editionId: string | null
+  userBookId: string | null
+  bookTitle: string | null
+  memberCount: number
+  cohesionScore: number
+  isConfirmed: boolean
+  createdAt: string
+}
+
+export interface ClusterListResponseDto {
+  items: WordClusterDto[]
+}
+
+export interface ClusterBonusResponse {
+  clusterId: string
+  title: string
+  cards: ReviewCardDto[]
 }
 
 // Reading Stats

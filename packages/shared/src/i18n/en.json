@@ -82,7 +82,8 @@
   "common": {
     "loading": "Loading...",
     "noBooksYet": "No books available yet.",
-    "noAuthorsYet": "No authors available yet."
+    "noAuthorsYet": "No authors available yet.",
+    "dismiss": "Dismiss"
   },
   "nav": {
     "catalog": "Catalog",
@@ -407,7 +408,17 @@
     "coachmarkSubtitle": "Tap a word to save it to your vocabulary.",
     "coachmarkDismiss": "Got it",
     "vocab": {
-      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
+      "savedToReference": "Saved to reference (rare word)",
+      "tapAgainToStudy": "Tap again to study ({n} left)",
+      "addedToSrs": "Added to your vocabulary",
+      "addAnywayFailed": "Couldn't add word — please try again"
+    },
+    "rareWordNotice": {
+      "title": "Rare word — saved to reference",
+      "body": "We don't add rare words to your review queue automatically, so your SRS stays focused on the vocabulary you'll actually encounter.",
+      "cta": "Add to SRS anyway",
+      "ctaBusy": "Adding…"
     }
   },
   "review": {
@@ -493,6 +504,11 @@
       "title": "Mastered — retired",
       "subtitle": "Graduated from review. Tap to bring back.",
       "unretire": "Bring back to review"
+    },
+    "clusters": {
+      "bonusCta": "Bonus: {n} related words",
+      "start": "Start bonus",
+      "fromBook": "from {book}"
     }
   }
 }

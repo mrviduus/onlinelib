@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router'
-import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE } from '@textstack/shared'
+import { REVIEW_BATCH_SIZES, DEFAULT_BATCH_SIZE, vocabularyApi } from '@textstack/shared'
 import type { SelfAssessment, ReviewMode } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -16,12 +16,14 @@ import { FlashCard } from '../../src/components/vocabulary/FlashCard'
 import { NewWordCard } from '../../src/components/vocabulary/NewWordCard'
 import { ReviewFeedback } from '../../src/components/vocabulary/ReviewFeedback'
 import { SessionSummary } from '../../src/components/vocabulary/SessionSummary'
+import { WeeklyBudgetBar } from '../../src/components/vocabulary/WeeklyBudgetBar'
 
 export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
   const { language, t } = useLanguage()
   const router = useRouter()
-  const params = useLocalSearchParams<{ limit?: string; reviewMode?: string }>()
+  const params = useLocalSearchParams<{ limit?: string; reviewMode?: string; cluster?: string }>()
+  const clusterId = typeof params.cluster === 'string' ? params.cluster : null
 
   const [batchSize, setBatchSize] = useState(() => {
     const v = parseInt(params.limit || String(DEFAULT_BATCH_SIZE), 10)
@@ -45,10 +47,14 @@ export default function VocabularyReviewScreen() {
   // Start session
   useEffect(() => {
     sessionStartRef.current = Date.now()
-    review.startSession(batchSize, review.reviewMode)
+    if (clusterId) {
+      review.startClusterSession(clusterId, review.reviewMode)
+    } else {
+      review.startSession(batchSize, review.reviewMode)
+    }
     // `review` is stable per-hook, review.reviewMode read at call time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSize])
+  }, [batchSize, clusterId])
 
   // Haptic on session-complete — must be in an effect, not render, or
   // it re-fires on every re-render while the summary is visible.
@@ -56,6 +62,9 @@ export default function VocabularyReviewScreen() {
   useEffect(() => {
     if (sessionComplete && !review.loading) {
       haptics.play('complete')
+      if (review.activeClusterId) {
+        vocabularyApi.completeCluster(review.activeClusterId).catch(() => {})
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionComplete, review.loading])
@@ -90,22 +99,25 @@ export default function VocabularyReviewScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Practice', headerShown: true }} />
-        <SafeAreaView style={[styles.budgetReached, { backgroundColor: colors.background }]}>
-          <Ionicons name="checkmark-done-circle" size={64} color={colors.primary} />
-          <Text style={[styles.budgetReachedTitle, { color: colors.text }]}>
-            {t('vocabulary.banner.budgetReached')}
-          </Text>
-          <Text style={[styles.budgetReachedSubtitle, { color: colors.textSecondary }]}>
-            {t('vocabulary.weeklyBudget.emptyStateSubtitle')}
-          </Text>
-          <PressableScale
-            onPress={() => router.back()}
-            style={[styles.budgetReachedCta, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.budgetReachedCtaText}>
-              {t('vocabulary.weeklyBudget.backToReading')}
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
+          <View style={styles.budgetReached}>
+            <Ionicons name="checkmark-done-circle" size={64} color={colors.primary} />
+            <Text style={[styles.budgetReachedTitle, { color: colors.text }]}>
+              {t('vocabulary.banner.budgetReached')}
             </Text>
-          </PressableScale>
+            <Text style={[styles.budgetReachedSubtitle, { color: colors.textSecondary }]}>
+              {t('vocabulary.weeklyBudget.emptyStateSubtitle')}
+            </Text>
+            <PressableScale
+              onPress={() => router.back()}
+              style={[styles.budgetReachedCta, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.budgetReachedCtaText}>
+                {t('vocabulary.weeklyBudget.backToReading')}
+              </Text>
+            </PressableScale>
+          </View>
         </SafeAreaView>
       </>
     )
@@ -154,6 +166,8 @@ export default function VocabularyReviewScreen() {
       }} />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
+
           {/* Progress */}
           <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />

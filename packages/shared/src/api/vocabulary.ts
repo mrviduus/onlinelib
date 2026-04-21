@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto, WordLookupListResponseDto } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto, WordLookupListResponseDto, ClusterListResponseDto, ClusterBonusResponse } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -94,4 +94,20 @@ export function getReaderVocab() {
 
 export function markAsKnown(id: string) {
   return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}/known`, { method: 'PUT' })
+}
+
+export function getClusters() {
+  return authFetch<ClusterListResponseDto>('/me/vocabulary/clusters')
+}
+
+export function startClusterBonus(id: string) {
+  return authFetch<ClusterBonusResponse>(`/me/vocabulary/clusters/${id}/start-bonus`, { method: 'POST' })
+}
+
+export function dismissCluster(id: string) {
+  return authFetch<void>(`/me/vocabulary/clusters/${id}/dismiss`, { method: 'POST' })
+}
+
+export function completeCluster(id: string) {
+  return authFetch<void>(`/me/vocabulary/clusters/${id}/complete`, { method: 'POST' })
 }
