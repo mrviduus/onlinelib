@@ -150,6 +150,9 @@ builder.Services.AddHostedService<AutoRetireSweeperWorker>();
 // Vocabulary anti-spiral: daily-cap pending → SRS reconciler (F2)
 builder.Services.AddHostedService<DailyCapReconcilerWorker>();
 
+// Vocabulary anti-spiral: one-shot seed of word_frequencies from embedded gz (F1)
+builder.Services.AddHostedService<WordFrequencyLoaderWorker>();
+
 // Rate limiting
 builder.Services.AddRateLimiter(options =>
 {
