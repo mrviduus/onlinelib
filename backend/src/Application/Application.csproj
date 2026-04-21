@@ -18,5 +18,6 @@
     <ProjectReference Include="..\Extraction\TextStack.Extraction\TextStack.Extraction.csproj" />
     <ProjectReference Include="..\Search\TextStack.Search\TextStack.Search.csproj" />
     <ProjectReference Include="..\Epub\TextStack.Epub\TextStack.Epub.csproj" />
+    <ProjectReference Include="..\Vocabulary\TextStack.Vocabulary\TextStack.Vocabulary.csproj" />
   </ItemGroup>
 </Project>

@@ -96,6 +96,15 @@ test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
     await expect(page.locator('.vocab-page')).toBeVisible()
   })
 
+  test('weekly budget bar renders on vocabulary page', async ({ authedPage: page }) => {
+    await page.goto('/en/vocabulary/')
+    await page.waitForLoadState('networkidle')
+
+    const bar = page.locator('.vocab-weekly-budget')
+    await expect(bar).toBeVisible()
+    await expect(bar.locator('.vocab-weekly-budget__progress')).toContainText('/')
+  })
+
   // Cleanup
   test.afterAll(async ({ request }) => {
     await testLogin(request)

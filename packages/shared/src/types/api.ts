@@ -183,6 +183,19 @@ export interface VocabularyWordDto {
   updatedAt: string
 }
 
+export interface WeeklyProgressDto {
+  used: number
+  budget: number
+  remaining: number
+  resetAt: string
+}
+
+export interface DailyCapDto {
+  used: number
+  cap: number
+  remaining: number
+}
+
 export interface VocabularyStatsDto {
   totalWords: number
   byStage: {
@@ -193,6 +206,10 @@ export interface VocabularyStatsDto {
     mastered: number
   }
   dueNow: number
+  retiredCount: number
+  pendingCount: number
+  dailyCap: DailyCapDto
+  weeklyProgress: WeeklyProgressDto
   reviewedToday: number
   correctRateToday: number
   srsReviewedToday: number
@@ -203,6 +220,46 @@ export interface VocabularyStatsDto {
   overallCorrectRate: number
   streak: number
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
+}
+
+export type SaveWordOutcome = 'srs' | 'pending' | 'already_saved'
+
+export interface SaveWordResponseDto {
+  outcome: SaveWordOutcome
+  word: VocabularyWordDto | null
+  pendingId: string | null
+  reason: string | null
+}
+
+export interface PendingVocabWordDto {
+  id: string
+  word: string
+  language: string
+  translation: string | null
+  definition: string | null
+  editionId: string | null
+  chapterId: string | null
+  userBookId: string | null
+  sentence: string | null
+  bookTitle: string | null
+  priority: number
+  source: string
+  createdAt: string
+}
+
+export interface PendingListResponseDto {
+  items: PendingVocabWordDto[]
+  dailyUsed: number
+  dailyCap: number
+  dailyRemaining: number
+}
+
+export interface VocabSettingsDto {
+  dailyNewCap: number
+  weeklyReviewBudget: number
+  frequencyFilterEnabled: boolean
+  clusteringEnabled: boolean
+  autoRetireEnabled: boolean
 }
 
 export interface VocabDailyStatDto {

@@ -140,56 +140,82 @@ export function VocabularyReviewCard() {
   }
 
   const totalWords = stats?.totalWords ?? 0
-  const dueNow = stats?.dueNow ?? 0
+  const dueNowRaw = stats?.dueNow ?? 0
+  const weeklyRemaining = stats?.weeklyProgress?.remaining
+  // Effective due clamps the server's raw due count by the remaining weekly
+  // review budget. When budget is exhausted we show the "goal reached" state
+  // instead of surfacing reviews the backend will refuse to serve.
+  const dueNow = weeklyRemaining != null ? Math.min(dueNowRaw, weeklyRemaining) : dueNowRaw
+  // Show the goal-reached state whenever the budget is exhausted, regardless
+  // of dueNow. The web parity is the same: WeeklyBudgetBar always wins over
+  // "nothing due" copy when a user has actively spent the week's reviews.
+  const budgetReached = weeklyRemaining != null && weeklyRemaining <= 0
   const mastered = stats?.byStage?.mastered ?? 0
   const streak = stats?.streak ?? 0
 
-  let headline: string
-  let subline: string
-  let ctaLabel: string
-  let ctaAction: () => void
-  let iconName: IconName
-
-  if (totalWords === 0) {
-    headline = t('home.vocabCard.emptyTitle')
-    subline = t('home.vocabCard.emptySubline')
-    ctaLabel = t('home.vocabCard.learnMoreCta')
-    iconName = 'school-outline'
-    ctaAction = () => router.push('/(tabs)/vocabulary' as never)
-  } else if (dueNow > 0) {
-    const titleKey = dueNow === 1 ? 'home.vocabCard.dueTitleOne' : 'home.vocabCard.dueTitleMany'
-    headline = interpolate(t(titleKey), { count: dueNow })
-    // Streak is the strongest retention signal when available; fall back to
-    // mastered count otherwise.
-    if (streak > 0) {
-      subline = interpolate(t('home.vocabCard.sublineStreak'), {
-        saved: totalWords,
-        streak,
-      })
-    } else {
-      subline = interpolate(t('home.vocabCard.sublineMastered'), {
-        saved: totalWords,
-        mastered,
-      })
-    }
-    ctaLabel = t('home.vocabCard.reviewCta')
-    iconName = 'flash'
-    ctaAction = () => router.push('/vocabulary/review' as never)
-  } else {
-    const titleKey = totalWords === 1 ? 'home.vocabCard.savedTitleOne' : 'home.vocabCard.savedTitleMany'
-    headline = interpolate(t(titleKey), { count: totalWords })
-    if (mastered > 0) {
-      subline = interpolate(t('home.vocabCard.sublineMasteredKeepUp'), {
-        mastered,
-      })
-    } else {
-      subline = t('home.vocabCard.sublineNothingDue')
-    }
-    ctaLabel = t('home.vocabCard.openCta')
-    iconName = 'school'
-    ctaAction = () => router.push('/(tabs)/vocabulary' as never)
+  // Pluralization helper — count-aware title key.
+  const savedTitle = () => {
+    const key = totalWords === 1 ? 'home.vocabCard.savedTitleOne' : 'home.vocabCard.savedTitleMany'
+    return interpolate(t(key), { count: totalWords })
   }
 
+  // Four mutually-exclusive UI states; resolving them inside one function lets
+  // each branch return a coherent record instead of mutating five `let`s.
+  const resolveState = (): {
+    headline: string
+    subline: string
+    ctaLabel: string
+    iconName: IconName
+    ctaAction: () => void
+  } => {
+    const openVocab = () => router.push('/(tabs)/vocabulary' as never)
+
+    if (totalWords === 0) {
+      return {
+        headline: t('home.vocabCard.emptyTitle'),
+        subline: t('home.vocabCard.emptySubline'),
+        ctaLabel: t('home.vocabCard.learnMoreCta'),
+        iconName: 'school-outline',
+        ctaAction: openVocab,
+      }
+    }
+    if (budgetReached) {
+      return {
+        headline: savedTitle(),
+        subline: t('vocabulary.banner.budgetReached'),
+        ctaLabel: t('home.vocabCard.openCta'),
+        iconName: 'checkmark-done',
+        ctaAction: openVocab,
+      }
+    }
+    if (dueNow > 0) {
+      const dueKey = dueNow === 1 ? 'home.vocabCard.dueTitleOne' : 'home.vocabCard.dueTitleMany'
+      // Streak is the strongest retention signal; fall back to mastered count.
+      const subline = streak > 0
+        ? interpolate(t('home.vocabCard.sublineStreak'), { saved: totalWords, streak })
+        : interpolate(t('home.vocabCard.sublineMastered'), { saved: totalWords, mastered })
+      return {
+        headline: interpolate(t(dueKey), { count: dueNow }),
+        subline,
+        ctaLabel: t('home.vocabCard.reviewCta'),
+        iconName: 'flash',
+        ctaAction: () => router.push('/vocabulary/review' as never),
+      }
+    }
+    // Has words, 0 due, budget not exhausted.
+    const subline = mastered > 0
+      ? interpolate(t('home.vocabCard.sublineMasteredKeepUp'), { mastered })
+      : t('home.vocabCard.sublineNothingDue')
+    return {
+      headline: savedTitle(),
+      subline,
+      ctaLabel: t('home.vocabCard.openCta'),
+      iconName: 'school',
+      ctaAction: openVocab,
+    }
+  }
+
+  const { headline, subline, ctaLabel, iconName, ctaAction } = resolveState()
   const isActionable = dueNow > 0
 
   // Stitch together a single accessibility label so VoiceOver reads the card

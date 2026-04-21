@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { vocabularyApi } from '@textstack/shared'
-import type { ReviewCardDto, SubmitReviewResponse, SelfAssessment, ReviewMode } from '@textstack/shared'
+import type { ReviewCardDto, SubmitReviewResponse, SelfAssessment, ReviewMode, WeeklyProgressDto } from '@textstack/shared'
 
 export type { ReviewMode }
 
@@ -19,6 +19,7 @@ export function useVocabularyReview() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalDue, setTotalDue] = useState(0)
+  const [weeklyProgress, setWeeklyProgress] = useState<WeeklyProgressDto | null>(null)
   const [sessionStats, setSessionStats] = useState<SessionStats>(EMPTY_STATS)
   const [lastResult, setLastResult] = useState<SubmitReviewResponse | null>(null)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
@@ -63,6 +64,7 @@ export function useVocabularyReview() {
       if (!mountedRef.current) return
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
+      setWeeklyProgress(queue.weeklyProgress ?? null)
       setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
       showNewWordIfNeeded(queue.cards, 0)
     } catch (err) {
@@ -126,6 +128,7 @@ export function useVocabularyReview() {
     currentCard,
     currentIndex,
     totalDue,
+    weeklyProgress,
     loading,
     submitting,
     error,

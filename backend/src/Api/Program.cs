@@ -144,6 +144,12 @@ builder.Services.AddHostedService(sp => (EdgeTtsService)sp.GetRequiredService<IT
 // SSG periodic rebuild
 builder.Services.AddHostedService<SsgPeriodicRebuildWorker>();
 
+// Vocabulary anti-spiral: periodic auto-retire sweep (F4)
+builder.Services.AddHostedService<AutoRetireSweeperWorker>();
+
+// Vocabulary anti-spiral: daily-cap pending → SRS reconciler (F2)
+builder.Services.AddHostedService<DailyCapReconcilerWorker>();
+
 // Rate limiting
 builder.Services.AddRateLimiter(options =>
 {

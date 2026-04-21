@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { vocabularyApi, getVocabLevel } from '@textstack/shared'
-import type { VocabularyWordDto, VocabularyStatsDto } from '@textstack/shared'
+import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
@@ -25,6 +25,7 @@ const TABS = [
   { key: 'new', label: 'New', filter: '0' },
   { key: 'learning', label: 'Learning', filter: '1,2,3' },
   { key: 'mastered', label: 'Mastered', filter: '4' },
+  { key: 'pending', label: 'Pending', filter: undefined },
 ] as const
 
 const SORT_OPTIONS = [
@@ -53,6 +54,8 @@ export default function VocabularyScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
   const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
+  const [pendingItems, setPendingItems] = useState<PendingVocabWordDto[] | null>(null)
+  const [pendingBusyId, setPendingBusyId] = useState<string | null>(null)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -95,6 +98,46 @@ export default function VocabularyScreen() {
   }, [activeFilter, search, sort])
 
   useEffect(() => { setLoading(true); offsetRef.current = 0; loadData() }, [loadData])
+
+  const loadPending = useCallback(async () => {
+    try {
+      const resp = await vocabularyApi.getPendingWords()
+      setPendingItems(resp.items)
+    } catch (e) {
+      console.warn('Load pending failed:', e)
+      setPendingItems([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'pending') loadPending()
+  }, [tab, loadPending])
+
+  const handlePromotePending = async (id: string) => {
+    setPendingBusyId(id)
+    try {
+      await vocabularyApi.promotePendingWord(id)
+      setPendingItems(prev => (prev || []).filter(p => p.id !== id))
+      vocabularyApi.getVocabularyStats().then(setStats).catch(() => {})
+    } catch (e) {
+      showToast({ message: 'Could not promote. Try again.', variant: 'error' })
+    } finally {
+      setPendingBusyId(null)
+    }
+  }
+
+  const handleDismissPending = async (id: string) => {
+    setPendingBusyId(id)
+    try {
+      await vocabularyApi.dismissPendingWord(id)
+      setPendingItems(prev => (prev || []).filter(p => p.id !== id))
+      vocabularyApi.getVocabularyStats().then(setStats).catch(() => {})
+    } catch (e) {
+      showToast({ message: 'Could not dismiss. Try again.', variant: 'error' })
+    } finally {
+      setPendingBusyId(null)
+    }
+  }
 
   useFocusEffect(useCallback(() => {
     if (!loading) { offsetRef.current = 0; loadData() }
@@ -231,7 +274,56 @@ export default function VocabularyScreen() {
         </View>
       </View>
 
-      {loading ? (
+      {tab === 'pending' ? (
+        pendingItems === null ? (
+          <View style={styles.listContent}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+                <SkeletonLoader width={160} height={16} />
+              </View>
+            ))}
+          </View>
+        ) : pendingItems.length === 0 ? (
+          <EmptyState icon="hourglass-outline" title="No words waiting" />
+        ) : (
+          <FlatList
+            data={pendingItems}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => (
+              <View style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.wordHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.wordText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{item.word}</Text>
+                    {item.translation && (
+                      <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{item.translation}</Text>
+                    )}
+                    {item.bookTitle && (
+                      <Text style={[styles.detailSource, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>From: {item.bookTitle}</Text>
+                    )}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity
+                      disabled={pendingBusyId === item.id}
+                      style={[styles.reviewBtn, { backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => handlePromotePending(item.id)}
+                    >
+                      <Text style={{ color: '#fff', fontFamily: fonts.sansMedium, fontSize: 12 }}>Add</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={pendingBusyId === item.id}
+                      style={[styles.reviewBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => handleDismissPending(item.id)}
+                    >
+                      <Text style={{ color: colors.textSecondary, fontFamily: fonts.sans, fontSize: 12 }}>Dismiss</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          />
+        )
+      ) : loading ? (
         <View style={styles.listContent}>
           {Array.from({ length: 6 }).map((_, i) => (
             <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>

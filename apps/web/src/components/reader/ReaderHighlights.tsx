@@ -86,6 +86,10 @@ export function ReaderHighlights({
   const { vocabMap, addWord, removeWord, updateTranslation, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
   const { openAuthModal } = useAuth()
 
+  // Anti-spiral F2: toast when a save lands in the pending queue (daily cap hit).
+  // Cleared on auto-dismiss; new pending saves overwrite the message.
+  const [pendingToast, setPendingToast] = useState<string | null>(null)
+
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
 
@@ -144,7 +148,7 @@ export function ReaderHighlights({
     const container = containerRef.current
     const sentence = range && container ? extractSentence(range, container) : undefined
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
-    const saved = await addWord({
+    const resp = await addWord({
       word,
       language: bookLanguage,
       editionId: userBookId ? undefined : (editionId || undefined),
@@ -158,6 +162,10 @@ export function ReaderHighlights({
       nativeLanguage: nativeLanguage,
       translation: currentTranslation || null,
     }).catch(() => null)
+    if (resp?.outcome === 'pending') {
+      setPendingToast(t('reader.vocab.queuedForTomorrow'))
+    }
+    const saved = resp?.word
     if (saved?.id && currentTranslation) {
       updateWord(saved.id, { translation: currentTranslation }).catch(() => {})
       updateTranslation(word, currentTranslation)
@@ -165,7 +173,7 @@ export function ReaderHighlights({
   }, [
     addWord, bookLanguage, bookTitle, chapterId, containerRef,
     editionId, nativeLanguage, hasConfirmedLanguage, userBookId, updateTranslation,
-    bubble?.word, bubble?.translation,
+    bubble?.word, bubble?.translation, t,
   ])
 
   // Popup creation, extracted so the scheduling effect has tight deps and doesn't
@@ -533,6 +541,14 @@ export function ReaderHighlights({
           duration={5000}
           onClose={dismissIdbUnavailable}
           onClick={() => { dismissIdbUnavailable(); openAuthModal() }}
+        />
+      )}
+
+      {pendingToast && (
+        <Toast
+          message={pendingToast}
+          duration={3500}
+          onClose={() => setPendingToast(null)}
         />
       )}
 

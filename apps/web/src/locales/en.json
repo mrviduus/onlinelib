@@ -253,7 +253,10 @@
         "other": "Other"
       }
     },
-    "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words."
+    "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
+    "vocab": {
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+    }
   },
   "onboarding": {
     "ghostHintLabel": "Tap any word",
@@ -700,7 +703,20 @@
       "keepStreak": "Keep your streak going!",
       "readyTitle": "Ready to practice!",
       "readySubtitle": "Strengthen your vocabulary by reviewing words.",
-      "dayStreak": "day streak"
+      "dayStreak": "day streak",
+      "budgetReached": "Weekly goal reached. See you next week!"
+    },
+    "weeklyBudget": {
+      "label": "This week",
+      "progress": "{used} / {budget}",
+      "remaining": "{n} left this week",
+      "emptyStateSubtitle": "You've hit your weekly review target. Read — new reviews unlock as old ones age out.",
+      "backToReading": "Back to reading"
+    },
+    "retired": {
+      "title": "Mastered — retired",
+      "subtitle": "Graduated from review. Tap to bring back.",
+      "unretire": "Bring back to review"
     },
     "practice": {
       "mode": "Mode",
@@ -719,7 +735,15 @@
       "new": "New",
       "learning": "Learning",
       "mastered": "Mastered",
+      "pending": "Pending",
       "search": "Search words..."
+    },
+    "pending": {
+      "emptyTitle": "No words waiting",
+      "emptySubtitle": "Words you tap after your daily cap is reached will appear here.",
+      "dailyStatus": "Today: {used}/{cap} new words in SRS",
+      "promote": "Add now",
+      "dismiss": "Dismiss"
     },
     "sort": {
       "recent": "Recent",

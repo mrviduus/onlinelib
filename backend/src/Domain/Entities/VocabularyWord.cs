@@ -39,6 +39,17 @@ public class VocabularyWord
     public int TotalReviews { get; set; }
     public int CorrectReviews { get; set; }
 
+    // Anti-spiral fields (Phase 1+)
+    public int? ZipfRank { get; set; }
+    public double? ZipfScore { get; set; }
+    public double Priority { get; set; }
+    public string Source { get; set; } = "tap";
+    public DateTimeOffset? ActivatedAt { get; set; }
+    public Guid? ClusterId { get; set; }
+    public bool IsRetired { get; set; }
+    public DateTimeOffset? RetiredAt { get; set; }
+    public string? RetiredReason { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

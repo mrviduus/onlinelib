@@ -7,6 +7,7 @@ using Application.Books;
 using Application.Reprocessing;
 using Application.Seo;
 using Application.SeoCrawl;
+using Application.Vocabulary;
 using Application.Export;
 using Application.Highlights;
 using Application.SsgRebuild;
@@ -37,6 +38,11 @@ public static class DependencyInjection
         services.AddScoped<SeoCrawlService>();
         services.AddScoped<EpubExportService>();
         services.AddScoped<HighlightClusterService>();
+
+        // Vocabulary anti-spiral
+        services.AddScoped<WeeklyBudgetService>();
+        services.AddScoped<DailyCapService>();
+        services.AddScoped<RetirementSweeper>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

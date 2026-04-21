@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -12,9 +13,11 @@ using NpgsqlTypes;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260421061838_WipeLegacyVocabularyData")]
+    partial class WipeLegacyVocabularyData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1670,116 +1673,6 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_password_reset_tokens_user_id");
 
                     b.ToTable("password_reset_tokens", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.PendingVocabularyWord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("BookTitle")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("book_title");
-
-                    b.Property<Guid?>("ChapterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("chapter_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Definition")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("definition");
-
-                    b.Property<Guid?>("EditionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("edition_id");
-
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)")
-                        .HasColumnName("language");
-
-                    b.Property<double>("Priority")
-                        .HasColumnType("double precision")
-                        .HasColumnName("priority");
-
-                    b.Property<string>("Sentence")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("sentence");
-
-                    b.Property<Guid>("SiteId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_id");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("source");
-
-                    b.Property<string>("Translation")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("translation");
-
-                    b.Property<Guid?>("UserBookId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_book_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("Word")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("word");
-
-                    b.Property<int?>("ZipfRank")
-                        .HasColumnType("integer")
-                        .HasColumnName("zipf_rank");
-
-                    b.Property<double?>("ZipfScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("zipf_score");
-
-                    b.HasKey("Id")
-                        .HasName("pk_pending_vocabulary_words");
-
-                    b.HasIndex("ChapterId")
-                        .HasDatabaseName("ix_pending_vocabulary_words_chapter_id");
-
-                    b.HasIndex("EditionId")
-                        .HasDatabaseName("ix_pending_vocabulary_words_edition_id");
-
-                    b.HasIndex("SiteId")
-                        .HasDatabaseName("ix_pending_vocabulary_words_site_id");
-
-                    b.HasIndex("UserBookId")
-                        .HasDatabaseName("ix_pending_vocabulary_words_user_book_id");
-
-                    b.HasIndex("UserId", "SiteId", "CreatedAt")
-                        .HasDatabaseName("ix_pending_vocabulary_words_user_id_site_id_created_at");
-
-                    b.HasIndex("UserId", "SiteId", "Priority")
-                        .IsDescending(false, false, true)
-                        .HasDatabaseName("ix_pending_vocabulary_words_user_id_site_id_priority");
-
-                    b.HasIndex("UserId", "SiteId", "Word", "Language")
-                        .IsUnique()
-                        .HasDatabaseName("ix_pending_vocabulary_words_user_id_site_id_word_language");
-
-                    b.ToTable("pending_vocabulary_words", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.ReadingGoal", b =>
@@ -4303,51 +4196,6 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("fk_password_reset_tokens_users_user_id");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PendingVocabularyWord", b =>
-                {
-                    b.HasOne("Domain.Entities.Chapter", "Chapter")
-                        .WithMany()
-                        .HasForeignKey("ChapterId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_pending_vocabulary_words_chapters_chapter_id");
-
-                    b.HasOne("Domain.Entities.Edition", "Edition")
-                        .WithMany()
-                        .HasForeignKey("EditionId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_pending_vocabulary_words_editions_edition_id");
-
-                    b.HasOne("Domain.Entities.Site", "Site")
-                        .WithMany()
-                        .HasForeignKey("SiteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_pending_vocabulary_words_sites_site_id");
-
-                    b.HasOne("Domain.Entities.UserBook", "UserBook")
-                        .WithMany()
-                        .HasForeignKey("UserBookId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_pending_vocabulary_words_user_books_user_book_id");
-
-                    b.HasOne("Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_pending_vocabulary_words_users_user_id");
-
-                    b.Navigation("Chapter");
-
-                    b.Navigation("Edition");
-
-                    b.Navigation("Site");
-
-                    b.Navigation("User");
-
-                    b.Navigation("UserBook");
                 });
 
             modelBuilder.Entity("Domain.Entities.ReadingGoal", b =>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useGuestLimits } from '../context/GuestLimitsContext'
-import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type VocabWordDto } from '../api/vocabulary'
+import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type SaveWordResponse } from '../api/vocabulary'
 import { translate as translateWord } from '../api/translation'
 import {
   addPendingVocabWord,
@@ -115,7 +115,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       const key = normalizeVocabKey(p.word)
       const existing = mapRef.current.get(key)
       try {
-        const saved = await saveWord({
+        const resp = await saveWord({
           word: p.word,
           language: p.language,
           // Prefer translation captured locally after pending was created (via updateTranslation).
@@ -129,6 +129,13 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
           nativeLanguage: p.nativeLanguage ?? null,
         })
         await deletePendingVocabWord(p.id).catch(() => {})
+        const saved = resp.word
+        if (!saved) {
+          // outcome=pending (daily cap hit during flush) → drop local pending, leave map entry.
+          // Next reconciler tick will promote it; user won't see the word as "saved" in reader
+          // until then, but we also don't want to re-flush it repeatedly.
+          continue
+        }
         updateMap(m => {
           // Preserve any translation accumulated in map (from translateApi) over backend's null.
           const preserved = m.get(key)?.translation ?? saved.translation ?? p.translation ?? undefined
@@ -145,7 +152,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     }
   }, [updateMap])
 
-  const addWord = useCallback(async (req: SaveWordRequest): Promise<VocabWordDto | null> => {
+  const addWord = useCallback(async (req: SaveWordRequest): Promise<SaveWordResponse | null> => {
     // Gate: block first tap until AuthContext has finished bootstrapping (B2).
     await waitForSession()
 
@@ -154,18 +161,20 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       // I5: pending из pre-auth периода (напр. юзер сохранил 1-2 слова как anon,
       // потом залогинился на другой странице) — flush перед текущим save.
       await flushPendingIfAny()
-      const saved = await saveWord(req)
-      const key = normalizeVocabKey(saved.word)
-      const existing = mapRef.current.get(key)
-      if (existing && existing.id === saved.id && existing.stage === saved.stage && !existing.isPending) {
-        return saved
-      }
-      updateMap(m => m.set(key, {
-        stage: saved.stage, id: saved.id,
-        translation: existing?.translation || saved.translation || undefined,
-      }))
+      const resp = await saveWord(req)
       trackVocabSaved({ language: req.language, nativeLanguage: req.nativeLanguage ?? undefined, source: 'reader' })
-      return saved
+      const saved = resp.word
+      if (saved) {
+        const key = normalizeVocabKey(saved.word)
+        const existing = mapRef.current.get(key)
+        if (!(existing && existing.id === saved.id && existing.stage === saved.stage && !existing.isPending)) {
+          updateMap(m => m.set(key, {
+            stage: saved.stage, id: saved.id,
+            translation: existing?.translation || saved.translation || undefined,
+          }))
+        }
+      }
+      return resp
     }
 
     // Path B: anonymous → accumulate locally until commitment threshold.

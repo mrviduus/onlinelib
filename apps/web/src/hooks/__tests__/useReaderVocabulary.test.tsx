@@ -102,7 +102,10 @@ describe('useReaderVocabulary', () => {
 
   it('addWord hits saveWord API when authenticated and dedupes repeats', async () => {
     saveWordMock.mockResolvedValue({
-      id: 'w1', word: 'Hello', stage: 0, translation: null,
+      outcome: 'srs',
+      word: { id: 'w1', word: 'Hello', stage: 0, translation: null },
+      pendingId: null,
+      reason: null,
     })
     const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
     await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
@@ -127,7 +130,10 @@ describe('useReaderVocabulary', () => {
     authState.ensureSession = async () => { ensureCalled++ }
 
     saveWordMock.mockImplementation(async (req: any) => ({
-      id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
+      outcome: 'srs',
+      word: { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null },
+      pendingId: null,
+      reason: null,
     }))
 
     const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
@@ -154,7 +160,10 @@ describe('useReaderVocabulary', () => {
 
     authState.isAuthenticated = true
     saveWordMock.mockImplementation(async (req: any) => ({
-      id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
+      outcome: 'srs',
+      word: { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null },
+      pendingId: null,
+      reason: null,
     }))
 
     const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
@@ -179,7 +188,12 @@ describe('useReaderVocabulary', () => {
     saveWordMock.mockImplementation(async (req: any) => {
       call++
       if (call === 2) throw new Error('flaky backend')
-      return { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null }
+      return {
+        outcome: 'srs',
+        word: { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null },
+        pendingId: null,
+        reason: null,
+      }
     })
 
     const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
@@ -205,7 +219,10 @@ describe('useReaderVocabulary', () => {
     authState.isAuthenticated = false
     authState.sessionReadyDelayMs = 50
     saveWordMock.mockResolvedValue({
-      id: 'w1', word: 'late', stage: 0, translation: null,
+      outcome: 'srs',
+      word: { id: 'w1', word: 'late', stage: 0, translation: null },
+      pendingId: null,
+      reason: null,
     })
 
     const { result, rerender } = renderHook(() => useReaderVocabulary('en', 'de'))

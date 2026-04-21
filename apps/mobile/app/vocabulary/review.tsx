@@ -19,7 +19,7 @@ import { SessionSummary } from '../../src/components/vocabulary/SessionSummary'
 
 export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const router = useRouter()
   const params = useLocalSearchParams<{ limit?: string; reviewMode?: string }>()
 
@@ -78,6 +78,35 @@ export default function VocabularyReviewScreen() {
       <>
         <Stack.Screen options={{ title: 'Practice', headerShown: true }} />
         <LoadingScreen />
+      </>
+    )
+  }
+
+  const budgetReached = !review.hasCards && (review.weeklyProgress?.remaining ?? 1) <= 0
+
+  // Budget-reached empty state — served when the backend returned no cards
+  // because the weekly budget is exhausted (not because nothing is due).
+  if (budgetReached) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Practice', headerShown: true }} />
+        <SafeAreaView style={[styles.budgetReached, { backgroundColor: colors.background }]}>
+          <Ionicons name="checkmark-done-circle" size={64} color={colors.primary} />
+          <Text style={[styles.budgetReachedTitle, { color: colors.text }]}>
+            {t('vocabulary.banner.budgetReached')}
+          </Text>
+          <Text style={[styles.budgetReachedSubtitle, { color: colors.textSecondary }]}>
+            {t('vocabulary.weeklyBudget.emptyStateSubtitle')}
+          </Text>
+          <PressableScale
+            onPress={() => router.back()}
+            style={[styles.budgetReachedCta, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.budgetReachedCtaText}>
+              {t('vocabulary.weeklyBudget.backToReading')}
+            </Text>
+          </PressableScale>
+        </SafeAreaView>
       </>
     )
   }
@@ -192,4 +221,9 @@ const styles = StyleSheet.create({
   modeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   modeBadgeText: { fontSize: 11, fontFamily: 'Inter-Medium' },
   cardArea: { flex: 1, padding: 20, justifyContent: 'center' },
+  budgetReached: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  budgetReachedTitle: { fontSize: 18, fontFamily: 'Inter-Medium', marginTop: 16, textAlign: 'center' },
+  budgetReachedSubtitle: { fontSize: 14, marginTop: 8, textAlign: 'center' },
+  budgetReachedCta: { marginTop: 24, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  budgetReachedCtaText: { color: '#fff', fontFamily: 'Inter-Medium' },
 })

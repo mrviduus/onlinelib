@@ -300,7 +300,11 @@ export default function UserBookReaderScreen() {
             setDictOpen(true)
             if (isAuthenticated) {
               vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null })
-                .then(() => {
+                .then(resp => {
+                  if (resp.outcome === 'pending') {
+                    showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+                    return
+                  }
                   notifyWordSaved()
                   trackVocabSaved({ language: 'en', source: 'reader' })
                 })
@@ -317,13 +321,19 @@ export default function UserBookReaderScreen() {
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
     try {
-      const saved = await vocabularyApi.saveWord({
+      const resp = await vocabularyApi.saveWord({
         word: selection.text,
         language: 'en',
         sentence: selection.sentence || null,
         bookTitle: null,
         userBookId: bookId || null,
       })
+      if (resp.outcome === 'pending') {
+        showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+        return
+      }
+      const saved = resp.word
+      if (!saved) return
       const key = saved.word.toLowerCase()
       vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
       injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)

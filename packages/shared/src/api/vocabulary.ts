@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -20,7 +20,19 @@ export function saveWord(data: {
   chapterId?: string | null
   userBookId?: string | null
 }) {
-  return authFetch<VocabularyWordDto>('/me/vocabulary/words', jsonBody('POST', data))
+  return authFetch<SaveWordResponseDto>('/me/vocabulary/words', jsonBody('POST', data))
+}
+
+export function getPendingWords() {
+  return authFetch<PendingListResponseDto>('/me/vocabulary/pending')
+}
+
+export function promotePendingWord(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/pending/${id}/promote`, { method: 'POST' })
+}
+
+export function dismissPendingWord(id: string) {
+  return authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
 }
 
 export function updateWord(id: string, data: { translation?: string; definition?: string }) {
@@ -32,9 +44,21 @@ export function deleteWord(id: string) {
 }
 
 export function getReviewQueue(limit?: number) {
-  return authFetch<{ cards: ReviewCardDto[]; totalDue: number }>(
+  return authFetch<{ cards: ReviewCardDto[]; totalDue: number; weeklyProgress: WeeklyProgressDto }>(
     `/me/vocabulary/review${buildQuery({ limit })}`
   )
+}
+
+export function getVocabSettings() {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings')
+}
+
+export function updateVocabSettings(data: VocabSettingsDto) {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', jsonBody('PUT', data))
+}
+
+export function unretireWord(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}/unretire`, { method: 'POST' })
 }
 
 export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; selfAssessment?: string }) {
