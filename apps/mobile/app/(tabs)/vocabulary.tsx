@@ -18,6 +18,7 @@ import { useTts } from '../../src/hooks/useTts'
 import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
 import { ClusterBonusCard } from '../../src/components/vocabulary/ClusterBonusCard'
 import { WeeklyBudgetBar } from '../../src/components/vocabulary/WeeklyBudgetBar'
+import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSettingsModal'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -61,6 +62,7 @@ export default function VocabularyScreen() {
   const [pendingBusyId, setPendingBusyId] = useState<string | null>(null)
   const [lookupItems, setLookupItems] = useState<WordLookupDto[] | null>(null)
   const [lookupBusyId, setLookupBusyId] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -231,6 +233,25 @@ export default function VocabularyScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
       {stats?.weeklyProgress && <WeeklyBudgetBar progress={stats.weeklyProgress} />}
+      <View style={styles.settingsRow}>
+        <TouchableOpacity
+          onPress={() => setSettingsOpen(true)}
+          style={[styles.settingsBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityLabel={t('vocabulary.settings.title')}
+          hitSlop={8}
+        >
+          <Ionicons name="settings-outline" size={14} color={colors.textSecondary} />
+          <Text style={[styles.settingsText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
+            {t('vocabulary.settings.title')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <VocabSettingsModal
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => { offsetRef.current = 0; loadData() }}
+      />
 
       {/* Cluster bonus card — only when an active, non-dismissed cluster exists */}
       {stats && (stats.clusterCount ?? 0) > 0 && (
@@ -646,6 +667,14 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   emptyText: { fontSize: 16, textAlign: 'center' },
   emptySubtext: { fontSize: 13, marginTop: 4, textAlign: 'center' },
+
+  settingsRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, marginTop: 6 },
+  settingsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 14, borderWidth: 1,
+  },
+  settingsText: { fontSize: 11 },
 
   // Stats
   statsBar: {
