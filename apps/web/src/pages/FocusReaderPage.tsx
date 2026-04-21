@@ -254,7 +254,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
       throw new Error('native_language_not_confirmed')
     }
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
-    const saved = await addWord({
+    const resp = await addWord({
       word,
       language: bookLanguage,
       editionId: mode === 'public' ? (editionId || undefined) : undefined,
@@ -265,6 +265,7 @@ export function FocusReaderPage({ mode = 'public' }: Props) {
       nativeLanguage: nativeLanguage,
       translation: currentTranslation || null,
     }).catch(() => null)
+    const saved = resp?.word
     if (saved?.id && currentTranslation) {
       updateWordApi(saved.id, { translation: currentTranslation }).catch(() => {})
       updateTranslation(word, currentTranslation)

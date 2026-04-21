@@ -405,7 +405,10 @@
     "toastTapToReview": "Tap to review",
     "coachmarkTitle": "Tap any word",
     "coachmarkSubtitle": "Tap a word to save it to your vocabulary.",
-    "coachmarkDismiss": "Got it"
+    "coachmarkDismiss": "Got it",
+    "vocab": {
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+    }
   },
   "review": {
     "excellent": "Excellent!",

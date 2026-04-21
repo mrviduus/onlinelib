@@ -253,7 +253,10 @@
         "other": "Other"
       }
     },
-    "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words."
+    "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
+    "vocab": {
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+    }
   },
   "onboarding": {
     "ghostHintLabel": "Tap any word",
@@ -732,7 +735,15 @@
       "new": "New",
       "learning": "Learning",
       "mastered": "Mastered",
+      "pending": "Pending",
       "search": "Search words..."
+    },
+    "pending": {
+      "emptyTitle": "No words waiting",
+      "emptySubtitle": "Words you tap after your daily cap is reached will appear here.",
+      "dailyStatus": "Today: {used}/{cap} new words in SRS",
+      "promote": "Add now",
+      "dismiss": "Dismiss"
     },
     "sort": {
       "recent": "Recent",

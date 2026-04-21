@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -20,7 +20,19 @@ export function saveWord(data: {
   chapterId?: string | null
   userBookId?: string | null
 }) {
-  return authFetch<VocabularyWordDto>('/me/vocabulary/words', jsonBody('POST', data))
+  return authFetch<SaveWordResponseDto>('/me/vocabulary/words', jsonBody('POST', data))
+}
+
+export function getPendingWords() {
+  return authFetch<PendingListResponseDto>('/me/vocabulary/pending')
+}
+
+export function promotePendingWord(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/pending/${id}/promote`, { method: 'POST' })
+}
+
+export function dismissPendingWord(id: string) {
+  return authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
 }
 
 export function updateWord(id: string, data: { translation?: string; definition?: string }) {

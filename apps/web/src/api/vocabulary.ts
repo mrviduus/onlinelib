@@ -100,6 +100,12 @@ export interface SubmitReviewResponse {
   correctReviews: number
 }
 
+export interface DailyCapDto {
+  used: number
+  cap: number
+  remaining: number
+}
+
 export interface VocabStatsDto {
   totalWords: number
   byStage: {
@@ -111,6 +117,8 @@ export interface VocabStatsDto {
   }
   dueNow: number
   retiredCount: number
+  pendingCount: number
+  dailyCap: DailyCapDto
   weeklyProgress: WeeklyProgressDto
   reviewedToday: number
   correctRateToday: number
@@ -124,14 +132,58 @@ export interface VocabStatsDto {
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
 }
 
+export type SaveWordOutcome = 'srs' | 'pending' | 'already_saved'
+
+export interface SaveWordResponse {
+  outcome: SaveWordOutcome
+  word: VocabWordDto | null
+  pendingId: string | null
+  reason: string | null
+}
+
+export interface PendingVocabWordDto {
+  id: string
+  word: string
+  language: string
+  translation: string | null
+  definition: string | null
+  editionId: string | null
+  chapterId: string | null
+  userBookId: string | null
+  sentence: string | null
+  bookTitle: string | null
+  priority: number
+  source: string
+  createdAt: string
+}
+
+export interface PendingListResponse {
+  items: PendingVocabWordDto[]
+  dailyUsed: number
+  dailyCap: number
+  dailyRemaining: number
+}
+
 // --- API Functions ---
 
-export async function saveWord(data: SaveWordRequest): Promise<VocabWordDto> {
-  return authFetch<VocabWordDto>('/me/vocabulary/words', {
+export async function saveWord(data: SaveWordRequest): Promise<SaveWordResponse> {
+  return authFetch<SaveWordResponse>('/me/vocabulary/words', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
+}
+
+export async function getPendingWords(): Promise<PendingListResponse> {
+  return authFetch<PendingListResponse>('/me/vocabulary/pending')
+}
+
+export async function promotePendingWord(id: string): Promise<VocabWordDto> {
+  return authFetch<VocabWordDto>(`/me/vocabulary/pending/${id}/promote`, { method: 'POST' })
+}
+
+export async function dismissPendingWord(id: string): Promise<void> {
+  await authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
 }
 
 export async function getWords(params?: {

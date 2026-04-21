@@ -390,7 +390,14 @@ export default function ReaderScreen() {
                 bookTitle: bookTitleRef.current || null,
                 editionId: editionIdRef.current || null,
                 chapterId: chapter?.id || null,
-              }).then(saved => {
+              }).then(resp => {
+                if (resp.outcome === 'pending') {
+                  if (__DEV__) console.log('[diag] saveWord pending (daily cap)')
+                  showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+                  return
+                }
+                const saved = resp.word
+                if (!saved) return
                 const key = saved.word.toLowerCase()
                 vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
                 if (__DEV__) console.log('[diag] saveWord OK → addVocabWord', key, saved.stage)
@@ -464,7 +471,7 @@ export default function ReaderScreen() {
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
     try {
-      const saved = await vocabularyApi.saveWord({
+      const resp = await vocabularyApi.saveWord({
         word: selection.text,
         language,
         sentence: selection.sentence || null,
@@ -472,6 +479,12 @@ export default function ReaderScreen() {
         editionId: editionIdRef.current || null,
         chapterId: chapter?.id || null,
       })
+      if (resp.outcome === 'pending') {
+        showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+        return
+      }
+      const saved = resp.word
+      if (!saved) return
       // Update local vocab map + WebView underlines
       const key = saved.word.toLowerCase()
       vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }

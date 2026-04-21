@@ -49,6 +49,7 @@ public interface IAppDbContext
     DbSet<VocabularyWord> VocabularyWords { get; }
     DbSet<VocabularyReview> VocabularyReviews { get; }
     DbSet<UserVocabularySettings> UserVocabularySettings { get; }
+    DbSet<PendingVocabularyWord> PendingVocabularyWords { get; }
     DbSet<ReviewLike> ReviewLikes { get; }
     DbSet<ReviewComment> ReviewComments { get; }
     DbSet<BlogPost> BlogPosts { get; }

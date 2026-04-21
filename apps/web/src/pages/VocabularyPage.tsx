@@ -12,6 +12,7 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
 import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
+import { PendingQueueList } from '../components/vocabulary/PendingQueueList'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -81,6 +82,7 @@ export function VocabularyPage() {
     words, total, loading, error, stats,
     filters, applyFilters, loadMore,
     removeWord, removeAll, editWord,
+    refresh,
   } = useVocabulary()
   const { speak, isPlaying } = useTts()
 
@@ -383,7 +385,7 @@ export function VocabularyPage() {
         {/* Filters */}
         <div className="vocab-filters">
           <div className="vocab-tabs" role="tablist">
-            {['all', 'new', 'learning', 'mastered'].map(tab => (
+            {['all', 'new', 'learning', 'mastered', 'pending'].map(tab => (
               <button
                 key={tab}
                 role="tab"
@@ -392,6 +394,9 @@ export function VocabularyPage() {
                 onClick={() => handleTabChange(tab)}
               >
                 {t(`vocabulary.filters.${tab}`)}
+                {tab === 'pending' && stats && stats.pendingCount > 0 && (
+                  <span className="vocab-tab__badge"> ({stats.pendingCount})</span>
+                )}
               </button>
             ))}
           </div>
@@ -418,8 +423,13 @@ export function VocabularyPage() {
           </div>
         </div>
 
+        {/* Pending tab — daily-cap overflow waiting to join SRS */}
+        {activeTab === 'pending' && (
+          <PendingQueueList onChange={refresh} />
+        )}
+
         {/* Word list */}
-        {words.length === 0 ? (
+        {activeTab !== 'pending' && (words.length === 0 ? (
           <EmptyState icon="📝" title={t('vocabulary.empty')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
         ) : (
           <div className="vocab-list">
@@ -531,9 +541,9 @@ export function VocabularyPage() {
               </div>
             ))}
           </div>
-        )}
+        ))}
 
-        {total > words.length && (
+        {activeTab !== 'pending' && total > words.length && (
           <button className="vocab-load-more" onClick={loadMore}>
             {t('vocabulary.loadMore')} ({total - words.length})
           </button>

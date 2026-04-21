@@ -41,6 +41,7 @@ public static class DependencyInjection
 
         // Vocabulary anti-spiral
         services.AddScoped<WeeklyBudgetService>();
+        services.AddScoped<DailyCapService>();
         services.AddScoped<RetirementSweeper>();
 
         // SSG Rebuild - interfaces for SOLID compliance
