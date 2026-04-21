@@ -117,15 +117,17 @@ public static class VocabularyEndpoints
             .Select(s => (bool?)s.FrequencyFilterEnabled)
             .FirstOrDefaultAsync(ct) ?? true;
 
+        // Query unconditionally so a user who flips the filter off doesn't leave
+        // orphan lookups behind when the same word is next saved to SRS.
+        var existingLookup = await db.WordLookups
+            .FirstOrDefaultAsync(l => l.UserId == userId && l.SiteId == siteId
+                && l.Word == word && l.Language == request.Language, ct);
+
         int? zipfRank = null;
         double? zipfScore = null;
 
         if (filterEnabled)
         {
-            var existingLookup = await db.WordLookups
-                .FirstOrDefaultAsync(l => l.UserId == userId && l.SiteId == siteId
-                    && l.Word == word && l.Language == request.Language, ct);
-
             var currentTaps = existingLookup?.TapCount ?? 0;
             var classification = await frequencyFilter.ClassifyAsync(word, request.Language, currentTaps, ct);
             zipfRank = classification.ZipfRank;
@@ -145,13 +147,14 @@ public static class VocabularyEndpoints
                 var tapsRemaining = Math.Max(0, classification.RequiredTaps - lookup.TapCount);
                 return Results.Ok(SaveWordResponse.LookupPending(lookup.Id, tapsRemaining));
             }
-
-            // SrsEligible — if a Lookup row existed (from prior taps on a mid-tier
-            // word), we're now promoting it; drop the Lookup so it doesn't show
-            // in the Lookups list alongside the live SRS word.
-            if (existingLookup != null)
-                db.WordLookups.Remove(existingLookup);
+            // SrsEligible falls through — lookup cleanup below covers the "was
+            // mid-tier, now being promoted to SRS" case.
         }
+
+        // Any path that creates a SRS or Pending row also drops any lingering
+        // Lookup — the word isn't reference-only anymore.
+        if (existingLookup != null)
+            db.WordLookups.Remove(existingLookup);
 
         // Anti-spiral F2: daily cap on *new* SRS activations. Over-cap goes
         // to pending; reconciler promotes the highest-Priority rows tomorrow.
