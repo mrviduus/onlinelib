@@ -1,4 +1,10 @@
 const DEFAULT_WPM = 250
+// Clamp stored WPM to a sane adult-reader band. Below 100 WPM is almost
+// certainly idle time polluting sessions (100 words in 10 hours ≈ 0.16 WPM →
+// absurd ETF). Above 600 is skimming, not reading. Outside the band: fall
+// back to DEFAULT_WPM instead of trusting the bogus sample.
+const MIN_VALID_WPM = 100
+const MAX_VALID_WPM = 600
 
 export interface EtfResult {
   minutesLeft: number
@@ -13,7 +19,9 @@ export function calculateETF(
 ): EtfResult | null {
   if (totalWords <= 0 || currentProgress >= 1) return null
 
-  const wpm = userWpm && userWpm > 0 ? userWpm : DEFAULT_WPM
+  const wpm = userWpm && userWpm >= MIN_VALID_WPM && userWpm <= MAX_VALID_WPM
+    ? userWpm
+    : DEFAULT_WPM
   const remainingWords = totalWords * (1 - currentProgress)
   const minutesLeft = Math.round(remainingWords / wpm)
 

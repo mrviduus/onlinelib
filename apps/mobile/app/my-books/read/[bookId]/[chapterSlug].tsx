@@ -458,8 +458,8 @@ export default function UserBookReaderScreen() {
     }
   }
 
-  const wordsLeft = wordCountRef.current * (1 - progress)
-  const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
+  const currentChapterIndex = chapters.findIndex(c => c.slug === chapterSlug)
+  const totalChapters = chapters.length
 
   // Memoize HTML + WebView source — without this, every render (bars
   // toggle, progress tick, selection set) rebuilt the full chapter HTML
@@ -583,7 +583,8 @@ export default function UserBookReaderScreen() {
               <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
             </View>
             <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-              {Math.round(progress * 100)}% · ~{etfMinutes} min left
+              {Math.round(progress * 100)}%
+              {totalChapters > 1 && currentChapterIndex >= 0 ? `   ${currentChapterIndex + 1} / ${totalChapters}` : ''}
             </Text>
           </View>
         </Animated.View>

@@ -781,10 +781,9 @@ export default function ReaderScreen() {
     }
   }
 
-  // ETF calculation
-  const wordsLeft = wordCountRef.current * (1 - progress)
-  const etfMinutes = Math.max(1, Math.round(wordsLeft / 250))
-  const etfDisplay = etfMinutes >= 60 ? `${Math.floor(etfMinutes / 60)}h ${etfMinutes % 60}m` : `${etfMinutes}m`
+  // Chapter counter for footer
+  const currentChapterIndex = chapters.findIndex(c => c.slug === chapterSlug)
+  const totalChapters = chapters.length
 
   // Large HTML string. Rebuilding every render burns CPU and — if the
   // source prop object is recreated — triggers WebView work. Memoize on
@@ -997,7 +996,8 @@ export default function ReaderScreen() {
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
           <Text style={[styles.footerProgress, { color: barText + '99', textAlign: 'center', paddingVertical: 8, paddingHorizontal: 16 }]}>
-            {Math.round(progress * 100)}% · ~{etfDisplay}
+            {Math.round(progress * 100)}%
+            {totalChapters > 1 && currentChapterIndex >= 0 ? `   ${currentChapterIndex + 1} / ${totalChapters}` : ''}
           </Text>
         </Animated.View>
 
