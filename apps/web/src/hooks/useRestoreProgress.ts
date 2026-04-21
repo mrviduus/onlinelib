@@ -24,13 +24,15 @@ interface SavedProgress {
 interface RestoreState {
   savedProgress: SavedProgress | null
   isLoading: boolean
+  /** @deprecated auto-navigate removed — URL is authoritative. Always false. */
   shouldNavigate: boolean
+  /** @deprecated auto-navigate removed. Always null. */
   targetChapterSlug: string | null
 }
 
 export function useRestoreProgress(
   editionId: string | undefined,
-  currentChapterSlug: string | undefined
+  _currentChapterSlug: string | undefined
 ): RestoreState {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [state, setState] = useState<RestoreState>({
@@ -43,17 +45,6 @@ export function useRestoreProgress(
   // Covers the "user logs in mid-reading" case — without this, post-login server data
   // never reaches savedProgress until a reload.
   const lastFetchKeyRef = useRef<string | null>(null)
-  // Tracks whether we've already done the initial resume for this editionId. Subsequent
-  // fetches (after login) update savedProgress but must NOT trigger navigation — mid-session
-  // jumps to another chapter are disruptive UX.
-  const seenEditionIdRef = useRef<string | null>(null)
-
-  // Reset shouldNavigate once navigation completes (currentChapterSlug matches target)
-  useEffect(() => {
-    if (state.shouldNavigate && state.targetChapterSlug === currentChapterSlug) {
-      setState(s => ({ ...s, shouldNavigate: false, targetChapterSlug: null }))
-    }
-  }, [currentChapterSlug, state.shouldNavigate, state.targetChapterSlug])
 
   useEffect(() => {
     // Wait for auth check and editionId
@@ -62,9 +53,6 @@ export function useRestoreProgress(
     const fetchKey = `${editionId}:${isAuthenticated}`
     if (lastFetchKeyRef.current === fetchKey) return
     lastFetchKeyRef.current = fetchKey
-
-    const isInitialFetch = seenEditionIdRef.current !== editionId
-    seenEditionIdRef.current = editionId
 
     async function fetchProgress() {
       // Skip restore when navigating directly from TOC (?direct=1)
@@ -116,23 +104,19 @@ export function useRestoreProgress(
         }
       }
 
-      if (progress && progress.chapterSlug) {
-        // Only navigate on the initial resume — after that, a post-login refetch just
-        // updates savedProgress for bookmarks/UI without jumping the user away.
-        const shouldNav = isInitialFetch && progress.chapterSlug !== currentChapterSlug
-        setState({
-          savedProgress: progress,
-          isLoading: false,
-          shouldNavigate: shouldNav,
-          targetChapterSlug: shouldNav ? progress.chapterSlug : null,
-        })
-      } else {
-        setState(s => ({ ...s, savedProgress: progress, isLoading: false }))
-      }
+      // URL is authoritative: don't auto-navigate to saved chapter. "Continue
+      // reading" entry points link directly to the saved slug, so this hook
+      // only exposes savedProgress for within-chapter scroll restore.
+      setState({
+        savedProgress: progress,
+        isLoading: false,
+        shouldNavigate: false,
+        targetChapterSlug: null,
+      })
     }
 
     fetchProgress()
-  }, [editionId, currentChapterSlug, isAuthenticated, authLoading])
+  }, [editionId, isAuthenticated, authLoading])
 
   return state
 }
