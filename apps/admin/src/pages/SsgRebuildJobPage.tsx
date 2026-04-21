@@ -90,7 +90,7 @@ export function SsgRebuildJobPage() {
 
   if (loading && !job) {
     return (
-      <div className="seo-crawl-job-page">
+      <div className="admin-job-page">
         <p>Loading...</p>
       </div>
     )
@@ -98,7 +98,7 @@ export function SsgRebuildJobPage() {
 
   if (!job) {
     return (
-      <div className="seo-crawl-job-page">
+      <div className="admin-job-page">
         <p>Job not found</p>
         <Link to="/ssg-rebuild">Back to jobs</Link>
       </div>
@@ -106,7 +106,7 @@ export function SsgRebuildJobPage() {
   }
 
   return (
-    <div className="seo-crawl-job-page">
+    <div className="admin-job-page">
       <div className="page-header">
         <div>
           <Link to="/ssg-rebuild" className="back-link">Back to Jobs</Link>

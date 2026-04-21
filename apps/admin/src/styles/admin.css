@@ -1705,9 +1705,8 @@ body {
   margin: 4px 0;
 }
 
-/* SEO Crawl Pages */
-.seo-crawl-page h1,
-.seo-crawl-job-page h1 {
+.admin-page h1,
+.admin-job-page h1 {
   margin: 0;
 }
 

@@ -123,7 +123,7 @@ export function BookQualityPage() {
 
   if (loading) {
     return (
-      <div className="seo-crawl-page">
+      <div className="admin-page">
         <h1>Book Quality</h1>
         <p>Loading...</p>
       </div>
@@ -131,7 +131,7 @@ export function BookQualityPage() {
   }
 
   return (
-    <div className="seo-crawl-page">
+    <div className="admin-page">
       <div className="page-header">
         <h1>Book Quality</h1>
       </div>

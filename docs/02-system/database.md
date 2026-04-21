@@ -223,31 +223,6 @@ All services: API :8080 | Web :5173 | Admin :81 | DB :5432
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              SEO DOMAIN                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌──────────────┐         ┌────────────────┐                               │
-│   │ SeoCrawlJob  │ 1────N  │ SeoCrawlResult │                               │
-│   │──────────────│         │────────────────│                               │
-│   │ id           │         │ id             │                               │
-│   │ site_id    → │         │ job_id       → │                               │
-│   │ max_pages    │         │ url            │                               │
-│   │ concurrency  │         │ url_type       │                               │
-│   │ delay_ms     │         │ status_code    │                               │
-│   │ user_agent   │         │ content_type   │                               │
-│   │ status       │         │ html_bytes     │                               │
-│   │ total_urls   │         │ title          │                               │
-│   │ pages_crawld │         │ meta_desc      │                               │
-│   │ errors_count │         │ h1             │                               │
-│   │ error        │         │ canonical      │                               │
-│   │ created_at   │         │ meta_robots    │                               │
-│   │ started_at   │         │ x_robots_tag   │                               │
-│   │ finished_at  │         │ fetched_at     │                               │
-│   └──────────────┘         │ fetch_error    │                               │
-│                            └────────────────┘                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
 │                            MIGRATION DOMAIN                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
@@ -299,8 +274,6 @@ Legend:
 | `admin_users` | Admin panel auth | → tokens, → logs |
 | `admin_refresh_tokens` | JWT refresh | → admin_user |
 | `admin_audit_logs` | Action history | → admin_user |
-| `seo_crawl_jobs` | Sitemap crawler jobs | → site, → results |
-| `seo_crawl_results` | Crawler results per URL | → job |
 | `reading_sessions` | Reading time tracking | → user, → site, → edition |
 | `reading_goals` | Daily/yearly reading goals | → user, → site |
 | `user_achievements` | Unlocked achievements | → user, → site |
@@ -639,47 +612,6 @@ INDEX(created_at)
 
 ---
 
-### SEO Tables
-
-#### `seo_crawl_jobs`
-```sql
-id            UUID PRIMARY KEY
-site_id       UUID NOT NULL → sites(id)
-max_pages     INT NOT NULL DEFAULT 500
-concurrency   INT NOT NULL DEFAULT 4
-crawl_delay_ms INT NOT NULL DEFAULT 200
-user_agent    VARCHAR NOT NULL DEFAULT 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-status        INT NOT NULL    -- 0=Queued, 1=Running, 2=Completed, 3=Failed, 4=Cancelled
-total_urls    INT NOT NULL
-pages_crawled INT NOT NULL
-errors_count  INT NOT NULL
-error         TEXT
-created_at    TIMESTAMPTZ NOT NULL
-started_at    TIMESTAMPTZ
-finished_at   TIMESTAMPTZ
-```
-
-#### `seo_crawl_results`
-```sql
-id               UUID PRIMARY KEY
-job_id           UUID NOT NULL → seo_crawl_jobs(id)
-url              VARCHAR NOT NULL
-url_type         VARCHAR NOT NULL  -- "book", "author", "genre"
-status_code      INT
-content_type     VARCHAR
-html_bytes       INT
-title            VARCHAR
-meta_description VARCHAR
-h1               VARCHAR
-canonical        VARCHAR
-meta_robots      VARCHAR
-x_robots_tag     VARCHAR
-fetched_at       TIMESTAMPTZ NOT NULL
-fetch_error      TEXT
-```
-
----
-
 ### Migration Tables
 
 #### `textstack_imports`
@@ -806,7 +738,6 @@ JobStatus          { Queued=0, Processing=1, Completed=2, Failed=3 }
 AdminRole          { Admin=0, Editor=1, Moderator=2 }
 AuthorRole         { Author=0, Translator=1, Editor=2, Illustrator=3 }
 AssetKind          { Cover=0, InlineImage=1 }
-SeoCrawlJobStatus  { Queued=0, Running=1, Completed=2, Failed=3, Cancelled=4 }
 ```
 
 ---
@@ -829,14 +760,13 @@ SeoCrawlJobStatus  { Queued=0, Running=1, Completed=2, Failed=3, Cancelled=4 }
 14. **Trigram search** - GIST index on edition title for fuzzy matching
 15. **BookAssets** - Extracted images/covers stored with metadata
 16. **Ingestion diagnostics** - SourceFormat/UnitsCount/TextSource/Confidence/Warnings for debugging
-17. **SEO crawler** - SeoCrawlJob/SeoCrawlResult for sitemap validation
-18. **TextStack migration** - TextStackImport tracks migrated content
-19. **Highlights** - Text anchoring with prefix/exact/suffix for reliable text location
-20. **Note-Highlight link** - Notes can optionally link to highlights via HighlightId
-21. **Reading sessions** - 30s heartbeat, 3min idle, 5min auto-end; localStorage queue + sendBeacon
-22. **Reading goals** - Daily minutes or books/year with streak tracking (min minutes threshold)
-23. **Achievements** - 20 codes across milestone/streak/time/special; AchievementChecker runs after sessions
-24. **Vocabulary SRS** - 5-stage spaced repetition (New→Recognition→Recall→Context→Mastered)
+17. **TextStack migration** - TextStackImport tracks migrated content
+18. **Highlights** - Text anchoring with prefix/exact/suffix for reliable text location
+19. **Note-Highlight link** - Notes can optionally link to highlights via HighlightId
+20. **Reading sessions** - 30s heartbeat, 3min idle, 5min auto-end; localStorage queue + sendBeacon
+21. **Reading goals** - Daily minutes or books/year with streak tracking (min minutes threshold)
+22. **Achievements** - 20 codes across milestone/streak/time/special; AchievementChecker runs after sessions
+23. **Vocabulary SRS** - 5-stage spaced repetition (New→Recognition→Recall→Context→Mastered)
 25. **LLM distractors** - Ollama gemma3:4b generates MC wrong answers at word save time; stored as JSON
 26. **Fire-and-forget distractors** - IServiceScopeFactory creates scoped DbContext for background generation
 27. **Vocabulary word uniqueness** - unique(user_id, site_id, word, language) prevents duplicates
