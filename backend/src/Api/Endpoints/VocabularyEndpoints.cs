@@ -505,12 +505,20 @@ public static class VocabularyEndpoints
 
         // Anti-spiral F4: retire immediately on threshold cross. Waiting for
         // the 6h sweeper would re-surface the word in the next queue fetch,
-        // negating the "Mastered" graduation UX.
+        // negating the "Mastered" graduation UX. Respect AutoRetireEnabled —
+        // users who disabled it should keep Mastered words reviewable.
         if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
         {
-            word.IsRetired = true;
-            word.RetiredAt = now;
-            word.RetiredReason = "auto_3_correct_long_interval";
+            var autoRetireEnabled = await db.UserVocabularySettings
+                .Where(s => s.UserId == userId && s.SiteId == siteId)
+                .Select(s => (bool?)s.AutoRetireEnabled)
+                .FirstOrDefaultAsync(ct) ?? true;
+            if (autoRetireEnabled)
+            {
+                word.IsRetired = true;
+                word.RetiredAt = now;
+                word.RetiredReason = "auto_3_correct_long_interval";
+            }
         }
 
         var reviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
