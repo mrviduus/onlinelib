@@ -149,7 +149,7 @@ export function CodeGenPage() {
 
   if (loading) {
     return (
-      <div className="seo-crawl-page">
+      <div className="admin-page">
         <h1>CodeGen</h1>
         <p>Loading...</p>
       </div>
@@ -157,7 +157,7 @@ export function CodeGenPage() {
   }
 
   return (
-    <div className="seo-crawl-page">
+    <div className="admin-page">
       <div className="page-header">
         <h1>CodeGen</h1>
         <button onClick={() => setShowCreate(!showCreate)} className="btn btn--primary">

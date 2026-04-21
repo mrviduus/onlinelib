@@ -151,7 +151,7 @@ export function SsgRebuildPage() {
 
   if (loading) {
     return (
-      <div className="seo-crawl-page">
+      <div className="admin-page">
         <h1>SSG Rebuild</h1>
         <p>Loading...</p>
       </div>
@@ -159,7 +159,7 @@ export function SsgRebuildPage() {
   }
 
   return (
-    <div className="seo-crawl-page">
+    <div className="admin-page">
       <div className="page-header">
         <h1>SSG Rebuild</h1>
         <button onClick={() => setShowCreate(!showCreate)} className="btn btn--primary">
