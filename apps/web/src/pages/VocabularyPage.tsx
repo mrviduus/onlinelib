@@ -571,7 +571,7 @@ export function VocabularyPage() {
           </div>
         ))}
 
-        {activeTab !== 'pending' && total > words.length && (
+        {activeTab !== 'pending' && activeTab !== 'lookups' && total > words.length && (
           <button className="vocab-load-more" onClick={loadMore}>
             {t('vocabulary.loadMore')} ({total - words.length})
           </button>
