@@ -25,8 +25,6 @@ public interface IAppDbContext
     DbSet<EditionAuthor> EditionAuthors { get; }
     DbSet<Genre> Genres { get; }
     DbSet<TextStackImport> TextStackImports { get; }
-    DbSet<SeoCrawlJob> SeoCrawlJobs { get; }
-    DbSet<SeoCrawlResult> SeoCrawlResults { get; }
     DbSet<SsgRebuildJob> SsgRebuildJobs { get; }
     DbSet<SsgRebuildResult> SsgRebuildResults { get; }
     DbSet<BookAsset> BookAssets { get; }

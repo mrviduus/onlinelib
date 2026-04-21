@@ -6,7 +6,6 @@ using Application.Authors;
 using Application.Books;
 using Application.Reprocessing;
 using Application.Seo;
-using Application.SeoCrawl;
 using Application.Vocabulary;
 using Application.Export;
 using Application.Highlights;
@@ -35,7 +34,6 @@ public static class DependencyInjection
         services.AddScoped<AdminAuthService>();
         services.AddScoped<AdminSettingsService>();
         services.AddScoped<ReprocessingService>();
-        services.AddScoped<SeoCrawlService>();
         services.AddScoped<EpubExportService>();
         services.AddScoped<HighlightClusterService>();
 
