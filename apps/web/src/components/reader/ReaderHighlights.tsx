@@ -83,7 +83,7 @@ export function ReaderHighlights({
   const isSingleWord = hasSelection && selectionWordCount === 1
 
   // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
-  const { vocabMap, addWord, removeWord, updateTranslation, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, removeWord, updateTranslation, recordSavedWord, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
   const { openAuthModal } = useAuth()
 
   // Anti-spiral F2: toast when a save lands in the pending queue (daily cap hit).
@@ -298,23 +298,25 @@ export function ReaderHighlights({
 
   // "Add anyway" on RareWordNotice: bypasses the frequency filter by promoting
   // the WordLookup row server-side into a full VocabularyWord. Backend deletes
-  // the lookup + applies Source='manual_add_anyway'. On success we surface the
-  // word like a normal save (addWord -> vocabMap via updateTranslation is handled
-  // naturally on next tap/refresh; here we just close the popup and toast).
+  // the lookup + applies Source='manual_add_anyway'. On success we merge the
+  // returned DTO into vocabMap so the reader immediately reflects the saved
+  // state (green highlight / check badge on re-tap). On failure we surface a
+  // toast — silence leaves the user guessing why nothing happened.
   const handleAddAnyway = useCallback(async () => {
     if (!lookupState || addAnywayBusy) return
     setAddAnywayBusy(true)
     try {
-      await promoteLookup(lookupState.id)
+      const saved = await promoteLookup(lookupState.id)
+      recordSavedWord(saved)
       setLookupState(null)
-      setPendingToast(t('reader.wordPopup.savedStatus'))
+      setPendingToast(t('reader.vocab.addedToSrs'))
       closeBubble()
     } catch {
-      // Quiet fail: user can re-tap; no distinct error toast for this slice.
+      setPendingToast(t('reader.vocab.addAnywayFailed'))
     } finally {
       setAddAnywayBusy(false)
     }
-  }, [lookupState, addAnywayBusy, t, closeBubble])
+  }, [lookupState, addAnywayBusy, t, closeBubble, recordSavedWord])
 
   // --- Highlights ---
   const {

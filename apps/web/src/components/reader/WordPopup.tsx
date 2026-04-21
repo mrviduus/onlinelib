@@ -23,6 +23,10 @@ const AUTO_DISMISS_MS_MIN = 3000
 const AUTO_DISMISS_MS_MAX = 8000
 const AUTO_DISMISS_MS_PER_WORD = 350  // L2-reader pace, ~170 wpm
 const EXIT_DURATION_MS = 150
+// Rare-word notice needs decision time + user may walk away. Long fallback so
+// popup can't linger forever (obscuring text underneath), but long enough that
+// a slow reader can finish the body + decide.
+const LOOKUP_AUTO_DISMISS_MS = 20000
 
 // CJK (Hiragana, Katakana, CJK Unified, Hangul) — spaceless scripts where each
 // glyph carries ~word-level info. Counted as individual reading units so
@@ -156,20 +160,24 @@ export function WordPopup({
 
   const scheduleAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
-    // Rare-word notice needs user decision — don't rip the popup away while
-    // they're reading the warning or aiming for "Add anyway".
-    if (lookupInfo) return
-    const ms = computeDismissMs(translation, definition)
+    // Rare-word notice: give the user plenty of time to read + decide on
+    // "Add anyway", but still bound it — a forgotten popup mustn't obscure
+    // text under it indefinitely. Hover/click-in cancels the timer as usual.
+    const ms = lookupInfo
+      ? LOOKUP_AUTO_DISMISS_MS
+      : computeDismissMs(translation, definition)
     dismissTimerRef.current = setTimeout(animatedClose, ms)
   }, [animatedClose, translation, definition, lookupInfo])
 
   // Start auto-dismiss timer on open / word change / same-word re-tap at new rect.
   // Keying on rect ensures re-tapping the same word restarts the timer — otherwise
   // the old timer (maybe about to fire) closes the popup right after the user re-engages.
+  // Also re-fires when lookupInfo flips (save resolves async after open) so the
+  // short 3-8s timer gets swapped for the 20s lookup timer and vice versa.
   useEffect(() => {
     scheduleAutoDismiss()
     return () => clearTimeout(dismissTimerRef.current)
-  }, [word, rect]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, rect, !!lookupInfo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cancel auto-dismiss when lang picker is open + autofocus search.
   // On close: clear query AND resume auto-dismiss — otherwise toggling the

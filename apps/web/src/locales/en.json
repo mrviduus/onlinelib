@@ -257,7 +257,9 @@
     "vocab": {
       "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
       "savedToReference": "Saved to reference (rare word)",
-      "tapAgainToStudy": "Tap again to study ({{n}} left)"
+      "tapAgainToStudy": "Tap again to study ({{n}} left)",
+      "addedToSrs": "Added to your vocabulary",
+      "addAnywayFailed": "Couldn't add word — please try again"
     },
     "rareWordNotice": {
       "title": "Rare word — saved to reference",
