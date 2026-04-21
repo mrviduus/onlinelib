@@ -543,6 +543,10 @@ export default function ReaderScreen() {
           if (res.translatedText && saved.id) {
             vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(e => console.warn('Word translation persist failed:', e))
             vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+            // Push full map so the inline-translation span renders above the
+            // underline (auto-save path does the same — this was missing here,
+            // leaving manually-saved words without the gray caption).
+            injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
           }
         })
         .catch(e => console.warn('Word translation lookup failed:', e))
@@ -705,10 +709,12 @@ export default function ReaderScreen() {
 
   // Load and render vocab word underlines. Keyed on `chapter?.id` so a
   // chapter refetch that yields the same id doesn't re-run the fetch
-  // (P3-4).
+  // (P3-4). Also clears the auto-save dedup set so words attempted in the
+  // previous chapter don't block retries in the next one.
   useEffect(() => {
     const chapterId = chapter?.id
     if (!isAuthenticated || !chapterId) return
+    autoSavedRef.current.clear()
     let cancelled = false
     vocabularyApi.getReaderVocab()
       .then(words => {

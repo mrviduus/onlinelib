@@ -18,6 +18,25 @@ const STAGE_LABELS: Record<number, { label: string; color: string }> = {
   4: { label: '✓', color: '#22c55e' },
 }
 
+// Auto-dismiss timing — parity with web WordPopup. Scale by content length so
+// a 16-word definition gets more read-time than a 1-word translation. Rare
+// words get a longer fallback (decision time + body is longer).
+const AUTO_DISMISS_MS_MIN = 3000
+const AUTO_DISMISS_MS_MAX = 8000
+const AUTO_DISMISS_MS_PER_WORD = 350
+const LOOKUP_AUTO_DISMISS_MS = 20000
+const CJK_RE = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/g
+
+function computeDismissMs(translation: string, definition: string | null): number {
+  const text = `${translation} ${definition ?? ''}`.trim()
+  if (!text) return AUTO_DISMISS_MS_MIN
+  const cjkChars = (text.match(CJK_RE) || []).length
+  const nonCjk = text.replace(CJK_RE, ' ')
+  const words = nonCjk.split(/\s+/).filter(Boolean).length
+  const units = words + cjkChars
+  return Math.min(AUTO_DISMISS_MS_MAX, Math.max(AUTO_DISMISS_MS_MIN, units * AUTO_DISMISS_MS_PER_WORD))
+}
+
 interface WordCardProps {
   word: string
   /**
@@ -96,20 +115,22 @@ export function WordCard({
   // off the card while choosing a language.
   useEffect(() => {
     if (showLangPicker) return
-    // Keep the card open while a rare-word notice is showing so the user
-    // can read it and decide whether to Add-anyway — parity with web, which
-    // also suspends auto-dismiss in that state.
-    if (lookupState) return
-    if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId)
+    // Don't arm while either async fetch is still pending — otherwise a slow
+    // translation lands *after* the popup has already closed. Timer re-arms
+    // from scratch when loading flips false (deps include translating +
+    // definitionLoading).
+    if (translating || definitionLoading) return
+    const ms = lookupState ? LOOKUP_AUTO_DISMISS_MS : computeDismissMs(translation, definition)
+    if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId, ms + 'ms')
     dismissTimerRef.current = setTimeout(() => {
       if (__DEV__) console.log('[diag] WordCard auto-dismiss fired', word)
       onDismiss()
-    }, 3000)
+    }, ms)
     return () => {
       if (__DEV__) console.log('[diag] WordCard effect cleanup', word, selectionId)
       if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
     }
-  }, [word, selectionId, showLangPicker, lookupState]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId, showLangPicker, lookupState, translating, definitionLoading, translation, definition]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (__DEV__) console.log('[diag] WordCard MOUNT', word)
