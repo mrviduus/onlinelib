@@ -1105,7 +1105,7 @@ public record VocabSettingsDto(
 
 // Anti-spiral F2. Outcome is discriminated-union-style; frontend branches on it
 // to show the right toast/banner. `Word` is populated for srs + already_saved,
-// `PendingId` for pending + already_pending, `Reason` for pending only.
+// `PendingId` for pending, `Reason` for pending only.
 public record SaveWordResponse(
     string Outcome,
     VocabWordDto? Word,
@@ -1115,7 +1115,10 @@ public record SaveWordResponse(
     public static SaveWordResponse Srs(VocabWordDto word) => new("srs", word, null, null);
     public static SaveWordResponse Pending(Guid pendingId, string reason) => new("pending", null, pendingId, reason);
     public static SaveWordResponse AlreadySaved(VocabWordDto word) => new("already_saved", word, null, null);
-    public static SaveWordResponse AlreadyPending(Guid pendingId) => new("already_saved", null, pendingId, null);
+    // Re-tap of a word already in the pending bucket: surface as "pending" so
+    // the client re-shows the "queued for tomorrow" toast instead of going silent.
+    // Reason="already_pending" lets analytics distinguish re-taps from first-time saves.
+    public static SaveWordResponse AlreadyPending(Guid pendingId) => new("pending", null, pendingId, "already_pending");
 }
 
 public record PendingVocabWordDto(
