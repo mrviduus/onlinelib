@@ -129,7 +129,6 @@ public class TsQueryBuilderTests
 
     [Theory]
     [InlineData(SearchLanguage.En, "english")]
-    [InlineData(SearchLanguage.Uk, "simple")]
     [InlineData(SearchLanguage.Auto, "simple")]
     public void GetLanguageConfig_ReturnsCorrectConfig(SearchLanguage language, string expected)
     {

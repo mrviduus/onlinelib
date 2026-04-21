@@ -53,11 +53,11 @@ describe('NativeLanguageContext', () => {
     // Wait for auth bootstrap to settle so the sync effect doesn't race the assert.
     await waitFor(() => expect(result.current.hasConfirmedLanguage).toBe(false))
 
-    act(() => result.current.setNativeLanguage('uk'))
+    act(() => result.current.setNativeLanguage('de'))
 
-    expect(result.current.nativeLanguage).toBe('uk')
+    expect(result.current.nativeLanguage).toBe('de')
     expect(result.current.hasConfirmedLanguage).toBe(true)
-    expect(localStorage.getItem(STORAGE_KEY)).toBe('uk')
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('de')
     expect(localStorage.getItem(CONFIRMED_KEY)).toBe('1')
   })
 
@@ -107,16 +107,16 @@ describe('NativeLanguageContext', () => {
     getCurrentUserMock.mockResolvedValue({
       user: { id: 'u-1', email: 'x@y.z', name: null, picture: null, isGuest: false, nativeLanguage: null },
     })
-    localStorage.setItem(STORAGE_KEY, 'uk')
+    localStorage.setItem(STORAGE_KEY, 'de')
     localStorage.setItem(CONFIRMED_KEY, '1')
     updateProfileMock.mockResolvedValue({
-      user: { id: 'u-1', email: 'x@y.z', name: null, picture: null, isGuest: false, nativeLanguage: 'uk' },
+      user: { id: 'u-1', email: 'x@y.z', name: null, picture: null, isGuest: false, nativeLanguage: 'de' },
     })
 
     renderHook(() => useNativeLanguage(), { wrapper })
 
     await waitFor(() =>
-      expect(updateProfileMock).toHaveBeenCalledWith({ nativeLanguage: 'uk' }),
+      expect(updateProfileMock).toHaveBeenCalledWith({ nativeLanguage: 'de' }),
     )
   })
 

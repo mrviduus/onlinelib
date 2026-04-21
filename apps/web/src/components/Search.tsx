@@ -101,7 +101,6 @@ function SearchInput({
   query,
   isLoading,
   isOpen,
-  language,
   onChange,
   onFocus,
   onKeyDown,
@@ -110,13 +109,12 @@ function SearchInput({
   query: string
   isLoading: boolean
   isOpen: boolean
-  language: string
   onChange: (value: string) => void
   onFocus: () => void
   onKeyDown: (e: React.KeyboardEvent) => void
 }) {
-  const placeholder = language === 'uk' ? 'Пошук книг...' : 'Search books...'
-  const ariaLabel = language === 'uk' ? 'Пошук книг' : 'Search books'
+  const placeholder = 'Search books...'
+  const ariaLabel = 'Search books'
 
   return (
     <div className="search__input-wrapper">
@@ -246,14 +244,12 @@ function ResultItem({
 /** "View all results" link at bottom of dropdown */
 function ViewAllLink({
   query,
-  language,
   onClick,
 }: {
   query: string
-  language: string
   onClick: () => void
 }) {
-  const text = language === 'uk' ? 'Переглянути всі результати' : 'View all results'
+  const text = 'View all results'
 
   return (
     <LocalizedLink
@@ -268,29 +264,27 @@ function ViewAllLink({
 }
 
 /** "No results" message */
-function NoResults({ language }: { language: string }) {
-  const text = language === 'uk' ? 'Нічого не знайдено' : 'No results found'
+function NoResults() {
+  const text = 'No results found'
   return <div className="search__no-results">{text}</div>
 }
 
 /** Recent searches list for dropdown */
 function RecentSearchesList({
   items,
-  language,
   activeIndex,
   onSelect,
   onRemove,
   onClear,
 }: {
   items: string[]
-  language: string
   activeIndex: number
   onSelect: (q: string) => void
   onRemove: (q: string) => void
   onClear: () => void
 }) {
-  const recentLabel = language === 'uk' ? 'Нещодавні пошуки' : 'Recent searches'
-  const clearLabel = language === 'uk' ? 'Очистити' : 'Clear all'
+  const recentLabel = 'Recent searches'
+  const clearLabel = 'Clear all'
 
   return (
     <div className="search__recent">
@@ -447,12 +441,12 @@ export function MobileSearchOverlay({ onClose }: { onClose: () => void }) {
     setRecentSearches([])
   }
 
-  const placeholder = language === 'uk' ? 'Пошук книг...' : 'Search books...'
-  const closeLabel = language === 'uk' ? 'Закрити' : 'Close'
-  const noResultsText = language === 'uk' ? 'Нічого не знайдено' : 'No results found'
-  const viewAllText = language === 'uk' ? 'Переглянути всі результати' : 'View all results'
-  const recentLabel = language === 'uk' ? 'Нещодавні пошуки' : 'Recent searches'
-  const clearLabel = language === 'uk' ? 'Очистити' : 'Clear all'
+  const placeholder = 'Search books...'
+  const closeLabel = 'Close'
+  const noResultsText = 'No results found'
+  const viewAllText = 'View all results'
+  const recentLabel = 'Recent searches'
+  const clearLabel = 'Clear all'
 
   const showSuggestions = suggestions.length > 0
   const showNoResults = debouncedQuery.length >= 2 && !isLoading && suggestions.length === 0
@@ -779,7 +773,6 @@ export function Search() {
         query={query}
         isLoading={isLoading}
         isOpen={isOpen}
-        language={language}
         onChange={handleInputChange}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
@@ -791,14 +784,13 @@ export function Search() {
           {showRecent ? (
             <RecentSearchesList
               items={recentSearches}
-              language={language}
               activeIndex={activeIndex}
               onSelect={handleRecentSelect}
               onRemove={handleRecentRemove}
               onClear={handleRecentClear}
             />
           ) : showNoResults ? (
-            <NoResults language={language} />
+            <NoResults />
           ) : (
             <>
               <ul id="search-results" className="search__results" role="listbox">
@@ -828,7 +820,7 @@ export function Search() {
                       />
                     ))}
               </ul>
-              <ViewAllLink query={query} language={language} onClick={closeDropdown} />
+              <ViewAllLink query={query} onClick={closeDropdown} />
             </>
           )}
         </div>

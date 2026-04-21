@@ -106,6 +106,7 @@ public static class TtsEndpoints
         if (string.IsNullOrWhiteSpace(text)) { shortCircuit = Results.BadRequest("Text is required"); return true; }
         if (text.Length > cfg.MaxTextLength) { shortCircuit = Results.BadRequest($"Text exceeds maximum length of {cfg.MaxTextLength} characters"); return true; }
         if (string.IsNullOrWhiteSpace(lang)) { shortCircuit = Results.BadRequest("Language is required"); return true; }
+        if (lang.StartsWith("uk", StringComparison.OrdinalIgnoreCase)) { shortCircuit = Results.BadRequest("Language 'uk' is not supported"); return true; }
 
         // Deterministic ETag from inputs — same (text, lang, voice, speed) always
         // yields the same MP3, so a 304 short-circuit saves both bandwidth and a

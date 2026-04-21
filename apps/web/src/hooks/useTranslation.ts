@@ -1,11 +1,10 @@
 import { useCallback } from 'react'
 import { useLanguage, SupportedLanguage } from '../context/LanguageContext'
 import en from '../locales/en.json'
-import uk from '../locales/uk.json'
 
 type TranslationData = typeof en
 
-const translations: Record<SupportedLanguage, TranslationData> = { en, uk }
+const translations: Record<SupportedLanguage, TranslationData> = { en }
 
 function getNestedValue(obj: unknown, path: string): unknown {
   const keys = path.split('.')

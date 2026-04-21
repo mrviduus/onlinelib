@@ -1,12 +1,11 @@
 import en from './en.json'
-import uk from './uk.json'
 
 interface TranslationNode { [key: string]: string | TranslationNode }
 type Translations = TranslationNode
 
-export const translations: Record<string, Translations> = { en, uk }
+export const translations: Record<string, Translations> = { en }
 
-export const supportedLanguages = ['en', 'uk'] as const
+export const supportedLanguages = ['en'] as const
 export type Language = (typeof supportedLanguages)[number]
 
 /** Get translation by dot-notation key: t('en', 'home.hero.title') */

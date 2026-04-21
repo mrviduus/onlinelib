@@ -28,7 +28,6 @@ public class TtsConfiguration
         // Broader coverage so non-English books don't fall back to an English
         // voice speaking foreign text (worst-quality degradation).
         ["en"] = "en-US-AriaNeural",
-        ["uk"] = "uk-UA-PolinaNeural",
         ["ru"] = "ru-RU-SvetlanaNeural",
         ["es"] = "es-ES-ElviraNeural",
         ["fr"] = "fr-FR-DeniseNeural",

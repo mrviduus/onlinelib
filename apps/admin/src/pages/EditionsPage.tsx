@@ -188,7 +188,6 @@ export function EditionsPage() {
         >
           <option value="">All languages</option>
           <option value="en">English</option>
-          <option value="uk">Ukrainian</option>
         </select>
 
         <select

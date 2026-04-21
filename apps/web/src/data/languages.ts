@@ -33,7 +33,6 @@ export const LANGUAGES: LanguageEntry[] = [
   // Popular — ordered as shown in picker. pt-BR promoted for Brazil audience.
   { code: 'en', englishName: 'English', nativeName: 'English', flagCountry: 'GB', popular: true },
   { code: 'pt-BR', englishName: 'Portuguese (Brazil)', nativeName: 'Português (Brasil)', flagCountry: 'BR', popular: true },
-  { code: 'uk', englishName: 'Ukrainian', nativeName: 'Українська', flagCountry: 'UA', popular: true },
   { code: 'ru', englishName: 'Russian', nativeName: 'Русский', flagCountry: 'RU', popular: true },
   { code: 'de', englishName: 'German', nativeName: 'Deutsch', flagCountry: 'DE', popular: true },
   { code: 'fr', englishName: 'French', nativeName: 'Français', flagCountry: 'FR', popular: true },

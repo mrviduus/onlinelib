@@ -100,10 +100,10 @@ export function AuthorDetailPage() {
           noindex
           statusCode={404}
         />
-        <h1>{language === 'uk' ? 'Автор не знайдений' : 'Author not found'}</h1>
+        <h1>Author not found</h1>
         <p className="error">{error?.message || 'Not found'}</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          Back to Home
         </LocalizedLink>
       </div>
     )
@@ -113,10 +113,10 @@ export function AuthorDetailPage() {
     return (
       <div className="author-detail">
         <SeoHead title="Error" />
-        <h1>{language === 'uk' ? 'Помилка завантаження' : 'Loading error'}</h1>
+        <h1>Loading error</h1>
         <p className="error">{error.message}</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          Back to Home
         </LocalizedLink>
       </div>
     )
@@ -138,19 +138,10 @@ export function AuthorDetailPage() {
     }
   })()
 
-  const seoTitle = language === 'uk'
-    ? `${author.name} — книги автора`
-    : `${author.name} — books by author`
+  const seoTitle = `${author.name} — books by author`
   const seoDescription = (() => {
     if (author.bio && author.bio.length >= 100) return author.bio
     const bookTitles = author.editions?.slice(0, 3).map(e => e.title).join(', ') || ''
-    if (language === 'uk') {
-      const parts = [`Читайте книги автора ${author.name} онлайн безкоштовно з перекладом.`]
-      if (author.bookCount > 0) parts.push(`${author.bookCount} книг доступно.`)
-      if (bookTitles) parts.push(`Включає: ${bookTitles}.`)
-      if (author.bio) parts.push(author.bio)
-      return parts.join(' ')
-    }
     const parts = [`Read books by ${author.name} online for free with instant translation.`]
     if (author.bookCount > 0) parts.push(`${author.bookCount} books available.`)
     if (bookTitles) parts.push(`Including: ${bookTitles}.`)
@@ -200,14 +191,14 @@ export function AuthorDetailPage() {
             )}
           </div>
           <div className="author-detail__publications">
-            <span className="author-detail__publications-label">{language === 'uk' ? 'ПУБЛІКАЦІЇ' : 'PUBLICATIONS'}</span>
-            <span className="author-detail__publications-count">{author.editions.length} {language === 'uk' ? 'книг' : 'books'}</span>
+            <span className="author-detail__publications-label">PUBLICATIONS</span>
+            <span className="author-detail__publications-count">{author.editions.length} books</span>
           </div>
         </div>
         <div className="author-detail__info">
           <h1 className="author-detail__name">{author.name}</h1>
           <div className="author-detail__about-inline">
-            <h2>{language === 'uk' ? 'Біографія' : 'Biography'}</h2>
+            <h2>Biography</h2>
             <p>{generateAboutText(author)}</p>
           </div>
           <ShareButtons
@@ -220,7 +211,7 @@ export function AuthorDetailPage() {
       {/* Themes Section */}
       {getThemes(author).length > 0 && (
         <section className="author-themes">
-          <h2>{language === 'uk' ? `Основні теми у творах ${author.name}` : `Common themes in ${author.name}'s work`}</h2>
+          <h2>{`Common themes in ${author.name}'s work`}</h2>
           <div className="author-themes__carousel">
             {getThemes(author).map((theme) => (
               <div key={theme} className="author-themes__item">
@@ -232,9 +223,9 @@ export function AuthorDetailPage() {
         </section>
       )}
 
-      <h2>{language === 'uk' ? 'Книги' : 'Books'}</h2>
+      <h2>Books</h2>
       {author.editions.length === 0 ? (
-        <p>{language === 'uk' ? 'Книг поки немає.' : 'No books available.'}</p>
+        <p>No books available.</p>
       ) : (
         <div className="books-grid">
           {author.editions.map((book) => (
@@ -255,7 +246,7 @@ export function AuthorDetailPage() {
       {exploreGenres.length > 0 && (
         <section className="author-related" aria-labelledby="author-explore-genres">
           <h2 id="author-explore-genres">
-            {language === 'uk' ? 'Досліджуйте за жанром' : 'Explore by genre'}
+            Explore by genre
           </h2>
           <ul className="author-related__genres">
             {exploreGenres.map((g) => (
@@ -273,7 +264,7 @@ export function AuthorDetailPage() {
       {relatedAuthors.length > 0 && (
         <section className="author-related" aria-labelledby="author-other-authors">
           <h2 id="author-other-authors">
-            {language === 'uk' ? 'Інші автори' : 'Other authors you may enjoy'}
+            Other authors you may enjoy
           </h2>
           <ul className="author-related__authors">
             {relatedAuthors.map((a) => (
@@ -288,7 +279,7 @@ export function AuthorDetailPage() {
                   </div>
                   <span className="author-related__author-name">{a.name}</span>
                   <span className="author-related__author-count">
-                    {a.bookCount} {language === 'uk' ? (a.bookCount === 1 ? 'книга' : 'книг') : (a.bookCount === 1 ? 'book' : 'books')}
+                    {a.bookCount} {a.bookCount === 1 ? 'book' : 'books'}
                   </span>
                 </LocalizedLink>
               </li>
@@ -299,13 +290,13 @@ export function AuthorDetailPage() {
 
       {/* Relevance Section */}
       <section className="author-relevance">
-        <h2>{language === 'uk' ? `Чому ${author.name} читають і сьогодні` : `Why ${author.name} is still read today`}</h2>
+        <h2>{`Why ${author.name} is still read today`}</h2>
         <p>{generateRelevanceText(author)}</p>
       </section>
 
       {/* FAQ Section */}
       <section className="author-faq">
-        <h2>{language === 'uk' ? 'Часті запитання' : 'Frequently Asked Questions'}</h2>
+        <h2>Frequently Asked Questions</h2>
         {getFAQs(author).map((faq, i) => (
           <details key={i}>
             <summary>{faq.question}</summary>

@@ -7,7 +7,6 @@ interface Props {
 
 const LANG_NAMES: Record<SupportedLanguage, string> = {
   en: 'English',
-  uk: 'Ukrainian',
 }
 
 export function TranslationNotAvailable({ availableEditions }: Props) {
@@ -30,7 +29,7 @@ export function TranslationNotAvailable({ availableEditions }: Props) {
                   href={`/${ed.language}/books/${ed.slug}`}
                   onClick={(e) => {
                     e.preventDefault()
-                    if (ed.language === 'en' || ed.language === 'uk') {
+                    if (ed.language === 'en') {
                       switchLanguage(ed.language)
                     }
                   }}

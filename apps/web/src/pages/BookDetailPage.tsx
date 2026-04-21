@@ -35,7 +35,7 @@ function stripHtml(html: string): string {
 }
 
 /** Build a meaningful meta description fallback when seoDescription is missing or too short */
-function buildBookMetaDescription(book: BookDetail, lang: string): string {
+function buildBookMetaDescription(book: BookDetail): string {
   // Prefer seoDescription, then description
   const raw = book.seoDescription || (book.description ? stripHtml(book.description) : '')
   if (raw.length >= 100) return raw
@@ -44,16 +44,6 @@ function buildBookMetaDescription(book: BookDetail, lang: string): string {
   const authors = book.authors.map(a => a.name).join(', ')
   const genres = (book.genres ?? []).map(g => g.name).join(', ')
   const chapterCount = book.chapters?.length ?? 0
-
-  if (lang === 'uk') {
-    const parts = [`Читайте «${book.title}»`]
-    if (authors) parts.push(`від ${authors}`)
-    parts.push('онлайн безкоштовно з перекладом')
-    if (genres) parts.push(`. Жанр: ${genres}`)
-    if (chapterCount > 0) parts.push(`. ${chapterCount} розділів`)
-    if (raw) parts.push(`. ${raw}`)
-    return parts.join(' ')
-  }
 
   const parts = [`Read "${book.title}"`]
   if (authors) parts.push(`by ${authors}`)
@@ -127,7 +117,7 @@ export function BookDetailPage() {
     if (!book) return []
     const langs = new Set<SupportedLanguage>([language])
     book.otherEditions.forEach((ed) => {
-      if (ed.language === 'uk' || ed.language === 'en') {
+      if (ed.language === 'en') {
         langs.add(ed.language)
       }
     })
@@ -186,7 +176,7 @@ export function BookDetailPage() {
     <div className="book-detail--stitch">
       <SeoHead
         title={book.seoTitle || book.title}
-        description={buildBookMetaDescription(book, language)}
+        description={buildBookMetaDescription(book)}
         image={book.coverPath ? getStorageUrl(book.coverPath) : undefined}
         type="book"
         availableLanguages={availableLanguages}

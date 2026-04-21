@@ -172,7 +172,6 @@ export function EditBlogPostPage() {
               onChange={(e) => setLanguage(e.target.value)}
             >
               <option value="en">English</option>
-              <option value="uk">Ukrainian</option>
             </select>
           </div>
 

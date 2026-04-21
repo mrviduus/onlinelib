@@ -63,7 +63,6 @@ async function seedTestData(request: any) {
   const items = books?.items ?? []
 
   const enBook = items.find((b: any) => b.language === 'en')
-  const ukBook = items.find((b: any) => b.language === 'uk') ?? items.find((b: any) => b.language !== 'en')
 
   const testData: any = { siteId: '' }
   if (enBook) {
@@ -73,17 +72,6 @@ async function seedTestData(request: any) {
       slug: enBook.slug,
       title: enBook.title,
       chapterCount: enBook.chapterCount ?? 3,
-      firstChapterSlug: detail?.chapters?.[0]?.slug ?? '',
-      secondChapterSlug: detail?.chapters?.[1]?.slug ?? '',
-    }
-  }
-  if (ukBook) {
-    const detail = await fetchBookDetail(request, ukBook.slug)
-    testData.ukBook = {
-      editionId: ukBook.id,
-      slug: ukBook.slug,
-      title: ukBook.title,
-      chapterCount: ukBook.chapterCount ?? 3,
       firstChapterSlug: detail?.chapters?.[0]?.slug ?? '',
       secondChapterSlug: detail?.chapters?.[1]?.slug ?? '',
     }

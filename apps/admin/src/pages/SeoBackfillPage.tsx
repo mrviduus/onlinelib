@@ -29,7 +29,7 @@ const FIELD_TYPES = [
   'Bio', 'Description', 'Relevance', 'Themes', 'Faqs',
   'SeoTitle', 'SeoDescription', 'SeoKeywords',
 ] as const
-const LANGUAGES = ['en', 'uk'] as const
+const LANGUAGES = ['en'] as const
 const TRUST_LEVELS = ['Manual', 'Review', 'Auto'] as const
 
 export function SeoBackfillPage() {

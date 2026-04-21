@@ -90,10 +90,10 @@ export function GenreDetailPage() {
           noindex
           statusCode={404}
         />
-        <h1>{language === 'uk' ? 'Жанр не знайдений' : 'Genre not found'}</h1>
+        <h1>Genre not found</h1>
         <p className="error">{error?.message || 'Not found'}</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          Back to Home
         </LocalizedLink>
       </div>
     )
@@ -103,10 +103,10 @@ export function GenreDetailPage() {
     return (
       <div className="genre-detail">
         <SeoHead title="Error" />
-        <h1>{language === 'uk' ? 'Помилка завантаження' : 'Loading error'}</h1>
+        <h1>Loading error</h1>
         <p className="error">{error.message}</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          Back to Home
         </LocalizedLink>
       </div>
     )
@@ -114,12 +114,8 @@ export function GenreDetailPage() {
 
   if (!genre) return null
 
-  const seoTitle = language === 'uk'
-    ? `${genre.name} — книги онлайн`
-    : `${genre.name} — books online`
-  const seoDescription = genre.description || (language === 'uk'
-    ? `Читайте книги жанру ${genre.name} онлайн`
-    : `Read ${genre.name} books online`)
+  const seoTitle = `${genre.name} — books online`
+  const seoDescription = genre.description || `Read ${genre.name} books online`
 
   return (
     <>
@@ -138,13 +134,13 @@ export function GenreDetailPage() {
         <h1 className="genre-detail__name">{genre.name}</h1>
         {genre.description && <p className="genre-detail__description">{genre.description}</p>}
         <p className="genre-detail__count">
-          {genre.bookCount} {language === 'uk' ? 'книг' : 'books'}
+          {genre.bookCount} books
         </p>
       </div>
 
-      <h2>{language === 'uk' ? 'Книги' : 'Books'}</h2>
+      <h2>Books</h2>
       {genre.editions.length === 0 ? (
-        <p>{language === 'uk' ? 'Книг поки немає.' : 'No books available.'}</p>
+        <p>No books available.</p>
       ) : (
         <div className="books-grid">
           {genre.editions.map((book) => (
@@ -165,9 +161,7 @@ export function GenreDetailPage() {
       {popularAuthors.length > 0 && (
         <section className="genre-related" aria-labelledby="genre-related-authors">
           <h2 id="genre-related-authors">
-            {language === 'uk'
-              ? `Популярні автори в жанрі «${genre.name}»`
-              : `Popular authors in ${genre.name}`}
+            {`Popular authors in ${genre.name}`}
           </h2>
           <ul className="genre-related__authors">
             {popularAuthors.map((a) => (
@@ -175,7 +169,7 @@ export function GenreDetailPage() {
                 <LocalizedLink to={`/authors/${a.slug}`} className="genre-related__author">
                   <span className="genre-related__author-name">{a.name}</span>
                   <span className="genre-related__author-count">
-                    {a.count} {language === 'uk' ? (a.count === 1 ? 'книга' : 'книг') : (a.count === 1 ? 'book' : 'books')}
+                    {a.count} {a.count === 1 ? 'book' : 'books'}
                   </span>
                 </LocalizedLink>
               </li>
@@ -187,7 +181,7 @@ export function GenreDetailPage() {
       {relatedGenres.length > 0 && (
         <section className="genre-related" aria-labelledby="genre-related-genres">
           <h2 id="genre-related-genres">
-            {language === 'uk' ? 'Інші жанри' : 'Explore more genres'}
+            Explore more genres
           </h2>
           <ul className="genre-related__genres">
             {relatedGenres.map((g) => (

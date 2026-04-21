@@ -439,7 +439,6 @@ public class IngestionWorkerService
     {
         return language.ToLowerInvariant() switch
         {
-            "uk" => SearchLanguage.Uk,
             "en" => SearchLanguage.En,
             _ => SearchLanguage.Auto
         };

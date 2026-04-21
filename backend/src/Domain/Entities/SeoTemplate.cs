@@ -14,7 +14,7 @@ public class SeoTemplate
     public SeoEntityType EntityType { get; set; }
     public SeoFieldType FieldType { get; set; }
 
-    /// <summary>ISO 639-1, e.g. "en", "uk".</summary>
+    /// <summary>ISO 639-1, e.g. "en".</summary>
     public string LanguageCode { get; set; } = "en";
 
     public required string Name { get; set; }

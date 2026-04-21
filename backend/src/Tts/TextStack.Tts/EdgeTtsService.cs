@@ -255,7 +255,8 @@ public class EdgeTtsService : ITtsService, IHostedService, IDisposable
             }
         }
 
-        var voices = (_cachedVoices ?? new List<EdgeVoiceData>()).AsEnumerable();
+        var voices = (_cachedVoices ?? new List<EdgeVoiceData>())
+            .Where(v => !v.Locale.StartsWith("uk", StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(lang))
             voices = voices.Where(v => v.Locale.StartsWith(lang, StringComparison.OrdinalIgnoreCase));
 

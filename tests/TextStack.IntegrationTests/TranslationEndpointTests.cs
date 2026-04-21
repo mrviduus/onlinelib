@@ -26,7 +26,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         {
             text = "Hello",
             sourceLang = "en",
-            targetLang = "uk"
+            targetLang = "de"
         });
 
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -44,7 +44,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         Assert.NotNull(result);
         Assert.NotNull(result.TranslatedText);
         Assert.Equal("en", result.SourceLang);
-        Assert.Equal("uk", result.TargetLang);
+        Assert.Equal("de", result.TargetLang);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         {
             text = "",
             sourceLang = "en",
-            targetLang = "uk"
+            targetLang = "de"
         });
 
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -71,7 +71,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         {
             text = "Hello",
             sourceLang = "",
-            targetLang = "uk"
+            targetLang = "de"
         });
 
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -104,7 +104,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         {
             text = longText,
             sourceLang = "en",
-            targetLang = "uk"
+            targetLang = "de"
         });
 
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -137,7 +137,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
     }
 
     [Fact]
-    public async Task GetLanguages_ContainsEnglishAndUkrainian()
+    public async Task GetLanguages_ContainsEnglishAndGerman()
     {
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/translate/languages");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -151,7 +151,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         var languages = await response.Content.ReadFromJsonAsync<LanguageInfo[]>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(languages);
         Assert.Contains(languages, l => l.Code == "en");
-        Assert.Contains(languages, l => l.Code == "uk");
+        Assert.Contains(languages, l => l.Code == "de");
     }
 
     #endregion

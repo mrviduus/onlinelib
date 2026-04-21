@@ -187,7 +187,6 @@ export function AutoPublishPage() {
               >
                 <option value="">All</option>
                 <option value="en">English</option>
-                <option value="uk">Ukrainian</option>
               </select>
             </label>
             <button

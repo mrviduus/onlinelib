@@ -21,10 +21,10 @@ describe('splitSentences', () => {
     expect(out.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('splits unicode (Ukrainian)', () => {
-    expect(splitSentences('Привіт. Як справи?', 'uk')).toEqual([
-      'Привіт.',
-      'Як справи?',
+  it('splits unicode (German)', () => {
+    expect(splitSentences('Hallo. Wie geht es dir?', 'de')).toEqual([
+      'Hallo.',
+      'Wie geht es dir?',
     ])
   })
 

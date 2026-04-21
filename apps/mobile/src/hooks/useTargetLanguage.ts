@@ -26,9 +26,7 @@ export function useTargetLanguage(overrideFromLang?: string): {
   const toLang =
     nativeLanguage !== fromLang
       ? nativeLanguage
-      : fromLang === 'uk'
-        ? 'en'
-        : 'uk'
+      : 'en'
 
   return { fromLang, toLang }
 }

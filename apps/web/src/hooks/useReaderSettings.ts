@@ -12,7 +12,6 @@ export interface ReaderSettings {
   fontFamily: FontFamily
   ttsSpeed: number // 0.75 - 2.0
   ttsVoiceEn: string
-  ttsVoiceUk: string
   showReaderStats: boolean
   showInlineTranslations: boolean
 }
@@ -27,7 +26,6 @@ const defaults: ReaderSettings = {
   fontFamily: 'serif',
   ttsSpeed: 1.0,
   ttsVoiceEn: 'en-US-AriaNeural',
-  ttsVoiceUk: 'uk-UA-PolinaNeural',
   showReaderStats: true,
   showInlineTranslations: true,
 }

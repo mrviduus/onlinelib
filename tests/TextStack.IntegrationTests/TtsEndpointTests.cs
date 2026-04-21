@@ -35,9 +35,9 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     }
 
     [Fact]
-    public async Task Synthesize_Ukrainian_Returns200()
+    public async Task Synthesize_German_Returns200()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=%D0%BF%D1%80%D0%B8%D0%B2%D1%96%D1%82&lang=uk");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts?text=hallo&lang=de");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -148,9 +148,9 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
     }
 
     [Fact]
-    public async Task GetVoices_FilterByUk_ReturnsUkrainianVoices()
+    public async Task GetVoices_FilterByDe_ReturnsGermanVoices()
     {
-        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts/voices?lang=uk");
+        var request = _fixture.CreateRequest(HttpMethod.Get, "/tts/voices?lang=de");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadGateway) return;
@@ -158,8 +158,8 @@ public class TtsEndpointTests : IClassFixture<LiveApiFixture>
 
         var voices = await response.Content.ReadFromJsonAsync<VoiceInfo[]>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(voices);
-        Assert.True(voices.Length > 0, "Should have Ukrainian voices");
-        Assert.All(voices, v => Assert.StartsWith("uk", v.Locale, StringComparison.OrdinalIgnoreCase));
+        Assert.True(voices.Length > 0, "Should have German voices");
+        Assert.All(voices, v => Assert.StartsWith("de", v.Locale, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion

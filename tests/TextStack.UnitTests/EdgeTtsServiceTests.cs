@@ -60,7 +60,7 @@ public class EdgeTtsServiceTests
 
     [Theory]
     [InlineData("en", "en-US-AriaNeural")]
-    [InlineData("uk", "uk-UA-PolinaNeural")]
+    [InlineData("de", "de-DE-KatjaNeural")]
     [InlineData("en-US", "en-US-AriaNeural")]
     [InlineData("xx", "en-US-AriaNeural")] // unknown → en fallback
     public void ResolveDefaultVoice_ReturnsExpected(string lang, string expected)
@@ -82,7 +82,6 @@ public class EdgeTtsServiceTests
     [Theory]
     [InlineData("en", "en-")]
     [InlineData("pt-BR", "pt-")]
-    [InlineData("uk", "uk-")]
     [InlineData("ru", "ru-")]
     [InlineData("de", "de-")]
     [InlineData("fr", "fr-")]
@@ -135,7 +134,7 @@ public class EdgeTtsServiceTests
         Assert.NotNull(method);
 
         var key1 = method.Invoke(null, ["hello", "en-US-AriaNeural", "+0%"]);
-        var key2 = method.Invoke(null, ["hello", "uk-UA-PolinaNeural", "+0%"]);
+        var key2 = method.Invoke(null, ["hello", "de-DE-KatjaNeural", "+0%"]);
         Assert.NotEqual(key1, key2);
     }
 
@@ -182,6 +181,11 @@ public class EdgeTtsServiceTests
 
         var service = CreateService(tmpDir);
         await service.StartAsync(CancellationToken.None);
+
+        // SweepCache runs off-thread via Task.Run — poll briefly until it finishes.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (File.Exists(oldFile) && DateTime.UtcNow < deadline)
+            await Task.Delay(50);
 
         Assert.False(File.Exists(oldFile));
         Assert.True(File.Exists(newFile));

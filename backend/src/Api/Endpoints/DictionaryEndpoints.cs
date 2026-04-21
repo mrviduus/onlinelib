@@ -29,7 +29,6 @@ public static class DictionaryEndpoints
         var langCode = lang.ToLowerInvariant() switch
         {
             "en" or "english" => "en",
-            "uk" or "ukrainian" => "uk",
             "ru" or "russian" => "ru",
             "de" or "german" => "de",
             "fr" or "french" => "fr",

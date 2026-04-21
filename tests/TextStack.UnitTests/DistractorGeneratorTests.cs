@@ -194,7 +194,7 @@ public class DistractorGeneratorTests
     public async Task Generate_Max5Distractors()
     {
         var gen = CreateGenerator(HttpStatusCode.OK,
-            "DISTRACTORS: a, b, c, d, e, f, g, h");
+            "DISTRACTORS: alpha, bravo, charlie, delta, echo, foxtrot, golf, hotel");
 
         var (distractors, _, _) = await gen.GenerateAsync(
             "fast", "en", null, null, null, CancellationToken.None);

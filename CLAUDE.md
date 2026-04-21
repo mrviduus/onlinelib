@@ -137,7 +137,7 @@ BrowserRouter → SiteProvider → AuthProvider → GuestLimitsProvider → Nati
 
 Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Download,Language}Context.tsx`
 
-**i18n**: JSON files in `apps/web/src/locales/{en,uk}.json`. Hook: `useTranslation()`. Languages: `['en', 'uk']`.
+**i18n**: JSON file in `apps/web/src/locales/en.json`. Hook: `useTranslation()`. Languages: `['en']`.
 
 **Routing**: Language-prefixed routes (`/:lang/books`, `/:lang/authors`, etc). Root `/` → `/en`.
 
@@ -159,7 +159,7 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **Blog**: Admin-created blog posts for internal linking and curated content (e.g. "Top 10 dystopian books").
 - BlogPost → BlogComment (threaded, 2-level max), BlogLike
-- Per-language posts (separate post for en/uk, like Editions)
+- Per-language posts (language field on BlogPost, en-only now)
 - Status: Draft/Published, admin publish/unpublish
 - Public pages: `/:lang/blog` (list), `/:lang/blog/:slug` (detail)
 - Admin CRUD: `/admin/blog` endpoints, admin panel pages
@@ -196,7 +196,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - **Frontend**: `useTts()` hook → speak/stop/isPlaying. Used in vocabulary (word list + SRS cards) and reader (SelectionToolbar, DictionaryPopup, TranslationPopup)
 - **Reader wiring**: `ReaderHighlights.tsx` orchestrates — passes `onSpeak` to toolbar/popups
 - **Settings**: `ttsSpeed` in `useReaderSettings` (0.75x–2.0x), UI in `ReaderSettingsDrawer`
-- **Voices**: `en-US-AriaNeural` (en), `uk-UA-PolinaNeural` (uk), 200+ available
+- **Voices**: `en-US-AriaNeural` (en), 200+ available for native-language TTS
 - **Config**: `Tts:CachePath`, `Tts:MaxTextLength` (500), `Tts:TimeoutSeconds` (15). Docker: env `Tts__CachePath=/data/tts-cache`
 - **Graceful degradation**: if disk cache unavailable (permissions), TTS still works without caching
 
@@ -340,7 +340,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Reader | `apps/web/src/pages/ReaderPage.tsx` |
 | Library | `apps/web/src/pages/LibraryPage.tsx` |
 | API Hook | `apps/web/src/hooks/useApi.ts` |
-| i18n | `apps/web/src/locales/{en,uk}.json` |
+| i18n | `apps/web/src/locales/en.json` |
 | Admin | `apps/admin/src/pages/` |
 | Stats | `apps/web/src/pages/StatsPage.tsx` |
 | Reading Hooks | `apps/web/src/hooks/useReadingSession.ts` |

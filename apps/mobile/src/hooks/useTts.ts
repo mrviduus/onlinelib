@@ -3,7 +3,7 @@ import * as Speech from 'expo-speech'
 import { trackTtsPlayed } from '../lib/analytics'
 
 /**
- * Maps our app language codes ('en', 'uk') to BCP-47 identifiers that
+ * Maps our app language codes ('en') to BCP-47 identifiers that
  * expo-speech understands. Falls back to 'en-US' for anything we don't
  * explicitly know so Speech doesn't silently fail on an unrecognised tag.
  */
@@ -11,7 +11,6 @@ function toBcp47(lang?: string): string {
   if (!lang) return 'en-US'
   const lc = lang.toLowerCase()
   if (lc.startsWith('en')) return 'en-US'
-  if (lc.startsWith('uk')) return 'uk-UA'
   // Already a BCP-47 tag? Pass through. expo-speech tolerates unknown codes
   // by falling back to the system default voice.
   if (lc.includes('-')) return lang
