@@ -15,9 +15,11 @@ namespace Application.Vocabulary;
 //
 // Pos='PROPN' → always LookupOnly (proper nouns aren't vocab-worthy).
 //
-// Backed by a process-wide in-memory cache (~20k en rows ≈ 1 MB). Loads once
-// lazily on first call; re-load is not supported since startup seeder is the
-// source of truth.
+// Backed by a process-wide in-memory cache. Loads lazily; fail-open:
+//   - language has no rows in dataset (e.g. reading a French book, seed is en-only)
+//     → SrsEligible for everything, treat filter as disabled for that language.
+//   - cache underflows MinLoadedRows (seeder still running) → retry on next call
+//     instead of poisoning classification forever.
 public enum FrequencyClassKind
 {
     SrsEligible,
@@ -44,14 +46,25 @@ public class FrequencyFilter(
     public const int TierInstantMax = 5000;
     public const int TierCommitMax = 15000;
     public const int RetapRequired = 2;
+    private const int MinLoadedRows = 15000;
 
     private readonly ConcurrentDictionary<string, Entry> _cache = new();
+    private readonly HashSet<string> _supportedLanguages = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _loaded;
 
     public async Task<FrequencyClassification> ClassifyAsync(string word, string language, int currentTapCount, CancellationToken ct)
     {
         await EnsureLoadedAsync(ct);
+
+        // Fail-open. Covers two cases:
+        //   1. Non-English book — dataset is en-only; we don't have the data to
+        //      filter, so trust the tap and send to SRS.
+        //   2. Seed still in progress — EnsureLoadedAsync won't mark _loaded
+        //      true until MinLoadedRows hit, but this guard belts-and-braces
+        //      against ever treating the user's entire vocabulary as "rare".
+        if (!_supportedLanguages.Contains(language))
+            return new(FrequencyClassKind.SrsEligible, null, null, 1, null);
 
         var key = Key(language, word);
         if (_cache.TryGetValue(key, out var e))
@@ -91,11 +104,25 @@ public class FrequencyFilter(
                 .Select(w => new { w.Language, w.Word, w.Rank, w.Zipf, w.Pos })
                 .ToListAsync(ct);
 
+            // Short-circuit: seeder hasn't finished. Don't flip `_loaded` — the
+            // next Classify call re-enters and retries, so we don't permanently
+            // poison classification by caching a half-seeded snapshot.
+            if (rows.Count < MinLoadedRows)
+            {
+                logger.LogWarning("FrequencyFilter skipped cache: {Count}/{Min} rows — seeder not ready",
+                    rows.Count, MinLoadedRows);
+                return;
+            }
+
             foreach (var r in rows)
+            {
                 _cache[Key(r.Language, r.Word)] = new Entry(r.Rank, r.Zipf, r.Pos);
+                _supportedLanguages.Add(r.Language);
+            }
 
             _loaded = true;
-            logger.LogInformation("FrequencyFilter loaded {Count} rows", rows.Count);
+            logger.LogInformation("FrequencyFilter loaded {Count} rows across {Langs} language(s)",
+                rows.Count, _supportedLanguages.Count);
         }
         finally
         {

@@ -1227,6 +1227,16 @@ public static class VocabularyEndpoints
             return Results.Ok(ToDto(already));
         }
 
+        // Hard ceiling still applies — Add Anyway bypasses the daily cap, not
+        // the 5000-word vocabulary limit. Counts both active SRS + pending
+        // so a user can't exceed the cap via the lookup bypass.
+        var count = await db.VocabularyWords.CountAsync(
+            w => w.UserId == userId && w.SiteId == siteId, ct);
+        count += await db.PendingVocabularyWords.CountAsync(
+            p => p.UserId == userId && p.SiteId == siteId, ct);
+        if (count >= MaxWordsPerUser)
+            return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
+
         var now = DateTimeOffset.UtcNow;
         var entry = new VocabularyWord
         {
