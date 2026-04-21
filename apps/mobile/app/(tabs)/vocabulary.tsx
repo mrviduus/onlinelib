@@ -232,20 +232,24 @@ export default function VocabularyScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
-      {stats?.weeklyProgress && <WeeklyBudgetBar progress={stats.weeklyProgress} />}
-      <View style={styles.settingsRow}>
-        <TouchableOpacity
-          onPress={() => setSettingsOpen(true)}
-          style={[styles.settingsBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          accessibilityLabel={t('vocabulary.settings.title')}
-          hitSlop={8}
-        >
-          <Ionicons name="settings-outline" size={14} color={colors.textSecondary} />
-          <Text style={[styles.settingsText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
-            {t('vocabulary.settings.title')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {stats?.weeklyProgress && (
+        <>
+          <WeeklyBudgetBar progress={stats.weeklyProgress} />
+          <View style={styles.settingsRow}>
+            <TouchableOpacity
+              onPress={() => setSettingsOpen(true)}
+              style={[styles.settingsBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityLabel={t('vocabulary.settings.title')}
+              hitSlop={8}
+            >
+              <Ionicons name="settings-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.settingsText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
+                {t('vocabulary.settings.title')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <VocabSettingsModal
         visible={settingsOpen}

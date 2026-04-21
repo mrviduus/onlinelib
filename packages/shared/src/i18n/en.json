@@ -526,7 +526,9 @@
       "autoRetire": "Auto-retire mastered words",
       "autoRetireHint": "Stop reviewing words you've answered correctly 3× at long intervals.",
       "loadFailed": "Could not load settings.",
-      "saveFailed": "Could not save settings. Try again."
+      "saveFailed": "Could not save settings. Try again.",
+      "dailyCapRange": "Daily new words must be 5–100.",
+      "weeklyBudgetRange": "Weekly budget must be 10–500."
     }
   }
 }

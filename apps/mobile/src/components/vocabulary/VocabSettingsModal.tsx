@@ -21,8 +21,11 @@ const DAILY_CAP_MAX = 100
 const WEEKLY_BUDGET_MIN = 10
 const WEEKLY_BUDGET_MAX = 500
 
-const clamp = (v: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, Number.isFinite(v) ? v : min))
+const parseIntStrict = (s: string): number | null => {
+  if (!/^\d+$/.test(s)) return null
+  const n = parseInt(s, 10)
+  return Number.isFinite(n) ? n : null
+}
 
 export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
   const { colors } = useTheme()
@@ -55,13 +58,23 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
 
   const handleSave = async () => {
     if (!settings) return
+    const dailyCap = parseIntStrict(dailyCapText)
+    if (dailyCap === null || dailyCap < DAILY_CAP_MIN || dailyCap > DAILY_CAP_MAX) {
+      setError(t('vocabulary.settings.dailyCapRange'))
+      return
+    }
+    const weeklyBudget = parseIntStrict(weeklyBudgetText)
+    if (weeklyBudget === null || weeklyBudget < WEEKLY_BUDGET_MIN || weeklyBudget > WEEKLY_BUDGET_MAX) {
+      setError(t('vocabulary.settings.weeklyBudgetRange'))
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const payload: VocabSettingsDto = {
         ...settings,
-        dailyNewCap: clamp(parseInt(dailyCapText, 10) || DAILY_CAP_MIN, DAILY_CAP_MIN, DAILY_CAP_MAX),
-        weeklyReviewBudget: clamp(parseInt(weeklyBudgetText, 10) || WEEKLY_BUDGET_MIN, WEEKLY_BUDGET_MIN, WEEKLY_BUDGET_MAX),
+        dailyNewCap: dailyCap,
+        weeklyReviewBudget: weeklyBudget,
       }
       const saved = await vocabularyApi.updateVocabSettings(payload)
       setSettings(saved)
@@ -72,6 +85,10 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const onChangeDigits = (setter: (v: string) => void) => (v: string) => {
+    setter(v.replace(/[^\d]/g, ''))
   }
 
   return (
@@ -114,7 +131,7 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                   <TextInput
                     style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
                     value={dailyCapText}
-                    onChangeText={setDailyCapText}
+                    onChangeText={onChangeDigits(setDailyCapText)}
                     keyboardType="number-pad"
                     maxLength={3}
                     editable={!saving && !!settings}
@@ -131,7 +148,7 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                   <TextInput
                     style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
                     value={weeklyBudgetText}
-                    onChangeText={setWeeklyBudgetText}
+                    onChangeText={onChangeDigits(setWeeklyBudgetText)}
                     keyboardType="number-pad"
                     maxLength={3}
                     editable={!saving && !!settings}
