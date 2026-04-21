@@ -47,11 +47,13 @@ public class FrequencyFilter(
     public const int TierCommitMax = 15000;
     public const int RetapRequired = 2;
     private const int MinLoadedRows = 15000;
+    private static readonly TimeSpan NotReadyCacheFor = TimeSpan.FromSeconds(30);
 
     private readonly ConcurrentDictionary<string, Entry> _cache = new();
     private readonly HashSet<string> _supportedLanguages = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _loaded;
+    private DateTimeOffset _lastFailedAttempt = DateTimeOffset.MinValue;
 
     public async Task<FrequencyClassification> ClassifyAsync(string word, string language, int currentTapCount, CancellationToken ct)
     {
@@ -92,10 +94,16 @@ public class FrequencyFilter(
     private async Task EnsureLoadedAsync(CancellationToken ct)
     {
         if (_loaded) return;
+
+        // Throttle: if a recent probe found the table underfull (seeder still
+        // running), don't re-scan the full table on every tap — wait a bit.
+        if (DateTimeOffset.UtcNow - _lastFailedAttempt < NotReadyCacheFor) return;
+
         await _loadLock.WaitAsync(ct);
         try
         {
             if (_loaded) return;
+            if (DateTimeOffset.UtcNow - _lastFailedAttempt < NotReadyCacheFor) return;
 
             using var scope = scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
@@ -109,6 +117,7 @@ public class FrequencyFilter(
             // poison classification by caching a half-seeded snapshot.
             if (rows.Count < MinLoadedRows)
             {
+                _lastFailedAttempt = DateTimeOffset.UtcNow;
                 logger.LogWarning("FrequencyFilter skipped cache: {Count}/{Min} rows — seeder not ready",
                     rows.Count, MinLoadedRows);
                 return;
