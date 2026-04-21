@@ -9,7 +9,7 @@ namespace Api.Language;
 public class LanguageMiddleware
 {
     private readonly RequestDelegate _next;
-    private static readonly HashSet<string> SupportedLanguages = new(StringComparer.OrdinalIgnoreCase) { "uk", "en" };
+    private static readonly HashSet<string> SupportedLanguages = new(StringComparer.OrdinalIgnoreCase) { "en" };
     private static readonly string[] SkipPaths = ["/admin", "/health", "/openapi", "/scalar", "/debug", "/site"];
 
     public LanguageMiddleware(RequestDelegate next)
@@ -66,13 +66,13 @@ public class LanguageMiddleware
 
         // 3. Fall back to Site.DefaultLanguage
         var siteContext = context.Items["SiteContext"] as SiteContext;
-        var defaultLang = siteContext?.DefaultLanguage ?? "uk";
+        var defaultLang = siteContext?.DefaultLanguage ?? "en";
         return (defaultLang, LanguageSource.SiteDefault, null);
     }
 
     private static string? ParseAcceptLanguage(string header)
     {
-        // Parse "uk-UA,uk;q=0.9,en;q=0.8" → "uk"
+        // Parse "en-US,en;q=0.9" → "en"
         var parts = header.Split(',');
         foreach (var part in parts)
         {

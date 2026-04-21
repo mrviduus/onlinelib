@@ -20,7 +20,7 @@ public static class LanguageHttpContextExtensions
             language = langCtx.Language;
             return true;
         }
-        language = "uk";
+        language = "en";
         return false;
     }
 }

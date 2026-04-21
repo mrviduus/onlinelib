@@ -79,11 +79,11 @@ test.describe('Focus Mode', () => {
 
   test('long-press word opens word popup (not a quick tap)', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
-    // Force native language to 'uk' so translation fires on English text
+    // Force native language to 'de' so translation fires on English text
     // (same-lang shows definition only; popup still opens).
     // addInitScript runs on every navigation — overrides auth-fixture default.
     await page.addInitScript(() => {
-      localStorage.setItem('textstack_native_language', 'uk')
+      localStorage.setItem('textstack_native_language', 'de')
     })
     await page.goto(`/en/books/${enBook.slug}/focus/${enBook.firstChapterSlug}`)
     const firstWord = page.locator('.focus-reader__word').first()

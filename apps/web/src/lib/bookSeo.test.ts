@@ -116,7 +116,7 @@ describe('generateFAQs', () => {
       { id: '1', chapterNumber: 1, slug: 'ch1', title: 'Ch1', wordCount: 5000 },
       { id: '2', chapterNumber: 2, slug: 'ch2', title: 'Ch2', wordCount: 5000 },
     ],
-    otherEditions: [{ slug: 'test-uk', language: 'uk', title: 'Тестова книга' }],
+    otherEditions: [{ slug: 'test-de', language: 'de', title: 'Testbuch' }],
     authors: [{ id: '1', slug: 'author', name: 'Test Author', role: 'author' }],
     genres: [],
     moreByAuthor: [],

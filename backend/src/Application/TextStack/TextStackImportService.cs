@@ -562,7 +562,6 @@ public class TextStackImportService
 
         var searchLang = language switch
         {
-            "uk" => SearchLanguage.Uk,
             "en" => SearchLanguage.En,
             _ => SearchLanguage.Auto
         };

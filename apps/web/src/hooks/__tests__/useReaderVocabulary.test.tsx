@@ -89,13 +89,13 @@ describe('useReaderVocabulary', () => {
   })
 
   it('calls getReaderVocab on mount when isAuthenticated=true', async () => {
-    renderHook(() => useReaderVocabulary('en', 'uk'))
+    renderHook(() => useReaderVocabulary('en', 'de'))
     await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalledTimes(1))
   })
 
   it('does not call getReaderVocab when !isAuthenticated (no session yet)', async () => {
     authState.isAuthenticated = false
-    renderHook(() => useReaderVocabulary('en', 'uk'))
+    renderHook(() => useReaderVocabulary('en', 'de'))
     await Promise.resolve()
     expect(getReaderVocabMock).not.toHaveBeenCalled()
   })
@@ -104,7 +104,7 @@ describe('useReaderVocabulary', () => {
     saveWordMock.mockResolvedValue({
       id: 'w1', word: 'Hello', stage: 0, translation: null,
     })
-    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
     await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
 
     await act(async () => {
@@ -130,7 +130,7 @@ describe('useReaderVocabulary', () => {
       id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
     }))
 
-    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
 
     await act(async () => { await result.current.addWord({ word: 'one', language: 'en' }) })
     await act(async () => { await result.current.addWord({ word: 'two', language: 'en' }) })
@@ -157,7 +157,7 @@ describe('useReaderVocabulary', () => {
       id: `backend-${req.word}`, word: req.word, stage: 0, translation: null,
     }))
 
-    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
     await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
 
     await act(async () => {
@@ -182,7 +182,7 @@ describe('useReaderVocabulary', () => {
       return { id: `backend-${req.word}`, word: req.word, stage: 0, translation: null }
     })
 
-    const { result } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    const { result } = renderHook(() => useReaderVocabulary('en', 'de'))
     await waitFor(() => expect(getReaderVocabMock).toHaveBeenCalled())
 
     await act(async () => {
@@ -208,7 +208,7 @@ describe('useReaderVocabulary', () => {
       id: 'w1', word: 'late', stage: 0, translation: null,
     })
 
-    const { result, rerender } = renderHook(() => useReaderVocabulary('en', 'uk'))
+    const { result, rerender } = renderHook(() => useReaderVocabulary('en', 'de'))
 
     let pending: Promise<unknown>
     await act(async () => {

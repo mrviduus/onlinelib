@@ -72,7 +72,6 @@ public sealed partial class TsQueryBuilder : IQueryBuilder
     public string GetLanguageConfig(SearchLanguage language) => language switch
     {
         SearchLanguage.En => "english",
-        SearchLanguage.Uk => "simple",  // Ukrainian uses 'simple' (no stemming)
         SearchLanguage.Auto => "simple",
         _ => "simple"
     };

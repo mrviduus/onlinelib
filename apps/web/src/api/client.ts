@@ -129,4 +129,4 @@ export function createApi(language: string) {
 }
 
 // Legacy API for backwards compatibility (uses default language)
-export const api = createApi('uk')
+export const api = createApi('en')

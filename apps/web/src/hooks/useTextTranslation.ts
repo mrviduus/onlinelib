@@ -38,7 +38,6 @@ export function useTextTranslation(options?: UseTextTranslationOptions) {
         if (!cancelled) {
           setLanguages([
             { code: 'en', name: 'English' },
-            { code: 'uk', name: 'Ukrainian' },
             { code: 'ru', name: 'Russian' },
             { code: 'de', name: 'German' },
             { code: 'fr', name: 'French' },

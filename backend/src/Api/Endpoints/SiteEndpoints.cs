@@ -39,6 +39,6 @@ public static class SiteEndpoints
             language = site.DefaultLanguage;
         }
 
-        return Results.Ok(new { language, supportedLanguages = new[] { "uk", "en" } });
+        return Results.Ok(new { language, supportedLanguages = new[] { "en" } });
     }
 }

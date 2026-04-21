@@ -11,15 +11,6 @@ public static class DistractorWords
         "courage", "destiny"
     ];
 
-    public static readonly string[] Ukrainian =
-    [
-        "будинок", "вода", "ніч", "ранок", "сад", "вікно", "тиша",
-        "тінь", "міст", "ліс", "річка", "гора", "село", "замок",
-        "хмара", "буря", "полум'я", "дзеркало", "подорож", "мрія", "скарб",
-        "мудрість", "свобода", "небезпека", "таємниця", "битва", "королівство", "дух",
-        "відвага", "доля"
-    ];
-
     public static readonly string[] German =
     [
         "Haus", "Wasser", "Nacht", "Morgen", "Garten", "Fenster", "Stille",
@@ -50,7 +41,6 @@ public static class DistractorWords
     public static string[] ForLanguage(string language) =>
         language.ToLowerInvariant() switch
         {
-            "uk" or "ukrainian" => Ukrainian,
             "de" or "german" => German,
             "fr" or "french" => French,
             "es" or "spanish" => Spanish,

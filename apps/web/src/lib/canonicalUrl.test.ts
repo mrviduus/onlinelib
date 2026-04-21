@@ -83,15 +83,6 @@ describe('buildCanonicalUrl', () => {
     expect(url).toBe('https://textstack.app/en/')
   })
 
-  it('keeps trailing slash for /uk/ language root', () => {
-    const url = buildCanonicalUrl({
-      origin: 'https://textstack.app',
-      pathname: '/uk/',
-      search: '',
-    })
-    expect(url).toBe('https://textstack.app/uk/')
-  })
-
   it('handles combined normalization', () => {
     const url = buildCanonicalUrl({
       origin: 'http://www.textstack.app/',

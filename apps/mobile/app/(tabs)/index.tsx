@@ -230,7 +230,7 @@ export default function HomeScreen() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
               onPress={() =>
-                switchLanguage(language === 'en' ? 'uk' : 'en')
+                switchLanguage('en')
               }
               activeOpacity={0.7}
               accessibilityLabel="Toggle language"

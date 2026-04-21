@@ -46,7 +46,6 @@ public sealed class SearchReindexService
         {
             var language = edition.Language.ToLowerInvariant() switch
             {
-                "uk" => SearchLanguage.Uk,
                 "en" => SearchLanguage.En,
                 _ => SearchLanguage.Auto
             };

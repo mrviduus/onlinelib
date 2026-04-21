@@ -1,11 +1,8 @@
 import { LocalizedLink } from '../components/LocalizedLink'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
-import { useLanguage } from '../context/LanguageContext'
 
 export function NotFoundPage() {
-  const { language } = useLanguage()
-
   return (
     <>
     <div className="not-found">
@@ -17,9 +14,9 @@ export function NotFoundPage() {
       />
       <div className="not-found__content">
         <h1>404</h1>
-        <p>{language === 'uk' ? 'Сторінку не знайдено' : 'Page not found'}</p>
+        <p>Page not found</p>
         <LocalizedLink to="/" className="back-home-link">
-          {language === 'uk' ? 'На головну' : 'Back to Home'}
+          Back to Home
         </LocalizedLink>
       </div>
     </div>

@@ -71,8 +71,8 @@ internal static class EdgeTtsClient
         var requestId = Guid.NewGuid().ToString("N");
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         var escapedText = System.Security.SecurityElement.Escape(text);
-        // Derive BCP-47 lang tag from the voice name (e.g. "uk-UA-PolinaNeural"
-        // → "uk-UA"). Hardcoding en-US was semantically wrong for non-English
+        // Derive BCP-47 lang tag from the voice name (e.g. "de-DE-KatjaNeural"
+        // → "de-DE"). Hardcoding en-US was semantically wrong for non-English
         // voices; engines generally respect <voice> but xml:lang affects
         // fallback processing and should match.
         var xmlLang = ResolveXmlLang(voice, lang);

@@ -721,7 +721,6 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
     {
         var searchLang = edition.Language switch
         {
-            "uk" => SearchLanguage.Uk,
             "en" => SearchLanguage.En,
             _ => SearchLanguage.Auto
         };

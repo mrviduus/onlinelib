@@ -17,7 +17,7 @@ export const NATIVE_LANGUAGES: NativeLang[] = POPULAR_LANGUAGES.map((l) => ({
 }))
 
 // Target languages = languages with book content
-export const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en' || l.code === 'uk')
+export const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en')
 
 const NATIVE_KEY = 'textstack_native_language'
 const TARGET_KEY = 'textstack_target_language'
@@ -33,9 +33,9 @@ function getDeviceLanguage(): string {
         ? NativeModules.SettingsManager?.settings?.AppleLocale ||
           NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
         : NativeModules.I18nManager?.localeIdentifier
-    return locale?.split(/[-_]/)[0] || 'uk'
+    return locale?.split(/[-_]/)[0] || 'en'
   } catch {
-    return 'uk'
+    return 'en'
   }
 }
 
@@ -47,14 +47,14 @@ interface NativeLanguageContextValue {
 }
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
-  nativeLanguage: 'uk',
+  nativeLanguage: 'en',
   targetLanguage: 'en',
   setNativeLanguage: () => {},
   setTargetLanguage: () => {},
 })
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
-  const [nativeLanguage, setNativeState] = useState('uk')
+  const [nativeLanguage, setNativeState] = useState('en')
   const [targetLanguage, setTargetState] = useState('en')
 
   useEffect(() => {

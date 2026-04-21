@@ -127,15 +127,15 @@ public class DefinitionEnricherTests
     }
 
     [Fact]
-    public async Task FetchDefinition_UkrainianLanguage_PassesCorrectCode()
+    public async Task FetchDefinition_GermanLanguage_PassesCorrectCode()
     {
         var handler = new CapturingHandler();
         var enricher = CreateEnricher(handler);
 
-        await enricher.FetchDefinitionAsync("слово", "uk", CancellationToken.None);
+        await enricher.FetchDefinitionAsync("wort", "de", CancellationToken.None);
 
         Assert.NotNull(handler.LastRequestUri);
-        Assert.Contains("/uk/", handler.LastRequestUri.ToString());
+        Assert.Contains("/de/", handler.LastRequestUri.ToString());
     }
 
     private class FakeHandler(HttpStatusCode status, string body) : HttpMessageHandler

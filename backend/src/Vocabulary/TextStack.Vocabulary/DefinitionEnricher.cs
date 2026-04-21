@@ -64,7 +64,6 @@ public sealed class DefinitionEnricher : IDefinitionEnricher
     private static string NormalizeLanguage(string lang) =>
         lang.ToLowerInvariant() switch
         {
-            "uk" or "ukrainian" => "uk",
             "en" or "english" => "en",
             "de" or "german" => "de",
             "fr" or "french" => "fr",

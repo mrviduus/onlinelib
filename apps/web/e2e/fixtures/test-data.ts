@@ -15,7 +15,6 @@ export interface BookTestData {
 
 export interface TestData {
   enBook: BookTestData
-  ukBook: BookTestData
   siteId: string
 }
 

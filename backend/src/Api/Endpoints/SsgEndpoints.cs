@@ -27,7 +27,7 @@ public static class SsgEndpoints
         CancellationToken ct)
     {
         var site = httpContext.GetSiteContext();
-        var languages = new[] { "en", "uk" };
+        var languages = new[] { "en" };
 
         var routes = new List<string>();
 

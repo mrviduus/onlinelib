@@ -26,10 +26,8 @@ export function GenresPage() {
       .finally(() => setLoading(false))
   }, [api])
 
-  const title = language === 'uk' ? 'Жанри' : 'Genres'
-  const description = language === 'uk'
-    ? 'Перегляньте книги за жанрами | TextStack Reader'
-    : 'Browse books by genre | TextStack Reader'
+  const title = 'Genres'
+  const description = 'Browse books by genre | TextStack Reader'
 
   if (loading) {
     return (
@@ -76,14 +74,14 @@ export function GenresPage() {
       )}
       <h1>{title}</h1>
       {genres.length === 0 ? (
-        <p>{language === 'uk' ? 'Жанрів поки немає.' : 'No genres available yet.'}</p>
+        <p>No genres available yet.</p>
       ) : (
         <div className="genres-grid">
           {genres.map((genre) => (
             <LocalizedLink key={genre.id} to={`/genres/${genre.slug}`} className="genre-card" title={`${genre.name} books`}>
               <h3 className="genre-card__name">{genre.name}</h3>
               <p className="genre-card__count">
-                {genre.bookCount} {language === 'uk' ? 'книг' : 'books'}
+                {genre.bookCount} books
               </p>
               {genre.description && (
                 <p className="genre-card__description">{genre.description}</p>

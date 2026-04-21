@@ -400,7 +400,7 @@ export default function ReaderScreen() {
                 notifyWordSaved()
                 trackVocabSaved({ language, nativeLanguage, source: 'reader' })
                 // Persist translation
-                const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+                const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
                 trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
                 translationApi.translate(data.text, language, targetLang)
                   .then(res => {
@@ -481,7 +481,7 @@ export default function ReaderScreen() {
       notifyWordSaved()
       trackVocabSaved({ language, nativeLanguage, source: 'reader' })
       // Persist translation to saved word (fire-and-forget)
-      const targetLang = nativeLanguage !== language ? nativeLanguage : (language === 'uk' ? 'en' : 'uk')
+      const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
       trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
       translationApi.translate(selection.text, language, targetLang)
         .then(res => {

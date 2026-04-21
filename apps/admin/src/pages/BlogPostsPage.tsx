@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { adminApi, BlogPostListItem, BlogStats } from '../api/client'
 
 type StatusFilter = 'all' | 'published' | 'draft'
-type LanguageFilter = 'all' | 'en' | 'uk'
+type LanguageFilter = 'all' | 'en'
 
 export function BlogPostsPage() {
   const [posts, setPosts] = useState<BlogPostListItem[]>([])
@@ -141,7 +141,6 @@ export function BlogPostsPage() {
         >
           <option value="all">All languages</option>
           <option value="en">English</option>
-          <option value="uk">Ukrainian</option>
         </select>
       </div>
 

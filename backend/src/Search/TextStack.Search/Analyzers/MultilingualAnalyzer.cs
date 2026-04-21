@@ -12,7 +12,6 @@ public sealed class MultilingualAnalyzer : ITextAnalyzer
     public string GetFtsConfig(SearchLanguage language) => language switch
     {
         SearchLanguage.En => "english",
-        SearchLanguage.Uk => "simple",  // Ukrainian: no stemming available in PostgreSQL by default
         SearchLanguage.Auto => "simple",
         _ => "simple"
     };
@@ -32,9 +31,6 @@ public sealed class MultilingualAnalyzer : ITextAnalyzer
             "en" => SearchLanguage.En,
             "eng" => SearchLanguage.En,
             "english" => SearchLanguage.En,
-            "uk" => SearchLanguage.Uk,
-            "ukr" => SearchLanguage.Uk,
-            "ukrainian" => SearchLanguage.Uk,
             _ => SearchLanguage.Auto
         };
     }

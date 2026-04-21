@@ -69,7 +69,7 @@ export interface CanonicalOptions {
  * - no www prefix
  * - tracking params stripped
  * - semantic params preserved (?q=)
- * - trailing slash only for root paths (/, /en/, /uk/)
+ * - trailing slash only for root paths (/, /en/)
  */
 export function buildCanonicalUrl(options: CanonicalOptions): string {
   const { pathname, search = '' } = options

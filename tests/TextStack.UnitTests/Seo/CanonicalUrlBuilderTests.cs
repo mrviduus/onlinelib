@@ -50,21 +50,21 @@ public class CanonicalUrlBuilderTests
     public void BuildSitemapUrl_FullPath()
     {
         var result = CanonicalUrlBuilder.BuildSitemapUrl("textstack.app", "/en/books/test-book");
-        Assert.Equal("https://textstack.app/en/books/test-book", result);
+        Assert.Equal("https://textstack.app/en/books/test-book/", result);
     }
 
     [Fact]
     public void BuildSitemapUrl_AddsLeadingSlash()
     {
         var result = CanonicalUrlBuilder.BuildSitemapUrl("textstack.app", "en/books/test");
-        Assert.Equal("https://textstack.app/en/books/test", result);
+        Assert.Equal("https://textstack.app/en/books/test/", result);
     }
 
     [Fact]
-    public void BuildSitemapUrl_StripsTrailingSlash()
+    public void BuildSitemapUrl_PreservesTrailingSlash()
     {
         var result = CanonicalUrlBuilder.BuildSitemapUrl("textstack.app", "/en/books/test/");
-        Assert.Equal("https://textstack.app/en/books/test", result);
+        Assert.Equal("https://textstack.app/en/books/test/", result);
     }
 
     [Fact]
@@ -78,6 +78,6 @@ public class CanonicalUrlBuilderTests
     public void BuildSitemapUrl_NormalizeDomainToo()
     {
         var result = CanonicalUrlBuilder.BuildSitemapUrl("http://www.textstack.app/", "/en/authors/doe");
-        Assert.Equal("https://textstack.app/en/authors/doe", result);
+        Assert.Equal("https://textstack.app/en/authors/doe/", result);
     }
 }

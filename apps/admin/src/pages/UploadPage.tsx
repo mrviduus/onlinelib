@@ -118,7 +118,6 @@ export function UploadPage() {
             required
           >
             <option value="en">English</option>
-            <option value="uk">Ukrainian</option>
           </select>
         </div>
 
