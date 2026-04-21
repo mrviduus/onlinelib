@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
-import type { SelfAssessment } from '../api/vocabulary'
+import { completeCluster, type SelfAssessment } from '../api/vocabulary'
 import { useVocabularyReview, type ReviewMode } from '../hooks/useVocabularyReview'
 import { useTts } from '../hooks/useTts'
 import { useSoundEffects } from '../hooks/useSoundEffects'
@@ -23,6 +23,7 @@ export function VocabularyReviewPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialReviewMode = (searchParams.get('reviewMode') as ReviewMode) || 'classic'
+  const clusterIdParam = searchParams.get('cluster')
   const initialBatchSize = useMemo(() => {
     const v = parseInt(searchParams.get('limit') || String(DEFAULT_BATCH_SIZE), 10)
     return (REVIEW_BATCH_SIZES as readonly number[]).includes(v) ? v : DEFAULT_BATCH_SIZE
@@ -40,9 +41,13 @@ export function VocabularyReviewPage() {
   useEffect(() => {
     if (user) {
       sessionStartRef.current = Date.now()
-      review.startSession(initialBatchSize, initialReviewMode)
+      if (clusterIdParam) {
+        review.startClusterSession(clusterIdParam, initialReviewMode)
+      } else {
+        review.startSession(initialBatchSize, initialReviewMode)
+      }
     }
-  }, [user, initialReviewMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, initialReviewMode, clusterIdParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (isCorrect: boolean, responseTimeMs: number, selfAssessment?: SelfAssessment) => {
     playSound(isCorrect ? 'correct' : 'wrong')
@@ -52,7 +57,12 @@ export function VocabularyReviewPage() {
   const handleToggleSound = () => setSoundOn(toggleSound())
 
   useEffect(() => {
-    if (review.isSessionComplete) playSound('complete')
+    if (review.isSessionComplete) {
+      playSound('complete')
+      if (review.activeClusterId) {
+        completeCluster(review.activeClusterId).catch(() => {})
+      }
+    }
   }, [review.isSessionComplete]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const budgetReached = (review.weeklyProgress?.remaining ?? 1) <= 0

@@ -15,6 +15,7 @@ import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { PendingQueueList } from '../components/vocabulary/PendingQueueList'
 import { LookupHistoryList } from '../components/vocabulary/LookupHistoryList'
 import { VocabSettingsModal } from '../components/vocabulary/VocabSettingsModal'
+import { ClusterBonusCard } from '../components/vocabulary/ClusterBonusCard'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -295,6 +296,11 @@ export function VocabularyPage() {
         {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
         {isAuthenticated && stats?.weeklyProgress && (
           <WeeklyBudgetBar progress={stats.weeklyProgress} />
+        )}
+
+        {/* Anti-spiral F3: LLM-grouped thematic bonus round */}
+        {isAuthenticated && stats && (stats.clusterCount ?? 0) > 0 && (
+          <ClusterBonusCard onChange={refresh} />
         )}
 
         {/* Start practice card (from Practice) */}

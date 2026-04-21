@@ -2167,3 +2167,105 @@
   .practice-section__actions { flex-direction: column; }
   .practice-section__btn { width: 100%; text-align: center; }
 }
+
+/* F3: Cluster bonus card */
+.vocab-cluster-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  background: linear-gradient(135deg, #fffaf0, #fff4d6);
+  border: 1px solid #eed48a;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(201, 162, 39, 0.08);
+}
+
+.vocab-cluster-card__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.vocab-cluster-card__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.vocab-cluster-card__text {
+  min-width: 0;
+}
+
+.vocab-cluster-card__title {
+  font-weight: 600;
+  color: #3a2a08;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vocab-cluster-card__meta {
+  font-size: 0.82rem;
+  color: #6f5a2e;
+}
+
+.vocab-cluster-card__book {
+  font-style: italic;
+}
+
+.vocab-cluster-card__sep {
+  opacity: 0.6;
+}
+
+.vocab-cluster-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vocab-cluster-card__start,
+.vocab-cluster-card__dismiss {
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vocab-cluster-card__start {
+  background: #c9a227;
+  border: 1px solid #c9a227;
+  color: #fff;
+}
+
+.vocab-cluster-card__start:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.vocab-cluster-card__dismiss {
+  background: transparent;
+  border: 1px solid #d9c57f;
+  color: #6f5a2e;
+}
+
+.vocab-cluster-card__dismiss:hover:not(:disabled) {
+  background: #fff4d6;
+}
+
+.vocab-cluster-card__start:disabled,
+.vocab-cluster-card__dismiss:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .vocab-cluster-card { flex-direction: column; align-items: stretch; }
+  .vocab-cluster-card__actions { width: 100%; }
+  .vocab-cluster-card__start,
+  .vocab-cluster-card__dismiss { flex: 1; }
+}

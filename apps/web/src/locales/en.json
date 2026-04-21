@@ -287,6 +287,7 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "close": "Close",
+    "dismiss": "Dismiss",
     "home": "Home"
   },
   "nav": {
@@ -769,6 +770,11 @@
       "dismiss": "Dismiss",
       "promoteFailed": "Could not promote this word. Try again.",
       "dismissFailed": "Could not remove this word. Try again."
+    },
+    "clusters": {
+      "bonusCta": "Bonus: {n} related words",
+      "start": "Start bonus",
+      "fromBook": "from {book}"
     },
     "settings": {
       "title": "Vocabulary settings",

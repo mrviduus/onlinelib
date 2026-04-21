@@ -119,6 +119,7 @@ export interface VocabStatsDto {
   retiredCount: number
   pendingCount: number
   lookupCount: number
+  clusterCount: number
   dailyCap: DailyCapDto
   weeklyProgress: WeeklyProgressDto
   reviewedToday: number
@@ -334,4 +335,41 @@ export async function updateVocabSettings(data: VocabSettingsDto): Promise<Vocab
 
 export async function unretireWord(id: string): Promise<VocabWordDto> {
   return authFetch<VocabWordDto>(`/me/vocabulary/words/${id}/unretire`, { method: 'POST' })
+}
+
+// --- Anti-spiral F3: thematic clusters ---
+
+export interface WordClusterDto {
+  id: string
+  title: string
+  theme: string | null
+  editionId: string | null
+  userBookId: string | null
+  bookTitle: string | null
+  memberCount: number
+  cohesionScore: number
+  isConfirmed: boolean
+  createdAt: string
+}
+
+export interface ClusterBonusResponse {
+  clusterId: string
+  title: string
+  cards: ReviewCardDto[]
+}
+
+export async function getClusters(): Promise<{ items: WordClusterDto[] }> {
+  return authFetch<{ items: WordClusterDto[] }>('/me/vocabulary/clusters')
+}
+
+export async function startClusterBonus(id: string): Promise<ClusterBonusResponse> {
+  return authFetch<ClusterBonusResponse>(`/me/vocabulary/clusters/${id}/start-bonus`, { method: 'POST' })
+}
+
+export async function dismissCluster(id: string): Promise<void> {
+  await authFetch<void>(`/me/vocabulary/clusters/${id}/dismiss`, { method: 'POST' })
+}
+
+export async function completeCluster(id: string): Promise<void> {
+  await authFetch<void>(`/me/vocabulary/clusters/${id}/complete`, { method: 'POST' })
 }
