@@ -67,8 +67,8 @@ export function getVocabSettings() {
   return authFetch<VocabSettingsDto>('/me/vocabulary/settings')
 }
 
-export function updateVocabSettings(data: VocabSettingsDto) {
-  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', jsonBody('PUT', data))
+export function updateVocabSettings(data: VocabSettingsDto, signal?: AbortSignal) {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', { ...jsonBody('PUT', data), signal })
 }
 
 export function unretireWord(id: string) {

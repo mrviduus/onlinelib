@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Modal, View, Text, StyleSheet, TouchableOpacity, TextInput,
   Switch, ScrollView, ActivityIndicator,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { vocabularyApi } from '@textstack/shared'
+import { vocabularyApi, ApiError } from '@textstack/shared'
 import type { VocabSettingsDto } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
@@ -21,6 +21,8 @@ const DAILY_CAP_MAX = 100
 const WEEKLY_BUDGET_MIN = 10
 const WEEKLY_BUDGET_MAX = 500
 
+type FieldKey = 'dailyCap' | 'weeklyBudget'
+
 const parseIntStrict = (s: string): number | null => {
   if (!/^\d+$/.test(s)) return null
   const n = parseInt(s, 10)
@@ -33,13 +35,20 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
   const [settings, setSettings] = useState<VocabSettingsDto | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [invalidField, setInvalidField] = useState<FieldKey | null>(null)
   const [dailyCapText, setDailyCapText] = useState('')
   const [weeklyBudgetText, setWeeklyBudgetText] = useState('')
+
+  const scrollRef = useRef<ScrollView>(null)
+  const dailyCapRef = useRef<TextInput>(null)
+  const weeklyBudgetRef = useRef<TextInput>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!visible) return
     let mounted = true
     setError(null)
+    setInvalidField(null)
     setSettings(null)
     vocabularyApi.getVocabSettings()
       .then(s => {
@@ -56,55 +65,92 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
     setSettings(prev => prev ? { ...prev, ...p } : prev)
   }
 
+  const flagInvalid = (field: FieldKey, msg: string) => {
+    setError(msg)
+    setInvalidField(field)
+    scrollRef.current?.scrollTo({ y: 0, animated: true })
+    const target = field === 'dailyCap' ? dailyCapRef.current : weeklyBudgetRef.current
+    // Delay so scroll + setState finish before keyboard focuses (otherwise
+    // iOS can scroll the sheet under the keyboard and hide the error box).
+    setTimeout(() => target?.focus(), 120)
+  }
+
   const handleSave = async () => {
     if (!settings) return
     const dailyCap = parseIntStrict(dailyCapText)
     if (dailyCap === null || dailyCap < DAILY_CAP_MIN || dailyCap > DAILY_CAP_MAX) {
-      setError(t('vocabulary.settings.dailyCapRange'))
+      flagInvalid('dailyCap', t('vocabulary.settings.dailyCapRange'))
       return
     }
     const weeklyBudget = parseIntStrict(weeklyBudgetText)
     if (weeklyBudget === null || weeklyBudget < WEEKLY_BUDGET_MIN || weeklyBudget > WEEKLY_BUDGET_MAX) {
-      setError(t('vocabulary.settings.weeklyBudgetRange'))
+      flagInvalid('weeklyBudget', t('vocabulary.settings.weeklyBudgetRange'))
       return
     }
+    setInvalidField(null)
     setSaving(true)
     setError(null)
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const payload: VocabSettingsDto = {
         ...settings,
         dailyNewCap: dailyCap,
         weeklyReviewBudget: weeklyBudget,
       }
-      const saved = await vocabularyApi.updateVocabSettings(payload)
+      const saved = await vocabularyApi.updateVocabSettings(payload, controller.signal)
+      if (controller.signal.aborted) return
       setSettings(saved)
       onSaved?.()
       onClose()
-    } catch {
+    } catch (e) {
+      if (controller.signal.aborted) return
+      // safeFetch wraps AbortError into ApiError(0, ...) with isNetworkError=true.
+      // If we aborted after the throw path, swallow silently.
+      if (e instanceof ApiError && e.isNetworkError && controller.signal.aborted) return
       setError(t('vocabulary.settings.saveFailed'))
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setSaving(false)
     }
   }
 
-  const onChangeDigits = (setter: (v: string) => void) => (v: string) => {
-    setter(v.replace(/[^\d]/g, ''))
+  const handleClose = () => {
+    // Cancel in-flight save — user explicitly opted out. safeFetch turns
+    // the abort into an ApiError the catch block drops on the floor.
+    abortRef.current?.abort()
+    abortRef.current = null
+    setSaving(false)
+    onClose()
   }
 
+  const onChangeDigits = (setter: (v: string) => void, field: FieldKey) => (v: string) => {
+    setter(v.replace(/[^\d]/g, ''))
+    if (invalidField === field) {
+      setInvalidField(null)
+      setError(null)
+    }
+  }
+
+  const fieldBorder = (field: FieldKey) =>
+    invalidField === field ? '#ef4444' : colors.border
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text, fontFamily: fonts.sansMedium }]}>
               {t('vocabulary.settings.title')}
             </Text>
-            <TouchableOpacity onPress={onClose} disabled={saving} style={styles.closeBtn} hitSlop={10}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scrollRef} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
               {t('vocabulary.settings.subtitle')}
             </Text>
@@ -129,9 +175,10 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                     {t('vocabulary.settings.dailyNewCapHint')}
                   </Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+                    ref={dailyCapRef}
+                    style={[styles.input, { backgroundColor: colors.surface, borderColor: fieldBorder('dailyCap'), color: colors.text, fontFamily: fonts.sans }]}
                     value={dailyCapText}
-                    onChangeText={onChangeDigits(setDailyCapText)}
+                    onChangeText={onChangeDigits(setDailyCapText, 'dailyCap')}
                     keyboardType="number-pad"
                     maxLength={3}
                     editable={!saving && !!settings}
@@ -146,9 +193,10 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                     {t('vocabulary.settings.weeklyBudgetHint')}
                   </Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+                    ref={weeklyBudgetRef}
+                    style={[styles.input, { backgroundColor: colors.surface, borderColor: fieldBorder('weeklyBudget'), color: colors.text, fontFamily: fonts.sans }]}
                     value={weeklyBudgetText}
-                    onChangeText={onChangeDigits(setWeeklyBudgetText)}
+                    onChangeText={onChangeDigits(setWeeklyBudgetText, 'weeklyBudget')}
                     keyboardType="number-pad"
                     maxLength={3}
                     editable={!saving && !!settings}
@@ -192,9 +240,8 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
 
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <TouchableOpacity
-              onPress={onClose}
-              disabled={saving}
-              style={[styles.btn, styles.cancelBtn, { borderColor: colors.border, opacity: saving ? 0.6 : 1 }]}
+              onPress={handleClose}
+              style={[styles.btn, styles.cancelBtn, { borderColor: colors.border }]}
             >
               <Text style={[styles.cancelText, { color: colors.textSecondary, fontFamily: fonts.sansMedium }]}>
                 {t('common.cancel')}
