@@ -34,12 +34,13 @@ public class WeeklyBudgetServiceTests
     }
 
     [Fact]
-    public void ComputeProgress_NoReviewsInWindow_ResetsNow()
+    public void ComputeProgress_NoReviewsInWindow_ResetsAtNowPlus7d()
     {
         var progress = WeeklyBudgetService.ComputeProgress(used: 0, budget: 70, oldestReviewInWindow: null, now: Now);
 
-        // No reviews in window → budget is already free; "reset" is now.
-        Assert.Equal(Now, progress.ResetAt);
+        // Window is empty; ResetAt is forward-dated so client-side notifications
+        // scheduled on this value don't fire immediately.
+        Assert.Equal(Now.AddDays(7), progress.ResetAt);
     }
 
     [Fact]

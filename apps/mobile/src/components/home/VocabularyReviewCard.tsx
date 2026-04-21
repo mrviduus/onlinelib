@@ -146,7 +146,10 @@ export function VocabularyReviewCard() {
   // review budget. When budget is exhausted we show the "goal reached" state
   // instead of surfacing reviews the backend will refuse to serve.
   const dueNow = weeklyRemaining != null ? Math.min(dueNowRaw, weeklyRemaining) : dueNowRaw
-  const budgetReached = weeklyRemaining != null && weeklyRemaining <= 0 && dueNowRaw > 0
+  // Show the goal-reached state whenever the budget is exhausted, regardless
+  // of dueNow. The web parity is the same: WeeklyBudgetBar always wins over
+  // "nothing due" copy when a user has actively spent the week's reviews.
+  const budgetReached = weeklyRemaining != null && weeklyRemaining <= 0
   const mastered = stats?.byStage?.mastered ?? 0
   const streak = stats?.streak ?? 0
 

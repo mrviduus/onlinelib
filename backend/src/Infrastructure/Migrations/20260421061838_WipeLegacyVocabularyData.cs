@@ -13,7 +13,12 @@ namespace Infrastructure.Migrations
         // Cheaper to wipe than to backfill.
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("TRUNCATE TABLE vocabulary_reviews, vocabulary_words CASCADE;");
+            // Explicit child-first DELETE instead of TRUNCATE ... CASCADE.
+            // CASCADE would silently drop rows from any future FK-dependent table
+            // — naming each one keeps that surprise out of the migration. Add new
+            // child tables here (and bump the order) before they get their FK.
+            migrationBuilder.Sql("DELETE FROM vocabulary_reviews;");
+            migrationBuilder.Sql("DELETE FROM vocabulary_words;");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

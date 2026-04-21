@@ -64,7 +64,7 @@ export function useVocabularyReview() {
       if (!mountedRef.current) return
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
-      setWeeklyProgress((queue as unknown as { weeklyProgress?: WeeklyProgressDto }).weeklyProgress ?? null)
+      setWeeklyProgress(queue.weeklyProgress ?? null)
       setSessionStats({ ...EMPTY_STATS, total: queue.cards.length })
       showNewWordIfNeeded(queue.cards, 0)
     } catch (err) {

@@ -41,7 +41,12 @@ public class WeeklyBudgetService(IAppDbContext db)
     // pin time without a TimeProvider shim.
     public static WeeklyProgress ComputeProgress(int used, int budget, DateTimeOffset? oldestReviewInWindow, DateTimeOffset now)
     {
-        var resetAt = oldestReviewInWindow.HasValue ? oldestReviewInWindow.Value.AddDays(7) : now;
+        // ResetAt is when the window first frees up. With reviews in window,
+        // it's when the oldest one rolls off. With no reviews, the window is
+        // already empty — `now + 7d` is the soonest a notification scheduled
+        // on this value could meaningfully fire. Returning `now` here would
+        // cause "fire immediately" notifications on the client.
+        var resetAt = oldestReviewInWindow.HasValue ? oldestReviewInWindow.Value.AddDays(7) : now.AddDays(7);
         return new WeeklyProgress(
             Used: used,
             Budget: budget,
