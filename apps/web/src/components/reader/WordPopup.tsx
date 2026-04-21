@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SpeakButton } from '../vocabulary/SpeakButton'
 import { LANGUAGES, POPULAR_LANGUAGES, OTHER_LANGUAGES, getLanguage, getFlagUrl, type LanguageEntry } from '../../data/languages'
+import { RareWordNotice } from './RareWordNotice'
 
 function LangOption({ lang, onSelect }: { lang: LanguageEntry; onSelect: (code: string) => void }) {
   return (
@@ -64,7 +65,13 @@ interface WordPopupProps {
    */
   hasConfirmedLanguage: boolean
   bookLanguage: string
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, string | number>) => string
+  // F1 rare-word flow: when SaveWord returns `lookup` / `lookup_pending`, the
+  // parent passes lookupInfo so we render the RareWordNotice inline. Null =
+  // normal save flow.
+  lookupInfo?: { kind: 'lookup' | 'lookup_pending'; tapsRemaining: number | null } | null
+  onAddAnyway?: () => void
+  addAnywayBusy?: boolean
 }
 
 export function WordPopup({
@@ -85,6 +92,9 @@ export function WordPopup({
   hasConfirmedLanguage,
   bookLanguage,
   t,
+  lookupInfo,
+  onAddAnyway,
+  addAnywayBusy,
 }: WordPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -146,9 +156,12 @@ export function WordPopup({
 
   const scheduleAutoDismiss = useCallback(() => {
     clearTimeout(dismissTimerRef.current)
+    // Rare-word notice needs user decision — don't rip the popup away while
+    // they're reading the warning or aiming for "Add anyway".
+    if (lookupInfo) return
     const ms = computeDismissMs(translation, definition)
     dismissTimerRef.current = setTimeout(animatedClose, ms)
-  }, [animatedClose, translation, definition])
+  }, [animatedClose, translation, definition, lookupInfo])
 
   // Start auto-dismiss timer on open / word change / same-word re-tap at new rect.
   // Keying on rect ensures re-tapping the same word restarts the timer — otherwise
@@ -409,6 +422,16 @@ export function WordPopup({
           </button>
         )}
       </div>
+
+      {lookupInfo && onAddAnyway && (
+        <RareWordNotice
+          kind={lookupInfo.kind}
+          tapsRemaining={lookupInfo.tapsRemaining}
+          busy={addAnywayBusy ?? false}
+          onAddAnyway={onAddAnyway}
+          t={t}
+        />
+      )}
 
       {/* Language footer */}
       <div className="word-popup__lang-footer">

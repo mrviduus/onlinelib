@@ -9,7 +9,7 @@ import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useBubbleTranslationSync } from '../../hooks/useBubbleTranslationSync'
-import { updateWord } from '../../api/vocabulary'
+import { updateWord, promoteLookup } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
@@ -90,6 +90,17 @@ export function ReaderHighlights({
   // Cleared on auto-dismiss; new pending saves overwrite the message.
   const [pendingToast, setPendingToast] = useState<string | null>(null)
 
+  // Anti-spiral F1: rare-word state. When SaveWord returns lookup / lookup_pending
+  // we keep the lookupId + kind so WordPopup can render RareWordNotice with an
+  // "Add anyway" button. Keyed by word so re-tapping a different word resets.
+  const [lookupState, setLookupState] = useState<{
+    word: string
+    id: string
+    kind: 'lookup' | 'lookup_pending'
+    tapsRemaining: number | null
+  } | null>(null)
+  const [addAnywayBusy, setAddAnywayBusy] = useState(false)
+
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
 
@@ -126,6 +137,7 @@ export function ReaderHighlights({
     if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
     bubbleAbortRef.current?.abort()
     setBubble(null)
+    setLookupState(null)
     // Clear selection to break the effect loop: without this, selection persists,
     // isSingleWord stays true, bubble is null → effect re-fires → mercание.
     clearSelection()
@@ -164,11 +176,18 @@ export function ReaderHighlights({
     }).catch(() => null)
     if (resp?.outcome === 'pending') {
       setPendingToast(t('reader.vocab.queuedForTomorrow'))
-    } else if (resp?.outcome === 'lookup') {
-      setPendingToast(t('reader.vocab.savedToReference'))
-    } else if (resp?.outcome === 'lookup_pending') {
-      const n = resp.tapsRemaining ?? 1
-      setPendingToast(t('reader.vocab.tapAgainToStudy', { n }))
+    } else if (resp?.outcome === 'lookup' || resp?.outcome === 'lookup_pending') {
+      // Keep lookupId so "Add anyway" can POST /lookups/{id}/promote. No toast:
+      // the popup itself renders RareWordNotice which is louder than a transient
+      // toast at the bottom of the screen.
+      if (resp.lookupId) {
+        setLookupState({
+          word,
+          id: resp.lookupId,
+          kind: resp.outcome,
+          tapsRemaining: resp.tapsRemaining ?? null,
+        })
+      }
     }
     const saved = resp?.word
     if (saved?.id && currentTranslation) {
@@ -188,6 +207,8 @@ export function ReaderHighlights({
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
+    // Reset rare-word state so prior word's notice doesn't leak across taps.
+    setLookupState(null)
     setBubble({
       word,
       translation: null,
@@ -274,6 +295,26 @@ export function ReaderHighlights({
     bubbleAbortRef.current?.abort()
     if (openTimerRef.current) clearTimeout(openTimerRef.current)
   }, [])
+
+  // "Add anyway" on RareWordNotice: bypasses the frequency filter by promoting
+  // the WordLookup row server-side into a full VocabularyWord. Backend deletes
+  // the lookup + applies Source='manual_add_anyway'. On success we surface the
+  // word like a normal save (addWord -> vocabMap via updateTranslation is handled
+  // naturally on next tap/refresh; here we just close the popup and toast).
+  const handleAddAnyway = useCallback(async () => {
+    if (!lookupState || addAnywayBusy) return
+    setAddAnywayBusy(true)
+    try {
+      await promoteLookup(lookupState.id)
+      setLookupState(null)
+      setPendingToast(t('reader.wordPopup.savedStatus'))
+      closeBubble()
+    } catch {
+      // Quiet fail: user can re-tap; no distinct error toast for this slice.
+    } finally {
+      setAddAnywayBusy(false)
+    }
+  }, [lookupState, addAnywayBusy, t, closeBubble])
 
   // --- Highlights ---
   const {
@@ -488,6 +529,11 @@ export function ReaderHighlights({
             hasConfirmedLanguage={hasConfirmedLanguage}
             bookLanguage={bookLanguage}
             t={t}
+            lookupInfo={lookupState && lookupState.word === bubble.word
+              ? { kind: lookupState.kind, tapsRemaining: lookupState.tapsRemaining }
+              : null}
+            onAddAnyway={lookupState && lookupState.word === bubble.word ? handleAddAnyway : undefined}
+            addAnywayBusy={addAnywayBusy}
           />
         )
       })()}
