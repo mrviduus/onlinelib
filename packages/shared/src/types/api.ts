@@ -208,6 +208,7 @@ export interface VocabularyStatsDto {
   dueNow: number
   retiredCount: number
   pendingCount: number
+  lookupCount: number
   dailyCap: DailyCapDto
   weeklyProgress: WeeklyProgressDto
   reviewedToday: number
@@ -222,13 +223,36 @@ export interface VocabularyStatsDto {
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
 }
 
-export type SaveWordOutcome = 'srs' | 'pending' | 'already_saved'
+export type SaveWordOutcome = 'srs' | 'pending' | 'lookup' | 'lookup_pending' | 'already_saved'
 
 export interface SaveWordResponseDto {
   outcome: SaveWordOutcome
   word: VocabularyWordDto | null
   pendingId: string | null
+  lookupId: string | null
+  tapsRemaining: number | null
   reason: string | null
+}
+
+export interface WordLookupDto {
+  id: string
+  word: string
+  language: string
+  zipfRank: number | null
+  tapCount: number
+  sentence: string | null
+  bookTitle: string | null
+  editionId: string | null
+  chapterId: string | null
+  userBookId: string | null
+  lastTranslation: string | null
+  firstTappedAt: string
+  lastTappedAt: string
+}
+
+export interface WordLookupListResponseDto {
+  items: WordLookupDto[]
+  total: number
 }
 
 export interface PendingVocabWordDto {

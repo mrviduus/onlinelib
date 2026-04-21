@@ -164,6 +164,11 @@ export function ReaderHighlights({
     }).catch(() => null)
     if (resp?.outcome === 'pending') {
       setPendingToast(t('reader.vocab.queuedForTomorrow'))
+    } else if (resp?.outcome === 'lookup') {
+      setPendingToast(t('reader.vocab.savedToReference'))
+    } else if (resp?.outcome === 'lookup_pending') {
+      const n = resp.tapsRemaining ?? 1
+      setPendingToast(t('reader.vocab.tapAgainToStudy', { n }))
     }
     const saved = resp?.word
     if (saved?.id && currentTranslation) {

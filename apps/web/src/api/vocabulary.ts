@@ -132,13 +132,36 @@ export interface VocabStatsDto {
   wordsByBook: { editionId: string | null; userBookId: string | null; bookTitle: string; count: number }[]
 }
 
-export type SaveWordOutcome = 'srs' | 'pending' | 'already_saved'
+export type SaveWordOutcome = 'srs' | 'pending' | 'lookup' | 'lookup_pending' | 'already_saved'
 
 export interface SaveWordResponse {
   outcome: SaveWordOutcome
   word: VocabWordDto | null
   pendingId: string | null
+  lookupId: string | null
+  tapsRemaining: number | null
   reason: string | null
+}
+
+export interface WordLookupDto {
+  id: string
+  word: string
+  language: string
+  zipfRank: number | null
+  tapCount: number
+  sentence: string | null
+  bookTitle: string | null
+  editionId: string | null
+  chapterId: string | null
+  userBookId: string | null
+  lastTranslation: string | null
+  firstTappedAt: string
+  lastTappedAt: string
+}
+
+export interface WordLookupListResponse {
+  items: WordLookupDto[]
+  total: number
 }
 
 export interface PendingVocabWordDto {
@@ -184,6 +207,22 @@ export async function promotePendingWord(id: string): Promise<VocabWordDto> {
 
 export async function dismissPendingWord(id: string): Promise<void> {
   await authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
+}
+
+export async function getLookups(params?: { limit?: number; offset?: number }): Promise<WordLookupListResponse> {
+  const query = new URLSearchParams()
+  if (params?.limit) query.set('limit', String(params.limit))
+  if (params?.offset) query.set('offset', String(params.offset))
+  const qs = query.toString()
+  return authFetch<WordLookupListResponse>(`/me/vocabulary/lookups${qs ? `?${qs}` : ''}`)
+}
+
+export async function promoteLookup(id: string): Promise<VocabWordDto> {
+  return authFetch<VocabWordDto>(`/me/vocabulary/lookups/${id}/promote`, { method: 'POST' })
+}
+
+export async function dismissLookup(id: string): Promise<void> {
+  await authFetch<void>(`/me/vocabulary/lookups/${id}`, { method: 'DELETE' })
 }
 
 export async function getWords(params?: {

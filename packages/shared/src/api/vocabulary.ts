@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto, WordLookupListResponseDto } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -33,6 +33,20 @@ export function promotePendingWord(id: string) {
 
 export function dismissPendingWord(id: string) {
   return authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
+}
+
+export function getLookups(params?: { limit?: number; offset?: number }) {
+  return authFetch<WordLookupListResponseDto>(
+    `/me/vocabulary/lookups${buildQuery({ limit: params?.limit, offset: params?.offset })}`
+  )
+}
+
+export function promoteLookup(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/lookups/${id}/promote`, { method: 'POST' })
+}
+
+export function dismissLookup(id: string) {
+  return authFetch<void>(`/me/vocabulary/lookups/${id}`, { method: 'DELETE' })
 }
 
 export function updateWord(id: string, data: { translation?: string; definition?: string }) {

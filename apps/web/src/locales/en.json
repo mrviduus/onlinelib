@@ -255,7 +255,14 @@
     },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
     "vocab": {
-      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
+      "savedToReference": "Saved to reference (rare word)",
+      "tapAgainToStudy": "Tap again to study ({{n}} left)"
+    },
+    "rareWordNotice": {
+      "title": "Rare word — saved to reference",
+      "body": "We don't add rare words to your review queue automatically, so your SRS stays focused on the vocabulary you'll actually encounter.",
+      "cta": "Add to SRS anyway"
     }
   },
   "onboarding": {
