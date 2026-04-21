@@ -1876,6 +1876,203 @@
   }
 }
 
+/* Vocab page header + settings gear */
+.vocab-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.vocab-page__header h1 {
+  margin: 0;
+}
+
+.vocab-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 1.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  background: var(--color-bg, #fff);
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.vocab-settings-btn:hover {
+  background: var(--color-bg-subtle, #f7f7f5);
+  color: var(--color-text, #191919);
+  border-color: var(--color-border-strong, rgba(0, 0, 0, 0.16));
+}
+
+/* Settings modal */
+.vocab-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.vocab-settings-modal {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--color-bg, #fff);
+  border-radius: 16px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+}
+
+.vocab-settings-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  font-size: 1.5rem;
+  line-height: 1;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+}
+
+.vocab-settings-modal__close:hover {
+  background: var(--color-bg-subtle, #f7f7f5);
+  color: var(--color-text, #191919);
+}
+
+.vocab-settings-modal__title {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text, #191919);
+}
+
+.vocab-settings-modal__subtitle {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.vocab-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.vocab-settings-form__error {
+  font-size: 0.85rem;
+  color: #9a1f1f;
+  background: #fdecec;
+  border: 1px solid #f5bcbc;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.vocab-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vocab-settings-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vocab-settings-field__label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text, #191919);
+}
+
+.vocab-settings-field__hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #666);
+  line-height: 1.35;
+}
+
+.vocab-settings-field__input {
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #191919);
+  width: 120px;
+}
+
+.vocab-settings-field__input:focus {
+  outline: none;
+  border-color: var(--color-brand, #c9a227);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.2);
+}
+
+.vocab-settings-field--toggle .vocab-settings-field__head input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.vocab-settings-form__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.vocab-settings-form__cancel,
+.vocab-settings-form__save {
+  padding: 9px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vocab-settings-form__cancel {
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  color: var(--color-text, #191919);
+}
+
+.vocab-settings-form__cancel:hover:not(:disabled) {
+  background: var(--color-bg-subtle, #f7f7f5);
+}
+
+.vocab-settings-form__save {
+  background: var(--color-brand, #c9a227);
+  border: 1px solid var(--color-brand, #c9a227);
+  color: #fff;
+}
+
+.vocab-settings-form__save:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.vocab-settings-form__save:disabled,
+.vocab-settings-form__cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .speak-btn--playing { animation: none; }
   .flash-card { transition: none; }

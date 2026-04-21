@@ -284,7 +284,9 @@
     "noBooksYet": "No books available yet.",
     "noAuthorsYet": "No authors available yet.",
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
+    "close": "Close",
     "home": "Home"
   },
   "nav": {
@@ -767,6 +769,20 @@
       "dismiss": "Dismiss",
       "promoteFailed": "Could not promote this word. Try again.",
       "dismissFailed": "Could not remove this word. Try again."
+    },
+    "settings": {
+      "title": "Vocabulary settings",
+      "subtitle": "Tune how many new words you take on and how often you review.",
+      "dailyNewCap": "Daily new words",
+      "dailyNewCapHint": "How many new words enter SRS per day (5–100). Extras go to Pending.",
+      "weeklyBudget": "Weekly review budget",
+      "weeklyBudgetHint": "Max reviews per week (10–500). Prevents the \"847 due\" spiral.",
+      "frequencyFilter": "Rare-word filter",
+      "frequencyFilterHint": "Send rare words (beyond top 15k) to Reference instead of SRS.",
+      "autoRetire": "Auto-retire mastered words",
+      "autoRetireHint": "Stop reviewing words you've answered correctly 3× at long intervals.",
+      "loadFailed": "Could not load settings.",
+      "saveFailed": "Could not save settings. Try again."
     },
     "sort": {
       "recent": "Recent",

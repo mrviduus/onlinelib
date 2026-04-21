@@ -14,6 +14,7 @@ import { SpeakButton } from '../components/vocabulary/SpeakButton'
 import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { PendingQueueList } from '../components/vocabulary/PendingQueueList'
 import { LookupHistoryList } from '../components/vocabulary/LookupHistoryList'
+import { VocabSettingsModal } from '../components/vocabulary/VocabSettingsModal'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -94,6 +95,7 @@ export function VocabularyPage() {
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Practice-widget state (lifted from old PracticePage)
   const [dailyStats, setDailyStats] = useState<VocabDailyStatDto[]>([])
@@ -251,7 +253,24 @@ export function VocabularyPage() {
     <div className="page-container">
       <SeoHead title={t('vocabulary.title')} noindex />
       <div className="vocab-page">
-        <h1>{t('vocabulary.title')}</h1>
+        <div className="vocab-page__header">
+          <h1>{t('vocabulary.title')}</h1>
+          {isAuthenticated && (
+            <button
+              type="button"
+              className="vocab-settings-btn"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t('vocabulary.settings.title')}
+              title={t('vocabulary.settings.title')}
+            >
+              ⚙︎
+            </button>
+          )}
+        </div>
+
+        {settingsOpen && (
+          <VocabSettingsModal onClose={() => setSettingsOpen(false)} onSaved={refresh} />
+        )}
 
         {error && (
           <div className="vocab-error">{error}</div>
