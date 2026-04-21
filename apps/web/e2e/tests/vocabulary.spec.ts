@@ -4,10 +4,13 @@ import { testLogin } from '../helpers/api'
 const API_URL = process.env.API_URL ?? 'http://localhost:8080'
 const HEADERS = { Host: 'general.localhost', 'Content-Type': 'application/json' }
 
+// Keep these in the top-5k Zipf band so F1 frequency filter classifies them
+// as SrsEligible — rare words route to WordLookup and never populate the SRS
+// list the page asserts against.
 const TEST_WORDS = [
-  { word: 'ephemeral', language: 'en', nativeLanguage: 'de', translation: 'vergänglich', sentence: 'The ephemeral beauty of the sunset.' },
-  { word: 'ubiquitous', language: 'en', nativeLanguage: 'de', translation: 'allgegenwärtig', sentence: 'Smartphones are ubiquitous today.' },
-  { word: 'sanguine', language: 'en', nativeLanguage: 'de', translation: 'zuversichtlich', sentence: 'She remained sanguine despite the setback.' },
+  { word: 'happy', language: 'en', nativeLanguage: 'de', translation: 'glücklich', sentence: 'She was happy about the news.' },
+  { word: 'music', language: 'en', nativeLanguage: 'de', translation: 'Musik', sentence: 'He enjoys listening to music.' },
+  { word: 'garden', language: 'en', nativeLanguage: 'de', translation: 'Garten', sentence: 'The garden is full of flowers.' },
 ]
 
 async function cleanupWords(request: any) {
