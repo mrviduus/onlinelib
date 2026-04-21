@@ -57,6 +57,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
     public DbSet<UserVocabularySettings> UserVocabularySettings => Set<UserVocabularySettings>();
     public DbSet<PendingVocabularyWord> PendingVocabularyWords => Set<PendingVocabularyWord>();
+    public DbSet<WordLookup> WordLookups => Set<WordLookup>();
+    public DbSet<WordFrequency> WordFrequencies => Set<WordFrequency>();
     public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
     public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
@@ -638,6 +640,37 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // WordLookup (F1: rare-word reference bucket — taps that don't enter SRS)
+        modelBuilder.Entity<WordLookup>(e =>
+        {
+            // Dedup: one row per (user, site, word, language). Tap increments TapCount.
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.Word, x.Language }).IsUnique();
+            // List view (newest tapped first).
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.LastTappedAt }).IsDescending(false, false, true);
+            e.Property(x => x.Word).HasMaxLength(200);
+            e.Property(x => x.Language).HasMaxLength(8);
+            e.Property(x => x.Sentence).HasMaxLength(1000);
+            e.Property(x => x.BookTitle).HasMaxLength(500);
+            e.Property(x => x.LastTranslation).HasMaxLength(500);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // WordFrequency (F1: reference data — seeded from wordfreq export at startup)
+        modelBuilder.Entity<WordFrequency>(e =>
+        {
+            // Primary classify lookup: (language, word) unique.
+            e.HasIndex(x => new { x.Language, x.Word }).IsUnique();
+            // Rank-ordered scans (e.g., "top 5000 for language X").
+            e.HasIndex(x => new { x.Language, x.Rank });
+            e.Property(x => x.Language).HasMaxLength(8);
+            e.Property(x => x.Word).HasMaxLength(200);
+            e.Property(x => x.Pos).HasMaxLength(20);
         });
 
         // BlogPost
