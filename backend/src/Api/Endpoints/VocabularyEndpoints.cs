@@ -55,9 +55,8 @@ public static class VocabularyEndpoints
         ILogger<IAppDbContext> logger,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Word) || request.Word.Length > 200)
             return Results.BadRequest("Word is required (max 200 chars)");
@@ -74,14 +73,14 @@ public static class VocabularyEndpoints
         var word = request.Word.Trim().ToLowerInvariant();
 
         var existing = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.UserId == userId.Value && w.SiteId == siteId
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.SiteId == siteId
                 && w.Word == word && w.Language == request.Language, ct);
 
         if (existing != null)
             return Results.Ok(ToDto(existing));
 
         var count = await db.VocabularyWords
-            .CountAsync(w => w.UserId == userId.Value && w.SiteId == siteId, ct);
+            .CountAsync(w => w.UserId == userId && w.SiteId == siteId, ct);
         if (count >= MaxWordsPerUser)
             return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
 
@@ -89,7 +88,7 @@ public static class VocabularyEndpoints
         var entry = new VocabularyWord
         {
             Id = Guid.NewGuid(),
-            UserId = userId.Value,
+            UserId = userId,
             SiteId = siteId,
             Word = word,
             Language = request.Language,
@@ -199,12 +198,11 @@ public static class VocabularyEndpoints
         [FromQuery] int? offset,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var query = db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId);
+            .Where(w => w.UserId == userId && w.SiteId == siteId);
 
         if (!string.IsNullOrEmpty(stage))
         {
@@ -267,12 +265,10 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
-        var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        var word = await FindUserWordAsync(db, id, userId, siteId, ct);
         if (word == null) return Results.NotFound();
 
         db.VocabularyWords.Remove(word);
@@ -289,12 +285,11 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+            .Where(w => w.UserId == userId && w.SiteId == siteId)
             .ToListAsync(ct);
 
         db.VocabularyWords.RemoveRange(words);
@@ -313,12 +308,10 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
-        var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        var word = await FindUserWordAsync(db, id, userId, siteId, ct);
         if (word == null) return Results.NotFound();
 
         if (request.Translation != null) word.Translation = request.Translation.Trim();
@@ -343,9 +336,8 @@ public static class VocabularyEndpoints
         [FromQuery] bool? includeAll,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var now = DateTimeOffset.UtcNow;
         var batchSize = Math.Min(limit ?? 10, 50);
@@ -354,19 +346,17 @@ public static class VocabularyEndpoints
         // who already reviewed 70 this week sees an empty queue instead of a
         // bottomless backlog. ResetAt is when the oldest review in the 7d
         // window rolls off — frontend shows "back tomorrow at X" messaging.
-        var weeklyProgress = await weeklyBudget.GetProgressAsync(userId.Value, siteId, ct);
+        var weeklyProgress = await weeklyBudget.GetProgressAsync(userId, siteId, ct);
         var fetchLimit = Math.Min(batchSize, weeklyProgress.Remaining);
 
         // Retired rows (F4) are hidden from the queue — they already graduated.
         var baseQuery = db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId && !w.IsRetired);
+            .Where(w => w.UserId == userId && w.SiteId == siteId && !w.IsRetired);
 
         var totalDue = await baseQuery
             .CountAsync(w => w.NextReviewAt <= now, ct);
 
-        var weeklyProgressDto = new WeeklyProgressDto(
-            weeklyProgress.Used, weeklyProgress.Budget,
-            weeklyProgress.Remaining, weeklyProgress.ResetAt);
+        var weeklyProgressDto = ToDto(weeklyProgress);
 
         if (fetchLimit == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue, weeklyProgressDto));
@@ -399,7 +389,7 @@ public static class VocabularyEndpoints
         var dueWordIds = dueWords.Select(w => w.Id).ToHashSet();
 
         var distractorPool = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId
+            .Where(w => w.UserId == userId && w.SiteId == siteId
                 && !dueWordIds.Contains(w.Id)
                 && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
@@ -435,12 +425,10 @@ public static class VocabularyEndpoints
         ISrsEngine srsEngine,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
-        var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == request.WordId && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        var word = await FindUserWordAsync(db, request.WordId, userId, siteId, ct);
         if (word == null) return Results.NotFound();
 
         var prevStage = word.Stage;
@@ -474,7 +462,7 @@ public static class VocabularyEndpoints
         {
             Id = Guid.NewGuid(),
             VocabularyWordId = word.Id,
-            UserId = userId.Value,
+            UserId = userId,
             SiteId = siteId,
             ReviewMode = reviewMode,
             IsCorrect = request.IsCorrect,
@@ -488,9 +476,9 @@ public static class VocabularyEndpoints
         await db.SaveChangesAsync(ct);
 
         // Check streak achievements (vocab reviews now count toward streak)
-        var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId.Value, siteId, ct);
-        var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId.Value, siteId, streakMinMinutes, now, ct);
-        await new AchievementChecker(db).CheckAfterReview(userId.Value, siteId, currentStreak, ct);
+        var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId, siteId, ct);
+        var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId, siteId, streakMinMinutes, now, ct);
+        await new AchievementChecker(db).CheckAfterReview(userId, siteId, currentStreak, ct);
 
         return Results.Ok(new SubmitReviewResponse(
             word.Id, prevStage, newStage, prevStage != newStage,
@@ -506,9 +494,8 @@ public static class VocabularyEndpoints
         WeeklyBudgetService weeklyBudget,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var now = DateTimeOffset.UtcNow;
         var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
@@ -517,7 +504,7 @@ public static class VocabularyEndpoints
         // keep retired rows (user still wants to see "2000 mastered" even if
         // they no longer appear in the queue).
         var words = db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId);
+            .Where(w => w.UserId == userId && w.SiteId == siteId);
 
         var totalWords = await words.CountAsync(ct);
 
@@ -534,7 +521,7 @@ public static class VocabularyEndpoints
 
         // Single query for today's review stats
         var todayStats = await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart)
+            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= todayStart)
             .GroupBy(_ => 1)
             .Select(g => new
             {
@@ -554,7 +541,7 @@ public static class VocabularyEndpoints
 
         // Single query for all-time review stats
         var allStats = await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
+            .Where(r => r.UserId == userId && r.SiteId == siteId)
             .GroupBy(_ => 1)
             .Select(g => new { Total = g.Count(), Correct = g.Count(r => r.IsCorrect) })
             .FirstOrDefaultAsync(ct);
@@ -564,7 +551,7 @@ public static class VocabularyEndpoints
 
         // Streak: consecutive days with reviews (HashSet for O(1) lookup)
         var reviewDays = (await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId)
+            .Where(r => r.UserId == userId && r.SiteId == siteId)
             .Select(r => r.CreatedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)
@@ -590,9 +577,7 @@ public static class VocabularyEndpoints
             .Take(20)
             .ToListAsync(ct);
 
-        var progress = await weeklyBudget.GetProgressAsync(userId.Value, siteId, ct);
-        var weeklyProgress = new WeeklyProgressDto(
-            progress.Used, progress.Budget, progress.Remaining, progress.ResetAt);
+        var weeklyProgress = ToDto(await weeklyBudget.GetProgressAsync(userId, siteId, ct));
 
         return Results.Ok(new
         {
@@ -640,9 +625,8 @@ public static class VocabularyEndpoints
         [FromQuery] string? tz,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var tzOffset = ParseTzOffset(tz);
         var now = DateTimeOffset.UtcNow;
@@ -651,7 +635,7 @@ public static class VocabularyEndpoints
 
         // Reviews per day
         var reviews = await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId
+            .Where(r => r.UserId == userId && r.SiteId == siteId
                 && r.CreatedAt >= start && r.CreatedAt <= end)
             .Select(r => new { r.CreatedAt, r.IsCorrect, r.ReviewMode })
             .ToListAsync(ct);
@@ -670,7 +654,7 @@ public static class VocabularyEndpoints
 
         // Words added per day
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId
+            .Where(w => w.UserId == userId && w.SiteId == siteId
                 && w.CreatedAt >= start && w.CreatedAt <= end)
             .Select(w => w.CreatedAt)
             .ToListAsync(ct);
@@ -753,12 +737,11 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId.Value && w.SiteId == siteId)
+            .Where(w => w.UserId == userId && w.SiteId == siteId)
             .OrderBy(w => w.Word)
             .Take(MaxWordsPerUser)
             .Select(w => new ReaderVocabWordDto(w.Id, w.Word, w.Stage, w.Translation))
@@ -776,12 +759,10 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
-        var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        var word = await FindUserWordAsync(db, id, userId, siteId, ct);
 
         if (word == null) return Results.NotFound();
 
@@ -795,6 +776,26 @@ public static class VocabularyEndpoints
         return Results.Ok(ToDto(word));
     }
 
+    // --- Shared helpers ---
+
+    // Resolves userId + siteId from the request. Returns false when the caller
+    // is unauthenticated (caller should return Results.Unauthorized). Collapses
+    // the 3-line auth preamble that otherwise repeats at every endpoint.
+    private static bool TryGetAuth(HttpContext ctx, AuthService authService, out Guid userId, out Guid siteId)
+    {
+        var uid = ctx.GetUserId(authService);
+        if (uid is null) { userId = Guid.Empty; siteId = Guid.Empty; return false; }
+        userId = uid.Value;
+        siteId = ctx.GetSiteId();
+        return true;
+    }
+
+    // Ownership-scoped lookup used by every per-word mutation endpoint.
+    private static Task<VocabularyWord?> FindUserWordAsync(
+        IAppDbContext db, Guid id, Guid userId, Guid siteId, CancellationToken ct)
+        => db.VocabularyWords.FirstOrDefaultAsync(
+            w => w.Id == id && w.UserId == userId && w.SiteId == siteId, ct);
+
     private static VocabWordDto ToDto(VocabularyWord w) => new(
         w.Id, w.Word, w.Language, w.Translation, w.Definition,
         w.EditionId, w.ChapterId, w.UserBookId,
@@ -804,6 +805,9 @@ public static class VocabularyEndpoints
         w.TotalReviews, w.CorrectReviews,
         w.CreatedAt, w.UpdatedAt);
 
+    private static WeeklyProgressDto ToDto(WeeklyProgress p) =>
+        new(p.Used, p.Budget, p.Remaining, p.ResetAt);
+
     // --- Settings (Phase 1 anti-spiral) ---
 
     private static async Task<IResult> GetSettings(
@@ -812,12 +816,11 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId.Value && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
 
         // First-time read: return defaults without persisting — settings row is
         // created lazily on first PUT to avoid a write on every new user.
@@ -836,9 +839,8 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
         if (request.DailyNewCap is < 5 or > 100)
             return Results.BadRequest("DailyNewCap must be 5–100");
@@ -846,14 +848,14 @@ public static class VocabularyEndpoints
             return Results.BadRequest("WeeklyReviewBudget must be 10–500");
 
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId.Value && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
         var now = DateTimeOffset.UtcNow;
 
         if (settings is null)
         {
             settings = new UserVocabularySettings
             {
-                UserId = userId.Value,
+                UserId = userId,
                 SiteId = siteId,
                 CreatedAt = now,
             };
@@ -880,12 +882,10 @@ public static class VocabularyEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var userId = httpContext.GetUserId(authService);
-        if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
 
-        var word = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId.Value && w.SiteId == siteId, ct);
+        var word = await FindUserWordAsync(db, id, userId, siteId, ct);
         if (word == null) return Results.NotFound();
 
         if (!word.IsRetired) return Results.Ok(ToDto(word));
