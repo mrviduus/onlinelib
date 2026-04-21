@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Modal, View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Switch, ScrollView, ActivityIndicator,
+  Switch, ScrollView, ActivityIndicator, Platform, Pressable,
 } from 'react-native'
+import type { ViewStyle } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { vocabularyApi, ApiError } from '@textstack/shared'
 import type { VocabSettingsDto } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { fonts } from '../../theme/typography'
+
+// RN Modal on Expo Web has long-standing pointer-events bugs: the modal
+// host is rendered inline (not portaled), so z-index collisions with
+// parent transforms/fixed headers are common, and the scrim can leak
+// taps through to the underlying tree. On web we render a custom
+// fixed-position overlay instead; on native we keep Modal.
+const IS_WEB = Platform.OS === 'web'
+const WEB_OVERLAY_STYLE = {
+  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+} as unknown as ViewStyle
 
 interface Props {
   visible: boolean
@@ -137,11 +148,17 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
   const fieldBorder = (field: FieldKey) =>
     invalidField === field ? '#ef4444' : colors.border
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+  const sheet = (
+    // Backdrop Pressable catches taps outside the sheet. The inner
+    // Pressable stops propagation so taps inside don't close — matches
+    // LanguagePickerModal's pattern and works on both native + web
+    // (RN-Web translates Pressable onPress to a click handler).
+    <Pressable style={styles.overlay} onPress={handleClose}>
+      <Pressable
+        style={[styles.sheet, { backgroundColor: colors.background }]}
+        onPress={(e) => e.stopPropagation?.()}
+      >
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text, fontFamily: fonts.sansMedium }]}>
               {t('vocabulary.settings.title')}
             </Text>
@@ -257,8 +274,18 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
+  )
+
+  if (IS_WEB) {
+    if (!visible) return null
+    return <View style={WEB_OVERLAY_STYLE}>{sheet}</View>
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      {sheet}
     </Modal>
   )
 }
