@@ -52,6 +52,7 @@ public interface IAppDbContext
     DbSet<PendingVocabularyWord> PendingVocabularyWords { get; }
     DbSet<WordLookup> WordLookups { get; }
     DbSet<WordFrequency> WordFrequencies { get; }
+    DbSet<WordCluster> WordClusters { get; }
     DbSet<ReviewLike> ReviewLikes { get; }
     DbSet<ReviewComment> ReviewComments { get; }
     DbSet<BlogPost> BlogPosts { get; }

@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddSingleton<IReviewCardBuilder, ReviewCardBuilder>();
         services.AddScoped<IDistractorGenerator, DistractorGenerator>();
         services.AddScoped<IDefinitionEnricher, DefinitionEnricher>();
+        services.AddScoped<IClusterBuilder, ClusterBuilder>();
 
         return services;
     }
