@@ -1335,6 +1335,53 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   background: rgba(220, 38, 38, 0.05);
 }
 
+/* F1 rare-word notice — shown inside WordPopup when backend returns
+   lookup / lookup_pending. Amber accent signals "not in SRS" without
+   looking like an error. */
+.rare-word-notice {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--reader-text, #222);
+}
+.rare-word-notice__title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.rare-word-notice__body {
+  color: var(--reader-secondary, #666);
+  margin-bottom: 6px;
+}
+.rare-word-notice__cta {
+  background: none;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  color: #854d0e;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.rare-word-notice__cta:hover:not(:disabled) {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.7);
+}
+.rare-word-notice__cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.rare-word-notice__cta--busy {
+  animation: rare-word-notice-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rare-word-notice-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
 /* Language footer */
 .word-popup__lang-footer {
   position: relative;

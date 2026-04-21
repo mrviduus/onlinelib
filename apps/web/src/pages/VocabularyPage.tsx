@@ -13,6 +13,9 @@ import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
 import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { PendingQueueList } from '../components/vocabulary/PendingQueueList'
+import { LookupHistoryList } from '../components/vocabulary/LookupHistoryList'
+import { VocabSettingsModal } from '../components/vocabulary/VocabSettingsModal'
+import { ClusterBonusCard } from '../components/vocabulary/ClusterBonusCard'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -93,6 +96,7 @@ export function VocabularyPage() {
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Practice-widget state (lifted from old PracticePage)
   const [dailyStats, setDailyStats] = useState<VocabDailyStatDto[]>([])
@@ -250,7 +254,24 @@ export function VocabularyPage() {
     <div className="page-container">
       <SeoHead title={t('vocabulary.title')} noindex />
       <div className="vocab-page">
-        <h1>{t('vocabulary.title')}</h1>
+        <div className="vocab-page__header">
+          <h1>{t('vocabulary.title')}</h1>
+          {isAuthenticated && (
+            <button
+              type="button"
+              className="vocab-settings-btn"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t('vocabulary.settings.title')}
+              title={t('vocabulary.settings.title')}
+            >
+              ⚙︎
+            </button>
+          )}
+        </div>
+
+        {settingsOpen && (
+          <VocabSettingsModal onClose={() => setSettingsOpen(false)} onSaved={refresh} />
+        )}
 
         {error && (
           <div className="vocab-error">{error}</div>
@@ -275,6 +296,11 @@ export function VocabularyPage() {
         {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
         {isAuthenticated && stats?.weeklyProgress && (
           <WeeklyBudgetBar progress={stats.weeklyProgress} />
+        )}
+
+        {/* Anti-spiral F3: LLM-grouped thematic bonus round */}
+        {isAuthenticated && stats && (stats.clusterCount ?? 0) > 0 && (
+          <ClusterBonusCard onChange={refresh} />
         )}
 
         {/* Start practice card (from Practice) */}
@@ -385,7 +411,7 @@ export function VocabularyPage() {
         {/* Filters */}
         <div className="vocab-filters">
           <div className="vocab-tabs" role="tablist">
-            {['all', 'new', 'learning', 'mastered', 'pending'].map(tab => (
+            {['all', 'new', 'learning', 'mastered', 'pending', 'lookups'].map(tab => (
               <button
                 key={tab}
                 role="tab"
@@ -396,6 +422,9 @@ export function VocabularyPage() {
                 {t(`vocabulary.filters.${tab}`)}
                 {tab === 'pending' && stats && stats.pendingCount > 0 && (
                   <span className="vocab-tab__badge"> ({stats.pendingCount})</span>
+                )}
+                {tab === 'lookups' && stats && stats.lookupCount > 0 && (
+                  <span className="vocab-tab__badge"> ({stats.lookupCount})</span>
                 )}
               </button>
             ))}
@@ -428,8 +457,13 @@ export function VocabularyPage() {
           <PendingQueueList onChange={refresh} />
         )}
 
+        {/* Lookups tab — rare words saved as reference, promotable to SRS */}
+        {activeTab === 'lookups' && (
+          <LookupHistoryList onChange={refresh} />
+        )}
+
         {/* Word list */}
-        {activeTab !== 'pending' && (words.length === 0 ? (
+        {activeTab !== 'pending' && activeTab !== 'lookups' && (words.length === 0 ? (
           <EmptyState icon="📝" title={t('vocabulary.empty')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
         ) : (
           <div className="vocab-list">
@@ -543,7 +577,7 @@ export function VocabularyPage() {
           </div>
         ))}
 
-        {activeTab !== 'pending' && total > words.length && (
+        {activeTab !== 'pending' && activeTab !== 'lookups' && total > words.length && (
           <button className="vocab-load-more" onClick={loadMore}>
             {t('vocabulary.loadMore')} ({total - words.length})
           </button>

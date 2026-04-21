@@ -9,7 +9,7 @@ import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useBubbleTranslationSync } from '../../hooks/useBubbleTranslationSync'
-import { updateWord } from '../../api/vocabulary'
+import { updateWord, promoteLookup } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
@@ -83,12 +83,28 @@ export function ReaderHighlights({
   const isSingleWord = hasSelection && selectionWordCount === 1
 
   // --- Vocab map + save/update (guest = real User via cookie session, same API path) ---
-  const { vocabMap, addWord, removeWord, updateTranslation, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
+  const { vocabMap, addWord, removeWord, updateTranslation, recordSavedWord, idbUnavailable, dismissIdbUnavailable } = useReaderVocabulary(bookLanguage, targetLang)
   const { openAuthModal } = useAuth()
 
   // Anti-spiral F2: toast when a save lands in the pending queue (daily cap hit).
   // Cleared on auto-dismiss; new pending saves overwrite the message.
   const [pendingToast, setPendingToast] = useState<string | null>(null)
+
+  // Anti-spiral F1: rare-word state. When SaveWord returns lookup / lookup_pending
+  // we keep the lookupId + kind so WordPopup can render RareWordNotice with an
+  // "Add anyway" button. Keyed by word so re-tapping a different word resets.
+  const [lookupState, setLookupState] = useState<{
+    word: string
+    id: string
+    kind: 'lookup' | 'lookup_pending'
+    tapsRemaining: number | null
+  } | null>(null)
+  const [addAnywayBusy, setAddAnywayBusy] = useState(false)
+  // Word for which the auto-save POST is still in flight. WordPopup uses this
+  // to suspend its 3-8s auto-dismiss until the save resolves — otherwise a slow
+  // server response can close the popup before a lookup result arrives, and
+  // the user never sees RareWordNotice.
+  const [savingWord, setSavingWord] = useState<string | null>(null)
 
   // --- Dictionary (phonetic + definition) ---
   const { lookup: lookupWord } = useDictionary()
@@ -126,6 +142,7 @@ export function ReaderHighlights({
     if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
     bubbleAbortRef.current?.abort()
     setBubble(null)
+    setLookupState(null)
     // Clear selection to break the effect loop: without this, selection persists,
     // isSingleWord stays true, bubble is null → effect re-fires → mercание.
     clearSelection()
@@ -148,22 +165,43 @@ export function ReaderHighlights({
     const container = containerRef.current
     const sentence = range && container ? extractSentence(range, container) : undefined
     const currentTranslation = bubble?.word === word ? bubble?.translation : null
-    const resp = await addWord({
-      word,
-      language: bookLanguage,
-      editionId: userBookId ? undefined : (editionId || undefined),
-      chapterId: userBookId ? undefined : (chapterId || undefined),
-      userBookId: userBookId || undefined,
-      sentence: sentence || undefined,
-      bookTitle: bookTitle || undefined,
-      // Send the actual confirmed native language (not `targetLang`, which is
-      // null in same-lang definition mode — but the user's explicit choice is
-      // still a valid native we want the backend to record for SRS enrichment).
-      nativeLanguage: nativeLanguage,
-      translation: currentTranslation || null,
-    }).catch(() => null)
+    setSavingWord(word)
+    let resp: Awaited<ReturnType<typeof addWord>> | null = null
+    try {
+      resp = await addWord({
+        word,
+        language: bookLanguage,
+        editionId: userBookId ? undefined : (editionId || undefined),
+        chapterId: userBookId ? undefined : (chapterId || undefined),
+        userBookId: userBookId || undefined,
+        sentence: sentence || undefined,
+        bookTitle: bookTitle || undefined,
+        // Send the actual confirmed native language (not `targetLang`, which is
+        // null in same-lang definition mode — but the user's explicit choice is
+        // still a valid native we want the backend to record for SRS enrichment).
+        nativeLanguage: nativeLanguage,
+        translation: currentTranslation || null,
+      }).catch(() => null)
+    } finally {
+      // Clear no matter what — keeps the popup's auto-dismiss from stalling
+      // forever if the backend is down. Only clear for this word to avoid
+      // stomping a newer in-flight save from a re-tap.
+      setSavingWord((prev) => (prev === word ? null : prev))
+    }
     if (resp?.outcome === 'pending') {
       setPendingToast(t('reader.vocab.queuedForTomorrow'))
+    } else if (resp?.outcome === 'lookup' || resp?.outcome === 'lookup_pending') {
+      // Keep lookupId so "Add anyway" can POST /lookups/{id}/promote. No toast:
+      // the popup itself renders RareWordNotice which is louder than a transient
+      // toast at the bottom of the screen.
+      if (resp.lookupId) {
+        setLookupState({
+          word,
+          id: resp.lookupId,
+          kind: resp.outcome,
+          tapsRemaining: resp.tapsRemaining ?? null,
+        })
+      }
     }
     const saved = resp?.word
     if (saved?.id && currentTranslation) {
@@ -183,6 +221,8 @@ export function ReaderHighlights({
     bubbleAbortRef.current?.abort()
     const ctrl = new AbortController()
     bubbleAbortRef.current = ctrl
+    // Reset rare-word state so prior word's notice doesn't leak across taps.
+    setLookupState(null)
     setBubble({
       word,
       translation: null,
@@ -269,6 +309,28 @@ export function ReaderHighlights({
     bubbleAbortRef.current?.abort()
     if (openTimerRef.current) clearTimeout(openTimerRef.current)
   }, [])
+
+  // "Add anyway" on RareWordNotice: bypasses the frequency filter by promoting
+  // the WordLookup row server-side into a full VocabularyWord. Backend deletes
+  // the lookup + applies Source='manual_add_anyway'. On success we merge the
+  // returned DTO into vocabMap so the reader immediately reflects the saved
+  // state (green highlight / check badge on re-tap). On failure we surface a
+  // toast — silence leaves the user guessing why nothing happened.
+  const handleAddAnyway = useCallback(async () => {
+    if (!lookupState || addAnywayBusy) return
+    setAddAnywayBusy(true)
+    try {
+      const saved = await promoteLookup(lookupState.id)
+      recordSavedWord(saved)
+      setLookupState(null)
+      setPendingToast(t('reader.vocab.addedToSrs'))
+      closeBubble()
+    } catch {
+      setPendingToast(t('reader.vocab.addAnywayFailed'))
+    } finally {
+      setAddAnywayBusy(false)
+    }
+  }, [lookupState, addAnywayBusy, t, closeBubble, recordSavedWord])
 
   // --- Highlights ---
   const {
@@ -483,6 +545,12 @@ export function ReaderHighlights({
             hasConfirmedLanguage={hasConfirmedLanguage}
             bookLanguage={bookLanguage}
             t={t}
+            lookupInfo={lookupState && lookupState.word === bubble.word
+              ? { kind: lookupState.kind, tapsRemaining: lookupState.tapsRemaining }
+              : null}
+            onAddAnyway={lookupState && lookupState.word === bubble.word ? handleAddAnyway : undefined}
+            addAnywayBusy={addAnywayBusy}
+            saveInFlight={savingWord === bubble.word}
           />
         )
       })()}

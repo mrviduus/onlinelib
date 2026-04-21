@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { vocabularyApi, getVocabLevel } from '@textstack/shared'
-import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto } from '@textstack/shared'
+import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto, WordLookupDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
@@ -16,6 +16,9 @@ import { EmptyState } from '../../src/components/ui/EmptyState'
 import { PressableScale } from '../../src/components/ui/PressableScale'
 import { useTts } from '../../src/hooks/useTts'
 import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
+import { ClusterBonusCard } from '../../src/components/vocabulary/ClusterBonusCard'
+import { WeeklyBudgetBar } from '../../src/components/vocabulary/WeeklyBudgetBar'
+import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSettingsModal'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -26,6 +29,7 @@ const TABS = [
   { key: 'learning', label: 'Learning', filter: '1,2,3' },
   { key: 'mastered', label: 'Mastered', filter: '4' },
   { key: 'pending', label: 'Pending', filter: undefined },
+  { key: 'lookups', label: 'Lookups', filter: undefined },
 ] as const
 
 const SORT_OPTIONS = [
@@ -56,6 +60,9 @@ export default function VocabularyScreen() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
   const [pendingItems, setPendingItems] = useState<PendingVocabWordDto[] | null>(null)
   const [pendingBusyId, setPendingBusyId] = useState<string | null>(null)
+  const [lookupItems, setLookupItems] = useState<WordLookupDto[] | null>(null)
+  const [lookupBusyId, setLookupBusyId] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -112,6 +119,46 @@ export default function VocabularyScreen() {
   useEffect(() => {
     if (tab === 'pending') loadPending()
   }, [tab, loadPending])
+
+  const loadLookups = useCallback(async () => {
+    try {
+      const resp = await vocabularyApi.getLookups({ limit: 200 })
+      setLookupItems(resp.items)
+    } catch (e) {
+      console.warn('Load lookups failed:', e)
+      setLookupItems([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'lookups') loadLookups()
+  }, [tab, loadLookups])
+
+  const handlePromoteLookup = async (id: string) => {
+    setLookupBusyId(id)
+    try {
+      await vocabularyApi.promoteLookup(id)
+      setLookupItems(prev => (prev || []).filter(p => p.id !== id))
+      vocabularyApi.getVocabularyStats().then(setStats).catch(() => {})
+    } catch {
+      showToast({ message: 'Could not promote. Try again.', variant: 'error' })
+    } finally {
+      setLookupBusyId(null)
+    }
+  }
+
+  const handleDismissLookup = async (id: string) => {
+    setLookupBusyId(id)
+    try {
+      await vocabularyApi.dismissLookup(id)
+      setLookupItems(prev => (prev || []).filter(p => p.id !== id))
+      vocabularyApi.getVocabularyStats().then(setStats).catch(() => {})
+    } catch {
+      showToast({ message: 'Could not dismiss. Try again.', variant: 'error' })
+    } finally {
+      setLookupBusyId(null)
+    }
+  }
 
   const handlePromotePending = async (id: string) => {
     setPendingBusyId(id)
@@ -184,6 +231,37 @@ export default function VocabularyScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
+      {stats?.weeklyProgress && (
+        <>
+          <WeeklyBudgetBar progress={stats.weeklyProgress} />
+          <View style={styles.settingsRow}>
+            <TouchableOpacity
+              onPress={() => setSettingsOpen(true)}
+              style={[styles.settingsBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityLabel={t('vocabulary.settings.title')}
+              hitSlop={8}
+            >
+              <Ionicons name="settings-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.settingsText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
+                {t('vocabulary.settings.title')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      <VocabSettingsModal
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => { offsetRef.current = 0; loadData() }}
+      />
+
+      {/* Cluster bonus card — only when an active, non-dismissed cluster exists */}
+      {stats && (stats.clusterCount ?? 0) > 0 && (
+        <ClusterBonusCard onChange={() => { offsetRef.current = 0; loadData() }} />
+      )}
+
       {/* Stats bar */}
       {stats && (
         <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
@@ -274,7 +352,56 @@ export default function VocabularyScreen() {
         </View>
       </View>
 
-      {tab === 'pending' ? (
+      {tab === 'lookups' ? (
+        lookupItems === null ? (
+          <View style={styles.listContent}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+                <SkeletonLoader width={160} height={16} />
+              </View>
+            ))}
+          </View>
+        ) : lookupItems.length === 0 ? (
+          <EmptyState icon="search-outline" title="No reference lookups yet" />
+        ) : (
+          <FlatList
+            data={lookupItems}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => (
+              <View style={[styles.wordRow, { borderBottomColor: colors.border }]}>
+                <View style={styles.wordHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.wordText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{item.word}</Text>
+                    {item.lastTranslation && (
+                      <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{item.lastTranslation}</Text>
+                    )}
+                    <Text style={[styles.detailSource, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>
+                      {[item.bookTitle, `${item.tapCount} tap${item.tapCount === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity
+                      disabled={lookupBusyId === item.id}
+                      style={[styles.reviewBtn, { backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => handlePromoteLookup(item.id)}
+                    >
+                      <Text style={{ color: '#fff', fontFamily: fonts.sansMedium, fontSize: 12 }}>Add anyway</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={lookupBusyId === item.id}
+                      style={[styles.reviewBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => handleDismissLookup(item.id)}
+                    >
+                      <Text style={{ color: colors.textSecondary, fontFamily: fonts.sans, fontSize: 12 }}>Dismiss</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          />
+        )
+      ) : tab === 'pending' ? (
         pendingItems === null ? (
           <View style={styles.listContent}>
             {Array.from({ length: 4 }).map((_, i) => (
@@ -544,6 +671,14 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   emptyText: { fontSize: 16, textAlign: 'center' },
   emptySubtext: { fontSize: 13, marginTop: 4, textAlign: 'center' },
+
+  settingsRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, marginTop: 6 },
+  settingsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 14, borderWidth: 1,
+  },
+  settingsText: { fontSize: 11 },
 
   // Stats
   statsBar: {

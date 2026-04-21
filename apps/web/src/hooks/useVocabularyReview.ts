@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import {
   getReviewQueue,
+  startClusterBonus,
   submitReview,
   type ReviewCardDto,
   type SelfAssessment,
@@ -34,6 +35,7 @@ export function useVocabularyReview() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('blitz')
   const [showingNewWord, setShowingNewWord] = useState(false)
   const [wrongCards, setWrongCards] = useState<ReviewCardDto[]>([])
+  const [activeClusterId, setActiveClusterId] = useState<string | null>(null)
 
   const resetAnswerState = useCallback(() => {
     setLastResult(null)
@@ -54,6 +56,7 @@ export function useVocabularyReview() {
     setError(null)
     setCurrentIndex(0)
     setWrongCards([])
+    setActiveClusterId(null)
     resetAnswerState()
     try {
       const queue = await getReviewQueue(limit, includeAll ?? true)
@@ -64,6 +67,28 @@ export function useVocabularyReview() {
       showNewWordIfNeeded(queue.cards, 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load review')
+    } finally {
+      setLoading(false)
+    }
+  }, [resetAnswerState, showNewWordIfNeeded])
+
+  const startClusterSession = useCallback(async (clusterId: string, rMode?: ReviewMode) => {
+    if (rMode) setReviewMode(rMode)
+    setLoading(true)
+    setError(null)
+    setCurrentIndex(0)
+    setWrongCards([])
+    resetAnswerState()
+    try {
+      const bonus = await startClusterBonus(clusterId)
+      setCards(bonus.cards)
+      setTotalDue(bonus.cards.length)
+      setWeeklyProgress(null)
+      setSessionStats({ ...EMPTY_STATS, total: bonus.cards.length })
+      setActiveClusterId(clusterId)
+      showNewWordIfNeeded(bonus.cards, 0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load bonus')
     } finally {
       setLoading(false)
     }
@@ -151,7 +176,9 @@ export function useVocabularyReview() {
     reviewMode,
     showingNewWord,
     wrongCards,
+    activeClusterId,
     startSession,
+    startClusterSession,
     submitAnswer,
     nextCard,
     dismissNewWord,

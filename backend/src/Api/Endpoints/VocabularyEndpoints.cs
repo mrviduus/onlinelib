@@ -44,6 +44,17 @@ public static class VocabularyEndpoints
         group.MapPost("/pending/{id:guid}/promote", PromotePending).WithName("PromotePendingVocabularyWord");
         group.MapDelete("/pending/{id:guid}", DismissPending).WithName("DismissPendingVocabularyWord");
 
+        // Anti-spiral lookups bucket (Phase 3 F1)
+        group.MapGet("/lookups", GetLookups).WithName("GetWordLookups");
+        group.MapPost("/lookups/{id:guid}/promote", PromoteLookup).WithName("PromoteWordLookup");
+        group.MapDelete("/lookups/{id:guid}", DismissLookup).WithName("DismissWordLookup");
+
+        // Anti-spiral thematic clusters bonus round (Phase 4 F3)
+        group.MapGet("/clusters", GetClusters).WithName("GetWordClusters");
+        group.MapPost("/clusters/{id:guid}/start-bonus", StartClusterBonus).WithName("StartClusterBonus");
+        group.MapPost("/clusters/{id:guid}/dismiss", DismissCluster).WithName("DismissCluster");
+        group.MapPost("/clusters/{id:guid}/complete", CompleteCluster).WithName("CompleteCluster");
+
         // Admin: backfill definitions for words missing them
         app.MapPost("/admin/vocabulary/backfill-definitions", BackfillDefinitions)
             .WithTags("Admin").WithName("BackfillVocabularyDefinitions");
@@ -57,6 +68,7 @@ public static class VocabularyEndpoints
         AuthService authService,
         IAppDbContext db,
         DailyCapService dailyCap,
+        IFrequencyFilter frequencyFilter,
         IServiceScopeFactory scopeFactory,
         ILogger<IAppDbContext> logger,
         CancellationToken ct)
@@ -103,6 +115,53 @@ public static class VocabularyEndpoints
 
         var now = DateTimeOffset.UtcNow;
 
+        // Anti-spiral F1: frequency gate. Rare/OOV words go to WordLookup and
+        // never touch SRS. Mid-tier words need 2 taps before joining SRS. The
+        // user's FrequencyFilterEnabled setting lets them opt out entirely.
+        var filterEnabled = await db.UserVocabularySettings
+            .Where(s => s.UserId == userId && s.SiteId == siteId)
+            .Select(s => (bool?)s.FrequencyFilterEnabled)
+            .FirstOrDefaultAsync(ct) ?? true;
+
+        // Query unconditionally so a user who flips the filter off doesn't leave
+        // orphan lookups behind when the same word is next saved to SRS.
+        var existingLookup = await db.WordLookups
+            .FirstOrDefaultAsync(l => l.UserId == userId && l.SiteId == siteId
+                && l.Word == word && l.Language == request.Language, ct);
+
+        int? zipfRank = null;
+        double? zipfScore = null;
+
+        if (filterEnabled)
+        {
+            var currentTaps = existingLookup?.TapCount ?? 0;
+            var classification = await frequencyFilter.ClassifyAsync(word, request.Language, currentTaps, ct);
+            zipfRank = classification.ZipfRank;
+            zipfScore = classification.ZipfScore;
+
+            if (classification.Kind == FrequencyClassKind.LookupOnly)
+            {
+                var lookup = await UpsertLookupAsync(db, userId, siteId, word, request, zipfRank, now, existingLookup, ct);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(SaveWordResponse.Lookup(lookup.Id, classification.Reason ?? "rare_word"));
+            }
+
+            if (classification.Kind == FrequencyClassKind.RequiresRetap)
+            {
+                var lookup = await UpsertLookupAsync(db, userId, siteId, word, request, zipfRank, now, existingLookup, ct);
+                await db.SaveChangesAsync(ct);
+                var tapsRemaining = Math.Max(0, classification.RequiredTaps - lookup.TapCount);
+                return Results.Ok(SaveWordResponse.LookupPending(lookup.Id, tapsRemaining));
+            }
+            // SrsEligible falls through — lookup cleanup below covers the "was
+            // mid-tier, now being promoted to SRS" case.
+        }
+
+        // Any path that creates a SRS or Pending row also drops any lingering
+        // Lookup — the word isn't reference-only anymore.
+        if (existingLookup != null)
+            db.WordLookups.Remove(existingLookup);
+
         // Anti-spiral F2: daily cap on *new* SRS activations. Over-cap goes
         // to pending; reconciler promotes the highest-Priority rows tomorrow.
         var capStatus = await dailyCap.GetStatusAsync(userId, siteId, ct);
@@ -122,6 +181,8 @@ public static class VocabularyEndpoints
                 UserBookId = request.UserBookId,
                 Sentence = request.Sentence?.Trim(),
                 BookTitle = request.BookTitle?.Trim(),
+                ZipfRank = zipfRank,
+                ZipfScore = zipfScore,
                 Source = "tap",
                 CreatedAt = now,
             };
@@ -144,6 +205,8 @@ public static class VocabularyEndpoints
             UserBookId = request.UserBookId,
             Sentence = request.Sentence?.Trim(),
             BookTitle = request.BookTitle?.Trim(),
+            ZipfRank = zipfRank,
+            ZipfScore = zipfScore,
             ActivatedAt = now,  // F2: marks this row as counting toward today's cap.
             Stage = 0,
             IntervalDays = 0,
@@ -646,6 +709,11 @@ public static class VocabularyEndpoints
         var capStatus = await dailyCap.GetStatusAsync(userId, siteId, ct);
         var pendingCount = await db.PendingVocabularyWords
             .CountAsync(p => p.UserId == userId && p.SiteId == siteId, ct);
+        var lookupCount = await db.WordLookups
+            .CountAsync(l => l.UserId == userId && l.SiteId == siteId, ct);
+        var clusterCount = await db.WordClusters
+            .CountAsync(c => c.UserId == userId && c.SiteId == siteId
+                          && !c.IsDismissed && c.CompletedAt == null, ct);
 
         return Results.Ok(new
         {
@@ -661,6 +729,8 @@ public static class VocabularyEndpoints
             dueNow,
             retiredCount,
             pendingCount,
+            lookupCount,
+            clusterCount,
             weeklyProgress,
             dailyCap = new { used = capStatus.Used, cap = capStatus.Cap, remaining = capStatus.Remaining },
             reviewedToday,
@@ -875,6 +945,49 @@ public static class VocabularyEndpoints
         w.TotalReviews, w.CorrectReviews,
         w.CreatedAt, w.UpdatedAt);
 
+    // Anti-spiral F1. Create-or-bump the WordLookup row for this tap. Sentence /
+    // book context is overwritten on each tap so we always show the *latest*
+    // context when the user opens the Lookups list.
+    private static async Task<WordLookup> UpsertLookupAsync(
+        IAppDbContext db, Guid userId, Guid siteId, string word, SaveWordRequest request,
+        int? zipfRank, DateTimeOffset now, WordLookup? existing, CancellationToken ct)
+    {
+        if (existing != null)
+        {
+            existing.TapCount += 1;
+            existing.LastTappedAt = now;
+            existing.Sentence = request.Sentence?.Trim() ?? existing.Sentence;
+            existing.BookTitle = request.BookTitle?.Trim() ?? existing.BookTitle;
+            existing.EditionId = request.EditionId ?? existing.EditionId;
+            existing.ChapterId = request.ChapterId ?? existing.ChapterId;
+            existing.UserBookId = request.UserBookId ?? existing.UserBookId;
+            existing.LastTranslation = request.Translation?.Trim() ?? existing.LastTranslation;
+            existing.ZipfRank = zipfRank ?? existing.ZipfRank;
+            return existing;
+        }
+
+        var lookup = new WordLookup
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            SiteId = siteId,
+            Word = word,
+            Language = request.Language,
+            ZipfRank = zipfRank,
+            TapCount = 1,
+            Sentence = request.Sentence?.Trim(),
+            BookTitle = request.BookTitle?.Trim(),
+            EditionId = request.EditionId,
+            ChapterId = request.ChapterId,
+            UserBookId = request.UserBookId,
+            LastTranslation = request.Translation?.Trim(),
+            FirstTappedAt = now,
+            LastTappedAt = now,
+        };
+        db.WordLookups.Add(lookup);
+        return await Task.FromResult(lookup);
+    }
+
     private static WeeklyProgressDto ToDto(WeeklyProgress p) =>
         new(p.Used, p.Budget, p.Remaining, p.ResetAt);
 
@@ -1062,6 +1175,266 @@ public static class VocabularyEndpoints
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
     }
+
+    // --- Lookups (Phase 3 F1) ---
+
+    private static async Task<IResult> GetLookups(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        [FromQuery] int? limit,
+        [FromQuery] int? offset,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+        var skip = Math.Max(0, offset ?? 0);
+
+        var baseQuery = db.WordLookups
+            .Where(l => l.UserId == userId && l.SiteId == siteId);
+
+        var total = await baseQuery.CountAsync(ct);
+        var items = await baseQuery
+            .OrderByDescending(l => l.LastTappedAt)
+            .Skip(skip)
+            .Take(take)
+            .Select(l => new WordLookupDto(
+                l.Id, l.Word, l.Language, l.ZipfRank, l.TapCount,
+                l.Sentence, l.BookTitle, l.EditionId, l.ChapterId, l.UserBookId,
+                l.LastTranslation, l.FirstTappedAt, l.LastTappedAt))
+            .ToListAsync(ct);
+
+        return Results.Ok(new WordLookupListResponse(items, total));
+    }
+
+    // "Add anyway" — user overrides the frequency filter. Creates a VocabularyWord
+    // directly and drops the Lookup. Bypasses the daily cap on purpose: the user
+    // explicitly asked for this word.
+    private static async Task<IResult> PromoteLookup(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        IServiceScopeFactory scopeFactory,
+        ILogger<IAppDbContext> logger,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var lookup = await db.WordLookups
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId && l.SiteId == siteId, ct);
+        if (lookup == null) return Results.NotFound();
+
+        // Guard against a race where the word was saved via another path between
+        // the list render and the promote click.
+        var already = await db.VocabularyWords
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.SiteId == siteId
+                && w.Word == lookup.Word && w.Language == lookup.Language, ct);
+        if (already != null)
+        {
+            db.WordLookups.Remove(lookup);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToDto(already));
+        }
+
+        // Hard ceiling still applies — Add Anyway bypasses the daily cap, not
+        // the 5000-word vocabulary limit. Counts both active SRS + pending
+        // so a user can't exceed the cap via the lookup bypass.
+        var count = await db.VocabularyWords.CountAsync(
+            w => w.UserId == userId && w.SiteId == siteId, ct);
+        count += await db.PendingVocabularyWords.CountAsync(
+            p => p.UserId == userId && p.SiteId == siteId, ct);
+        if (count >= MaxWordsPerUser)
+            return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
+
+        var now = DateTimeOffset.UtcNow;
+        var entry = new VocabularyWord
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            SiteId = siteId,
+            Word = lookup.Word,
+            Language = lookup.Language,
+            Translation = lookup.LastTranslation,
+            EditionId = lookup.EditionId,
+            ChapterId = lookup.ChapterId,
+            UserBookId = lookup.UserBookId,
+            Sentence = lookup.Sentence,
+            BookTitle = lookup.BookTitle,
+            ZipfRank = lookup.ZipfRank,
+            Source = "manual_add_anyway",
+            ActivatedAt = now,
+            Stage = 0,
+            IntervalDays = 0,
+            ConsecutiveCorrect = 0,
+            NextReviewAt = now,
+            TotalReviews = 0,
+            CorrectReviews = 0,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        db.VocabularyWords.Add(entry);
+        db.WordLookups.Remove(lookup);
+        await db.SaveChangesAsync(ct);
+
+        var nativeLang = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => u.NativeLanguage)
+            .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(nativeLang))
+        {
+            QueueEnrichment(scopeFactory, logger, entry.Id, entry.Word, entry.Language,
+                entry.Definition, entry.Sentence, nativeLang);
+        }
+
+        return Results.Ok(ToDto(entry));
+    }
+
+    private static async Task<IResult> DismissLookup(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var lookup = await db.WordLookups
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId && l.SiteId == siteId, ct);
+        if (lookup == null) return Results.NotFound();
+
+        db.WordLookups.Remove(lookup);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    // --- Clusters (F3 bonus round) ---
+
+    private static async Task<IResult> GetClusters(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var clusters = await db.WordClusters
+            .Where(c => c.UserId == userId
+                     && c.SiteId == siteId
+                     && !c.IsDismissed
+                     && c.CompletedAt == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(10)
+            .Select(c => new WordClusterDto(
+                c.Id, c.Title, c.Theme,
+                c.EditionId, c.UserBookId, c.BookTitle,
+                c.MemberCount, c.CohesionScore,
+                c.IsConfirmed, c.CreatedAt))
+            .ToListAsync(ct);
+
+        return Results.Ok(new { items = clusters });
+    }
+
+    private static async Task<IResult> StartClusterBonus(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        IReviewCardBuilder cardBuilder,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var cluster = await db.WordClusters
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+        if (cluster == null) return Results.NotFound();
+        if (cluster.IsDismissed || cluster.CompletedAt != null) return Results.Conflict();
+
+        // Load cluster members. Retired members are skipped — they graduated.
+        var members = await db.VocabularyWords
+            .Where(w => w.ClusterId == id
+                     && w.UserId == userId
+                     && w.SiteId == siteId
+                     && !w.IsRetired)
+            .ToListAsync(ct);
+
+        if (members.Count == 0) return Results.NotFound();
+
+        // Distractor pool from user's other words (not in cluster).
+        var languages = members.Select(w => w.Language).Distinct().ToList();
+        var memberIds = members.Select(w => w.Id).ToHashSet();
+        var pool = await db.VocabularyWords
+            .Where(w => w.UserId == userId && w.SiteId == siteId
+                     && !memberIds.Contains(w.Id)
+                     && languages.Contains(w.Language))
+            .OrderBy(_ => EF.Functions.Random())
+            .Take(MaxDistractorPoolSize)
+            .Select(w => new DistractorPoolEntry(w.Word, w.Language))
+            .ToListAsync(ct);
+
+        var wordsForReview = members.Select(w => new WordForReview(
+            w.Id, w.Word, w.Language,
+            w.Translation, w.Definition,
+            w.Sentence, w.BookTitle, w.Hint,
+            w.Explanation, w.Distractors,
+            w.Stage, w.TotalReviews)).ToList();
+
+        var cards = cardBuilder.BuildCards(wordsForReview, pool);
+        var cardDtos = cards.Select(c => new ReviewCardDto(
+            c.WordId, c.Word, c.Translation, c.Definition,
+            c.ReviewMode, c.BlankSentence, c.OriginalSentence, c.BookTitle,
+            c.Hint, c.Explanation, c.IsNew, c.Options, c.CorrectOptionIndex)).ToList();
+
+        cluster.IsConfirmed = true;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { clusterId = cluster.Id, title = cluster.Title, cards = cardDtos });
+    }
+
+    private static async Task<IResult> DismissCluster(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var cluster = await db.WordClusters
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+        if (cluster == null) return Results.NotFound();
+
+        cluster.IsDismissed = true;
+        cluster.DismissedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> CompleteCluster(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
+            return Results.Unauthorized();
+
+        var cluster = await db.WordClusters
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+        if (cluster == null) return Results.NotFound();
+
+        cluster.CompletedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
 }
 
 // --- DTOs ---
@@ -1104,6 +1477,12 @@ public record SubmitReviewResponse(
 
 public record ReaderVocabWordDto(Guid Id, string Word, int Stage, string? Translation);
 
+public record WordClusterDto(
+    Guid Id, string Title, string? Theme,
+    Guid? EditionId, Guid? UserBookId, string? BookTitle,
+    int MemberCount, double CohesionScore,
+    bool IsConfirmed, DateTimeOffset CreatedAt);
+
 public record VocabSettingsDto(
     int DailyNewCap,
     int WeeklyReviewBudget,
@@ -1112,21 +1491,28 @@ public record VocabSettingsDto(
     bool AutoRetireEnabled);
 
 // Anti-spiral F2. Outcome is discriminated-union-style; frontend branches on it
-// to show the right toast/banner. `Word` is populated for srs + already_saved,
-// `PendingId` for pending, `Reason` for pending only.
+// to show the right toast/banner.
+//   srs            — word landed in the active SRS queue (common/Zipf top-5k or 2x-tap)
+//   pending        — daily cap reached, queued for tomorrow
+//   lookup         — rare/OOV word → WordLookup, not SRS
+//   lookup_pending — mid-tier word, needs one more tap before SRS (with tapsRemaining)
+//   already_saved  — idempotent hit on existing VocabularyWord
 public record SaveWordResponse(
     string Outcome,
     VocabWordDto? Word,
     Guid? PendingId,
+    Guid? LookupId,
+    int? TapsRemaining,
     string? Reason)
 {
-    public static SaveWordResponse Srs(VocabWordDto word) => new("srs", word, null, null);
-    public static SaveWordResponse Pending(Guid pendingId, string reason) => new("pending", null, pendingId, reason);
-    public static SaveWordResponse AlreadySaved(VocabWordDto word) => new("already_saved", word, null, null);
+    public static SaveWordResponse Srs(VocabWordDto word) => new("srs", word, null, null, null, null);
+    public static SaveWordResponse Pending(Guid pendingId, string reason) => new("pending", null, pendingId, null, null, reason);
+    public static SaveWordResponse AlreadySaved(VocabWordDto word) => new("already_saved", word, null, null, null, null);
     // Re-tap of a word already in the pending bucket: surface as "pending" so
     // the client re-shows the "queued for tomorrow" toast instead of going silent.
-    // Reason="already_pending" lets analytics distinguish re-taps from first-time saves.
-    public static SaveWordResponse AlreadyPending(Guid pendingId) => new("pending", null, pendingId, "already_pending");
+    public static SaveWordResponse AlreadyPending(Guid pendingId) => new("pending", null, pendingId, null, null, "already_pending");
+    public static SaveWordResponse Lookup(Guid lookupId, string reason) => new("lookup", null, null, lookupId, null, reason);
+    public static SaveWordResponse LookupPending(Guid lookupId, int tapsRemaining) => new("lookup_pending", null, null, lookupId, tapsRemaining, "mid_tier");
 }
 
 public record PendingVocabWordDto(
@@ -1136,3 +1522,11 @@ public record PendingVocabWordDto(
     double Priority, string Source, DateTimeOffset CreatedAt);
 
 public record PendingListResponse(List<PendingVocabWordDto> Items, int DailyUsed, int DailyCap, int DailyRemaining);
+
+public record WordLookupDto(
+    Guid Id, string Word, string Language, int? ZipfRank, int TapCount,
+    string? Sentence, string? BookTitle,
+    Guid? EditionId, Guid? ChapterId, Guid? UserBookId,
+    string? LastTranslation, DateTimeOffset FirstTappedAt, DateTimeOffset LastTappedAt);
+
+public record WordLookupListResponse(List<WordLookupDto> Items, int Total);

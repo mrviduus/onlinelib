@@ -7,6 +7,7 @@ import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { getLanguage } from '../data/languages'
 import { LanguagePickerModal } from './LanguagePickerModal'
+import { RareWordNotice } from './reader/RareWordNotice'
 import { fonts } from '../theme/typography'
 
 const STAGE_LABELS: Record<number, { label: string; color: string }> = {
@@ -15,6 +16,25 @@ const STAGE_LABELS: Record<number, { label: string; color: string }> = {
   2: { label: '★2', color: '#eab308' },
   3: { label: '★3', color: '#22c55e' },
   4: { label: '✓', color: '#22c55e' },
+}
+
+// Auto-dismiss timing — parity with web WordPopup. Scale by content length so
+// a 16-word definition gets more read-time than a 1-word translation. Rare
+// words get a longer fallback (decision time + body is longer).
+const AUTO_DISMISS_MS_MIN = 3000
+const AUTO_DISMISS_MS_MAX = 8000
+const AUTO_DISMISS_MS_PER_WORD = 350
+const LOOKUP_AUTO_DISMISS_MS = 20000
+const CJK_RE = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/g
+
+function computeDismissMs(translation: string, definition: string | null): number {
+  const text = `${translation} ${definition ?? ''}`.trim()
+  if (!text) return AUTO_DISMISS_MS_MIN
+  const cjkChars = (text.match(CJK_RE) || []).length
+  const nonCjk = text.replace(CJK_RE, ' ')
+  const words = nonCjk.split(/\s+/).filter(Boolean).length
+  const units = words + cjkChars
+  return Math.min(AUTO_DISMISS_MS_MAX, Math.max(AUTO_DISMISS_MS_MIN, units * AUTO_DISMISS_MS_PER_WORD))
 }
 
 interface WordCardProps {
@@ -54,12 +74,19 @@ interface WordCardProps {
    * above the progress bar instead of being hidden by it.
    */
   bottomOffset?: number
+  /**
+   * When the backend classifies the tap as a rare word (F1 anti-spiral),
+   * we render a `RareWordNotice` and let the user escalate via Add-anyway.
+   * Null outside lookup/lookup_pending outcomes.
+   */
+  lookupState?: { kind: 'lookup' | 'lookup_pending'; tapsRemaining: number | null; busy: boolean } | null
+  onAddAnyway?: () => void
 }
 
 export function WordCard({
   word, selectionId = 0, onSave, onSpeak, onRemove, onMarkKnown,
   onDismiss, isSpeaking, wordSaved, vocabStage, isAuthenticated, language,
-  sessionWordCount = 0, bottomOffset = 0,
+  sessionWordCount = 0, bottomOffset = 0, lookupState = null, onAddAnyway,
 }: WordCardProps) {
   const { colors } = useTheme()
   const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
@@ -86,18 +113,26 @@ export function WordCard({
   //
   // When the lang picker is open we cancel this so the user isn't chased
   // off the card while choosing a language.
+  // Deps intentionally omit `translation` / `definition` — their values are
+  // read inside the effect body when the timer arms. Streaming updates would
+  // otherwise thrash the timer. Instead we re-trigger on loading → done
+  // transition via `translating` + `definitionLoading`, and on object-identity
+  // toggles (`!!lookupState`) rather than the whole object so busy-flips don't
+  // re-arm the 20s timer.
   useEffect(() => {
     if (showLangPicker) return
-    if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId)
+    if (translating || definitionLoading) return
+    const ms = lookupState ? LOOKUP_AUTO_DISMISS_MS : computeDismissMs(translation, definition)
+    if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId, ms + 'ms')
     dismissTimerRef.current = setTimeout(() => {
       if (__DEV__) console.log('[diag] WordCard auto-dismiss fired', word)
       onDismiss()
-    }, 3000)
+    }, ms)
     return () => {
       if (__DEV__) console.log('[diag] WordCard effect cleanup', word, selectionId)
       if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
     }
-  }, [word, selectionId, showLangPicker]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId, showLangPicker, !!lookupState, translating, definitionLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (__DEV__) console.log('[diag] WordCard MOUNT', word)
@@ -268,6 +303,17 @@ export function WordCard({
           </View>
         )}
 
+        {/* Rare-word notice (F1 anti-spiral) — shown when backend classified the
+            tap as `lookup` / `lookup_pending`. Save CTA below is suppressed. */}
+        {lookupState && onAddAnyway && (
+          <RareWordNotice
+            kind={lookupState.kind}
+            tapsRemaining={lookupState.tapsRemaining}
+            busy={lookupState.busy}
+            onAddAnyway={() => { cancelAutoDismiss(); onAddAnyway() }}
+          />
+        )}
+
         {/* Actions: TTS + saved status + Ignore / Save + MarkKnown */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
@@ -310,8 +356,9 @@ export function WordCard({
             </TouchableOpacity>
           )}
 
-          {/* Save CTA (when unsaved + no stage) */}
-          {isAuthenticated && !wordSaved && !stage && (
+          {/* Save CTA (when unsaved + no stage). Suppressed while the
+              RareWordNotice is showing — user uses "Add anyway" instead. */}
+          {isAuthenticated && !wordSaved && !stage && !lookupState && (
             <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: '#10B981' }]}

@@ -59,6 +59,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<PendingVocabularyWord> PendingVocabularyWords => Set<PendingVocabularyWord>();
     public DbSet<WordLookup> WordLookups => Set<WordLookup>();
     public DbSet<WordFrequency> WordFrequencies => Set<WordFrequency>();
+    public DbSet<WordCluster> WordClusters => Set<WordCluster>();
     public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
     public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
@@ -671,6 +672,21 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Language).HasMaxLength(8);
             e.Property(x => x.Word).HasMaxLength(200);
             e.Property(x => x.Pos).HasMaxLength(20);
+        });
+
+        // WordCluster (F3: LLM-grouped thematic bonus rounds)
+        modelBuilder.Entity<WordCluster>(e =>
+        {
+            // List view — active (undismissed) clusters per user, newest first.
+            e.HasIndex(x => new { x.UserId, x.SiteId, x.IsDismissed, x.CreatedAt }).IsDescending(false, false, false, true);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Theme).HasMaxLength(100);
+            e.Property(x => x.BookTitle).HasMaxLength(500);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            e.HasMany(x => x.Words).WithOne().HasForeignKey(x => x.ClusterId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // BlogPost

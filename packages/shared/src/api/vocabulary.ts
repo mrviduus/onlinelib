@@ -1,5 +1,5 @@
 import { authFetch, buildQuery, jsonBody } from './client'
-import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto } from '../types/api'
+import type { VocabularyWordDto, VocabularyStatsDto, VocabDailyStatDto, ReviewCardDto, SubmitReviewResponse, WeeklyProgressDto, VocabSettingsDto, SaveWordResponseDto, PendingListResponseDto, WordLookupListResponseDto, ClusterListResponseDto, ClusterBonusResponse } from '../types/api'
 
 export function getWords(params?: { filter?: string; stage?: string; sort?: string; search?: string; limit?: number; offset?: number }) {
   // Backend uses 'stage' param (comma-separated stage numbers: 0,1,2,3,4)
@@ -35,6 +35,20 @@ export function dismissPendingWord(id: string) {
   return authFetch<void>(`/me/vocabulary/pending/${id}`, { method: 'DELETE' })
 }
 
+export function getLookups(params?: { limit?: number; offset?: number }) {
+  return authFetch<WordLookupListResponseDto>(
+    `/me/vocabulary/lookups${buildQuery({ limit: params?.limit, offset: params?.offset })}`
+  )
+}
+
+export function promoteLookup(id: string) {
+  return authFetch<VocabularyWordDto>(`/me/vocabulary/lookups/${id}/promote`, { method: 'POST' })
+}
+
+export function dismissLookup(id: string) {
+  return authFetch<void>(`/me/vocabulary/lookups/${id}`, { method: 'DELETE' })
+}
+
 export function updateWord(id: string, data: { translation?: string; definition?: string }) {
   return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}`, jsonBody('PATCH', data))
 }
@@ -53,8 +67,8 @@ export function getVocabSettings() {
   return authFetch<VocabSettingsDto>('/me/vocabulary/settings')
 }
 
-export function updateVocabSettings(data: VocabSettingsDto) {
-  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', jsonBody('PUT', data))
+export function updateVocabSettings(data: VocabSettingsDto, signal?: AbortSignal) {
+  return authFetch<VocabSettingsDto>('/me/vocabulary/settings', { ...jsonBody('PUT', data), signal })
 }
 
 export function unretireWord(id: string) {
@@ -80,4 +94,20 @@ export function getReaderVocab() {
 
 export function markAsKnown(id: string) {
   return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}/known`, { method: 'PUT' })
+}
+
+export function getClusters() {
+  return authFetch<ClusterListResponseDto>('/me/vocabulary/clusters')
+}
+
+export function startClusterBonus(id: string) {
+  return authFetch<ClusterBonusResponse>(`/me/vocabulary/clusters/${id}/start-bonus`, { method: 'POST' })
+}
+
+export function dismissCluster(id: string) {
+  return authFetch<void>(`/me/vocabulary/clusters/${id}/dismiss`, { method: 'POST' })
+}
+
+export function completeCluster(id: string) {
+  return authFetch<void>(`/me/vocabulary/clusters/${id}/complete`, { method: 'POST' })
 }

@@ -255,7 +255,17 @@
     },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
     "vocab": {
-      "queuedForTomorrow": "Daily cap reached — queued for tomorrow"
+      "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
+      "savedToReference": "Saved to reference (rare word)",
+      "tapAgainToStudy": "Tap again to study ({{n}} left)",
+      "addedToSrs": "Added to your vocabulary",
+      "addAnywayFailed": "Couldn't add word — please try again"
+    },
+    "rareWordNotice": {
+      "title": "Rare word — saved to reference",
+      "body": "We don't add rare words to your review queue automatically, so your SRS stays focused on the vocabulary you'll actually encounter.",
+      "cta": "Add to SRS anyway",
+      "ctaBusy": "Adding…"
     }
   },
   "onboarding": {
@@ -274,7 +284,10 @@
     "noBooksYet": "No books available yet.",
     "noAuthorsYet": "No authors available yet.",
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
+    "close": "Close",
+    "dismiss": "Dismiss",
     "home": "Home"
   },
   "nav": {
@@ -736,6 +749,7 @@
       "learning": "Learning",
       "mastered": "Mastered",
       "pending": "Pending",
+      "lookups": "Reference",
       "search": "Search words..."
     },
     "pending": {
@@ -743,7 +757,38 @@
       "emptySubtitle": "Words you tap after your daily cap is reached will appear here.",
       "dailyStatus": "Today: {used}/{cap} new words in SRS",
       "promote": "Add now",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "promoteFailed": "Could not promote this word. Try again.",
+      "dismissFailed": "Could not remove this word. Try again."
+    },
+    "lookups": {
+      "emptyTitle": "No lookups yet",
+      "emptySubtitle": "Rare words you tap in the reader land here as reference — they never clog your SRS queue.",
+      "intro": "Rare words saved for reference. Tap \"Add to SRS\" to promote any of them into your study queue.",
+      "taps": "{n} taps",
+      "promote": "Add to SRS",
+      "dismiss": "Dismiss",
+      "promoteFailed": "Could not promote this word. Try again.",
+      "dismissFailed": "Could not remove this word. Try again."
+    },
+    "clusters": {
+      "bonusCta": "Bonus: {n} related words",
+      "start": "Start bonus",
+      "fromBook": "from {book}"
+    },
+    "settings": {
+      "title": "Vocabulary settings",
+      "subtitle": "Tune how many new words you take on and how often you review.",
+      "dailyNewCap": "Daily new words",
+      "dailyNewCapHint": "How many new words enter SRS per day (5–100). Extras go to Pending.",
+      "weeklyBudget": "Weekly review budget",
+      "weeklyBudgetHint": "Max reviews per week (10–500). Prevents the \"847 due\" spiral.",
+      "frequencyFilter": "Rare-word filter",
+      "frequencyFilterHint": "Send rare words (beyond top 15k) to Reference instead of SRS.",
+      "autoRetire": "Auto-retire mastered words",
+      "autoRetireHint": "Stop reviewing words you've answered correctly 3× at long intervals.",
+      "loadFailed": "Could not load settings.",
+      "saveFailed": "Could not save settings. Try again."
     },
     "sort": {
       "recent": "Recent",

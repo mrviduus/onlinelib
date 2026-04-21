@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useGuestLimits } from '../context/GuestLimitsContext'
-import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type SaveWordResponse } from '../api/vocabulary'
+import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type SaveWordResponse, type VocabWordDto } from '../api/vocabulary'
 import { translate as translateWord } from '../api/translation'
 import {
   addPendingVocabWord,
@@ -244,6 +244,20 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     updateMap(m => m.delete(normalizeVocabKey(word)))
   }, [isAuthenticated, updateMap])
 
+  // External insert path for flows that create a VocabularyWord outside of
+  // `addWord` (e.g. F1 "Add anyway" which promotes a WordLookup server-side).
+  // Mirrors the Path-A merge logic so the reader shows the saved state without
+  // waiting for a full vocab refresh.
+  const recordSavedWord = useCallback((dto: VocabWordDto) => {
+    const key = normalizeVocabKey(dto.word)
+    const existing = mapRef.current.get(key)
+    updateMap(m => m.set(key, {
+      stage: dto.stage,
+      id: dto.id,
+      translation: existing?.translation || dto.translation || undefined,
+    }))
+  }, [updateMap])
+
   const updateTranslation = useCallback((word: string, translation: string) => {
     const key = normalizeVocabKey(word)
     const entry = mapRef.current.get(key)
@@ -255,5 +269,5 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     setVocabMap(new Map(mapRef.current))
   }, [])
 
-  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, refreshMarks, idbUnavailable, dismissIdbUnavailable }
+  return { vocabMap, loading, addWord, markAsKnown, removeWord, updateTranslation, recordSavedWord, refreshMarks, idbUnavailable, dismissIdbUnavailable }
 }

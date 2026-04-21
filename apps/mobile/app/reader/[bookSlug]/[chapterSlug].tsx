@@ -73,6 +73,19 @@ export default function ReaderScreen() {
     if (__DEV__) console.log('[diag] selection STATE:', selection?.text ?? 'null', 'id=', selection?.selectionId)
   }, [selection])
   const [wordSaved, setWordSaved] = useState(false)
+  /**
+   * F1 anti-spiral state: when the backend classifies a tapped word as
+   * `lookup` / `lookup_pending` (top-15k but not top-5k, or rare), we keep
+   * the id + tapsRemaining here so the WordCard can render a
+   * `RareWordNotice` with the "Add anyway" escalation path.
+   */
+  const [lookupState, setLookupState] = useState<
+    { kind: 'lookup' | 'lookup_pending'; id: string; tapsRemaining: number | null; busy: boolean } | null
+  >(null)
+  // In-flight / already-attempted auto-saves. Guards against rapid re-taps
+  // firing the API twice before vocabMapRef catches up (web does the same
+  // via `useBubbleTranslationSync`). Cleared on error so retry still works.
+  const autoSavedRef = useRef<Set<string>>(new Set())
   const [sessionWordCount, setSessionWordCount] = useState(0)
   const [exitSummary, setExitSummary] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
@@ -378,11 +391,16 @@ export default function ReaderScreen() {
             selectionId: nextId,
           })
           setWordSaved(false)
+          setLookupState(null)
           // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
           if (!data.text.includes(' ')) {
             toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-            if (__DEV__) console.log('[diag] tap gate — auth:', isAuthenticated, 'already-saved:', !!vocabMapRef.current[data.text.toLowerCase()])
-            if (isAuthenticated && !vocabMapRef.current[data.text.toLowerCase()]) {
+            const keyLc = data.text.toLowerCase()
+            const alreadySaved = !!vocabMapRef.current[keyLc]
+            const alreadyAttempted = autoSavedRef.current.has(keyLc)
+            if (__DEV__) console.log('[diag] tap gate — auth:', isAuthenticated, 'already-saved:', alreadySaved, 'attempted:', alreadyAttempted)
+            if (isAuthenticated && !alreadySaved && !alreadyAttempted) {
+              autoSavedRef.current.add(keyLc)
               vocabularyApi.saveWord({
                 word: data.text,
                 language,
@@ -394,6 +412,23 @@ export default function ReaderScreen() {
                 if (resp.outcome === 'pending') {
                   if (__DEV__) console.log('[diag] saveWord pending (daily cap)')
                   showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+                  return
+                }
+                if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
+                  if (__DEV__) console.log('[diag] saveWord', resp.outcome, 'id=', resp.lookupId)
+                  if (resp.lookupId) {
+                    setLookupState({ kind: resp.outcome, id: resp.lookupId, tapsRemaining: resp.tapsRemaining, busy: false })
+                  }
+                  // Let a re-tap hit the API again — that's how
+                  // `lookup_pending` decrements `tapsRemaining`.
+                  autoSavedRef.current.delete(keyLc)
+                  return
+                }
+                if (resp.outcome === 'already_saved') {
+                  if (__DEV__) console.log('[diag] saveWord already_saved')
+                  // vocabMapRef may not have this key (e.g. stale fetch) — let a
+                  // re-tap retry so underline can render on next interaction.
+                  autoSavedRef.current.delete(keyLc)
                   return
                 }
                 const saved = resp.word
@@ -421,7 +456,10 @@ export default function ReaderScreen() {
                       injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
                     }
                   }).catch((e) => { if (__DEV__) console.log('[diag] translate failed', e && e.message) })
-              }).catch((e) => { if (__DEV__) console.log('[diag] saveWord failed', e && e.message) })
+              }).catch((e) => {
+                autoSavedRef.current.delete(keyLc)
+                if (__DEV__) console.log('[diag] saveWord failed', e && e.message)
+              })
             }
           }
         } else {
@@ -483,6 +521,13 @@ export default function ReaderScreen() {
         showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
         return
       }
+      if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
+        if (resp.lookupId) {
+          setLookupState({ kind: resp.outcome, id: resp.lookupId, tapsRemaining: resp.tapsRemaining, busy: false })
+        }
+        return
+      }
+      if (resp.outcome === 'already_saved') return
       const saved = resp.word
       if (!saved) return
       // Update local vocab map + WebView underlines
@@ -501,12 +546,51 @@ export default function ReaderScreen() {
           if (res.translatedText && saved.id) {
             vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(e => console.warn('Word translation persist failed:', e))
             vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+            // Push full map so the inline-translation span renders above the
+            // underline (auto-save path does the same — this was missing here,
+            // leaving manually-saved words without the gray caption).
+            injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
           }
         })
         .catch(e => console.warn('Word translation lookup failed:', e))
     } catch (e) {
       console.warn('Save word failed:', e)
       showToast({ message: 'Could not save word. Try again.', variant: 'error' })
+    }
+  }
+
+  // F1 anti-spiral: "Add to SRS anyway" on a rare-word notice.
+  // Promotes the WordLookup row → VocabularyWord (bypasses daily cap) and
+  // mirrors the post-save flow so the word gets underlined + translated
+  // just like a normal tap.
+  const handlePromoteLookup = async () => {
+    if (!selection || !lookupState) return
+    setLookupState({ ...lookupState, busy: true })
+    try {
+      const saved = await vocabularyApi.promoteLookup(lookupState.id)
+      const key = saved.word.toLowerCase()
+      vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
+      injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
+      setLookupState(null)
+      setWordSaved(true)
+      setSessionWordCount(c => c + 1)
+      notifyWordSaved()
+      showToast({ message: t(language, 'reader.vocab.addedToSrs'), variant: 'success' })
+      trackVocabSaved({ language, nativeLanguage, source: 'reader' })
+      const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
+      translationApi.translate(saved.word, language, targetLang)
+        .then(res => {
+          if (res.translatedText && saved.id) {
+            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
+            vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+            injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+          }
+        })
+        .catch(() => {})
+    } catch (e) {
+      console.warn('Promote lookup failed:', e)
+      setLookupState({ ...lookupState, busy: false })
+      showToast({ message: t(language, 'reader.vocab.addAnywayFailed'), variant: 'error' })
     }
   }
 
@@ -629,10 +713,12 @@ export default function ReaderScreen() {
 
   // Load and render vocab word underlines. Keyed on `chapter?.id` so a
   // chapter refetch that yields the same id doesn't re-run the fetch
-  // (P3-4).
+  // (P3-4). Also clears the auto-save dedup set so words attempted in the
+  // previous chapter don't block retries in the next one.
   useEffect(() => {
     const chapterId = chapter?.id
     if (!isAuthenticated || !chapterId) return
+    autoSavedRef.current.clear()
     let cancelled = false
     vocabularyApi.getReaderVocab()
       .then(words => {
@@ -890,7 +976,7 @@ export default function ReaderScreen() {
               onMarkKnown={handleMarkKnown}
               onDismiss={() => {
                 if (__DEV__) console.log('[diag] WordCard onDismiss fired')
-                setSelection(null); setWordSaved(false)
+                setSelection(null); setWordSaved(false); setLookupState(null)
               }}
               isSpeaking={isSpeaking}
               wordSaved={wordSaved}
@@ -899,6 +985,8 @@ export default function ReaderScreen() {
               language={language}
               sessionWordCount={sessionWordCount}
               bottomOffset={footerHeight}
+              lookupState={lookupState}
+              onAddAnyway={handlePromoteLookup}
             />
           )
         )}

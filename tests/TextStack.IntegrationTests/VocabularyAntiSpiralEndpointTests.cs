@@ -10,6 +10,7 @@ namespace TextStack.IntegrationTests;
 /// Skips authenticated paths when docker compose isn't running or
 /// ENABLE_TEST_AUTH isn't set.
 /// </summary>
+[Collection("VocabularySpiral")]
 public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, IClassFixture<AuthenticatedApiFixture>
 {
     private readonly LiveApiFixture _anon;
