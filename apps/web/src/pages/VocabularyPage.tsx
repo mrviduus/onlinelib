@@ -13,6 +13,7 @@ import { Footer } from '../components/Footer'
 import { SpeakButton } from '../components/vocabulary/SpeakButton'
 import { WeeklyBudgetBar } from '../components/vocabulary/WeeklyBudgetBar'
 import { PendingQueueList } from '../components/vocabulary/PendingQueueList'
+import { LookupHistoryList } from '../components/vocabulary/LookupHistoryList'
 import { EmptyState } from '../components/EmptyState'
 
 function StageBadge({ stage, t }: { stage: number; t: (k: string) => string }) {
@@ -385,7 +386,7 @@ export function VocabularyPage() {
         {/* Filters */}
         <div className="vocab-filters">
           <div className="vocab-tabs" role="tablist">
-            {['all', 'new', 'learning', 'mastered', 'pending'].map(tab => (
+            {['all', 'new', 'learning', 'mastered', 'pending', 'lookups'].map(tab => (
               <button
                 key={tab}
                 role="tab"
@@ -396,6 +397,9 @@ export function VocabularyPage() {
                 {t(`vocabulary.filters.${tab}`)}
                 {tab === 'pending' && stats && stats.pendingCount > 0 && (
                   <span className="vocab-tab__badge"> ({stats.pendingCount})</span>
+                )}
+                {tab === 'lookups' && stats && stats.lookupCount > 0 && (
+                  <span className="vocab-tab__badge"> ({stats.lookupCount})</span>
                 )}
               </button>
             ))}
@@ -428,8 +432,13 @@ export function VocabularyPage() {
           <PendingQueueList onChange={refresh} />
         )}
 
+        {/* Lookups tab — rare words saved as reference, promotable to SRS */}
+        {activeTab === 'lookups' && (
+          <LookupHistoryList onChange={refresh} />
+        )}
+
         {/* Word list */}
-        {activeTab !== 'pending' && (words.length === 0 ? (
+        {activeTab !== 'pending' && activeTab !== 'lookups' && (words.length === 0 ? (
           <EmptyState icon="📝" title={t('vocabulary.empty')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
         ) : (
           <div className="vocab-list">

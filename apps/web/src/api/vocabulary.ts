@@ -118,6 +118,7 @@ export interface VocabStatsDto {
   dueNow: number
   retiredCount: number
   pendingCount: number
+  lookupCount: number
   dailyCap: DailyCapDto
   weeklyProgress: WeeklyProgressDto
   reviewedToday: number

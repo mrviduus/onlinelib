@@ -746,6 +746,7 @@
       "learning": "Learning",
       "mastered": "Mastered",
       "pending": "Pending",
+      "lookups": "Reference",
       "search": "Search words..."
     },
     "pending": {
@@ -753,6 +754,14 @@
       "emptySubtitle": "Words you tap after your daily cap is reached will appear here.",
       "dailyStatus": "Today: {used}/{cap} new words in SRS",
       "promote": "Add now",
+      "dismiss": "Dismiss"
+    },
+    "lookups": {
+      "emptyTitle": "No lookups yet",
+      "emptySubtitle": "Rare words you tap in the reader land here as reference — they never clog your SRS queue.",
+      "intro": "Rare words saved for reference. Tap \"Add to SRS\" to promote any of them into your study queue.",
+      "taps": "{n} taps",
+      "promote": "Add to SRS",
       "dismiss": "Dismiss"
     },
     "sort": {
