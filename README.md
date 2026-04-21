@@ -52,7 +52,7 @@
 **Admin Panel** ([textstack.dev](https://textstack.dev))
 - Book/author/genre/mood CRUD, bulk import, chapter editor
 - Blog management — create, edit, publish, cover upload
-- SEO crawl, SSG rebuild, ingestion queue, settings
+- SSG rebuild, ingestion queue, settings
 
 ---
 
