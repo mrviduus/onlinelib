@@ -71,6 +71,9 @@ builder.Services.AddHostedService<IngestionWorker>();
 // Guest cleanup (purge inactive guests every 6h)
 builder.Services.AddHostedService<GuestCleanupWorker>();
 
+// Admin refresh token cleanup (purge expired rows daily)
+builder.Services.AddHostedService<AdminRefreshTokenCleanupWorker>();
+
 // TextStack watcher (optional, enable via config)
 if (builder.Configuration.GetValue("TextStack:EnableWatcher", false))
 {
