@@ -30,9 +30,6 @@ export type AnalyticsEvent =
   | 'tts_played'
   | 'search_performed'
   | 'landing_cta_click'
-  | 'exit_intent_shown'
-  | 'exit_intent_converted'
-  | 'exit_intent_dismissed'
 
 type Params = Record<string, string | number | boolean | null | undefined>
 
@@ -161,16 +158,4 @@ export function trackLandingCtaClick(args: {
   label: string
 }): void {
   track('landing_cta_click', { page: args.page, label: args.label })
-}
-
-export function trackExitIntent(
-  kind: 'shown' | 'converted' | 'dismissed',
-  args: { variant: string; trigger: 'mouseleave' | 'scroll' | 'time' | 'reading' },
-): void {
-  const name = (
-    kind === 'shown' ? 'exit_intent_shown'
-    : kind === 'converted' ? 'exit_intent_converted'
-    : 'exit_intent_dismissed'
-  ) satisfies AnalyticsEvent
-  track(name, { variant: args.variant, trigger: args.trigger })
 }
