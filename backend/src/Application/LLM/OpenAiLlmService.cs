@@ -22,7 +22,7 @@ public class OpenAiLlmService : ILlmService
 
         var model = config["OpenAI:Model"]
             ?? Environment.GetEnvironmentVariable("OPENAI_MODEL")
-            ?? "gpt-5-mini";
+            ?? "gpt-4.1-nano";
 
         // Reasoning models (gpt-5, o1, o3…) consume tokens for internal reasoning
         // before producing visible output. MaxOutputTokenCount caps the combined
