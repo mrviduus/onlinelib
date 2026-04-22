@@ -24,7 +24,7 @@ export function AuthorAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const filteredResults = results.filter(r => !excludeIds.includes(r.id))
   const showCreateOption = query.trim().length >= 2 &&

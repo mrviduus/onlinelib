@@ -34,7 +34,7 @@ export function DiscoverMenu() {
   const [authors, setAuthors] = useState<Author[]>([])
   const [recentCovers, setRecentCovers] = useState<string[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Fetch data once on first open
   const [fetched, setFetched] = useState(false)

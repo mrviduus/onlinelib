@@ -119,8 +119,8 @@ export function WordPopup({
   const [showMoreLangs, setShowMoreLangs] = useState(false)
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
-  const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>()
-  const exitTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const filteredLangs = useMemo(() => {
     const q = langQuery.trim().toLowerCase()
