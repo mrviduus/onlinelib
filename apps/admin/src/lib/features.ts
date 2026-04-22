@@ -8,7 +8,8 @@ const parseFlag = (val: string | undefined, defaultValue: boolean): boolean => {
 }
 
 export const ADMIN_FEATURES = {
-  BOARD_TASKS: parseFlag(import.meta.env.VITE_FEATURE_BOARD_TASKS, false),
+  // Reserved for future admin-only flags.
+  _placeholder: parseFlag(import.meta.env.VITE_FEATURE_PLACEHOLDER, false),
 } as const
 
 export type AdminFeatureKey = keyof typeof ADMIN_FEATURES

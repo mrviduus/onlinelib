@@ -382,7 +382,6 @@ app.MapUserRatingEndpoints();
 app.MapReviewEndpoints();
 app.MapUserMoodEndpoints();
 app.MapAdminMoodEndpoints();
-app.MapAdminBoardTaskEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapAdminBlogEndpoints();
 app.MapBlogEndpoints();

@@ -25,7 +25,6 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
 import { SeoBackfillPage } from './pages/SeoBackfillPage'
 import { BookQualityPage } from './pages/BookQualityPage'
-import { TaskBoardPage } from './pages/TaskBoardPage'
 import { UserUploadsPage } from './pages/UserUploadsPage'
 import { HighlightReportsPage } from './pages/HighlightReportsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -46,7 +45,6 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
-            <Route path="task-board" element={<TaskBoardPage />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="user-uploads" element={<UserUploadsPage />} />
