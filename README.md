@@ -1,179 +1,209 @@
 # TextStack
 
 <p align="center">
-  <img src="docs/assets/hero.png" alt="TextStack — Language learning through reading" width="800">
+  <img src="docs/assets/hero.png" alt="TextStack — deep reading for developers learning AI engineering" width="800">
 </p>
 
 <p align="center">
-  <strong>Language learning platform powered by long-form reading.</strong><br>
-  Read classic literature, build vocabulary with spaced repetition, track your progress.
+  <strong>Deep-reading tool for developers learning AI engineering.</strong><br>
+  Tap an unknown term → context-aware explanation inline. Capped weekly SRS queue.<br>
+  A modern replacement for Kindle Word Wise and LingQ — built for technical books.
 </p>
 
 <p align="center">
-  <a href="https://textstack.app">textstack.app</a>
+  <a href="https://textstack.app">textstack.app</a> ·
+  <a href="https://dev.to/mrviduus/i-quit-designing-data-intensive-applications-ddia-three-times-heres-what-i-build-on-the-fourth-5bom">Why I built it</a> ·
+  <a href="https://twitter.com/Rexetdeus">@Rexetdeus</a>
 </p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
+  <img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19">
+  <img src="https://img.shields.io/badge/Expo-55-000020" alt="Expo 55">
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791" alt="PostgreSQL 16">
+</p>
+
+---
+
+## The problem
+
+I quit *Designing Data-Intensive Applications* three times. Not because it's
+hard — I understood most of what was on the page. **The problem was the rest:
+unfamiliar terms that broke the flow.** Eventual consistency. Attention
+mechanism. B-tree. Writing each one down to look up later works until you
+have 40 of them and you've lost the thread anyway.
+
+Summarizing books away defeats the point. The only way to get deep
+understanding is to read them — but the friction has to go.
+
+## What TextStack does
+
+**Tap a term → 2–3 sentence Claude-powered explanation tied to the book's
+domain.** Not a dictionary definition. If you tap "attention" in an ML
+textbook you get the ML meaning, not the everyday one.
+
+Terms you don't recognize enter a **capped weekly SRS queue** — no infinite
+backlog, no guilt. Common words and the top 15K English words are filtered
+out; only technical vocabulary gets surfaced.
+
+| What others do | What TextStack does |
+|---|---|
+| Dictionary definitions | Context-aware explanations |
+| Infinite SRS queue | Capped weekly (no spiral) |
+| One-size-fits-all | Domain-aware per book |
+| Static Kindle Word Wise (2014) | Claude-powered (2026) |
+
+## Try it
+
+1. [textstack.app](https://textstack.app) — sample chapters open without
+   signup.
+2. Tap any word you don't recognize.
+3. That's the whole pitch.
 
 ---
 
 ## Features
 
 **Reader**
-- Kindle-like reading experience — themes (light/sepia/dark), fonts, fullscreen, keyboard shortcuts
-- Text selection — dictionary lookup (Free Dictionary API), translation (LibreTranslate), highlights
-- TTS — Edge TTS via direct WebSocket, 200+ voices, speed control (0.75x–2.0x), two-layer cache (server disk + IndexedDB)
-- Offline reading — PWA with IndexedDB caching, download manager, resume support
+- Kindle-like experience — themes (light/sepia/dark), fonts, fullscreen,
+  keyboard shortcuts
+- Text selection — contextual explanation (Claude), dictionary fallback (Free
+  Dictionary API), translation (LibreTranslate), highlights
+- TTS — Edge TTS via direct WebSocket (200+ voices, 0.75×–2.0× speed, two-
+  layer cache)
+- Offline reading — PWA with IndexedDB caching, download manager
 
-**Vocabulary & SRS**
-- Save words while reading — sentence context, dictionary definition, translation
-- Spaced repetition — 5 stages (New → Recognition → Recall → Context → Mastered), 3 review modes (multiple choice, typed recall, context fill-in-the-blank)
-- LLM-generated distractors & hints (Ollama gemma3:4b)
+**Vocabulary SRS**
+- Auto-added while reading — sentence context, definition, translation
+- 5 stages (New → Recognition → Recall → Context → Mastered)
+- Capped weekly queue + LLM-generated distractors and hints (Ollama
+  `qwen3:8b`)
+- Review modes: multiple choice, classic flashcard
 
 **Library**
-- 1,500+ public domain books (English + Ukrainian)
-- User uploads — EPUB/PDF/FB2, auto-parsed with metadata enrichment (Ollama generates genre, year, description)
-- Reading progress sync, bookmarks, highlights
-- Reading stats — heatmap calendar, weekly charts, daily/yearly goals, streak tracking, 20 achievements
+- 1,500+ curated technical and classic books (starter corpus, self-hostable)
+- Your own uploads — EPUB / PDF / FB2, auto-parsed with metadata enrichment
+- Reading progress sync, bookmarks, highlights, reading stats
 
-**SEO**
-- SSG prerendered pages (Puppeteer worker, polls DB every 5s) — books, authors, genres
-- Sitemap XML auto-generation, IndexNow (Bing/Yandex)
-- Article JSON-LD, FAQ schema markup
+**Mobile**
+- React Native (Expo), Android on Google Play
+- Offline-first, same UX as web
 
-**Admin Panel** ([textstack.dev](https://textstack.dev))
-- Book/author/genre CRUD, bulk import, chapter editor
-- SSG rebuild, ingestion queue, settings
+**Admin** ([textstack.dev](https://textstack.dev))
+- Book/author/genre CRUD, chapter editor, ingestion queue
+- SSG rebuild, auto-publish, SEO backfill
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| API | ASP.NET Core (.NET 10), Minimal APIs |
-| Database | PostgreSQL 16, EF Core (snake_case) |
-| Search | PostgreSQL FTS (Meilisearch provider optional) |
-| Frontend | React 19, Vite, pnpm, CSS Variables |
-| Admin | React (separate app), JWT auth |
-| Mobile | React Native (Expo) |
+| Backend | ASP.NET Core (.NET 10), Minimal APIs |
+| Database | PostgreSQL 16 + EF Core (snake_case) |
+| Search | PostgreSQL FTS |
+| Web | React 19, Vite, pnpm |
+| Mobile | React Native (Expo 55) |
+| LLM | Claude (explanations) + Ollama `qwen3:8b` (distractors) |
 | TTS | Edge TTS (WebSocket, no API key) |
 | Translation | LibreTranslate (self-hosted) |
-| LLM | Ollama (gemma3:4b) — metadata, vocab distractors |
 | SSG | Puppeteer prerender, nginx serves static first |
-| Telemetry | OpenTelemetry → .NET Aspire Dashboard |
+| Telemetry | OpenTelemetry → Aspire Dashboard |
 | Infra | Docker Compose, Cloudflare Tunnel, nginx |
 
-**Prerequisites**: Docker, .NET 10 SDK, Node.js 18+, pnpm
+**Architecture**: `API → Application → Domain ← Infrastructure` (modular
+monolith). Worker runs ingestion + SRS scoring + SSG jobs.
 
 ---
 
-## Quick Start
+## Quick start
 
 ```bash
-cp .env.example .env          # Edit with real values
-docker compose up --build     # Start all services
+git clone https://github.com/mrviduus/textstack
+cd textstack
+cp .env.example .env            # edit with real values
+docker compose up --build       # ~3 min cold start
 ```
 
 | Service | URL |
 |---------|-----|
 | Web | http://localhost:5173 |
-| API | http://localhost:8080 |
-| API Docs | http://localhost:8080/scalar/v1 |
+| API | http://localhost:8080 · [Scalar docs](http://localhost:8080/scalar/v1) |
 | Admin | http://localhost:81 |
-| Aspire | http://localhost:18888 |
+| Aspire (opt-in) | http://localhost:18888 — `docker compose --profile observability up` |
+
+**Prerequisites**: Docker, .NET 10 SDK, Node.js 20+, pnpm.
 
 ---
 
-## Project Structure
-
-```
-backend/src/
-  Api/              Minimal API, endpoints, middleware
-  Worker/           Book ingestion, metadata generation
-  Domain/           Entities, enums
-  Infrastructure/   EF Core, migrations, storage
-  Application/      Business logic, interfaces
-  Contracts/        Shared DTOs (request/response)
-  Search/           FTS providers (Postgres, Meilisearch)
-  Extraction/       EPUB/PDF/FB2 parsers
-  Tts/              Edge TTS client + caching service
-
-apps/
-  web/              Public site (React + Vite)
-  admin/            Admin panel (React + Vite)
-  mobile/           Mobile app (React Native + Expo)
-```
-
-**Architecture**: `API → Application → Domain ← Infrastructure`
-
----
-
-## Commands
+## Development
 
 ```bash
-# Docker
-make up / down / restart / logs / status
-make build                    # docker compose up -d --build
-make rebuild                  # Full rebuild --no-cache
-make deploy                   # Full deploy (pull, build, restart, SSG)
-
-# SSG
-make rebuild-ssg              # Regenerate SEO pages
-make clean-ssg                # Remove dist/ssg*
-
-# Database
-make backup                   # Backup to ~/backups/textstack/
-make backup-list              # List all backups
-make restore FILE=path.gz     # Restore from backup
-
-# Search
-make reindex-search           # Rebuild search indexes
-
-# Tests
-dotnet test                   # All backend tests
-pnpm -C apps/web test         # Frontend unit tests
-pnpm -C apps/web test:e2e     # Playwright E2E
-
-# Lint
-dotnet format textstack.sln   # Backend
-
 # Local dev (no Docker)
 dotnet run --project backend/src/Api
-pnpm -C apps/web dev          # http://localhost:5173
-pnpm -C apps/admin dev        # http://localhost:81
+pnpm -C apps/web dev           # http://localhost:5173
+pnpm -C apps/admin dev         # http://localhost:81
 
-# Migrations
-dotnet ef migrations add <Name> --project backend/src/Infrastructure --startup-project backend/src/Api
+# Mobile
+cd apps/mobile && npx expo start
 
-# Mobile (apps/mobile)
-npx expo start                # Dev server
-npx expo run:ios              # Local iOS build
-npx expo run:android          # Local Android build
+# Tests
+dotnet test                     # backend (unit + integration + extraction + search)
+pnpm -C apps/web test           # Vitest
+pnpm -C apps/web test:e2e       # Playwright
+
+# Lint / format
+dotnet format textstack.sln
 ```
+
+Full command reference: [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## Deployment
+## Ops / self-hosting
 
-```
-Internet → Cloudflare (DNS + SSL) → Cloudflare Tunnel → nginx
-  ├─ textstack.app → SSG static + /api/ proxy to :8080
-  └─ textstack.dev → admin panel (:81)
-```
-
-SSG auto-rebuilds every 24h. Manual rebuild via admin panel or `make rebuild-ssg`.
+- [Deployment](docs/03-ops/deployment.md) — Cloudflare Tunnel + nginx + Docker
+- [Backup & Restore](docs/03-ops/backup.md) — `make backup`, GHA daily dumps
+- [Uptime Monitoring](docs/03-ops/uptime-monitoring.md) — UptimeRobot probes
+- [Incident Runbook](docs/03-ops/incident-runbook.md) — first-response for
+  common outages
+- [infra/scripts](infra/scripts/README.md) — long-running pollers
 
 ---
 
-## Docs
+## Roadmap (6-month)
 
-See [docs/](docs/) for architecture decisions, deployment guides, and API reference.
+- **Now** — Reader + Vocab SRS + offline PWA, 1,500+ books live
+- **Next** — Android on Google Play, cap weekly SRS queue UX polish,
+  curated AI-engineering corpus (DDIA, ML papers, 15–20 titles)
+- **Goal** — one paying customer by October 2026
 
-**Feature docs** (in `docs/05-features/`):
-- [Vocabulary SRS](docs/05-features/vocabulary-srs.md) — spaced repetition, MC/typed/context modes, Ollama distractors
-- [Reader](docs/05-features/reader.md) — Kindle-like reader internals
-- [Offline Reading](docs/05-features/offline-reading.md) — PWA + IndexedDB caching
-- [User Auth](docs/05-features/user-auth.md) — Google/Apple/email auth, guest flow
-- [Search](docs/05-features/feat-0006-search-library.md) — Postgres FTS
-- [Text Extraction](docs/05-features/feat-0003-text-extraction-core.md) — EPUB/PDF/FB2 parsers
-- [SSG Rebuild](docs/05-features/SSG_REBUILD.md) — Puppeteer prerender pipeline
-- [Observability](docs/05-features/feat-0005-observability-opentelemetry.md) — OpenTelemetry + Aspire
+Progress tracked in [PLAN-presale-8w.md](PLAN-presale-8w.md).
+
+---
+
+## Contributing
+
+Feedback, bug reports, and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md)
+(if it exists yet — otherwise open an issue and we'll sort it out).
+
+**Star the repo** if this resonates. That's the only signal I have right now
+that I'm building the right thing.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Vasyl Vdovychenko.
+
+- Source code: MIT
+- Standard Ebooks corpus (included in seed data): CC0 / public domain
+- Edge TTS: used under Microsoft's Edge Read Aloud terms
+- Third-party deps: their respective licenses
+
+---
+
+## Why the name
+
+A stack of books. A stack of text. Read through it.
