@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   retries: 1,
-  workers: 1,
+  workers: 2,
   reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }]],
   outputDir: 'test-results',
 
