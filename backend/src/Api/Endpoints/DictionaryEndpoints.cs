@@ -9,7 +9,7 @@ public static class DictionaryEndpoints
     {
         var group = app.MapGroup("/api/dictionary").WithTags("Dictionary");
 
-        group.MapGet("/{lang}/{word}", LookupWord).WithName("LookupWord");
+        group.MapGet("/{lang}/{word}", LookupWord).WithName("LookupWord").RequireRateLimiting("dictionary");
     }
 
     private static async Task<IResult> LookupWord(

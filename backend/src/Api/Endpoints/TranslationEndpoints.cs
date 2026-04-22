@@ -10,11 +10,11 @@ public static class TranslationEndpoints
     {
         var group = app.MapGroup("/api/translate").WithTags("Translation");
 
-        group.MapPost("", Translate).WithName("Translate");
+        group.MapPost("", Translate).WithName("Translate").RequireRateLimiting("translate");
         group.MapGet("/languages", GetLanguages).WithName("GetTranslationLanguages");
 
         // Also map without /api/ prefix for nginx compatibility
-        app.MapPost("/translate", Translate).WithTags("Translation").WithName("TranslateCompat");
+        app.MapPost("/translate", Translate).WithTags("Translation").WithName("TranslateCompat").RequireRateLimiting("translate");
     }
 
     private static async Task<IResult> Translate(
