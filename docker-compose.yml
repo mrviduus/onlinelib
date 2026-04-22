@@ -63,8 +63,6 @@ services:
       Google__ClientId: ${GOOGLE_CLIENT_ID}
       LibreTranslate__BaseUrl: http://libretranslate:5000
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
-      Search__Meilisearch__Url: http://meilisearch:7700
-      Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-changeme}
       Tts__CachePath: /data/tts-cache
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: qwen3:8b
@@ -107,8 +105,6 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Storage__RootPath: /storage
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
-      Search__Meilisearch__Url: http://meilisearch:7700
-      Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-changeme}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
@@ -174,32 +170,6 @@ services:
           memory: 2G
         reservations:
           memory: 512M
-
-  # ===========================================
-  # Meilisearch - Full-text search engine
-  # ===========================================
-
-  meilisearch:
-    image: getmeili/meilisearch:v1.12
-    container_name: textstack_meilisearch
-    environment:
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
-      MEILI_ENV: production
-    volumes:
-      - ./data/meilisearch:/meili_data
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 256M
 
   # ===========================================
   # Observability - Aspire Dashboard (all-in-one: traces, logs, metrics)

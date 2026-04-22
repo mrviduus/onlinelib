@@ -361,7 +361,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 Two providers, swappable via `SEARCH_PROVIDER` env var (default: `postgres`):
 - **PostgreSQL FTS**: Raw SQL (Dapper) in `TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs`
-- **Meilisearch**: `TextStack.Search.Meilisearch/` — typo tolerance, better ranking, faceting. Docker service `meilisearch:v1.12`, config: `MEILI_MASTER_KEY`
+- **Meilisearch** (optional): `TextStack.Search.Meilisearch/`. Not in default compose — add service manually if used
 
 Reindex: `make reindex-search`
 
@@ -436,13 +436,13 @@ Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
   └─ textstack.dev → admin panel (:81)
 ```
 
-Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard`, `libretranslate`, `ollama`, `meilisearch`. All localhost-only, no public ports except 80 via tunnel.
+Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard` (profile-gated), `libretranslate`, `ollama`. All localhost-only, no public ports except 80 via tunnel.
 
 **Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m).
 
 **Systemd services**: `seo-publish-poller` (auto-publish with SEO generation).
 
-**Notable env vars** (beyond `.env.example` basics): `SEARCH_PROVIDER=postgres|meilisearch`, `MEILI_MASTER_KEY`, `INDEXNOW_KEY`, `INDEXNOW_ENABLED`.
+**Notable env vars** (beyond `.env.example` basics): `SEARCH_PROVIDER=postgres` (or `meilisearch` if running a Meilisearch container manually), `INDEXNOW_KEY`, `INDEXNOW_ENABLED`.
 
 ## Extraction Pipeline
 

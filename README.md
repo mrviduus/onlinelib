@@ -59,8 +59,8 @@
 |-------|-----------|
 | API | ASP.NET Core (.NET 10), Minimal APIs |
 | Database | PostgreSQL 16, EF Core (snake_case) |
-| Search | PostgreSQL FTS / Meilisearch (swappable) |
-| Frontend | React 18, Vite, pnpm, CSS Variables |
+| Search | PostgreSQL FTS (Meilisearch provider optional) |
+| Frontend | React 19, Vite, pnpm, CSS Variables |
 | Admin | React (separate app), JWT auth |
 | Mobile | React Native (Expo) |
 | TTS | Edge TTS (WebSocket, no API key) |
