@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BUSL--1.1-blue.svg" alt="Business Source License 1.1"></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
   <img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19">
   <img src="https://img.shields.io/badge/Expo-55-000020" alt="Expo 55">
@@ -195,9 +195,15 @@ that I'm building the right thing.
 
 ## License
 
-[MIT](LICENSE) © 2026 Vasyl Vdovychenko.
+[Business Source License 1.1](LICENSE) © 2026 Vasyl Vdovychenko.
 
-- Source code: MIT
+Source-available, **not** open source. You may fork, modify, and self-host
+for personal or internal use. You may **not** offer TextStack as a hosted
+commercial service without a commercial license. On **2030-04-22** the code
+auto-converts to Apache 2.0 and all restrictions drop. See
+[COPYRIGHT.md](COPYRIGHT.md) for plain-English summary.
+
+- Source code: BUSL-1.1 → Apache-2.0 (2030-04-22)
 - Standard Ebooks corpus (included in seed data): CC0 / public domain
 - Edge TTS: used under Microsoft's Edge Read Aloud terms
 - Third-party deps: their respective licenses
