@@ -3447,6 +3447,26 @@ html.dark .search-page__sub-result-highlight b {
   opacity: 0.7;
 }
 
+.upload-section__dropzone--disabled {
+  opacity: 0.5;
+}
+
+.upload-section__rights {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--color-text, #222);
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.upload-section__rights input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
 .upload-section__icon {
   color: var(--color-text-secondary, #555);
   margin-bottom: 16px;
