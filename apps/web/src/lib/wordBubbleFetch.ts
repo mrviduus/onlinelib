@@ -1,4 +1,4 @@
-// Shared "open word popup" data pipeline used by ReaderHighlights + FocusReaderPage:
+// Shared "open word popup" data pipeline:
 //   1. Dictionary lookup → phonetic + definition
 //   2. Translation fetch → target-lang text
 //   3. Propagate fresh translation into vocab map + backend (for already-saved words)

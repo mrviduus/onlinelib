@@ -16,7 +16,7 @@ export function normalizeVocabKey(word: string): string {
   return word.normalize('NFC').toLowerCase()
 }
 
-/** Tokenize a full text (for VocabWordLayer / FocusReaderPage underlining). */
+/** Tokenize a full text (for VocabWordLayer underlining). */
 export function tokenizeVocabWords(text: string): { word: string; start: number; end: number }[] {
   const tokens: { word: string; start: number; end: number }[] = []
   const src = text.normalize('NFC')

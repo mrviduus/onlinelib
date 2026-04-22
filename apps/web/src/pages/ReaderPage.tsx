@@ -909,12 +909,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             addBookmark(activeChapterIdentifier, activeChapter.title)
           }
         }}
-        onFocusClick={() => {
-          const target = mode === 'public'
-            ? `/${language}/books/${bookSlug}/focus/${activeChapterIdentifier}`
-            : `/${language}/library/my/${id}/focus/${activeChapterIdentifier}`
-          navigate(target)
-        }}
       />
 
       <main id="reader-content" className="reader-main">
