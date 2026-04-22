@@ -1,22 +1,19 @@
-import { useState } from 'react'
-
 interface Props {
   chapterTitle: string
   overallProgress: number
-  bookEtf?: string | null
-  chapterEtf?: string | null
+  currentChapterIndex: number
+  totalChapters: number
 }
 
 export function ReaderFooterNav({
   chapterTitle,
   overallProgress,
-  bookEtf,
-  chapterEtf,
+  currentChapterIndex,
+  totalChapters,
 }: Props) {
   const bookPercent = Math.round(overallProgress * 100)
-  const [showChapterEtf, setShowChapterEtf] = useState(false)
-  const hasEtf = bookEtf || chapterEtf
-  const displayEtf = showChapterEtf && chapterEtf ? chapterEtf : bookEtf
+  const showCounter = totalChapters > 1 && currentChapterIndex >= 0
+  const chapterNumber = currentChapterIndex + 1
 
   return (
     <footer className="reader-footer">
@@ -34,13 +31,15 @@ export function ReaderFooterNav({
 
       <div className="reader-footer__info">
         <span className="reader-footer__chapter">{chapterTitle}</span>
-        <span
-          className="reader-footer__pages"
-          onClick={hasEtf ? () => setShowChapterEtf(!showChapterEtf) : undefined}
-          style={hasEtf ? { cursor: 'pointer' } : undefined}
-        >
-          {bookPercent}%{displayEtf && <span className="reader-footer__etf"> · {displayEtf}</span>}
-        </span>
+        {showCounter && (
+          <span
+            className="reader-footer__counter"
+            aria-label={`Chapter ${chapterNumber} of ${totalChapters}`}
+          >
+            {chapterNumber} / {totalChapters}
+          </span>
+        )}
+        <span className="reader-footer__percent">{bookPercent}%</span>
       </div>
     </footer>
   )

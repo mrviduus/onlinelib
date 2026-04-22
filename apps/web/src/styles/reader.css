@@ -195,9 +195,10 @@ body:has(.reader-page) .site-header {
 }
 
 .reader-footer__info {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 12px 16px;
 }
 
@@ -207,19 +208,25 @@ body:has(.reader-page) .site-header {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 50%;
+  min-width: 0;
 }
 
-.reader-footer__pages {
+.reader-footer__counter {
+  grid-column: 2;
+  justify-self: center;
   font-size: 14px;
   color: var(--reader-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.reader-footer__etf {
-  opacity: 0.7;
-  font-size: 13px;
+.reader-footer__percent {
+  grid-column: 3;
+  justify-self: end;
+  font-size: 14px;
+  color: var(--reader-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 

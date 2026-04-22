@@ -31,7 +31,7 @@ import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
 import { useQuickStats } from '../hooks/useQuickStats'
-import { calculateETF, calculateChapterETF } from '../lib/etf'
+import { calculateETF } from '../lib/etf'
 import { trackBookOpened } from '../lib/analytics'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
@@ -412,10 +412,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     [bookTotalWords, overallProgress, userWpm],
   )
 
-  const chapterEtf = useMemo(() => {
-    if (!chapter?.wordCount) return null
-    return calculateChapterETF(chapter.wordCount, chapterScrollProgress, userWpm)
-  }, [chapter?.wordCount, chapterScrollProgress, userWpm])
+  const totalChapters = scrollReaderBook?.chapters.length ?? 0
+  const currentChapterIndex = useMemo(() => {
+    if (!scrollReaderBook) return -1
+    const id = scrollReader.visibleIdentifier || chapterIdentifier
+    if (!id) return -1
+    return scrollReaderBook.chapters.findIndex(c => c.identifier === id)
+  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterIdentifier])
 
   // Track scroll activity for reading session
   useEffect(() => {
@@ -956,8 +959,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       <ReaderFooterNav
         chapterTitle={activeChapter?.title || chapter.title}
         overallProgress={overallProgress}
-        bookEtf={bookEtf?.formatted}
-        chapterEtf={chapterEtf?.formatted}
+        currentChapterIndex={currentChapterIndex}
+        totalChapters={totalChapters}
       />
 
       <ReaderTocDrawer
