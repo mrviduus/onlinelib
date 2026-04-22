@@ -35,6 +35,7 @@ export const LANGUAGES: LanguageEntry[] = [
   { code: 'fr', englishName: 'French', nativeName: 'Français', flagCountry: 'FR', popular: true },
   { code: 'es', englishName: 'Spanish', nativeName: 'Español', flagCountry: 'ES', popular: true },
   { code: 'pl', englishName: 'Polish', nativeName: 'Polski', flagCountry: 'PL', popular: true },
+  { code: 'uk', englishName: 'Ukrainian', nativeName: 'Українська', flagCountry: 'UA', popular: true },
   { code: 'fa', englishName: 'Persian', nativeName: 'فارسی', flagCountry: 'IR', popular: true },
 
   // All other
