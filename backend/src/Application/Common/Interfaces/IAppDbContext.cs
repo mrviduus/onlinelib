@@ -36,8 +36,6 @@ public interface IAppDbContext
     DbSet<UserBookBookmark> UserBookBookmarks { get; }
     DbSet<Domain.Entities.AdminSettings> AdminSettings { get; }
     DbSet<Highlight> Highlights { get; }
-    DbSet<HighlightLike> HighlightLikes { get; }
-    DbSet<HighlightReport> HighlightReports { get; }
     DbSet<ReadingSession> ReadingSessions { get; }
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }

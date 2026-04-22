@@ -166,14 +166,6 @@ export default function HighlightsScreen() {
               <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{chapterTitle}</Text>
             ) : <View style={{ flex: 1 }} />}
             <View style={styles.badgeRow}>
-              {item.isPublic && (
-                <View style={styles.badge}>
-                  <Ionicons name="globe-outline" size={11} color={colors.primary} />
-                  {item.likeCount > 0 && (
-                    <Text style={[styles.badgeText, { color: colors.primary }]}>{item.likeCount}</Text>
-                  )}
-                </View>
-              )}
               <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                 {new Date(item.createdAt).toLocaleDateString()}
               </Text>
