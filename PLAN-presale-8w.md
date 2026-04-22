@@ -53,8 +53,9 @@ killed.
       quick-start, features table aligned with dev.to narrative (AI
       engineering books, contextual explanations, capped SRS). Critical for
       star conversion.
-- [ ] **LICENSE file** — pick MIT or Apache-2.0 (recommend MIT for max star
-      potential + commercial reuse by buyer). Add to root.
+- [ ] **LICENSE file** — BUSL-1.1 w/ Apache-2.0 change license @ 4y
+      (non-compete: no competing managed service). MIT rejected 2026-04-22
+      — owner pays OpenAI, plans to monetize if traffic grows. Add to root.
 - [ ] **COPYRIGHT.md / NOTICE** — break down: our code (MIT), Standard
       Ebooks corpus (public domain, CC0), OSS deps (inherited), Edge TTS
       (Microsoft ToS). Sale-critical clarity.
@@ -166,7 +167,7 @@ plan when signals arrive.
 |---|---|---|
 | 2026-04-22 | Keep Standard Ebooks corpus in sale | SEO SSG pages = indexed inventory; removing = traffic hit |
 | 2026-04-22 | Mobile Android in sale, iOS best-effort | Play review ≤ Apple review; Android gets done, iOS gated on time |
-| 2026-04-22 | MIT license (tentative) | Max star potential, max commercial reuse by buyer |
+| 2026-04-22 | ~~MIT license (tentative)~~ → BUSL-1.1 + Apache-2.0 @ 4y | Owner pays OpenAI, wants to monetize if traffic grows; MIT would let anyone host competing SaaS free |
 | 2026-04-22 | Full scope, not trimmed | 8w is enough time; Full = higher ask |
 
 ---

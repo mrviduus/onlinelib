@@ -7,9 +7,24 @@ in each project's own LICENSE.
 ## TextStack source code
 
 Everything under this repository authored by TextStack contributors is
-**MIT-licensed**. See `LICENSE` at repo root.
+licensed under the **Business Source License 1.1** (BUSL-1.1). See
+`LICENSE` at repo root.
 
 Copyright © 2026 Vasyl Vdovychenko and contributors.
+
+**Summary (not legal advice, see LICENSE for authoritative text):**
+
+- You may: read, fork, modify, redistribute, self-host for personal or
+  internal use, run in development/CI.
+- You may **not**: offer TextStack as a **Hosted Service** — i.e. a
+  commercial product that lets third parties access TextStack
+  functionality as a service — without a commercial license from the
+  Licensor.
+- **Change Date: 2030-04-22.** On that date the code auto-converts to
+  Apache License 2.0 and all restrictions drop.
+
+For a commercial / hosted-service license, contact the Licensor via the
+contact form at https://textstack.app.
 
 ## Book content
 
