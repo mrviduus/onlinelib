@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { explainApi } from '@textstack/shared'
@@ -21,16 +21,25 @@ export function ExplanationSheet({ visible, word, sentence, bookId, fromLang: fr
   const [explanation, setExplanation] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!visible || !word) return
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     setLoading(true)
     setError('')
     setExplanation('')
-    explainApi.explain({ word, sentence, bookId, targetLang: toLang })
-      .then(res => setExplanation(res.explanation))
-      .catch(() => setError('Could not generate explanation'))
-      .finally(() => setLoading(false))
+    explainApi.explain({ word, sentence, bookId, targetLang: toLang }, ctrl.signal)
+      .then(res => { if (!ctrl.signal.aborted) setExplanation(res.explanation) })
+      .catch(err => {
+        if (ctrl.signal.aborted) return
+        if (err instanceof Error && err.name === 'AbortError') return
+        setError('Could not generate explanation')
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+    return () => { ctrl.abort() }
   }, [visible, word, sentence, toLang, bookId])
 
   return (
