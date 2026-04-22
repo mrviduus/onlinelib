@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,9 +23,12 @@ public static class TranslationEndpoints
         [FromBody] TranslateRequest request,
         IConfiguration config,
         ILlmServiceFactory llmFactory,
+        ILogger<Program> logger,
         CancellationToken ct)
     {
         var maxLength = config.GetValue("OpenAI:Translate:MaxTextLength", 500);
+        var cachePath = config.GetValue<string>("Translate:CachePath") ?? "/tmp/translate-cache";
+        var cacheTtlDays = config.GetValue("Translate:CacheTtlDays", 30);
 
         if (string.IsNullOrWhiteSpace(request.Text))
             return Results.BadRequest("Text is required");
@@ -39,6 +45,29 @@ public static class TranslationEndpoints
         var srcLang = request.SourceLang.Split('-')[0];
         var tgtLang = request.TargetLang.Split('-')[0];
 
+        var cacheKey = ComputeCacheKey(request.Text, srcLang, tgtLang);
+        var cacheFile = Path.Combine(cachePath, cacheKey + ".json");
+
+        try
+        {
+            Directory.CreateDirectory(cachePath);
+            if (File.Exists(cacheFile))
+            {
+                var info = new FileInfo(cacheFile);
+                if (info.LastWriteTimeUtc > DateTime.UtcNow.AddDays(-cacheTtlDays))
+                {
+                    var cached = await File.ReadAllTextAsync(cacheFile, ct);
+                    var cachedResp = JsonSerializer.Deserialize<TranslateResponse>(cached);
+                    if (cachedResp != null && !string.IsNullOrWhiteSpace(cachedResp.TranslatedText))
+                        return Results.Ok(cachedResp);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Translate cache read failed, falling through to LLM");
+        }
+
         var systemPrompt = $"You are a translation engine. Translate from {srcLang} to {tgtLang}. " +
                            "Output ONLY the translated text. No preface, no quotes, no explanation.";
 
@@ -54,11 +83,18 @@ public static class TranslationEndpoints
             if (string.IsNullOrWhiteSpace(translated))
                 return Results.Problem("Translation returned empty result", statusCode: 502);
 
-            return Results.Ok(new TranslateResponse(
-                translated,
-                request.SourceLang,
-                request.TargetLang
-            ));
+            var resp = new TranslateResponse(translated, request.SourceLang, request.TargetLang);
+
+            try
+            {
+                await File.WriteAllTextAsync(cacheFile, JsonSerializer.Serialize(resp), ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Translate cache write failed");
+            }
+
+            return Results.Ok(resp);
         }
         catch (TaskCanceledException)
         {
@@ -71,6 +107,14 @@ public static class TranslationEndpoints
                 statusCode: 503
             );
         }
+    }
+
+    private static string ComputeCacheKey(string text, string srcLang, string tgtLang)
+    {
+        var payload = $"{srcLang}|{tgtLang}|{text}";
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static IResult GetLanguages()

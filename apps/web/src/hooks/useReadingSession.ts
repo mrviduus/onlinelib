@@ -192,14 +192,25 @@ function savePendingSession(session: PendingSession) {
   }
 }
 
+// Server rejects sessions older than 7 days — drop at 6 to give a safety margin.
+const MAX_SESSION_AGE_MS = 6 * 24 * 60 * 60 * 1000
+
 async function flushPendingSessions() {
   try {
     const raw = localStorage.getItem(PENDING_SESSIONS_KEY)
     if (!raw) return
-    const sessions = JSON.parse(raw) as PendingSession[]
-    if (sessions.length === 0) return
+    const all = JSON.parse(raw) as PendingSession[]
+    if (all.length === 0) return
+
+    const now = Date.now()
+    const sessions = all.filter(s => {
+      const startedAt = Date.parse(s.startedAt)
+      return Number.isFinite(startedAt) && now - startedAt < MAX_SESSION_AGE_MS
+    })
 
     localStorage.removeItem(PENDING_SESSIONS_KEY)
+
+    if (sessions.length === 0) return
 
     const failed: PendingSession[] = []
     for (const session of sessions) {

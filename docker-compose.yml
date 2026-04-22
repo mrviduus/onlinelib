@@ -64,10 +64,11 @@ services:
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
       Tts__CachePath: /data/tts-cache
       Explain__CachePath: /data/explain-cache
+      Translate__CachePath: /data/translate-cache
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: qwen3:8b
       OpenAI__ApiKey: ${OPENAI_API_KEY:-}
-      OpenAI__Model: ${OPENAI_MODEL:-gpt-5-mini}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-4o-mini}
       Resend__ApiKey: ${RESEND_API_KEY:-}
       Resend__FromEmail: ${RESEND_FROM_EMAIL:-noreply@textstack.app}
       Resend__AdminAlertEmail: ${ADMIN_ALERT_EMAIL:-}
@@ -77,6 +78,7 @@ services:
       - ./data/textstack:/data/textstack
       - ./data/tts-cache:/data/tts-cache
       - ./data/explain-cache:/data/explain-cache
+      - ./data/translate-cache:/data/translate-cache
     ports:
       - "127.0.0.1:8080:8080"  # Only localhost, nginx will proxy
     restart: always

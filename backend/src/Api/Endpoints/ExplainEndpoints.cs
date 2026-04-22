@@ -96,8 +96,16 @@ public static class ExplainEndpoints
             var text = await llm.CompleteAsync(
                 systemPrompt,
                 userPrompt,
-                maxOutputTokens: 200,
+                maxOutputTokens: 500,
                 ct);
+
+            // Reasoning models can exhaust the visible budget on internal reasoning
+            // and return empty. Retry once with doubled budget before giving up.
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                logger.LogWarning("Explain got empty result at 500 tokens, retrying with 1000");
+                text = await llm.CompleteAsync(systemPrompt, userPrompt, maxOutputTokens: 1000, ct);
+            }
 
             if (string.IsNullOrWhiteSpace(text))
                 return Results.Problem("LLM returned empty explanation", statusCode: 502);
