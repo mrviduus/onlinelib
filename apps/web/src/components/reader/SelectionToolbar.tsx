@@ -15,6 +15,7 @@ interface SelectionToolbarProps {
   containerRef: React.RefObject<HTMLElement | null>
   onHighlight: (color: HighlightColor) => void
   onTranslate?: () => void
+  onExplain?: () => void
   onSpeak?: () => void
   onCopy?: () => void
 }
@@ -25,6 +26,7 @@ export function SelectionToolbar({
   containerRef,
   onHighlight,
   onTranslate,
+  onExplain,
   onSpeak,
   onCopy,
 }: SelectionToolbarProps) {
@@ -116,6 +118,18 @@ export function SelectionToolbar({
           <TranslateIcon />
         </button>
       )}
+      {onExplain && (
+        <button
+          className="selection-toolbar__action"
+          onMouseDown={(e) => e.preventDefault()}
+          onTouchStart={(e) => e.preventDefault()}
+          onClick={onExplain}
+          title={t('reader.selectionToolbar.explain')}
+          aria-label={t('reader.selectionToolbar.explain')}
+        >
+          <ExplainIcon />
+        </button>
+      )}
       {onSpeak && text.trim().length <= 500 && (
         <button
           className="selection-toolbar__action"
@@ -164,6 +178,15 @@ function TranslateIcon() {
   )
 }
 
+
+function ExplainIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.663 17h4.673M12 3a7 7 0 0 0-4 12.75V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1.25A7 7 0 0 0 12 3z" />
+      <line x1="10" y1="21" x2="14" y2="21" />
+    </svg>
+  )
+}
 
 function SpeakIcon() {
   return (

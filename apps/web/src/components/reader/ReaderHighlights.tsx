@@ -18,6 +18,8 @@ import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
+import { ExplanationPopup } from './ExplanationPopup'
+import { useExplain } from '../../hooks/useExplain'
 import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
 import { TtsHighlightOverlay } from './TtsHighlightOverlay'
@@ -434,6 +436,44 @@ export function ReaderHighlights({
     clearSelection()
   }, [resetTranslation, clearSelection])
 
+  // --- Explain popup ---
+  const {
+    explanation, isLoading: isExplaining, error: explainError,
+    explain: explainApi, reset: resetExplain,
+  } = useExplain()
+  const [showExplain, setShowExplain] = useState(false)
+  const [explainWord, setExplainWord] = useState('')
+  const [explainRect, setExplainRect] = useState<DOMRect | null>(null)
+
+  const handleExplain = useCallback(() => {
+    if (!selection.text || !selection.range || !selection.rect) return
+    const rawWord = extractWordFromRange(selection.range)
+      ?? tokenizeVocabWords(selection.text)[0]?.word
+      ?? selection.text.trim().split(/\s+/)[0]
+      ?? selection.text.trim()
+    if (!rawWord) return
+    const sentence = selection.range && containerRef.current
+      ? extractSentence(selection.range, containerRef.current) ?? selection.text
+      : selection.text
+    setExplainWord(rawWord)
+    setExplainRect(selection.rect)
+    setShowExplain(true)
+    explainApi({
+      word: rawWord,
+      sentence,
+      bookId: editionId,
+      targetLang: nativeLanguage,
+    })
+  }, [selection, explainApi, containerRef, editionId, nativeLanguage])
+
+  const handleCloseExplain = useCallback(() => {
+    setShowExplain(false)
+    setExplainWord('')
+    setExplainRect(null)
+    resetExplain()
+    clearSelection()
+  }, [resetExplain, clearSelection])
+
   const handleSourceLangChange = useCallback((lang: string) => {
     setSourceLang(lang)
     if (translationText) translate(translationText, lang, translationTargetLang)
@@ -480,13 +520,14 @@ export function ReaderHighlights({
       />
 
       {/* Multi-word selection → full highlights toolbar */}
-      {hasSelection && !isSingleWord && !showTranslation && (
+      {hasSelection && !isSingleWord && !showTranslation && !showExplain && (
         <SelectionToolbar
           rect={selection.rect}
           text={selection.text}
           containerRef={containerRef}
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
+          onExplain={handleExplain}
           onSpeak={() => handleSpeak(selection.text)}
           onCopy={handleCopy}
         />
@@ -549,6 +590,18 @@ export function ReaderHighlights({
           onTargetLangChange={handleTargetLangChange}
           onSpeak={handleSpeak}
           onClose={handleCloseTranslation}
+        />
+      )}
+
+      {showExplain && (
+        <ExplanationPopup
+          word={explainWord}
+          explanation={explanation}
+          isLoading={isExplaining}
+          error={explainError}
+          rect={explainRect}
+          containerRef={containerRef}
+          onClose={handleCloseExplain}
         />
       )}
 
