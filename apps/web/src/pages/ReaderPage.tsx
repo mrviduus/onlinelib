@@ -354,7 +354,17 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterScrollProgress])
 
   // Force 100% when book is completed
-  const overallProgress = bookCompleted ? 1 : calculatedProgress
+  const rawProgress = bookCompleted ? 1 : calculatedProgress
+
+  // Clamp progress monotonically within a session: scrolling down must never
+  // reduce the bar. Fixes jitter from chapter-boundary scroll handoff and
+  // Math.round flipping between 99/100.
+  const maxProgressRef = useRef(0)
+  useEffect(() => {
+    maxProgressRef.current = 0
+  }, [book?.id])
+  if (rawProgress > maxProgressRef.current) maxProgressRef.current = rawProgress
+  const overallProgress = maxProgressRef.current
 
   // Reading session tracking (time, words)
   const readingSession = useReadingSession({
