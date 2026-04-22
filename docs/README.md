@@ -18,6 +18,7 @@ Free book library with Kindle-like reader. EPUB/PDF/FB2 upload, parsing, SEO pag
 | [Environment Variables](03-ops/environment-variables.md) | Complete env var reference |
 | [Production Deployment](03-ops/deployment.md) | Cloudflare tunnel, nginx, Docker |
 | [E2E Testing Guide](04-dev/e2e-guide.md) | Playwright setup, UI mode, troubleshooting |
+| [LLM Provider Swap](04-dev/llm-provider-swap.md) | Swap Ollama → OpenAI/Anthropic API (2 files) |
 
 ## Core Features
 
