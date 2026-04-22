@@ -310,6 +310,17 @@ async function main() {
     process.exit(1);
   }
 
+  // Heartbeat file — docker healthcheck reads mtime
+  const HEARTBEAT = '/tmp/ssg-worker-alive';
+  setInterval(() => {
+    try {
+      writeFileSync(HEARTBEAT, new Date().toISOString());
+    } catch (err) {
+      console.warn('Failed to write heartbeat:', err.message);
+    }
+  }, 30_000);
+  writeFileSync(HEARTBEAT, new Date().toISOString());
+
   // Main polling loop
   while (true) {
     try {

@@ -74,6 +74,9 @@ builder.Services.AddHostedService<GuestCleanupWorker>();
 // Admin refresh token cleanup (purge expired rows daily)
 builder.Services.AddHostedService<AdminRefreshTokenCleanupWorker>();
 
+// Heartbeat file for docker healthcheck
+builder.Services.AddHostedService<HeartbeatWorker>();
+
 // TextStack watcher (optional, enable via config)
 if (builder.Configuration.GetValue("TextStack:EnableWatcher", false))
 {
