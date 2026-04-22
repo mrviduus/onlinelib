@@ -123,7 +123,6 @@ export function ReaderHighlights({
   const STABILIZE_MS = 220
 
   // Backend translation patch + mid-popup lang-switch refetch + auto-save dedup.
-  // Extracted hook — same shape is used in FocusReaderPage.
   const { triggerAutoSave, clearAutoSave } = useBubbleTranslationSync({
     bubble,
     setBubble,

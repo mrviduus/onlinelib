@@ -918,13 +918,6 @@ export default function ReaderScreen() {
                 <Ionicons name="list-outline" size={20} color={barText} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={() => router.push(`/reader/${bookSlug}/focus/${chapterSlug}`)}
-              style={styles.iconBtn}
-              accessibilityLabel="Focus mode"
-            >
-              <Ionicons name="contract-outline" size={20} color={barText} />
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
               <Ionicons name="options-outline" size={20} color={barText} />
             </TouchableOpacity>

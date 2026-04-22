@@ -13,7 +13,6 @@ interface Props {
   onTocClick: () => void
   onSettingsClick: () => void
   onBookmarkClick: () => void
-  onFocusClick?: () => void
 }
 
 export function ReaderTopBar({
@@ -28,7 +27,6 @@ export function ReaderTopBar({
   onTocClick,
   onSettingsClick,
   onBookmarkClick,
-  onFocusClick,
 }: Props) {
   const BackLink = useLocalizedLink ? LocalizedLink : Link
 
@@ -70,14 +68,6 @@ export function ReaderTopBar({
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
         </button>
-        {onFocusClick && (
-          <button onClick={onFocusClick} className="reader-top-bar__btn" title="Focus mode">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="9" />
-              <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
-            </svg>
-          </button>
-        )}
         <button onClick={onSettingsClick} className="reader-top-bar__btn" title="Settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M4 6h16M4 12h16M4 18h16" />

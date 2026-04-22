@@ -522,13 +522,6 @@ export default function UserBookReaderScreen() {
             <TouchableOpacity onPress={handleToggleBookmark} style={styles.iconBtn}>
               <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={isCurrentBookmarked ? colors.primary : barText} />
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => router.push(`/my-books/read/${bookId}/focus/${chapterSlug}`)}
-              style={styles.iconBtn}
-              accessibilityLabel="Focus mode"
-            >
-              <Ionicons name="contract-outline" size={20} color={barText} />
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
               <Ionicons name="text-outline" size={20} color={barText} />
             </TouchableOpacity>

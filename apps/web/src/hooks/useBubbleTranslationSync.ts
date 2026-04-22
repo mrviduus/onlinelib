@@ -5,8 +5,8 @@ import { translate as translateApi } from '../api/translation'
 import { normalizeVocabKey } from '../lib/vocabKey'
 import type { VocabMap } from './useReaderVocabulary'
 
-// Shared bubble shape required by both ReaderHighlights and FocusReaderPage.
-// Each caller extends this with their own extras (rect, range, phonetic, …).
+// Shared bubble shape. Callers extend this with their own extras (rect, range,
+// phonetic, …).
 export interface BubbleLike {
   word: string
   translation: string | null
