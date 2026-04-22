@@ -105,7 +105,7 @@ function SearchInput({
   onFocus,
   onKeyDown,
 }: {
-  inputRef: React.RefObject<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
   query: string
   isLoading: boolean
   isOpen: boolean
