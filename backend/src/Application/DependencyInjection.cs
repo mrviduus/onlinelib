@@ -6,6 +6,7 @@ using Application.Authors;
 using Application.Books;
 using Application.Reprocessing;
 using Application.Seo;
+using Application.LLM;
 using Application.Vocabulary;
 using Application.Export;
 using Application.SsgRebuild;
@@ -41,6 +42,9 @@ public static class DependencyInjection
         services.AddScoped<RetirementSweeper>();
         services.AddScoped<ClusterCandidateService>();
         services.AddSingleton<IFrequencyFilter, FrequencyFilter>();
+
+        // LLM (OpenAI)
+        services.AddSingleton<ILlmService, OpenAiLlmService>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

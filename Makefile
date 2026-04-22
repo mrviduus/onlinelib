@@ -37,9 +37,8 @@ status:
 # Fix volume permissions for containers running as non-root
 fix-permissions:
 	@echo "Fixing volume permissions..."
-	@mkdir -p data/libretranslate data/textstack data/tts-cache
-	@docker run --rm -v $$(pwd)/data/libretranslate:/data alpine chown -R 1032:1032 /data
-	@docker run --rm -v $$(pwd)/data/textstack:/data -v $$(pwd)/data/tts-cache:/tts alpine sh -c 'chown -R 1000:1000 /data /tts'
+	@mkdir -p data/textstack data/tts-cache data/explain-cache
+	@docker run --rm -v $$(pwd)/data/textstack:/data -v $$(pwd)/data/tts-cache:/tts -v $$(pwd)/data/explain-cache:/explain alpine sh -c 'chown -R 1000:1000 /data /tts /explain'
 	@echo "Done."
 
 deploy: fix-permissions

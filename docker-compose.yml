@@ -61,11 +61,13 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Google__ClientId: ${GOOGLE_CLIENT_ID}
-      LibreTranslate__BaseUrl: http://libretranslate:5000
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
       Tts__CachePath: /data/tts-cache
+      Explain__CachePath: /data/explain-cache
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: qwen3:8b
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-5-mini}
       Resend__ApiKey: ${RESEND_API_KEY:-}
       Resend__FromEmail: ${RESEND_FROM_EMAIL:-noreply@textstack.app}
       Resend__AdminAlertEmail: ${ADMIN_ALERT_EMAIL:-}
@@ -74,6 +76,7 @@ services:
       - ./data/storage:/storage
       - ./data/textstack:/data/textstack
       - ./data/tts-cache:/data/tts-cache
+      - ./data/explain-cache:/data/explain-cache
     ports:
       - "127.0.0.1:8080:8080"  # Only localhost, nginx will proxy
     restart: always
@@ -241,29 +244,3 @@ services:
         reservations:
           memory: 2G
 
-  # ===========================================
-  # LibreTranslate - Self-hosted translation API
-  # ===========================================
-
-  libretranslate:
-    image: libretranslate/libretranslate:v1.6.4
-    container_name: textstack_libretranslate
-    environment:
-      - LT_LOAD_ONLY=en,uk,ru,de,fr,es,pl,pt,fa
-      - LT_DISABLE_WEB_UI=true
-      - LT_UPDATE_MODELS=true
-    volumes:
-      - ./data/libretranslate:/home/libretranslate/.local
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages')\""]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 1G

@@ -213,7 +213,7 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
-    // Translation — per-IP. LibreTranslate is the upstream cost; users
+    // Translation — per-IP. OpenAI is the upstream cost; users
     // typically call 1-3 times per reading session via SelectionToolbar.
     // 30/min is generous for normal UX, blocks scripted scraping of the
     // translation service.
@@ -237,6 +237,19 @@ builder.Services.AddRateLimiter(options =>
         {
             Window = TimeSpan.FromMinutes(1),
             PermitLimit = 60,
+            QueueLimit = 0,
+        });
+    });
+    // /explain — Claude/OpenAI-backed contextual explanation. Paid API
+    // call per miss (cache fronts it). 20/min per IP is plenty for
+    // active reading; anything higher smells like scripting.
+    options.AddPolicy("explain", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
             QueueLimit = 0,
         });
     });
@@ -361,6 +374,7 @@ app.MapProfileEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();
 app.MapTranslationEndpoints();
+app.MapExplainEndpoints();
 app.MapDictionaryEndpoints();
 app.MapUserBooksEndpoints();
 app.MapReadingTrackingEndpoints();

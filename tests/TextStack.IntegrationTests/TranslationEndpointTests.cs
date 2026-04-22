@@ -5,7 +5,8 @@ namespace TextStack.IntegrationTests;
 
 /// <summary>
 /// Integration tests for translation endpoints.
-/// Requires: docker compose up (API + LibreTranslate must be running)
+/// Requires: docker compose up (API must be running). Translation now runs
+/// through OpenAI — without OPENAI_API_KEY these return 502/503 (tests skip).
 /// </summary>
 public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
 {
@@ -31,11 +32,11 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
 
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        // LibreTranslate might not be running, so accept 502/503
+        // OpenAI may not be configured, so accept 502/503
         if (response.StatusCode == HttpStatusCode.BadGateway ||
             response.StatusCode == HttpStatusCode.ServiceUnavailable)
         {
-            return; // Skip - LibreTranslate not available
+            return; // Skip - OpenAI not available
         }
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -122,11 +123,11 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/translate/languages");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        // LibreTranslate might not be running, so accept 502/503
+        // OpenAI may not be configured, so accept 502/503
         if (response.StatusCode == HttpStatusCode.BadGateway ||
             response.StatusCode == HttpStatusCode.ServiceUnavailable)
         {
-            return; // Skip - LibreTranslate not available
+            return; // Skip - OpenAI not available
         }
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -142,7 +143,7 @@ public class TranslationEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/api/translate/languages");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        // LibreTranslate might not be running
+        // OpenAI may not be configured
         if (response.StatusCode != HttpStatusCode.OK)
         {
             return;

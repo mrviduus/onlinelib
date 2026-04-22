@@ -22,6 +22,8 @@
     <PackageVersion Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <!-- LLM -->
+    <PackageVersion Include="OpenAI" Version="2.2.0" />
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.35" />
     <PackageVersion Include="Meilisearch" Version="0.16.0" />
