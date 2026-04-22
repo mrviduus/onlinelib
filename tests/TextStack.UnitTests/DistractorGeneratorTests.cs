@@ -1,6 +1,4 @@
-using System.Net;
-using System.Text.Json;
-using Microsoft.Extensions.Options;
+using Domain.LLM;
 using Moq;
 using TextStack.Vocabulary;
 
@@ -8,37 +6,36 @@ namespace TextStack.UnitTests;
 
 public class DistractorGeneratorTests
 {
-    private static IHttpClientFactory CreateHttpFactory(HttpStatusCode status, string responseText)
+    private static DistractorGenerator CreateGenerator(string llmResponse, bool throwOnCall = false)
     {
-        var json = JsonSerializer.Serialize(new { response = responseText });
-        var handler = new FakeHandler(status, json);
-        var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:11434") };
-        var factory = new Mock<IHttpClientFactory>();
-        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(client);
-        return factory.Object;
-    }
-
-    private static IOptions<VocabularyOptions> CreateOptions() =>
-        Options.Create(new VocabularyOptions
+        var llm = new Mock<ILlmService>();
+        if (throwOnCall)
         {
-            OllamaBaseUrl = "http://localhost:11434",
-            OllamaModel = "qwen3:8b",
-            OllamaTimeoutSeconds = 5,
-        });
+            llm.Setup(l => l.CompleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+               .ThrowsAsync(new HttpRequestException("mock"));
+        }
+        else
+        {
+            llm.Setup(l => l.CompleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(llmResponse);
+        }
 
-    private static DistractorGenerator CreateGenerator(HttpStatusCode status, string responseText) =>
-        new(CreateHttpFactory(status, responseText), CreateOptions());
+        var factory = new Mock<ILlmServiceFactory>();
+        factory.Setup(f => f.Get("Distractor")).Returns(llm.Object);
+
+        return new DistractorGenerator(factory.Object);
+    }
 
     // === Structured response parsing ===
 
     [Fact]
     public async Task Generate_StructuredResponse_ParsesDistractorsAndHint()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: fuzzy, bright, sharp, narrow, gentle\nHINT: Moving quickly without delay.");
 
         var (distractors, hint, _) = await gen.GenerateAsync(
-            "fast", "en", "Quick", null, null, CancellationToken.None);
+            "fast", "en", "Quick", null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Equal(5, distractors!.Count);
@@ -50,11 +47,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_HintContainsWord_HintExcluded()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: a, b, c, d, e\nHINT: The word fast means quick.");
 
         var (_, hint, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.Null(hint);
     }
@@ -62,11 +59,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_DistractorContainsOriginalWord_Excluded()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: fast, bright, sharp, narrow, gentle");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain("fast", distractors!);
@@ -75,11 +72,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_DuplicateDistractors_Deduplicated()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: bright, bright, sharp, narrow, gentle");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Equal(distractors!.Count, distractors.Distinct().Count());
@@ -88,11 +85,10 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_LessThan3Distractors_ReturnsNull()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
-            "DISTRACTORS: one, two");
+        var gen = CreateGenerator("DISTRACTORS: one, two");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.Null(distractors);
     }
@@ -100,11 +96,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_MultiWordDistractors_Filtered()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: very bright, sharp, narrow, gentle, bold");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain("very bright", distractors!);
@@ -115,11 +111,10 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_NoPrefix_FallsBackToCommaParsing()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
-            "bright, sharp, narrow, gentle, bold");
+        var gen = CreateGenerator("bright, sharp, narrow, gentle, bold");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.True(distractors!.Count >= 3);
@@ -128,11 +123,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_NumberedList_StripsNumbers()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: 1. bright, 2. sharp, 3. narrow, 4. gentle, 5. bold");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.Contains("bright", distractors!);
@@ -142,7 +137,7 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_StructuredResponse_ParsesExplanation()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: fuzzy, bright, sharp, narrow, gentle\nHINT: Moving quickly.\nEXPLANATION: Слово означает быстрый, скорый.");
 
         var (_, _, explanation) = await gen.GenerateAsync(
@@ -151,40 +146,29 @@ public class DistractorGeneratorTests
         Assert.Equal("Слово означает быстрый, скорый.", explanation);
     }
 
-    // === API failure ===
+    // === LLM failure ===
 
     [Fact]
-    public async Task Generate_ApiError_ReturnsNulls()
+    public async Task Generate_LlmReturnsEmpty_ReturnsNulls()
     {
-        var gen = CreateGenerator(HttpStatusCode.InternalServerError, "");
+        var gen = CreateGenerator("");
 
-        var (distractors, hint, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+        var (distractors, hint, explanation) = await gen.GenerateAsync(
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.Null(distractors);
         Assert.Null(hint);
-    }
-
-    [Fact]
-    public async Task Generate_EmptyResponse_ReturnsNulls()
-    {
-        var gen = CreateGenerator(HttpStatusCode.OK, "");
-
-        var (distractors, hint, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
-
-        Assert.Null(distractors);
-        Assert.Null(hint);
+        Assert.Null(explanation);
     }
 
     [Fact]
     public async Task Generate_DistractorsLowercased()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: Bright, SHARP, Narrow, Gentle, Bold");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.All(distractors!, d => Assert.Equal(d, d.ToLowerInvariant()));
@@ -193,11 +177,11 @@ public class DistractorGeneratorTests
     [Fact]
     public async Task Generate_Max5Distractors()
     {
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             "DISTRACTORS: alpha, bravo, charlie, delta, echo, foxtrot, golf, hotel");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.True(distractors!.Count <= 5);
@@ -207,22 +191,13 @@ public class DistractorGeneratorTests
     public async Task Generate_LongDistractors_Filtered()
     {
         var longWord = new string('a', 60);
-        var gen = CreateGenerator(HttpStatusCode.OK,
+        var gen = CreateGenerator(
             $"DISTRACTORS: {longWord}, bright, sharp, narrow, gentle");
 
         var (distractors, _, _) = await gen.GenerateAsync(
-            "fast", "en", null, null, null, CancellationToken.None);
+            "fast", "en", null, null, "en", CancellationToken.None);
 
         Assert.NotNull(distractors);
         Assert.DoesNotContain(longWord, distractors!);
-    }
-
-    private class FakeHandler(HttpStatusCode status, string body) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
-            Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
-            });
     }
 }

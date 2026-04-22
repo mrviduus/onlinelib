@@ -1,3 +1,4 @@
+using Domain.LLM;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;

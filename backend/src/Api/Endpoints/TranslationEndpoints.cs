@@ -1,4 +1,4 @@
-using Application.LLM;
+using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -19,7 +19,7 @@ public static class TranslationEndpoints
     private static async Task<IResult> Translate(
         [FromBody] TranslateRequest request,
         IConfiguration config,
-        ILlmService llm,
+        ILlmServiceFactory llmFactory,
         CancellationToken ct)
     {
         var maxLength = config.GetValue("OpenAI:Translate:MaxTextLength", 500);
@@ -44,6 +44,7 @@ public static class TranslationEndpoints
 
         try
         {
+            var llm = llmFactory.Get("Translate");
             var translated = await llm.CompleteAsync(
                 systemPrompt,
                 request.Text,

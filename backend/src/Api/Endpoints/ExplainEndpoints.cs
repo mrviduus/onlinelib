@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Application.LLM;
+using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -17,7 +17,7 @@ public static class ExplainEndpoints
     private static async Task<IResult> Explain(
         [FromBody] ExplainRequest request,
         IConfiguration config,
-        ILlmService llm,
+        ILlmServiceFactory llmFactory,
         ILogger<Program> logger,
         CancellationToken ct)
     {
@@ -65,6 +65,7 @@ public static class ExplainEndpoints
 
         try
         {
+            var llm = llmFactory.Get("Explain");
             var text = await llm.CompleteAsync(
                 systemPrompt,
                 userPrompt,

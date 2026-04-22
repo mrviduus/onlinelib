@@ -1,6 +1,4 @@
-using System.Net;
-using System.Text.Json;
-using Microsoft.Extensions.Configuration;
+using Domain.LLM;
 using Moq;
 using Worker.Services;
 
@@ -8,36 +6,27 @@ namespace TextStack.UnitTests;
 
 public class BookMetadataGeneratorTests
 {
-    private static IConfiguration CreateConfig() =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Ollama:BaseUrl"] = "http://localhost:11434",
-                ["Ollama:Model"] = "qwen3:8b",
-                ["Ollama:TimeoutSeconds"] = "5"
-            })
-            .Build();
-
-    private static IHttpClientFactory CreateHttpFactory(HttpStatusCode status, string ollamaResponse)
+    private static BookMetadataGenerator CreateGenerator(string llmResponse)
     {
-        var handler = new FakeHandler(status, ollamaResponse);
-        var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:11434") };
-        var factory = new Mock<IHttpClientFactory>();
-        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(client);
-        return factory.Object;
+        var llm = new Mock<ILlmService>();
+        llm.Setup(l => l.CompleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+           .ReturnsAsync(llmResponse);
+
+        var factory = new Mock<ILlmServiceFactory>();
+        factory.Setup(f => f.Get("BookMetadata")).Returns(llm.Object);
+
+        return new BookMetadataGenerator(factory.Object);
     }
 
     [Fact]
     public async Task GenerateAsync_ValidResponse_ParsesGenreAndYear()
     {
-        var response = "GENRE: Fiction\nYEAR: 1897";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("GENRE: Fiction\nYEAR: 1897");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Dracula", "Bram Stoker", false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Dracula", "Bram Stoker", false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fiction", result.Genre);
+        Assert.Equal("Fiction", result!.Genre);
         Assert.Equal(1897, result.PublishedYear);
         Assert.Null(result.Description);
     }
@@ -45,14 +34,13 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_WithDescription_ParsesAll()
     {
-        var response = "GENRE: Science Fiction\nYEAR: 1984\nDESCRIPTION: A dystopian novel about totalitarian surveillance and control in a future society.";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator(
+            "GENRE: Science Fiction\nYEAR: 1984\nDESCRIPTION: A dystopian novel about totalitarian surveillance and control in a future society.");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "1984", "George Orwell", true, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("1984", "George Orwell", true, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Science Fiction", result.Genre);
+        Assert.Equal("Science Fiction", result!.Genre);
         Assert.Equal(1984, result.PublishedYear);
         Assert.NotNull(result.Description);
         Assert.Contains("dystopian", result.Description);
@@ -61,14 +49,13 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_DescriptionIgnored_WhenNeedsDescriptionFalse()
     {
-        var response = "GENRE: Fiction\nYEAR: 1925\nDESCRIPTION: Some description here for the book.";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator(
+            "GENRE: Fiction\nYEAR: 1925\nDESCRIPTION: Some description here for the book.");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "The Great Gatsby", "F. Scott Fitzgerald", false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("The Great Gatsby", "F. Scott Fitzgerald", false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fiction", result.Genre);
+        Assert.Equal("Fiction", result!.Genre);
         Assert.Equal(1925, result.PublishedYear);
         Assert.Null(result.Description);
     }
@@ -76,11 +63,9 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_InvalidGenre_ReturnsNull()
     {
-        var response = "GENRE: Cooking\nYEAR: UNKNOWN";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("GENRE: Cooking\nYEAR: UNKNOWN");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, false, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -88,49 +73,33 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_UnknownYear_OnlyGenre()
     {
-        var response = "GENRE: Fantasy\nYEAR: UNKNOWN";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("GENRE: Fantasy\nYEAR: UNKNOWN");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Some Book", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Some Book", null, false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fantasy", result.Genre);
+        Assert.Equal("Fantasy", result!.Genre);
         Assert.Null(result.PublishedYear);
     }
 
     [Fact]
     public async Task GenerateAsync_FutureYear_Rejected()
     {
-        var response = $"GENRE: Fiction\nYEAR: {DateTime.UtcNow.Year + 5}";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator($"GENRE: Fiction\nYEAR: {DateTime.UtcNow.Year + 5}");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fiction", result.Genre);
+        Assert.Equal("Fiction", result!.Genre);
         Assert.Null(result.PublishedYear);
-    }
-
-    [Fact]
-    public async Task GenerateAsync_HttpError_ReturnsNull()
-    {
-        var factory = CreateHttpFactory(HttpStatusCode.ServiceUnavailable, "");
-
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
-
-        Assert.Null(result);
     }
 
     [Fact]
     public async Task GenerateAsync_EmptyResponse_ReturnsNull()
     {
-        var factory = CreateHttpFactory(HttpStatusCode.OK, "");
+        var gen = CreateGenerator("");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, false, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -138,10 +107,9 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_GarbageResponse_ReturnsNull()
     {
-        var factory = CreateHttpFactory(HttpStatusCode.OK, "I don't know that book sorry.");
+        var gen = CreateGenerator("I don't know that book sorry.");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, false, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -149,14 +117,12 @@ public class BookMetadataGeneratorTests
     [Fact]
     public async Task GenerateAsync_ShortDescription_Rejected()
     {
-        var response = "GENRE: Fiction\nYEAR: 2000\nDESCRIPTION: Short.";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("GENRE: Fiction\nYEAR: 2000\nDESCRIPTION: Short.");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, true, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, true, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fiction", result.Genre);
+        Assert.Equal("Fiction", result!.Genre);
         Assert.Null(result.Description);
     }
 
@@ -180,52 +146,34 @@ public class BookMetadataGeneratorTests
     [InlineData("Other")]
     public async Task GenerateAsync_AllValidGenres_Accepted(string genre)
     {
-        var response = $"GENRE: {genre}\nYEAR: 2000";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator($"GENRE: {genre}\nYEAR: 2000");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test Book", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test Book", null, false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(genre, result.Genre);
+        Assert.Equal(genre, result!.Genre);
     }
 
     [Fact]
     public async Task GenerateAsync_CaseInsensitiveGenre_Accepted()
     {
-        var response = "GENRE: fiction\nYEAR: 2000";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("GENRE: fiction\nYEAR: 2000");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "Test", null, false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("Test", null, false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("fiction", result.Genre);
+        Assert.Equal("fiction", result!.Genre);
     }
 
     [Fact]
     public async Task GenerateAsync_ExtraWhitespace_Handled()
     {
-        var response = "  GENRE:   Fantasy  \n  YEAR:   1937  ";
-        var factory = CreateHttpFactory(HttpStatusCode.OK, response);
+        var gen = CreateGenerator("  GENRE:   Fantasy  \n  YEAR:   1937  ");
 
-        var result = await BookMetadataGenerator.GenerateAsync(
-            "The Hobbit", "J.R.R. Tolkien", false, factory, CreateConfig(), CancellationToken.None);
+        var result = await gen.GenerateAsync("The Hobbit", "J.R.R. Tolkien", false, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal("Fantasy", result.Genre);
+        Assert.Equal("Fantasy", result!.Genre);
         Assert.Equal(1937, result.PublishedYear);
-    }
-
-    private class FakeHandler(HttpStatusCode status, string ollamaResponse) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            var json = JsonSerializer.Serialize(new { response = ollamaResponse });
-            return Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
-            });
-        }
     }
 }

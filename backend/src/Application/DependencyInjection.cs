@@ -43,8 +43,10 @@ public static class DependencyInjection
         services.AddScoped<ClusterCandidateService>();
         services.AddSingleton<IFrequencyFilter, FrequencyFilter>();
 
-        // LLM (OpenAI)
-        services.AddSingleton<ILlmService, OpenAiLlmService>();
+        // LLM — keyed providers; consumers pick per job via ILlmServiceFactory.
+        services.AddKeyedSingleton<Domain.LLM.ILlmService, OpenAiLlmService>("openai");
+        services.AddKeyedSingleton<Domain.LLM.ILlmService, OllamaLlmService>("ollama");
+        services.AddSingleton<Domain.LLM.ILlmServiceFactory, LlmServiceFactory>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

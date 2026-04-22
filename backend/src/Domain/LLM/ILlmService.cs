@@ -1,4 +1,4 @@
-namespace Application.LLM;
+namespace Domain.LLM;
 
 public interface ILlmService
 {
@@ -7,4 +7,9 @@ public interface ILlmService
         string userPrompt,
         int maxOutputTokens,
         CancellationToken ct);
+}
+
+public interface ILlmServiceFactory
+{
+    ILlmService Get(string jobName);
 }
