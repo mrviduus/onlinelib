@@ -447,19 +447,23 @@ export function ReaderHighlights({
 
   const handleExplain = useCallback(() => {
     if (!selection.text || !selection.range || !selection.rect) return
-    const rawWord = extractWordFromRange(selection.range)
-      ?? tokenizeVocabWords(selection.text)[0]?.word
-      ?? selection.text.trim().split(/\s+/)[0]
-      ?? selection.text.trim()
-    if (!rawWord) return
+    const trimmed = selection.text.trim()
+    const isPhrase = /\s/.test(trimmed) && trimmed.length <= 100
+    const target = isPhrase
+      ? trimmed
+      : extractWordFromRange(selection.range)
+        ?? tokenizeVocabWords(selection.text)[0]?.word
+        ?? trimmed.split(/\s+/)[0]
+        ?? trimmed
+    if (!target) return
     const sentence = selection.range && containerRef.current
       ? extractSentence(selection.range, containerRef.current) ?? selection.text
       : selection.text
-    setExplainWord(rawWord)
+    setExplainWord(target)
     setExplainRect(selection.rect)
     setShowExplain(true)
     explainApi({
-      word: rawWord,
+      word: target,
       sentence,
       bookId: editionId,
       targetLang: nativeLanguage,

@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Application.Common.Interfaces;
 using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Endpoints;
 
@@ -18,6 +20,7 @@ public static class ExplainEndpoints
         [FromBody] ExplainRequest request,
         IConfiguration config,
         ILlmServiceFactory llmFactory,
+        IAppDbContext db,
         ILogger<Program> logger,
         CancellationToken ct)
     {
@@ -37,7 +40,31 @@ public static class ExplainEndpoints
 
         var targetLang = string.IsNullOrWhiteSpace(request.TargetLang) ? "en" : request.TargetLang.Split('-')[0];
 
-        var cacheKey = ComputeCacheKey(request.Word, request.Sentence, request.Genre, targetLang);
+        var genre = request.Genre;
+        if (string.IsNullOrWhiteSpace(genre) && !string.IsNullOrWhiteSpace(request.BookId)
+            && Guid.TryParse(request.BookId, out var bookId))
+        {
+            try
+            {
+                genre = await db.Editions
+                    .Where(e => e.Id == bookId)
+                    .SelectMany(e => e.Genres.Select(g => g.Name))
+                    .FirstOrDefaultAsync(ct);
+                if (string.IsNullOrWhiteSpace(genre))
+                {
+                    genre = await db.UserBooks
+                        .Where(ub => ub.Id == bookId)
+                        .Select(ub => ub.Genre)
+                        .FirstOrDefaultAsync(ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Explain genre lookup failed, using 'general' domain");
+            }
+        }
+
+        var cacheKey = ComputeCacheKey(request.Word, request.Sentence, genre, targetLang);
         var cacheFile = Path.Combine(cachePath, cacheKey + ".json");
 
         try
@@ -60,7 +87,7 @@ public static class ExplainEndpoints
             logger.LogWarning(ex, "Explain cache read failed, falling through to LLM");
         }
 
-        var systemPrompt = BuildSystemPrompt(request.Genre, targetLang);
+        var systemPrompt = BuildSystemPrompt(genre, targetLang);
         var userPrompt = BuildUserPrompt(request.Word, request.Sentence);
 
         try

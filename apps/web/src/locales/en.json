@@ -216,7 +216,8 @@
     "explanationPopup": {
       "loading": "Thinking…",
       "title": "Explanation",
-      "close": "Close"
+      "close": "Close",
+      "copy": "Copy explanation"
     },
     "noteEditor": {
       "close": "Close",
