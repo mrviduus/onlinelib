@@ -1,7 +1,7 @@
 import { useTranslation } from '../../hooks/useTranslation'
 
 const FEATURES = [
-  { key: 'translate', icon: '🔍' },
+  { key: 'explain', icon: '💡' },
   { key: 'srs', icon: '🧠' },
   { key: 'upload', icon: '📖' },
   { key: 'stats', icon: '📊' },

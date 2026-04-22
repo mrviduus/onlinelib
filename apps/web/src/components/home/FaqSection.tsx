@@ -4,6 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation'
 const FAQ_KEYS = [
   'whatIs',
   'isFree',
+  'techBooks',
   'languages',
   'tapTranslate',
   'uploadBooks',
