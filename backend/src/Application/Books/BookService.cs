@@ -35,44 +35,12 @@ public class BookService(IAppDbContext db)
 
         var total = await query.CountAsync(ct);
 
-        if (sort == "popular")
+        query = sort switch
         {
-            // Bayesian weighted rating (IMDB-style): WR = (v/(v+m))*R + (m/(v+m))*C
-            //   C = global mean of per-edition average ratings, computed from live data
-            //       so the formula adapts to cold-start vs mature datasets.
-            //   m = 3: min ratings before a book's own average starts outweighing C.
-            const double m = 3.0;
-            var c = await db.UserRatings
-                .Where(r => r.EditionId != null)
-                .GroupBy(r => r.EditionId)
-                .Select(g => g.Average(r => r.Rating))
-                .DefaultIfEmpty()
-                .AverageAsync(ct);
-
-            query = query
-                .Select(e => new
-                {
-                    Edition = e,
-                    Votes = db.UserRatings.Count(r => r.EditionId == e.Id),
-                    Avg = db.UserRatings.Where(r => r.EditionId == e.Id)
-                        .Select(r => (double?)r.Rating).Average() ?? 0.0,
-                })
-                .OrderByDescending(x => x.Votes == 0
-                    ? c
-                    : (x.Votes / (x.Votes + m)) * x.Avg + (m / (x.Votes + m)) * c)
-                .ThenByDescending(x => x.Votes)
-                .ThenByDescending(x => x.Edition.PublishedAt ?? x.Edition.CreatedAt)
-                .Select(x => x.Edition);
-        }
-        else
-        {
-            query = sort switch
-            {
-                "title" => query.OrderBy(e => e.Title),
-                "oldest" => query.OrderBy(e => e.PublishedAt ?? e.CreatedAt),
-                _ => query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
-            };
-        }
+            "title" => query.OrderBy(e => e.Title),
+            "oldest" => query.OrderBy(e => e.PublishedAt ?? e.CreatedAt),
+            _ => query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+        };
 
         var books = await query
             .Skip(offset)
@@ -182,18 +150,6 @@ public class BookService(IAppDbContext db)
             }
         }
 
-        // Rating stats
-        var ratingStats = await db.UserRatings
-            .Where(r => r.EditionId == result.Id)
-            .GroupBy(_ => 1)
-            .Select(g => new
-            {
-                Avg = g.Average(r => r.Rating),
-                Total = g.Count(),
-                WithReview = g.Count(r => r.ReviewText != null),
-            })
-            .FirstOrDefaultAsync(ct);
-
         return new BookDetailDto(
             result.Id,
             result.Slug,
@@ -214,10 +170,7 @@ public class BookService(IAppDbContext db)
             result.Authors,
             result.Genres,
             moreByAuthor,
-            toc,
-            ratingStats != null ? Math.Round(ratingStats.Avg, 1) : null,
-            ratingStats?.Total ?? 0,
-            ratingStats?.WithReview ?? 0
+            toc
         );
     }
 

@@ -640,18 +640,6 @@ function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null })
         </View>
       )}
 
-      {/* Rating distribution */}
-      {bookStats.avgRating != null && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Ratings</Text>
-          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>
-            Average: {bookStats.avgRating.toFixed(1)} / 5
-          </Text>
-          {bookStats.ratingDistribution.sort((a, b) => b.rating - a.rating).map(r => (
-            <BarRow key={r.rating} label={`${'★'.repeat(r.rating)}`} value={r.count} max={Math.max(...bookStats.ratingDistribution.map(x => x.count))} />
-          ))}
-        </View>
-      )}
     </View>
   )
 }

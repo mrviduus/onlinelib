@@ -18,8 +18,6 @@ import {
 import { getLocalProgress } from '../../src/lib/progressStorage'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
-import { ReviewsSection } from '../../src/components/reviews/ReviewsSection'
-import { StarRating } from '../../src/components/StarRating'
 
 export default function BookDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
@@ -332,17 +330,6 @@ export default function BookDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Rating + Reviews — require server round-trips; hide offline. */}
-        {!offlineMode && (
-          <>
-            <View style={{ paddingHorizontal: 16, gap: 12 }}>
-              <StarRating editionId={book.id} />
-            </View>
-
-            <ReviewsSection editionId={book.id} />
-          </>
-        )}
 
         {/*
           Share only. Public-book EPUB download was deprecated on the web

@@ -313,8 +313,8 @@ export function ReaderContent({
           <p className="scroll-reader__end-text">You reached the end of this book.</p>
           <div className="scroll-reader__end-actions">
             {bookDetailHref && (
-              <a className="scroll-reader__end-btn scroll-reader__end-btn--primary" href={`${bookDetailHref}#reviews`}>
-                Rate &amp; review
+              <a className="scroll-reader__end-btn scroll-reader__end-btn--primary" href={bookDetailHref}>
+                Back to book
               </a>
             )}
             {libraryHref && (

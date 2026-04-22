@@ -8,7 +8,6 @@ import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
-import { StarRating } from '../../src/components/StarRating'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { trackBookOpened } from '../../src/lib/analytics'
 
@@ -365,13 +364,6 @@ export default function UserBookDetailScreen() {
               <Ionicons name="share-outline" size={18} color={colors.text} />
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Share</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Rating */}
-        {isReady && (
-          <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
-            <StarRating userBookId={id!} />
           </View>
         )}
 

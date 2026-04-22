@@ -5,7 +5,6 @@ import { AuthorChart } from './AuthorChart'
 import { LanguageChart } from './LanguageChart'
 import { BooksOverTimeChart } from './BooksOverTimeChart'
 import { BookLengthChart } from './BookLengthChart'
-import { RatingChart } from './RatingChart'
 
 interface Props {
   bookStats: BookStatsResponse | null
@@ -50,10 +49,6 @@ export function StatsBooksTab({ bookStats, loading }: Props) {
 
       <div className="stats-card-group stats-card-group--spaced">
         <BooksOverTimeChart data={bookStats.booksOverTime} />
-      </div>
-
-      <div className="stats-card-group stats-card-group--spaced">
-        <RatingChart data={bookStats.ratingDistribution} avgRating={bookStats.avgRating} />
       </div>
     </>
   )

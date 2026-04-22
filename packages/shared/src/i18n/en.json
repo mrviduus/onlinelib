@@ -191,8 +191,7 @@
     "timeHoursAgo": "hours ago",
     "timeYesterday": "yesterday",
     "timeDaysAgo": "days ago",
-    "failedToProcess": "Failed to process",
-    "noReviews": "No reviews yet"
+    "failedToProcess": "Failed to process"
   },
   "books": {
     "title": "Books",
@@ -341,7 +340,6 @@
     "genres": "Genres",
     "authors": "Most Read Authors",
     "pace": "Pace",
-    "ratings": "Ratings",
     "languages": "Languages",
     "booksOverTime": "Books Over Time",
     "bookLength": "Book Length",
@@ -350,7 +348,6 @@
     "hours": "Hours",
     "totalPages": "Total Pages",
     "avgTimeToFinish": "Avg Days to Finish",
-    "avgRating": "Avg Rating",
     "readingTimeByGenre": "Reading Time by Genre",
     "readingTimeByAuthor": "Reading Time by Author",
     "slow": "Slow",

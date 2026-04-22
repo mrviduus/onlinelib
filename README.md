@@ -38,9 +38,7 @@
 - Admin-authored posts with comments, likes, share buttons
 - Per-language content (en/uk), threaded comments (2-level max), SEO-optimized
 
-**Reviews & Social**
-- Star ratings (0–5, half-step), written reviews
-- Threaded review comments, upvotes
+**Social**
 - [Reading Rooms](docs/05-features/reading-rooms.md) — co-read a public book with friends, see each other's highlights & notes overlaid in real time
 
 **SEO**

@@ -7,7 +7,6 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
-import { StarRating } from '../components/StarRating'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -210,8 +209,6 @@ export function UserBookDetailPage() {
               {book.errorMessage && <p>{book.errorMessage}</p>}
             </div>
           )}
-
-          {isReady && <StarRating userBookId={book.id} />}
 
           {isReady && book.completedAt && (
             <div className="user-book-detail__completed">

@@ -378,8 +378,6 @@ app.MapTranslationEndpoints();
 app.MapDictionaryEndpoints();
 app.MapUserBooksEndpoints();
 app.MapReadingTrackingEndpoints();
-app.MapUserRatingEndpoints();
-app.MapReviewEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
