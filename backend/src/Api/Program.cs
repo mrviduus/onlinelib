@@ -213,6 +213,33 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // Translation — per-IP. LibreTranslate is the upstream cost; users
+    // typically call 1-3 times per reading session via SelectionToolbar.
+    // 30/min is generous for normal UX, blocks scripted scraping of the
+    // translation service.
+    options.AddPolicy("translate", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 30,
+            QueueLimit = 0,
+        });
+    });
+    // Dictionary lookup — per-IP. Proxies Free Dictionary API (cheap,
+    // public). Users tap words rapidly while reading; 60/min fits the
+    // natural pace and still caps scripted abuse.
+    options.AddPolicy("dictionary", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 60,
+            QueueLimit = 0,
+        });
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     // Emit Retry-After so clients can back off intelligently instead of
     // hammering in a tight retry loop. RateLimiter exposes the metadata
