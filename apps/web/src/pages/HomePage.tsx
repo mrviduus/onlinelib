@@ -3,7 +3,6 @@ import { HeroSection } from '../components/home/HeroSection'
 import { StatsBar } from '../components/home/StatsBar'
 import { FeaturesSection } from '../components/home/FeaturesSection'
 import { RecommendedSection } from '../components/home/RecommendedSection'
-import { TestimonialsSection } from '../components/home/TestimonialsSection'
 import { ComparisonSection } from '../components/home/ComparisonSection'
 import { FaqSection } from '../components/home/FaqSection'
 import { Footer } from '../components/Footer'
@@ -24,7 +23,6 @@ export function HomePage() {
         <StatsBar />
         <FeaturesSection />
         <RecommendedSection />
-        <TestimonialsSection />
         <ComparisonSection />
         <FaqSection />
       </div>
