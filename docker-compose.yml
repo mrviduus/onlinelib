@@ -109,6 +109,14 @@ services:
     volumes:
       - ./data/storage:/storage
     restart: always
+    healthcheck:
+      # HeartbeatWorker writes /tmp/worker-alive every 30s. 2min grace covers
+      # GC pauses and brief ingestion stalls without false-negatives.
+      test: ["CMD-SHELL", "find /tmp/worker-alive -mmin -2 | grep -q ."]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -131,6 +139,12 @@ services:
     ports:
       - "127.0.0.1:81:81"  # Only localhost - not exposed to internet
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:81/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       - api
     deploy:
@@ -159,6 +173,13 @@ services:
     volumes:
       - ./apps/web/dist:/app/dist
     restart: always
+    healthcheck:
+      # ssg-worker.mjs writes /tmp/ssg-worker-alive every 30s.
+      test: ["CMD-SHELL", "find /tmp/ssg-worker-alive -mmin -2 | grep -q ."]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       api:
         condition: service_healthy
