@@ -14,7 +14,11 @@ public record UserUploadListDto(
     string UserEmail,
     bool IsGuest,
     string? ErrorMessage,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? TakedownAt,
+    string? TakedownReason);
+
+public record TakedownUserBookRequest(string Reason);
 
 public record UserUploadStatsDto(
     int Total,

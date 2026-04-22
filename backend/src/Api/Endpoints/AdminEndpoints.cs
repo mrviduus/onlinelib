@@ -114,6 +114,10 @@ public static class AdminEndpoints
         group.MapDelete("/user-uploads/{id:guid}", DeleteUserUpload)
             .WithName("DeleteUserUpload");
 
+        group.MapPost("/user-uploads/{id:guid}/takedown", TakedownUserUpload)
+            .WithName("TakedownUserUpload")
+            .WithDescription("Soft-delete a user upload (DMCA / admin takedown). Hides from user, keeps record for audit.");
+
         // Reprocessing endpoints
         group.MapPost("/reprocess/{editionId:guid}", ReprocessEdition)
             .WithName("ReprocessEdition")
@@ -272,6 +276,13 @@ public static class AdminEndpoints
         AdminService adminService,
         CancellationToken ct)
         => ToResult(await adminService.DeleteUserUploadAsync(id, ct));
+
+    private static async Task<IResult> TakedownUserUpload(
+        Guid id,
+        [FromBody] TakedownUserBookRequest request,
+        AdminService adminService,
+        CancellationToken ct)
+        => ToResult(await adminService.TakedownUserUploadAsync(id, request.Reason, ct));
 
     // Edition endpoints
 

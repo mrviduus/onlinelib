@@ -71,6 +71,20 @@ export function UserUploadsPage() {
     }
   }
 
+  const handleTakedown = async (id: string) => {
+    const reason = prompt(
+      'Takedown reason (e.g. DMCA claim from rightsholder, policy violation). ' +
+      'Stored for audit; hides the book from user.'
+    )
+    if (!reason || !reason.trim()) return
+    try {
+      await adminApi.takedownUserUpload(id, reason.trim())
+      fetchItems()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to takedown')
+    }
+  }
+
   return (
     <div className="user-uploads-page">
       <div className="user-uploads-page__header">
@@ -177,12 +191,26 @@ export function UserUploadsPage() {
                   {item.errorMessage && (
                     <span title={item.errorMessage} style={{ marginLeft: 4, cursor: 'help', color: '#c62828' }}>!</span>
                   )}
+                  {item.takedownAt && (
+                    <span
+                      className="badge badge--error"
+                      title={`Taken down ${new Date(item.takedownAt).toLocaleString()}: ${item.takedownReason || ''}`}
+                      style={{ marginLeft: 6 }}
+                    >
+                      Takedown
+                    </span>
+                  )}
                 </td>
                 <td>{item.chapterCount}</td>
                 <td>{item.totalWordCount?.toLocaleString() || '-'}</td>
                 <td>{formatSize(item.fileSize)}</td>
                 <td>{formatDate(item.createdAt)}</td>
                 <td className="actions-cell">
+                  {!item.takedownAt && (
+                    <button onClick={() => handleTakedown(item.id)} className="btn btn--small" style={{ marginRight: 4 }}>
+                      Takedown
+                    </button>
+                  )}
                   <button onClick={() => handleDelete(item.id)} className="btn btn--small btn--danger">
                     Delete
                   </button>

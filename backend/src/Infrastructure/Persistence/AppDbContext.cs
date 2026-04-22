@@ -356,6 +356,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.CoverPath).HasMaxLength(500);
             e.Property(x => x.Genre).HasMaxLength(200);
             e.Property(x => x.TocJson).HasColumnType("jsonb");
+            e.Property(x => x.TakedownReason).HasMaxLength(1000);
             e.HasOne(x => x.User).WithMany(x => x.UserBooks).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 

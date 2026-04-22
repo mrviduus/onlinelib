@@ -107,7 +107,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<IReadOnlyList<UserBookListDto>> GetBooksAsync(Guid userId, CancellationToken ct)
     {
         var books = await db.UserBooks
-            .Where(b => b.UserId == userId)
+            .Where(b => b.UserId == userId && b.TakedownAt == null)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new
             {
@@ -155,7 +155,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<UserBookDetailDto?> GetBookAsync(Guid userId, Guid bookId, CancellationToken ct)
     {
         var book = await db.UserBooks
-            .Where(b => b.UserId == userId && b.Id == bookId)
+            .Where(b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null)
             .Select(b => new
             {
                 b.Id,
@@ -221,7 +221,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<UserChapterDto?> GetChapterBySlugAsync(Guid userId, Guid bookId, string slug, CancellationToken ct)
     {
         var chapter = await db.UserChapters
-            .Where(c => c.UserBook.UserId == userId && c.UserBookId == bookId && c.Slug == slug)
+            .Where(c => c.UserBook.UserId == userId && c.UserBookId == bookId && c.Slug == slug && c.UserBook.TakedownAt == null)
             .Select(c => new
             {
                 c.Id,
@@ -318,7 +318,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     {
         var book = await db.UserBooks
             .Include(b => b.BookFiles)
-            .FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId, ct);
+            .FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null, ct);
 
         if (book is null)
             return (false, "Book not found");
@@ -371,7 +371,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<UserBookProgressDto?> GetProgressAsync(Guid userId, Guid bookId, CancellationToken ct)
     {
         var book = await db.UserBooks
-            .Where(b => b.UserId == userId && b.Id == bookId)
+            .Where(b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null)
             .Select(b => new { b.ProgressChapterSlug, b.ProgressLocator, b.ProgressPercent, b.ProgressUpdatedAt })
             .FirstOrDefaultAsync(ct);
 
@@ -389,7 +389,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<(bool Success, string? Error)> UpsertProgressAsync(
         Guid userId, Guid bookId, UpsertUserBookProgressRequest request, CancellationToken ct)
     {
-        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId, ct);
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null, ct);
         if (book is null)
             return (false, "Book not found");
 
@@ -416,7 +416,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<IReadOnlyList<UserBookBookmarkDto>> GetBookmarksAsync(Guid userId, Guid bookId, CancellationToken ct)
     {
         return await db.UserBookBookmarks
-            .Where(b => b.UserBook.UserId == userId && b.UserBookId == bookId)
+            .Where(b => b.UserBook.UserId == userId && b.UserBookId == bookId && b.UserBook.TakedownAt == null)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new UserBookBookmarkDto(
                 b.Id,
@@ -432,7 +432,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<(UserBookBookmarkDto? Bookmark, string? Error)> CreateBookmarkAsync(
         Guid userId, Guid bookId, CreateUserBookBookmarkRequest request, CancellationToken ct)
     {
-        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId, ct);
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null, ct);
         if (book is null)
             return (null, "Book not found");
 
