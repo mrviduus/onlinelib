@@ -1,104 +1,100 @@
 # Backup & Restore
 
-## What to Backup
+## What's backed up
 
-| Data | Location | Method |
-|------|----------|--------|
-| PostgreSQL | `/srv/books/postgres` | pg_dump |
-| Book files | `/srv/books/storage` | tar/rsync |
+| Data | Location (prod) | Method |
+|------|----------------|--------|
+| PostgreSQL | `./data/postgres-prod` | `pg_dump` inside `textstack_db_prod` |
+| Book files | `./data/storage` | `tar` of the bind mount |
 
-## Database Backup
+Backups land in `~/backups/textstack/` on the server (override via
+`BACKUP_DIR` env on the Make invocation if needed).
 
-### Manual
-```bash
-docker exec books_db pg_dump -U app books > /srv/backups/db-$(date +%F).sql
-```
+## Commands
 
-### Restore
-```bash
-docker exec -i books_db psql -U app books < /srv/backups/db-2024-12-01.sql
-```
-
-### Compressed
-```bash
-# Backup
-docker exec books_db pg_dump -U app books | gzip > /srv/backups/db-$(date +%F).sql.gz
-
-# Restore
-gunzip -c /srv/backups/db-2024-12-01.sql.gz | docker exec -i books_db psql -U app books
-```
-
-## File Storage Backup
-
-### Manual
-```bash
-tar czf /srv/backups/storage-$(date +%F).tar.gz /srv/books/storage
-```
-
-### Restore
-```bash
-tar xzf /srv/backups/storage-2024-12-01.tar.gz -C /
-```
-
-### Incremental (rsync)
-```bash
-rsync -av /srv/books/storage/ /backup-drive/storage/
-```
-
-## Automated Backup
-
-### Cron Script
-```bash
-#!/bin/bash
-# /srv/books/backup.sh
-
-DATE=$(date +%F)
-BACKUP_DIR=/srv/backups
-
-# Database
-docker exec books_db pg_dump -U app books | gzip > $BACKUP_DIR/db-$DATE.sql.gz
-
-# Storage
-tar czf $BACKUP_DIR/storage-$DATE.tar.gz /srv/books/storage
-
-# Cleanup old backups (keep 7 days)
-find $BACKUP_DIR -name "*.gz" -mtime +7 -delete
-```
-
-### Crontab
-```bash
-# Daily at 3 AM
-0 3 * * * /srv/books/backup.sh
-```
-
-## First-Time Setup
+All day-to-day backup flows go through the Makefile — it already knows the
+container name + credentials from `.env`.
 
 ```bash
-sudo mkdir -p /srv/books/postgres /srv/books/storage /srv/backups
-sudo chown -R $USER:$USER /srv/books /srv/backups
+make backup                       # pg_dump → ~/backups/textstack/db_<ts>.sql.gz
+make backup-list                  # list existing backups
+make restore FILE=~/backups/textstack/db_2026-04-22_030012.sql.gz
 ```
 
-## Offsite Backup
+Under the hood `make backup` runs:
+```bash
+docker exec textstack_db_prod pg_dump -U $POSTGRES_USER $POSTGRES_DB \
+  | gzip > ~/backups/textstack/db_$(date +%Y-%m-%d_%H%M%S).sql.gz
+```
 
-Recommended: copy backups to external storage.
+## Automated backup (GitHub Actions)
+
+`.github/workflows/backup.yml` runs **daily at 03:00 UTC** on the self-hosted
+runner:
+
+1. `pg_dump` → `~/backups/textstack/db_<ts>.sql.gz`
+2. `tar czf` the `./data/storage` directory → `storage_<ts>.tar.gz`
+3. Prunes to the 5 newest of each kind.
+
+To trigger manually: GitHub UI → Actions → **Backup** → Run workflow.
+
+## File storage backup (manual, rarely needed)
 
 ```bash
-# To NAS
-rsync -av /srv/backups/ nas:/volume1/books-backup/
-
-# To cloud (rclone)
-rclone sync /srv/backups remote:textstack-backup
+tar czf ~/backups/textstack/storage_$(date +%F).tar.gz ./data/storage
 ```
 
-## Disaster Recovery
+Restore:
+```bash
+tar xzf ~/backups/textstack/storage_2026-04-22.tar.gz -C /
+```
 
-1. Stop containers: `docker compose down`
-2. Restore Postgres data directory (or use pg_dump restore)
-3. Restore storage directory
-4. Start containers: `docker compose up`
-5. Verify: check `/health`, browse books
+Incremental via rsync:
+```bash
+rsync -av ./data/storage/ /backup-drive/storage/
+```
 
-## See Also
+## Offsite copy (optional)
+
+```bash
+rsync -av ~/backups/textstack/ nas:/volume1/textstack-backup/
+# or
+rclone sync ~/backups/textstack remote:textstack-backup
+```
+
+## Disaster recovery
+
+1. `docker compose down`
+2. Restore DB: `make restore FILE=~/backups/textstack/db_<ts>.sql.gz` (or
+   raw `gunzip -c … | docker exec -i textstack_db_prod psql -U app books`).
+3. Restore storage: `tar xzf storage_<ts>.tar.gz -C /`
+4. `docker compose up -d`
+5. Verify: `curl https://textstack.app/api/health` returns `healthy`;
+   browse a book page.
+
+## Restore verification (quarterly)
+
+Backups are useless if they don't restore. Recommended cadence: restore the
+latest backup to a disposable postgres container and run smoke queries.
+
+```bash
+# Spin up ephemeral postgres
+docker run --rm -d --name tmp-restore -e POSTGRES_PASSWORD=x -p 55432:5432 postgres:16
+
+# Restore latest dump
+gunzip -c ~/backups/textstack/$(ls -t ~/backups/textstack/db_*.sql.gz | head -1) \
+  | docker exec -i tmp-restore psql -U postgres
+
+# Smoke-queries
+docker exec tmp-restore psql -U postgres -c "SELECT COUNT(*) FROM editions;"
+docker exec tmp-restore psql -U postgres -c "SELECT COUNT(*) FROM users;"
+
+# Teardown
+docker stop tmp-restore
+```
+
+## See also
 
 - [Local Development](local-dev.md) — Docker setup
-- [ADR-001: Storage](../01-architecture/adr/001-storage-bind-mounts.md)
+- [Uptime Monitoring](uptime-monitoring.md) — detects missed backups
+  (daily health-check workflow includes API + DB probe)

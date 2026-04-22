@@ -23,7 +23,7 @@ Docker containers (localhost only)
     ├── SSG Worker    (pre-renders SEO pages)
     ├── Admin         (127.0.0.1:81)
     ├── PostgreSQL    (internal only)
-    └── Aspire Dashboard (127.0.0.1:18888)
+    └── Aspire Dashboard (127.0.0.1:18888, `--profile observability` opt-in)
 ```
 
 ## Prerequisites
