@@ -139,14 +139,6 @@ export function Layout() {
             SSG Rebuild
           </Link>
 
-          <Link to="/codegen" className={`admin-nav__link ${location.pathname.startsWith('/codegen') ? 'active' : ''}`}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-            CodeGen
-          </Link>
-
           <Link to="/autopublish" className={`admin-nav__link ${location.pathname.startsWith('/autopublish') ? 'active' : ''}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 20h9" />
