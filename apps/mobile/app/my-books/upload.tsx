@@ -20,6 +20,7 @@ export default function UploadScreen() {
   const [error, setError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
+  const [ownsRights, setOwnsRights] = useState(false)
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const unmountedRef = useRef(false)
 
@@ -64,6 +65,10 @@ export default function UploadScreen() {
   }
 
   const pickAndUpload = async () => {
+    if (!ownsRights) {
+      setError('Please confirm you own the rights or the book is in the public domain.')
+      return
+    }
     setError(null)
     setUploadProgress(0)
     try {
@@ -160,6 +165,23 @@ export default function UploadScreen() {
             </View>
           )}
 
+          {!uploading && (
+            <TouchableOpacity
+              style={styles.rightsRow}
+              onPress={() => setOwnsRights(v => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: ownsRights }}
+              accessibilityLabel="I own the rights to this book or it is in the public domain"
+            >
+              <View style={[styles.checkbox, ownsRights && styles.checkboxChecked]}>
+                {ownsRights && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.rightsText}>
+                I own the rights to this book or it is in the public domain.
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {uploading ? (
             <View style={styles.uploadingBox}>
               <View style={styles.uploadProgressBar}>
@@ -177,10 +199,12 @@ export default function UploadScreen() {
             </View>
           ) : (
             <TouchableOpacity
-              style={styles.pickBtn}
+              style={[styles.pickBtn, !ownsRights && styles.pickBtnDisabled]}
               onPress={pickAndUpload}
+              disabled={!ownsRights}
               accessibilityLabel="Choose file to upload"
               accessibilityRole="button"
+              accessibilityState={{ disabled: !ownsRights }}
             >
               <Text style={styles.pickBtnText}>Choose File</Text>
             </TouchableOpacity>
@@ -215,7 +239,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
     borderRadius: 12,
   },
+  pickBtnDisabled: { opacity: 0.4 },
   pickBtnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  rightsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+    maxWidth: 320,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: { color: '#fff', fontSize: 14, fontWeight: '700', lineHeight: 16 },
+  rightsText: { flex: 1, fontSize: 13, color: colors.text, lineHeight: 18 },
   uploadingBox: { alignItems: 'center', gap: 12, width: '100%', maxWidth: 280 },
   uploadProgressBar: {
     width: '100%',

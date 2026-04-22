@@ -11,6 +11,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   const [error, setError] = useState<string | null>(null)
   const [quota, setQuota] = useState<StorageQuota | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [ownsRights, setOwnsRights] = useState(false)
 
   // Fetch quota on mount
   useEffect(() => {
@@ -20,6 +21,10 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   }, [])
 
   const handleUpload = useCallback(async (file: File) => {
+    if (!ownsRights) {
+      setError('Please confirm you own the rights or the book is in the public domain.')
+      return
+    }
     setError(null)
     setIsUploading(true)
     setUploadProgress(0)
@@ -37,7 +42,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
       setIsUploading(false)
       setUploadProgress(0)
     }
-  }, [onUploadComplete])
+  }, [onUploadComplete, ownsRights])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,8 +81,17 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
 
   return (
     <div className="upload-section">
+      <label className="upload-section__rights">
+        <input
+          type="checkbox"
+          checked={ownsRights}
+          onChange={(e) => setOwnsRights(e.target.checked)}
+          disabled={isUploading}
+        />
+        <span>I own the rights to this book or it is in the public domain.</span>
+      </label>
       <div
-        className={`upload-section__dropzone ${isDragging ? 'upload-section__dropzone--dragging' : ''} ${isUploading ? 'upload-section__dropzone--uploading' : ''}`}
+        className={`upload-section__dropzone ${isDragging ? 'upload-section__dropzone--dragging' : ''} ${isUploading ? 'upload-section__dropzone--uploading' : ''} ${!ownsRights ? 'upload-section__dropzone--disabled' : ''}`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -86,8 +100,8 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
           type="file"
           accept=".epub,.pdf,.fb2"
           onChange={handleFileSelect}
-          disabled={isUploading}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 2 }}
+          disabled={isUploading || !ownsRights}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: ownsRights ? 'pointer' : 'not-allowed', zIndex: 2 }}
         />
 
         {isUploading ? (
