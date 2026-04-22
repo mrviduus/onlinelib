@@ -58,7 +58,6 @@ public interface IAppDbContext
     DbSet<BlogLike> BlogLikes { get; }
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
-    DbSet<BoardTask> BoardTasks { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }

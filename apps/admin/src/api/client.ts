@@ -494,16 +494,6 @@ export interface BlogStats {
   totalLikes: number
 }
 
-export interface BoardTaskDto {
-  id: string
-  title: string
-  status: 'todo' | 'doing' | 'done'
-  order: number
-  source: string
-  createdAt: string
-  updatedAt: string
-}
-
 // Book Quality
 export type BookQualityJobStatus = 'Queued' | 'Validating' | 'Fixing' | 'Completed' | 'Failed' | 'Cancelled'
 
@@ -1024,39 +1014,6 @@ export const adminApi = {
   getAutoPublishCandidates: async (limit?: number): Promise<CandidateEdition[]> => {
     const qs = limit ? `?limit=${limit}` : ''
     return fetchJson<CandidateEdition[]>(`/admin/autopublish/candidates${qs}`)
-  },
-
-  // Board Tasks
-  getBoardTasks: async (): Promise<BoardTaskDto[]> => {
-    return fetchJson<BoardTaskDto[]>('/admin/tasks')
-  },
-
-  createBoardTask: async (title: string, source?: string): Promise<BoardTaskDto> => {
-    return fetchJson<BoardTaskDto>('/admin/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, source: source || 'manual' }),
-    })
-  },
-
-  updateBoardTask: async (id: string, title: string): Promise<BoardTaskDto> => {
-    return fetchJson<BoardTaskDto>(`/admin/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    })
-  },
-
-  deleteBoardTask: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/tasks/${id}`, { method: 'DELETE' })
-  },
-
-  reorderBoardTasks: async (items: { id: string; status: string; order: number }[]): Promise<void> => {
-    await fetchVoid('/admin/tasks/reorder', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
-    })
   },
 
   // User Uploads

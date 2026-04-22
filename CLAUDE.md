@@ -238,10 +238,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - HighlightReviewPage — review highlights with spaced repetition
 - PracticePage — practice vocabulary and highlights
 
-**Board Tasks**: Kanban task board in admin panel.
-- AdminBoardTaskEndpoints, TaskBoardPage
-- Entity: BoardTask
-
 **Reading Moods**: Tag reading sessions with moods for emotional tracking.
 - Entities: `Mood`, `UserMoodTag`
 - Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
@@ -307,7 +303,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`, `/admin/board-tasks`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
@@ -383,8 +379,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Export | `backend/src/Application/Export/EpubExportService.cs` |
 | Export API | `backend/src/Api/Endpoints/ExportEndpoints.cs` |
 | Profile API | `backend/src/Api/Endpoints/ProfileEndpoints.cs` |
-| Board Tasks API | `backend/src/Api/Endpoints/AdminBoardTaskEndpoints.cs` |
-| Board Tasks Admin | `apps/admin/src/pages/TaskBoardPage.tsx` |
 | Guest Context | `apps/web/src/context/GuestLimitsContext.tsx` |
 | Native Lang Context | `apps/web/src/context/NativeLanguageContext.tsx` |
 | Email Service | `backend/src/Infrastructure/Services/ResendEmailService.cs` |
