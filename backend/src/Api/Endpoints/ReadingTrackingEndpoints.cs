@@ -33,6 +33,7 @@ public static class ReadingTrackingEndpoints
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
+        ILogger<Program> logger,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -80,12 +81,20 @@ public static class ReadingTrackingEndpoints
             return Results.Ok(new SubmitSessionResponse(session.Id, []));
         }
 
-        // Calculate streak for achievement checker
-        var streakMinMinutes = await GetStreakMinMinutes(db, userId.Value, siteId, ct);
-        var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, request.EndedAt, ct);
+        // Achievement check is best-effort — never fail the session submit because of it.
+        List<string> newAchievements = [];
+        try
+        {
+            var streakMinMinutes = await GetStreakMinMinutes(db, userId.Value, siteId, ct);
+            var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, request.EndedAt, ct);
 
-        var checker = new AchievementChecker(db);
-        var newAchievements = await checker.CheckAfterSession(userId.Value, siteId, session, currentStreak, ct);
+            var checker = new AchievementChecker(db);
+            newAchievements = await checker.CheckAfterSession(userId.Value, siteId, session, currentStreak, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "AchievementChecker failed for session {SessionId}, session still saved", session.Id);
+        }
 
         return Results.Ok(new SubmitSessionResponse(session.Id, newAchievements));
     }

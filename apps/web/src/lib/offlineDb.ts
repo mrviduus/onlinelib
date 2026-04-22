@@ -80,6 +80,14 @@ export interface CachedTtsAudio {
   cachedAt: number
 }
 
+export interface CachedExplain {
+  key: string // hash of word+sentence+genre+targetLang
+  explanation: string
+  word: string
+  targetLang: string
+  cachedAt: number
+}
+
 export interface PendingVocabWord {
   id: string           // crypto.randomUUID(), stable local ID
   word: string
@@ -96,7 +104,7 @@ export interface PendingVocabWord {
 }
 
 const DB_NAME = 'textstack-reader'
-const DB_VERSION = 8
+const DB_VERSION = 9
 const CHAPTERS_STORE = 'chapters'
 const BOOKS_META_STORE = 'cachedBooks'
 const HIGHLIGHTS_STORE = 'highlights'
@@ -104,6 +112,7 @@ const TRANSLATIONS_STORE = 'translations'
 const DICTIONARY_STORE = 'dictionary'
 const TTS_STORE = 'tts-audio'
 const PENDING_VOCAB_STORE = 'pendingVocabWords'
+const EXPLAIN_STORE = 'explains'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -176,6 +185,12 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(PENDING_VOCAB_STORE)) {
         const store = db.createObjectStore(PENDING_VOCAB_STORE, { keyPath: 'id' })
         store.createIndex('createdAt', 'createdAt', { unique: false })
+      }
+
+      // Explain cache store (v9) — mirrors server-side file cache for zero-latency repeat lookups.
+      if (!db.objectStoreNames.contains(EXPLAIN_STORE)) {
+        const store = db.createObjectStore(EXPLAIN_STORE, { keyPath: 'key' })
+        store.createIndex('cachedAt', 'cachedAt', { unique: false })
       }
     }
   })
@@ -800,6 +815,89 @@ export async function clearPendingVocabWords(): Promise<void> {
     const store = tx.objectStore(PENDING_VOCAB_STORE)
     const request = store.clear()
     request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+// ============ EXPLAIN CACHE ============
+
+const EXPLAIN_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
+function makeExplainKey(word: string, sentence: string, genre: string | null | undefined, targetLang: string): string {
+  return `${word.toLowerCase()}|${sentence}|${genre || ''}|${targetLang}`
+}
+
+export async function getCachedExplain(
+  word: string,
+  sentence: string,
+  genre: string | null | undefined,
+  targetLang: string
+): Promise<CachedExplain | null> {
+  const db = await openOfflineDb()
+  const key = makeExplainKey(word, sentence, genre, targetLang)
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(EXPLAIN_STORE, 'readonly')
+    const store = tx.objectStore(EXPLAIN_STORE)
+    const request = store.get(key)
+
+    request.onsuccess = () => {
+      const result = request.result as CachedExplain | undefined
+      if (result && Date.now() - result.cachedAt < EXPLAIN_TTL_MS) {
+        resolve(result)
+      } else {
+        resolve(null)
+      }
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function cacheExplain(
+  word: string,
+  sentence: string,
+  genre: string | null | undefined,
+  targetLang: string,
+  explanation: string
+): Promise<void> {
+  const db = await openOfflineDb()
+  const cached: CachedExplain = {
+    key: makeExplainKey(word, sentence, genre, targetLang),
+    explanation,
+    word,
+    targetLang,
+    cachedAt: Date.now(),
+  }
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(EXPLAIN_STORE, 'readwrite')
+    const store = tx.objectStore(EXPLAIN_STORE)
+    const request = store.put(cached)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function clearOldExplains(maxAgeMs = EXPLAIN_TTL_MS): Promise<void> {
+  const db = await openOfflineDb()
+  const cutoff = Date.now() - maxAgeMs
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(EXPLAIN_STORE, 'readwrite')
+    const store = tx.objectStore(EXPLAIN_STORE)
+    const index = store.index('cachedAt')
+    const range = IDBKeyRange.upperBound(cutoff)
+    const request = index.openCursor(range)
+
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (cursor) {
+        cursor.delete()
+        cursor.continue()
+      } else {
+        resolve()
+      }
+    }
     request.onerror = () => reject(request.error)
   })
 }

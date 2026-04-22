@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { explain as explainApi, type ExplainRequest } from '../api/explain'
+import { getCachedExplain, cacheExplain } from '../lib/offlineDb'
 
 interface ExplainState {
   explanation: string | null
@@ -26,6 +27,23 @@ export function useExplain() {
 
     setState({ explanation: null, isLoading: true, error: null, cached: false })
 
+    const targetLang = (req.targetLang || 'en').split('-')[0]
+
+    try {
+      const hit = await getCachedExplain(req.word, req.sentence, req.genre, targetLang)
+      if (hit) {
+        setState({
+          explanation: hit.explanation,
+          isLoading: false,
+          error: null,
+          cached: true,
+        })
+        return hit.explanation
+      }
+    } catch {
+      // cache read failed — fall through
+    }
+
     if (!navigator.onLine) {
       setState({ explanation: null, isLoading: false, error: 'Offline', cached: false })
       return null
@@ -39,6 +57,7 @@ export function useExplain() {
         error: null,
         cached: result.cached,
       })
+      cacheExplain(req.word, req.sentence, req.genre, targetLang, result.explanation).catch(() => {})
       return result.explanation
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return null
