@@ -209,8 +209,15 @@
       "highlightPink": "Highlight pink",
       "highlightBlue": "Highlight blue",
       "translate": "Translate selected text",
+      "explain": "Explain in context",
       "listen": "Listen to pronunciation",
       "copy": "Copy selected text"
+    },
+    "explanationPopup": {
+      "loading": "Thinking…",
+      "title": "Explanation",
+      "close": "Close",
+      "copy": "Copy explanation"
     },
     "noteEditor": {
       "close": "Close",

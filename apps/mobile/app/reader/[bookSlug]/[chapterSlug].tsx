@@ -15,6 +15,7 @@ import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
 import { WordCard } from '../../../src/components/WordCard'
 import { DictionarySheet } from '../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../src/components/TranslationSheet'
+import { ExplanationSheet } from '../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
@@ -90,6 +91,7 @@ export default function ReaderScreen() {
   const [exitSummary, setExitSummary] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
+  const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchMatchCount, setSearchMatchCount] = useState(0)
@@ -948,6 +950,7 @@ export default function ReaderScreen() {
               isMultiWord
               onDictionary={() => setDictOpen(true)}
               onTranslate={() => setTranslateOpen(true)}
+              onExplain={() => setExplainOpen(true)}
               onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
               onSaveWord={handleSaveWord}
               onHighlight={handleHighlight}
@@ -1042,6 +1045,16 @@ export default function ReaderScreen() {
           onClose={() => setTranslateOpen(false)}
           onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
           fromLang={language}
+        />
+
+        {/* Explanation sheet */}
+        <ExplanationSheet
+          visible={explainOpen}
+          word={selection?.text || ''}
+          sentence={selection?.sentence || selection?.text || ''}
+          bookId={editionIdRef.current || undefined}
+          fromLang={language}
+          onClose={() => setExplainOpen(false)}
         />
 
         {/* TOC sheet */}

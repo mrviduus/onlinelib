@@ -11,6 +11,7 @@ import { ReaderSettingsDrawer } from '../../../../src/components/ReaderSettingsD
 import { SelectionActionBar } from '../../../../src/components/SelectionActionBar'
 import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
+import { ExplanationSheet } from '../../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../../src/components/HighlightNoteModal'
 import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
 import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
@@ -51,6 +52,7 @@ export default function UserBookReaderScreen() {
   const [wordSaved, setWordSaved] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
+  const [explainOpen, setExplainOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchMatchCount, setSearchMatchCount] = useState(0)
   const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
@@ -547,6 +549,7 @@ export default function UserBookReaderScreen() {
             isMultiWord={isMultiWord}
             onDictionary={() => setDictOpen(true)}
             onTranslate={() => setTranslateOpen(true)}
+            onExplain={() => setExplainOpen(true)}
             onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
             onSaveWord={handleSaveWord}
             onHighlight={handleHighlight}
@@ -603,6 +606,14 @@ export default function UserBookReaderScreen() {
           onClose={() => setTranslateOpen(false)}
           onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
           fromLang={language}
+        />
+
+        <ExplanationSheet
+          visible={explainOpen}
+          word={selection?.text || ''}
+          sentence={selection?.sentence || selection?.text || ''}
+          fromLang={language}
+          onClose={() => setExplainOpen(false)}
         />
 
         <BookmarksSheet
