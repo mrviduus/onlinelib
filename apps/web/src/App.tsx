@@ -17,6 +17,7 @@ import { GenreDetailPage } from './pages/GenreDetailPage'
 import { AboutPage } from './pages/AboutPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
+import { DmcaPage } from './pages/DmcaPage'
 import { ContactPage } from './pages/ContactPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { UserBookDetailPage } from './pages/UserBookDetailPage'
@@ -89,6 +90,7 @@ function LanguageRoutes() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/dmca" element={<DmcaPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/stats" element={<StatsPage />} />
@@ -136,6 +138,7 @@ function AppRoutes() {
       <Route path="/about" element={<LegacyRedirect />} />
       <Route path="/privacy" element={<LegacyRedirect />} />
       <Route path="/terms" element={<LegacyRedirect />} />
+      <Route path="/dmca" element={<LegacyRedirect />} />
       <Route path="/contact" element={<LegacyRedirect />} />
       <Route path="/library" element={<LegacyRedirect />} />
       <Route path="/stats" element={<LegacyRedirect />} />
