@@ -184,10 +184,6 @@ public class AuthService
             x => (x.SiteId, x.EditionId, x.UserBookId), ct);
 
         await ReparentDropOnConflictAsync(
-            _db.UserMoodTags, guestUserId, realUserId,
-            x => (x.EditionId, x.UserBookId, x.MoodId), ct);
-
-        await ReparentDropOnConflictAsync(
             _db.VocabularyWords, guestUserId, realUserId,
             x => (x.SiteId, x.Word, x.Language), ct);
 

@@ -467,15 +467,7 @@ public static class ReadingTrackingEndpoints
             .ToListAsync(ct);
         var sessionMap = sessionsByEdition.ToDictionary(s => s.EditionId);
 
-        // 6. User mood tags for finished editions + user books
-        var moodTags = await db.UserMoodTags
-            .Where(t => t.UserId == userId.Value && t.SiteId == siteId
-                && ((t.EditionId != null && editionIds.Contains(t.EditionId.Value))
-                    || t.UserBookId != null))
-            .Join(db.Moods, t => t.MoodId, m => m.Id, (t, m) => new { m.Name, m.Emoji })
-            .ToListAsync(ct);
-
-        // 7. User ratings for finished editions + user books
+        // 6. User ratings for finished editions + user books
         var ratings = await db.UserRatings
             .Where(r => r.UserId == userId.Value && r.SiteId == siteId
                 && ((r.EditionId != null && editionIds.Contains(r.EditionId.Value))
@@ -556,13 +548,6 @@ public static class ReadingTrackingEndpoints
             .Select(g => new BookLengthBucketDto(g.Key, g.Count()))
             .ToList();
 
-        // Mood stats
-        var moodStats = moodTags
-            .GroupBy(m => m.Name)
-            .Select(g => new MoodStatDto(g.Key, g.First().Emoji, g.Count()))
-            .OrderByDescending(m => m.Count)
-            .ToList();
-
         // Rating distribution (half-star buckets: 0.5, 1, 1.5, ..., 5)
         var halfStarBuckets = Enumerable.Range(1, 10).Select(i => i * 0.5).ToList();
         var ratingDistribution = halfStarBuckets
@@ -611,7 +596,6 @@ public static class ReadingTrackingEndpoints
             LanguageStats: languageStats,
             BooksOverTime: booksOverTime,
             BookLengthDistribution: lengthBuckets,
-            MoodStats: moodStats,
             RatingDistribution: ratingDistribution,
             AvgRating: avgRating,
             PaceStats: paceList,
@@ -775,7 +759,6 @@ public record BookStatsResponse(
     List<LanguageStatDto> LanguageStats,
     List<BooksOverTimeDto> BooksOverTime,
     List<BookLengthBucketDto> BookLengthDistribution,
-    List<MoodStatDto> MoodStats,
     List<RatingBucketDto> RatingDistribution,
     double? AvgRating,
     List<PaceStatDto> PaceStats,
@@ -789,7 +772,6 @@ public record AuthorStatDto(string Name, string Slug, int Count);
 public record LanguageStatDto(string Language, int Count);
 public record BooksOverTimeDto(string Period, int Books, int Pages);
 public record BookLengthBucketDto(string Bucket, int Count);
-public record MoodStatDto(string Name, string? Emoji, int Count);
 public record RatingBucketDto(double Rating, int Count);
 public record PaceStatDto(string Pace, int Count);
 public record ReadingTimeStatDto(string Name, string Slug, long Seconds);

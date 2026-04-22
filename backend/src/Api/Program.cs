@@ -380,8 +380,6 @@ app.MapUserBooksEndpoints();
 app.MapReadingTrackingEndpoints();
 app.MapUserRatingEndpoints();
 app.MapReviewEndpoints();
-app.MapUserMoodEndpoints();
-app.MapAdminMoodEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();

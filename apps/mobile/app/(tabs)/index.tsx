@@ -8,11 +8,10 @@
  *   1. Greeting header      — time-aware greeting + user name, search + profile + language pill
  *   2. Continue Reading     — ContinueReadingCard (existing, authenticated only)
  *   3. Quick Action Grid    — 2x2: Browse / Upload / Paste-link / Scan (last two are "coming soon")
- *   4. Collections          — horizontal carousel of moods
- *   5. For you              — horizontal list of recently-added books
- *   6. Popular now          — horizontal list with alt sort (falls back to default when unsupported)
+ *   4. For you              — horizontal list of recently-added books
+ *   5. Popular now          — horizontal list with alt sort (falls back to default when unsupported)
  *
- * Data sources: createBooksApi(language).getBooks, getAllMoods (public),
+ * Data sources: createBooksApi(language).getBooks,
  * plus useQuickStats for the streak pill (authenticated only).
  *
  * Pill-tab "For you / Continue / Recents" from the ref design is NOT
@@ -35,10 +34,8 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
   createBooksApi,
-  moodsApi,
   getAnonymousReaderName,
   type Edition,
-  type MoodDto,
 } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -51,7 +48,6 @@ import {
   type BookItem,
 } from '../../src/components/home/HorizontalBookList'
 import { QuickActionGrid } from '../../src/components/home/QuickActionGrid'
-import { CollectionsCarousel } from '../../src/components/home/CollectionsCarousel'
 import { VocabularyReviewCard } from '../../src/components/home/VocabularyReviewCard'
 
 type GreetingSlot = 'morning' | 'afternoon' | 'evening' | 'night'
@@ -81,16 +77,12 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [forYouItems, setForYouItems] = useState<Edition[]>([])
   const [popularItems, setPopularItems] = useState<Edition[]>([])
-  const [moods, setMoods] = useState<MoodDto[]>([])
   const [loadingBooks, setLoadingBooks] = useState(true)
-  const [loadingMoods, setLoadingMoods] = useState(true)
 
-  // Generation counters guard against language-switch races: if the user
+  // Generation counter guards against language-switch races: if the user
   // toggles EN↔UK before the in-flight Promise.all settles, the stale
   // response would otherwise overwrite the fresh language's content.
-  // Same pattern used in blog list (B-51).
   const booksGenRef = useRef(0)
-  const moodsGenRef = useRef(0)
 
   // Greeting re-evaluates every minute. The previous once-on-mount
   // computation was stale if the home screen stayed mounted across a
@@ -136,36 +128,15 @@ export default function HomeScreen() {
     }
   }, [language])
 
-  const loadMoods = useCallback(async () => {
-    const gen = ++moodsGenRef.current
-    try {
-      setLoadingMoods(true)
-      const list = await moodsApi.getAllMoods()
-      if (gen !== moodsGenRef.current) return
-      setMoods(list)
-    } catch (e) {
-      if (gen === moodsGenRef.current) {
-        console.warn('Home loadMoods failed:', e)
-        setMoods([])
-      }
-    } finally {
-      if (gen === moodsGenRef.current) setLoadingMoods(false)
-    }
-  }, [])
-
   useEffect(() => {
     loadContent()
   }, [loadContent])
 
-  useEffect(() => {
-    loadMoods()
-  }, [loadMoods])
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await Promise.all([loadContent(), loadMoods()])
+    await loadContent()
     setRefreshing(false)
-  }, [loadContent, loadMoods])
+  }, [loadContent])
 
   const openBook = useCallback(
     (slug: string) => {
@@ -316,21 +287,6 @@ export default function HomeScreen() {
         }
         // onPasteLink / onScan left undefined — the grid surfaces
         // "Coming soon" alerts to signal future capability.
-      />
-
-      {/* Collections */}
-      <CollectionsCarousel
-        title={t('home.sections.collections')}
-        moods={moods}
-        loading={loadingMoods}
-        emptyText={t('home.empty.collections')}
-        onSelect={(mood) => {
-          // Search screen doesn't take query params today — route to it
-          // and let the user filter manually for now. Once search
-          // accepts a `?mood=` param this becomes deep-linkable.
-          void mood
-          router.push('/(tabs)/search')
-        }}
       />
 
       {/* For you */}

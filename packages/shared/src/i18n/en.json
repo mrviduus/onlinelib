@@ -52,14 +52,12 @@
       "continueReading": "Pick up where you left off",
       "forYou": "For you",
       "recents": "Recently read",
-      "collections": "Browse collections",
       "popularNow": "Popular now"
     },
     "empty": {
       "forYou": "Open your first book and we'll start recommending.",
       "continue": "Nothing in progress yet. Start a book from the catalog.",
       "recents": "Books you read will show up here.",
-      "collections": "Collections will appear soon.",
       "browseBooks": "Browse books"
     },
     "vocabCard": {
@@ -342,7 +340,6 @@
     "streaks": "Streaks",
     "genres": "Genres",
     "authors": "Most Read Authors",
-    "moods": "Moods",
     "pace": "Pace",
     "ratings": "Ratings",
     "languages": "Languages",
