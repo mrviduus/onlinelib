@@ -1,138 +1,108 @@
 # Contributing to TextStack
 
-## Getting Started
+Thanks for the interest. This is a solo project right now, but feedback, bug
+reports, and PRs are welcome.
 
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ & pnpm
-- .NET 10 SDK
+## Quick ways to help
 
-### Dev Setup
-```bash
-docker compose up --build
-```
+1. ⭐ **Star the repo** — the strongest signal I have about whether this is
+   useful.
+2. 🐛 **Report a bug** — [open an issue](../../issues/new/choose) with the
+   bug template.
+3. 💡 **Suggest a feature** — especially if you're reading AI/ML books and
+   the reader is missing something.
+4. 📝 **Try it + send feedback** — [textstack.app](https://textstack.app),
+   then ping me on [@Rexetdeus](https://twitter.com/Rexetdeus) or the
+   contact form on the site.
 
-| Service | URL |
-|---------|-----|
-| API | http://localhost:8080 |
-| Web | http://localhost:5173 |
-| Admin | http://localhost:81 |
+## Running locally
 
-## Branch Naming
+See the [README Quick start](README.md#quick-start). Everything runs in
+Docker via `docker compose up --build`.
 
-```
-feat/short-description    # new feature
-fix/issue-description     # bug fix
-docs/what-changed         # documentation
-refactor/what-changed     # code restructure
-test/what-covered         # tests
-```
+For day-to-day dev without Docker, see [CLAUDE.md](CLAUDE.md) — full command
+reference (tests, migrations, mobile, lint).
 
-## Commit Messages
+## Before sending a PR
 
-Format: `type(scope): description`
+1. **Open an issue first** if the change is > ~30 LoC or touches multiple
+   files. Cheaper to align on direction than on code.
+2. **Branch from `main`** with a descriptive name:
+   `feat/<short>`, `fix/<issue>`, `docs/<area>`, `refactor/<area>`, `test/<what>`.
+3. **Tests** — add/update tests for the behavior you changed.
+   ```bash
+   dotnet test                          # backend (unit + integration + extraction + search)
+   pnpm -C apps/web test                # web unit (Vitest)
+   pnpm -C apps/web test:e2e            # Playwright (needs services up)
+   ```
+4. **Lint** — `dotnet format textstack.sln` for backend. Web/admin have no
+   enforced formatter yet; match surrounding style.
+5. **Conventional commit subject** — `type(scope): summary`. Common types:
+   `feat`, `fix`, `refactor`, `docs`, `presale`. One logical change per
+   commit; rebase locally if things got noisy.
 
-```
-feat(reader): add keyboard shortcuts
-fix(search): handle empty query
-docs(api): update endpoint examples
-refactor(auth): extract token validation
-test(ingestion): add epub fixture
-```
+## PR expectations
 
-## Pull Request Process
+- **Title**: short, imperative, < 70 chars.
+- **Body**: follow the template (filled automatically when you open the PR).
+- **Scope**: one concern per PR. Drive-by refactors go in a separate PR.
+- **Breaking changes** — call them out. Include a migration note.
+- **Screenshots / GIFs** for UI changes. Required, not optional.
 
-1. Create branch from `main`
-2. Make changes in small, focused commits
-3. Run tests: `dotnet test`
-4. Run type-check: `pnpm -C apps/web build`
-5. Create PR with description:
-   - What changed
-   - Why
-   - How to test
+## Code style
 
-### PR Template
+- **Backend** — idiomatic C# / .NET 10. Minimal APIs, EF Core. Snake-case
+  in DB (handled by EF naming convention). Nullable-aware. Test naming:
+  `{Method}_{Scenario}_{Expected}`.
+- **Frontend** — React 19 functional components, hooks. CSS variables for
+  theming (no CSS-in-JS). No Redux/Zustand — React Context is enough.
+- **Mobile** — Expo 55, React Native 0.83. Match web patterns where
+  possible.
 
-```markdown
-## Summary
-Brief description of changes.
+## What I care about
 
-## Changes
-- List specific changes
+- **Reader UX** — smooth scroll, fast word-tap response, offline works.
+- **SRS quality** — capped queue, anti-spiral tiers, explanations that
+  actually help the reader.
+- **Performance** — ingestion speed, SSG prerender time, reader cold-start.
+- **Legal hygiene** — only public domain / CC0 / user-owned content.
 
-## Testing
-- [ ] dotnet test passes
-- [ ] Manual testing done
+## What I'll probably push back on
 
-## Screenshots (if UI change)
-```
+- Scope creep that doesn't serve deep reading.
+- Adding new LLM providers just to have them — we have Ollama (local) and
+  plans for Claude; keep that surface small.
+- Reintroducing features I deliberately removed (see
+  [PLAN-presale-8w.md](PLAN-presale-8w.md) for context).
 
-## Code Style
-
-### Backend (C#)
-- Follow existing patterns in codebase
-- Use `record` for DTOs
-- Keep endpoints minimal, logic in services
-- Run `dotnet format` before commit
-
-### Frontend (TypeScript/React)
-- Functional components with hooks
-- Extract reusable logic to custom hooks
-- Keep components under 200 lines when possible
-- Use TypeScript strictly (no `any`)
-
-## Testing
-
-### Backend
-```bash
-dotnet test                                    # all tests
-dotnet test tests/TextStack.UnitTests          # unit only
-dotnet test tests/TextStack.IntegrationTests   # integration
-```
-
-### Frontend
-```bash
-pnpm -C apps/web test       # run tests
-pnpm -C apps/web test:watch # watch mode
-```
-
-## Working with the Codebase
-
-### Key Principle: Small Slices
-- Work in small, independently mergeable chunks
-- Each PR should be reviewable in one sitting
-- If scope grows, split into multiple PRs
-
-### Before Starting
-1. Read relevant docs in `docs/`
-2. Understand existing patterns
-3. Check for similar implementations to follow
-
-### When Stuck
-- Check `CLAUDE.md` for codebase guidance
-- Review existing implementations
-- Ask questions in PR/issues
-
-## Good First Issues
-
-Look for issues labeled `good-first-issue`:
-- Documentation improvements
-- Small bug fixes
-- Test coverage additions
-- UI polish
-
-## Architecture Overview
+## Architecture at a glance
 
 ```
-backend/
-  src/Api/        # Endpoints, middleware
-  src/Domain/     # Entities
-  src/Application/ # Services, business logic
-  src/Infrastructure/ # DB, storage
+backend/src/
+  Api/            # Minimal APIs, middleware
+  Application/    # Business logic, interfaces
+  Domain/         # Entities, enums (pure C#)
+  Infrastructure/ # EF Core, storage, adapters
+  Worker/         # Ingestion + SSG polling + GC
+  Extraction/     # EPUB/PDF/FB2 parsers
+  Search/         # Postgres FTS (Meilisearch provider optional)
 
 apps/
-  web/    # Public reader site
-  admin/  # Admin panel
+  web/            # Public reader (React + Vite)
+  admin/          # Admin panel (React + Vite)
+  mobile/         # Mobile app (Expo)
 ```
 
-See `docs/01-architecture/` for details.
+Deeper detail: [docs/01-architecture/](docs/01-architecture/).
+
+## Code of Conduct
+
+Be kind. Assume good faith. That's it.
+
+## Contact
+
+- Twitter: [@Rexetdeus](https://twitter.com/Rexetdeus)
+- Email via [textstack.app](https://textstack.app) contact form
+- GitHub Discussions (broader questions)
+
+Thanks for being here.

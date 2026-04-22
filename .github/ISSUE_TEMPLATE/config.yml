@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Try the live app
+    url: https://textstack.app
+    about: Sample chapters open without signup — try before filing anything.
+  - name: Feedback via Twitter
+    url: https://twitter.com/Rexetdeus
+    about: Quick reactions, short feedback. @Rexetdeus.
+  - name: Broader discussion
+    url: https://github.com/mrviduus/textstack/discussions
+    about: Architecture, roadmap, self-hosting questions go here.
