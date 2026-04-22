@@ -19,3 +19,13 @@ jobs:
         run: |
           curl -sf --retry 2 https://textstack.app/ -o /dev/null
           curl -sf --retry 2 https://textstack.dev/ -o /dev/null
+
+      - name: Smoke — book listing
+        run: |
+          body=$(curl -sf --retry 2 "https://textstack.app/api/books?lang=en&limit=1")
+          echo "$body" | grep -q '"id"' || { echo "books endpoint returned no items"; echo "$body"; exit 1; }
+
+      - name: Smoke — search
+        run: |
+          body=$(curl -sf --retry 2 "https://textstack.app/api/search?q=the&lang=en&limit=1")
+          echo "$body" | grep -q '"' || { echo "search endpoint returned empty body"; echo "$body"; exit 1; }
