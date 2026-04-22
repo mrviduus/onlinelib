@@ -42,14 +42,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserBookBookmark> UserBookBookmarks => Set<UserBookBookmark>();
     public DbSet<AdminSettings> AdminSettings => Set<AdminSettings>();
     public DbSet<Highlight> Highlights => Set<Highlight>();
-    public DbSet<HighlightLike> HighlightLikes => Set<HighlightLike>();
-    public DbSet<HighlightReport> HighlightReports => Set<HighlightReport>();
     public DbSet<ReadingSession> ReadingSessions => Set<ReadingSession>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
-    public DbSet<UserRating> UserRatings => Set<UserRating>();
-    public DbSet<Mood> Moods => Set<Mood>();
-    public DbSet<UserMoodTag> UserMoodTags => Set<UserMoodTag>();
     public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
     public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
     public DbSet<UserVocabularySettings> UserVocabularySettings => Set<UserVocabularySettings>();
@@ -57,14 +52,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<WordLookup> WordLookups => Set<WordLookup>();
     public DbSet<WordFrequency> WordFrequencies => Set<WordFrequency>();
     public DbSet<WordCluster> WordClusters => Set<WordCluster>();
-    public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
-    public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
-    public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
-    public DbSet<BlogComment> BlogComments => Set<BlogComment>();
-    public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
     public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
-    public DbSet<BoardTask> BoardTasks => Set<BoardTask>();
     public DbSet<BookQualityJob> BookQualityJobs => Set<BookQualityJob>();
     public DbSet<SeoTemplate> SeoTemplates => Set<SeoTemplate>();
     public DbSet<SeoBackfillJob> SeoBackfillJobs => Set<SeoBackfillJob>();
@@ -231,10 +220,6 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => x.UserBookId);
             e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).HasFilter("edition_id IS NOT NULL");
             e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).HasFilter("user_book_id IS NOT NULL");
-            // Fast lookup of public highlights per chapter for hotspot rendering
-            e.HasIndex(x => new { x.EditionId, x.ChapterId, x.IsPublic, x.IsDeleted })
-                .HasFilter("is_public = true AND is_deleted = false")
-                .HasDatabaseName("ix_highlights_public_per_chapter");
             e.Property(x => x.AnchorJson).HasColumnType("jsonb");
             e.Property(x => x.Color).HasMaxLength(20);
             e.HasOne(x => x.User).WithMany(x => x.Highlights).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
@@ -242,29 +227,6 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserChapter).WithMany().HasForeignKey(x => x.UserChapterId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // HighlightLike
-        modelBuilder.Entity<HighlightLike>(e =>
-        {
-            e.HasIndex(x => new { x.HighlightId, x.UserId }).IsUnique();
-            e.HasIndex(x => x.HighlightId);
-            e.HasOne(x => x.Highlight).WithMany(x => x.Likes).HasForeignKey(x => x.HighlightId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // HighlightReport
-        modelBuilder.Entity<HighlightReport>(e =>
-        {
-            e.HasIndex(x => x.HighlightId);
-            e.HasIndex(x => x.ResolvedAt);
-            e.Property(x => x.Reason).HasMaxLength(40);
-            e.Property(x => x.Note).HasMaxLength(500);
-            e.Property(x => x.Resolution).HasMaxLength(40);
-            e.HasOne(x => x.Highlight).WithMany(x => x.Reports).HasForeignKey(x => x.HighlightId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.ReportedByUser).WithMany().HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -484,66 +446,6 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 
-        // UserRating
-        modelBuilder.Entity<UserRating>(e =>
-        {
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique().HasFilter("edition_id IS NOT NULL");
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).IsUnique().HasFilter("user_book_id IS NOT NULL");
-            e.HasIndex(x => x.EditionId);
-            e.HasIndex(x => x.UserBookId);
-            e.HasIndex(x => new { x.EditionId, x.HelpfulCount });
-            e.Property(x => x.Title).HasMaxLength(200);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-            e.HasMany(x => x.Likes).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
-            e.HasMany(x => x.Comments).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ReviewLike
-        modelBuilder.Entity<ReviewLike>(e =>
-        {
-            e.HasIndex(x => new { x.UserRatingId, x.UserId }).IsUnique();
-            e.HasIndex(x => x.UserRatingId);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // ReviewComment
-        modelBuilder.Entity<ReviewComment>(e =>
-        {
-            e.HasIndex(x => x.UserRatingId);
-            e.HasIndex(x => new { x.UserId, x.SiteId });
-            e.Property(x => x.Text).HasMaxLength(2000);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Mood
-        modelBuilder.Entity<Mood>(e =>
-        {
-            e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
-            e.Property(x => x.Slug).HasMaxLength(50);
-            e.Property(x => x.Name).HasMaxLength(100);
-            e.Property(x => x.Emoji).HasMaxLength(10);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // UserMoodTag
-        modelBuilder.Entity<UserMoodTag>(e =>
-        {
-            e.HasIndex(x => new { x.UserId, x.EditionId }).HasFilter("edition_id IS NOT NULL");
-            e.HasIndex(x => new { x.UserId, x.UserBookId }).HasFilter("user_book_id IS NOT NULL");
-            e.HasIndex(x => new { x.UserId, x.EditionId, x.MoodId }).IsUnique().HasFilter("edition_id IS NOT NULL");
-            e.HasIndex(x => new { x.UserId, x.UserBookId, x.MoodId }).IsUnique().HasFilter("user_book_id IS NOT NULL");
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.Mood).WithMany().HasForeignKey(x => x.MoodId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
         // VocabularyWord
         modelBuilder.Entity<VocabularyWord>(e =>
         {
@@ -658,61 +560,12 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasMany(x => x.Words).WithOne().HasForeignKey(x => x.ClusterId).OnDelete(DeleteBehavior.SetNull);
         });
 
-        // BlogPost
-        modelBuilder.Entity<BlogPost>(e =>
-        {
-            e.HasIndex(x => new { x.SiteId, x.Language, x.Slug }).IsUnique();
-            e.HasIndex(x => new { x.SiteId, x.Status, x.PublishedAt });
-            e.Property(x => x.Title).HasMaxLength(500);
-            e.Property(x => x.Slug).HasMaxLength(200);
-            e.Property(x => x.Language).HasMaxLength(8);
-            e.Property(x => x.AuthorName).HasMaxLength(200);
-            e.Property(x => x.Tags).HasMaxLength(500);
-            e.Property(x => x.SeoTitle).HasMaxLength(200);
-            e.Property(x => x.SeoDescription).HasMaxLength(500);
-            e.Property(x => x.Excerpt).HasMaxLength(1000);
-            e.Property(x => x.CoverImagePath).HasMaxLength(500);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-            e.HasMany(x => x.Comments).WithOne(x => x.BlogPost).HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
-            e.HasMany(x => x.Likes).WithOne(x => x.BlogPost).HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // BlogComment
-        modelBuilder.Entity<BlogComment>(e =>
-        {
-            e.HasIndex(x => x.BlogPostId);
-            e.HasIndex(x => new { x.UserId, x.SiteId });
-            e.Property(x => x.Text).HasMaxLength(2000);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.ParentComment).WithMany(x => x.Replies).HasForeignKey(x => x.ParentCommentId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // BlogLike
-        modelBuilder.Entity<BlogLike>(e =>
-        {
-            e.HasIndex(x => new { x.BlogPostId, x.UserId }).IsUnique();
-            e.HasIndex(x => x.BlogPostId);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
         // PasswordResetToken
         modelBuilder.Entity<PasswordResetToken>(e =>
         {
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.Property(x => x.TokenHash).HasMaxLength(128);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<BoardTask>(e =>
-        {
-            e.HasIndex(x => x.SiteId);
-            e.HasIndex(x => new { x.SiteId, x.Status });
-            e.Property(x => x.Title).HasMaxLength(500);
-            e.Property(x => x.Status).HasMaxLength(20);
-            e.Property(x => x.Source).HasMaxLength(20);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<BookQualityJob>(e =>
@@ -765,7 +618,6 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<Author>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
         modelBuilder.Entity<Edition>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
         modelBuilder.Entity<Genre>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
-        modelBuilder.Entity<BlogPost>().Property(x => x.SeoSource).HasDefaultValue(Domain.Enums.SeoSource.Manual);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

@@ -143,11 +143,11 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **API client**: `useApi()` hook → `createApi(language)` → methods like `getBooks()`, `getBook(slug)`. Uses `fetchJsonWithRetry()`.
 
-**API client layer**: `apps/web/src/api/` — 13 modules: `client.ts` (base), `auth.ts`, `blog.ts`, `dictionary.ts`, `moods.ts`, `readingTracking.ts`, `reviews.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `userRatings.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
+**API client layer**: `apps/web/src/api/` — 9 modules: `client.ts` (base), `auth.ts`, `dictionary.ts`, `readingTracking.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
 
 **Hooks** (`apps/web/src/hooks/` — 47 hooks): Reader: `useReadingSession`, `useReadingProgress`, `useReaderKeyboard`, `useReaderNavigation`, `useReaderSettings`, `useReaderVocabulary`, `useScrollReader`, `useFullscreen`, `useFullscreenBars`, `useImmersiveMode`, `useAutoHideBar`, `useInBookSearch`, `useTextSelection`, `useDictionary`, `useTextTranslation`, `useWordTap`, `useDarkMode`. Library/data: `useLibrary`, `useBookmarks`, `useHighlights`, `useBookStats`, `useVocabulary`, `useVocabularyReview`, `useVocabLevel`, `useVocabDailyStats`, `useReadingStats`, `useReadingGoals`, `useAchievements`. UI: `useSwipe`, `useFocusTrap`, `useIsMobile`, `useScrolled`, `usePagination`, `useDebounce`, `useSoundEffects`, `useCardAnswer`, `useQuickStats`. Network: `useNetworkRecovery`, `useOfflineDownload`, `useGuestMigration`.
 
-**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, User Uploads, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild + job detail, Auto Publish, Task Board, Tools, Settings.
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, User Uploads, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Chapter editor, SSG rebuild + job detail, Auto Publish, Tools, Settings.
 
 ## Key Concepts
 
@@ -156,14 +156,6 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 - Edition contains: title, description, cover_path, SEO fields
 - Edition ↔ Author via EditionAuthor (M2M), Edition → Genre (FK)
 - Chapter contains: html (rendered), plain_text (search), search_vector (FTS)
-
-**Blog**: Admin-created blog posts for internal linking and curated content (e.g. "Top 10 dystopian books").
-- BlogPost → BlogComment (threaded, 2-level max), BlogLike
-- Per-language posts (language field on BlogPost, en-only now)
-- Status: Draft/Published, admin publish/unpublish
-- Public pages: `/:lang/blog` (list), `/:lang/blog/:slug` (detail)
-- Admin CRUD: `/admin/blog` endpoints, admin panel pages
-- SSG prerendered, included in sitemap
 
 **User Books**: Users can upload their own books (separate from admin library).
 - UserBook → UserChapter (parallel to Work/Edition/Chapter but per-user)
@@ -211,12 +203,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
 
-**Reviews & Ratings**: Users rate books (0–5 stars, half-step) and write reviews.
-- Entities: `UserRating`, `ReviewComment` (threads), `ReviewLike` (upvotes)
-- API: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
-- Frontend: `ReviewForm`, `ReviewsList`, `ReviewCard`, `ReviewComments`, `RatingDistribution` in `components/reviews/`
-- API client: `apps/web/src/api/reviews.ts`
-
 **Guest Users**: Anonymous browsing with usage limits before sign-up required.
 - GuestCleanupWorker purges inactive guests (6h interval)
 - GuestLimitsContext tracks pages read, words saved
@@ -238,15 +224,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - HighlightReviewPage — review highlights with spaced repetition
 - PracticePage — practice vocabulary and highlights
 
-**Board Tasks**: Kanban task board in admin panel.
-- AdminBoardTaskEndpoints, TaskBoardPage
-- Entity: BoardTask
-
-**Reading Moods**: Tag reading sessions with moods for emotional tracking.
-- Entities: `Mood`, `UserMoodTag`
-- Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
-- Admin: `MapAdminMoodEndpoints()` in `Api/Endpoints/AdminMoodEndpoints.cs`
-
 **Auto Publish**: Automated pipeline for publishing Draft books with SEO content.
 - Admin page at `/autopublish` — settings, candidates, jobs history
 - `seo-publish-poll.sh` (systemd) polls DB every 60s for queued jobs
@@ -255,10 +232,10 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Settings: books/day, hour UTC, require review, language filter, priority queue
 - Auto-triggers Specific SSG rebuild per published book via `PublishEditionAsync() → EnqueueSsgSafe()`
 
-**SEO Backfill**: Template-driven SEO field generation for Authors, Editions, Genres, Blog posts.
+**SEO Backfill**: Template-driven SEO field generation for Authors, Editions, Genres.
 - Admin page at `/seo-backfill` — Coverage, Templates, Jobs, Settings tabs
 - Entities: `SeoTemplate` (admin-editable prompts, versioned), `SeoBackfillJob` (queue + Before/After snapshots), `SeoBackfillSettings` (singleton)
-- `SeoSource` column on Author/Edition/Genre/BlogPost: `manual` | `auto` | `hybrid` — `manual` rows protected from overwrite
+- `SeoSource` column on Author/Edition/Genre: `manual` | `auto` | `hybrid` — `manual` rows protected from overwrite
 - Progressive trust: `TrustLevel` per template — `Manual` (queue by admin only) → `Review` (needs approval) → `Auto` (direct apply). Strictest wins for multi-field jobs
 - `seo-backfill-poll.sh` (systemd) claims jobs atomically via `FOR UPDATE SKIP LOCKED`, dispatches per-job
 - `seo-backfill-generate.sh` — GET context → Claude CLI per field (3 retries with error feedback) → POST apply; output validated vs per-field JSON schema
@@ -267,7 +244,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Revert: restores `BeforeSnapshot`, flips `SeoSource` back to `manual`. **No TTL** — revert allowed at any age (snapshot is an immutable audit record)
 - Internal endpoints `/internal/seo/{enabled,jobs/claim,jobs/{id}/context,jobs/{id}/apply,jobs/{id}/fail}` (Docker network only)
 - Failure alerts: admin email via Resend on any failed job (config `Resend:AdminAlertEmail`, no-op if empty)
-- Seed templates: EN + UK variants for Author (Bio/Relevance/Themes/Faqs/SeoTitle/SeoDescription), Edition (Description/Relevance/Themes/Faqs/SeoTitle/SeoDescription), Genre (Description/SeoTitle/SeoDescription — en only), BlogPost (SeoTitle/SeoDescription)
+- Seed templates: EN + UK variants for Author (Bio/Relevance/Themes/Faqs/SeoTitle/SeoDescription), Edition (Description/Relevance/Themes/Faqs/SeoTitle/SeoDescription), Genre (Description/SeoTitle/SeoDescription — en only)
 - Setup: `make seo-backfill-setup` (systemd user unit), `make seo-backfill-restart`, `make seo-backfill-logs`
 
 **SSG**: Puppeteer prerenders SEO pages to static HTML
@@ -280,12 +257,11 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - After adding/publishing new books
 - After updating book metadata
 - After adding/updating authors or genres
-- After publishing/updating blog posts
 - NOT needed for: reading progress, bookmarks, user data
 
 ## API Endpoints
 
-**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`, `GET /blog`, `/blog/{slug}`, `/blog/{postId}/comments`
+**Public**: `GET /books`, `/books/{slug}`, `/authors`, `/genres`, `/search?q=`, `/seo/*`, `/dictionary/{lang}/{word}`, `POST /translate`, `GET /api/tts?text=&lang=&voice=&speed=`, `GET /api/tts/voices?lang=`
 
 **Auth**: `POST /auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`
 
@@ -297,17 +273,11 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
-**Reviews**: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
-
-**Blog**: `POST/DELETE /me/blog/{postId}/like`, `POST /me/blog/{postId}/comments`, `DELETE /me/blog/comments/{commentId}`
-
-**Moods**: `GET/POST /me/moods`
-
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`, `/admin/board-tasks`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
@@ -350,17 +320,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | TTS API | `backend/src/Api/Endpoints/TtsEndpoints.cs` |
 | TTS Hook | `apps/web/src/hooks/useTts.ts` |
 | TTS E2E | `apps/web/e2e/tests/tts.spec.ts` |
-| Reviews API | `backend/src/Api/Endpoints/ReviewEndpoints.cs` |
-| Reviews Client | `apps/web/src/api/reviews.ts` |
-| Review Components | `apps/web/src/components/reviews/` |
-| Moods | `apps/web/src/components/MoodSelector.tsx`, `components/stats/MoodChart.tsx` |
-| Moods Admin | `backend/src/Api/Endpoints/AdminMoodEndpoints.cs` |
-| Blog API (public) | `backend/src/Api/Endpoints/BlogEndpoints.cs` |
-| Blog API (admin) | `backend/src/Api/Endpoints/AdminBlogEndpoints.cs` |
-| Blog Client | `apps/web/src/api/blog.ts` |
-| Blog Pages | `apps/web/src/pages/BlogPage.tsx`, `BlogPostPage.tsx` |
-| Blog Components | `apps/web/src/components/blog/` |
-| Blog Admin | `apps/admin/src/pages/BlogPostsPage.tsx`, `CreateBlogPostPage.tsx`, `EditBlogPostPage.tsx` |
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
 | FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |
@@ -383,8 +342,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Export | `backend/src/Application/Export/EpubExportService.cs` |
 | Export API | `backend/src/Api/Endpoints/ExportEndpoints.cs` |
 | Profile API | `backend/src/Api/Endpoints/ProfileEndpoints.cs` |
-| Board Tasks API | `backend/src/Api/Endpoints/AdminBoardTaskEndpoints.cs` |
-| Board Tasks Admin | `apps/admin/src/pages/TaskBoardPage.tsx` |
 | Guest Context | `apps/web/src/context/GuestLimitsContext.tsx` |
 | Native Lang Context | `apps/web/src/context/NativeLanguageContext.tsx` |
 | Email Service | `backend/src/Infrastructure/Services/ResendEmailService.cs` |
@@ -451,7 +408,7 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 
 **Framework**: Expo 55, React Native 0.83.2, Expo Router (file-based routing).
 
-**Pages** (`apps/mobile/app/`): 29 screens — tabs (home, search, library, profile), auth, book detail, reader, highlights + review, stats, vocabulary + review, blog, user book upload/read.
+**Pages** (`apps/mobile/app/`): 27 screens — tabs (home, search, library, profile), auth, book detail, reader, highlights + review, stats, vocabulary + review, user book upload/read.
 
 **Contexts** (`apps/mobile/src/context/`): AuthContext, DownloadContext, LanguageContext, NativeLanguageContext, ThemeContext.
 
@@ -459,7 +416,7 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 
 **API**: Single `apps/mobile/src/lib/api.ts` module (consolidated, not split like web).
 
-**E2E**: 16 Playwright specs in `apps/mobile/e2e/` — navigation, books, search, library, vocabulary, highlights, stats, blog, auth.
+**E2E**: 15 Playwright specs in `apps/mobile/e2e/` — navigation, books, search, library, vocabulary, highlights, stats, auth.
 
 **Build**: EAS Build (cloud) for dev/prod. OTA updates via `expo-updates`.
 

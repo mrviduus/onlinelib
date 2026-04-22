@@ -178,26 +178,9 @@ public class AuthService
             _db.UserAchievements, guestUserId, realUserId,
             x => (x.SiteId, x.AchievementCode), ct);
 
-        // UserRating: separate unique constraints for editions vs user-books — composite key handles both.
-        await ReparentDropOnConflictAsync(
-            _db.UserRatings, guestUserId, realUserId,
-            x => (x.SiteId, x.EditionId, x.UserBookId), ct);
-
-        await ReparentDropOnConflictAsync(
-            _db.UserMoodTags, guestUserId, realUserId,
-            x => (x.EditionId, x.UserBookId, x.MoodId), ct);
-
         await ReparentDropOnConflictAsync(
             _db.VocabularyWords, guestUserId, realUserId,
             x => (x.SiteId, x.Word, x.Language), ct);
-
-        await ReparentDropOnConflictAsync(
-            _db.ReviewLikes, guestUserId, realUserId,
-            x => x.UserRatingId, ct);
-
-        await ReparentDropOnConflictAsync(
-            _db.BlogLikes, guestUserId, realUserId,
-            x => x.BlogPostId, ct);
 
         // Flush reparent-on-conflict work before bulk UPDATEs (ExecuteUpdateAsync bypasses the change tracker).
         await _db.SaveChangesAsync(ct);
@@ -207,8 +190,6 @@ public class AuthService
         await _db.Bookmarks.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.Notes.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.ReadingSessions.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
-        await _db.ReviewComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
-        await _db.BlogComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.VocabularyReviews.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
 
         // Delete guest user (cascades refresh tokens, password reset tokens — reparented rows survive).

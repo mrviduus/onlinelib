@@ -220,38 +220,7 @@
       "placeholder": "Add a note...",
       "deleteHighlight": "Delete highlight",
       "cancel": "Cancel",
-      "save": "Save",
-      "visibility": {
-        "label": "Visibility",
-        "private": "Private",
-        "public": "Public",
-        "publicHint": "Public notes may be shown to other readers."
-      }
-    },
-    "hotspot": {
-      "title": "What other readers say",
-      "count": "{{count}} readers highlighted this",
-      "close": "Close",
-      "reader": "Reader",
-      "noNotes": "No notes yet.",
-      "like": "Like",
-      "unlike": "Unlike",
-      "report": "Report"
-    },
-    "report": {
-      "title": "Report this note",
-      "close": "Close",
-      "cancel": "Cancel",
-      "submit": "Submit",
-      "submitting": "Sending…",
-      "error": "Could not send report. Try again.",
-      "notePlaceholder": "Add details (optional)…",
-      "reason": {
-        "spam": "Spam",
-        "offensive": "Offensive or harmful",
-        "misinformation": "Misinformation",
-        "other": "Other"
-      }
+      "save": "Save"
     },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
     "vocab": {
@@ -307,7 +276,6 @@
       "latestAuthors": "Latest Authors",
       "allBooks": "All Books",
       "topFreeBooks": "Top Free Books",
-      "blogPosts": "Blog Posts",
       "allGenres": "All genres",
       "browseAuthors": "Browse Latest Books",
       "browseAuthorsDesc": "Read classic literature with built-in translation and vocabulary tools."
@@ -324,18 +292,16 @@
   "sitemap": {
     "title": "Sitemap",
     "seoTitle": "Sitemap — All Books, Authors, Genres",
-    "seoDesc": "Browse the full TextStack Reader catalogue: every book, author, genre, and blog post in one place.",
+    "seoDesc": "Browse the full TextStack Reader catalogue: every book, author, and genre in one place.",
     "navigation": "Navigation",
     "books": "Books",
     "authors": "Authors",
     "genres": "Genres",
-    "blog": "Blog",
     "help": "Help & About",
     "loading": "Loading sitemap…",
     "totalBooks": "{count} books",
     "totalAuthors": "{count} authors",
-    "totalGenres": "{count} genres",
-    "totalPosts": "{count} posts"
+    "totalGenres": "{count} genres"
   },
   "about": {
     "seoTitle": "About TextStack Reader",
@@ -549,9 +515,7 @@
     "streaks": "Streaks",
     "genres": "Genres",
     "authors": "Most Read Authors",
-    "moods": "Moods",
     "pace": "Pace",
-    "ratings": "Ratings",
     "languages": "Languages",
     "booksOverTime": "Books Over Time",
     "bookLength": "Book Length",
@@ -560,7 +524,6 @@
     "hours": "Hours",
     "totalPages": "Total Pages",
     "avgTimeToFinish": "Avg Days to Finish",
-    "avgRating": "Avg Rating",
     "readingTimeByGenre": "Reading Time by Genre",
     "readingTimeByAuthor": "Reading Time by Author",
     "slow": "Slow",
@@ -845,46 +808,11 @@
       "practicedToday": "Practiced today"
     }
   },
-  "reviews": {
-    "title": "Reviews",
-    "writeReview": "Write a Review",
-    "editReview": "Edit Review",
-    "ratingDistribution": "Rating Distribution",
-    "filterByRating": "Filter by Rating",
-    "all": "All",
-    "sortBy": "Sort by",
-    "mostPopular": "Most Popular",
-    "newest": "Newest",
-    "oldest": "Oldest",
-    "helpful": "Helpful",
-    "showSpoiler": "Show Spoiler",
-    "hideSpoiler": "Hide Spoiler",
-    "markSpoiler": "Contains spoilers",
-    "reviewTitle": "Review title (optional)",
-    "reviewText": "Write your review...",
-    "submit": "Submit Review",
-    "cancel": "Cancel",
-    "loadMore": "Load More Reviews",
-    "showing": "Showing {from}-{to} of {total} reviews",
-    "noReviews": "No reviews yet. Be the first to review!",
-    "ratings": "ratings",
-    "reviews": "reviews",
-    "comments": "Comments",
-    "addComment": "Add a comment...",
-    "deleteComment": "Delete",
-    "myReviews": "My Reviews",
-    "noMyReviews": "You haven't written any reviews yet.",
-    "anonymous": "Anonymous",
-    "untitled": "Untitled Review",
-    "ratingRequired": "Please select a rating",
-    "textRequired": "Please write your review"
-  },
   "breadcrumbs": {
     "home": "Home",
     "books": "Books",
     "authors": "Authors",
-    "genres": "Genres",
-    "blog": "Blog"
+    "genres": "Genres"
   },
   "tts": {
     "listen": "Listen",
@@ -893,24 +821,6 @@
     "settings": "Pronunciation",
     "unavailable": "Pronunciation unavailable",
     "test": "Test"
-  },
-  "blog": {
-    "title": "Blog",
-    "seoDesc": "Articles, reading lists, and book recommendations from the TextStack Reader team. Discover curated guides, classic literature essays, and tips for lifelong readers.",
-    "readMore": "Read more",
-    "noPostsYet": "No posts yet",
-    "publishedOn": "Published on",
-    "writtenBy": "By",
-    "tags": "Tags",
-    "loadMore": "Load more",
-    "comments": "Comments",
-    "leaveComment": "Leave a comment",
-    "commentPlaceholder": "Write your comment...",
-    "deleteComment": "Delete",
-    "reply": "Reply",
-    "replyPlaceholder": "Write your reply...",
-    "likes": "Likes",
-    "backToBlog": "Back to Blog"
   },
   "share": {
     "share": "Share",

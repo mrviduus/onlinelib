@@ -640,18 +640,6 @@ function BooksTabSection({ bookStats }: { bookStats: BookStatsResponse | null })
         </View>
       )}
 
-      {/* Rating distribution */}
-      {bookStats.avgRating != null && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Ratings</Text>
-          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>
-            Average: {bookStats.avgRating.toFixed(1)} / 5
-          </Text>
-          {bookStats.ratingDistribution.sort((a, b) => b.rating - a.rating).map(r => (
-            <BarRow key={r.rating} label={`${'★'.repeat(r.rating)}`} value={r.count} max={Math.max(...bookStats.ratingDistribution.map(x => x.count))} />
-          ))}
-        </View>
-      )}
     </View>
   )
 }
@@ -683,16 +671,6 @@ function TimeTabSection({ bookStats, stats }: { bookStats: BookStatsResponse | n
           <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Reading Pace</Text>
           {bookStats.paceStats.map(p => (
             <BarRow key={p.pace} label={p.pace} value={p.count} max={Math.max(...bookStats.paceStats.map(x => x.count))} />
-          ))}
-        </View>
-      )}
-
-      {/* Mood stats */}
-      {bookStats && bookStats.moodStats.length > 0 && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Reading Moods</Text>
-          {bookStats.moodStats.map(m => (
-            <BarRow key={m.name} label={`${m.emoji || ''} ${m.name}`} value={m.count} max={bookStats.moodStats[0].count} />
           ))}
         </View>
       )}

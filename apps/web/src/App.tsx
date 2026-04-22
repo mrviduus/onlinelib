@@ -26,8 +26,6 @@ import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
 import { VocabularyPage } from './pages/VocabularyPage'
 import { HighlightsPage } from './pages/HighlightsPage'
-import { BlogPage } from './pages/BlogPage'
-import { BlogPostPage } from './pages/BlogPostPage'
 import { LearnEnglishBrazilPage } from './pages/LearnEnglishBrazilPage'
 import { LearnEnglishSpainPage } from './pages/LearnEnglishSpainPage'
 import { ReadBooksInEnglishPage } from './pages/ReadBooksInEnglishPage'
@@ -46,8 +44,6 @@ import './styles/reader.css'
 import './styles/books.css'
 import './styles/stats.css'
 import './styles/vocabulary.css'
-import './styles/reviews.css'
-import './styles/blog.css'
 import './styles/highlights.css'
 import './styles/auth.css'
 import './styles/profile.css'
@@ -91,8 +87,6 @@ function LanguageRoutes() {
         <Route path="/authors/:slug" element={<AuthorDetailPage />} />
         <Route path="/genres" element={<GenresPage />} />
         <Route path="/genres/:slug" element={<GenreDetailPage />} />
-        <Route path="/blog" element={<BlogPage />} />
-        <Route path="/blog/:slug" element={<BlogPostPage />} />
         <Route path="/learn-english-brazil" element={<LearnEnglishBrazilPage />} />
         <Route path="/learn-english-spain" element={<LearnEnglishSpainPage />} />
         <Route path="/read-books-in-english" element={<ReadBooksInEnglishPage />} />
@@ -155,7 +149,6 @@ function AppRoutes() {
       <Route path="/vocabulary/review" element={<LegacyRedirect />} />
       <Route path="/highlights" element={<LegacyRedirect />} />
       <Route path="/highlights/review" element={<LegacyRedirect />} />
-      <Route path="/blog/*" element={<LegacyRedirect />} />
       <Route path="/read-books-in-english" element={<LegacyRedirect />} />
       <Route path="/books-with-translation" element={<LegacyRedirect />} />
       <Route path="/:lang/*" element={<LanguageRoutes />} />

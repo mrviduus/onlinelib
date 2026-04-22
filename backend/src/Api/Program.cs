@@ -213,46 +213,6 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
-    // Ambient social highlights. Keys by user when authenticated (so one user
-    // can't drown the per-IP bucket for a shared network) and falls back to IP
-    // for the public hotspots read path and for guests.
-    static string UserOrIpKey(HttpContext ctx)
-    {
-        var sub = ctx.User?.FindFirst("sub")?.Value;
-        if (!string.IsNullOrEmpty(sub)) return "u:" + sub;
-        return "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-    }
-    options.AddPolicy("highlight-publish", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(UserOrIpKey(httpContext), _ => new FixedWindowRateLimiterOptions
-        {
-            Window = TimeSpan.FromMinutes(1),
-            PermitLimit = 30,
-            QueueLimit = 0,
-        }));
-    options.AddPolicy("highlight-like", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(UserOrIpKey(httpContext), _ => new FixedWindowRateLimiterOptions
-        {
-            Window = TimeSpan.FromMinutes(1),
-            PermitLimit = 60,
-            QueueLimit = 0,
-        }));
-    options.AddPolicy("highlight-report", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(UserOrIpKey(httpContext), _ => new FixedWindowRateLimiterOptions
-        {
-            Window = TimeSpan.FromMinutes(1),
-            PermitLimit = 5,
-            QueueLimit = 0,
-        }));
-    options.AddPolicy("highlight-hotspots", httpContext =>
-    {
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
-        {
-            Window = TimeSpan.FromMinutes(1),
-            PermitLimit = 60,
-            QueueLimit = 0,
-        });
-    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     // Emit Retry-After so clients can back off intelligently instead of
     // hammering in a tight retry loop. RateLimiter exposes the metadata
@@ -373,19 +333,11 @@ app.MapAuthEndpoints();
 app.MapProfileEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();
-app.MapAdminHighlightsEndpoints();
 app.MapTranslationEndpoints();
 app.MapDictionaryEndpoints();
 app.MapUserBooksEndpoints();
 app.MapReadingTrackingEndpoints();
-app.MapUserRatingEndpoints();
-app.MapReviewEndpoints();
-app.MapUserMoodEndpoints();
-app.MapAdminMoodEndpoints();
-app.MapAdminBoardTaskEndpoints();
 app.MapAdminBookQualityEndpoints();
-app.MapAdminBlogEndpoints();
-app.MapBlogEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();

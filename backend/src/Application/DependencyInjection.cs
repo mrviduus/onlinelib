@@ -8,7 +8,6 @@ using Application.Reprocessing;
 using Application.Seo;
 using Application.Vocabulary;
 using Application.Export;
-using Application.Highlights;
 using Application.SsgRebuild;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +34,6 @@ public static class DependencyInjection
         services.AddScoped<AdminSettingsService>();
         services.AddScoped<ReprocessingService>();
         services.AddScoped<EpubExportService>();
-        services.AddScoped<HighlightClusterService>();
 
         // Vocabulary anti-spiral
         services.AddScoped<WeeklyBudgetService>();

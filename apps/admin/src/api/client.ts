@@ -450,60 +450,6 @@ async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
 // Single site architecture - this is the only public site
 export const DEFAULT_SITE_ID = '11111111-1111-1111-1111-111111111111'
 
-export interface BlogPostListItem {
-  id: string
-  slug: string
-  title: string
-  authorName: string
-  language: string
-  status: string
-  likeCount: number
-  commentCount: number
-  viewCount: number
-  publishedAt: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface BlogPostDetail {
-  id: string
-  slug: string
-  title: string
-  content: string
-  excerpt: string | null
-  coverImagePath: string | null
-  authorName: string
-  tags: string | null
-  language: string
-  status: string
-  seoTitle: string | null
-  seoDescription: string | null
-  likeCount: number
-  commentCount: number
-  viewCount: number
-  publishedAt: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface BlogStats {
-  total: number
-  published: number
-  draft: number
-  totalComments: number
-  totalLikes: number
-}
-
-export interface BoardTaskDto {
-  id: string
-  title: string
-  status: 'todo' | 'doing' | 'done'
-  order: number
-  source: string
-  createdAt: string
-  updatedAt: string
-}
-
 // Book Quality
 export type BookQualityJobStatus = 'Queued' | 'Validating' | 'Fixing' | 'Completed' | 'Failed' | 'Cancelled'
 
@@ -915,66 +861,6 @@ export const adminApi = {
     })
   },
 
-  // Blog
-  getBlogPosts: async (params?: { search?: string; status?: string; language?: string; offset?: number; limit?: number }): Promise<PaginatedResult<BlogPostListItem>> => {
-    const query = new URLSearchParams({ siteId: DEFAULT_SITE_ID })
-    if (params?.search) query.set('search', params.search)
-    if (params?.status) query.set('status', params.status)
-    if (params?.language) query.set('language', params.language)
-    if (params?.offset) query.set('offset', String(params.offset))
-    if (params?.limit) query.set('limit', String(params.limit))
-    return fetchJson<PaginatedResult<BlogPostListItem>>(`/admin/blog?${query}`)
-  },
-
-  getBlogPost: async (id: string): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`)
-  },
-
-  createBlogPost: async (data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>(`/admin/blog?siteId=${DEFAULT_SITE_ID}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-  },
-
-  updateBlogPost: async (id: string, data: { title: string; content: string; language: string; authorName: string; excerpt?: string; tags?: string; seoTitle?: string; seoDescription?: string }): Promise<BlogPostDetail> => {
-    return fetchJson<BlogPostDetail>(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-  },
-
-  deleteBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
-  },
-
-  publishBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/publish?siteId=${DEFAULT_SITE_ID}`, { method: 'POST' })
-  },
-
-  unpublishBlogPost: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/unpublish?siteId=${DEFAULT_SITE_ID}`, { method: 'POST' })
-  },
-
-  uploadBlogCover: async (id: string, file: File): Promise<{ coverImagePath: string }> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return fetchJson<{ coverImagePath: string }>(`/admin/blog/${id}/cover?siteId=${DEFAULT_SITE_ID}`, {
-      method: 'POST',
-      body: formData,
-    })
-  },
-
-  deleteBlogCover: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/blog/${id}/cover?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
-  },
-
-  getBlogStats: async (): Promise<BlogStats> => {
-    return fetchJson<BlogStats>(`/admin/blog/stats?siteId=${DEFAULT_SITE_ID}`)
-  },
-
   // Auto Publish
   getAutoPublishSettings: async (): Promise<AutoPublishSettings> => {
     return fetchJson<AutoPublishSettings>('/admin/autopublish/settings')
@@ -1024,39 +910,6 @@ export const adminApi = {
   getAutoPublishCandidates: async (limit?: number): Promise<CandidateEdition[]> => {
     const qs = limit ? `?limit=${limit}` : ''
     return fetchJson<CandidateEdition[]>(`/admin/autopublish/candidates${qs}`)
-  },
-
-  // Board Tasks
-  getBoardTasks: async (): Promise<BoardTaskDto[]> => {
-    return fetchJson<BoardTaskDto[]>('/admin/tasks')
-  },
-
-  createBoardTask: async (title: string, source?: string): Promise<BoardTaskDto> => {
-    return fetchJson<BoardTaskDto>('/admin/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, source: source || 'manual' }),
-    })
-  },
-
-  updateBoardTask: async (id: string, title: string): Promise<BoardTaskDto> => {
-    return fetchJson<BoardTaskDto>(`/admin/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    })
-  },
-
-  deleteBoardTask: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/tasks/${id}`, { method: 'DELETE' })
-  },
-
-  reorderBoardTasks: async (items: { id: string; status: string; order: number }[]): Promise<void> => {
-    await fetchVoid('/admin/tasks/reorder', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
-    })
   },
 
   // User Uploads
@@ -1219,49 +1072,6 @@ export const adminApi = {
     })
   },
 
-  // Highlight reports (ambient social moderation)
-  getHighlightReports: async (params?: {
-    status?: 'open' | 'resolved' | 'all'
-    limit?: number
-    offset?: number
-  }): Promise<{ items: HighlightReport[]; totalCount: number }> => {
-    const query = new URLSearchParams({ siteId: DEFAULT_SITE_ID })
-    if (params?.status) query.set('status', params.status)
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
-    return fetchJson(`/admin/highlights/reports?${query.toString()}`)
-  },
-
-  resolveHighlightReport: async (id: string, action: 'dismiss' | 'delete'): Promise<void> => {
-    await fetchVoid(`/admin/highlights/reports/${id}/resolve?siteId=${DEFAULT_SITE_ID}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
-    })
-  },
-
-  deleteHighlight: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/highlights/${id}?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
-  },
-}
-
-export interface HighlightReport {
-  id: string
-  highlightId: string
-  highlightUserId: string
-  selectedText: string
-  noteText: string | null
-  highlightIsDeleted: boolean
-  editionId: string | null
-  chapterId: string | null
-  editionTitle: string | null
-  chapterTitle: string | null
-  reportedByUserId: string
-  reason: string
-  note: string | null
-  createdAt: string
-  resolvedAt: string | null
-  resolution: string | null
 }
 
 // SEO Backfill types

@@ -6,7 +6,6 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Footer } from '../components/Footer'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
-import { getBlogPosts, type BlogPostListItemDto } from '../api/blog'
 import type { Edition, Author, Genre } from '../types/api'
 
 // Batch size when walking paginated endpoints. Large enough to finish in 1-2
@@ -17,7 +16,6 @@ const PAGE_SIZE = 500
 type BookLite = Pick<Edition, 'slug' | 'title'>
 type AuthorLite = Pick<Author, 'slug' | 'name'>
 type GenreLite = Pick<Genre, 'slug' | 'name'>
-type PostLite = Pick<BlogPostListItemDto, 'slug' | 'title'>
 
 /**
  * Walks a paginated endpoint (total + items) and returns every item.
@@ -46,7 +44,7 @@ function alphaSort<T>(arr: T[], key: (item: T) => string): T[] {
  *
  * Why this page exists (SEO):
  * - Ahrefs and Google reward deep internal link equity; one flat page that
- *   links to every book / author / genre / blog post pushes link juice to
+ *   links to every book / author / genre pushes link juice to
  *   long-tail pages that would otherwise be 3+ clicks deep.
  * - Supplements the XML sitemap: search engines crawl the XML for discovery,
  *   users crawl this HTML sitemap when the on-site search / nav falls short.
@@ -61,7 +59,6 @@ export function SitemapPage() {
   const [books, setBooks] = useState<BookLite[] | null>(null)
   const [authors, setAuthors] = useState<AuthorLite[] | null>(null)
   const [genres, setGenres] = useState<GenreLite[] | null>(null)
-  const [posts, setPosts] = useState<PostLite[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -88,27 +85,18 @@ export function SitemapPage() {
       }
     }).catch(() => { if (!cancelled) setGenres([]) })
 
-    const loadPosts = collectAll<BlogPostListItemDto>((offset, limit) =>
-      getBlogPosts({ language, offset, limit }),
-    ).then((items) => {
-      if (!cancelled) {
-        setPosts(items.map((p) => ({ slug: p.slug, title: p.title })))
-      }
-    }).catch(() => { if (!cancelled) setPosts([]) })
-
-    Promise.all([loadBooks, loadAuthors, loadGenres, loadPosts]).catch(() => {})
+    Promise.all([loadBooks, loadAuthors, loadGenres]).catch(() => {})
 
     return () => { cancelled = true }
   }, [api, language])
 
-  const isLoading = books === null || authors === null || genres === null || posts === null
+  const isLoading = books === null || authors === null || genres === null
 
   // Memoise render output so re-renders triggered by unrelated context changes
   // don't re-sort thousands of entries.
   const bookList = useMemo(() => books ?? [], [books])
   const authorList = useMemo(() => authors ?? [], [authors])
   const genreList = useMemo(() => genres ?? [], [genres])
-  const postList = useMemo(() => posts ?? [], [posts])
 
   return (
     <>
@@ -127,7 +115,6 @@ export function SitemapPage() {
             <li><LocalizedLink to="/books">{t('sitemap.books')}</LocalizedLink></li>
             <li><LocalizedLink to="/authors">{t('sitemap.authors')}</LocalizedLink></li>
             <li><LocalizedLink to="/genres">{t('sitemap.genres')}</LocalizedLink></li>
-            <li><LocalizedLink to="/blog">{t('sitemap.blog')}</LocalizedLink></li>
           </ul>
         </section>
 
@@ -184,25 +171,6 @@ export function SitemapPage() {
               {genreList.map((g) => (
                 <li key={g.slug}>
                   <LocalizedLink to={`/genres/${g.slug}`}>{g.name}</LocalizedLink>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Blog posts */}
-        {postList.length > 0 && (
-          <section className="sitemap-section">
-            <h2>
-              {t('sitemap.blog')}{' '}
-              <span className="sitemap-count">
-                {t('sitemap.totalPosts').replace('{count}', String(postList.length))}
-              </span>
-            </h2>
-            <ul className="sitemap-list">
-              {postList.map((p) => (
-                <li key={p.slug}>
-                  <LocalizedLink to={`/blog/${p.slug}`}>{p.title}</LocalizedLink>
                 </li>
               ))}
             </ul>

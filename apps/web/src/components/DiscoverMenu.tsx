@@ -161,11 +161,6 @@ export function DiscoverMenu() {
                   {t('nav.discoverMenu.topFreeBooks')}
                 </LocalizedLink>
               </li>
-              <li>
-                <LocalizedLink to="/blog" className="discover-menu__link" onClick={() => setOpen(false)}>
-                  {t('nav.discoverMenu.blogPosts')}
-                </LocalizedLink>
-              </li>
             </ul>
           </div>
 

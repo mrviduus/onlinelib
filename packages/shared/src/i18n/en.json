@@ -52,14 +52,12 @@
       "continueReading": "Pick up where you left off",
       "forYou": "For you",
       "recents": "Recently read",
-      "collections": "Browse collections",
       "popularNow": "Popular now"
     },
     "empty": {
       "forYou": "Open your first book and we'll start recommending.",
       "continue": "Nothing in progress yet. Start a book from the catalog.",
       "recents": "Books you read will show up here.",
-      "collections": "Collections will appear soon.",
       "browseBooks": "Browse books"
     },
     "vocabCard": {
@@ -193,8 +191,7 @@
     "timeHoursAgo": "hours ago",
     "timeYesterday": "yesterday",
     "timeDaysAgo": "days ago",
-    "failedToProcess": "Failed to process",
-    "noReviews": "No reviews yet"
+    "failedToProcess": "Failed to process"
   },
   "books": {
     "title": "Books",
@@ -342,9 +339,7 @@
     "streaks": "Streaks",
     "genres": "Genres",
     "authors": "Most Read Authors",
-    "moods": "Moods",
     "pace": "Pace",
-    "ratings": "Ratings",
     "languages": "Languages",
     "booksOverTime": "Books Over Time",
     "bookLength": "Book Length",
@@ -353,7 +348,6 @@
     "hours": "Hours",
     "totalPages": "Total Pages",
     "avgTimeToFinish": "Avg Days to Finish",
-    "avgRating": "Avg Rating",
     "readingTimeByGenre": "Reading Time by Genre",
     "readingTimeByAuthor": "Reading Time by Author",
     "slow": "Slow",
@@ -369,9 +363,6 @@
   "highlights": {
     "empty": "No highlights yet",
     "emptySubtitle": "Select text while reading to highlight it"
-  },
-  "blog": {
-    "empty": "No blog posts yet"
   },
   "terms": {
     "seoTitle": "Terms of Service - TextStack",

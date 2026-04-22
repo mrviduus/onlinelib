@@ -350,7 +350,6 @@ public static class AdminSeoBackfillEndpoints
         {
             "author" => await analyzer.GetAuthorGapsAsync(language, limit, ct),
             "genre" => await analyzer.GetGenreGapsAsync(limit, ct),
-            "blogpost" => await analyzer.GetBlogPostGapsAsync(language, limit, ct),
             _ => await analyzer.GetEditionGapsAsync(language, limit, ct),
         };
         return Results.Ok(list);

@@ -42,11 +42,6 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
         result.Add(new("Genre", "SeoTitle", genreTotal, await db.Genres.CountAsync(g => g.Indexable && !string.IsNullOrEmpty(g.SeoTitle), ct), 0));
         result.Add(new("Genre", "SeoDescription", genreTotal, await db.Genres.CountAsync(g => g.Indexable && !string.IsNullOrEmpty(g.SeoDescription), ct), 0));
 
-        // BlogPost: SeoTitle, SeoDescription
-        var blogTotal = await db.BlogPosts.CountAsync(p => p.Status == BlogPostStatus.Published, ct);
-        result.Add(new("BlogPost", "SeoTitle", blogTotal, await db.BlogPosts.CountAsync(p => p.Status == BlogPostStatus.Published && !string.IsNullOrEmpty(p.SeoTitle), ct), 0));
-        result.Add(new("BlogPost", "SeoDescription", blogTotal, await db.BlogPosts.CountAsync(p => p.Status == BlogPostStatus.Published && !string.IsNullOrEmpty(p.SeoDescription), ct), 0));
-
         return result.Select(s => s with { Missing = s.Total - s.Populated }).ToList();
     }
 
@@ -106,20 +101,4 @@ public class SeoCoverageAnalyzer(IAppDbContext db)
         }).Where(r => r.MissingFields.Count > 0).ToList();
     }
 
-    public async Task<List<GapRow>> GetBlogPostGapsAsync(string? language, int limit, CancellationToken ct)
-    {
-        var q = db.BlogPosts.AsNoTracking()
-            // Include Manual-source posts if they still have empty fields
-            .Where(p => p.Status == BlogPostStatus.Published);
-        if (!string.IsNullOrWhiteSpace(language)) q = q.Where(p => p.Language == language);
-
-        var list = await q.OrderBy(p => p.Title).Take(limit).ToListAsync(ct);
-        return list.Select(p =>
-        {
-            var missing = new List<string>();
-            if (string.IsNullOrEmpty(p.SeoTitle)) missing.Add("SeoTitle");
-            if (string.IsNullOrEmpty(p.SeoDescription)) missing.Add("SeoDescription");
-            return new GapRow("BlogPost", p.Id, p.Title, p.Language, missing);
-        }).Where(r => r.MissingFields.Count > 0).ToList();
-    }
 }

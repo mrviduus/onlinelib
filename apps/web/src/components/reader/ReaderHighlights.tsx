@@ -1,7 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
 import { useHighlights } from '../../hooks/useHighlights'
-import { useHotspots } from '../../hooks/useHotspots'
 import { useTextTranslation } from '../../hooks/useTextTranslation'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useTts } from '../../hooks/useTts'
@@ -15,11 +14,8 @@ import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
-import type { Hotspot } from '../../api/socialHighlights'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
-import { HotspotPanel } from './HotspotPanel'
-import { ReportHighlightModal } from './ReportHighlightModal'
 import { VocabWordLayer } from './VocabWordLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { WordPopup } from './WordPopup'
@@ -340,20 +336,6 @@ export function ReaderHighlights({
     isAuthenticated: _isAuthenticated,
   })
 
-  // --- Social hotspots (public highlights from other readers) ---
-  const { hotspots, setHotspots } = useHotspots(userBookId ? undefined : editionId, chapterId)
-  const [activeHotspot, setActiveHotspot] = useState<Hotspot | null>(null)
-  const [reportingHighlightId, setReportingHighlightId] = useState<string | null>(null)
-
-  const handleHotspotClick = useCallback((hot: Hotspot) => {
-    setActiveHotspot(hot)
-  }, [])
-
-  const handleHotspotUpdate = useCallback((next: Hotspot) => {
-    setActiveHotspot(next)
-    setHotspots(prev => prev.map(h => h.key === next.key ? next : h))
-  }, [setHotspots])
-
   // Scroll to highlight when navigating from highlights page
   const scrolledRef = useRef(false)
   useEffect(() => {
@@ -388,8 +370,8 @@ export function ReaderHighlights({
   }, [])
 
   const handleNoteSave = useCallback(
-    async (noteText: string | null, isPublic: boolean) => {
-      if (editingHighlight) await updateHighlight(editingHighlight.id, { noteText, isPublic })
+    async (noteText: string | null) => {
+      if (editingHighlight) await updateHighlight(editingHighlight.id, { noteText })
     },
     [editingHighlight, updateHighlight]
   )
@@ -489,8 +471,6 @@ export function ReaderHighlights({
         highlights={highlights}
         containerRef={containerRef}
         onHighlightClick={handleHighlightClick}
-        hotspots={hotspots}
-        onHotspotClick={handleHotspotClick}
       />
 
       <VocabWordLayer
@@ -581,25 +561,6 @@ export function ReaderHighlights({
           onSave={handleNoteSave}
           onDelete={handleHighlightDelete}
           onClose={closeNoteEditor}
-        />
-      )}
-
-      {activeHotspot && (
-        <HotspotPanel
-          hotspot={activeHotspot}
-          isAuthenticated={!!_isAuthenticated}
-          onClose={() => setActiveHotspot(null)}
-          onGuestBlock={openAuthModal}
-          onReport={(hid) => setReportingHighlightId(hid)}
-          onLikedChange={handleHotspotUpdate}
-        />
-      )}
-
-      {reportingHighlightId && (
-        <ReportHighlightModal
-          highlightId={reportingHighlightId}
-          onClose={() => setReportingHighlightId(null)}
-          onSubmitted={() => setReportingHighlightId(null)}
         />
       )}
 

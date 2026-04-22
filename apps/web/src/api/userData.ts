@@ -48,9 +48,6 @@ export interface PublicHighlight {
   version: number
   createdAt: string
   updatedAt: string
-  isPublic?: boolean
-  likeCount?: number
-  publishedAt?: string | null
 }
 
 export interface HighlightListItem {
@@ -138,7 +135,6 @@ export async function createPublicHighlight(data: {
   color: string
   selectedText: string
   noteText?: string
-  isPublic?: boolean
 }): Promise<PublicHighlight> {
   return authFetch<PublicHighlight>('/me/highlights', {
     method: 'POST',
@@ -155,7 +151,6 @@ export async function updatePublicHighlight(
     selectedText?: string
     noteText?: string | null
     version?: number
-    isPublic?: boolean
   }
 ): Promise<PublicHighlight> {
   return authFetch<PublicHighlight>(`/me/highlights/${id}`, {

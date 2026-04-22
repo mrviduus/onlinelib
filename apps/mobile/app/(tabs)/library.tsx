@@ -7,9 +7,9 @@ import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi, reviewsApi, getStorageUrl, createBooksApi,
+  libraryApi, readingProgressApi, userBooksApi, getStorageUrl, createBooksApi,
 } from '@textstack/shared'
-import { getAnonymousReaderName, type UserLibraryItem, type UserBookDto, type ReadingProgressDto, type UserRatingDto } from '@textstack/shared'
+import { getAnonymousReaderName, type UserLibraryItem, type UserBookDto, type ReadingProgressDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -18,7 +18,7 @@ import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 
-type Tab = 'saved' | 'uploads' | 'reviews'
+type Tab = 'saved' | 'uploads'
 type ViewMode = 'list' | 'grid'
 
 
@@ -35,7 +35,6 @@ export default function LibraryScreen() {
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [reviews, setReviews] = useState<UserRatingDto[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -51,16 +50,14 @@ export default function LibraryScreen() {
     if (!isAuthenticated) { setLoading(false); return }
     const myGen = ++loadGenRef.current
     try {
-      const [lib, progress, books, ratings] = await Promise.all([
+      const [lib, progress, books] = await Promise.all([
         libraryApi.getLibrary(),
         readingProgressApi.getAllProgress(),
         userBooksApi.getUserBooks(),
-        reviewsApi.getAllRatings().catch(() => [] as UserRatingDto[]),
       ])
       if (myGen !== loadGenRef.current) return // superseded or unmounted
       setLibrary(lib)
       setUserBooks(books)
-      setReviews(ratings.filter(r => r.reviewText))
       const map: Record<string, ReadingProgressDto> = {}
       for (const p of progress) map[p.editionId] = p
       setProgressMap(map)
@@ -151,7 +148,7 @@ export default function LibraryScreen() {
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
-          {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`], ['reviews', `Reviews (${reviews.length})`]] as [Tab, string][]).map(([t, label]) => (
+          {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
             <TouchableOpacity
               key={t}
               style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
@@ -161,24 +158,20 @@ export default function LibraryScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        {tab !== 'reviews' && (
-          <View style={{ flexDirection: 'row', paddingRight: 10, gap: 2 }}>
-            <TouchableOpacity onPress={() => toggleView('grid')} hitSlop={6} style={{ padding: 4 }}>
-              <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? colors.primary : colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleView('list')} hitSlop={6} style={{ padding: 4 }}>
-              <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? colors.primary : colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={{ flexDirection: 'row', paddingRight: 10, gap: 2 }}>
+          <TouchableOpacity onPress={() => toggleView('grid')} hitSlop={6} style={{ padding: 4 }}>
+            <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => toggleView('list')} hitSlop={6} style={{ padding: 4 }}>
+            <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {tab === 'saved' ? (
         <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
-      ) : tab === 'uploads' ? (
-        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       ) : (
-        <ReviewsList reviews={reviews} refreshing={refreshing} onRefresh={onRefresh} />
+        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       )}
     </View>
   )
@@ -672,116 +665,6 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
           }}
         />
     </View>
-  )
-}
-
-function ReviewsList({ reviews, refreshing, onRefresh }: {
-  reviews: UserRatingDto[]; refreshing: boolean; onRefresh: () => void
-}) {
-  const router = useRouter()
-  const { colors } = useTheme()
-  const { t } = useLanguage()
-
-  const handleLongPress = (item: UserRatingDto) => {
-    const editionId = item.editionId
-    const userBookId = item.userBookId
-    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = []
-    if (item.editionSlug) {
-      buttons.push({ text: 'Edit Review', onPress: () => router.push(`/book/${item.editionSlug}`) })
-    }
-    buttons.push({
-      text: 'Delete Review',
-      style: 'destructive',
-      onPress: () => {
-        Alert.alert('Delete Review', 'Are you sure?', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete', style: 'destructive', onPress: async () => {
-              try {
-                if (editionId) await reviewsApi.deleteReview(editionId)
-                else if (userBookId) await reviewsApi.deleteUserBookRating(userBookId)
-                onRefresh()
-              } catch (e) { console.error('Delete review failed:', e) }
-            },
-          },
-        ])
-      },
-    })
-    buttons.push({ text: 'Cancel', style: 'cancel' })
-    Alert.alert('Review Options', undefined, buttons)
-  }
-
-  if (reviews.length === 0) {
-    return (
-      <View style={styles.center}>
-        <EmptyState
-          icon="star-outline"
-          title={t('library.noReviews')}
-          subtitle={t('library.browseBooks')}
-          buttonLabel={t('library.browseBooks')}
-          onButtonPress={() => router.push('/(tabs)/search')}
-        />
-      </View>
-    )
-  }
-
-  return (
-    <FlatList
-      data={reviews}
-      keyExtractor={item => item.id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      contentContainerStyle={styles.listContent}
-      renderItem={({ item }) => {
-        const stars = '★'.repeat(Math.round(item.rating)) + '☆'.repeat(5 - Math.round(item.rating))
-        return (
-          <TouchableOpacity
-            style={[styles.bookRow, { borderBottomColor: colors.border }]}
-            onPress={() => {
-              if (item.editionSlug && item.editionLanguage) router.push(`/book/${item.editionSlug}`)
-            }}
-            onLongPress={() => handleLongPress(item)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.coverWrapper}>
-              <Image
-                source={item.editionCoverPath ? getStorageUrl(item.editionCoverPath) : undefined}
-                style={[styles.cover, { backgroundColor: colors.border }]}
-                contentFit="cover"
-              />
-            </View>
-            <View style={styles.bookInfo}>
-              <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
-                {item.editionTitle || item.userBookTitle || 'Unknown Book'}
-              </Text>
-              <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: '#F59E0B', marginTop: 4 }}>{stars}</Text>
-              {item.title && (
-                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text, marginTop: 4 }} numberOfLines={1}>
-                  {item.title}
-                </Text>
-              )}
-              {item.reviewText && (
-                <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 4, lineHeight: 18 }} numberOfLines={3}>
-                  {item.reviewText}
-                </Text>
-              )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Ionicons name="thumbs-up-outline" size={12} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>{item.helpfulCount}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Ionicons name="chatbubble-outline" size={12} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>{item.commentCount}</Text>
-                </View>
-                <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary }}>
-                  {new Date(item.updatedAt).toLocaleDateString()}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )
-      }}
-    />
   )
 }
 

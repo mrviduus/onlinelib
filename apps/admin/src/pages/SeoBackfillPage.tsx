@@ -24,7 +24,7 @@ type QueueInitialValues = {
 
 type Tab = 'coverage' | 'templates' | 'jobs' | 'settings'
 
-const ENTITY_TYPES = ['Author', 'Edition', 'Genre', 'BlogPost'] as const
+const ENTITY_TYPES = ['Author', 'Edition', 'Genre'] as const
 const FIELD_TYPES = [
   'Bio', 'Description', 'Relevance', 'Themes', 'Faqs',
   'SeoTitle', 'SeoDescription', 'SeoKeywords',
@@ -39,7 +39,7 @@ export function SeoBackfillPage() {
     <div>
       <h1>SEO Backfill</h1>
       <p style={{ color: '#666' }}>
-        Automate SEO field generation for Authors, Editions, Genres, and Blog posts using Claude CLI templates.
+        Automate SEO field generation for Authors, Editions, and Genres using Claude CLI templates.
       </p>
 
       <div style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0', borderBottom: '1px solid #ddd' }}>
@@ -744,9 +744,6 @@ function EntityPicker({
       } else if (entityType === 'Genre') {
         const r = await adminApi.searchGenres(DEFAULT_SITE_ID, q || undefined, 10)
         items = r.map(g => ({ id: g.id, label: g.name }))
-      } else if (entityType === 'BlogPost') {
-        const r = await adminApi.getBlogPosts({ search: q || undefined, limit: 10 })
-        items = r.items.map(p => ({ id: p.id, label: `${p.title}${p.language ? ` (${p.language})` : ''}` }))
       }
       if (reqId === reqIdRef.current) setResults(items)
     } catch (e) {

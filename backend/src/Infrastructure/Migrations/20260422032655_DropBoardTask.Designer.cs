@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -12,9 +13,11 @@ using NpgsqlTypes;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422032655_DropBoardTask")]
+    partial class DropBoardTask
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -280,6 +283,215 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_auto_publish_jobs_site_id");
 
                     b.ToTable("auto_publish_jobs", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blog_post_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("ParentCommentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_comment_id");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_blog_comments");
+
+                    b.HasIndex("BlogPostId")
+                        .HasDatabaseName("ix_blog_comments_blog_post_id");
+
+                    b.HasIndex("ParentCommentId")
+                        .HasDatabaseName("ix_blog_comments_parent_comment_id");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_blog_comments_site_id");
+
+                    b.HasIndex("UserId", "SiteId")
+                        .HasDatabaseName("ix_blog_comments_user_id_site_id");
+
+                    b.ToTable("blog_comments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogLike", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blog_post_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_blog_likes");
+
+                    b.HasIndex("BlogPostId")
+                        .HasDatabaseName("ix_blog_likes_blog_post_id");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_blog_likes_site_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_blog_likes_user_id");
+
+                    b.HasIndex("BlogPostId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_blog_likes_blog_post_id_user_id");
+
+                    b.ToTable("blog_likes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogPost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("author_name");
+
+                    b.Property<int>("CommentCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("comment_count");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<string>("CoverImagePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cover_image_path");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Excerpt")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("excerpt");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("language");
+
+                    b.Property<int>("LikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("like_count");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<string>("SeoDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("seo_description");
+
+                    b.Property<int>("SeoSource")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("seo_source");
+
+                    b.Property<string>("SeoTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("seo_title");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("slug");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("tags");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("view_count");
+
+                    b.HasKey("Id")
+                        .HasName("pk_blog_posts");
+
+                    b.HasIndex("SiteId", "Language", "Slug")
+                        .IsUnique()
+                        .HasDatabaseName("ix_blog_posts_site_id_language_slug");
+
+                    b.HasIndex("SiteId", "Status", "PublishedAt")
+                        .HasDatabaseName("ix_blog_posts_site_id_status_published_at");
+
+                    b.ToTable("blog_posts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.BookAsset", b =>
@@ -829,17 +1041,41 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by_user_id");
+
                     b.Property<Guid?>("EditionId")
                         .HasColumnType("uuid")
                         .HasColumnName("edition_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_public");
 
                     b.Property<DateTimeOffset?>("LastReviewedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_reviewed_at");
 
+                    b.Property<int>("LikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("like_count");
+
                     b.Property<string>("NoteText")
                         .HasColumnType("text")
                         .HasColumnName("note_text");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
 
                     b.Property<string>("SelectedText")
                         .IsRequired()
@@ -896,7 +1132,118 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_highlights_user_id_site_id_user_book_id")
                         .HasFilter("user_book_id IS NOT NULL");
 
+                    b.HasIndex("EditionId", "ChapterId", "IsPublic", "IsDeleted")
+                        .HasDatabaseName("ix_highlights_public_per_chapter")
+                        .HasFilter("is_public = true AND is_deleted = false");
+
                     b.ToTable("highlights", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.HighlightLike", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("HighlightId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("highlight_id");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_highlight_likes");
+
+                    b.HasIndex("HighlightId")
+                        .HasDatabaseName("ix_highlight_likes_highlight_id");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_highlight_likes_site_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_highlight_likes_user_id");
+
+                    b.HasIndex("HighlightId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_highlight_likes_highlight_id_user_id");
+
+                    b.ToTable("highlight_likes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.HighlightReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("HighlightId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("highlight_id");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reported_by_user_id");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("resolution");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_admin_id");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_highlight_reports");
+
+                    b.HasIndex("HighlightId")
+                        .HasDatabaseName("ix_highlight_reports_highlight_id");
+
+                    b.HasIndex("ReportedByUserId")
+                        .HasDatabaseName("ix_highlight_reports_reported_by_user_id");
+
+                    b.HasIndex("ResolvedAt")
+                        .HasDatabaseName("ix_highlight_reports_resolved_at");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_highlight_reports_site_id");
+
+                    b.ToTable("highlight_reports", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.IngestionJob", b =>
@@ -1049,6 +1396,52 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_lint_results_edition_id");
 
                     b.ToTable("lint_results", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Mood", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Emoji")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("emoji");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("slug");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_moods");
+
+                    b.HasIndex("SiteId", "Slug")
+                        .IsUnique()
+                        .HasDatabaseName("ix_moods_site_id_slug");
+
+                    b.ToTable("moods", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Note", b =>
@@ -1470,6 +1863,96 @@ namespace Infrastructure.Migrations
                         .HasFilter("user_book_id IS NOT NULL");
 
                     b.ToTable("reading_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ReviewComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("UserRatingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_rating_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_review_comments");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_review_comments_site_id");
+
+                    b.HasIndex("UserRatingId")
+                        .HasDatabaseName("ix_review_comments_user_rating_id");
+
+                    b.HasIndex("UserId", "SiteId")
+                        .HasDatabaseName("ix_review_comments_user_id_site_id");
+
+                    b.ToTable("review_comments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ReviewLike", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("UserRatingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_rating_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_review_likes");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_review_likes_site_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_review_likes_user_id");
+
+                    b.HasIndex("UserRatingId")
+                        .HasDatabaseName("ix_review_likes_user_rating_id");
+
+                    b.HasIndex("UserRatingId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_review_likes_user_rating_id_user_id");
+
+                    b.ToTable("review_likes", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.SeoBackfillJob", b =>
@@ -2481,6 +2964,153 @@ namespace Infrastructure.Migrations
                     b.ToTable("user_libraries", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.UserMoodTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("EditionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("edition_id");
+
+                    b.Property<Guid>("MoodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mood_id");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<Guid?>("UserBookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_book_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_mood_tags");
+
+                    b.HasIndex("EditionId")
+                        .HasDatabaseName("ix_user_mood_tags_edition_id");
+
+                    b.HasIndex("MoodId")
+                        .HasDatabaseName("ix_user_mood_tags_mood_id");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_user_mood_tags_site_id");
+
+                    b.HasIndex("UserBookId")
+                        .HasDatabaseName("ix_user_mood_tags_user_book_id");
+
+                    b.HasIndex("UserId", "EditionId")
+                        .HasDatabaseName("ix_user_mood_tags_user_id_edition_id")
+                        .HasFilter("edition_id IS NOT NULL");
+
+                    b.HasIndex("UserId", "UserBookId")
+                        .HasDatabaseName("ix_user_mood_tags_user_id_user_book_id")
+                        .HasFilter("user_book_id IS NOT NULL");
+
+                    b.HasIndex("UserId", "EditionId", "MoodId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_mood_tags_user_id_edition_id_mood_id")
+                        .HasFilter("edition_id IS NOT NULL");
+
+                    b.HasIndex("UserId", "UserBookId", "MoodId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_mood_tags_user_id_user_book_id_mood_id")
+                        .HasFilter("user_book_id IS NOT NULL");
+
+                    b.ToTable("user_mood_tags", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.UserRating", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("EditionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("edition_id");
+
+                    b.Property<int>("HelpfulCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("helpful_count");
+
+                    b.Property<bool>("IsSpoiler")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_spoiler");
+
+                    b.Property<double>("Rating")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("ReviewText")
+                        .HasColumnType("text")
+                        .HasColumnName("review_text");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserBookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_book_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_ratings");
+
+                    b.HasIndex("EditionId")
+                        .HasDatabaseName("ix_user_ratings_edition_id");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("ix_user_ratings_site_id");
+
+                    b.HasIndex("UserBookId")
+                        .HasDatabaseName("ix_user_ratings_user_book_id");
+
+                    b.HasIndex("EditionId", "HelpfulCount")
+                        .HasDatabaseName("ix_user_ratings_edition_id_helpful_count");
+
+                    b.HasIndex("UserId", "SiteId", "EditionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_ratings_user_id_site_id_edition_id")
+                        .HasFilter("edition_id IS NOT NULL");
+
+                    b.HasIndex("UserId", "SiteId", "UserBookId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_ratings_user_id_site_id_user_book_id")
+                        .HasFilter("user_book_id IS NOT NULL");
+
+                    b.ToTable("user_ratings", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.UserRefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3131,6 +3761,86 @@ namespace Infrastructure.Migrations
                     b.Navigation("Site");
                 });
 
+            modelBuilder.Entity("Domain.Entities.BlogComment", b =>
+                {
+                    b.HasOne("Domain.Entities.BlogPost", "BlogPost")
+                        .WithMany("Comments")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_comments_blog_posts_blog_post_id");
+
+                    b.HasOne("Domain.Entities.BlogComment", "ParentComment")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_blog_comments_blog_comments_parent_comment_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_comments_sites_site_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_comments_users_user_id");
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("ParentComment");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogLike", b =>
+                {
+                    b.HasOne("Domain.Entities.BlogPost", "BlogPost")
+                        .WithMany("Likes")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_likes_blog_posts_blog_post_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_likes_sites_site_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_likes_users_user_id");
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogPost", b =>
+                {
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_blog_posts_sites_site_id");
+
+                    b.Navigation("Site");
+                });
+
             modelBuilder.Entity("Domain.Entities.BookAsset", b =>
                 {
                     b.HasOne("Domain.Entities.Edition", "Edition")
@@ -3340,6 +4050,66 @@ namespace Infrastructure.Migrations
                     b.Navigation("UserChapter");
                 });
 
+            modelBuilder.Entity("Domain.Entities.HighlightLike", b =>
+                {
+                    b.HasOne("Domain.Entities.Highlight", "Highlight")
+                        .WithMany("Likes")
+                        .HasForeignKey("HighlightId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_likes_highlights_highlight_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_likes_sites_site_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_likes_users_user_id");
+
+                    b.Navigation("Highlight");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.HighlightReport", b =>
+                {
+                    b.HasOne("Domain.Entities.Highlight", "Highlight")
+                        .WithMany("Reports")
+                        .HasForeignKey("HighlightId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_reports_highlights_highlight_id");
+
+                    b.HasOne("Domain.Entities.User", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_reports_users_reported_by_user_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_highlight_reports_sites_site_id");
+
+                    b.Navigation("Highlight");
+
+                    b.Navigation("ReportedByUser");
+
+                    b.Navigation("Site");
+                });
+
             modelBuilder.Entity("Domain.Entities.IngestionJob", b =>
                 {
                     b.HasOne("Domain.Entities.BookFile", "BookFile")
@@ -3387,6 +4157,18 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("fk_lint_results_editions_edition_id");
 
                     b.Navigation("Edition");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Mood", b =>
+                {
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_moods_sites_site_id");
+
+                    b.Navigation("Site");
                 });
 
             modelBuilder.Entity("Domain.Entities.Note", b =>
@@ -3590,6 +4372,66 @@ namespace Infrastructure.Migrations
                     b.Navigation("UserBook");
                 });
 
+            modelBuilder.Entity("Domain.Entities.ReviewComment", b =>
+                {
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_comments_sites_site_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_comments_users_user_id");
+
+                    b.HasOne("Domain.Entities.UserRating", "UserRating")
+                        .WithMany("Comments")
+                        .HasForeignKey("UserRatingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_comments_user_ratings_user_rating_id");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserRating");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ReviewLike", b =>
+                {
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_likes_sites_site_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_likes_users_user_id");
+
+                    b.HasOne("Domain.Entities.UserRating", "UserRating")
+                        .WithMany("Likes")
+                        .HasForeignKey("UserRatingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_likes_user_ratings_user_rating_id");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserRating");
+                });
+
             modelBuilder.Entity("Domain.Entities.SiteDomain", b =>
                 {
                     b.HasOne("Domain.Entities.Site", "Site")
@@ -3765,6 +4607,89 @@ namespace Infrastructure.Migrations
                     b.Navigation("Edition");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.UserMoodTag", b =>
+                {
+                    b.HasOne("Domain.Entities.Edition", "Edition")
+                        .WithMany()
+                        .HasForeignKey("EditionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_mood_tags_editions_edition_id");
+
+                    b.HasOne("Domain.Entities.Mood", "Mood")
+                        .WithMany()
+                        .HasForeignKey("MoodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_mood_tags_moods_mood_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_mood_tags_sites_site_id");
+
+                    b.HasOne("Domain.Entities.UserBook", "UserBook")
+                        .WithMany()
+                        .HasForeignKey("UserBookId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_mood_tags_user_books_user_book_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_mood_tags_users_user_id");
+
+                    b.Navigation("Edition");
+
+                    b.Navigation("Mood");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserBook");
+                });
+
+            modelBuilder.Entity("Domain.Entities.UserRating", b =>
+                {
+                    b.HasOne("Domain.Entities.Edition", "Edition")
+                        .WithMany()
+                        .HasForeignKey("EditionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_ratings_editions_edition_id");
+
+                    b.HasOne("Domain.Entities.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_ratings_sites_site_id");
+
+                    b.HasOne("Domain.Entities.UserBook", "UserBook")
+                        .WithMany()
+                        .HasForeignKey("UserBookId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_ratings_user_books_user_book_id");
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_ratings_users_user_id");
+
+                    b.Navigation("Edition");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserBook");
                 });
 
             modelBuilder.Entity("Domain.Entities.UserRefreshToken", b =>
@@ -4002,6 +4927,18 @@ namespace Infrastructure.Migrations
                     b.Navigation("EditionAuthors");
                 });
 
+            modelBuilder.Entity("Domain.Entities.BlogComment", b =>
+                {
+                    b.Navigation("Replies");
+                });
+
+            modelBuilder.Entity("Domain.Entities.BlogPost", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Likes");
+                });
+
             modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
                     b.Navigation("IngestionJobs");
@@ -4033,7 +4970,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Highlight", b =>
                 {
+                    b.Navigation("Likes");
+
                     b.Navigation("Note");
+
+                    b.Navigation("Reports");
                 });
 
             modelBuilder.Entity("Domain.Entities.Site", b =>
@@ -4070,6 +5011,13 @@ namespace Infrastructure.Migrations
                     b.Navigation("Chapters");
 
                     b.Navigation("IngestionJobs");
+                });
+
+            modelBuilder.Entity("Domain.Entities.UserRating", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Likes");
                 });
 
             modelBuilder.Entity("Domain.Entities.VocabularyWord", b =>

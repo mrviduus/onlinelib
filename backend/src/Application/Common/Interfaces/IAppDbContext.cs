@@ -36,14 +36,9 @@ public interface IAppDbContext
     DbSet<UserBookBookmark> UserBookBookmarks { get; }
     DbSet<Domain.Entities.AdminSettings> AdminSettings { get; }
     DbSet<Highlight> Highlights { get; }
-    DbSet<HighlightLike> HighlightLikes { get; }
-    DbSet<HighlightReport> HighlightReports { get; }
     DbSet<ReadingSession> ReadingSessions { get; }
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }
-    DbSet<UserRating> UserRatings { get; }
-    DbSet<Mood> Moods { get; }
-    DbSet<UserMoodTag> UserMoodTags { get; }
     DbSet<VocabularyWord> VocabularyWords { get; }
     DbSet<VocabularyReview> VocabularyReviews { get; }
     DbSet<UserVocabularySettings> UserVocabularySettings { get; }
@@ -51,14 +46,8 @@ public interface IAppDbContext
     DbSet<WordLookup> WordLookups { get; }
     DbSet<WordFrequency> WordFrequencies { get; }
     DbSet<WordCluster> WordClusters { get; }
-    DbSet<ReviewLike> ReviewLikes { get; }
-    DbSet<ReviewComment> ReviewComments { get; }
-    DbSet<BlogPost> BlogPosts { get; }
-    DbSet<BlogComment> BlogComments { get; }
-    DbSet<BlogLike> BlogLikes { get; }
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
-    DbSet<BoardTask> BoardTasks { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
