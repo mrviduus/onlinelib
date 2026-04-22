@@ -1072,49 +1072,6 @@ export const adminApi = {
     })
   },
 
-  // Highlight reports (ambient social moderation)
-  getHighlightReports: async (params?: {
-    status?: 'open' | 'resolved' | 'all'
-    limit?: number
-    offset?: number
-  }): Promise<{ items: HighlightReport[]; totalCount: number }> => {
-    const query = new URLSearchParams({ siteId: DEFAULT_SITE_ID })
-    if (params?.status) query.set('status', params.status)
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
-    return fetchJson(`/admin/highlights/reports?${query.toString()}`)
-  },
-
-  resolveHighlightReport: async (id: string, action: 'dismiss' | 'delete'): Promise<void> => {
-    await fetchVoid(`/admin/highlights/reports/${id}/resolve?siteId=${DEFAULT_SITE_ID}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
-    })
-  },
-
-  deleteHighlight: async (id: string): Promise<void> => {
-    await fetchVoid(`/admin/highlights/${id}?siteId=${DEFAULT_SITE_ID}`, { method: 'DELETE' })
-  },
-}
-
-export interface HighlightReport {
-  id: string
-  highlightId: string
-  highlightUserId: string
-  selectedText: string
-  noteText: string | null
-  highlightIsDeleted: boolean
-  editionId: string | null
-  chapterId: string | null
-  editionTitle: string | null
-  chapterTitle: string | null
-  reportedByUserId: string
-  reason: string
-  note: string | null
-  createdAt: string
-  resolvedAt: string | null
-  resolution: string | null
 }
 
 // SEO Backfill types
