@@ -8,7 +8,6 @@ const parseFlag = (val: string | undefined, defaultValue: boolean): boolean => {
 }
 
 export const ADMIN_FEATURES = {
-  CODEGEN: parseFlag(import.meta.env.VITE_FEATURE_CODEGEN, false),
   BOARD_TASKS: parseFlag(import.meta.env.VITE_FEATURE_BOARD_TASKS, false),
 } as const
 

@@ -59,7 +59,6 @@ docs/
 | Text Selection | Highlights, translate, dictionary in reader |
 | Vocabulary SRS | Spaced repetition vocab builder with Ollama LLM distractors |
 | Reading Stats | Heatmap, streaks, goals, achievements |
-| CodeGen | AI code generation via Claude Code (Ralph loop) | [codegen.md](05-features/codegen.md) |
 
 ## Reading Order
 

@@ -22,7 +22,6 @@ import { ToolsPage } from './pages/ToolsPage'
 import { SsgRebuildPage } from './pages/SsgRebuildPage'
 import { SsgRebuildJobPage } from './pages/SsgRebuildJobPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { CodeGenPage } from './pages/CodeGenPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
 import { SeoBackfillPage } from './pages/SeoBackfillPage'
 import { BookQualityPage } from './pages/BookQualityPage'
@@ -66,7 +65,6 @@ function App() {
             <Route path="tools" element={<ToolsPage />} />
             <Route path="ssg-rebuild" element={<SsgRebuildPage />} />
             <Route path="ssg-rebuild/:id" element={<SsgRebuildJobPage />} />
-            <Route path="codegen" element={<CodeGenPage />} />
             <Route path="autopublish" element={<AutoPublishPage />} />
             <Route path="seo-backfill" element={<SeoBackfillPage />} />
             <Route path="quality" element={<BookQualityPage />} />

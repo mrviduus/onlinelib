@@ -158,7 +158,6 @@ jobs:
 
       - name: Restart systemd pollers
         run: |
-          systemctl --user restart codegen-poller 2>/dev/null && echo "CodeGen poller restarted" || echo "CodeGen poller not installed"
           systemctl --user restart seo-publish-poller 2>/dev/null && echo "SEO Publish poller restarted" || echo "SEO Publish poller not installed"
           systemctl --user restart seo-backfill-poller 2>/dev/null && echo "SEO Backfill poller restarted" || echo "SEO Backfill poller not installed (run: make seo-backfill-setup)"
 

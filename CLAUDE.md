@@ -147,7 +147,7 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **Hooks** (`apps/web/src/hooks/` — 47 hooks): Reader: `useReadingSession`, `useReadingProgress`, `useReaderKeyboard`, `useReaderNavigation`, `useReaderSettings`, `useReaderVocabulary`, `useScrollReader`, `useFullscreen`, `useFullscreenBars`, `useImmersiveMode`, `useAutoHideBar`, `useInBookSearch`, `useTextSelection`, `useDictionary`, `useTextTranslation`, `useWordTap`, `useDarkMode`. Library/data: `useLibrary`, `useBookmarks`, `useHighlights`, `useBookStats`, `useVocabulary`, `useVocabularyReview`, `useVocabLevel`, `useVocabDailyStats`, `useReadingStats`, `useReadingGoals`, `useAchievements`. UI: `useSwipe`, `useFocusTrap`, `useIsMobile`, `useScrolled`, `usePagination`, `useDebounce`, `useSoundEffects`, `useCardAnswer`, `useQuickStats`. Network: `useNetworkRecovery`, `useOfflineDownload`, `useGuestMigration`.
 
-**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. 25 pages: Dashboard, Upload, User Uploads, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild + job detail, CodeGen, Auto Publish, Task Board, Tools, Settings.
+**Admin panel**: Separate React app (`apps/admin/`), English-only, JWT auth. Pages: Dashboard, Upload, User Uploads, Jobs queue, Editions list/edit, Authors CRUD, Genres CRUD, Blog CRUD, Chapter editor, SSG rebuild + job detail, Auto Publish, Task Board, Tools, Settings.
 
 ## Key Concepts
 
@@ -238,13 +238,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - HighlightReviewPage — review highlights with spaced repetition
 - PracticePage — practice vocabulary and highlights
 
-**CodeGen**: AI code generation via Claude CLI.
-- `codegen-poll.sh` (systemd) polls DB for CodeGen jobs
-- Creates git branches `codegen/{job-id}`, runs Claude CLI iterations
-- Auto-creates GitHub PRs with generated descriptions
-- Admin: CodeGenPage, AdminCodeGenEndpoints
-- Entity: CodeGenJob
-
 **Board Tasks**: Kanban task board in admin panel.
 - AdminBoardTaskEndpoints, TaskBoardPage
 - Entity: BoardTask
@@ -314,7 +307,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`, `/admin/board-tasks`, `/admin/codegen`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`, `/admin/blog`, `/admin/board-tasks`
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
@@ -390,8 +383,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Export | `backend/src/Application/Export/EpubExportService.cs` |
 | Export API | `backend/src/Api/Endpoints/ExportEndpoints.cs` |
 | Profile API | `backend/src/Api/Endpoints/ProfileEndpoints.cs` |
-| CodeGen Admin | `backend/src/Api/Endpoints/AdminCodeGenEndpoints.cs` |
-| CodeGen Script | `infra/scripts/codegen-poll.sh` |
 | Board Tasks API | `backend/src/Api/Endpoints/AdminBoardTaskEndpoints.cs` |
 | Board Tasks Admin | `apps/admin/src/pages/TaskBoardPage.tsx` |
 | Guest Context | `apps/web/src/context/GuestLimitsContext.tsx` |
@@ -492,7 +483,7 @@ Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-
 
 **Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m).
 
-**Systemd services**: `codegen-poller` (Claude CLI code generation), `seo-publish-poller` (auto-publish with SEO generation).
+**Systemd services**: `seo-publish-poller` (auto-publish with SEO generation).
 
 **Notable env vars** (beyond `.env.example` basics): `SEARCH_PROVIDER=postgres|meilisearch`, `MEILI_MASTER_KEY`, `INDEXNOW_KEY`, `INDEXNOW_ENABLED`.
 

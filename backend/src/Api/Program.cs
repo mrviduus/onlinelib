@@ -358,7 +358,6 @@ app.MapAdminEndpoints();
 app.MapAdminAuthorsEndpoints();
 app.MapAdminGenresEndpoints();
 app.MapAdminSsgRebuildEndpoints();
-app.MapAdminCodeGenEndpoints();
 app.MapAdminAutoPublishEndpoints();
 app.MapAdminSeoBackfillEndpoints();
 app.MapAdminLintEndpoints();
