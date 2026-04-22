@@ -21,10 +21,7 @@ public record BookDetailDto(
     IReadOnlyList<BookAuthorDto> Authors,
     IReadOnlyList<BookGenreDto> Genres,
     IReadOnlyList<RelatedBookDto> MoreByAuthor,
-    IReadOnlyList<TocEntryDto>? Toc = null,
-    double? AvgRating = null,
-    int RatingCount = 0,
-    int ReviewCount = 0
+    IReadOnlyList<TocEntryDto>? Toc = null
 );
 
 public record BookGenreDto(Guid Id, string Slug, string Name);

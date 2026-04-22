@@ -21,9 +21,7 @@ import {
   generateRelevanceText,
   generateThemeDescription,
 } from '../lib/bookSeo'
-import { StarRating } from '../components/StarRating'
 import { ShareButtons } from '../components/ShareButtons'
-import { ReviewsList } from '../components/reviews/ReviewsList'
 import { isNotFoundError } from '../lib/errorUtils'
 import type { BookDetail } from '../types/api'
 
@@ -73,7 +71,6 @@ export function BookDetailPage() {
   const [error, setError] = useState<Error | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [showAllChapters, setShowAllChapters] = useState(false)
-  const [activeTab, setActiveTab] = useState<'chapters' | 'reviews'>('chapters')
 
   useEffect(() => {
     if (!bookSlug) return
@@ -186,19 +183,6 @@ export function BookDetailPage() {
           const totalWords = book.chapters.reduce((sum, c) => sum + (c.wordCount ?? 0), 0)
           const numberOfPages = totalWords > 0 ? Math.max(1, Math.round(totalWords / 250)) : undefined
 
-          // Only emit AggregateRating if we have at least 1 rating with a value
-          const hasRating = book.ratingCount > 0 && book.avgRating != null
-          const aggregateRating = hasRating
-            ? {
-                '@type': 'AggregateRating',
-                ratingValue: Number(book.avgRating!.toFixed(2)),
-                ratingCount: book.ratingCount,
-                reviewCount: book.reviewCount,
-                bestRating: 5,
-                worstRating: 1,
-              }
-            : undefined
-
           // datePublished must be ISO 8601 (YYYY-MM-DD) for schema.org
           const datePublished = book.publishedAt
             ? new Date(book.publishedAt).toISOString().split('T')[0]
@@ -214,7 +198,6 @@ export function BookDetailPage() {
             isAccessibleForFree: true,
             datePublished,
             numberOfPages,
-            aggregateRating,
             image: book.coverPath ? (() => {
               const url = getStorageUrl(book.coverPath)
               return url?.startsWith('http') ? url : `${canonicalOrigin}${url}`
@@ -284,27 +267,6 @@ export function BookDetailPage() {
             </div>
           )}
 
-          <StarRating editionId={book.id} />
-
-          {(book.avgRating || book.ratingCount > 0) && (
-            <div className="book-hero__rating-summary">
-              {book.avgRating && (
-                <>
-                  <span className="material-icons-outlined book-hero__rating-star">star</span>
-                  <span className="book-hero__rating-value">{book.avgRating}</span>
-                </>
-              )}
-              <span className="book-hero__rating-sep">&middot;</span>
-              <span>{book.ratingCount} {t('reviews.ratings')}</span>
-              {book.reviewCount > 0 && (
-                <>
-                  <span className="book-hero__rating-sep">&middot;</span>
-                  <span>{book.reviewCount} {t('reviews.reviews')}</span>
-                </>
-              )}
-            </div>
-          )}
-
           <div className="book-hero__meta">
             <span className="book-hero__meta-item">
               <span className="material-icons-outlined">auto_stories</span>
@@ -370,66 +332,41 @@ export function BookDetailPage() {
         </div>
       </section>
 
-      {/* Chapters / Reviews Tabs */}
+      {/* Chapters */}
       <section className="book-tabs">
-        <div className="book-tabs__nav">
-          <button
-            className={`book-tabs__tab ${activeTab === 'chapters' ? 'book-tabs__tab--active' : ''}`}
-            onClick={() => setActiveTab('chapters')}
-          >
-            <span className="material-icons-outlined">auto_stories</span>
-            {t('bookDetail.chaptersHeading')} ({book.chapters.length})
-          </button>
-          <button
-            className={`book-tabs__tab ${activeTab === 'reviews' ? 'book-tabs__tab--active' : ''}`}
-            onClick={() => setActiveTab('reviews')}
-          >
-            <span className="material-icons-outlined">rate_review</span>
-            {t('reviews.title')} {book.reviewCount > 0 ? `(${book.reviewCount})` : ''}
-          </button>
-        </div>
-
-        {activeTab === 'chapters' && (
-          <div className="book-tabs__panel">
-            <div className="book-chapters__list">
-              {visibleChapters.map((ch) => (
-                <LocalizedLink
-                  key={ch.id}
-                  to={`/books/${book.slug}/${ch.slug}?direct=1`}
-                  className="book-chapters__item"
-                  title={t('bookDetail.readChapter').replace('{title}', ch.title)}
-                >
-                  <div className="book-chapters__item-left">
-                    <span className="book-chapters__number">{formatChapterNumber(ch.chapterNumber)}.</span>
-                    <h3 className="book-chapters__title">{ch.title}</h3>
-                  </div>
-                  <div className="book-chapters__item-right">
-                    {ch.wordCount && (
-                      <span className="book-chapters__words">{ch.wordCount} {t('bookDetail.words')}</span>
-                    )}
-                    <span className="book-chapters__arrow material-icons-outlined">arrow_forward_ios</span>
-                  </div>
-                </LocalizedLink>
-              ))}
-            </div>
-
-            {hasMoreChapters && !showAllChapters && (
-              <button
-                className="book-chapters__view-all"
-                onClick={() => setShowAllChapters(true)}
+        <div className="book-tabs__panel">
+          <div className="book-chapters__list">
+            {visibleChapters.map((ch) => (
+              <LocalizedLink
+                key={ch.id}
+                to={`/books/${book.slug}/${ch.slug}?direct=1`}
+                className="book-chapters__item"
+                title={t('bookDetail.readChapter').replace('{title}', ch.title)}
               >
-                {t('bookDetail.viewAllChapters').replace('{count}', String(book.chapters.length))}
-                <span className="material-icons-outlined">expand_more</span>
-              </button>
-            )}
+                <div className="book-chapters__item-left">
+                  <span className="book-chapters__number">{formatChapterNumber(ch.chapterNumber)}.</span>
+                  <h3 className="book-chapters__title">{ch.title}</h3>
+                </div>
+                <div className="book-chapters__item-right">
+                  {ch.wordCount && (
+                    <span className="book-chapters__words">{ch.wordCount} {t('bookDetail.words')}</span>
+                  )}
+                  <span className="book-chapters__arrow material-icons-outlined">arrow_forward_ios</span>
+                </div>
+              </LocalizedLink>
+            ))}
           </div>
-        )}
 
-        {activeTab === 'reviews' && (
-          <div className="book-tabs__panel">
-            <ReviewsList editionId={book.id} />
-          </div>
-        )}
+          {hasMoreChapters && !showAllChapters && (
+            <button
+              className="book-chapters__view-all"
+              onClick={() => setShowAllChapters(true)}
+            >
+              {t('bookDetail.viewAllChapters').replace('{count}', String(book.chapters.length))}
+              <span className="material-icons-outlined">expand_more</span>
+            </button>
+          )}
+        </div>
       </section>
 
       {/* Themes */}

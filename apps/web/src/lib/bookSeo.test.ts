@@ -120,9 +120,6 @@ describe('generateFAQs', () => {
     authors: [{ id: '1', slug: 'author', name: 'Test Author', role: 'author' }],
     genres: [],
     moreByAuthor: [],
-    avgRating: null,
-    ratingCount: 0,
-    reviewCount: 0,
   }
 
   it('returns 6 FAQs when year available', () => {

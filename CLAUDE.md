@@ -143,7 +143,7 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **API client**: `useApi()` hook → `createApi(language)` → methods like `getBooks()`, `getBook(slug)`. Uses `fetchJsonWithRetry()`.
 
-**API client layer**: `apps/web/src/api/` — 11 modules: `client.ts` (base), `auth.ts`, `dictionary.ts`, `readingTracking.ts`, `reviews.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `userRatings.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
+**API client layer**: `apps/web/src/api/` — 9 modules: `client.ts` (base), `auth.ts`, `dictionary.ts`, `readingTracking.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
 
 **Hooks** (`apps/web/src/hooks/` — 47 hooks): Reader: `useReadingSession`, `useReadingProgress`, `useReaderKeyboard`, `useReaderNavigation`, `useReaderSettings`, `useReaderVocabulary`, `useScrollReader`, `useFullscreen`, `useFullscreenBars`, `useImmersiveMode`, `useAutoHideBar`, `useInBookSearch`, `useTextSelection`, `useDictionary`, `useTextTranslation`, `useWordTap`, `useDarkMode`. Library/data: `useLibrary`, `useBookmarks`, `useHighlights`, `useBookStats`, `useVocabulary`, `useVocabularyReview`, `useVocabLevel`, `useVocabDailyStats`, `useReadingStats`, `useReadingGoals`, `useAchievements`. UI: `useSwipe`, `useFocusTrap`, `useIsMobile`, `useScrolled`, `usePagination`, `useDebounce`, `useSoundEffects`, `useCardAnswer`, `useQuickStats`. Network: `useNetworkRecovery`, `useOfflineDownload`, `useGuestMigration`.
 
@@ -202,12 +202,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - **MC fallback cascade**: definition → translation → blank sentence (if LLM distractors exist) → downgrade to context/typed_recall
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
-
-**Reviews & Ratings**: Users rate books (0–5 stars, half-step) and write reviews.
-- Entities: `UserRating`, `ReviewComment` (threads), `ReviewLike` (upvotes)
-- API: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
-- Frontend: `ReviewForm`, `ReviewsList`, `ReviewCard`, `ReviewComments`, `RatingDistribution` in `components/reviews/`
-- API client: `apps/web/src/api/reviews.ts`
 
 **Guest Users**: Anonymous browsing with usage limits before sign-up required.
 - GuestCleanupWorker purges inactive guests (6h interval)
@@ -279,8 +273,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Reading Tracking**: `POST /me/reading/sessions`, `GET /me/reading/sessions`, `GET /me/reading/stats`, `GET /me/reading/stats/daily`, `GET/POST /me/reading/goals`, `DELETE /me/reading/goals/{id}`, `GET /me/reading/achievements`
 
-**Reviews**: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
-
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
@@ -328,9 +320,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | TTS API | `backend/src/Api/Endpoints/TtsEndpoints.cs` |
 | TTS Hook | `apps/web/src/hooks/useTts.ts` |
 | TTS E2E | `apps/web/e2e/tests/tts.spec.ts` |
-| Reviews API | `backend/src/Api/Endpoints/ReviewEndpoints.cs` |
-| Reviews Client | `apps/web/src/api/reviews.ts` |
-| Review Components | `apps/web/src/components/reviews/` |
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
 | FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |

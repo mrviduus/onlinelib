@@ -55,7 +55,7 @@ public class GuestCleanupWorker(
         // Note: ReadingSessions are deliberately EXCLUDED from the filter — they accumulate on
         // every page read and would keep every bounced visitor alive forever. We only care about
         // signals of intent to save/convert: explicit saves (vocab/highlights/bookmarks), owned
-        // library/books/uploads, ratings, notes, and progress beyond page 1.
+        // library/books/uploads, notes, and progress beyond page 1.
         var expiredGuests = await db.Users
             .Where(u => u.IsGuest
                 && u.LastActiveAt < cutoff
@@ -65,8 +65,7 @@ public class GuestCleanupWorker(
                 && !db.UserLibraries.Any(l => l.UserId == u.Id)
                 && !db.UserBooks.Any(b => b.UserId == u.Id)
                 && !db.ReadingProgresses.Any(p => p.UserId == u.Id)
-                && !db.Notes.Any(n => n.UserId == u.Id)
-                && !db.UserRatings.Any(r => r.UserId == u.Id))
+                && !db.Notes.Any(n => n.UserId == u.Id))
             .Include(u => u.UserBooks)
                 .ThenInclude(b => b.BookFiles)
             .ToListAsync(ct);

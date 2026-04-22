@@ -74,9 +74,6 @@ export interface BookDetail {
   authors: BookAuthor[]
   genres: BookGenre[]
   moreByAuthor: RelatedBook[]
-  avgRating: number | null
-  ratingCount: number
-  reviewCount: number
 }
 
 export interface SearchEdition {

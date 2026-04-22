@@ -467,14 +467,6 @@ public static class ReadingTrackingEndpoints
             .ToListAsync(ct);
         var sessionMap = sessionsByEdition.ToDictionary(s => s.EditionId);
 
-        // 6. User ratings for finished editions + user books
-        var ratings = await db.UserRatings
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId
-                && ((r.EditionId != null && editionIds.Contains(r.EditionId.Value))
-                    || r.UserBookId != null))
-            .Select(r => r.Rating)
-            .ToListAsync(ct);
-
         // --- Aggregations ---
         var userBookPages = userBooks.Sum(b => (b.TotalWordCount ?? 0)) / 250;
         var totalPages = editions.Sum(e => e.WordCount) / 250 + userBookPages;
@@ -548,14 +540,6 @@ public static class ReadingTrackingEndpoints
             .Select(g => new BookLengthBucketDto(g.Key, g.Count()))
             .ToList();
 
-        // Rating distribution (half-star buckets: 0.5, 1, 1.5, ..., 5)
-        var halfStarBuckets = Enumerable.Range(1, 10).Select(i => i * 0.5).ToList();
-        var ratingDistribution = halfStarBuckets
-            .Select(r => new RatingBucketDto(r, ratings.Count(x => x == r)))
-            .Where(r => r.Count > 0)
-            .ToList();
-        var avgRating = ratings.Count > 0 ? Math.Round(ratings.Average(), 2) : (double?)null;
-
         // Pace stats (auto-calc: seconds per word → slow/medium/fast)
         var paceList = editions
             .Where(e => sessionMap.ContainsKey(e.Id) && e.WordCount > 0)
@@ -596,8 +580,6 @@ public static class ReadingTrackingEndpoints
             LanguageStats: languageStats,
             BooksOverTime: booksOverTime,
             BookLengthDistribution: lengthBuckets,
-            RatingDistribution: ratingDistribution,
-            AvgRating: avgRating,
             PaceStats: paceList,
             ReadingTimeByGenre: timeByGenre,
             ReadingTimeByAuthor: timeByAuthor,
@@ -759,8 +741,6 @@ public record BookStatsResponse(
     List<LanguageStatDto> LanguageStats,
     List<BooksOverTimeDto> BooksOverTime,
     List<BookLengthBucketDto> BookLengthDistribution,
-    List<RatingBucketDto> RatingDistribution,
-    double? AvgRating,
     List<PaceStatDto> PaceStats,
     List<ReadingTimeStatDto> ReadingTimeByGenre,
     List<ReadingTimeStatDto> ReadingTimeByAuthor,
@@ -772,6 +752,5 @@ public record AuthorStatDto(string Name, string Slug, int Count);
 public record LanguageStatDto(string Language, int Count);
 public record BooksOverTimeDto(string Period, int Books, int Pages);
 public record BookLengthBucketDto(string Bucket, int Count);
-public record RatingBucketDto(double Rating, int Count);
 public record PaceStatDto(string Pace, int Count);
 public record ReadingTimeStatDto(string Name, string Slug, long Seconds);

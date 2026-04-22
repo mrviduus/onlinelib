@@ -47,7 +47,6 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ReadingSession> ReadingSessions => Set<ReadingSession>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
-    public DbSet<UserRating> UserRatings => Set<UserRating>();
     public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
     public DbSet<VocabularyReview> VocabularyReviews => Set<VocabularyReview>();
     public DbSet<UserVocabularySettings> UserVocabularySettings => Set<UserVocabularySettings>();
@@ -55,8 +54,6 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<WordLookup> WordLookups => Set<WordLookup>();
     public DbSet<WordFrequency> WordFrequencies => Set<WordFrequency>();
     public DbSet<WordCluster> WordClusters => Set<WordCluster>();
-    public DbSet<ReviewLike> ReviewLikes => Set<ReviewLike>();
-    public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<BookQualityJob> BookQualityJobs => Set<BookQualityJob>();
@@ -474,42 +471,6 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => new { x.UserId, x.SiteId });
             e.HasIndex(x => new { x.UserId, x.SiteId, x.AchievementCode }).IsUnique();
             e.Property(x => x.AchievementCode).HasMaxLength(50);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // UserRating
-        modelBuilder.Entity<UserRating>(e =>
-        {
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.EditionId }).IsUnique().HasFilter("edition_id IS NOT NULL");
-            e.HasIndex(x => new { x.UserId, x.SiteId, x.UserBookId }).IsUnique().HasFilter("user_book_id IS NOT NULL");
-            e.HasIndex(x => x.EditionId);
-            e.HasIndex(x => x.UserBookId);
-            e.HasIndex(x => new { x.EditionId, x.HelpfulCount });
-            e.Property(x => x.Title).HasMaxLength(200);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-            e.HasMany(x => x.Likes).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
-            e.HasMany(x => x.Comments).WithOne(x => x.UserRating).HasForeignKey(x => x.UserRatingId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ReviewLike
-        modelBuilder.Entity<ReviewLike>(e =>
-        {
-            e.HasIndex(x => new { x.UserRatingId, x.UserId }).IsUnique();
-            e.HasIndex(x => x.UserRatingId);
-            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // ReviewComment
-        modelBuilder.Entity<ReviewComment>(e =>
-        {
-            e.HasIndex(x => x.UserRatingId);
-            e.HasIndex(x => new { x.UserId, x.SiteId });
-            e.Property(x => x.Text).HasMaxLength(2000);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
         });

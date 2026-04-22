@@ -41,7 +41,6 @@ public interface IAppDbContext
     DbSet<ReadingSession> ReadingSessions { get; }
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }
-    DbSet<UserRating> UserRatings { get; }
     DbSet<VocabularyWord> VocabularyWords { get; }
     DbSet<VocabularyReview> VocabularyReviews { get; }
     DbSet<UserVocabularySettings> UserVocabularySettings { get; }
@@ -49,8 +48,6 @@ public interface IAppDbContext
     DbSet<WordLookup> WordLookups { get; }
     DbSet<WordFrequency> WordFrequencies { get; }
     DbSet<WordCluster> WordClusters { get; }
-    DbSet<ReviewLike> ReviewLikes { get; }
-    DbSet<ReviewComment> ReviewComments { get; }
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }
