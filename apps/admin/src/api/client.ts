@@ -494,6 +494,8 @@ export interface UserUploadListItem {
   isGuest: boolean
   errorMessage: string | null
   createdAt: string
+  takedownAt: string | null
+  takedownReason: string | null
 }
 
 export interface UserUploadStats {
@@ -930,6 +932,14 @@ export const adminApi = {
 
   deleteUserUpload: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/user-uploads/${id}`, { method: 'DELETE' })
+  },
+
+  takedownUserUpload: async (id: string, reason: string): Promise<void> => {
+    await fetchVoid(`/admin/user-uploads/${id}/takedown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
   },
 
   // Book Quality

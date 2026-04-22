@@ -28,6 +28,10 @@ public class UserBook
     public DateTimeOffset? ProgressUpdatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
 
+    // Takedown (DMCA / admin action) — soft-blocks access while keeping record for audit
+    public DateTimeOffset? TakedownAt { get; set; }
+    public string? TakedownReason { get; set; }
+
     public User User { get; set; } = null!;
     public ICollection<UserChapter> Chapters { get; set; } = [];
     public ICollection<UserBookFile> BookFiles { get; set; } = [];

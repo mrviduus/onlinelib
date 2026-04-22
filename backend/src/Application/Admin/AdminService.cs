@@ -904,7 +904,9 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
                 b.User.Email,
                 b.User.IsGuest,
                 b.ErrorMessage,
-                b.CreatedAt))
+                b.CreatedAt,
+                b.TakedownAt,
+                b.TakedownReason))
             .ToListAsync(ct);
 
         return new PaginatedResult<UserUploadListDto>(total, items);
@@ -930,6 +932,27 @@ public class AdminService(IAppDbContext db, IFileStorageService storage, ISearch
             return (false, "User book not found");
 
         return await userBookService.DeleteAsync(book.UserId, book.Id, ct);
+    }
+
+    public async Task<(bool Success, string? Error)> TakedownUserUploadAsync(Guid id, string reason, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return (false, "Reason is required");
+
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (book is null)
+            return (false, "User book not found");
+
+        var trimmed = reason.Trim();
+        if (trimmed.Length > 1000)
+            trimmed = trimmed[..1000];
+
+        book.TakedownAt = DateTimeOffset.UtcNow;
+        book.TakedownReason = trimmed;
+        book.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 
     private async Task EnqueueSsgSafe(Guid siteId, string[]? bookSlugs = null, string[]? authorSlugs = null, string[]? genreSlugs = null)
