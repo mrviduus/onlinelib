@@ -174,6 +174,13 @@
       }
     }
   },
+  "cookieBanner": {
+    "title": "We use cookies",
+    "body": "Essential cookies keep you signed in and save your reading progress. Analytics cookies help us understand how the site is used. You can reject analytics — we still work without them. Learn more in our",
+    "privacyLink": "Privacy Policy",
+    "accept": "Accept all",
+    "reject": "Reject analytics"
+  },
   "reader": {
     "wordPopup": {
       "known": "Known",

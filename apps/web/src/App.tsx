@@ -36,6 +36,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
+import { CookieBanner } from './components/CookieBanner'
 import { Toast } from './components/Toast'
 import { useTranslation } from './hooks/useTranslation'
 import './styles/theme.css'
@@ -165,6 +166,7 @@ function App() {
           </NativeLanguageProvider>
           </GuestLimitsProvider>
           <AuthModal />
+          <CookieBanner />
         </AuthProvider>
       </SiteProvider>
     </BrowserRouter>
