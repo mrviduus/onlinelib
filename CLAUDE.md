@@ -143,7 +143,7 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **API client**: `useApi()` hook → `createApi(language)` → methods like `getBooks()`, `getBook(slug)`. Uses `fetchJsonWithRetry()`.
 
-**API client layer**: `apps/web/src/api/` — 12 modules: `client.ts` (base), `auth.ts`, `dictionary.ts`, `moods.ts`, `readingTracking.ts`, `reviews.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `userRatings.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
+**API client layer**: `apps/web/src/api/` — 11 modules: `client.ts` (base), `auth.ts`, `dictionary.ts`, `readingTracking.ts`, `reviews.ts`, `translation.ts`, `tts.ts`, `userBooks.ts`, `userData.ts`, `userRatings.ts`, `vocabulary.ts`. `useApi()` hook wraps these.
 
 **Hooks** (`apps/web/src/hooks/` — 47 hooks): Reader: `useReadingSession`, `useReadingProgress`, `useReaderKeyboard`, `useReaderNavigation`, `useReaderSettings`, `useReaderVocabulary`, `useScrollReader`, `useFullscreen`, `useFullscreenBars`, `useImmersiveMode`, `useAutoHideBar`, `useInBookSearch`, `useTextSelection`, `useDictionary`, `useTextTranslation`, `useWordTap`, `useDarkMode`. Library/data: `useLibrary`, `useBookmarks`, `useHighlights`, `useBookStats`, `useVocabulary`, `useVocabularyReview`, `useVocabLevel`, `useVocabDailyStats`, `useReadingStats`, `useReadingGoals`, `useAchievements`. UI: `useSwipe`, `useFocusTrap`, `useIsMobile`, `useScrolled`, `usePagination`, `useDebounce`, `useSoundEffects`, `useCardAnswer`, `useQuickStats`. Network: `useNetworkRecovery`, `useOfflineDownload`, `useGuestMigration`.
 
@@ -230,11 +230,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - HighlightReviewPage — review highlights with spaced repetition
 - PracticePage — practice vocabulary and highlights
 
-**Reading Moods**: Tag reading sessions with moods for emotional tracking.
-- Entities: `Mood`, `UserMoodTag`
-- Frontend: `MoodSelector.tsx`, `components/stats/MoodChart.tsx` (in StatsPage)
-- Admin: `MapAdminMoodEndpoints()` in `Api/Endpoints/AdminMoodEndpoints.cs`
-
 **Auto Publish**: Automated pipeline for publishing Draft books with SEO content.
 - Admin page at `/autopublish` — settings, candidates, jobs history
 - `seo-publish-poll.sh` (systemd) polls DB every 60s for queued jobs
@@ -286,13 +281,11 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Reviews**: `GET/PUT/DELETE /me/ratings/{editionId}`, `POST/GET /me/ratings/{editionId}/comments`, `POST /me/ratings/{editionId}/likes`
 
-**Moods**: `GET/POST /me/moods`
-
 **User Books**: `POST /me/books/upload`, `GET /me/books`, `GET /me/books/quota`, `GET /me/books/{id}`, `GET /me/books/{id}/chapters/{slug}`, `GET/PUT /me/books/{id}/progress`, `GET/POST/DELETE /me/books/{id}/bookmarks`, `POST /me/books/{id}/retry`, `DELETE /me/books/{id}`
 
 **Vocabulary**: `POST /me/vocabulary/words`, `GET /me/vocabulary/words?filter=&sort=&search=&limit=&offset=`, `PUT /me/vocabulary/words/{id}`, `DELETE /me/vocabulary/words/{id}`, `GET /me/vocabulary/review?limit=`, `POST /me/vocabulary/review`, `GET /me/vocabulary/stats`
 
-**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`, `/admin/moods`
+**Admin**: `POST /admin/books/upload`, `/admin/import/textstack`, `/admin/reimport/textstack`, `/admin/sync/standardebooks`, `/admin/reprocess/{editionId}`, `/admin/reprocess/all`, `GET /admin/ingestion/jobs`, `/admin/ingestion/jobs/{id}/retry`, `/admin/ingestion/jobs/{id}/preview`, `/admin/chapters/{id}` (GET/PUT/DELETE), `/admin/settings`, `/admin/ssg-rebuild`, `/admin/ssg/settings` (GET/PUT), `/admin/lint`, CRUD for `/admin/authors`, `/admin/genres`
 
 **Auto Publish Admin**: `GET/PUT /admin/autopublish/settings`, `GET /admin/autopublish/jobs`, `GET /admin/autopublish/jobs/{id}`, `POST /admin/autopublish/jobs/{id}/approve`, `POST /admin/autopublish/jobs/{id}/reject`, `POST /admin/autopublish/jobs/{id}/retry`, `POST /admin/autopublish/trigger`, `POST /admin/autopublish/queue/{editionId}`, `GET /admin/autopublish/candidates`
 
@@ -338,8 +331,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | Reviews API | `backend/src/Api/Endpoints/ReviewEndpoints.cs` |
 | Reviews Client | `apps/web/src/api/reviews.ts` |
 | Review Components | `apps/web/src/components/reviews/` |
-| Moods | `apps/web/src/components/MoodSelector.tsx`, `components/stats/MoodChart.tsx` |
-| Moods Admin | `backend/src/Api/Endpoints/AdminMoodEndpoints.cs` |
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
 | FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |

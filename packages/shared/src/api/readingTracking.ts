@@ -59,7 +59,6 @@ export interface AuthorStatDto { name: string; slug: string; count: number }
 export interface LanguageStatDto { language: string; count: number }
 export interface BooksOverTimeDto { period: string; books: number; pages: number }
 export interface BookLengthBucketDto { bucket: string; count: number }
-export interface MoodStatDto { name: string; emoji: string | null; count: number }
 export interface RatingBucketDto { rating: number; count: number }
 export interface PaceStatDto { pace: string; count: number }
 export interface ReadingTimeStatDto { name: string; slug: string; seconds: number }
@@ -73,7 +72,6 @@ export interface BookStatsResponse {
   languageStats: LanguageStatDto[]
   booksOverTime: BooksOverTimeDto[]
   bookLengthDistribution: BookLengthBucketDto[]
-  moodStats: MoodStatDto[]
   ratingDistribution: RatingBucketDto[]
   avgRating: number | null
   paceStats: PaceStatDto[]

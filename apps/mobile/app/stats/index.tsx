@@ -687,16 +687,6 @@ function TimeTabSection({ bookStats, stats }: { bookStats: BookStatsResponse | n
         </View>
       )}
 
-      {/* Mood stats */}
-      {bookStats && bookStats.moodStats.length > 0 && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fonts.serifBold }]}>Reading Moods</Text>
-          {bookStats.moodStats.map(m => (
-            <BarRow key={m.name} label={`${m.emoji || ''} ${m.name}`} value={m.count} max={bookStats.moodStats[0].count} />
-          ))}
-        </View>
-      )}
-
       {/* Reading time by genre */}
       {bookStats && bookStats.readingTimeByGenre.length > 0 && (
         <View style={{ marginTop: 20 }}>

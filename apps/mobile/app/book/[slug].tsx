@@ -19,7 +19,6 @@ import { getLocalProgress } from '../../src/lib/progressStorage'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { ReviewsSection } from '../../src/components/reviews/ReviewsSection'
-import { MoodSelector } from '../../src/components/MoodSelector'
 import { StarRating } from '../../src/components/StarRating'
 
 export default function BookDetailScreen() {
@@ -334,12 +333,11 @@ export default function BookDetailScreen() {
           )}
         </View>
 
-        {/* Rating + Moods + Reviews — require server round-trips; hide offline. */}
+        {/* Rating + Reviews — require server round-trips; hide offline. */}
         {!offlineMode && (
           <>
             <View style={{ paddingHorizontal: 16, gap: 12 }}>
               <StarRating editionId={book.id} />
-              <MoodSelector editionId={book.id} />
             </View>
 
             <ReviewsSection editionId={book.id} />

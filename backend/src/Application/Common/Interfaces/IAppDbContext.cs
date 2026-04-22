@@ -42,8 +42,6 @@ public interface IAppDbContext
     DbSet<ReadingGoal> ReadingGoals { get; }
     DbSet<UserAchievement> UserAchievements { get; }
     DbSet<UserRating> UserRatings { get; }
-    DbSet<Mood> Moods { get; }
-    DbSet<UserMoodTag> UserMoodTags { get; }
     DbSet<VocabularyWord> VocabularyWords { get; }
     DbSet<VocabularyReview> VocabularyReviews { get; }
     DbSet<UserVocabularySettings> UserVocabularySettings { get; }

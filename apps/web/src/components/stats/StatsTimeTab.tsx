@@ -1,7 +1,6 @@
 import type { BookStatsResponse, ReadingStats } from '../../api/readingTracking'
 import { useTranslation } from '../../hooks/useTranslation'
 import { formatTime } from '../../lib/formatTime'
-import { MoodChart } from './MoodChart'
 import { PaceChart } from './PaceChart'
 import { ReadingTimeByGenreChart } from './ReadingTimeByGenreChart'
 import { ReadingTimeByAuthorChart } from './ReadingTimeByAuthorChart'
@@ -43,8 +42,6 @@ export function StatsTimeTab({ bookStats, stats, loading }: Props) {
 
       {/* Charts */}
       <div className="stats-card-group">
-        <MoodChart data={bookStats.moodStats} />
-        <hr className="stats-chart-divider" />
         <PaceChart data={bookStats.paceStats} />
         <hr className="stats-chart-divider" />
         <ReadingTimeByGenreChart data={bookStats.readingTimeByGenre} />

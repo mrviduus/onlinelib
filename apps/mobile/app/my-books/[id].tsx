@@ -8,7 +8,6 @@ import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
-import { MoodSelector } from '../../src/components/MoodSelector'
 import { StarRating } from '../../src/components/StarRating'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { trackBookOpened } from '../../src/lib/analytics'
@@ -369,11 +368,10 @@ export default function UserBookDetailScreen() {
           </View>
         )}
 
-        {/* Rating + Moods */}
+        {/* Rating */}
         {isReady && (
           <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
             <StarRating userBookId={id!} />
-            <MoodSelector userBookId={id!} />
           </View>
         )}
 

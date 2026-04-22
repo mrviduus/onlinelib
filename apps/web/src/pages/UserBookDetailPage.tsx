@@ -8,7 +8,6 @@ import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
 import { StarRating } from '../components/StarRating'
-import { MoodSelector } from '../components/MoodSelector'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -212,12 +211,7 @@ export function UserBookDetailPage() {
             </div>
           )}
 
-          {isReady && (
-            <>
-              <StarRating userBookId={book.id} />
-              <MoodSelector userBookId={book.id} />
-            </>
-          )}
+          {isReady && <StarRating userBookId={book.id} />}
 
           {isReady && book.completedAt && (
             <div className="user-book-detail__completed">

@@ -22,7 +22,6 @@ import {
   generateThemeDescription,
 } from '../lib/bookSeo'
 import { StarRating } from '../components/StarRating'
-import { MoodSelector } from '../components/MoodSelector'
 import { ShareButtons } from '../components/ShareButtons'
 import { ReviewsList } from '../components/reviews/ReviewsList'
 import { isNotFoundError } from '../lib/errorUtils'
@@ -286,7 +285,6 @@ export function BookDetailPage() {
           )}
 
           <StarRating editionId={book.id} />
-          <MoodSelector editionId={book.id} />
 
           {(book.avgRating || book.ratingCount > 0) && (
             <div className="book-hero__rating-summary">

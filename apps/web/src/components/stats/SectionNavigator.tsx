@@ -3,7 +3,6 @@ import { useTranslation } from '../../hooks/useTranslation'
 const SECTIONS = [
   { id: 'summary', key: 'stats.summary' },
   { id: 'streaks', key: 'stats.streaks' },
-  { id: 'moods', key: 'stats.moods' },
   { id: 'pace', key: 'stats.pace' },
   { id: 'genres', key: 'stats.genres' },
   { id: 'authors', key: 'stats.authors' },

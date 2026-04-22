@@ -41,7 +41,6 @@
 **Reviews & Social**
 - Star ratings (0–5, half-step), written reviews
 - Threaded review comments, upvotes
-- Reading mood tagging for emotional tracking
 - [Reading Rooms](docs/05-features/reading-rooms.md) — co-read a public book with friends, see each other's highlights & notes overlaid in real time
 
 **SEO**
@@ -50,7 +49,7 @@
 - Article JSON-LD, FAQ schema markup
 
 **Admin Panel** ([textstack.dev](https://textstack.dev))
-- Book/author/genre/mood CRUD, bulk import, chapter editor
+- Book/author/genre CRUD, bulk import, chapter editor
 - Blog management — create, edit, publish, cover upload
 - SSG rebuild, ingestion queue, settings
 

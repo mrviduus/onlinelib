@@ -49,7 +49,6 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         Assert.NotNull(stats.LanguageStats);
         Assert.NotNull(stats.BooksOverTime);
         Assert.NotNull(stats.BookLengthDistribution);
-        Assert.NotNull(stats.MoodStats);
         Assert.NotNull(stats.RatingDistribution);
         Assert.NotNull(stats.PaceStats);
         Assert.NotNull(stats.AvailableYears);
@@ -83,7 +82,6 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         Assert.Contains("languageStats", json);
         Assert.Contains("booksOverTime", json);
         Assert.Contains("bookLengthDistribution", json);
-        Assert.Contains("moodStats", json);
         Assert.Contains("ratingDistribution", json);
         Assert.Contains("paceStats", json);
         Assert.Contains("readingTimeByGenre", json);
@@ -103,7 +101,6 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         object[] LanguageStats,
         object[] BooksOverTime,
         object[] BookLengthDistribution,
-        object[] MoodStats,
         object[] RatingDistribution,
         object[] PaceStats,
         object[] ReadingTimeByGenre,
