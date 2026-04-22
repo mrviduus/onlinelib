@@ -58,10 +58,11 @@ builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();
 // Application services (for ISsgRouteProvider, etc.)
 builder.Services.AddApplication();
 
-// HTTP client factory (required by UserIngestionService for metadata enrichment)
+// HTTP client factory (for OllamaLlmService + etc.)
 builder.Services.AddHttpClient();
 
 // Services
+builder.Services.AddSingleton<IBookMetadataGenerator, BookMetadataGenerator>();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();

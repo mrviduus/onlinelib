@@ -1,5 +1,4 @@
-using System.Net.Http.Json;
-using System.Text.Json;
+using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -20,14 +19,11 @@ public static class TranslationEndpoints
     private static async Task<IResult> Translate(
         [FromBody] TranslateRequest request,
         IConfiguration config,
-        IHttpClientFactory httpClientFactory,
+        ILlmServiceFactory llmFactory,
         CancellationToken ct)
     {
-        var maxLength = config.GetValue("LibreTranslate:MaxTextLength", 500);
-        var baseUrl = config.GetValue<string>("LibreTranslate:BaseUrl") ?? "http://localhost:5000";
-        var timeout = config.GetValue("LibreTranslate:TimeoutSeconds", 30);
+        var maxLength = config.GetValue("OpenAI:Translate:MaxTextLength", 500);
 
-        // Validate input
         if (string.IsNullOrWhiteSpace(request.Text))
             return Results.BadRequest("Text is required");
 
@@ -40,42 +36,26 @@ public static class TranslationEndpoints
         if (string.IsNullOrWhiteSpace(request.TargetLang))
             return Results.BadRequest("Target language is required");
 
-        // Normalize BCP47 region codes to base language (pt-BR → pt).
-        // LibreTranslate accepts only base codes (en, pt, ko, ...).
         var srcLang = request.SourceLang.Split('-')[0];
         var tgtLang = request.TargetLang.Split('-')[0];
 
+        var systemPrompt = $"You are a translation engine. Translate from {srcLang} to {tgtLang}. " +
+                           "Output ONLY the translated text. No preface, no quotes, no explanation.";
+
         try
         {
-            var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(timeout);
+            var llm = llmFactory.Get("Translate");
+            var translated = await llm.CompleteAsync(
+                systemPrompt,
+                request.Text,
+                maxOutputTokens: Math.Min(maxLength * 2, 1000),
+                ct);
 
-            var libreRequest = new
-            {
-                q = request.Text,
-                source = srcLang,
-                target = tgtLang,
-                format = "text"
-            };
-
-            var response = await client.PostAsJsonAsync($"{baseUrl}/translate", libreRequest, ct);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorBody = await response.Content.ReadAsStringAsync(ct);
-                return Results.Problem(
-                    detail: $"Translation service error: {response.StatusCode}",
-                    statusCode: 502
-                );
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<LibreTranslateResponse>(ct);
-
-            if (result == null || string.IsNullOrEmpty(result.TranslatedText))
-                return Results.Problem("Translation service returned empty result", statusCode: 502);
+            if (string.IsNullOrWhiteSpace(translated))
+                return Results.Problem("Translation returned empty result", statusCode: 502);
 
             return Results.Ok(new TranslateResponse(
-                result.TranslatedText,
+                translated,
                 request.SourceLang,
                 request.TargetLang
             ));
@@ -84,7 +64,7 @@ public static class TranslationEndpoints
         {
             return Results.Problem("Translation request timed out", statusCode: 504);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
             return Results.Problem(
                 detail: $"Translation service unavailable: {ex.Message}",
@@ -93,36 +73,33 @@ public static class TranslationEndpoints
         }
     }
 
-    private static async Task<IResult> GetLanguages(
-        IConfiguration config,
-        IHttpClientFactory httpClientFactory,
-        CancellationToken ct)
+    private static IResult GetLanguages()
     {
-        var baseUrl = config.GetValue<string>("LibreTranslate:BaseUrl") ?? "http://localhost:5000";
-        var timeout = config.GetValue("LibreTranslate:TimeoutSeconds", 30);
-
-        try
+        // Static list — OpenAI handles any BCP47 pair, but clients want a UI list.
+        // Matches prior LibreTranslate set + a few extras.
+        var languages = new[]
         {
-            var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(timeout);
-
-            var response = await client.GetAsync($"{baseUrl}/languages", ct);
-
-            if (!response.IsSuccessStatusCode)
-                return Results.Problem("Failed to fetch languages", statusCode: 502);
-
-            var languages = await response.Content.ReadFromJsonAsync<List<LibreTranslateLanguage>>(ct);
-
-            return Results.Ok(languages?.Select(l => new LanguageInfo(l.Code, l.Name)) ?? []);
-        }
-        catch (HttpRequestException)
-        {
-            return Results.Problem("Translation service unavailable", statusCode: 503);
-        }
+            new LanguageInfo("en", "English"),
+            new LanguageInfo("es", "Spanish"),
+            new LanguageInfo("fr", "French"),
+            new LanguageInfo("de", "German"),
+            new LanguageInfo("it", "Italian"),
+            new LanguageInfo("pt", "Portuguese"),
+            new LanguageInfo("ru", "Russian"),
+            new LanguageInfo("uk", "Ukrainian"),
+            new LanguageInfo("pl", "Polish"),
+            new LanguageInfo("nl", "Dutch"),
+            new LanguageInfo("ja", "Japanese"),
+            new LanguageInfo("ko", "Korean"),
+            new LanguageInfo("zh", "Chinese"),
+            new LanguageInfo("ar", "Arabic"),
+            new LanguageInfo("tr", "Turkish"),
+            new LanguageInfo("hi", "Hindi"),
+        };
+        return Results.Ok(languages);
     }
 }
 
-// Request/Response DTOs
 public record TranslateRequest(
     string Text,
     string SourceLang,
@@ -136,15 +113,3 @@ public record TranslateResponse(
 );
 
 public record LanguageInfo(string Code, string Name);
-
-// LibreTranslate API response types
-file class LibreTranslateResponse
-{
-    public string TranslatedText { get; set; } = "";
-}
-
-file class LibreTranslateLanguage
-{
-    public string Code { get; set; } = "";
-    public string Name { get; set; } = "";
-}

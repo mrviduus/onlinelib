@@ -1,45 +1,36 @@
-using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
+using Domain.LLM;
 
 namespace Worker.Services;
 
-public static class BookMetadataGenerator
+public class BookMetadataGenerator : IBookMetadataGenerator
 {
-    public static async Task<BookMetadataResult?> GenerateAsync(
-        string title, string? author, bool needsDescription,
-        IHttpClientFactory httpClientFactory, IConfiguration config,
-        CancellationToken ct)
+    private readonly ILlmServiceFactory _llmFactory;
+
+    public BookMetadataGenerator(ILlmServiceFactory llmFactory)
     {
-        var baseUrl = config.GetValue<string>("Ollama:BaseUrl") ?? "http://localhost:11434";
-        var model = config.GetValue<string>("Ollama:Model") ?? "qwen3:8b";
-        var timeout = config.GetValue("Ollama:TimeoutSeconds", 30);
-
-        var prompt = BuildPrompt(title, author, needsDescription);
-
-        var client = httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(timeout);
-
-        var request = new { model, prompt, stream = false };
-        var response = await client.PostAsJsonAsync($"{baseUrl}/api/generate", request, ct);
-
-        if (!response.IsSuccessStatusCode)
-            return null;
-
-        var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(ct);
-        if (string.IsNullOrWhiteSpace(result?.Response))
-            return null;
-
-        return ParseResponse(result.Response, needsDescription);
+        _llmFactory = llmFactory;
     }
 
-    private static string BuildPrompt(string title, string? author, bool needsDescription)
+    public async Task<BookMetadataResult?> GenerateAsync(
+        string title, string? author, bool needsDescription, CancellationToken ct)
     {
-        var parts = new List<string>
-        {
-            "You are a librarian. Given a book's title and author, provide metadata.",
-            "",
-            $"Book title: \"{title}\""
-        };
+        var (systemPrompt, userPrompt) = BuildPrompt(title, author, needsDescription);
+
+        var llm = _llmFactory.Get("BookMetadata");
+        var text = await llm.CompleteAsync(systemPrompt, userPrompt, maxOutputTokens: 400, ct);
+
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        return ParseResponse(text, needsDescription);
+    }
+
+    private static (string System, string User) BuildPrompt(string title, string? author, bool needsDescription)
+    {
+        var system = "You are a librarian. Given a book's title and author, provide metadata " +
+                     "in the EXACT format requested. No preface, no markdown.";
+
+        var parts = new List<string> { $"Book title: \"{title}\"" };
 
         if (!string.IsNullOrWhiteSpace(author))
             parts.Add($"Author: \"{author}\"");
@@ -52,7 +43,7 @@ public static class BookMetadataGenerator
         if (needsDescription)
             parts.Add("DESCRIPTION: <2-3 sentence book description, no spoilers>");
 
-        return string.Join("\n", parts);
+        return (system, string.Join("\n", parts));
     }
 
     private static readonly HashSet<string> ValidGenres = new(StringComparer.OrdinalIgnoreCase)
@@ -98,9 +89,10 @@ public static class BookMetadataGenerator
     }
 }
 
-public record BookMetadataResult(string? Genre, int? PublishedYear, string? Description);
-
-file class OllamaResponse
+public interface IBookMetadataGenerator
 {
-    public string Response { get; set; } = "";
+    Task<BookMetadataResult?> GenerateAsync(
+        string title, string? author, bool needsDescription, CancellationToken ct);
 }
+
+public record BookMetadataResult(string? Genre, int? PublishedYear, string? Description);

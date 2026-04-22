@@ -39,9 +39,10 @@ understanding is to read them — but the friction has to go.
 
 ## What TextStack does
 
-**Tap a term → 2–3 sentence Claude-powered explanation tied to the book's
+**Tap a term → 2–3 sentence LLM-powered explanation tied to the book's
 domain.** Not a dictionary definition. If you tap "attention" in an ML
-textbook you get the ML meaning, not the everyday one.
+textbook you get the ML meaning, not the everyday one. Powered by OpenAI
+`gpt-5-mini` (swap-in friendly — any `ILlmService` impl works).
 
 Terms you don't recognize enter a **capped weekly SRS queue** — no infinite
 backlog, no guilt. Common words and the top 15K English words are filtered
@@ -52,7 +53,7 @@ out; only technical vocabulary gets surfaced.
 | Dictionary definitions | Context-aware explanations |
 | Infinite SRS queue | Capped weekly (no spiral) |
 | One-size-fits-all | Domain-aware per book |
-| Static Kindle Word Wise (2014) | Claude-powered (2026) |
+| Static Kindle Word Wise (2014) | LLM-powered (2026) |
 
 ## Try it
 
@@ -68,8 +69,8 @@ out; only technical vocabulary gets surfaced.
 **Reader**
 - Kindle-like experience — themes (light/sepia/dark), fonts, fullscreen,
   keyboard shortcuts
-- Text selection — contextual explanation (Claude), dictionary fallback (Free
-  Dictionary API), translation (LibreTranslate), highlights
+- Text selection — contextual explanation (OpenAI `gpt-5-mini`), dictionary
+  fallback (Free Dictionary API), translation (OpenAI), highlights
 - TTS — Edge TTS via direct WebSocket (200+ voices, 0.75×–2.0× speed, two-
   layer cache)
 - Offline reading — PWA with IndexedDB caching, download manager
@@ -105,9 +106,8 @@ out; only technical vocabulary gets surfaced.
 | Search | PostgreSQL FTS |
 | Web | React 19, Vite, pnpm |
 | Mobile | React Native (Expo 55) |
-| LLM | Claude (explanations) + Ollama `qwen3:8b` (distractors) |
+| LLM | OpenAI `gpt-5-mini` (explanations + translation) + Ollama `qwen3:8b` (distractors, local) |
 | TTS | Edge TTS (WebSocket, no API key) |
-| Translation | LibreTranslate (self-hosted) |
 | SSG | Puppeteer prerender, nginx serves static first |
 | Telemetry | OpenTelemetry → Aspire Dashboard |
 | Infra | Docker Compose, Cloudflare Tunnel, nginx |

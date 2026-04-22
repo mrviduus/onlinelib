@@ -18,8 +18,7 @@ public class UserIngestionService
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly IImageOptimizer _imageOptimizer;
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _config;
+    private readonly IBookMetadataGenerator _metadataGenerator;
     private readonly ILogger<UserIngestionService> _logger;
 
     public UserIngestionService(
@@ -27,16 +26,14 @@ public class UserIngestionService
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
         IImageOptimizer imageOptimizer,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
+        IBookMetadataGenerator metadataGenerator,
         ILogger<UserIngestionService> logger)
     {
         _dbFactory = dbFactory;
         _storage = storage;
         _extractorRegistry = extractorRegistry;
         _imageOptimizer = imageOptimizer;
-        _httpClientFactory = httpClientFactory;
-        _config = config;
+        _metadataGenerator = metadataGenerator;
         _logger = logger;
     }
 
@@ -255,9 +252,8 @@ public class UserIngestionService
             {
                 try
                 {
-                    var meta = await BookMetadataGenerator.GenerateAsync(
-                        bookTitle, bookAuthor, needsDesc,
-                        _httpClientFactory, _config, CancellationToken.None);
+                    var meta = await _metadataGenerator.GenerateAsync(
+                        bookTitle, bookAuthor, needsDesc, CancellationToken.None);
 
                     if (meta is null) return;
 

@@ -179,7 +179,9 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Dictionary**: `GET /dictionary/{lang}/{word}` — proxies Free Dictionary API.
 
-**Translation**: `POST /translate` via LibreTranslate container. Config: `LibreTranslate:BaseUrl`, `LibreTranslate:TimeoutSeconds`, `LibreTranslate:MaxTextLength`.
+**Translation**: `POST /api/translate` via OpenAI (`gpt-5-mini`). Config: `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:Translate:MaxTextLength`. LibreTranslate dropped 2026-04-22.
+
+**Explain (contextual)**: `POST /api/explain` — LLM-powered 2-3 sentence explanation of a word in the sentence it appears in. Uses `ILlmService` (OpenAI `gpt-5-mini`). SHA256-keyed file cache at `data/explain-cache`, 30d TTL. Rate limited per-IP (20/min). Impl: `backend/src/Api/Endpoints/ExplainEndpoints.cs`.
 
 **TTS (Text-to-Speech)**: Edge TTS via direct WebSocket to `speech.platform.bing.com`. No API key, no deps.
 - **`TextStack.Tts`** class library: `EdgeTtsClient` (WebSocket protocol), `EdgeTtsService` (disk cache + `IHostedService` startup cleanup)
@@ -436,7 +438,7 @@ Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
   └─ textstack.dev → admin panel (:81)
 ```
 
-Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard` (profile-gated), `libretranslate`, `ollama`. All localhost-only, no public ports except 80 via tunnel.
+Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard` (profile-gated), `ollama`. All localhost-only, no public ports except 80 via tunnel.
 
 **Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m).
 
