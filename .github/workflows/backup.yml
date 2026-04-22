@@ -37,8 +37,12 @@ jobs:
           ls -1t storage-*.tar.gz 2>/dev/null | tail -n +6 | xargs -r rm -v
           ls -1t pre-deploy-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -v
 
-      - name: Verify backup
+      - name: Verify archive integrity
         run: |
           ls -lh $BACKUP_DIR/*.gz | tail -5
           gunzip -t $BACKUP_DIR/db-$BACKUP_DATE.sql.gz
-          echo "Backup verification passed"
+
+      - name: Verify backup restores into fresh postgres
+        run: |
+          cd $PROJECT_DIR
+          ./infra/scripts/backup-verify.sh $BACKUP_DIR/db-$BACKUP_DATE.sql.gz

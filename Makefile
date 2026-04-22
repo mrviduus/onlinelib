@@ -1,4 +1,4 @@
-.PHONY: up down restart logs status backup restore rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search seo-publish-setup seo-publish-status seo-publish-logs seo-publish-restart seo-publish-stop
+.PHONY: up down restart logs status backup restore backup-list backup-verify rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search seo-publish-setup seo-publish-status seo-publish-logs seo-publish-restart seo-publish-stop
 
 # ============================================================
 # Docker Services
@@ -134,6 +134,18 @@ restore:
 
 backup-list:
 	@ls -lh $(BACKUP_DIR)/*.sql.gz 2>/dev/null || echo "No backups found"
+
+backup-verify:
+	@FILE="$(FILE)"; \
+	if [ -z "$$FILE" ]; then \
+		FILE=$$(ls -1t $(BACKUP_DIR)/db*.sql.gz 2>/dev/null | head -n 1); \
+	fi; \
+	if [ -z "$$FILE" ]; then \
+		echo "No backup found. Pass FILE=... or run 'make backup' first."; \
+		exit 1; \
+	fi; \
+	echo "Verifying $$FILE ..."; \
+	./infra/scripts/backup-verify.sh "$$FILE"
 
 # ============================================================
 # SEO Auto-Publish
