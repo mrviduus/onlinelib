@@ -13,7 +13,8 @@ public class AdminSettingsService
     private const string AccessTokenExpiryKey = "session.accessTokenExpiryMinutes";
     private const string RefreshTokenExpiryKey = "session.refreshTokenExpiryDays";
     private const int DefaultAccessTokenExpiryMinutes = 15;
-    private const int DefaultRefreshTokenExpiryDays = 30;
+    // Admin sessions: shorter than user (30d) — elevated privileges, tighter blast radius on stolen cookies.
+    private const int DefaultRefreshTokenExpiryDays = 7;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
     public AdminSettingsService(IAppDbContext db, IMemoryCache cache)
