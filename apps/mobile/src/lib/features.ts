@@ -8,7 +8,6 @@ const parseFlag = (val: string | undefined, defaultValue: boolean): boolean => {
 }
 
 export const FEATURES = {
-  BLOG: parseFlag(process.env.EXPO_PUBLIC_FEATURE_BLOG, false),
   MOODS: parseFlag(process.env.EXPO_PUBLIC_FEATURE_MOODS, false),
   REVIEWS: parseFlag(process.env.EXPO_PUBLIC_FEATURE_REVIEWS, false),
   AMBIENT_SOCIAL: parseFlag(process.env.EXPO_PUBLIC_FEATURE_AMBIENT_SOCIAL, false),

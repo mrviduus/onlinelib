@@ -339,7 +339,6 @@ public class SeoJobProcessor(
                     if (g is null) return;
                     siteId = g.SiteId; slug = g.Slug; scope = "genre"; break;
                 default:
-                    // BlogPost — no slug-scoped rebuild, skip (Full rebuild would be overkill)
                     return;
             }
             var req = scope switch

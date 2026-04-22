@@ -31,9 +31,6 @@ export function Header() {
           <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
             {t('nav.vocabulary')}
           </LocalizedLink>
-          <LocalizedLink to="/blog" className="site-header__nav-link site-header__nav-link--secondary" title={t('blog.title')}>
-            {t('blog.title')}
-          </LocalizedLink>
           <LocalizedLink to="/about" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.aboutTextStack')}>
             {t('nav.about')}
           </LocalizedLink>

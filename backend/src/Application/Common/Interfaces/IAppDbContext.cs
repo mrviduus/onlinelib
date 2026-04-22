@@ -53,9 +53,6 @@ public interface IAppDbContext
     DbSet<WordCluster> WordClusters { get; }
     DbSet<ReviewLike> ReviewLikes { get; }
     DbSet<ReviewComment> ReviewComments { get; }
-    DbSet<BlogPost> BlogPosts { get; }
-    DbSet<BlogComment> BlogComments { get; }
-    DbSet<BlogLike> BlogLikes { get; }
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }

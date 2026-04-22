@@ -17,7 +17,6 @@ public class SeoContextBuilder(IAppDbContext db)
             SeoEntityType.Author => await BuildAuthorAsync(entityId, ct),
             SeoEntityType.Edition => await BuildEditionAsync(entityId, ct),
             SeoEntityType.Genre => await BuildGenreAsync(entityId, ct),
-            SeoEntityType.BlogPost => await BuildBlogPostAsync(entityId, ct),
             _ => throw new ArgumentOutOfRangeException(nameof(entityType))
         };
     }
@@ -112,23 +111,4 @@ public class SeoContextBuilder(IAppDbContext db)
         };
     }
 
-    private async Task<Dictionary<string, string?>> BuildBlogPostAsync(Guid id, CancellationToken ct)
-    {
-        var post = await db.BlogPosts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
-            ?? throw new InvalidOperationException($"BlogPost {id} not found");
-
-        var plain = post.Content;
-        if (plain.Length > 1500) plain = plain[..1500];
-
-        return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["title"] = post.Title,
-            ["slug"] = post.Slug,
-            ["content"] = plain,
-            ["excerpt"] = post.Excerpt,
-            ["language"] = post.Language,
-            ["author"] = post.AuthorName,
-            ["tags"] = post.Tags,
-        };
-    }
 }

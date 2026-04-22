@@ -307,7 +307,6 @@
       "latestAuthors": "Latest Authors",
       "allBooks": "All Books",
       "topFreeBooks": "Top Free Books",
-      "blogPosts": "Blog Posts",
       "allGenres": "All genres",
       "browseAuthors": "Browse Latest Books",
       "browseAuthorsDesc": "Read classic literature with built-in translation and vocabulary tools."
@@ -324,18 +323,16 @@
   "sitemap": {
     "title": "Sitemap",
     "seoTitle": "Sitemap — All Books, Authors, Genres",
-    "seoDesc": "Browse the full TextStack Reader catalogue: every book, author, genre, and blog post in one place.",
+    "seoDesc": "Browse the full TextStack Reader catalogue: every book, author, and genre in one place.",
     "navigation": "Navigation",
     "books": "Books",
     "authors": "Authors",
     "genres": "Genres",
-    "blog": "Blog",
     "help": "Help & About",
     "loading": "Loading sitemap…",
     "totalBooks": "{count} books",
     "totalAuthors": "{count} authors",
-    "totalGenres": "{count} genres",
-    "totalPosts": "{count} posts"
+    "totalGenres": "{count} genres"
   },
   "about": {
     "seoTitle": "About TextStack Reader",
@@ -883,8 +880,7 @@
     "home": "Home",
     "books": "Books",
     "authors": "Authors",
-    "genres": "Genres",
-    "blog": "Blog"
+    "genres": "Genres"
   },
   "tts": {
     "listen": "Listen",
@@ -893,24 +889,6 @@
     "settings": "Pronunciation",
     "unavailable": "Pronunciation unavailable",
     "test": "Test"
-  },
-  "blog": {
-    "title": "Blog",
-    "seoDesc": "Articles, reading lists, and book recommendations from the TextStack Reader team. Discover curated guides, classic literature essays, and tips for lifelong readers.",
-    "readMore": "Read more",
-    "noPostsYet": "No posts yet",
-    "publishedOn": "Published on",
-    "writtenBy": "By",
-    "tags": "Tags",
-    "loadMore": "Load more",
-    "comments": "Comments",
-    "leaveComment": "Leave a comment",
-    "commentPlaceholder": "Write your comment...",
-    "deleteComment": "Delete",
-    "reply": "Reply",
-    "replyPlaceholder": "Write your reply...",
-    "likes": "Likes",
-    "backToBlog": "Back to Blog"
   },
   "share": {
     "share": "Share",

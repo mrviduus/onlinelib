@@ -244,35 +244,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Blog Stats Grid */
-.dashboard-blog-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.dashboard-blog-metric {
-  text-align: center;
-  padding: 16px 8px;
-  background: #f9fafb;
-  border-radius: 8px;
-}
-
-.dashboard-blog-metric__value {
-  display: block;
-  font-size: 24px;
-  font-weight: 700;
-  color: #111;
-}
-
-.dashboard-blog-metric__label {
-  display: block;
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-  font-weight: 500;
-}
-
 /* Quick Actions */
 .dashboard-actions-title {
   font-size: 16px;

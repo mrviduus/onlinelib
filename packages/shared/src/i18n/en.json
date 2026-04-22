@@ -370,9 +370,6 @@
     "empty": "No highlights yet",
     "emptySubtitle": "Select text while reading to highlight it"
   },
-  "blog": {
-    "empty": "No blog posts yet"
-  },
   "terms": {
     "seoTitle": "Terms of Service - TextStack",
     "seoDesc": "TextStack terms of service. Read about acceptable use, content policies, and your rights as a user.",

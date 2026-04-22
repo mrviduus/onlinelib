@@ -195,10 +195,6 @@ public class AuthService
             _db.ReviewLikes, guestUserId, realUserId,
             x => x.UserRatingId, ct);
 
-        await ReparentDropOnConflictAsync(
-            _db.BlogLikes, guestUserId, realUserId,
-            x => x.BlogPostId, ct);
-
         // Flush reparent-on-conflict work before bulk UPDATEs (ExecuteUpdateAsync bypasses the change tracker).
         await _db.SaveChangesAsync(ct);
 
@@ -208,7 +204,6 @@ public class AuthService
         await _db.Notes.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.ReadingSessions.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.ReviewComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
-        await _db.BlogComments.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
         await _db.VocabularyReviews.Where(x => x.UserId == guestUserId).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, realUserId), ct);
 
         // Delete guest user (cascades refresh tokens, password reset tokens — reparented rows survive).

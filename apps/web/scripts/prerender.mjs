@@ -298,12 +298,11 @@ async function renderRoute(browser, routeObj) {
       const booksList = document.querySelector('.books-grid .book-card:not(.book-card--skeleton)');
       const authorDetail = document.querySelector('h1.author-detail__name');
       const genreDetail = document.querySelector('h1.genre-detail__title, .genre-detail__title');
-      const blogDetail = document.querySelector('h1.blog-post__title');
       const staticPage = document.querySelector('.about-page, .static-content, main h1');
       const homePage = document.querySelector('.home-hero__title');
-      const listPage = document.querySelector('.authors-page h1, .genres-page h1, .blog-page h1');
+      const listPage = document.querySelector('.authors-page h1, .genres-page h1');
 
-      if (bookDetail || booksList || authorDetail || genreDetail || blogDetail || staticPage || homePage || listPage) {
+      if (bookDetail || booksList || authorDetail || genreDetail || staticPage || homePage || listPage) {
         return 'content';
       }
 
