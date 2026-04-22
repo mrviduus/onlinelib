@@ -12,7 +12,7 @@ public class AdminSettingsService
 
     private const string AccessTokenExpiryKey = "session.accessTokenExpiryMinutes";
     private const string RefreshTokenExpiryKey = "session.refreshTokenExpiryDays";
-    private const int DefaultAccessTokenExpiryMinutes = 60;
+    private const int DefaultAccessTokenExpiryMinutes = 15;
     private const int DefaultRefreshTokenExpiryDays = 30;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
