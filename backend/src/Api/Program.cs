@@ -335,6 +335,65 @@ app.MapGet("/health", async (AppDbContext db) =>
     }
 });
 
+// Granular readiness probe — per-component status for ops dashboards.
+// db + storage are critical (503 on failure); ollama is soft (degraded, still 200).
+app.MapGet("/health/ready", async (AppDbContext db, IHttpClientFactory httpFactory, IConfiguration cfg, CancellationToken ct) =>
+{
+    var started = DateTimeOffset.UtcNow;
+    var components = new Dictionary<string, object>();
+    var criticalOk = true;
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("SELECT 1", ct);
+        components["db"] = new { status = "ok" };
+    }
+    catch (Exception ex)
+    {
+        components["db"] = new { status = "down", error = ex.GetType().Name };
+        criticalOk = false;
+    }
+
+    try
+    {
+        var root = cfg["Storage:RootPath"] ?? "/storage";
+        var probe = Path.Combine(root, ".health-probe");
+        await File.WriteAllTextAsync(probe, started.ToString("O"), ct);
+        File.Delete(probe);
+        components["storage"] = new { status = "ok", path = root };
+    }
+    catch (Exception ex)
+    {
+        components["storage"] = new { status = "down", error = ex.GetType().Name };
+        criticalOk = false;
+    }
+
+    try
+    {
+        var baseUrl = cfg["Ollama:BaseUrl"] ?? "http://localhost:11434";
+        using var client = httpFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(2);
+        var resp = await client.GetAsync($"{baseUrl}/api/tags", ct);
+        components["ollama"] = resp.IsSuccessStatusCode
+            ? new { status = "ok" }
+            : new { status = "degraded", code = (int)resp.StatusCode };
+    }
+    catch
+    {
+        components["ollama"] = new { status = "degraded" };
+    }
+
+    var elapsed = DateTimeOffset.UtcNow - started;
+    var payload = new
+    {
+        status = criticalOk ? "ready" : "unready",
+        timestamp = started,
+        latencyMs = (int)elapsed.TotalMilliseconds,
+        components,
+    };
+    return criticalOk ? Results.Ok(payload) : Results.Json(payload, statusCode: 503);
+});
+
 // Site resolution middleware
 app.UseSiteContext();
 
