@@ -174,16 +174,6 @@
       }
     }
   },
-  "exitIntent": {
-    "heading": "Don't lose your place",
-    "subheading": "Save your reading progress, vocabulary, and bookmarks — free forever.",
-    "benefit1": "Tap any word for instant translation",
-    "benefit2": "Build your vocabulary with spaced repetition",
-    "benefit3": "Read offline, sync across devices",
-    "primaryCta": "Start reading free",
-    "secondaryCta": "Maybe later",
-    "footnote": "Free forever. No credit card needed."
-  },
   "reader": {
     "wordPopup": {
       "known": "Known",

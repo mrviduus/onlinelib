@@ -35,7 +35,6 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
-import { ExitIntentModal } from './components/ExitIntentModal'
 import { Toast } from './components/Toast'
 import { useTranslation } from './hooks/useTranslation'
 import './styles/theme.css'
@@ -71,7 +70,6 @@ function LanguageRoutes() {
     <LanguageProvider>
       {!isReaderPage && !isUserBookReaderPage && <Header />}
       <AuthSuccessToast />
-      <ExitIntentModal />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
