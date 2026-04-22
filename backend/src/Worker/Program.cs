@@ -58,6 +58,9 @@ builder.Services.AddSingleton<IImageOptimizer, ImageOptimizer>();
 // Application services (for ISsgRouteProvider, etc.)
 builder.Services.AddApplication();
 
+// HTTP client factory (required by UserIngestionService for metadata enrichment)
+builder.Services.AddHttpClient();
+
 // Services
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
