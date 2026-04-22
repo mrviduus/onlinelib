@@ -1,5 +1,6 @@
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { LocalizedLink } from '../components/LocalizedLink'
 import { useTranslation } from '../hooks/useTranslation'
 import { useObfuscatedEmail } from '../hooks/useObfuscatedEmail'
 import './LegalPage.css'
@@ -54,9 +55,21 @@ export function TermsPage() {
       </section>
 
       <section className="legal-page__section">
+        <h2>{t('terms.uploadsHeading')}</h2>
+        <p>{t('terms.uploadsWarranty')}</p>
+        <p>{t('terms.uploadsIndemnify')}</p>
+        <p>
+          {t('terms.uploadsDmcaBefore')}{' '}
+          <LocalizedLink to="/dmca">{t('terms.uploadsDmcaLink')}</LocalizedLink>
+          {t('terms.uploadsDmcaAfter')}
+        </p>
+      </section>
+
+      <section className="legal-page__section">
         <h2>{t('terms.disclaimerHeading')}</h2>
         <p>{t('terms.disclaimerBody1')}</p>
         <p>{t('terms.disclaimerBody2')}</p>
+        <p>{t('terms.liabilityCap')}</p>
       </section>
 
       <section className="legal-page__section">
