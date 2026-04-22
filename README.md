@@ -34,21 +34,13 @@
 - Reading progress sync, bookmarks, highlights
 - Reading stats — heatmap calendar, weekly charts, daily/yearly goals, streak tracking, 20 achievements
 
-**Blog**
-- Admin-authored posts with comments, likes, share buttons
-- Per-language content (en/uk), threaded comments (2-level max), SEO-optimized
-
-**Social**
-- [Reading Rooms](docs/05-features/reading-rooms.md) — co-read a public book with friends, see each other's highlights & notes overlaid in real time
-
 **SEO**
-- SSG prerendered pages (Puppeteer worker, polls DB every 5s) — books, authors, genres, blog
+- SSG prerendered pages (Puppeteer worker, polls DB every 5s) — books, authors, genres
 - Sitemap XML auto-generation, IndexNow (Bing/Yandex)
 - Article JSON-LD, FAQ schema markup
 
 **Admin Panel** ([textstack.dev](https://textstack.dev))
 - Book/author/genre CRUD, bulk import, chapter editor
-- Blog management — create, edit, publish, cover upload
 - SSG rebuild, ingestion queue, settings
 
 ---
@@ -177,12 +169,11 @@ SSG auto-rebuilds every 24h. Manual rebuild via admin panel or `make rebuild-ssg
 See [docs/](docs/) for architecture decisions, deployment guides, and API reference.
 
 **Feature docs** (in `docs/05-features/`):
-- [Reading Rooms](docs/05-features/reading-rooms.md) — social co-reading, shared highlights overlay, invite links
 - [Vocabulary SRS](docs/05-features/vocabulary-srs.md) — spaced repetition, MC/typed/context modes, Ollama distractors
 - [Reader](docs/05-features/reader.md) — Kindle-like reader internals
 - [Offline Reading](docs/05-features/offline-reading.md) — PWA + IndexedDB caching
 - [User Auth](docs/05-features/user-auth.md) — Google/Apple/email auth, guest flow
-- [Search](docs/05-features/feat-0006-search-library.md) — Postgres FTS / Meilisearch
+- [Search](docs/05-features/feat-0006-search-library.md) — Postgres FTS
 - [Text Extraction](docs/05-features/feat-0003-text-extraction-core.md) — EPUB/PDF/FB2 parsers
 - [SSG Rebuild](docs/05-features/SSG_REBUILD.md) — Puppeteer prerender pipeline
 - [Observability](docs/05-features/feat-0005-observability-opentelemetry.md) — OpenTelemetry + Aspire

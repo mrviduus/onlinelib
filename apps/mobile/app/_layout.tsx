@@ -35,8 +35,6 @@ function AppContent() {
         <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-books/[id]" />
         <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="blog/index" />
-        <Stack.Screen name="blog/[slug]" />
         <Stack.Screen name="highlights/index" />
         <Stack.Screen name="highlights/review" />
         <Stack.Screen name="about" />
