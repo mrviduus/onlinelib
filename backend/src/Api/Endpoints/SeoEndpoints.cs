@@ -23,7 +23,6 @@ public static class SeoEndpoints
         app.MapGet("/sitemaps/authors.xml", GetAuthorsSitemap).WithName("GetAuthorsSitemap").WithTags("SEO");
         app.MapGet("/sitemaps/genres.xml", GetGenresSitemap).WithName("GetGenresSitemap").WithTags("SEO");
         app.MapGet("/sitemaps/pages.xml", (Delegate)GetPagesSitemap).WithName("GetPagesSitemap").WithTags("SEO");
-        app.MapGet("/sitemaps/blog.xml", GetBlogSitemap).WithName("GetBlogSitemap").WithTags("SEO");
         // NOTE: Chapters sitemap intentionally removed - chapters should not be indexed
     }
 
@@ -83,10 +82,6 @@ public static class SeoEndpoints
 
         sb.AppendLine("  <sitemap>");
         sb.AppendLine($"    <loc>{baseUrl}/sitemaps/pages.xml</loc>");
-        sb.AppendLine("  </sitemap>");
-
-        sb.AppendLine("  <sitemap>");
-        sb.AppendLine($"    <loc>{baseUrl}/sitemaps/blog.xml</loc>");
         sb.AppendLine("  </sitemap>");
 
         // NOTE: Chapters sitemap intentionally excluded - chapters are noindex
@@ -204,42 +199,6 @@ public static class SeoEndpoints
         return Results.Content(sb.ToString(), "application/xml");
     }
 
-    private static async Task<IResult> GetBlogSitemap(
-        HttpContext httpContext,
-        IAppDbContext db,
-        CancellationToken ct)
-    {
-        var site = httpContext.GetSiteContext();
-
-        if (!site.SitemapEnabled)
-            return Results.NotFound();
-
-        var posts = await db.BlogPosts
-            .Where(p => p.SiteId == site.SiteId && p.Status == BlogPostStatus.Published)
-            .Where(p => SupportedSitemapLanguages.Contains(p.Language))
-            .OrderByDescending(p => p.PublishedAt)
-            .Select(p => new { p.Slug, p.Language, p.UpdatedAt })
-            .ToListAsync(ct);
-
-        var sb = new StringBuilder();
-        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-        sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
-
-        foreach (var post in posts)
-        {
-            var loc = CanonicalUrlBuilder.BuildSitemapUrl(site.PrimaryDomain, $"/{post.Language}/blog/{post.Slug}");
-            sb.AppendLine("  <url>");
-            sb.AppendLine($"    <loc>{loc}</loc>");
-            sb.AppendLine($"    <lastmod>{post.UpdatedAt:yyyy-MM-dd}</lastmod>");
-            sb.AppendLine("    <changefreq>weekly</changefreq>");
-            sb.AppendLine("  </url>");
-        }
-
-        sb.AppendLine("</urlset>");
-
-        return Results.Content(sb.ToString(), "application/xml");
-    }
-
     private static Task<IResult> GetPagesSitemap(HttpContext httpContext)
     {
         var site = httpContext.GetSiteContext();
@@ -253,7 +212,7 @@ public static class SeoEndpoints
         // Static pages for each supported language (UK dropped: no content yet)
         var languages = SupportedSitemapLanguages;
         // sitemap = HTML sitemap hub that links to every book/author/genre/post.
-        var listPages = new[] { "books", "authors", "genres", "about", "blog", "sitemap" };
+        var listPages = new[] { "books", "authors", "genres", "about", "sitemap" };
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");

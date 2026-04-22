@@ -79,22 +79,6 @@ public static class SsgEndpoints
             routes.Add($"/{site.DefaultLanguage}/authors/{slug}");
         }
 
-        // Blog posts (per-language)
-        var blogPosts = await db.BlogPosts
-            .Where(p => p.SiteId == site.SiteId && p.Status == BlogPostStatus.Published)
-            .Select(p => new { p.Slug, p.Language })
-            .ToListAsync(ct);
-
-        foreach (var lang in languages)
-        {
-            routes.Add($"/{lang}/blog");
-        }
-
-        foreach (var post in blogPosts)
-        {
-            routes.Add($"/{post.Language}/blog/{post.Slug}");
-        }
-
         // Genres (use default language)
         var genres = await db.Genres
             .Where(g => g.SiteId == site.SiteId && g.Indexable)

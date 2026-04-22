@@ -41,14 +41,6 @@ public class SeoContentApplier(IAppDbContext db)
                     snapshot["SeoSource"] = g.SeoSource.ToString();
                     break;
                 }
-            case SeoEntityType.BlogPost:
-                {
-                    var p = await db.BlogPosts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId, ct)
-                        ?? throw new InvalidOperationException($"BlogPost {entityId} not found");
-                    foreach (var f in fields) snapshot[f.ToString()] = ReadBlogPost(p, f);
-                    snapshot["SeoSource"] = p.SeoSource.ToString();
-                    break;
-                }
         }
         return JsonSerializer.Serialize(snapshot);
     }
@@ -86,15 +78,6 @@ public class SeoContentApplier(IAppDbContext db)
                     foreach (var kv in values) WriteGenre(g, kv.Key, kv.Value);
                     g.SeoSource = SeoSource.Auto;
                     g.UpdatedAt = DateTimeOffset.UtcNow;
-                    break;
-                }
-            case SeoEntityType.BlogPost:
-                {
-                    var p = await db.BlogPosts.FirstOrDefaultAsync(x => x.Id == entityId, ct)
-                        ?? throw new InvalidOperationException($"BlogPost {entityId} not found");
-                    foreach (var kv in values) WriteBlogPost(p, kv.Key, kv.Value);
-                    p.SeoSource = SeoSource.Auto;
-                    p.UpdatedAt = DateTimeOffset.UtcNow;
                     break;
                 }
         }
@@ -137,16 +120,6 @@ public class SeoContentApplier(IAppDbContext db)
                         if (root.TryGetProperty(f.ToString(), out var v)) WriteGenre(g, f, v);
                     g.SeoSource = SeoSource.Manual;
                     g.UpdatedAt = DateTimeOffset.UtcNow;
-                    break;
-                }
-            case SeoEntityType.BlogPost:
-                {
-                    var p = await db.BlogPosts.FirstOrDefaultAsync(x => x.Id == entityId, ct)
-                        ?? throw new InvalidOperationException($"BlogPost {entityId} not found");
-                    foreach (var f in Enum.GetValues<SeoFieldType>())
-                        if (root.TryGetProperty(f.ToString(), out var v)) WriteBlogPost(p, f, v);
-                    p.SeoSource = SeoSource.Manual;
-                    p.UpdatedAt = DateTimeOffset.UtcNow;
                     break;
                 }
         }
@@ -218,22 +191,6 @@ public class SeoContentApplier(IAppDbContext db)
             case SeoFieldType.Description: g.Description = AsString(v); break;
             case SeoFieldType.SeoTitle: g.SeoTitle = AsString(v); break;
             case SeoFieldType.SeoDescription: g.SeoDescription = AsString(v); break;
-        }
-    }
-
-    private static string? ReadBlogPost(Domain.Entities.BlogPost p, SeoFieldType f) => f switch
-    {
-        SeoFieldType.SeoTitle => p.SeoTitle,
-        SeoFieldType.SeoDescription => p.SeoDescription,
-        _ => null
-    };
-
-    private static void WriteBlogPost(Domain.Entities.BlogPost p, SeoFieldType f, JsonElement v)
-    {
-        switch (f)
-        {
-            case SeoFieldType.SeoTitle: p.SeoTitle = AsString(v); break;
-            case SeoFieldType.SeoDescription: p.SeoDescription = AsString(v); break;
         }
     }
 

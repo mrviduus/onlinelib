@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { adminApi, AdminStats, IngestionJob, BlogStats, GenreStats, DEFAULT_SITE_ID } from '../api/client'
+import { adminApi, AdminStats, IngestionJob, GenreStats, DEFAULT_SITE_ID } from '../api/client'
 
 export function DashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [genreStats, setGenreStats] = useState<GenreStats | null>(null)
-  const [blogStats, setBlogStats] = useState<BlogStats | null>(null)
   const [jobs, setJobs] = useState<IngestionJob[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -13,12 +12,10 @@ export function DashboardPage() {
     Promise.all([
       adminApi.getStats().catch(() => null),
       adminApi.getGenreStats(DEFAULT_SITE_ID).catch(() => null),
-      adminApi.getBlogStats().catch(() => null),
       adminApi.getJobs().catch(() => []),
-    ]).then(([s, g, b, j]) => {
+    ]).then(([s, g, j]) => {
       setStats(s)
       setGenreStats(g)
-      setBlogStats(b)
       setJobs(j)
       setLoading(false)
     })
@@ -49,9 +46,8 @@ export function DashboardPage() {
         <StatCard label="Users" value={stats?.totalUsers ?? 0} icon="users" color="#0891b2" />
       </div>
 
-      {/* Two-column: Recent Jobs + Blog */}
+      {/* Recent Jobs */}
       <div className="dashboard-sections">
-        {/* Recent Jobs */}
         <div className="dashboard-section-card">
           <div className="dashboard-section-header">
             <h2>Recent Jobs</h2>
@@ -70,32 +66,6 @@ export function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Blog Overview */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <h2>Blog</h2>
-            <Link to="/blog" className="dashboard-section-link">Manage →</Link>
-          </div>
-          <div className="dashboard-blog-grid">
-            <div className="dashboard-blog-metric">
-              <span className="dashboard-blog-metric__value">{blogStats?.published ?? 0}</span>
-              <span className="dashboard-blog-metric__label">Published</span>
-            </div>
-            <div className="dashboard-blog-metric">
-              <span className="dashboard-blog-metric__value">{blogStats?.draft ?? 0}</span>
-              <span className="dashboard-blog-metric__label">Drafts</span>
-            </div>
-            <div className="dashboard-blog-metric">
-              <span className="dashboard-blog-metric__value">{blogStats?.totalComments ?? 0}</span>
-              <span className="dashboard-blog-metric__label">Comments</span>
-            </div>
-            <div className="dashboard-blog-metric">
-              <span className="dashboard-blog-metric__value">{blogStats?.totalLikes ?? 0}</span>
-              <span className="dashboard-blog-metric__label">Likes</span>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -7,6 +7,5 @@ public enum SeoEntityType
 {
     Author = 0,
     Edition = 1,
-    Genre = 2,
-    BlogPost = 3
+    Genre = 2
 }
