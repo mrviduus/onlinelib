@@ -20,6 +20,8 @@ Free book library with Kindle-like reader. EPUB/PDF/FB2 upload, parsing, SEO pag
 | [Backup & Restore](03-ops/backup.md) | `make backup`, GHA daily dump, restore drill |
 | [Uptime Monitoring](03-ops/uptime-monitoring.md) | External probes + alert runbook |
 | [Incident Runbook](03-ops/incident-runbook.md) | First-response for DB/worker/SSG/site outages |
+| [infra/scripts/README](../infra/scripts/README.md) | Pollers (SEO publish, SEO backfill, quality) — what, install, logs |
+| [infra/systemd/README](../infra/systemd/README.md) | User-level systemd units |
 | [E2E Testing Guide](04-dev/e2e-guide.md) | Playwright setup, UI mode, troubleshooting |
 | [LLM Provider Swap](04-dev/llm-provider-swap.md) | Swap Ollama → OpenAI/Anthropic API (2 files) |
 
