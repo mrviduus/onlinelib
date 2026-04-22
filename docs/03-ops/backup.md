@@ -18,8 +18,15 @@ container name + credentials from `.env`.
 ```bash
 make backup                       # pg_dump → ~/backups/textstack/db_<ts>.sql.gz
 make backup-list                  # list existing backups
+make backup-verify                # restore latest dump into throwaway pg + sanity queries
+make backup-verify FILE=<path>    # verify specific backup
 make restore FILE=~/backups/textstack/db_2026-04-22_030012.sql.gz
 ```
+
+`backup-verify` spins up `postgres:16` on a random port, loads the gzipped
+dump with `ON_ERROR_STOP`, then runs a sanity SELECT over tables/editions/
+chapters. Exits non-zero if restore aborts or core tables look truncated.
+The throwaway container is removed on exit.
 
 Under the hood `make backup` runs:
 ```bash

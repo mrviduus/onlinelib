@@ -14,7 +14,11 @@ df -h /                                 # disk space
 ```
 
 Health endpoints:
-- `curl -sS https://textstack.app/api/health` → `healthy`
+- `curl -sS https://textstack.app/api/health` → `healthy` (liveness)
+- `curl -sS https://textstack.app/api/health/ready | jq` → per-component
+  status: `db`, `storage`, `ollama`. `503` if db/storage down (critical);
+  ollama-down still returns `200` with `status: degraded` since distractors
+  are soft-fail.
 - `docker compose ps` → all services show `(healthy)`
 - GitHub Actions → **Health Check** workflow for external view
 
