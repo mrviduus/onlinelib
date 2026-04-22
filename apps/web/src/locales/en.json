@@ -4,13 +4,13 @@
   },
   "home": {
     "hero": {
-      "title": "Read books in English without stopping",
-      "subtitleBefore": "Tap any word to translate to",
-      "subtitleAfter": "— and stay in flow",
-      "brandLine": "TextStack Reader — learn English by reading real books",
-      "seoTitle": "TextStack Reader — Read books in English with instant translation",
-      "seoDescription": "Read books in English without stopping. Tap any word to translate instantly and stay in flow. Learn English by reading real books with TextStack.",
-      "description": "TextStack Reader is a reading platform for language learners. Thousands of classic books with built-in vocabulary tools, spaced repetition, and reading statistics.",
+      "title": "Finish the book you keep quitting.",
+      "subtitleBefore": "Tap any word for a contextual explanation in",
+      "subtitleAfter": "— stay in flow, finish the book.",
+      "brandLine": "TextStack — a reader for developers, students, and curious minds.",
+      "seoTitle": "TextStack — A reader that helps you finish dense books",
+      "seoDescription": "Finish the tech book, paper, or classic you keep quitting. Contextual word explanations tied to the book's domain. Capped weekly SRS, offline reading. EPUB, PDF, FB2.",
+      "description": "TextStack is a reader for dense tech books, papers, and literary classics. Contextual word explanations tied to the book's domain, a capped weekly SRS queue, and detailed reading stats — all in one place.",
       "cta": "Browse catalog",
       "ctaPrimary": "Start reading",
       "ctaSecondary": "Upload your book",
@@ -33,26 +33,26 @@
       "read": "Read"
     },
     "recommended": {
-      "title": "Recommended for You",
-      "subtitle": "Highest-rated books in our catalog",
+      "title": "Classic literature",
+      "subtitle": "Free, public-domain books — thousands ready to read.",
       "viewAll": "View all books"
     },
     "seo": {
-      "content": "TextStack Reader is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
+      "content": "TextStack is a reader built for people who want to finish the book they keep quitting — from dense tech books and papers to classic literature. Every word you tap gets a contextual explanation tied to the book's domain, not a generic dictionary. Save words to a capped weekly SRS queue, track reading stats, and sync across web and mobile."
     },
     "continueReading": {
       "label": "Continue Reading"
     },
     "features": {
-      "heading": "Everything you need to read — and learn",
-      "subheading": "One clean app. Real books. Real progress.",
-      "translate": {
-        "title": "Tap to translate",
-        "description": "Tap any word for instant translation, definition, and pronunciation. 18+ languages."
+      "heading": "Tools that keep you reading",
+      "subheading": "Contextual explanations. Capped SRS. Offline. Across devices.",
+      "explain": {
+        "title": "Explain in context",
+        "description": "Tap any word for a 2-sentence explanation tied to the book's domain — plus translation and pronunciation."
       },
       "srs": {
-        "title": "Smart flashcards",
-        "description": "Saved words become SRS flashcards. 5 stages from Recognition to Mastered."
+        "title": "Capped weekly SRS",
+        "description": "Saved words become flashcards with a capped weekly queue — not infinite. 5 stages from Recognition to Mastered."
       },
       "upload": {
         "title": "Your own books",
@@ -118,11 +118,15 @@
       "subheading": "Everything you need to know about TextStack.",
       "whatIs": {
         "q": "What is TextStack?",
-        "a": "TextStack is a free reading platform for language learners. Read classic English books with built-in translation, vocabulary flashcards, text-to-speech, and reading statistics — all in one app."
+        "a": "TextStack is a reader for people who want to finish the book they keep quitting — dense tech books and papers, or classic literature. Every word you tap gets a contextual explanation tied to the book's domain. Save words to a capped weekly SRS queue. Works on web and mobile, online or offline."
       },
       "isFree": {
         "q": "Is TextStack really free?",
-        "a": "Yes. The full catalog, reader, translation, SRS flashcards, and reading statistics are completely free. No credit card required, no hidden limits."
+        "a": "Yes. The full catalog, reader, contextual explanations, translation, SRS flashcards, text-to-speech, and reading statistics are completely free. No credit card required, no hidden limits."
+      },
+      "techBooks": {
+        "q": "Do you have programming or tech books?",
+        "a": "The catalog ships with thousands of public-domain classics. MIT/Apache/CC-BY licensed programming books are being added — priority given to Rust, Go, and systems titles. You can also upload your own EPUB or PDF at any time and read it with the full toolkit."
       },
       "languages": {
         "q": "Which languages are supported?",
@@ -164,6 +168,7 @@
         "speechify": "Speechify"
       },
       "features": {
+        "contextualExplain": "Contextual explanations",
         "tapTranslate": "Tap-to-translate",
         "srsCards": "SRS flashcards",
         "uploadBooks": "Upload your books",

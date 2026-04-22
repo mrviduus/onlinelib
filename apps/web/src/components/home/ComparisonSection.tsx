@@ -1,6 +1,7 @@
 import { useTranslation } from '../../hooks/useTranslation'
 
 const FEATURES = [
+  'contextualExplain',
   'tapTranslate',
   'srsCards',
   'uploadBooks',
@@ -15,6 +16,7 @@ const COMPETITORS = ['textstack', 'lingq', 'kindle', 'speechify'] as const
 type Status = 'yes' | 'no' | 'partial'
 
 const DATA: Record<string, Record<string, Status>> = {
+  contextualExplain: { textstack: 'yes', lingq: 'no', kindle: 'partial', speechify: 'no' },
   tapTranslate:  { textstack: 'yes', lingq: 'yes', kindle: 'partial', speechify: 'no' },
   srsCards:      { textstack: 'yes', lingq: 'yes', kindle: 'no', speechify: 'no' },
   uploadBooks:   { textstack: 'yes', lingq: 'yes', kindle: 'no', speechify: 'yes' },

@@ -1,6 +1,7 @@
 import { SeoHead } from '../components/SeoHead'
 import { HeroSection } from '../components/home/HeroSection'
 import { StatsBar } from '../components/home/StatsBar'
+import { FeaturesSection } from '../components/home/FeaturesSection'
 import { RecommendedSection } from '../components/home/RecommendedSection'
 import { TestimonialsSection } from '../components/home/TestimonialsSection'
 import { ComparisonSection } from '../components/home/ComparisonSection'
@@ -21,6 +22,7 @@ export function HomePage() {
         />
         <HeroSection />
         <StatsBar />
+        <FeaturesSection />
         <RecommendedSection />
         <TestimonialsSection />
         <ComparisonSection />
