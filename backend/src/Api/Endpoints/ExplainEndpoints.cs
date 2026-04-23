@@ -12,7 +12,7 @@ public static class ExplainEndpoints
 {
     public static void MapExplainEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/explain").WithTags("Explain");
+        var group = app.MapGroup("/explain").WithTags("Explain");
         group.MapPost("", Explain).WithName("Explain").RequireRateLimiting("explain");
     }
 

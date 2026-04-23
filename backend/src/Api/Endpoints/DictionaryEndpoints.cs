@@ -7,7 +7,7 @@ public static class DictionaryEndpoints
 {
     public static void MapDictionaryEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/dictionary").WithTags("Dictionary");
+        var group = app.MapGroup("/dictionary").WithTags("Dictionary");
 
         group.MapGet("/{lang}/{word}", LookupWord).WithName("LookupWord").RequireRateLimiting("dictionary");
     }
