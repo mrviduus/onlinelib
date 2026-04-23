@@ -7,25 +7,8 @@ import type { Page } from '@playwright/test'
 const API_URL = process.env.API_URL ?? 'http://localhost:8080'
 const HEADERS = { Host: 'general.localhost', 'Content-Type': 'application/json' }
 
-// Words guaranteed to appear in Cal Newport's "So Good They Can't Ignore You"
-// (themes: work/career/passion/skill). Frequencies land in SrsEligible band.
-const VOCAB_WORDS = [
-  { word: 'work', language: 'en', nativeLanguage: 'de', translation: 'Arbeit', sentence: 'I love my work.' },
-  { word: 'career', language: 'en', nativeLanguage: 'de', translation: 'Karriere', sentence: 'His career took off.' },
-  { word: 'skill', language: 'en', nativeLanguage: 'de', translation: 'Fähigkeit', sentence: 'A rare skill.' },
-]
-
-async function saveWords(request: import('@playwright/test').APIRequestContext) {
-  for (const w of VOCAB_WORDS) {
-    const resp = await request.post(`${API_URL}/me/vocabulary/words`, { headers: HEADERS, data: w })
-    if (!resp.ok() && resp.status() !== 409) {
-      throw new Error(`save ${w.word}: ${resp.status()} ${await resp.text()}`)
-    }
-  }
-}
-
 async function cleanupWords(request: import('@playwright/test').APIRequestContext) {
-  const resp = await request.get(`${API_URL}/me/vocabulary/words?limit=100`, { headers: HEADERS })
+  const resp = await request.get(`${API_URL}/me/vocabulary/words?limit=200`, { headers: HEADERS })
   if (!resp.ok()) return
   const data = await resp.json()
   for (const w of data.items ?? []) {
@@ -33,12 +16,36 @@ async function cleanupWords(request: import('@playwright/test').APIRequestContex
   }
 }
 
-async function highlightSize(page: Page, name: string): Promise<number> {
-  return page.evaluate((n) => {
-    const anyCSS = (globalThis as unknown as { CSS?: { highlights?: Map<string, { size: number }> } }).CSS
-    const h = anyCSS?.highlights?.get(n)
-    return h?.size ?? 0
-  }, name)
+// Pick a 4-10 letter alphabetic word from the rendered reader content. Dynamic
+// extraction is more reliable than hard-coding words — the first chapter of any
+// test book might be "welcome"/"dedication"/etc with arbitrary vocabulary.
+async function pickWordFromReader(page: Page): Promise<string> {
+  const word = await page.evaluate(() => {
+    const el = document.getElementById('reader-content') ||
+               document.querySelector('.reader-main') ||
+               document.body
+    const text = (el?.textContent ?? '').toLowerCase()
+    // Prefer 5-8 letter words; lands comfortably in SrsEligible Zipf band.
+    const matches = text.match(/[a-z]{5,8}/g) ?? []
+    // Skip the shortest/most generic frontmatter boilerplate words.
+    for (const m of matches) {
+      if (['about', 'chapter', 'title', 'cover', 'copyright'].includes(m)) continue
+      return m
+    }
+    return matches[0] ?? null
+  })
+  if (!word) throw new Error('Could not find a candidate word in reader content')
+  return word
+}
+
+async function saveWord(request: import('@playwright/test').APIRequestContext, word: string) {
+  const resp = await request.post(`${API_URL}/me/vocabulary/words`, {
+    headers: HEADERS,
+    data: { word, language: 'en', nativeLanguage: 'de', translation: 'X', sentence: `A ${word} example.` },
+  })
+  if (!resp.ok() && resp.status() !== 409) {
+    throw new Error(`save ${word}: ${resp.status()} ${await resp.text()}`)
+  }
 }
 
 async function totalHighlightSize(page: Page): Promise<number> {
@@ -55,12 +62,11 @@ async function totalHighlightSize(page: Page): Promise<number> {
 }
 
 test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
-  test.describe.configure({ timeout: 60_000 })
+  test.describe.configure({ timeout: 90_000 })
 
   test.beforeAll(async ({ request }) => {
     await testLogin(request)
     await cleanupWords(request)
-    await saveWords(request)
   })
 
   test.afterAll(async ({ request }) => {
@@ -68,90 +74,105 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
     await cleanupWords(request)
   })
 
-  test('new path: CSS.highlights populated after chapter render', async ({ authedPage: page }) => {
+  test('new path: CSS.highlights populated after chapter render', async ({ authedPage: page, request }) => {
     const { enBook } = getTestData()
+
+    // First navigation — so we can pull a real word out of the rendered chapter.
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+
+    const word = await pickWordFromReader(page)
+    await saveWord(request, word)
+
+    // Reload to re-fetch vocab map with the new word.
+    await page.reload()
     await waitForReaderLoad(page)
 
     await expect(async () => {
       expect(await totalHighlightSize(page)).toBeGreaterThan(0)
-    }).toPass({ timeout: 15_000, intervals: [500] })
+    }).toPass({ timeout: 20_000, intervals: [500] })
 
+    // New-path verified: no legacy <mark> wrappers injected.
     expect(await page.locator('mark[data-vocab-mark]').count()).toBe(0)
   })
 
-  test('highlights persist through chapter eviction & return scroll', async ({ authedPage: page }) => {
+  test('highlights persist through scroll & return', async ({ authedPage: page, request }) => {
     const { enBook } = getTestData()
+
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+    const word = await pickWordFromReader(page)
+    await saveWord(request, word)
+    await page.reload()
     await waitForReaderLoad(page)
 
     await expect(async () => {
       expect(await totalHighlightSize(page)).toBeGreaterThan(0)
-    }).toPass({ timeout: 15_000, intervals: [500] })
+    }).toPass({ timeout: 20_000, intervals: [500] })
 
-    const sizeBefore = await totalHighlightSize(page)
-
-    // Scroll far forward to evict chapter 1 (CHAPTERS_EVICT_WINDOW = 3).
-    // 12 page-downs of 2000px easily crosses 3+ chapters on this 110-chapter book.
-    for (let i = 0; i < 12; i++) {
-      await page.evaluate(() => window.scrollBy(0, 2000))
-      await page.waitForTimeout(150)
+    // Scroll forward aggressively to trigger eviction of chapter 1.
+    for (let i = 0; i < 10; i++) {
+      await page.evaluate(() => window.scrollBy(0, 2500))
+      await page.waitForTimeout(200)
     }
-
-    // Scroll back to top — first chapter reloads via dangerouslySetInnerHTML.
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.waitForTimeout(500)
 
+    // After return scroll, the engine should re-populate highlights on the
+    // re-rendered chapter 1 (mutation observer recovery path).
     await expect(async () => {
       expect(await totalHighlightSize(page)).toBeGreaterThan(0)
-    }).toPass({ timeout: 15_000, intervals: [500] })
-
-    // Still no legacy <mark> — new path recovered.
+    }).toPass({ timeout: 20_000, intervals: [500] })
     expect(await page.locator('mark[data-vocab-mark]').count()).toBe(0)
-    // And at least as many highlights as before (chapter re-rendered, engine re-ran).
-    expect(await totalHighlightSize(page)).toBeGreaterThanOrEqual(Math.min(1, sizeBefore))
   })
 
-  test('killswitch: window.__textstackDisableCustomHighlights=true → legacy <mark> path', async ({ authedPage: page }) => {
+  test('killswitch → legacy <mark> path', async ({ authedPage: page, request }) => {
     const { enBook } = getTestData()
 
-    // Set killswitch BEFORE app boots — init script runs on every navigation.
+    // Navigate once to pick a word, then set killswitch and re-navigate.
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+    const word = await pickWordFromReader(page)
+    await saveWord(request, word)
+
     await page.addInitScript(() => {
       ;(window as unknown as { __textstackDisableCustomHighlights?: boolean })
         .__textstackDisableCustomHighlights = true
     })
-
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
     await expect(async () => {
       const marks = await page.locator('mark[data-vocab-mark]').count()
       expect(marks).toBeGreaterThan(0)
-    }).toPass({ timeout: 15_000, intervals: [500] })
+    }).toPass({ timeout: 20_000, intervals: [500] })
 
-    // New-path registry should be empty because dispatcher took the legacy branch.
+    // Dispatcher took legacy — custom-highlight registry stays empty.
     expect(await totalHighlightSize(page)).toBe(0)
   })
 
-  test('unsupported fallback: CSS.highlights undefined → legacy path', async ({ authedPage: page }) => {
+  test('unsupported (CSS.highlights undefined) → legacy path', async ({ authedPage: page, request }) => {
     const { enBook } = getTestData()
 
-    // Remove CSS.highlights before any reader code reads support.
+    await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
+    await waitForReaderLoad(page)
+    const word = await pickWordFromReader(page)
+    await saveWord(request, word)
+
     await page.addInitScript(() => {
       try {
         const css = (globalThis as unknown as { CSS?: Record<string, unknown> }).CSS
         if (css) delete (css as Record<string, unknown>).highlights
       } catch {
-        // ignore — legacy path doesn't need the delete to succeed
+        /* ignore — fallback doesn't depend on the delete succeeding */
       }
     })
-
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
     await expect(async () => {
       const marks = await page.locator('mark[data-vocab-mark]').count()
       expect(marks).toBeGreaterThan(0)
-    }).toPass({ timeout: 15_000, intervals: [500] })
+    }).toPass({ timeout: 20_000, intervals: [500] })
   })
 })

@@ -824,10 +824,41 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     // chunk of body). RAF-debounced, only runs if a vocab map is loaded.
     var _vhlMutRaf = 0;
     var _vhlMutObserver = null;
+    // True when mutations were caused by our own legacy-mark wrapping or
+    // overlay rendering — skip the observer's reapply to avoid an
+    // infinite loop (mutation → markVocabWords → mutation → ...).
+    function _vhlIsOwnMutation(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var m = mutations[i];
+        var target = m.target;
+        var el = target && target.nodeType === 1 ? target : (target && target.parentElement) || null;
+        if (el && el.closest && (el.closest('[data-vocab-overlay]') || el.closest('mark[' + VOCAB_ATTR + ']'))) continue;
+        // Look at added/removed nodes too — wrapping a text node in <mark>
+        // registers the MARK as an added node whose target is the parent P.
+        var ownAdded = true;
+        if (m.addedNodes && m.addedNodes.length > 0) {
+          for (var a = 0; a < m.addedNodes.length; a++) {
+            var an = m.addedNodes[a];
+            if (an.nodeType === 1) {
+              var tag = an.tagName;
+              if (tag === 'MARK' && an.getAttribute && an.getAttribute(VOCAB_ATTR)) continue;
+              if (an.hasAttribute && an.hasAttribute('data-vocab-overlay')) continue;
+            }
+            ownAdded = false; break;
+          }
+        } else {
+          ownAdded = false;
+        }
+        if (ownAdded) continue;
+        return false; // at least one external mutation
+      }
+      return true; // all mutations originate from our own DOM writes
+    }
     function vhlEnsureObserver() {
       if (_vhlMutObserver) return;
       try {
-        _vhlMutObserver = new MutationObserver(function() {
+        _vhlMutObserver = new MutationObserver(function(mutations) {
+          if (_vhlIsOwnMutation(mutations)) return;
           if (_vhlMutRaf) return;
           _vhlMutRaf = requestAnimationFrame(function() {
             _vhlMutRaf = 0;
