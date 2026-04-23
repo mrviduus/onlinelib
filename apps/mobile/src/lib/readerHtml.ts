@@ -1,4 +1,5 @@
 import { openDyslexicBase64 } from './openDyslexicBase64'
+import { READER_OVERLAY_SCRIPT } from './readerOverlayScript'
 
 export interface ReaderTheme {
   fontSize: number
@@ -7,6 +8,13 @@ export interface ReaderTheme {
   textAlign: string
   backgroundColor: string
   textColor: string
+}
+
+export interface ReaderHtmlOptions {
+  // Slice 8b — opt-in SVG overlayer for user highlights. Vocab underlines
+  // stay on CSS.highlights (glyph-aware text-decoration beats SVG rects).
+  // Default off until device verification + mobile E2E land.
+  overlayV2?: boolean
 }
 
 const defaultTheme: ReaderTheme = {
@@ -28,10 +36,14 @@ function buildFontFace(fontFamily: string): string {
   }`
 }
 
-export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string, safeArea?: { top: number; bottom: number }): string {
+export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string, safeArea?: { top: number; bottom: number }, options?: ReaderHtmlOptions): string {
   const fontFace = buildFontFace(theme.fontFamily)
   const padTop = (safeArea?.top ?? 0) + 16
   const padBottom = (safeArea?.bottom ?? 0) + 16
+  const overlayV2 = options?.overlayV2 === true
+  // Only inline the overlayer script when flag is on — zero bytes otherwise.
+  const overlayScript = overlayV2 ? READER_OVERLAY_SCRIPT : ''
+  const overlayFlagSetter = overlayV2 ? 'window.__textstackOverlayV2Mobile = true;' : ''
 
   return `<!DOCTYPE html>
 <html>
@@ -106,6 +118,12 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     /* Progress tracking via scroll */
     html { scroll-behavior: smooth; }
   </style>
+  <script>
+    // Slice 8b — flag that downstream code checks to route highlights through
+    // the SVG overlayer. Set before the overlayer IIFE so init can read it.
+    ${overlayFlagSetter}
+  </script>
+  ${overlayScript ? `<script>${overlayScript}</script>` : ''}
   <script>
     // Diagnostic console forwarder — routes WebView console.log/warn/error
     // and uncaught errors to RN via postMessage. RN surfaces via console.warn
@@ -617,6 +635,61 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       return range;
     }
 
+    // Slice 8b — SVG overlayer dispatcher for highlights. Vocab underlines
+    // stay on CSS.highlights (text-decoration is glyph-aware, beats SVG rects).
+    // Flag-gated via window.__textstackOverlayV2Mobile (set by buildReaderHtml
+    // options.overlayV2). Legacy <mark> path is the default fallback.
+    var _hlOverlayer = null;
+    function hlOverlayEnabled() {
+      return !!(window.__textstackOverlayV2Mobile && window.__TSOverlayer && typeof window.__TSOverlayer.create === 'function');
+    }
+    function hlEnsureOverlayer() {
+      if (_hlOverlayer) return _hlOverlayer;
+      if (!hlOverlayEnabled()) return null;
+      try {
+        _hlOverlayer = window.__TSOverlayer.create();
+        _hlOverlayer.element.style.zIndex = '2';
+        document.body.appendChild(_hlOverlayer.element);
+        // Reflow on font load, resize, orientation change — overlayer draws
+        // from range rects, which must be re-computed whenever layout shifts.
+        window.addEventListener('resize', function(){ try { _hlOverlayer.redraw(); } catch(e) {} });
+        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+          document.fonts.ready.then(function(){ try { _hlOverlayer.redraw(); } catch(e) {} });
+        }
+        // Tap delegation — overlayer is pointer-events:none so taps hit body.
+        // hitTest returns [key, range] when a rect covers the point.
+        document.body.addEventListener('click', function(e){
+          if (!_hlOverlayer) return;
+          var hit = _hlOverlayer.hitTest({ x: e.clientX, y: e.clientY });
+          if (!hit || !hit.length || !hit[0]) return;
+          var key = hit[0];
+          if (key.indexOf('user-hl:') !== 0) return;
+          var id = key.slice('user-hl:'.length);
+          try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id })); } catch (err) {}
+        }, true);
+      } catch (e) {
+        console.warn('[diag] hlEnsureOverlayer failed:', e && e.message);
+        _hlOverlayer = null;
+      }
+      return _hlOverlayer;
+    }
+    function hlPaintRangeOverlay(range, id, color) {
+      var ov = hlEnsureOverlayer();
+      if (!ov) return { ok: false, painted: 0, total: 0 };
+      var bg = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
+      try {
+        ov.add('user-hl:' + id, range, window.__TSOverlayer.highlight, { color: bg, opacity: 1, blendMode: 'multiply' });
+        return { ok: true, painted: 1, total: 1 };
+      } catch (e) {
+        console.warn('[diag] hlPaintRangeOverlay failed:', id, e && e.message);
+        return { ok: false, painted: 0, total: 0 };
+      }
+    }
+    function hlRemoveOverlay(id) {
+      if (!_hlOverlayer) return false;
+      try { _hlOverlayer.remove('user-hl:' + id); return true; } catch (e) { return false; }
+    }
+
     // Paint a highlight by wrapping each text node the range intersects in
     // its own <mark>. Handles multi-node ranges that surroundContents can't.
     // Returns { ok, painted, total } so the caller can see partial paints.
@@ -688,13 +761,17 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       snippet = anchorObj.exact.length > 30 ? anchorObj.exact.slice(0, 30) + '…' : anchorObj.exact;
       var range = hlBuildRange(anchorObj);
       if (!range) { console.warn('[diag] renderHighlight NO MATCH:', id, snippet); return; }
-      var res = hlPaintRange(range, id, color);
+      // Dispatcher: overlay path if flag on + overlayer available, else legacy <mark>.
+      var res = hlOverlayEnabled() ? hlPaintRangeOverlay(range, id, color) : hlPaintRange(range, id, color);
       if (!res.ok) console.warn('[diag] renderHighlight paint failed:', id, snippet);
       else if (res.painted < res.total) console.warn('[diag] renderHighlight partial:', id, snippet, res.painted + '/' + res.total);
       else console.log('[diag] renderHighlight matched:', id, snippet);
     }
 
     function removeHighlight(id) {
+      // Overlay path is additive — legacy <mark> cleanup still runs in case
+      // a stale DOM mark exists (e.g. during flag flip mid-session).
+      hlRemoveOverlay(id);
       var marks = document.querySelectorAll('mark[data-highlight-id="' + id + '"]');
       marks.forEach(function(mark) {
         var parent = mark.parentNode;

@@ -23,11 +23,16 @@ import { LocalizedLink } from '../components/LocalizedLink'
 import { Toast } from '../components/Toast'
 import { ReaderTopBar } from '../components/reader/ReaderTopBar'
 import { ReaderContent } from '../components/reader/ReaderContent'
+import { ReaderSection } from '../components/reader/ReaderSection'
+import { ReaderNav } from '../components/reader/ReaderNav'
+import { ReaderErrorBoundary } from '../components/reader/ReaderErrorBoundary'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { ReaderTocDrawer, type AutoSaveInfo, type TocChapter } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
+import { SearchOverlayLayer } from '../components/reader/SearchOverlayLayer'
+import { isReaderOverlayV2Active } from '../lib/features'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
 import { useQuickStats } from '../hooks/useQuickStats'
@@ -317,6 +322,27 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Refs for restore logic
   const scrollRestoredRef = useRef(false)
 
+  // Overlay-path scroll progress (single chapter mounted, native window scroll).
+  // Legacy multi-chapter path uses `chapterScrollProgress` below.
+  const overlayV2Enabled = isReaderOverlayV2Active()
+  const [overlayScrollProgress, setOverlayScrollProgress] = useState(0)
+  useEffect(() => {
+    if (!overlayV2Enabled) return
+    const read = () => {
+      const doc = document.scrollingElement || document.documentElement
+      const max = doc.scrollHeight - doc.clientHeight
+      if (max <= 0) { setOverlayScrollProgress(0); return }
+      setOverlayScrollProgress(Math.min(1, Math.max(0, doc.scrollTop / max)))
+    }
+    read()
+    window.addEventListener('scroll', read, { passive: true })
+    window.addEventListener('resize', read)
+    return () => {
+      window.removeEventListener('scroll', read)
+      window.removeEventListener('resize', read)
+    }
+  }, [overlayV2Enabled, chapter?.id])
+
   // Current chapter progress (0..1) based on scroll within the visible chapter.
   // Drives both book-level overallProgress and chapter-level ETF.
   const chapterScrollProgress = useMemo(() => {
@@ -333,25 +359,37 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const calculatedProgress = useMemo(() => {
     if (!scrollReaderBook) return 0
     const chapters = scrollReaderBook.chapters
-    const currentId = scrollReader.visibleIdentifier
+    // Overlay-path: one chapter mounted, visibleIdentifier is stale. Drive
+    // progress from the URL chapter + overlay scroll instead.
+    const currentId = overlayV2Enabled
+      ? (chapterIdentifier || '')
+      : (scrollReader.visibleIdentifier || '')
     if (!currentId) return 0
+    const intraProgress = overlayV2Enabled ? overlayScrollProgress : chapterScrollProgress
 
     const currentChapterIndex = chapters.findIndex(c => c.identifier === currentId)
     if (currentChapterIndex === -1) return 0
 
     const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
     if (totalWords === 0) {
-      return (currentChapterIndex + chapterScrollProgress) / chapters.length
+      return (currentChapterIndex + intraProgress) / chapters.length
     }
 
     const wordsBeforeCurrent = chapters
       .slice(0, currentChapterIndex)
       .reduce((sum, c) => sum + (c.wordCount || 0), 0)
     const currentChapterWords = chapters[currentChapterIndex].wordCount || 0
-    const wordsRead = wordsBeforeCurrent + currentChapterWords * chapterScrollProgress
+    const wordsRead = wordsBeforeCurrent + currentChapterWords * intraProgress
 
     return wordsRead / totalWords
-  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterScrollProgress])
+  }, [
+    scrollReaderBook,
+    scrollReader.visibleIdentifier,
+    chapterScrollProgress,
+    overlayV2Enabled,
+    chapterIdentifier,
+    overlayScrollProgress,
+  ])
 
   // Force 100% when book is completed
   const rawProgress = bookCompleted ? 1 : calculatedProgress
@@ -425,10 +463,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const totalChapters = scrollReaderBook?.chapters.length ?? 0
   const currentChapterIndex = useMemo(() => {
     if (!scrollReaderBook) return -1
-    const id = scrollReader.visibleIdentifier || chapterIdentifier
+    // Overlay path: URL chapter is authoritative. Legacy path: scroll-visible wins.
+    const id = overlayV2Enabled
+      ? (chapterIdentifier || '')
+      : (scrollReader.visibleIdentifier || chapterIdentifier || '')
     if (!id) return -1
     return scrollReaderBook.chapters.findIndex(c => c.identifier === id)
-  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterIdentifier])
+  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterIdentifier, overlayV2Enabled])
 
   // Track scroll activity for reading session
   useEffect(() => {
@@ -935,20 +976,64 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           scrollToHighlightId={scrollToHighlightId}
         >
           <div ref={scrollContainerRef}>
-            <ReaderContent
-              chapters={scrollReader.chapters}
-              settings={settings}
-              isLoadingMore={scrollReader.isLoadingMore}
-              isAtEnd={scrollReader.isAtEnd}
-              libraryHref={mode === 'public' ? getLocalizedPath('/library') : `/${language}/library/my`}
-              homeHref={mode === 'public' ? getLocalizedPath('/') : `/${language}`}
-              bookDetailHref={mode === 'public' && bookSlug ? getLocalizedPath(`/books/${bookSlug}`) : undefined}
-              onLoadMore={scrollReader.loadMore}
-              onLoadPrev={scrollReader.loadPrev}
-              chapterRefs={scrollReader.chapterRefs}
-              onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
-            />
+            {overlayV2Enabled ? (
+              <ReaderErrorBoundary
+                resetKey={chapter.id}
+                fallback={
+                  <ReaderContent
+                    chapters={scrollReader.chapters}
+                    settings={settings}
+                    isLoadingMore={scrollReader.isLoadingMore}
+                    isAtEnd={scrollReader.isAtEnd}
+                    libraryHref={mode === 'public' ? getLocalizedPath('/library') : `/${language}/library/my`}
+                    homeHref={mode === 'public' ? getLocalizedPath('/') : `/${language}`}
+                    bookDetailHref={mode === 'public' && bookSlug ? getLocalizedPath(`/books/${bookSlug}`) : undefined}
+                    onLoadMore={scrollReader.loadMore}
+                    onLoadPrev={scrollReader.loadPrev}
+                    chapterRefs={scrollReader.chapterRefs}
+                    onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
+                  />
+                }
+              >
+                <ReaderSection
+                  chapterId={chapter.id}
+                  chapterIndex={chapter.chapterNumber}
+                  html={chapter.html}
+                  settings={settings}
+                  onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
+                />
+                <ReaderNav
+                  chapterTitle={chapter.title}
+                  chapterNumber={chapter.chapterNumber}
+                  totalChapters={totalChapters || null}
+                  chapterProgress={overlayScrollProgress}
+                  onPrev={chapter.prev ? () => navigate(getChapterUrl(chapter.prev!.identifier)) : null}
+                  onNext={chapter.next ? () => navigate(getChapterUrl(chapter.next!.identifier)) : null}
+                />
+              </ReaderErrorBoundary>
+            ) : (
+              <ReaderContent
+                chapters={scrollReader.chapters}
+                settings={settings}
+                isLoadingMore={scrollReader.isLoadingMore}
+                isAtEnd={scrollReader.isAtEnd}
+                libraryHref={mode === 'public' ? getLocalizedPath('/library') : `/${language}/library/my`}
+                homeHref={mode === 'public' ? getLocalizedPath('/') : `/${language}`}
+                bookDetailHref={mode === 'public' && bookSlug ? getLocalizedPath(`/books/${bookSlug}`) : undefined}
+                onLoadMore={scrollReader.loadMore}
+                onLoadPrev={scrollReader.loadPrev}
+                chapterRefs={scrollReader.chapterRefs}
+                onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
+              />
+            )}
           </div>
+          {overlayV2Enabled && searchOpen && (
+            <SearchOverlayLayer
+              containerRef={scrollContainerRef}
+              query={searchQuery}
+              activeMatchIndex={activeMatchIndex}
+            />
+          )}
         </ReaderHighlights>
       </main>
 

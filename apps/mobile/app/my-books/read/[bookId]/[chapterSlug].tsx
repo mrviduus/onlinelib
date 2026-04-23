@@ -477,7 +477,7 @@ export default function UserBookReaderScreen() {
       textAlign: settings.textAlign,
       backgroundColor: resolvedTheme.backgroundColor,
       textColor: resolvedTheme.textColor,
-    }, undefined, { top: insets.top, bottom: insets.bottom })
+    }, undefined, { top: insets.top, bottom: insets.bottom }, { overlayV2: true })
   }, [chapter, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign, resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom])
 
   const webViewSource = useMemo(() => ({ html }), [html])

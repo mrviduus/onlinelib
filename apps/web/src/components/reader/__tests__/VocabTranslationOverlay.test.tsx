@@ -62,49 +62,45 @@ describe('VocabTranslationOverlay', () => {
   it('skips matches without translation', () => {
     const withTr = mkMatch('fox', 'лиса', { left: 10, top: 10, width: 20, height: 10 })
     const noTr = mkMatch('cat', null, { left: 30, top: 10, width: 20, height: 10 })
-    const { container } = render(
-      <VocabTranslationOverlay matches={[withTr, noTr]} visible={true} />,
-    )
-    expect(container.querySelectorAll('.vocab-translation-overlay__item').length).toBe(1)
+    render(<VocabTranslationOverlay matches={[withTr, noTr]} visible={true} />)
+    expect(document.body.querySelectorAll('.vocab-translation-overlay__item').length).toBe(1)
   })
 
   it('skips matches with zero-size rects (not yet laid out)', () => {
     const zero = mkMatch('fox', 'лиса', { left: 0, top: 0, width: 0, height: 0 })
-    const { container } = render(<VocabTranslationOverlay matches={[zero]} visible={true} />)
-    expect(container.querySelector('.vocab-translation-overlay')).toBeNull()
+    render(<VocabTranslationOverlay matches={[zero]} visible={true} />)
+    expect(document.body.querySelector('.vocab-translation-overlay')).toBeNull()
   })
 
   it('tags the overlay with data-vocab-overlay so the engine skips it', () => {
     const m = mkMatch('x', 'y', { left: 1, top: 1, width: 10, height: 10 })
-    const { container } = render(<VocabTranslationOverlay matches={[m]} visible={true} />)
-    const overlay = container.querySelector('.vocab-translation-overlay')
+    render(<VocabTranslationOverlay matches={[m]} visible={true} />)
+    const overlay = document.body.querySelector('.vocab-translation-overlay')
     expect(overlay?.getAttribute('data-vocab-overlay')).toBe('true')
   })
 
-  it('places items using viewport coords via CSS custom props', () => {
+  it('places items using document coords via CSS custom props', () => {
     const m = mkMatch('fox', 'лиса', { left: 100, top: 50, width: 20, height: 10 })
-    const { container } = render(<VocabTranslationOverlay matches={[m]} visible={true} />)
-    const item = container.querySelector('.vocab-translation-overlay__item') as HTMLElement
-    // center x = left + width/2 = 110, y = top - 2 = 48
+    render(<VocabTranslationOverlay matches={[m]} visible={true} />)
+    const item = document.body.querySelector('.vocab-translation-overlay__item') as HTMLElement
+    // x = left + width/2 + scrollX = 110, y = top + scrollY = 50
     expect(item.style.getPropertyValue('--x')).toBe('110px')
-    expect(item.style.getPropertyValue('--y')).toBe('48px')
+    expect(item.style.getPropertyValue('--y')).toBe('50px')
   })
 
-  it('recomputes placements after scroll (debounced)', async () => {
+  it('recomputes placements on resize (debounced)', async () => {
     const m = mkMatch('fox', 'лиса', { left: 100, top: 50, width: 20, height: 10 })
-    const { container } = render(
-      <VocabTranslationOverlay matches={[m]} visible={true} reflowDebounceMs={10} />,
-    )
-    let item = container.querySelector('.vocab-translation-overlay__item') as HTMLElement
+    render(<VocabTranslationOverlay matches={[m]} visible={true} reflowDebounceMs={10} />)
+    let item = document.body.querySelector('.vocab-translation-overlay__item') as HTMLElement
     expect(item.style.getPropertyValue('--x')).toBe('110px')
 
-    // Simulate scroll: word moves up by 40px.
+    // Resize: word reflows up by 40px.
     stubRect(m.range, { left: 100, top: 10, width: 20, height: 10 })
-    window.dispatchEvent(new Event('scroll'))
+    window.dispatchEvent(new Event('resize'))
 
     await waitFor(() => {
-      item = container.querySelector('.vocab-translation-overlay__item') as HTMLElement
-      expect(item.style.getPropertyValue('--y')).toBe('8px')
+      item = document.body.querySelector('.vocab-translation-overlay__item') as HTMLElement
+      expect(item.style.getPropertyValue('--y')).toBe('10px')
     })
   })
 })

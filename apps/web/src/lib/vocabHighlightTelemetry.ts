@@ -5,6 +5,7 @@
 export type TelemetryEvent =
   | 'boot.supported'
   | 'boot.fallback'
+  | 'boot.overlay'
   | 'register.success'
   | 'register.mismatch'
   | 'register.error'
@@ -15,6 +16,10 @@ export type TelemetryEvent =
   | 'oracle.diff'
   | 'error.boundary'
   | 'error.engine'
+  | 'reader.overlay.mount'
+  | 'reader.overlay.redraw'
+  | 'reader.overlay.miss'
+  | 'reader.overlay.error'
 
 export type TelemetryPayload = Record<string, unknown>
 

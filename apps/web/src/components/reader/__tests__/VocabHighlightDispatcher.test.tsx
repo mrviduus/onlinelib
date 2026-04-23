@@ -4,14 +4,22 @@ import { useRef } from 'react'
 import type { VocabMap } from '../../../hooks/useReaderVocabulary'
 
 // Mock features module so we can drive flag state per-test.
-const flagState = { customVocabHighlights: true, vocabHighlightsOracle: false }
+const flagState = {
+  customVocabHighlights: true,
+  vocabHighlightsOracle: false,
+  readerOverlayV2: false,
+}
 let killswitch = false
+let overlayV2Active = false
 
 vi.mock('../../../lib/features', () => ({
   get FEATURES() {
     return flagState
   },
   isRuntimeKillswitchSet: () => killswitch,
+  isReaderOverlayKillswitchSet: () => false,
+  isReaderOverlayRuntimeEnabled: () => false,
+  isReaderOverlayV2Active: () => overlayV2Active,
 }))
 
 // Import AFTER the mock is in place.
@@ -83,7 +91,9 @@ describe('VocabHighlightDispatcher', () => {
   beforeEach(() => {
     flagState.customVocabHighlights = true
     flagState.vocabHighlightsOracle = false
+    flagState.readerOverlayV2 = false
     killswitch = false
+    overlayV2Active = false
     installMock()
     __resetSupportCache()
     resetSink()
