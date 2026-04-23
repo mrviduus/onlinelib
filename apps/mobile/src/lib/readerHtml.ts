@@ -824,41 +824,31 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     // chunk of body). RAF-debounced, only runs if a vocab map is loaded.
     var _vhlMutRaf = 0;
     var _vhlMutObserver = null;
-    // True when mutations were caused by our own legacy-mark wrapping or
-    // overlay rendering — skip the observer's reapply to avoid an
-    // infinite loop (mutation → markVocabWords → mutation → ...).
-    function _vhlIsOwnMutation(mutations) {
-      for (var i = 0; i < mutations.length; i++) {
-        var m = mutations[i];
-        var target = m.target;
-        var el = target && target.nodeType === 1 ? target : (target && target.parentElement) || null;
-        if (el && el.closest && (el.closest('[data-vocab-overlay]') || el.closest('mark[' + VOCAB_ATTR + ']'))) continue;
-        // Look at added/removed nodes too — wrapping a text node in <mark>
-        // registers the MARK as an added node whose target is the parent P.
-        var ownAdded = true;
-        if (m.addedNodes && m.addedNodes.length > 0) {
-          for (var a = 0; a < m.addedNodes.length; a++) {
-            var an = m.addedNodes[a];
-            if (an.nodeType === 1) {
-              var tag = an.tagName;
-              if (tag === 'MARK' && an.getAttribute && an.getAttribute(VOCAB_ATTR)) continue;
-              if (an.hasAttribute && an.hasAttribute('data-vocab-overlay')) continue;
-            }
-            ownAdded = false; break;
-          }
-        } else {
-          ownAdded = false;
-        }
-        if (ownAdded) continue;
-        return false; // at least one external mutation
+    var _vhlMutAttached = false;
+    // Pause the observer across our own DOM writes. Without this, every
+    // legacy-mark wrap / unwrap and every overlay span append re-triggers
+    // markVocabWords → infinite RAF-bounded loop.
+    function vhlPauseObserver() {
+      if (_vhlMutObserver && _vhlMutAttached) {
+        try { _vhlMutObserver.disconnect(); } catch (e) {}
+        _vhlMutAttached = false;
       }
-      return true; // all mutations originate from our own DOM writes
+    }
+    function vhlResumeObserver() {
+      if (_vhlMutObserver && !_vhlMutAttached) {
+        try {
+          _vhlMutObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+          _vhlMutAttached = true;
+          // Drop anything the observer buffered before the reconnect —
+          // those were our own writes.
+          if (_vhlMutObserver.takeRecords) { try { _vhlMutObserver.takeRecords(); } catch (e) {} }
+        } catch (e) {}
+      }
     }
     function vhlEnsureObserver() {
       if (_vhlMutObserver) return;
       try {
-        _vhlMutObserver = new MutationObserver(function(mutations) {
-          if (_vhlIsOwnMutation(mutations)) return;
+        _vhlMutObserver = new MutationObserver(function() {
           if (_vhlMutRaf) return;
           _vhlMutRaf = requestAnimationFrame(function() {
             _vhlMutRaf = 0;
@@ -867,6 +857,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           });
         });
         _vhlMutObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        _vhlMutAttached = true;
       } catch (e) { console.warn('[vhl] observer attach failed', e && e.message); }
     }
     window.addEventListener('load', vhlEnsureObserver);
@@ -879,25 +870,31 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 
     function markVocabWords(vocabMap) {
       _currentVocabMap = vocabMap || {};
-      // Clear both paths' state before re-applying — covers path switches
-      // (e.g. killswitch toggled at runtime) and keeps the DOM clean.
-      vhlLegacyRemove();
-      vhlClear();
-      vhlClearOverlay();
-      if (!vocabMap || Object.keys(vocabMap).length === 0) return;
-      if (vhlUseNew()) {
-        try {
-          var matches = vhlCompute(vocabMap);
-          vhlSync(matches);
-          vhlRenderOverlay(matches);
-          return;
-        } catch (e) {
-          console.warn('[vhl] new path failed → legacy', e && e.message);
-          vhlClear();
-          vhlClearOverlay();
+      // Observer watches body. Every wrap/unwrap/overlay-append we do here
+      // would re-fire it → markVocabWords → loop. Pause while we write,
+      // resume after (finally: always restores even on throw).
+      vhlPauseObserver();
+      try {
+        vhlLegacyRemove();
+        vhlClear();
+        vhlClearOverlay();
+        if (!vocabMap || Object.keys(vocabMap).length === 0) return;
+        if (vhlUseNew()) {
+          try {
+            var matches = vhlCompute(vocabMap);
+            vhlSync(matches);
+            vhlRenderOverlay(matches);
+            return;
+          } catch (e) {
+            console.warn('[vhl] new path failed → legacy', e && e.message);
+            vhlClear();
+            vhlClearOverlay();
+          }
         }
+        vhlLegacyMark(vocabMap);
+      } finally {
+        vhlResumeObserver();
       }
-      vhlLegacyMark(vocabMap);
     }
 
     function addVocabWord(word, stage) {
@@ -909,9 +906,14 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     function removeVocabMarks() {
-      vhlLegacyRemove();
-      vhlClear();
-      vhlClearOverlay();
+      vhlPauseObserver();
+      try {
+        vhlLegacyRemove();
+        vhlClear();
+        vhlClearOverlay();
+      } finally {
+        vhlResumeObserver();
+      }
     }
 
     // Tap pulse: wrap selection in temporary span with animation
