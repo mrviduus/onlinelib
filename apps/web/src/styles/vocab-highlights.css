@@ -11,48 +11,48 @@
 ::highlight(vocab-new) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(59, 130, 246, 0.5); /* blue */
 }
 
 ::highlight(vocab-recognition) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(234, 179, 8, 0.5); /* yellow */
 }
 
 ::highlight(vocab-recall) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(234, 179, 8, 0.4);
 }
 
 ::highlight(vocab-context) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(34, 197, 94, 0.4); /* green */
 }
 
 ::highlight(vocab-mastered) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(34, 197, 94, 0.25);
 }
 
 ::highlight(vocab-active) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
-  text-decoration-skip-ink: all;
-  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  text-underline-offset: 3px;
   text-decoration-color: rgba(59, 130, 246, 0.7);
 }
 
