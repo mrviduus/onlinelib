@@ -92,6 +92,17 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       border-radius: 2px;
     }
 
+    /* CSS Custom Highlight API — vocab underlines (parity with web). */
+    ::highlight(vocab-new) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(59,130,246,0.5); }
+    ::highlight(vocab-recognition) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(234,179,8,0.5); }
+    ::highlight(vocab-recall) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(234,179,8,0.4); }
+    ::highlight(vocab-context) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(34,197,94,0.4); }
+    ::highlight(vocab-mastered) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(34,197,94,0.25); }
+    ::highlight(vocab-active) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(59,130,246,0.7); }
+
+    .vocab-translation-overlay { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; z-index: 1; }
+    .vocab-translation-overlay__item { position: absolute; top: 0; left: 0; transform: translate3d(0,0,0); white-space: nowrap; font-size: 0.5em; font-style: italic; opacity: 0.5; line-height: 1; pointer-events: none; user-select: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; will-change: transform; }
+
     /* Progress tracking via scroll */
     html { scroll-behavior: smooth; }
   </style>
@@ -586,7 +597,18 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       return { prefix: prefix, exact: text, suffix: suffix };
     }
 
-    // Vocab word marking by SRS stage
+    // =========================================================
+    // Vocab highlight layer — mirrors web's dispatcher design.
+    //
+    //   new path: CSS.highlights (Range-based, no DOM mutation → survives
+    //             chapter innerHTML appends, font changes, resize).
+    //   legacy path: <mark data-vocab-mark> wrapper (pre-refactor).
+    //
+    // Dispatcher per call: feature-detect + runtime killswitch. Exterior API
+    // unchanged (markVocabWords / addVocabWord / removeVocabMarks /
+    // setShowInlineTranslations) so mobile reader pages need no edits.
+    // =========================================================
+
     var VOCAB_STAGE_COLORS = {
       0: 'rgba(59,130,246,0.5)',   // new — blue
       1: 'rgba(234,179,8,0.5)',    // recognition — yellow
@@ -595,18 +617,148 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       4: 'rgba(34,197,94,0.25)'    // mastered — faint green
     };
     var VOCAB_ATTR = 'data-vocab-mark';
+    var VHL_STAGE_NAMES = { 0: 'vocab-new', 1: 'vocab-recognition', 2: 'vocab-recall', 3: 'vocab-context', 4: 'vocab-mastered' };
+    var VHL_MANAGED_NAMES = ['vocab-new','vocab-recognition','vocab-recall','vocab-context','vocab-mastered','vocab-active'];
+    var VHL_WORD_RE = /[\\p{L}\\p{N}'-]+/gu;
 
     var _showInlineTranslations = false;
+    var _currentVocabMap = {};
+    var _vhlSupport = null;
 
-    function setShowInlineTranslations(val) {
-      _showInlineTranslations = !!val;
-      if (Object.keys(_currentVocabMap).length > 0) markVocabWords(_currentVocabMap);
+    function vhlIsSupported() {
+      if (_vhlSupport !== null) return _vhlSupport;
+      try {
+        _vhlSupport = typeof CSS !== 'undefined' && !!CSS.highlights && typeof Highlight === 'function';
+        // Smoke: construct and register+delete a Highlight.
+        if (_vhlSupport) { var h = new Highlight(); CSS.highlights.set('__vhl_probe__', h); CSS.highlights.delete('__vhl_probe__'); }
+      } catch (e) { _vhlSupport = false; }
+      return _vhlSupport;
+    }
+    function vhlKillswitchSet() {
+      try { return !!window.__textstackDisableCustomHighlights; } catch (e) { return false; }
+    }
+    function vhlUseNew() { return vhlIsSupported() && !vhlKillswitchSet(); }
+
+    // Pure: TreeWalker → Range objects. No DOM mutation. Rejects SCRIPT/STYLE
+    // and the translation overlay subtree (data-vocab-overlay).
+    function vhlCompute(vocabMap) {
+      var out = [];
+      if (!vocabMap) return out;
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(n) {
+          var p = n.parentElement;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          var tag = p.tagName;
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'MARK') return NodeFilter.FILTER_REJECT;
+          if (p.closest && p.closest('[data-vocab-overlay]')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var node;
+      while (node = walker.nextNode()) {
+        var text = node.textContent;
+        if (!text || !text.trim()) continue;
+        VHL_WORD_RE.lastIndex = 0;
+        var m;
+        while (m = VHL_WORD_RE.exec(text)) {
+          var lower = m[0].toLowerCase();
+          var entry = vocabMap[lower];
+          if (!entry) continue;
+          var range = document.createRange();
+          try { range.setStart(node, m.index); range.setEnd(node, m.index + m[0].length); }
+          catch (e) { continue; }
+          out.push({ range: range, stage: entry.stage, key: lower, translation: entry.translation || null });
+        }
+      }
+      return out;
     }
 
-    function markVocabWords(vocabMap) {
-      // vocabMap: {word: {stage, id, translation?}}
-      _currentVocabMap = vocabMap || {};
-      removeVocabMarks();
+    function vhlSync(matches) {
+      if (!vhlIsSupported()) return;
+      var groups = {};
+      for (var i = 0; i < matches.length; i++) {
+        var mm = matches[i];
+        var name = VHL_STAGE_NAMES[mm.stage] || VHL_STAGE_NAMES[0];
+        if (!groups[name]) groups[name] = [];
+        groups[name].push(mm.range);
+      }
+      for (var n = 0; n < VHL_MANAGED_NAMES.length; n++) {
+        var nm = VHL_MANAGED_NAMES[n];
+        var ranges = groups[nm] || [];
+        if (ranges.length === 0) { try { CSS.highlights.delete(nm); } catch (e) {} continue; }
+        try {
+          var hl = new Highlight();
+          for (var k = 0; k < ranges.length; k++) hl.add(ranges[k]);
+          CSS.highlights.set(nm, hl);
+        } catch (e) { console.warn('[vhl] sync error', nm, e && e.message); }
+      }
+    }
+
+    function vhlClear() {
+      if (!vhlIsSupported()) return;
+      for (var i = 0; i < VHL_MANAGED_NAMES.length; i++) {
+        try { CSS.highlights.delete(VHL_MANAGED_NAMES[i]); } catch (e) {}
+      }
+    }
+
+    // Translation overlay — absolute-positioned spans, one per translatable
+    // match. Positions update via RAF on scroll/resize.
+    var _vhlOverlayEl = null;
+    var _vhlOverlayItems = [];
+    var _vhlOverlayRaf = 0;
+
+    function vhlEnsureOverlay() {
+      if (_vhlOverlayEl && document.body.contains(_vhlOverlayEl)) return _vhlOverlayEl;
+      _vhlOverlayEl = document.createElement('div');
+      _vhlOverlayEl.className = 'vocab-translation-overlay';
+      _vhlOverlayEl.setAttribute('data-vocab-overlay', 'true');
+      document.body.appendChild(_vhlOverlayEl);
+      return _vhlOverlayEl;
+    }
+    function vhlClearOverlay() {
+      if (_vhlOverlayEl) _vhlOverlayEl.innerHTML = '';
+      _vhlOverlayItems = [];
+    }
+    function vhlRenderOverlay(matches) {
+      vhlClearOverlay();
+      if (!_showInlineTranslations) return;
+      var overlay = vhlEnsureOverlay();
+      for (var i = 0; i < matches.length; i++) {
+        var m = matches[i];
+        if (!m.translation) continue;
+        var span = document.createElement('span');
+        span.className = 'vocab-translation-overlay__item';
+        span.textContent = m.translation;
+        overlay.appendChild(span);
+        _vhlOverlayItems.push({ range: m.range, el: span });
+      }
+      vhlRepositionOverlay();
+    }
+    function vhlRepositionOverlay() {
+      for (var i = 0; i < _vhlOverlayItems.length; i++) {
+        var item = _vhlOverlayItems[i];
+        var rect;
+        try { rect = item.range.getBoundingClientRect(); } catch (e) { item.el.style.display = 'none'; continue; }
+        if (!rect || !rect.width || !rect.height) { item.el.style.display = 'none'; continue; }
+        item.el.style.display = '';
+        var cx = Math.round(rect.left + rect.width / 2 + window.scrollX);
+        var topY = Math.round(rect.top + window.scrollY - 2);
+        item.el.style.transform = 'translate3d(' + cx + 'px,' + topY + 'px,0) translate(-50%,-100%)';
+      }
+    }
+    function vhlScheduleReposition() {
+      if (_vhlOverlayRaf) return;
+      _vhlOverlayRaf = requestAnimationFrame(function() {
+        _vhlOverlayRaf = 0;
+        vhlRepositionOverlay();
+      });
+    }
+    window.addEventListener('scroll', vhlScheduleReposition, { passive: true, capture: true });
+    window.addEventListener('resize', vhlScheduleReposition);
+
+    // Legacy <mark> path — preserved as fallback.
+    function vhlLegacyMark(vocabMap) {
+      vhlLegacyRemove();
       if (!vocabMap || Object.keys(vocabMap).length === 0) return;
       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
         acceptNode: function(n) {
@@ -635,30 +787,116 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         var frag = document.createDocumentFragment();
         var lastEnd = 0;
         for (var j = 0; j < matches.length; j++) {
-          var m = matches[j];
-          if (m.start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, m.start)));
-          var mark = document.createElement('mark');
-          mark.setAttribute(VOCAB_ATTR, 'true');
-          var entry = vocabMap[m.word];
+          var mm = matches[j];
+          if (mm.start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, mm.start)));
+          var mk = document.createElement('mark');
+          mk.setAttribute(VOCAB_ATTR, 'true');
+          var entry = vocabMap[mm.word];
           var stage = entry.stage;
-          mark.style.cssText = 'background:none;color:inherit;padding:0;position:relative;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
-          mark.textContent = text.slice(m.start, m.end);
+          mk.style.cssText = 'background:none;color:inherit;padding:0;position:relative;border-bottom:2px solid ' + (VOCAB_STAGE_COLORS[stage] || VOCAB_STAGE_COLORS[0]) + ';';
+          mk.textContent = text.slice(mm.start, mm.end);
           if (_showInlineTranslations && entry.translation) {
-            var span = document.createElement('span');
-            span.className = 'vocab-inline-translation';
-            span.style.cssText = 'position:absolute;left:50%;bottom:calc(100% - 4px);transform:translateX(-50%);white-space:nowrap;font-size:0.5em;font-style:italic;opacity:0.4;line-height:1;pointer-events:none;user-select:none;max-width:150%;overflow:hidden;text-overflow:ellipsis;';
-            span.textContent = entry.translation;
-            mark.appendChild(span);
+            var sp = document.createElement('span');
+            sp.className = 'vocab-inline-translation';
+            sp.style.cssText = 'position:absolute;left:50%;bottom:calc(100% - 4px);transform:translateX(-50%);white-space:nowrap;font-size:0.5em;font-style:italic;opacity:0.4;line-height:1;pointer-events:none;user-select:none;max-width:150%;overflow:hidden;text-overflow:ellipsis;';
+            sp.textContent = entry.translation;
+            mk.appendChild(sp);
           }
-          frag.appendChild(mark);
-          lastEnd = m.end;
+          frag.appendChild(mk);
+          lastEnd = mm.end;
         }
         if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
         tn.parentNode.replaceChild(frag, tn);
       }
     }
+    function vhlLegacyRemove() {
+      var marks = document.querySelectorAll('mark[' + VOCAB_ATTR + ']');
+      marks.forEach(function(mark) {
+        var parent = mark.parentNode;
+        if (!parent) return;
+        var wordText = mark.firstChild && mark.firstChild.nodeType === 3 ? mark.firstChild.textContent : mark.textContent;
+        parent.replaceChild(document.createTextNode(wordText || ''), mark);
+        parent.normalize();
+      });
+    }
 
-    var _currentVocabMap = {};
+    // Re-apply vocab marks after DOM mutations (e.g. appendChapter replaces a
+    // chunk of body). RAF-debounced, only runs if a vocab map is loaded.
+    var _vhlMutRaf = 0;
+    var _vhlMutObserver = null;
+    var _vhlMutAttached = false;
+    // Pause the observer across our own DOM writes. Without this, every
+    // legacy-mark wrap / unwrap and every overlay span append re-triggers
+    // markVocabWords → infinite RAF-bounded loop.
+    function vhlPauseObserver() {
+      if (_vhlMutObserver && _vhlMutAttached) {
+        try { _vhlMutObserver.disconnect(); } catch (e) {}
+        _vhlMutAttached = false;
+      }
+    }
+    function vhlResumeObserver() {
+      if (_vhlMutObserver && !_vhlMutAttached) {
+        try {
+          _vhlMutObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+          _vhlMutAttached = true;
+          // Drop anything the observer buffered before the reconnect —
+          // those were our own writes.
+          if (_vhlMutObserver.takeRecords) { try { _vhlMutObserver.takeRecords(); } catch (e) {} }
+        } catch (e) {}
+      }
+    }
+    function vhlEnsureObserver() {
+      if (_vhlMutObserver) return;
+      try {
+        _vhlMutObserver = new MutationObserver(function() {
+          if (_vhlMutRaf) return;
+          _vhlMutRaf = requestAnimationFrame(function() {
+            _vhlMutRaf = 0;
+            if (!_currentVocabMap || Object.keys(_currentVocabMap).length === 0) return;
+            try { markVocabWords(_currentVocabMap); } catch (e) { console.warn('[vhl] mutation apply failed', e && e.message); }
+          });
+        });
+        _vhlMutObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        _vhlMutAttached = true;
+      } catch (e) { console.warn('[vhl] observer attach failed', e && e.message); }
+    }
+    window.addEventListener('load', vhlEnsureObserver);
+
+    // Public API — unchanged signatures for all mobile call sites.
+    function setShowInlineTranslations(val) {
+      _showInlineTranslations = !!val;
+      if (Object.keys(_currentVocabMap).length > 0) markVocabWords(_currentVocabMap);
+    }
+
+    function markVocabWords(vocabMap) {
+      _currentVocabMap = vocabMap || {};
+      // Observer watches body. Every wrap/unwrap/overlay-append we do here
+      // would re-fire it → markVocabWords → loop. Pause while we write,
+      // resume after (finally: always restores even on throw).
+      vhlPauseObserver();
+      try {
+        vhlLegacyRemove();
+        vhlClear();
+        vhlClearOverlay();
+        if (!vocabMap || Object.keys(vocabMap).length === 0) return;
+        if (vhlUseNew()) {
+          try {
+            var matches = vhlCompute(vocabMap);
+            vhlSync(matches);
+            vhlRenderOverlay(matches);
+            return;
+          } catch (e) {
+            console.warn('[vhl] new path failed → legacy', e && e.message);
+            vhlClear();
+            vhlClearOverlay();
+          }
+        }
+        vhlLegacyMark(vocabMap);
+      } finally {
+        vhlResumeObserver();
+      }
+    }
+
     function addVocabWord(word, stage) {
       var key = word.toLowerCase();
       var existing = _currentVocabMap[key] || {};
@@ -668,13 +906,14 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     function removeVocabMarks() {
-      var marks = document.querySelectorAll('mark[' + VOCAB_ATTR + ']');
-      marks.forEach(function(mark) {
-        var parent = mark.parentNode;
-        var wordText = mark.firstChild && mark.firstChild.nodeType === 3 ? mark.firstChild.textContent : mark.textContent;
-        parent.replaceChild(document.createTextNode(wordText || ''), mark);
-        parent.normalize();
-      });
+      vhlPauseObserver();
+      try {
+        vhlLegacyRemove();
+        vhlClear();
+        vhlClearOverlay();
+      } finally {
+        vhlResumeObserver();
+      }
     }
 
     // Tap pulse: wrap selection in temporary span with animation
