@@ -20,22 +20,9 @@ name: Slice 8b — overlay highlight roundtrip
 - waitForAnimationToEnd:
     timeout: 8000
 - takeScreenshot: /tmp/maestro-03-reader
-- longPressOn:
-    point: "20%,40%"
-- waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: /tmp/maestro-04a-singleword
-# Drag right selection handle further right to extend to multi-word
-- swipe:
-    start: "55%,42%"
-    end: "90%,42%"
-    duration: 600
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: /tmp/maestro-04-selection
+# Quick tap on a word to show WordCard for visual comparison
 - tapOn:
-    text: "Highlight in yellow"
-    optional: true
+    point: "35%,42%"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: /tmp/maestro-05-highlighted
+- takeScreenshot: /tmp/maestro-wordcard

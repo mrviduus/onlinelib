@@ -268,7 +268,7 @@ export function WordCard({
           </TouchableOpacity>
         </View>
 
-        {/* Translation — primary content, accent color matching web */}
+        {/* Translation — primary content, brand accent (dark-mode aware) */}
         {(translating || translation) && (
           <View style={styles.translationRow}>
             {translating ? (
@@ -278,7 +278,7 @@ export function WordCard({
                 accessibilityLabel="Translating"
               />
             ) : (
-              <Text style={[styles.translation, { color: '#C4704B' }]} numberOfLines={3}>
+              <Text style={[styles.translation, { color: colors.primary }]} numberOfLines={3}>
                 {translation}
               </Text>
             )}
@@ -425,12 +425,18 @@ export function WordCard({
 const styles = StyleSheet.create({
   container: {
     // Floating card — positioned above the reader footer via `bottom` prop
-    // computed at render time from the parent's footerHeight.
+    // computed at render time from the parent's footerHeight. maxWidth caps
+    // card width on tablets so it reads as a focused popup, not a full-width
+    // bar. alignSelf centering on absolute positioning works in RN when
+    // left+right are both 0 — the OS centers a maxWidth-constrained child.
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: 0,
+    right: 0,
+    marginHorizontal: 12,
+    maxWidth: 420,
+    alignSelf: 'center',
     zIndex: 20,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -442,9 +448,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 2,
     gap: 8,
   },
   headerWordRow: {
@@ -479,16 +485,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   translationRow: {
-    paddingHorizontal: 14,
-    paddingTop: 2,
+    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 4,
   },
   translation: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
   },
   definitionRow: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingTop: 2,
     paddingBottom: 8,
   },
@@ -501,7 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     gap: 8,
   },
   iconBtn: {
@@ -557,8 +563,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     gap: 8,
   },
   footerLabel: {
