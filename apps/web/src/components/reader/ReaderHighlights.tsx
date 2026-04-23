@@ -16,7 +16,7 @@ import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
-import { VocabWordLayer } from './VocabWordLayer'
+import { VocabHighlightDispatcher } from './VocabHighlightDispatcher'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
 import { useExplain } from '../../hooks/useExplain'
@@ -516,11 +516,12 @@ export function ReaderHighlights({
         onHighlightClick={handleHighlightClick}
       />
 
-      <VocabWordLayer
+      <VocabHighlightDispatcher
         containerRef={containerRef}
         vocabMap={vocabMap}
         showInlineTranslations={showInlineTranslations}
         activeBubble={bubble ? { word: bubble.word, translation: bubble.translation } : null}
+        chapterId={chapterId}
       />
 
       {/* Multi-word selection → full highlights toolbar */}
