@@ -189,7 +189,7 @@ describe('VocabHighlightLayer', () => {
       return r
     }
     try {
-      const { container } = render(
+      render(
         <Host
           html="<p>fox jumps high</p>"
           vocabMap={mkMap([['fox', { stage: 0, translation: 'лиса' }]])}
@@ -197,7 +197,7 @@ describe('VocabHighlightLayer', () => {
         />,
       )
       await waitFor(() => {
-        expect(container.querySelector('.vocab-translation-overlay__item')).toBeTruthy()
+        expect(document.body.querySelector('.vocab-translation-overlay__item')).toBeTruthy()
       })
     } finally {
       document.createRange = origCreateRange
