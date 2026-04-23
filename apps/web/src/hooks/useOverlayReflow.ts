@@ -69,8 +69,39 @@ export function useOverlayReflow(
     const mediaHandler = (): void => scheduleRedraw()
     media?.addEventListener?.('change', mediaHandler)
 
+    // Image load → text below shifts down → annotation rects stale until next
+    // resize/scroll. Foliate avoids this via iframes (which fire their own
+    // load); we have flat DOM, so wire it explicitly. Cover existing imgs
+    // and any added later via MutationObserver.
+    const tracked = new WeakSet<HTMLImageElement>()
+    const onImgLoad = (): void => scheduleRedraw()
+    const trackImage = (img: HTMLImageElement): void => {
+      if (tracked.has(img)) return
+      tracked.add(img)
+      if (img.complete && img.naturalWidth > 0) return
+      img.addEventListener('load', onImgLoad, { once: true })
+      img.addEventListener('error', onImgLoad, { once: true })
+    }
+    container.querySelectorAll('img').forEach((el) => trackImage(el as HTMLImageElement))
+
+    let imgObserver: MutationObserver | null = null
+    if (typeof MutationObserver !== 'undefined') {
+      imgObserver = new MutationObserver((records) => {
+        for (const rec of records) {
+          rec.addedNodes.forEach((node) => {
+            if (node.nodeType !== Node.ELEMENT_NODE) return
+            const el = node as Element
+            if (el.tagName === 'IMG') trackImage(el as HTMLImageElement)
+            el.querySelectorAll?.('img').forEach((img) => trackImage(img as HTMLImageElement))
+          })
+        }
+      })
+      imgObserver.observe(container, { childList: true, subtree: true })
+    }
+
     return () => {
       ro?.disconnect()
+      imgObserver?.disconnect()
       window.removeEventListener('resize', scheduleRedraw)
       window.removeEventListener('scroll', scheduleScroll)
       media?.removeEventListener?.('change', mediaHandler)

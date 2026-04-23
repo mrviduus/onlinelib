@@ -57,10 +57,39 @@ function toDocRect(r: DOMRect, sx: number, sy: number): DOMRect {
   } as DOMRect
 }
 
+// Collapsed ranges (start-of-paragraph caret, between block elements) often
+// return zero client rects. Port of foliate-js/paginator.js:39-53 — try to
+// extend the range by one char before measuring. Mutates a clone so callers
+// keep their original Range intact.
+function uncollapseForMeasure(range: Range): Range {
+  if (!range.collapsed) return range
+  const clone = range.cloneRange()
+  const { endOffset, endContainer } = clone
+  if (endContainer.nodeType === Node.ELEMENT_NODE) {
+    const el = endContainer as Element
+    const child = el.childNodes[endOffset]
+    if (child) clone.selectNode(child)
+    else clone.selectNodeContents(el)
+    return clone
+  }
+  const len = (endContainer as CharacterData).length
+  if (endOffset + 1 <= len) clone.setEnd(endContainer, endOffset + 1)
+  else if (endOffset >= 1) clone.setStart(endContainer, endOffset - 1)
+  else if (endContainer.parentNode) clone.selectNode(endContainer.parentNode)
+  return clone
+}
+
 function captureRects(range: Range): DOMRect[] {
   const sx = typeof window !== 'undefined' ? window.scrollX : 0
   const sy = typeof window !== 'undefined' ? window.scrollY : 0
-  return Array.from(range.getClientRects()).map((r) => toDocRect(r, sx, sy))
+  let raw = Array.from(range.getClientRects())
+  if (raw.length === 0) {
+    const fallback = uncollapseForMeasure(range)
+    if (fallback !== range) raw = Array.from(fallback.getClientRects())
+  }
+  // Drop zero-area rects — Firefox emits them at column breaks, and any rect
+  // with width=0 or height=0 cannot be hit-tested or visibly drawn anyway.
+  return raw.filter((r) => r.width > 0 && r.height > 0).map((r) => toDocRect(r, sx, sy))
 }
 
 export class Overlayer {

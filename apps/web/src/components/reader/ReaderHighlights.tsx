@@ -1,7 +1,8 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
-import { useHighlights } from '../../hooks/useHighlights'
-import { useTextTranslation } from '../../hooks/useTextTranslation'
+import { useHighlightEdit } from '../../hooks/useHighlightEdit'
+import { useTranslationPopup } from '../../hooks/useTranslationPopup'
+import { useExplainPopup } from '../../hooks/useExplainPopup'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useTts } from '../../hooks/useTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
@@ -10,10 +11,9 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { useBubbleTranslationSync } from '../../hooks/useBubbleTranslationSync'
 import { updateWord, promoteLookup } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
-import { createTextAnchor, findTextByAnchor } from '../../lib/textAnchor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
-import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
+import type { HighlightColor } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { HighlightOverlayLayer } from './HighlightOverlayLayer'
@@ -21,7 +21,6 @@ import { isReaderOverlayV2Active } from '../../lib/features'
 import { VocabHighlightDispatcher } from './VocabHighlightDispatcher'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
-import { useExplain } from '../../hooks/useExplain'
 import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
 import { TtsHighlightOverlay } from './TtsHighlightOverlay'
@@ -331,64 +330,24 @@ export function ReaderHighlights({
     }
   }, [lookupState, addAnywayBusy, t, closeBubble, recordSavedWord])
 
-  // --- Highlights ---
+  // --- Highlights (CRUD + note editor + scroll-to deep link) ---
   const {
-    highlights, addHighlight, updateHighlight, removeHighlight,
-  } = useHighlights(userBookId ? undefined : editionId, userBookId, {
+    highlights,
+    editingHighlight,
+    editingRect,
+    handleHighlightClick,
+    closeNoteEditor,
+    handleNoteSave,
+    handleHighlightDelete,
+    createHighlightFromSelection,
+  } = useHighlightEdit({
+    editionId,
+    userBookId,
+    chapterId,
+    containerRef,
     isAuthenticated: _isAuthenticated,
+    scrollToHighlightId,
   })
-
-  // Scroll to highlight when navigating from highlights page
-  const scrolledRef = useRef(false)
-  useEffect(() => {
-    if (!scrollToHighlightId || scrolledRef.current) return
-    if (highlights.length === 0 || !containerRef.current) return
-
-    const target = highlights.find(h => h.id === scrollToHighlightId)
-    if (!target) return
-
-    scrolledRef.current = true
-    requestAnimationFrame(() => {
-      const range = findTextByAnchor(target.anchor, containerRef.current!)
-      if (!range) return
-      // Rects are viewport-positioned; scroll by offset so we land inside
-      // the range itself, not on whatever ancestor (vocab <mark>, <strong>)
-      // happens to wrap the start node.
-      const rect = range.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) return
-      const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
-      window.scrollTo({ top: targetY, behavior: 'smooth' })
-    })
-  }, [scrollToHighlightId, highlights, containerRef])
-
-  // --- Highlight note editing ---
-  const [editingHighlight, setEditingHighlight] = useState<StoredHighlight | null>(null)
-  const [editingRect, setEditingRect] = useState<DOMRect | null>(null)
-
-  const handleHighlightClick = useCallback(
-    (highlight: StoredHighlight, rect: DOMRect) => {
-      setEditingHighlight(highlight)
-      setEditingRect(rect)
-    }, []
-  )
-
-  const closeNoteEditor = useCallback(() => {
-    setEditingHighlight(null)
-    setEditingRect(null)
-  }, [])
-
-  const handleNoteSave = useCallback(
-    async (noteText: string | null) => {
-      if (editingHighlight) await updateHighlight(editingHighlight.id, { noteText })
-    },
-    [editingHighlight, updateHighlight]
-  )
-
-  const handleHighlightDelete = useCallback(async () => {
-    if (!editingHighlight) return
-    await removeHighlight(editingHighlight.id)
-    closeNoteEditor()
-  }, [editingHighlight, removeHighlight, closeNoteEditor])
 
   // --- TTS ---
   const { speak, stop: stopTts, isPlaying: ttsPlaying, timestamps: ttsTimestamps, currentWordIndex: ttsCurrentWord } = useTts()
@@ -412,105 +371,43 @@ export function ReaderHighlights({
   }, [bubble?.word])
 
   // --- Multi-word translation popup ---
-  const {
-    translatedText, isLoading: isTranslating, error: translationError,
-    translate, reset: resetTranslation,
-    languages, sourceLang, targetLang: translationTargetLang,
-    setSourceLang, setTargetLang,
-  } = useTextTranslation({
-    defaultSourceLang: bookLanguage,
-    defaultTargetLang: targetLang,
+  const translationPopup = useTranslationPopup({
+    bookLanguage,
+    targetLang,
+    onClose: clearSelection,
   })
-
-  const [showTranslation, setShowTranslation] = useState(false)
-  const [translationText, setTranslationText] = useState('')
-  const [translationRect, setTranslationRect] = useState<DOMRect | null>(null)
 
   const handleTranslate = useCallback(() => {
     if (!selection.text || !selection.rect) return
-    const text = selection.text.slice(0, 500)
-    setTranslationText(text)
-    setTranslationRect(selection.rect)
-    setShowTranslation(true)
-    translate(text)
-  }, [selection, translate])
-
-  const handleCloseTranslation = useCallback(() => {
-    setShowTranslation(false)
-    setTranslationText('')
-    setTranslationRect(null)
-    resetTranslation()
-    clearSelection()
-  }, [resetTranslation, clearSelection])
+    translationPopup.open(selection.text, selection.rect)
+  }, [selection.text, selection.rect, translationPopup])
 
   // --- Explain popup ---
-  const {
-    explanation, isLoading: isExplaining, error: explainError,
-    explain: explainApi, reset: resetExplain,
-  } = useExplain()
-  const [showExplain, setShowExplain] = useState(false)
-  const [explainWord, setExplainWord] = useState('')
-  const [explainRect, setExplainRect] = useState<DOMRect | null>(null)
+  const explainPopup = useExplainPopup({
+    containerRef,
+    editionId,
+    nativeLanguage,
+    onClose: clearSelection,
+  })
 
   const handleExplain = useCallback(() => {
-    if (!selection.text || !selection.range || !selection.rect) return
-    const trimmed = selection.text.trim()
-    const isPhrase = /\s/.test(trimmed) && trimmed.length <= 100
-    const target = isPhrase
-      ? trimmed
-      : extractWordFromRange(selection.range)
-        ?? tokenizeVocabWords(selection.text)[0]?.word
-        ?? trimmed.split(/\s+/)[0]
-        ?? trimmed
-    if (!target) return
-    const sentence = selection.range && containerRef.current
-      ? extractSentence(selection.range, containerRef.current) ?? selection.text
-      : selection.text
-    setExplainWord(target)
-    setExplainRect(selection.rect)
-    setShowExplain(true)
-    explainApi({
-      word: target,
-      sentence,
-      bookId: editionId,
-      targetLang: nativeLanguage,
-    })
-  }, [selection, explainApi, containerRef, editionId, nativeLanguage])
-
-  const handleCloseExplain = useCallback(() => {
-    setShowExplain(false)
-    setExplainWord('')
-    setExplainRect(null)
-    resetExplain()
-    clearSelection()
-  }, [resetExplain, clearSelection])
-
-  const handleSourceLangChange = useCallback((lang: string) => {
-    setSourceLang(lang)
-    if (translationText) translate(translationText, lang, translationTargetLang)
-  }, [setSourceLang, translate, translationText, translationTargetLang])
-
-  const handleTargetLangChange = useCallback((lang: string) => {
-    setTargetLang(lang)
-    if (translationText) translate(translationText, sourceLang, lang)
-  }, [setTargetLang, translate, translationText, sourceLang])
+    explainPopup.openFromSelection(selection.text, selection.range, selection.rect)
+  }, [explainPopup, selection.text, selection.range, selection.rect])
 
   // --- Selection toolbar ---
   const handleHighlight = useCallback(
     async (color: HighlightColor) => {
-      if (!selection.range || !containerRef.current) return
-      const anchor = createTextAnchor(selection.range, chapterId, containerRef.current)
-      await addHighlight(anchor, color, selection.text)
+      await createHighlightFromSelection(selection.range, selection.text, color)
       clearSelection()
-      setShowTranslation(false)
+      translationPopup.close()
     },
-    [selection, containerRef, chapterId, addHighlight, clearSelection]
+    [selection.range, selection.text, createHighlightFromSelection, clearSelection, translationPopup],
   )
 
   const handleCopy = useCallback(() => {
     clearSelection()
-    setShowTranslation(false)
-  }, [clearSelection])
+    translationPopup.close()
+  }, [clearSelection, translationPopup])
 
   // --- Render ---
   return (
@@ -540,7 +437,7 @@ export function ReaderHighlights({
       />
 
       {/* Multi-word selection → full highlights toolbar */}
-      {hasSelection && !isSingleWord && !showTranslation && !showExplain && (
+      {hasSelection && !isSingleWord && !translationPopup.show && !explainPopup.show && (
         <SelectionToolbar
           rect={selection.rect}
           text={selection.text}
@@ -558,7 +455,7 @@ export function ReaderHighlights({
           clears the document selection — keeping the popup mounted lets the user
           interact with it (lang picker, etc). Close paths: WordPopup's own
           click-outside / Escape / × / auto-dismiss, or selection growing to multi-word. */}
-      {bubble && !showTranslation && (() => {
+      {bubble && !translationPopup.show && (() => {
         const entry = vocabMap.get(normalizeVocabKey(bubble.word))
         const isSaved = !!entry
         return (
@@ -595,33 +492,33 @@ export function ReaderHighlights({
         )
       })()}
 
-      {showTranslation && (
+      {translationPopup.show && (
         <TranslationPopup
-          text={translationText}
-          translatedText={translatedText}
-          isLoading={isTranslating}
-          error={translationError}
-          sourceLang={sourceLang}
-          targetLang={translationTargetLang}
-          languages={languages}
-          rect={translationRect}
+          text={translationPopup.text}
+          translatedText={translationPopup.translatedText}
+          isLoading={translationPopup.isTranslating}
+          error={translationPopup.error}
+          sourceLang={translationPopup.sourceLang}
+          targetLang={translationPopup.targetLang}
+          languages={translationPopup.languages}
+          rect={translationPopup.rect}
           containerRef={containerRef}
-          onSourceLangChange={handleSourceLangChange}
-          onTargetLangChange={handleTargetLangChange}
+          onSourceLangChange={translationPopup.setSourceLang}
+          onTargetLangChange={translationPopup.setTargetLang}
           onSpeak={handleSpeak}
-          onClose={handleCloseTranslation}
+          onClose={translationPopup.close}
         />
       )}
 
-      {showExplain && (
+      {explainPopup.show && (
         <ExplanationPopup
-          word={explainWord}
-          explanation={explanation}
-          isLoading={isExplaining}
-          error={explainError}
-          rect={explainRect}
+          word={explainPopup.word}
+          explanation={explainPopup.explanation}
+          isLoading={explainPopup.isExplaining}
+          error={explainPopup.error}
+          rect={explainPopup.rect}
           containerRef={containerRef}
-          onClose={handleCloseExplain}
+          onClose={explainPopup.close}
         />
       )}
 

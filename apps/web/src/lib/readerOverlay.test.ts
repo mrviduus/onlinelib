@@ -171,6 +171,51 @@ describe('Overlayer', () => {
     Object.defineProperty(window, 'scrollX', { configurable: true, value: 0 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
   })
+
+  it('drops zero-area rects (Firefox/Chromium can emit them at line breaks)', () => {
+    const range = mkRange()
+    stubRects(range, [
+      { left: 10, top: 10, width: 50, height: 20 }, // real
+      { left: 60, top: 10, width: 0, height: 20 }, // zero-width (column-break artifact)
+      { left: 10, top: 30, width: 50, height: 0 }, // zero-height
+    ])
+    const draw = vi.fn(Overlayer.highlight)
+    ov.add('k', range, draw)
+    expect(draw.mock.calls[0][0]).toHaveLength(1)
+  })
+
+  it('uncollapses a collapsed range so first-of-paragraph anchors still draw', () => {
+    // Start-of-paragraph caret: collapsed range returns no client rects.
+    // captureRects must clone+extend it by one char and use those rects.
+    const p = document.createElement('p')
+    const text = document.createTextNode('hello world')
+    p.appendChild(text)
+    document.body.appendChild(p)
+    const range = document.createRange()
+    range.setStart(text, 0)
+    range.setEnd(text, 0)
+    expect(range.collapsed).toBe(true)
+
+    // Stub Range.prototype so the clone created inside captureRects also
+    // returns our fake rects. Restore at the end so other tests aren't poisoned.
+    const realFn = Range.prototype.getClientRects
+    let nonCollapsedCalls = 0
+    Range.prototype.getClientRects = function (this: Range): DOMRectList {
+      if (this.collapsed) return [] as unknown as DOMRectList
+      nonCollapsedCalls++
+      return [
+        { x: 0, y: 0, left: 0, top: 0, right: 6, bottom: 16, width: 6, height: 16, toJSON: () => ({}) },
+      ] as unknown as DOMRectList
+    }
+    try {
+      const draw = vi.fn(Overlayer.highlight)
+      ov.add('k', range, draw)
+      expect(nonCollapsedCalls).toBeGreaterThan(0)
+      expect(draw.mock.calls[0][0]).toHaveLength(1)
+    } finally {
+      Range.prototype.getClientRects = realFn
+    }
+  })
 })
 
 describe('Overlayer draw palette', () => {

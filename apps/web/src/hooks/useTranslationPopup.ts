@@ -1,0 +1,101 @@
+import { useState, useCallback } from 'react'
+import { useTextTranslation } from './useTextTranslation'
+
+interface UseTranslationPopupOptions {
+  bookLanguage: string
+  targetLang: string | null
+  onClose?: () => void
+}
+
+export interface UseTranslationPopupResult {
+  show: boolean
+  text: string
+  rect: DOMRect | null
+  translatedText: string | null
+  isTranslating: boolean
+  error: string | null
+  languages: ReturnType<typeof useTextTranslation>['languages']
+  sourceLang: string
+  targetLang: string
+  open: (text: string, rect: DOMRect | null) => void
+  close: () => void
+  setSourceLang: (lang: string) => void
+  setTargetLang: (lang: string) => void
+}
+
+export function useTranslationPopup({
+  bookLanguage,
+  targetLang,
+  onClose,
+}: UseTranslationPopupOptions): UseTranslationPopupResult {
+  const {
+    translatedText,
+    isLoading: isTranslating,
+    error,
+    translate,
+    reset: resetTranslation,
+    languages,
+    sourceLang,
+    targetLang: translationTargetLang,
+    setSourceLang: setSourceLangApi,
+    setTargetLang: setTargetLangApi,
+  } = useTextTranslation({
+    defaultSourceLang: bookLanguage,
+    defaultTargetLang: targetLang,
+  })
+
+  const [show, setShow] = useState(false)
+  const [text, setText] = useState('')
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  const open = useCallback(
+    (input: string, sourceRect: DOMRect | null) => {
+      const trimmed = input.slice(0, 500)
+      setText(trimmed)
+      setRect(sourceRect)
+      setShow(true)
+      translate(trimmed)
+    },
+    [translate],
+  )
+
+  const close = useCallback(() => {
+    setShow(false)
+    setText('')
+    setRect(null)
+    resetTranslation()
+    onClose?.()
+  }, [resetTranslation, onClose])
+
+  const handleSourceLangChange = useCallback(
+    (lang: string) => {
+      setSourceLangApi(lang)
+      if (text) translate(text, lang, translationTargetLang)
+    },
+    [setSourceLangApi, translate, text, translationTargetLang],
+  )
+
+  const handleTargetLangChange = useCallback(
+    (lang: string) => {
+      setTargetLangApi(lang)
+      if (text) translate(text, sourceLang, lang)
+    },
+    [setTargetLangApi, translate, text, sourceLang],
+  )
+
+  return {
+    show,
+    text,
+    rect,
+    translatedText,
+    isTranslating,
+    error,
+    languages,
+    sourceLang,
+    targetLang: translationTargetLang,
+    open,
+    close,
+    setSourceLang: handleSourceLangChange,
+    setTargetLang: handleTargetLangChange,
+  }
+}

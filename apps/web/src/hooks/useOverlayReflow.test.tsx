@@ -115,4 +115,31 @@ describe('useOverlayReflow', () => {
     renderHook(() => useOverlayReflow(null, ref))
     expect(MockResizeObserver.last).toBeNull()
   })
+
+  it('redraws when an existing img inside the container loads', async () => {
+    const img = document.createElement('img')
+    container.appendChild(img)
+    const ref = { current: container }
+    renderHook(() => useOverlayReflow(overlayer, ref))
+    act(() => {
+      img.dispatchEvent(new Event('load'))
+    })
+    await flushRaf()
+    expect(redraw).toHaveBeenCalledTimes(1)
+  })
+
+  it('redraws when a new img is added and later loads', async () => {
+    const ref = { current: container }
+    renderHook(() => useOverlayReflow(overlayer, ref))
+    const img = document.createElement('img')
+    container.appendChild(img)
+    // Let the MutationObserver microtask run.
+    await Promise.resolve()
+    await Promise.resolve()
+    act(() => {
+      img.dispatchEvent(new Event('load'))
+    })
+    await flushRaf()
+    expect(redraw).toHaveBeenCalledTimes(1)
+  })
 })
