@@ -146,6 +146,31 @@ describe('Overlayer', () => {
     const [key] = ov.hitTest({ x: 20, y: 20 })
     expect(key).toBe('b')
   })
+
+  it('stores rects in doc coords and hitTest compensates when scrolled', () => {
+    // Rect captured at scrollY=0 → doc rect == viewport rect.
+    const range = mkRange()
+    stubRects(range, [{ left: 10, top: 10, width: 50, height: 20 }])
+    ov.add('k', range, Overlayer.highlight)
+
+    // Simulate scroll. Rect "at viewport 10,10" when we captured it is now
+    // at viewport y=-90 (i.e. scrolled off-screen). hitTest must take the
+    // new scroll into account: a click at viewport (20, -85) should still
+    // hit — since the rect's doc y is 10, and 10 + scrollY=100 == viewport -90.
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 100 })
+    const [key] = ov.hitTest({ x: 20, y: -85 })
+    expect(key).toBe('k')
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+  })
+
+  it('syncScroll sets SVG counter-translate transform', () => {
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 5 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 40 })
+    ov.syncScroll()
+    expect(ov.element.style.transform).toBe('translate(-5px, -40px)')
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 0 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+  })
 })
 
 describe('Overlayer draw palette', () => {

@@ -35,7 +35,32 @@ interface Entry {
   draw: DrawFn
   options?: DrawOptions
   element: SVGElement
+  // Stored in DOCUMENT coords (viewport rect + scrollX/scrollY at capture
+  // time). Lets SVG host stay position:fixed while rects ride document
+  // scroll via a single CSS transform counter-shift (`syncScroll`).
   rects: DOMRect[]
+}
+
+// Turn a viewport-relative rect into a document-relative one so it stays
+// pinned to the text across scroll events.
+function toDocRect(r: DOMRect, sx: number, sy: number): DOMRect {
+  return {
+    x: r.x + sx,
+    y: r.y + sy,
+    left: r.left + sx,
+    top: r.top + sy,
+    right: r.right + sx,
+    bottom: r.bottom + sy,
+    width: r.width,
+    height: r.height,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
+function captureRects(range: Range): DOMRect[] {
+  const sx = typeof window !== 'undefined' ? window.scrollX : 0
+  const sy = typeof window !== 'undefined' ? window.scrollY : 0
+  return Array.from(range.getClientRects()).map((r) => toDocRect(r, sx, sy))
 }
 
 export class Overlayer {
@@ -53,6 +78,7 @@ export class Overlayer {
       height: '100%',
       pointerEvents: 'none',
     })
+    this.syncScroll()
   }
 
   get element(): SVGSVGElement {
@@ -67,14 +93,24 @@ export class Overlayer {
     return this.#map.has(key)
   }
 
+  // Counter-translate the SVG by current scroll so document-coord rects
+  // inside it land on screen where the text actually is. O(1) vs a full
+  // redraw, so safe to call on every scroll frame.
+  syncScroll(): void {
+    const sx = typeof window !== 'undefined' ? window.scrollX : 0
+    const sy = typeof window !== 'undefined' ? window.scrollY : 0
+    this.#svg.style.transform = `translate(${-sx}px, ${-sy}px)`
+  }
+
   add(key: string, range: RangeLike, draw: DrawFn, options?: DrawOptions): void {
     if (this.#map.has(key)) this.remove(key)
     const resolved = typeof range === 'function' ? range(this.#svg.getRootNode()) : range
     if (!resolved) return
-    const rects = Array.from(resolved.getClientRects())
+    const rects = captureRects(resolved)
     const element = draw(rects, options)
     this.#svg.append(element)
     this.#map.set(key, { range: resolved, draw, options, element, rects })
+    this.syncScroll()
   }
 
   remove(key: string): void {
@@ -94,20 +130,27 @@ export class Overlayer {
     for (const entry of this.#map.values()) {
       const { range, draw, options, element } = entry
       if (element.parentNode === this.#svg) this.#svg.removeChild(element)
-      const rects = Array.from(range.getClientRects())
+      const rects = captureRects(range)
       const next = draw(rects, options)
       this.#svg.append(next)
       entry.element = next
       entry.rects = rects
     }
+    this.syncScroll()
   }
 
   hitTest(point: { x: number; y: number }): [string, Range] | [] {
+    // Point arrives in viewport coords (e.g. clientX/Y) but stored rects
+    // are in document coords — shift the point instead of every rect.
+    const sx = typeof window !== 'undefined' ? window.scrollX : 0
+    const sy = typeof window !== 'undefined' ? window.scrollY : 0
+    const px = point.x + sx
+    const py = point.y + sy
     const entries = Array.from(this.#map.entries())
     for (let i = entries.length - 1; i >= 0; i--) {
       const [key, obj] = entries[i]
       for (const rect of obj.rects) {
-        if (rect.top <= point.y && rect.left <= point.x && rect.bottom > point.y && rect.right > point.x) {
+        if (rect.top <= py && rect.left <= px && rect.bottom > py && rect.right > px) {
           return [key, obj.range]
         }
       }

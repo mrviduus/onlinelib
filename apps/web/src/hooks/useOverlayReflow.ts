@@ -6,9 +6,10 @@ import type { Overlayer } from '../lib/readerOverlay'
 //   - document.fonts.ready (webfont swap)
 //   - window.resize (viewport, device rotation)
 //   - matchMedia('(prefers-color-scheme: dark)') — theme may alter metrics
-//   - window.scroll — overlay hosts are position:fixed, so viewport-coord
-//     rects drift on scroll. One RAF-batched redraw per frame keeps SVG
-//     rects aligned with the (now-moved) text.
+//
+// Scroll is handled separately via `overlayer.syncScroll()` — O(1) CSS
+// transform update instead of a full redraw (rects are stored in document
+// coords and the SVG is counter-translated on scroll).
 //
 // RAF-batched so back-to-back triggers coalesce into a single redraw.
 
@@ -28,7 +29,7 @@ export function useOverlayReflow(
     if (!container) return
 
     let scheduled = false
-    const schedule = (): void => {
+    const scheduleRedraw = (): void => {
       if (scheduled) return
       scheduled = true
       requestAnimationFrame(() => {
@@ -37,31 +38,41 @@ export function useOverlayReflow(
       })
     }
 
+    let scrollScheduled = false
+    const scheduleScroll = (): void => {
+      if (scrollScheduled) return
+      scrollScheduled = true
+      requestAnimationFrame(() => {
+        scrollScheduled = false
+        overlayer.syncScroll()
+      })
+    }
+
     let ro: ResizeObserver | null = null
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(schedule)
+      ro = new ResizeObserver(scheduleRedraw)
       ro.observe(container)
     }
 
-    window.addEventListener('resize', schedule)
-    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', scheduleRedraw)
+    window.addEventListener('scroll', scheduleScroll, { passive: true })
 
     const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts
     if (fonts?.ready) {
-      fonts.ready.then(schedule).catch(() => {})
+      fonts.ready.then(scheduleRedraw).catch(() => {})
     }
 
     const media =
       typeof window.matchMedia === 'function'
         ? window.matchMedia('(prefers-color-scheme: dark)')
         : null
-    const mediaHandler = (): void => schedule()
+    const mediaHandler = (): void => scheduleRedraw()
     media?.addEventListener?.('change', mediaHandler)
 
     return () => {
       ro?.disconnect()
-      window.removeEventListener('resize', schedule)
-      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', scheduleRedraw)
+      window.removeEventListener('scroll', scheduleScroll)
       media?.removeEventListener?.('change', mediaHandler)
     }
   }, [overlayer, containerRef, enabled])

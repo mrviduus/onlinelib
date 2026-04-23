@@ -27,6 +27,7 @@ function flushRaf(): Promise<void> {
 
 describe('useOverlayReflow', () => {
   let redraw: ReturnType<typeof vi.fn>
+  let syncScroll: ReturnType<typeof vi.fn>
   let overlayer: Overlayer
   let container: HTMLElement
   const originalRO = globalThis.ResizeObserver
@@ -36,7 +37,9 @@ describe('useOverlayReflow', () => {
     document.body.appendChild(container)
     overlayer = new Overlayer()
     redraw = vi.fn()
+    syncScroll = vi.fn()
     overlayer.redraw = redraw as unknown as () => void
+    overlayer.syncScroll = syncScroll as unknown as () => void
     MockResizeObserver.last = null
     globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
   })
@@ -70,7 +73,7 @@ describe('useOverlayReflow', () => {
     expect(redraw).toHaveBeenCalledTimes(1)
   })
 
-  it('redraws on window scroll (coalesced per RAF)', async () => {
+  it('syncs scroll (cheap CSS transform) on window scroll, not full redraw', async () => {
     const ref = { current: container }
     renderHook(() => useOverlayReflow(overlayer, ref))
     act(() => {
@@ -79,7 +82,8 @@ describe('useOverlayReflow', () => {
       window.dispatchEvent(new Event('scroll'))
     })
     await flushRaf()
-    expect(redraw).toHaveBeenCalledTimes(1)
+    expect(syncScroll).toHaveBeenCalledTimes(1)
+    expect(redraw).not.toHaveBeenCalled()
   })
 
   it('disconnects observers on unmount', () => {
