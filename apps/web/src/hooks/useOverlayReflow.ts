@@ -6,6 +6,9 @@ import type { Overlayer } from '../lib/readerOverlay'
 //   - document.fonts.ready (webfont swap)
 //   - window.resize (viewport, device rotation)
 //   - matchMedia('(prefers-color-scheme: dark)') — theme may alter metrics
+//   - window.scroll — overlay hosts are position:fixed, so viewport-coord
+//     rects drift on scroll. One RAF-batched redraw per frame keeps SVG
+//     rects aligned with the (now-moved) text.
 //
 // RAF-batched so back-to-back triggers coalesce into a single redraw.
 
@@ -41,6 +44,7 @@ export function useOverlayReflow(
     }
 
     window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, { passive: true })
 
     const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts
     if (fonts?.ready) {
@@ -57,6 +61,7 @@ export function useOverlayReflow(
     return () => {
       ro?.disconnect()
       window.removeEventListener('resize', schedule)
+      window.removeEventListener('scroll', schedule)
       media?.removeEventListener?.('change', mediaHandler)
     }
   }, [overlayer, containerRef, enabled])

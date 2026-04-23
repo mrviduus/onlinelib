@@ -70,6 +70,18 @@ describe('useOverlayReflow', () => {
     expect(redraw).toHaveBeenCalledTimes(1)
   })
 
+  it('redraws on window scroll (coalesced per RAF)', async () => {
+    const ref = { current: container }
+    renderHook(() => useOverlayReflow(overlayer, ref))
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('scroll'))
+    })
+    await flushRaf()
+    expect(redraw).toHaveBeenCalledTimes(1)
+  })
+
   it('disconnects observers on unmount', () => {
     const ref = { current: container }
     const disconnect = vi.fn()
