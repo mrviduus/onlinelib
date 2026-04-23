@@ -63,11 +63,13 @@
  * updates per-span transforms.
  */
 .vocab-translation-overlay {
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   pointer-events: none;
   z-index: 1;
-  overflow: hidden;
 }
 
 .vocab-translation-overlay__item {
@@ -75,9 +77,9 @@
   top: 0;
   left: 0;
   white-space: nowrap;
-  font-size: 0.5em;
+  font-size: 11px;
   font-style: italic;
-  opacity: 0.5;
+  opacity: 0.55;
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -85,7 +87,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: inherit;
-  transform: translate3d(var(--x, 0), var(--y, 0), 0);
+  /* (x,y) = word's top-center; -50%,-100% centers the span and lifts it
+     above the word (ruby-style superscript). */
+  transform: translate(var(--x, 0), var(--y, 0)) translate(-50%, -100%);
   will-change: transform;
   animation: vocab-translation-fade 0.25s ease-out;
 }
