@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { WordMatch } from '../../lib/vocabHighlightEngine'
 
 interface VocabTranslationOverlayProps {
@@ -18,22 +19,24 @@ interface Placed {
   y: number
 }
 
-// Compute placements from Ranges. Viewport-coord transforms keep the overlay
-// element fixed and let the browser GPU-translate spans on scroll.
+// Compute placements in DOCUMENT coords (not viewport). The overlay wrapper
+// is position:absolute at document origin, so spans scroll naturally with
+// content — no per-scroll reposition. Legacy <mark>-wrapped translations had
+// the same property for free; we recover it via scrollX/scrollY offset.
 function placeMatches(matches: readonly WordMatch[]): Placed[] {
   const placed: Placed[] = []
+  const sx = window.scrollX
+  const sy = window.scrollY
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i]
     if (!m.translation) continue
     const rect = m.range.getBoundingClientRect()
     if (rect.width === 0 && rect.height === 0) continue
     placed.push({
-      // Dedupe-safe key — same word can appear many times in a chapter.
       key: `${m.key}:${i}`,
       text: m.translation,
-      // Center horizontally above the word; nudge y up just above it.
-      x: rect.left + rect.width / 2,
-      y: rect.top - 2,
+      x: rect.left + sx + rect.width / 2,
+      y: rect.top + sy,
     })
   }
   return placed
@@ -51,20 +54,24 @@ export function VocabTranslationOverlay({
   const rafRef = useRef<number | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const stableMatches = useMemo(() => matches, [matches])
-
-  // Recompute whenever match set changes.
+  // Recompute whenever match set changes. Critical UX detail: during chapter
+  // eviction/remount, old Ranges are briefly detached and return zero rects.
+  // If we cleared placements in that window, translations would vanish until
+  // the mutation-observer-driven recompute finishes — looks like "flicker
+  // with delay" on scroll. Keep the last good placements during transient
+  // empty computes (matches still non-empty) so the overlay rides through.
   useEffect(() => {
     if (!visible) {
       setPlacements([])
       return
     }
-    const next = placeMatches(stableMatches)
+    const next = placeMatches(matches)
+    if (next.length === 0 && matches.length > 0) return
     setPlacements(next)
-  }, [stableMatches, visible])
+  }, [matches, visible])
 
-  // Recompute on scroll/resize/font-change. RAF-guarded + debounced so a
-  // rapid drag doesn't queue hundreds of setState calls.
+  // Recompute on resize/font-change. Scroll is NOT a trigger — document-coord
+  // placements ride the scroll naturally (like legacy <mark>-wrapped spans).
   useEffect(() => {
     if (!visible) return
 
@@ -74,25 +81,27 @@ export function VocabTranslationOverlay({
         if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null
-          setPlacements(placeMatches(stableMatches))
+          const next = placeMatches(matches)
+          if (next.length === 0 && matches.length > 0) return
+          setPlacements(next)
         })
       }, reflowDebounceMs)
     }
 
-    window.addEventListener('scroll', schedule, { passive: true, capture: true })
     window.addEventListener('resize', schedule, { passive: true })
 
     return () => {
-      window.removeEventListener('scroll', schedule, { capture: true })
       window.removeEventListener('resize', schedule)
       if (debounceRef.current) clearTimeout(debounceRef.current)
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [stableMatches, visible, reflowDebounceMs])
+  }, [matches, visible, reflowDebounceMs])
 
   if (!visible || placements.length === 0) return null
 
-  return (
+  // Portal to body so the overlay's containing block is the initial one —
+  // (x, y) are document coords, independent of any positioned ancestor.
+  return createPortal(
     <div className="vocab-translation-overlay" data-vocab-overlay="true" aria-hidden="true">
       {placements.map((p) => (
         <span
@@ -108,6 +117,7 @@ export function VocabTranslationOverlay({
           {p.text}
         </span>
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }
