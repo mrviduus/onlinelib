@@ -201,4 +201,70 @@ describe('textAnchor', () => {
       // Should find the first "test" based on context
     })
   })
+
+  describe('vocab-inline-translation filtering', () => {
+    // Legacy VocabWordLayer wraps vocab words in <mark> with a child
+    // <span.vocab-inline-translation> holding the translation. Without
+    // filtering, that text leaks into anchor prefix/exact/suffix and
+    // breaks later lookup.
+    it('excludes vocab translation span text from exact', () => {
+      container.innerHTML =
+        '<p>Hello <mark class="vocab-underline">world<span class="vocab-inline-translation">мир</span></mark> end.</p>'
+
+      const range = document.createRange()
+      const p = container.querySelector('p')!
+      const helloText = p.firstChild as Text
+      const endText = p.lastChild as Text
+      range.setStart(helloText, 0)
+      range.setEnd(endText, endText.length)
+
+      const anchor = createTextAnchor(range, 'ch-1', container)
+
+      expect(anchor.exact).toBe('Hello world end.')
+      expect(anchor.exact).not.toContain('мир')
+    })
+
+    it('round-trips through findTextByAnchor with vocab span present', () => {
+      container.innerHTML =
+        '<p>Hello <mark class="vocab-underline">world<span class="vocab-inline-translation">мир</span></mark> end.</p>'
+
+      const range = document.createRange()
+      const mark = container.querySelector('mark')!
+      const worldText = mark.firstChild as Text
+      range.setStart(worldText, 0)
+      range.setEnd(worldText, worldText.length)
+
+      const anchor = createTextAnchor(range, 'ch-1', container)
+      const found = findTextByAnchor(anchor, container)
+
+      expect(found).not.toBeNull()
+      expect(found!.toString()).toBe('world')
+    })
+  })
+
+  describe('per-chapter scoping', () => {
+    it('matches within correct chapter scope', () => {
+      container.innerHTML =
+        '<article data-chapter-id="a"><p>The cat sat on the mat.</p></article>' +
+        '<article data-chapter-id="b"><p>The dog ran in the park.</p></article>'
+
+      const dogText = container
+        .querySelectorAll('article')[1]
+        .querySelector('p')!.firstChild as Text
+
+      const range = document.createRange()
+      range.setStart(dogText, 4)
+      range.setEnd(dogText, 7)
+
+      const anchor = createTextAnchor(range, 'b', container)
+
+      expect(anchor.exact).toBe('dog')
+      const found = findTextByAnchor(anchor, container)
+      expect(found).not.toBeNull()
+      expect(found!.toString()).toBe('dog')
+      // Offsets are chapter-relative (4, 7), not document-relative.
+      expect(anchor.startOffset).toBe(4)
+      expect(anchor.endOffset).toBe(7)
+    })
+  })
 })

@@ -333,7 +333,6 @@ export function ReaderHighlights({
   const {
     highlights, addHighlight, updateHighlight, removeHighlight,
   } = useHighlights(userBookId ? undefined : editionId, userBookId, {
-    chapterId,
     isAuthenticated: _isAuthenticated,
   })
 
@@ -349,8 +348,14 @@ export function ReaderHighlights({
     scrolledRef.current = true
     requestAnimationFrame(() => {
       const range = findTextByAnchor(target.anchor, containerRef.current!)
-      const el = range?.startContainer.parentElement
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (!range) return
+      // Rects are viewport-positioned; scroll by offset so we land inside
+      // the range itself, not on whatever ancestor (vocab <mark>, <strong>)
+      // happens to wrap the start node.
+      const rect = range.getBoundingClientRect()
+      if (rect.width === 0 && rect.height === 0) return
+      const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
+      window.scrollTo({ top: targetY, behavior: 'smooth' })
     })
   }, [scrollToHighlightId, highlights, containerRef])
 

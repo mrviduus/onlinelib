@@ -619,6 +619,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
 
     // Paint a highlight by wrapping each text node the range intersects in
     // its own <mark>. Handles multi-node ranges that surroundContents can't.
+    // Returns { ok, painted, total } so the caller can see partial paints.
     function hlPaintRange(range, id, color) {
       var bg = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
       var walker = document.createTreeWalker(
@@ -629,17 +630,17 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var targets = [];
       var n;
       while (n = walker.nextNode()) targets.push(n);
-      // commonAncestorContainer can itself be a text node; the walker above
-      // starts from it only if it's a non-text node — handle text-only case.
       if (targets.length === 0 && range.commonAncestorContainer.nodeType === 3) {
         targets.push(range.commonAncestorContainer);
       }
-      if (targets.length === 0) return false;
+      if (targets.length === 0) return { ok: false, painted: 0, total: 0 };
+      var painted = 0, attempted = 0;
       for (var i = 0; i < targets.length; i++) {
         var tn = targets[i];
         var startOff = (tn === range.startContainer) ? range.startOffset : 0;
         var endOff = (tn === range.endContainer) ? range.endOffset : (tn.nodeValue ? tn.nodeValue.length : 0);
         if (endOff <= startOff) continue;
+        attempted++;
         var subRange = document.createRange();
         try { subRange.setStart(tn, startOff); subRange.setEnd(tn, endOff); } catch (e) { continue; }
         var mark = document.createElement('mark');
@@ -651,9 +652,9 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
           e.stopPropagation();
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
         });
-        try { subRange.surroundContents(mark); } catch (e) { /* skip this segment */ }
+        try { subRange.surroundContents(mark); painted++; } catch (e) { /* skip, report at caller */ }
       }
-      return true;
+      return { ok: painted > 0, painted: painted, total: attempted };
     }
 
     // Public entry. Accepts either an anchor object/JSON (preferred) or a
@@ -687,9 +688,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       snippet = anchorObj.exact.length > 30 ? anchorObj.exact.slice(0, 30) + '…' : anchorObj.exact;
       var range = hlBuildRange(anchorObj);
       if (!range) { console.warn('[diag] renderHighlight NO MATCH:', id, snippet); return; }
-      var ok = hlPaintRange(range, id, color);
-      if (ok) console.log('[diag] renderHighlight matched:', id, snippet);
-      else console.warn('[diag] renderHighlight paint failed:', id, snippet);
+      var res = hlPaintRange(range, id, color);
+      if (!res.ok) console.warn('[diag] renderHighlight paint failed:', id, snippet);
+      else if (res.painted < res.total) console.warn('[diag] renderHighlight partial:', id, snippet, res.painted + '/' + res.total);
+      else console.log('[diag] renderHighlight matched:', id, snippet);
     }
 
     function removeHighlight(id) {

@@ -2,6 +2,58 @@ import type { TextAnchor } from './offlineDb'
 
 const CONTEXT_LENGTH = 30
 
+// Decorative inline content added by the reader (legacy VocabWordLayer
+// appends <span.vocab-inline-translation> inside vocab <mark>). Range text
+// extraction includes it, which pollutes anchor prefix/exact/suffix and
+// breaks later lookup. Skip these when walking for text.
+const EXCLUDE_SELECTOR = '.vocab-inline-translation, [data-vocab-overlay="true"]'
+
+function isExcluded(node: Node): boolean {
+  let el: Node | null = node
+  while (el && el.nodeType !== Node.ELEMENT_NODE) el = el.parentNode
+  if (!el) return false
+  return !!(el as Element).closest?.(EXCLUDE_SELECTOR)
+}
+
+// Walk text nodes between two boundary (node, offset) pairs — in document
+// order — and emit their text, skipping nodes beneath EXCLUDE_SELECTOR.
+// If `endNode`/`endOffset` is null, runs until the scope ends.
+function extractText(
+  scope: Node,
+  startNode: Node,
+  startOffset: number,
+  endNode: Node | null,
+  endOffset: number | null,
+): string {
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT)
+  let out = ''
+  let started = startNode === scope && startOffset === 0
+  // Find the start text node.
+  let node: Node | null = walker.nextNode()
+  // If startNode is itself a text node, walker must reach it first.
+  while (node) {
+    const tn = node as Text
+    const inStart = node === startNode
+    const inEnd = node === endNode
+    if (!started) {
+      if (inStart) {
+        started = true
+        const upper = inEnd && endOffset !== null ? endOffset : tn.length
+        if (!isExcluded(tn)) out += tn.data.slice(startOffset, upper)
+        if (inEnd) return out
+      }
+    } else {
+      if (inEnd && endOffset !== null) {
+        if (!isExcluded(tn)) out += tn.data.slice(0, endOffset)
+        return out
+      }
+      if (!isExcluded(tn)) out += tn.data
+    }
+    node = walker.nextNode()
+  }
+  return out
+}
+
 // Walk up from `node` to find the nearest ancestor with [data-chapter-id].
 // Returns null if there is no chapter wrapper — callers fall back to the
 // passed-in container (legacy single-chapter readers, tests).
@@ -33,18 +85,11 @@ export function createTextAnchor(
   chapterId: string,
   container: HTMLElement
 ): TextAnchor {
-  const exact = range.toString()
   const scope = findChapterScope(range.startContainer, container) ?? container
 
-  const beforeRange = document.createRange()
-  beforeRange.setStart(scope, 0)
-  beforeRange.setEnd(range.startContainer, range.startOffset)
-  const beforeText = beforeRange.toString()
-
-  const afterRange = document.createRange()
-  afterRange.setStart(range.endContainer, range.endOffset)
-  afterRange.setEndAfter(scope)
-  const afterText = afterRange.toString()
+  const beforeText = extractText(scope, scope, 0, range.startContainer, range.startOffset)
+  const exact = extractText(scope, range.startContainer, range.startOffset, range.endContainer, range.endOffset)
+  const afterText = extractText(scope, range.endContainer, range.endOffset, null, null)
 
   const prefix = beforeText.slice(-CONTEXT_LENGTH)
   const suffix = afterText.slice(0, CONTEXT_LENGTH)
@@ -80,7 +125,10 @@ export function findTextByAnchor(
 }
 
 function findTextInScope(anchor: TextAnchor, scope: HTMLElement): Range | null {
-  const fullText = scope.textContent || ''
+  // Filtered — matches the filtering applied in createTextAnchor so offsets
+  // align even when excluded decorative spans (vocab translations) sit
+  // inside the text.
+  const fullText = extractText(scope, scope, 0, null, null)
 
   const contextMatch = findWithContext(fullText, anchor)
   if (contextMatch !== null) {
@@ -160,10 +208,12 @@ function findWithContext(fullText: string, anchor: TextAnchor): number | null {
 }
 
 function findFuzzyMatch(fullText: string, exact: string): number | null {
-  // For short texts, try sliding window
+  // For short texts, try sliding window. Threshold tightened from 0.6 →
+  // 0.75 to kill false positives on OCR'd/edited books where a typo can
+  // drift a match to a similar-looking word elsewhere in the chapter.
   if (exact.length < 100) {
     let bestIndex = -1
-    let bestScore = 0.6 // minimum threshold
+    let bestScore = 0.75
 
     for (let i = 0; i <= fullText.length - exact.length; i++) {
       const candidate = fullText.slice(i, i + exact.length)
@@ -201,15 +251,15 @@ function createRangeAtOffset(
 
   while (walker.nextNode()) {
     const node = walker.currentNode as Text
+    // Skip decorative descendants so offsets match extractText.
+    if (isExcluded(node)) continue
     const nodeLength = node.length
 
-    // Find start node
     if (startNode === null && currentOffset + nodeLength > startOffset) {
       startNode = node
       startNodeOffset = startOffset - currentOffset
     }
 
-    // Find end node
     if (startNode !== null && currentOffset + nodeLength >= startOffset + length) {
       endNode = node
       endNodeOffset = startOffset + length - currentOffset

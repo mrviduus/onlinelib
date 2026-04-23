@@ -5,11 +5,8 @@ import {
   type HighlightColor,
   getHighlightsForEdition,
   getHighlightsForUserBook,
-  getHighlightsForChapter,
   saveHighlight,
   deleteHighlight as deleteHighlightFromDB,
-  deleteHighlightsByEdition,
-  deleteHighlightsByUserBook,
 } from '../lib/offlineDb'
 import {
   getPublicHighlights,
@@ -24,12 +21,11 @@ function generateId(): string {
 }
 
 interface UseHighlightsOptions {
-  chapterId?: string
   isAuthenticated?: boolean
 }
 
 export function useHighlights(editionId?: string, userBookId?: string, options?: UseHighlightsOptions) {
-  const { chapterId, isAuthenticated } = options || {}
+  const { isAuthenticated } = options || {}
   const [highlights, setHighlights] = useState<StoredHighlight[]>([])
   const [loading, setLoading] = useState(true)
   const serverSyncedRef = useRef(false)
@@ -37,7 +33,9 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
   const bookId = userBookId || editionId || ''
   const isUserBook = !!userBookId
 
-  // Load highlights: IndexedDB first, then server if authenticated
+  // Load highlights: IndexedDB first, then server if authenticated.
+  // We intentionally do NOT filter by chapter — the scroll reader mounts
+  // multiple chapters and every visible chapter needs its highlights.
   useEffect(() => {
     if (!bookId) {
       setLoading(false)
@@ -47,12 +45,9 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
     let cancelled = false
     serverSyncedRef.current = false
 
-    // 1. Load from IndexedDB first (instant)
     const loadLocal = isUserBook
       ? getHighlightsForUserBook(bookId)
-      : chapterId
-        ? getHighlightsForChapter(bookId, chapterId)
-        : getHighlightsForEdition(bookId)
+      : getHighlightsForEdition(bookId)
 
     loadLocal
       .then((localHighlights) => {
@@ -61,7 +56,6 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
       })
       .catch(() => {})
 
-    // 2. If authenticated, fetch from server
     if (isAuthenticated) {
       const fetchServer = isUserBook
         ? getUserBookHighlights(bookId)
@@ -72,7 +66,6 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
           if (cancelled) return
           serverSyncedRef.current = true
 
-          // Convert server highlights to local format
           const converted: StoredHighlight[] = serverHighlights.map((sh) => ({
             id: sh.id,
             editionId: sh.editionId || '',
@@ -89,25 +82,25 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
             updatedAt: new Date(sh.updatedAt).getTime(),
           }))
 
-          // Replace local with server data for this book
-          if (isUserBook) {
-            await deleteHighlightsByUserBook(bookId)
-          } else {
-            await deleteHighlightsByEdition(bookId)
-          }
-          for (const h of converted) {
-            await saveHighlight(h)
+          // Reconcile, don't wipe-and-rebuild. A prior transient window
+          // between deleteByEdition and saveAll could leave IndexedDB empty
+          // if the user navigated during sync — next cold start would see
+          // zero highlights.
+          const serverIds = new Set(converted.map((h) => h.id))
+          for (const h of converted) await saveHighlight(h)
+          const existingLocal = isUserBook
+            ? await getHighlightsForUserBook(bookId)
+            : await getHighlightsForEdition(bookId)
+          for (const local of existingLocal) {
+            if (!serverIds.has(local.id) && local.syncStatus === 'synced') {
+              await deleteHighlightFromDB(local.id)
+            }
           }
 
-          // Filter by chapter if needed
-          const filtered = chapterId
-            ? converted.filter((h) => h.chapterId === chapterId || h.userChapterId === chapterId)
-            : converted
-
-          if (!cancelled) setHighlights(filtered)
+          if (!cancelled) setHighlights(converted)
         })
         .catch(() => {
-          // Server unavailable, use local data
+          // Server unavailable, keep local data.
         })
         .finally(() => {
           if (!cancelled) setLoading(false)
@@ -119,7 +112,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
     return () => {
       cancelled = true
     }
-  }, [bookId, chapterId, isAuthenticated, isUserBook])
+  }, [bookId, isAuthenticated, isUserBook])
 
   const addHighlight = useCallback(
     async (
