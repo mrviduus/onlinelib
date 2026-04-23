@@ -358,25 +358,37 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const calculatedProgress = useMemo(() => {
     if (!scrollReaderBook) return 0
     const chapters = scrollReaderBook.chapters
-    const currentId = scrollReader.visibleIdentifier
+    // Overlay-path: one chapter mounted, visibleIdentifier is stale. Drive
+    // progress from the URL chapter + overlay scroll instead.
+    const currentId = overlayV2Enabled
+      ? (chapterIdentifier || '')
+      : (scrollReader.visibleIdentifier || '')
     if (!currentId) return 0
+    const intraProgress = overlayV2Enabled ? overlayScrollProgress : chapterScrollProgress
 
     const currentChapterIndex = chapters.findIndex(c => c.identifier === currentId)
     if (currentChapterIndex === -1) return 0
 
     const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
     if (totalWords === 0) {
-      return (currentChapterIndex + chapterScrollProgress) / chapters.length
+      return (currentChapterIndex + intraProgress) / chapters.length
     }
 
     const wordsBeforeCurrent = chapters
       .slice(0, currentChapterIndex)
       .reduce((sum, c) => sum + (c.wordCount || 0), 0)
     const currentChapterWords = chapters[currentChapterIndex].wordCount || 0
-    const wordsRead = wordsBeforeCurrent + currentChapterWords * chapterScrollProgress
+    const wordsRead = wordsBeforeCurrent + currentChapterWords * intraProgress
 
     return wordsRead / totalWords
-  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterScrollProgress])
+  }, [
+    scrollReaderBook,
+    scrollReader.visibleIdentifier,
+    chapterScrollProgress,
+    overlayV2Enabled,
+    chapterIdentifier,
+    overlayScrollProgress,
+  ])
 
   // Force 100% when book is completed
   const rawProgress = bookCompleted ? 1 : calculatedProgress
@@ -450,10 +462,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const totalChapters = scrollReaderBook?.chapters.length ?? 0
   const currentChapterIndex = useMemo(() => {
     if (!scrollReaderBook) return -1
-    const id = scrollReader.visibleIdentifier || chapterIdentifier
+    // Overlay path: URL chapter is authoritative. Legacy path: scroll-visible wins.
+    const id = overlayV2Enabled
+      ? (chapterIdentifier || '')
+      : (scrollReader.visibleIdentifier || chapterIdentifier || '')
     if (!id) return -1
     return scrollReaderBook.chapters.findIndex(c => c.identifier === id)
-  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterIdentifier])
+  }, [scrollReaderBook, scrollReader.visibleIdentifier, chapterIdentifier, overlayV2Enabled])
 
   // Track scroll activity for reading session
   useEffect(() => {
