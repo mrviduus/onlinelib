@@ -34,10 +34,14 @@ Keep after slice 10 only if overlay path has a proven regression on a supported 
 
 ### Mobile
 
+Senior-dev scope adjustment (slice 8b): **vocab underlines stay on CSS.highlights** — glyph-aware `text-decoration` beats SVG rect lines for line-wrapped underlines. Only `<mark>`-based user highlights migrate to the overlayer.
+
 | Path | Action |
 |---|---|
-| `apps/mobile/src/lib/readerHtml.ts` — `<mark>`-wrapping `renderHighlight`, `markVocabWords`, `vhlLegacyMark` functions | Replace with `READER_OVERLAY_SCRIPT` interpolation + overlay API calls |
-| `apps/mobile/src/lib/readerHtml.ts` — `VOCAB_STAGE_COLORS`, `VOCAB_ATTR` constants if unused after swap | Delete |
+| `apps/mobile/src/lib/readerHtml.ts` — `hlPaintRange` (`<mark>`-wrapping) + the `<mark data-highlight-id>` legacy removal branch in `removeHighlight` | Delete after slice 8b is at 100% overlayV2 rollout |
+| `apps/mobile/src/lib/readerHtml.ts` — `HIGHLIGHT_BG` constant if unused after overlay path becomes default | Reassess |
+| `apps/mobile/src/lib/readerHtml.ts` — `vhlLegacyMark` / `vhlLegacyRemove` (vocab legacy path, kept as CSS.highlights fallback) | **Keep** — this is the platform fallback for older Android WebView without CSS.highlights support |
+| `apps/mobile/src/lib/readerHtml.ts` — `VOCAB_STAGE_COLORS`, `VOCAB_ATTR` constants | Keep — still used by legacy vocab fallback |
 
 ### ReaderPage
 
