@@ -2,8 +2,31 @@ import type { TextAnchor } from './offlineDb'
 
 const CONTEXT_LENGTH = 30
 
+// Walk up from `node` to find the nearest ancestor with [data-chapter-id].
+// Returns null if there is no chapter wrapper — callers fall back to the
+// passed-in container (legacy single-chapter readers, tests).
+function findChapterScope(node: Node | null, boundary: HTMLElement): HTMLElement | null {
+  let current: Node | null = node
+  while (current && current !== boundary) {
+    if (current.nodeType === Node.ELEMENT_NODE) {
+      const el = current as HTMLElement
+      if (el.dataset && el.dataset.chapterId) return el
+    }
+    current = current.parentNode
+  }
+  return null
+}
+
+function chapterScopes(container: HTMLElement): HTMLElement[] {
+  const list = container.querySelectorAll<HTMLElement>('[data-chapter-id]')
+  return list.length > 0 ? Array.from(list) : [container]
+}
+
 /**
- * Create a TextAnchor from a Range in the DOM
+ * Create a TextAnchor from a Range in the DOM.
+ * Offsets are relative to the nearest [data-chapter-id] ancestor of the
+ * selection — so chapter eviction/remount elsewhere in the scroll container
+ * does not invalidate them.
  */
 export function createTextAnchor(
   range: Range,
@@ -11,22 +34,21 @@ export function createTextAnchor(
   container: HTMLElement
 ): TextAnchor {
   const exact = range.toString()
+  const scope = findChapterScope(range.startContainer, container) ?? container
 
-  // Get text content before/after selection within the container
   const beforeRange = document.createRange()
-  beforeRange.setStart(container, 0)
+  beforeRange.setStart(scope, 0)
   beforeRange.setEnd(range.startContainer, range.startOffset)
   const beforeText = beforeRange.toString()
 
   const afterRange = document.createRange()
   afterRange.setStart(range.endContainer, range.endOffset)
-  afterRange.setEndAfter(container)
+  afterRange.setEndAfter(scope)
   const afterText = afterRange.toString()
 
   const prefix = beforeText.slice(-CONTEXT_LENGTH)
   const suffix = afterText.slice(0, CONTEXT_LENGTH)
 
-  // Calculate offsets relative to container's text
   const startOffset = beforeText.length
   const endOffset = startOffset + exact.length
 
@@ -41,34 +63,40 @@ export function createTextAnchor(
 }
 
 /**
- * Find text in container using the anchor
- * Returns a Range if found, null otherwise
+ * Find text in container using the anchor.
+ * When the container holds multiple chapter wrappers, search each scope
+ * independently — offsets were stored chapter-relative, so a cross-chapter
+ * search would match at the wrong absolute offset.
  */
 export function findTextByAnchor(
   anchor: TextAnchor,
   container: HTMLElement
 ): Range | null {
-  const fullText = container.textContent || ''
+  for (const scope of chapterScopes(container)) {
+    const range = findTextInScope(anchor, scope)
+    if (range) return range
+  }
+  return null
+}
 
-  // Strategy 1: Try exact match with context
+function findTextInScope(anchor: TextAnchor, scope: HTMLElement): Range | null {
+  const fullText = scope.textContent || ''
+
   const contextMatch = findWithContext(fullText, anchor)
   if (contextMatch !== null) {
-    return createRangeAtOffset(container, contextMatch, anchor.exact.length)
+    return createRangeAtOffset(scope, contextMatch, anchor.exact.length)
   }
 
-  // Strategy 2: Fallback to offsets
   if (anchor.startOffset >= 0 && anchor.endOffset <= fullText.length) {
     const offsetText = fullText.slice(anchor.startOffset, anchor.endOffset)
-    // Verify it's still the same text (or close enough)
     if (offsetText === anchor.exact || similarity(offsetText, anchor.exact) > 0.8) {
-      return createRangeAtOffset(container, anchor.startOffset, anchor.exact.length)
+      return createRangeAtOffset(scope, anchor.startOffset, anchor.exact.length)
     }
   }
 
-  // Strategy 3: Fuzzy match
   const fuzzyMatch = findFuzzyMatch(fullText, anchor.exact)
   if (fuzzyMatch !== null) {
-    return createRangeAtOffset(container, fuzzyMatch, anchor.exact.length)
+    return createRangeAtOffset(scope, fuzzyMatch, anchor.exact.length)
   }
 
   return null

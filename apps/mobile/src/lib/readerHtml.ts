@@ -542,31 +542,154 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     // Highlight rendering
     var HIGHLIGHT_BG = { yellow: 'rgba(254,240,138,0.5)', green: 'rgba(187,247,208,0.5)', pink: 'rgba(251,207,232,0.5)', blue: 'rgba(191,219,254,0.5)' };
 
-    function renderHighlight(id, text, color) {
-      if (!text || !color) { console.warn('[diag] renderHighlight: missing args', id, !!text, color); return; }
-      var body = document.body;
-      var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    // Locate a Range inside document.body using a stored text-anchor. Mirrors
+    // web's findTextByAnchor: try prefix+exact+suffix, then exact-with-context,
+    // then bare exact. Returns null if no reasonable match is found.
+    function hlFindAnchor(anchor) {
+      if (!anchor || !anchor.exact) return null;
+      var full = document.body.textContent || '';
+      var prefix = anchor.prefix || '';
+      var suffix = anchor.suffix || '';
+      var exact = anchor.exact;
+      var idx = -1;
+      if (prefix) {
+        idx = full.indexOf(prefix + exact + suffix);
+        if (idx !== -1) return { start: idx + prefix.length, length: exact.length };
+        idx = full.indexOf(prefix + exact);
+        if (idx !== -1) return { start: idx + prefix.length, length: exact.length };
+      }
+      if (suffix) {
+        idx = full.indexOf(exact + suffix);
+        if (idx !== -1) return { start: idx, length: exact.length };
+      }
+      idx = full.indexOf(exact);
+      if (idx === -1) return null;
+      // Disambiguate when exact appears multiple times — prefer the occurrence
+      // whose surrounding context best matches the stored prefix/suffix.
+      var best = idx, bestScore = 0;
+      if (prefix || suffix) {
+        var CTX = 30;
+        var cur = idx;
+        while (cur !== -1) {
+          var pre = full.slice(Math.max(0, cur - CTX), cur);
+          var suf = full.slice(cur + exact.length, cur + exact.length + CTX);
+          var score = 0;
+          if (prefix && pre.slice(-prefix.length) === prefix) score += 2;
+          if (suffix && suf.slice(0, suffix.length) === suffix) score += 2;
+          if (prefix && pre.indexOf(prefix.slice(-10)) !== -1) score += 1;
+          if (suffix && suf.indexOf(suffix.slice(0, 10)) !== -1) score += 1;
+          if (score > bestScore) { bestScore = score; best = cur; }
+          cur = full.indexOf(exact, cur + 1);
+        }
+      }
+      return { start: best, length: exact.length };
+    }
+
+    // Convert a global offset into document.body's textContent to a
+    // (textNode, offset) pair by walking text nodes cumulatively.
+    function hlLocateNode(globalOffset) {
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      var consumed = 0;
       var node;
-      var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
       while (node = walker.nextNode()) {
-        var idx = node.textContent.indexOf(text);
-        if (idx === -1) continue;
-        var range = document.createRange();
-        range.setStart(node, idx);
-        range.setEnd(node, idx + text.length);
+        var len = node.nodeValue ? node.nodeValue.length : 0;
+        if (consumed + len >= globalOffset) {
+          return { node: node, offset: globalOffset - consumed };
+        }
+        consumed += len;
+      }
+      return null;
+    }
+
+    // Build a Range spanning the requested text, even if it crosses multiple
+    // text nodes (selection across <strong>, <em>, vocab <mark>, etc).
+    function hlBuildRange(anchor) {
+      var loc = hlFindAnchor(anchor);
+      if (!loc) return null;
+      var start = hlLocateNode(loc.start);
+      var end = hlLocateNode(loc.start + loc.length);
+      if (!start || !end) return null;
+      var range = document.createRange();
+      try {
+        range.setStart(start.node, start.offset);
+        range.setEnd(end.node, end.offset);
+      } catch (e) { return null; }
+      return range;
+    }
+
+    // Paint a highlight by wrapping each text node the range intersects in
+    // its own <mark>. Handles multi-node ranges that surroundContents can't.
+    function hlPaintRange(range, id, color) {
+      var bg = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
+      var walker = document.createTreeWalker(
+        range.commonAncestorContainer,
+        NodeFilter.SHOW_TEXT,
+        { acceptNode: function(n) { return range.intersectsNode(n) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } }
+      );
+      var targets = [];
+      var n;
+      while (n = walker.nextNode()) targets.push(n);
+      // commonAncestorContainer can itself be a text node; the walker above
+      // starts from it only if it's a non-text node — handle text-only case.
+      if (targets.length === 0 && range.commonAncestorContainer.nodeType === 3) {
+        targets.push(range.commonAncestorContainer);
+      }
+      if (targets.length === 0) return false;
+      for (var i = 0; i < targets.length; i++) {
+        var tn = targets[i];
+        var startOff = (tn === range.startContainer) ? range.startOffset : 0;
+        var endOff = (tn === range.endContainer) ? range.endOffset : (tn.nodeValue ? tn.nodeValue.length : 0);
+        if (endOff <= startOff) continue;
+        var subRange = document.createRange();
+        try { subRange.setStart(tn, startOff); subRange.setEnd(tn, endOff); } catch (e) { continue; }
         var mark = document.createElement('mark');
         mark.dataset.highlightId = id;
-        mark.style.backgroundColor = HIGHLIGHT_BG[color] || HIGHLIGHT_BG.yellow;
+        mark.style.backgroundColor = bg;
         mark.style.borderRadius = '2px';
         mark.style.cursor = 'pointer';
         mark.addEventListener('click', function(e) {
           e.stopPropagation();
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id }));
         });
-        try { range.surroundContents(mark); console.log('[diag] renderHighlight matched:', id, snippet); } catch(e) { console.warn('[diag] surroundContents failed:', id, e.message); }
-        return;
+        try { subRange.surroundContents(mark); } catch (e) { /* skip this segment */ }
       }
-      console.warn('[diag] renderHighlight NO MATCH:', id, snippet);
+      return true;
+    }
+
+    // Public entry. Accepts either an anchor object/JSON (preferred) or a
+    // bare selectedText string for back-compat. Idempotent: wipes prior
+    // segments for this id before repainting.
+    function renderHighlight(id, anchor, color, fallbackText) {
+      if (!color) { console.warn('[diag] renderHighlight: missing color', id); return; }
+      var snippet = '';
+      try {
+        // Drop stale segments so re-renders (chapter reload) don't double-paint.
+        var existing = document.querySelectorAll('mark[data-highlight-id="' + CSS.escape(id) + '"]');
+        if (existing.length) {
+          existing.forEach(function(m) {
+            var p = m.parentNode;
+            while (m.firstChild) p.insertBefore(m.firstChild, m);
+            p.removeChild(m);
+            if (p.normalize) p.normalize();
+          });
+        }
+      } catch (e) {}
+      var anchorObj = null;
+      if (typeof anchor === 'string') {
+        try { anchorObj = JSON.parse(anchor); } catch (e) { anchorObj = { exact: anchor }; }
+      } else if (anchor && typeof anchor === 'object') {
+        anchorObj = anchor;
+      }
+      if (!anchorObj || !anchorObj.exact) {
+        if (fallbackText) anchorObj = { exact: fallbackText };
+      }
+      if (!anchorObj || !anchorObj.exact) { console.warn('[diag] renderHighlight: no anchor', id); return; }
+      snippet = anchorObj.exact.length > 30 ? anchorObj.exact.slice(0, 30) + '…' : anchorObj.exact;
+      var range = hlBuildRange(anchorObj);
+      if (!range) { console.warn('[diag] renderHighlight NO MATCH:', id, snippet); return; }
+      var ok = hlPaintRange(range, id, color);
+      if (ok) console.log('[diag] renderHighlight matched:', id, snippet);
+      else console.warn('[diag] renderHighlight paint failed:', id, snippet);
     }
 
     function removeHighlight(id) {

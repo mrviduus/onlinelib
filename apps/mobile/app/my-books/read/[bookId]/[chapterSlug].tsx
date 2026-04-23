@@ -376,7 +376,7 @@ export default function UserBookReaderScreen() {
         color,
         selectedText: selection.text,
       })
-      injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(selection.text)}, ${JSON.stringify(color)})`)
+      injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
       setSelection(null)
     } catch (e) {
@@ -401,7 +401,7 @@ export default function UserBookReaderScreen() {
         const chapterHighlights = highlights.filter(h => h.userChapterId === chapterId)
         highlightsRef.current = chapterHighlights
         for (const h of chapterHighlights) {
-          injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.selectedText)}, ${JSON.stringify(h.color)})`)
+          injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
         }
       })
       .catch(e => { if (!cancelled) console.warn('Failed to load user-book highlights:', e) })
