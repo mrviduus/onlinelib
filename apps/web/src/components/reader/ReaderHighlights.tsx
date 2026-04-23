@@ -17,7 +17,7 @@ import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
 import { HighlightOverlayLayer } from './HighlightOverlayLayer'
-import { FEATURES, isReaderOverlayKillswitchSet } from '../../lib/features'
+import { isReaderOverlayV2Active } from '../../lib/features'
 import { VocabHighlightDispatcher } from './VocabHighlightDispatcher'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
@@ -517,7 +517,7 @@ export function ReaderHighlights({
     <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
       {children}
 
-      {FEATURES.readerOverlayV2 && !isReaderOverlayKillswitchSet() ? (
+      {isReaderOverlayV2Active() ? (
         <HighlightOverlayLayer
           highlights={highlights}
           containerRef={containerRef}

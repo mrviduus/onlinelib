@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
-import { FEATURES, isRuntimeKillswitchSet, isReaderOverlayKillswitchSet } from '../../lib/features'
+import { FEATURES, isRuntimeKillswitchSet, isReaderOverlayV2Active } from '../../lib/features'
 import { isSupported as isCustomHighlightSupported } from '../../lib/customHighlightRegistry'
 import { count } from '../../lib/vocabHighlightTelemetry'
 import type { ActiveBubbleSnapshot } from '../../lib/vocabHighlightEngine'
@@ -21,7 +21,7 @@ interface VocabHighlightDispatcherProps {
 type Decision = 'overlay' | 'new' | 'legacy'
 
 function decide(): { decision: Decision; reason: string } {
-  if (FEATURES.readerOverlayV2 && !isReaderOverlayKillswitchSet()) {
+  if (isReaderOverlayV2Active()) {
     return { decision: 'overlay', reason: 'reader_overlay_v2' }
   }
   if (!FEATURES.customVocabHighlights) return { decision: 'legacy', reason: 'flag_off' }

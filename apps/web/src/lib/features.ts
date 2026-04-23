@@ -43,3 +43,26 @@ export function isReaderOverlayKillswitchSet(): boolean {
       .__textstackForceLegacyReader,
   )
 }
+
+// Runtime enabler for staged rollout. Owner / support can flip overlay v2 on
+// for a single browser without rebuilding the prod bundle:
+//   localStorage.setItem('textstack.readerOverlayV2', '1')
+//   // or in DevTools: window.__textstackForceOverlayReader = true
+// Persistent so page reloads keep the override. Killswitch above still wins.
+export function isReaderOverlayRuntimeEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  const w = window as unknown as { __textstackForceOverlayReader?: boolean }
+  if (w.__textstackForceOverlayReader) return true
+  try {
+    return window.localStorage?.getItem('textstack.readerOverlayV2') === '1'
+  } catch {
+    return false
+  }
+}
+
+// Single resolver used by the reader. Build-time flag OR runtime opt-in, minus
+// killswitch. Callers should depend on this, not the raw FEATURES key.
+export function isReaderOverlayV2Active(): boolean {
+  if (isReaderOverlayKillswitchSet()) return false
+  return FEATURES.readerOverlayV2 || isReaderOverlayRuntimeEnabled()
+}
