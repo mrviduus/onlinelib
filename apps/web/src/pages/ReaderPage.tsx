@@ -25,6 +25,7 @@ import { ReaderTopBar } from '../components/reader/ReaderTopBar'
 import { ReaderContent } from '../components/reader/ReaderContent'
 import { ReaderSection } from '../components/reader/ReaderSection'
 import { ReaderNav } from '../components/reader/ReaderNav'
+import { ReaderErrorBoundary } from '../components/reader/ReaderErrorBoundary'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { ReaderTocDrawer, type AutoSaveInfo, type TocChapter } from '../components/reader/ReaderTocDrawer'
@@ -976,7 +977,24 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         >
           <div ref={scrollContainerRef}>
             {overlayV2Enabled ? (
-              <>
+              <ReaderErrorBoundary
+                resetKey={chapter.id}
+                fallback={
+                  <ReaderContent
+                    chapters={scrollReader.chapters}
+                    settings={settings}
+                    isLoadingMore={scrollReader.isLoadingMore}
+                    isAtEnd={scrollReader.isAtEnd}
+                    libraryHref={mode === 'public' ? getLocalizedPath('/library') : `/${language}/library/my`}
+                    homeHref={mode === 'public' ? getLocalizedPath('/') : `/${language}`}
+                    bookDetailHref={mode === 'public' && bookSlug ? getLocalizedPath(`/books/${bookSlug}`) : undefined}
+                    onLoadMore={scrollReader.loadMore}
+                    onLoadPrev={scrollReader.loadPrev}
+                    chapterRefs={scrollReader.chapterRefs}
+                    onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
+                  />
+                }
+              >
                 <ReaderSection
                   chapterId={chapter.id}
                   chapterIndex={chapter.chapterNumber}
@@ -992,7 +1010,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   onPrev={chapter.prev ? () => navigate(getChapterUrl(chapter.prev!.identifier)) : null}
                   onNext={chapter.next ? () => navigate(getChapterUrl(chapter.next!.identifier)) : null}
                 />
-              </>
+              </ReaderErrorBoundary>
             ) : (
               <ReaderContent
                 chapters={scrollReader.chapters}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Overlayer } from '../../lib/readerOverlay'
 import { useOverlayReflow } from '../../hooks/useOverlayReflow'
+import { count } from '../../lib/vocabHighlightTelemetry'
 
 // Mounts the SVG overlayer inside the given container. Exposes the Overlayer
 // instance via ref so annotation layers can register ranges.
@@ -37,6 +38,7 @@ export function ReaderOverlay({ containerRef, overlayerRef, enabled = true }: Pr
     const host = hostRef.current
     if (!host) return
     host.appendChild(overlayer.element)
+    count('reader.overlay.mount')
     return () => {
       if (overlayer.element.parentNode === host) {
         host.removeChild(overlayer.element)
