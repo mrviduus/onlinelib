@@ -1,5 +1,4 @@
 import { test, expect } from '../fixtures/auth.fixture'
-import { testLogin } from '../helpers/api'
 import { getTestData } from '../fixtures/test-data'
 import { waitForReaderLoad } from '../helpers/reader'
 import type { Page } from '@playwright/test'
@@ -64,25 +63,19 @@ async function totalHighlightSize(page: Page): Promise<number> {
 test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
   test.describe.configure({ timeout: 90_000 })
 
-  test.beforeAll(async ({ request }) => {
-    await testLogin(request)
-    await cleanupWords(request)
-  })
+  // Can't use ({ request }) here — that's a fresh, unauthed context per test.
+  // page.request (inside tests) shares cookies with authedPage's storage state.
 
-  test.afterAll(async ({ request }) => {
-    await testLogin(request)
-    await cleanupWords(request)
-  })
-
-  test('new path: CSS.highlights populated after chapter render', async ({ authedPage: page, request }) => {
+  test('new path: CSS.highlights populated after chapter render', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
+    await cleanupWords(page.request)
 
     // First navigation — so we can pull a real word out of the rendered chapter.
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
     const word = await pickWordFromReader(page)
-    await saveWord(request, word)
+    await saveWord(page.request, word)
 
     // Reload to re-fetch vocab map with the new word.
     await page.reload()
@@ -94,15 +87,17 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
 
     // New-path verified: no legacy <mark> wrappers injected.
     expect(await page.locator('mark[data-vocab-mark]').count()).toBe(0)
+    await cleanupWords(page.request)
   })
 
-  test('highlights persist through scroll & return', async ({ authedPage: page, request }) => {
+  test('highlights persist through scroll & return', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
+    await cleanupWords(page.request)
 
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
     const word = await pickWordFromReader(page)
-    await saveWord(request, word)
+    await saveWord(page.request, word)
     await page.reload()
     await waitForReaderLoad(page)
 
@@ -124,16 +119,18 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
       expect(await totalHighlightSize(page)).toBeGreaterThan(0)
     }).toPass({ timeout: 20_000, intervals: [500] })
     expect(await page.locator('mark[data-vocab-mark]').count()).toBe(0)
+    await cleanupWords(page.request)
   })
 
-  test('killswitch → legacy <mark> path', async ({ authedPage: page, request }) => {
+  test('killswitch → legacy <mark> path', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
+    await cleanupWords(page.request)
 
     // Navigate once to pick a word, then set killswitch and re-navigate.
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
     const word = await pickWordFromReader(page)
-    await saveWord(request, word)
+    await saveWord(page.request, word)
 
     await page.addInitScript(() => {
       ;(window as unknown as { __textstackDisableCustomHighlights?: boolean })
@@ -149,15 +146,17 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
 
     // Dispatcher took legacy — custom-highlight registry stays empty.
     expect(await totalHighlightSize(page)).toBe(0)
+    await cleanupWords(page.request)
   })
 
-  test('unsupported (CSS.highlights undefined) → legacy path', async ({ authedPage: page, request }) => {
+  test('unsupported (CSS.highlights undefined) → legacy path', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
+    await cleanupWords(page.request)
 
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
     const word = await pickWordFromReader(page)
-    await saveWord(request, word)
+    await saveWord(page.request, word)
 
     await page.addInitScript(() => {
       try {
@@ -174,5 +173,6 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
       const marks = await page.locator('mark[data-vocab-mark]').count()
       expect(marks).toBeGreaterThan(0)
     }).toPass({ timeout: 20_000, intervals: [500] })
+    await cleanupWords(page.request)
   })
 })
