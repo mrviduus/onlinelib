@@ -7,7 +7,7 @@ public static class SiteEndpoints
 {
     public static void MapSiteEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/site").WithTags("Site");
+        var group = app.MapGroup("/site").WithTags("Site");
 
         group.MapGet("/context", GetSiteContext).WithName("GetSiteContext");
         group.MapGet("/language", GetLanguageContext).WithName("GetLanguageContext");
