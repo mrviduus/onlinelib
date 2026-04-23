@@ -1,0 +1,41 @@
+appId: app.textstack.mobile
+name: Slice 8b — overlay highlight roundtrip
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: ".*Duel.*"
+    timeout: 60000
+- takeScreenshot: /tmp/maestro-01-home
+- tapOn:
+    text: ".*Duel.*Chekhov.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*Start Reading.*"
+    timeout: 15000
+- takeScreenshot: /tmp/maestro-02-detail
+- tapOn:
+    text: ".*Start Reading.*"
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: /tmp/maestro-03-reader
+- longPressOn:
+    point: "20%,40%"
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: /tmp/maestro-04a-singleword
+# Drag right selection handle further right to extend to multi-word
+- swipe:
+    start: "55%,42%"
+    end: "90%,42%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: /tmp/maestro-04-selection
+- tapOn:
+    text: "Highlight in yellow"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: /tmp/maestro-05-highlighted

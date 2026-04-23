@@ -808,7 +808,7 @@ export default function ReaderScreen() {
           textAlign: settings.textAlign,
           backgroundColor: resolvedTheme.backgroundColor,
           textColor: resolvedTheme.textColor,
-        }, chapterSlug, { top: insets.top, bottom: insets.bottom })
+        }, chapterSlug, { top: insets.top, bottom: insets.bottom }, { overlayV2: true })
       : '',
     [
       chapter?.html,
