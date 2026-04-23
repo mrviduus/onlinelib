@@ -22,6 +22,7 @@ import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
 import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
+import { useReaderOverlayV2Active } from '../../../src/hooks/useReaderOverlayV2Active'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
 import { useHaptics } from '../../../src/hooks/useHaptics'
@@ -50,6 +51,7 @@ export default function ReaderScreen() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
+  const overlayV2 = useReaderOverlayV2Active()
   const [chapter, setChapter] = useState<Chapter | null>(null)
   const [loading, setLoading] = useState(true)
   /**
@@ -808,7 +810,7 @@ export default function ReaderScreen() {
           textAlign: settings.textAlign,
           backgroundColor: resolvedTheme.backgroundColor,
           textColor: resolvedTheme.textColor,
-        }, chapterSlug, { top: insets.top, bottom: insets.bottom }, { overlayV2: true })
+        }, chapterSlug, { top: insets.top, bottom: insets.bottom }, { overlayV2 })
       : '',
     [
       chapter?.html,
@@ -821,6 +823,7 @@ export default function ReaderScreen() {
       chapterSlug,
       insets.top,
       insets.bottom,
+      overlayV2,
     ],
   )
   // WebView source prop is compared shallowly; keeping the object

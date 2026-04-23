@@ -17,6 +17,7 @@ import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
 import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
 import { TocSheet } from '../../../../src/components/TocSheet'
 import { useTts } from '../../../../src/hooks/useTts'
+import { useReaderOverlayV2Active } from '../../../../src/hooks/useReaderOverlayV2Active'
 import { useReadingSession } from '../../../../src/hooks/useReadingSession'
 import { useQuickStats } from '../../../../src/hooks/useQuickStats'
 import { useHaptics } from '../../../../src/hooks/useHaptics'
@@ -41,6 +42,7 @@ export default function UserBookReaderScreen() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
+  const overlayV2 = useReaderOverlayV2Active()
   const [chapter, setChapter] = useState<UserBookChapterDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -477,8 +479,8 @@ export default function UserBookReaderScreen() {
       textAlign: settings.textAlign,
       backgroundColor: resolvedTheme.backgroundColor,
       textColor: resolvedTheme.textColor,
-    }, undefined, { top: insets.top, bottom: insets.bottom }, { overlayV2: true })
-  }, [chapter, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign, resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom])
+    }, undefined, { top: insets.top, bottom: insets.bottom }, { overlayV2 })
+  }, [chapter, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign, resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom, overlayV2])
 
   const webViewSource = useMemo(() => ({ html }), [html])
 

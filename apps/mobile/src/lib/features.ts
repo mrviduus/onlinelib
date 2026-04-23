@@ -1,6 +1,43 @@
 // Mobile UI feature flags. Expo exposes env vars prefixed with EXPO_PUBLIC_* at build time.
-// Defaults OFF — enable per-deploy via `EXPO_PUBLIC_FEATURE_*` in EAS secrets or `.env.local`.
+// Defaults match what users currently see — flip via `EXPO_PUBLIC_*` in EAS secrets / `.env.local`.
 
-export const FEATURES = {} as const
+import AsyncStorage from '@react-native-async-storage/async-storage'
+
+function readBool(v: unknown, fallback = false): boolean {
+  if (typeof v !== 'string') return fallback
+  const s = v.trim().toLowerCase()
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false
+  return fallback
+}
+
+export const FEATURES = {
+  // Mobile reader overlay v2 (foliate-js SVG overlayer inside the WebView).
+  // Default ON — already shipped to 100% of users via hardcoded `overlayV2: true`.
+  // Flip OFF via env if a regression surfaces; per-device override via AsyncStorage below.
+  readerOverlayV2: readBool(process.env.EXPO_PUBLIC_READER_OVERLAY_V2, true),
+} as const
 
 export type FeatureKey = keyof typeof FEATURES
+
+// Per-device override for reader overlay v2. Mirrors web's localStorage cascade
+// so support can flip a single user back to legacy without a build:
+//   AsyncStorage.setItem('textstack.readerOverlayV2', '0')  // killswitch
+//   AsyncStorage.setItem('textstack.readerOverlayV2', '1')  // force on
+// Anything else (null / unset) falls back to the build-time default.
+export const READER_OVERLAY_V2_STORAGE_KEY = 'textstack.readerOverlayV2'
+
+export function resolveReaderOverlayV2Active(stored: string | null): boolean {
+  if (stored === '0') return false
+  if (stored === '1') return true
+  return FEATURES.readerOverlayV2
+}
+
+export async function readReaderOverlayV2Active(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(READER_OVERLAY_V2_STORAGE_KEY)
+    return resolveReaderOverlayV2Active(v)
+  } catch {
+    return FEATURES.readerOverlayV2
+  }
+}
