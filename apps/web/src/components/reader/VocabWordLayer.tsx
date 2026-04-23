@@ -1,3 +1,6 @@
+// TODO(overlay-v2 slice-10): remove. Replaced by VocabOverlayLayer under
+// FEATURES.readerOverlayV2 (selected by VocabHighlightDispatcher). The
+// <mark>-wrapping render path loses state on dangerouslySetInnerHTML remount.
 import { useEffect } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
 import { tokenizeVocabWords, normalizeVocabKey, vocabStageClass } from '../../lib/vocabKey'

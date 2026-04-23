@@ -1,3 +1,6 @@
+// TODO(overlay-v2 slice-10): remove. Continuous infinite-scroll + eviction
+// logic superseded by section-at-a-time model in ReaderSection (slice 7).
+// Source of the annotation-drop bug class once the overlay path ships.
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 
 export interface LoadedChapter {

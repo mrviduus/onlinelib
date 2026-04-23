@@ -1,3 +1,6 @@
+// TODO(overlay-v2 slice-10): remove. Replaced by ReaderSection (single chapter
+// + overlayer) under FEATURES.readerOverlayV2. This multi-chapter scroll +
+// eviction component drops annotation state on innerHTML remount.
 import { useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react'
 import type { ReaderSettings } from '../../hooks/useReaderSettings'
 import type { LoadedChapter } from '../../hooks/useScrollReader'

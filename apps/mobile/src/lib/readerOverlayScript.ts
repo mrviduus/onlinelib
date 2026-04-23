@@ -134,6 +134,43 @@ export const READER_OVERLAY_SCRIPT = `
     return g;
   }
 
-  window.__TSOverlayer = { create: Overlayer, highlight: highlight, underline: underline, outline: outline };
+  // --- postMessage bridge helper (review item 5) ---
+  // Throttle + dedup for WebView ↔ RN bridge. Max 4 msg/sec per type,
+  // skip identical payloads. reading-session heartbeats route around this
+  // (they use their own 30s interval).
+  function makeBridge(postMessageFn, throttleMs){
+    var MIN_INTERVAL = throttleMs || 250;
+    var last = {}; // type → { ts, json }
+    return function send(type, payload){
+      var now = Date.now();
+      var json = JSON.stringify(payload || {});
+      var prev = last[type];
+      if (prev && prev.json === json && now - prev.ts < 2000) return false;
+      if (prev && now - prev.ts < MIN_INTERVAL && prev.json !== json) {
+        // Collapse: replace pending payload, keep original ts so the
+        // throttle window advances predictably.
+        last[type] = { ts: prev.ts, json: json, pending: true };
+        setTimeout(function(){
+          var e = last[type];
+          if (!e || !e.pending) return;
+          e.pending = false;
+          e.ts = Date.now();
+          try { postMessageFn(JSON.stringify({ type: type, payload: JSON.parse(e.json) })); } catch (_err) {}
+        }, MIN_INTERVAL - (now - prev.ts));
+        return false;
+      }
+      last[type] = { ts: now, json: json };
+      try { postMessageFn(JSON.stringify({ type: type, payload: payload || {} })); } catch (_err) { return false; }
+      return true;
+    };
+  }
+
+  window.__TSOverlayer = {
+    create: Overlayer,
+    highlight: highlight,
+    underline: underline,
+    outline: outline,
+    makeBridge: makeBridge,
+  };
 })();
 `

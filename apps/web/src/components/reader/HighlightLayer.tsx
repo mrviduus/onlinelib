@@ -1,3 +1,5 @@
+// TODO(overlay-v2 slice-10): remove. Replaced by HighlightOverlayLayer under
+// FEATURES.readerOverlayV2. Kept as fallback during rollout.
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { StoredHighlight, HighlightColor } from '../../lib/offlineDb'
 import { findTextByAnchor } from '../../lib/textAnchor'

@@ -1722,6 +1722,9 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
 }
 
 
+/* TODO(overlay-v2 slice-10): remove .vocab-underline + .vocab-inline-translation
+   rules below. Superseded by SVG overlayer (VocabOverlayLayer) when
+   FEATURES.readerOverlayV2 flips on. */
 /* Vocab word underlines in reader.
    Uses native text-decoration (not border-bottom) so the underline sits at
    descender level with skip-ink — keeps letter shapes clean AND leaves a
