@@ -28,6 +28,8 @@ import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { ReaderTocDrawer, type AutoSaveInfo, type TocChapter } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
+import { SearchOverlayLayer } from '../components/reader/SearchOverlayLayer'
+import { FEATURES, isReaderOverlayKillswitchSet } from '../lib/features'
 import { useScrollReader } from '../hooks/useScrollReader'
 import { useReadingSession } from '../hooks/useReadingSession'
 import { useQuickStats } from '../hooks/useQuickStats'
@@ -949,6 +951,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
               onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
             />
           </div>
+          {FEATURES.readerOverlayV2 && !isReaderOverlayKillswitchSet() && searchOpen && (
+            <SearchOverlayLayer
+              containerRef={scrollContainerRef}
+              query={searchQuery}
+              activeMatchIndex={activeMatchIndex}
+            />
+          )}
         </ReaderHighlights>
       </main>
 

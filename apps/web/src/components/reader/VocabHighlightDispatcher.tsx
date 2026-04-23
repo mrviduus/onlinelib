@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
-import { FEATURES, isRuntimeKillswitchSet } from '../../lib/features'
+import { FEATURES, isRuntimeKillswitchSet, isReaderOverlayKillswitchSet } from '../../lib/features'
 import { isSupported as isCustomHighlightSupported } from '../../lib/customHighlightRegistry'
 import { count } from '../../lib/vocabHighlightTelemetry'
 import type { ActiveBubbleSnapshot } from '../../lib/vocabHighlightEngine'
 import { VocabWordLayer } from './VocabWordLayer'
 import { VocabHighlightLayer } from './VocabHighlightLayer'
+import { VocabOverlayLayer } from './VocabOverlayLayer'
 import { VocabHighlightErrorBoundary } from './VocabHighlightErrorBoundary'
 import { VocabHighlightOracle } from './VocabHighlightOracle'
 
@@ -17,9 +18,12 @@ interface VocabHighlightDispatcherProps {
   chapterId?: string
 }
 
-type Decision = 'new' | 'legacy'
+type Decision = 'overlay' | 'new' | 'legacy'
 
 function decide(): { decision: Decision; reason: string } {
+  if (FEATURES.readerOverlayV2 && !isReaderOverlayKillswitchSet()) {
+    return { decision: 'overlay', reason: 'reader_overlay_v2' }
+  }
   if (!FEATURES.customVocabHighlights) return { decision: 'legacy', reason: 'flag_off' }
   if (isRuntimeKillswitchSet()) return { decision: 'legacy', reason: 'killswitch' }
   if (!isCustomHighlightSupported()) return { decision: 'legacy', reason: 'unsupported' }
@@ -49,7 +53,8 @@ export function VocabHighlightDispatcher({
   useEffect(() => {
     if (bootLogged) return
     const { decision, reason } = decisionRef.current
-    if (decision === 'new') count('boot.supported', { reason })
+    if (decision === 'overlay') count('boot.overlay', { reason })
+    else if (decision === 'new') count('boot.supported', { reason })
     else count('boot.fallback', { reason })
     setBootLogged(true)
   }, [bootLogged])
@@ -75,6 +80,22 @@ export function VocabHighlightDispatcher({
     return (
       <>
         {legacyLayer}
+        {oracle}
+      </>
+    )
+  }
+
+  if (decisionRef.current.decision === 'overlay') {
+    return (
+      <>
+        <VocabHighlightErrorBoundary fallback={legacyLayer} resetKey={chapterId}>
+          <VocabOverlayLayer
+            containerRef={containerRef}
+            vocabMap={vocabMap}
+            showInlineTranslations={showInlineTranslations}
+            activeBubble={activeBubble}
+          />
+        </VocabHighlightErrorBoundary>
         {oracle}
       </>
     )

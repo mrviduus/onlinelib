@@ -5,6 +5,7 @@
 export type TelemetryEvent =
   | 'boot.supported'
   | 'boot.fallback'
+  | 'boot.overlay'
   | 'register.success'
   | 'register.mismatch'
   | 'register.error'

@@ -16,6 +16,8 @@ import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightLayer } from './HighlightLayer'
+import { HighlightOverlayLayer } from './HighlightOverlayLayer'
+import { FEATURES, isReaderOverlayKillswitchSet } from '../../lib/features'
 import { VocabHighlightDispatcher } from './VocabHighlightDispatcher'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
@@ -515,11 +517,19 @@ export function ReaderHighlights({
     <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
       {children}
 
-      <HighlightLayer
-        highlights={highlights}
-        containerRef={containerRef}
-        onHighlightClick={handleHighlightClick}
-      />
+      {FEATURES.readerOverlayV2 && !isReaderOverlayKillswitchSet() ? (
+        <HighlightOverlayLayer
+          highlights={highlights}
+          containerRef={containerRef}
+          onHighlightClick={handleHighlightClick}
+        />
+      ) : (
+        <HighlightLayer
+          highlights={highlights}
+          containerRef={containerRef}
+          onHighlightClick={handleHighlightClick}
+        />
+      )}
 
       <VocabHighlightDispatcher
         containerRef={containerRef}
