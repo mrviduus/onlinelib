@@ -24,7 +24,18 @@ interface Props {
 export function ReaderOverlay({ containerRef, overlayerRef, enabled = true }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
 
-  const overlayer = useMemo(() => (enabled ? new Overlayer() : null), [enabled])
+  const overlayer = useMemo(
+    () =>
+      enabled
+        ? new Overlayer({
+            onMiss: (key, reason) => count('reader.overlay.miss', { key, reason }),
+            onRedraw: ({ size, missCount }) => {
+              count('reader.overlay.redraw', { size, missCount })
+            },
+          })
+        : null,
+    [enabled],
+  )
 
   useEffect(() => {
     overlayerRef.current = overlayer

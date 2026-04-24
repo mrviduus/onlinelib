@@ -263,3 +263,60 @@ describe('Overlayer draw palette', () => {
     expect(g.getAttribute('class')).toBe('reader-overlay-pulse')
   })
 })
+
+describe('Overlayer telemetry callbacks', () => {
+  it('onMiss fires on add when a Range produces zero rects', () => {
+    const onMiss = vi.fn()
+    const ov = new Overlayer({ onMiss })
+    const range = mkRange()
+    stubRects(range, []) // simulate empty rects (non-collapsed fallback yields nothing)
+    ov.add('k', range, Overlayer.highlight)
+    expect(onMiss).toHaveBeenCalledWith('k', 'empty-rects')
+  })
+
+  it('onMiss does not fire when rects are non-empty', () => {
+    const onMiss = vi.fn()
+    const ov = new Overlayer({ onMiss })
+    const range = mkRange()
+    stubRects(range, [{ left: 0, top: 0, width: 10, height: 10 }])
+    ov.add('k', range, Overlayer.highlight)
+    expect(onMiss).not.toHaveBeenCalled()
+  })
+
+  it('onMiss fires with empty-rects-redraw reason when redraw loses rects', () => {
+    const onMiss = vi.fn()
+    const ov = new Overlayer({ onMiss })
+    const range = mkRange()
+    stubRects(range, [{ left: 0, top: 0, width: 10, height: 10 }])
+    ov.add('k', range, Overlayer.highlight)
+    stubRects(range, [])
+    ov.redraw()
+    expect(onMiss).toHaveBeenCalledWith('k', 'empty-rects-redraw')
+  })
+
+  it('onRedraw fires once per redraw with size + missCount', () => {
+    const onRedraw = vi.fn()
+    const ov = new Overlayer({ onRedraw })
+    const a = mkRange()
+    const b = mkRange()
+    stubRects(a, [{ left: 0, top: 0, width: 10, height: 10 }])
+    stubRects(b, [{ left: 0, top: 0, width: 10, height: 10 }])
+    ov.add('a', a, Overlayer.highlight)
+    ov.add('b', b, Overlayer.highlight)
+    stubRects(a, [{ left: 5, top: 5, width: 10, height: 10 }]) // still has rect
+    stubRects(b, []) // lost rects
+    ov.redraw()
+    expect(onRedraw).toHaveBeenCalledTimes(1)
+    expect(onRedraw).toHaveBeenCalledWith({ size: 2, missCount: 1 })
+  })
+
+  it('throwing telemetry callback does not break the caller', () => {
+    const onMiss = vi.fn(() => {
+      throw new Error('analytics down')
+    })
+    const ov = new Overlayer({ onMiss })
+    const range = mkRange()
+    stubRects(range, [])
+    expect(() => ov.add('k', range, Overlayer.highlight)).not.toThrow()
+  })
+})

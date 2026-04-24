@@ -30,6 +30,17 @@ export type DrawFn = (rects: DOMRectList | DOMRect[], options?: DrawOptions) => 
 
 type RangeLike = Range | ((root: Node | Document | ShadowRoot) => Range)
 
+export type MissReason = 'empty-rects' | 'empty-rects-redraw'
+
+export interface OverlayerOptions {
+  // Fires when a Range produces zero drawable rects (silent annotation drop).
+  // Hook up to analytics to baseline miss-rate before flipping default-on.
+  onMiss?: (key: string, reason: MissReason) => void
+  // Fires after every redraw() pass with the current map size and any misses
+  // observed in that pass. One call per reflow, so safe to log.
+  onRedraw?: (info: { size: number; missCount: number }) => void
+}
+
 interface Entry {
   range: Range
   draw: DrawFn
@@ -95,8 +106,10 @@ function captureRects(range: Range): DOMRect[] {
 export class Overlayer {
   readonly #svg: SVGSVGElement
   readonly #map = new Map<string, Entry>()
+  readonly #onMiss?: OverlayerOptions['onMiss']
+  readonly #onRedraw?: OverlayerOptions['onRedraw']
 
-  constructor() {
+  constructor(options: OverlayerOptions = {}) {
     this.#svg = createSVGElement('svg')
     this.#svg.setAttribute('data-reader-overlay', 'true')
     Object.assign(this.#svg.style, {
@@ -107,7 +120,18 @@ export class Overlayer {
       height: '100%',
       pointerEvents: 'none',
     })
+    this.#onMiss = options.onMiss
+    this.#onRedraw = options.onRedraw
     this.syncScroll()
+  }
+
+  #reportMiss(key: string, reason: MissReason): void {
+    if (!this.#onMiss) return
+    try {
+      this.#onMiss(key, reason)
+    } catch {
+      // Telemetry must never break the caller.
+    }
   }
 
   get element(): SVGSVGElement {
@@ -136,6 +160,7 @@ export class Overlayer {
     const resolved = typeof range === 'function' ? range(this.#svg.getRootNode()) : range
     if (!resolved) return
     const rects = captureRects(resolved)
+    if (rects.length === 0) this.#reportMiss(key, 'empty-rects')
     const element = draw(rects, options)
     this.#svg.append(element)
     this.#map.set(key, { range: resolved, draw, options, element, rects })
@@ -156,16 +181,28 @@ export class Overlayer {
   }
 
   redraw(): void {
-    for (const entry of this.#map.values()) {
+    let missCount = 0
+    for (const [key, entry] of this.#map.entries()) {
       const { range, draw, options, element } = entry
       if (element.parentNode === this.#svg) this.#svg.removeChild(element)
       const rects = captureRects(range)
+      if (rects.length === 0) {
+        missCount++
+        this.#reportMiss(key, 'empty-rects-redraw')
+      }
       const next = draw(rects, options)
       this.#svg.append(next)
       entry.element = next
       entry.rects = rects
     }
     this.syncScroll()
+    if (this.#onRedraw) {
+      try {
+        this.#onRedraw({ size: this.#map.size, missCount })
+      } catch {
+        // Telemetry must never break the caller.
+      }
+    }
   }
 
   hitTest(point: { x: number; y: number }): [string, Range] | [] {
