@@ -656,6 +656,17 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
           document.fonts.ready.then(function(){ try { _hlOverlayer.redraw(); } catch(e) {} });
         }
+        // Doc-coord rects + CSS counter-translate on scroll → no full redraw
+        // per scroll frame, just an O(1) transform update.
+        var _scrollScheduled = false;
+        window.addEventListener('scroll', function(){
+          if (_scrollScheduled || !_hlOverlayer) return;
+          _scrollScheduled = true;
+          requestAnimationFrame(function(){
+            _scrollScheduled = false;
+            try { _hlOverlayer.syncScroll(); } catch(e) {}
+          });
+        }, { passive: true });
         // Tap delegation — overlayer is pointer-events:none so taps hit body.
         // hitTest returns [key, range] when a rect covers the point.
         document.body.addEventListener('click', function(e){

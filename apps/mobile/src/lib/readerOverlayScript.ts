@@ -13,6 +13,53 @@ export const READER_OVERLAY_SCRIPT = `
   var SVG_NS = 'http://www.w3.org/2000/svg';
   function svgEl(tag){ return document.createElementNS(SVG_NS, tag); }
 
+  // Mirror of apps/web/src/lib/readerOverlay.ts captureRects pipeline:
+  //   1. doc-coord rect storage (rect + scroll offset) so SVG transform can
+  //      counter-shift on scroll instead of full redraw.
+  //   2. uncollapse-range fallback for collapsed/zero-rect cases (paragraph
+  //      starts) — port of foliate-js paginator.js:39-53.
+  //   3. zero-area rect filter (Firefox emits at column breaks; unhittable).
+  function uncollapseForMeasure(range){
+    if (!range.collapsed) return range;
+    var clone = range.cloneRange();
+    var endOffset = clone.endOffset;
+    var endContainer = clone.endContainer;
+    if (endContainer.nodeType === 1) {
+      var child = endContainer.childNodes[endOffset];
+      if (child) clone.selectNode(child);
+      else clone.selectNodeContents(endContainer);
+      return clone;
+    }
+    var len = endContainer.length;
+    if (endOffset + 1 <= len) clone.setEnd(endContainer, endOffset + 1);
+    else if (endOffset >= 1) clone.setStart(endContainer, endOffset - 1);
+    else if (endContainer.parentNode) clone.selectNode(endContainer.parentNode);
+    return clone;
+  }
+  function toDocRect(r, sx, sy){
+    return {
+      x: r.x + sx, y: r.y + sy,
+      left: r.left + sx, top: r.top + sy,
+      right: r.right + sx, bottom: r.bottom + sy,
+      width: r.width, height: r.height,
+    };
+  }
+  function captureRects(range){
+    var sx = window.scrollX || 0;
+    var sy = window.scrollY || 0;
+    var raw = Array.prototype.slice.call(range.getClientRects());
+    if (raw.length === 0) {
+      var fb = uncollapseForMeasure(range);
+      if (fb !== range) raw = Array.prototype.slice.call(fb.getClientRects());
+    }
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var r = raw[i];
+      if (r.width > 0 && r.height > 0) out.push(toDocRect(r, sx, sy));
+    }
+    return out;
+  }
+
   function Overlayer(){
     var svg = svgEl('svg');
     svg.setAttribute('data-reader-overlay', 'true');
@@ -24,13 +71,21 @@ export const READER_OVERLAY_SCRIPT = `
     svg.style.pointerEvents = 'none';
     var map = {};
 
+    function syncScroll(){
+      var sx = window.scrollX || 0;
+      var sy = window.scrollY || 0;
+      svg.style.transform = 'translate(' + (-sx) + 'px, ' + (-sy) + 'px)';
+    }
+    syncScroll();
+
     function add(key, range, drawFn, options){
       if (map[key]) remove(key);
       if (!range) return;
-      var rects = Array.prototype.slice.call(range.getClientRects());
+      var rects = captureRects(range);
       var element = drawFn(rects, options || {});
       svg.appendChild(element);
       map[key] = { range: range, draw: drawFn, options: options || {}, element: element, rects: rects };
+      syncScroll();
     }
     function remove(key){
       var e = map[key];
@@ -46,20 +101,27 @@ export const READER_OVERLAY_SCRIPT = `
         if (!map.hasOwnProperty(k)) continue;
         var e = map[k];
         if (e.element.parentNode === svg) svg.removeChild(e.element);
-        var rects = Array.prototype.slice.call(e.range.getClientRects());
+        var rects = captureRects(e.range);
         var next = e.draw(rects, e.options);
         svg.appendChild(next);
         e.element = next;
         e.rects = rects;
       }
+      syncScroll();
     }
     function hitTest(point){
+      // Point arrives in viewport coords; rects stored in doc coords —
+      // shift the point instead of every rect.
+      var sx = window.scrollX || 0;
+      var sy = window.scrollY || 0;
+      var px = point.x + sx;
+      var py = point.y + sy;
       var keys = Object.keys(map);
       for (var i = keys.length - 1; i >= 0; i--){
         var e = map[keys[i]];
         for (var j = 0; j < e.rects.length; j++){
           var r = e.rects[j];
-          if (r.top <= point.y && r.left <= point.x && r.bottom > point.y && r.right > point.x){
+          if (r.top <= py && r.left <= px && r.bottom > py && r.right > px){
             return [keys[i], e.range];
           }
         }
@@ -68,7 +130,7 @@ export const READER_OVERLAY_SCRIPT = `
     }
     function size(){ var n = 0; for (var k in map) if (map.hasOwnProperty(k)) n++; return n; }
 
-    return { element: svg, add: add, remove: remove, clear: clear, redraw: redraw, hitTest: hitTest, size: size };
+    return { element: svg, add: add, remove: remove, clear: clear, redraw: redraw, syncScroll: syncScroll, hitTest: hitTest, size: size };
   }
 
   // --- Draw palette ---
