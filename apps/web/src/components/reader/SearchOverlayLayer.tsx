@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Overlayer } from '../../lib/readerOverlay'
+import { Overlayer } from '@textstack/reader-overlay'
 import { useOverlayAnnotations, type AnnotationSpec } from '../../hooks/useOverlayAnnotations'
 import { useOverlayReflow } from '../../hooks/useOverlayReflow'
 import { useContainerMutationObserver } from '../../hooks/useContainerMutationObserver'
-import { findTextMatches } from '../../lib/textWalker'
+import { findTextMatches } from '@textstack/reader-overlay'
 
 // Visual in-article highlights for in-book search. Non-active matches get a
 // soft fill, the active match gets a bolder outline + scrolls into view.

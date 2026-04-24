@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { Overlayer } from '../lib/readerOverlay'
+import { Overlayer } from '@textstack/reader-overlay'
 import { useOverlayAnnotations, type AnnotationSpec } from './useOverlayAnnotations'
 
 function stubRects(range: Range): void {

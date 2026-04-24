@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { DrawFn, DrawOptions, Overlayer } from '../lib/readerOverlay'
+import type { DrawFn, DrawOptions, Overlayer } from '@textstack/reader-overlay'
 
 // Reconcile annotation list into an Overlayer. On each render:
 //   - add every item whose key is missing,

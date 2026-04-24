@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { textWalker, findTextMatches } from './textWalker'
+import { textWalker, findTextMatches } from '@textstack/reader-overlay'
 
 describe('textWalker', () => {
   let root: HTMLElement

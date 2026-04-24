@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react'
-import type { Overlayer } from '../lib/readerOverlay'
+import type { Overlayer } from '@textstack/reader-overlay'
 
 // Drive `overlayer.redraw()` on every event that can shift Range rects:
 //   - ResizeObserver on the scrolling container (font-size change, layout)

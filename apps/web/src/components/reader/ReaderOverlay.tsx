@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Overlayer } from '../../lib/readerOverlay'
+import { Overlayer } from '@textstack/reader-overlay'
 import { useOverlayReflow } from '../../hooks/useOverlayReflow'
 import { count } from '../../lib/vocabHighlightTelemetry'
 

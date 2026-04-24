@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@textstack/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@textstack/reader-overlay': path.resolve(__dirname, '../../packages/reader-overlay/src/index.ts'),
     },
   },
   test: {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { Overlayer } from '../../lib/readerOverlay'
+import { Overlayer } from '@textstack/reader-overlay'
 import { useOverlayAnnotations, type AnnotationSpec } from '../../hooks/useOverlayAnnotations'
 import { useOverlayReflow } from '../../hooks/useOverlayReflow'
 import { findTextByAnchor } from '../../lib/textAnchor'

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { Overlayer } from '../lib/readerOverlay'
+import { Overlayer } from '@textstack/reader-overlay'
 import { useOverlayReflow } from './useOverlayReflow'
 
 // Patch ResizeObserver globally; capture the callback so tests can fire it.

@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 import type { ReaderSettings } from '../../hooks/useReaderSettings'
 import { sanitizeHtml } from '../../utils/sanitize'
-import type { Overlayer } from '../../lib/readerOverlay'
+import type { Overlayer } from '@textstack/reader-overlay'
 import { ReaderOverlay } from './ReaderOverlay'
 
 // One chapter, native scroll within, overlay on top. Unwired in slice 3 —
