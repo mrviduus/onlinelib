@@ -476,7 +476,7 @@ export default function ReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars, showBars, hideBars, notifyWordSaved])
+  }, [chapter, isAuthenticated, language, nativeLanguage, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -650,6 +650,15 @@ export default function ReaderScreen() {
   }
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auto-dismiss timer on unmount: user taps Exit → sees 5s summary →
+  // backgrounds the app or screen unmounts → timer fires router.back()
+  // on a stale navigation context.
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+    }
+  }, [])
 
   const handleExit = () => {
     saveProgress()

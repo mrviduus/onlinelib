@@ -323,7 +323,7 @@ export default function UserBookReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[user-book-reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, notifyWordSaved])
+  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, language, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
 
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
