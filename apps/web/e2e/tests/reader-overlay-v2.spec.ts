@@ -21,8 +21,11 @@ test.describe('QA-010: reader overlay v2', () => {
     await page.goto(`/en/books/${enBook.slug}/${enBook.firstChapterSlug}`)
     await waitForReaderLoad(page)
 
-    const overlay = page.locator('svg[data-reader-overlay="true"]')
-    await expect(overlay).toHaveCount(1, { timeout: 10_000 })
+    // One overlay per annotation layer (highlights/vocab/search) — assert at
+    // least one mounts rather than exact count; count changes as layers are
+    // added/removed.
+    const overlay = page.locator('svg[data-reader-overlay="true"]').first()
+    await expect(overlay).toBeAttached({ timeout: 10_000 })
 
     // ReaderNav (v2-only) renders the Prev/Next affordance
     await expect(page.locator('.reader-nav, [data-testid="reader-nav"]').first()).toBeVisible({ timeout: 5_000 })
