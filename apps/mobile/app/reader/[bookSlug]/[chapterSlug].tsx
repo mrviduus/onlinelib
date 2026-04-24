@@ -651,12 +651,13 @@ export default function ReaderScreen() {
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Auto-dismiss timer on unmount: user taps Exit → sees 5s summary →
-  // backgrounds the app or screen unmounts → timer fires router.back()
-  // on a stale navigation context.
+  // Clear pending timers on unmount.
+  // - exitTimerRef: 5s summary auto-dismiss → router.back() on stale nav.
+  // - hideTimerRef: 3s chrome auto-hide → setState on unmounted tree.
   useEffect(() => {
     return () => {
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     }
   }, [])
 

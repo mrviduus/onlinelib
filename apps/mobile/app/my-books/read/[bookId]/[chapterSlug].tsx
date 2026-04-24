@@ -146,6 +146,9 @@ export default function UserBookReaderScreen() {
 
   useEffect(() => { if (chapter) startHideTimer() }, [chapter, startHideTimer])
 
+  // Clear pending hide-bars timer on unmount.
+  useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }, [])
+
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: null,
     userBookId: bookId || null,
