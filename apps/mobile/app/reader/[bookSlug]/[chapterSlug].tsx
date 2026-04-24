@@ -775,8 +775,7 @@ export default function ReaderScreen() {
     try {
       const api = createBooksApi(language)
       const ch = await api.getChapter(bookSlug, next.slug)
-      const escaped = JSON.stringify(ch.html).slice(1, -1) // remove outer quotes
-      injectJs(`appendChapter("${escaped}", ${JSON.stringify(ch.title)}, ${JSON.stringify(ch.slug)})`)
+      injectJs(`appendChapter(${JSON.stringify({ html: ch.html, title: ch.title, slug: ch.slug })})`)
       wordCountRef.current += ch.wordCount || 0
       nextChapterRef.current = ch.next || null
       if (!ch.next) injectJs('disableInfiniteScroll()')
@@ -888,6 +887,17 @@ export default function ReaderScreen() {
           source={webViewSource}
           style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
           onMessage={handleMessage}
+          onLoadEnd={() => {
+            // `html` memo rebuilds on settings change → WebView reloads → JS state wiped.
+            // Re-apply highlights + vocab from refs so they survive font/theme tweaks.
+            for (const h of highlightsRef.current) {
+              injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
+            }
+            if (Object.keys(vocabMapRef.current).length > 0) {
+              injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+            }
+            injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
+          }}
           originWhitelist={['*']}
           scrollEnabled
           showsVerticalScrollIndicator={false}

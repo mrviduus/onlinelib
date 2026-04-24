@@ -249,7 +249,13 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     window.addEventListener('scroll', checkInfiniteScroll, { passive: true });
 
-    function appendChapter(html, title, slug) {
+    // Single-object payload: U+2028/U+2029 terminate JS lines but are valid
+    // in JSON strings, so HTML must round-trip via JSON.parse, not a JS literal.
+    function appendChapter(payload) {
+      var html = payload && payload.html;
+      var title = payload && payload.title;
+      var slug = payload && payload.slug;
+      if (!html) { loadingNext = false; return; }
       var sep = document.createElement('div');
       sep.className = 'chapter-separator';
       sep.innerHTML = '<hr><span>' + title + '</span>';
