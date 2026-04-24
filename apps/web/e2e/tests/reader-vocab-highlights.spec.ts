@@ -66,6 +66,17 @@ test.describe.serial('Reader vocab highlights (Custom Highlight API)', () => {
   // Can't use ({ request }) here — that's a fresh, unauthed context per test.
   // page.request (inside tests) shares cookies with authedPage's storage state.
 
+  // This file targets the pre-v2 dispatcher cascade (CSS.highlights → <mark>
+  // fallback). v2 overlay (default-on) bypasses that cascade entirely and
+  // routes vocab to VocabOverlayLayer (SVG). Force-legacy mode for all tests
+  // in this describe so the cascade under test is exercised. Removed with
+  // VocabHighlightLayer / VocabWordLayer in slice 10.
+  test.beforeEach(async ({ authedPage: page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('textstack.readerOverlayV2', '0')
+    })
+  })
+
   test('new path: CSS.highlights populated after chapter render', async ({ authedPage: page }) => {
     const { enBook } = getTestData()
     await cleanupWords(page.request)
