@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
@@ -344,6 +344,17 @@ export default function ReaderScreen() {
   // Save progress when leaving reader
   useEffect(() => {
     return () => { saveProgress() }
+  }, [saveProgress])
+
+  // Save progress when the app backgrounds. On Android, Home-button +
+  // OS-kill path skips useEffect cleanup, so the final scroll position
+  // would be lost. AppState fires on home/background; we flush now so
+  // the next launch resumes at the right place.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background' || state === 'inactive') saveProgress()
+    })
+    return () => sub.remove()
   }, [saveProgress])
 
   const handleMessage = useCallback((event: any) => {
