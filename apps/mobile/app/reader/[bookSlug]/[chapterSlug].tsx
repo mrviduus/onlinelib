@@ -50,7 +50,7 @@ function interpolate(template: string, vars: Record<string, string | number>): s
 export default function ReaderScreen() {
   const { bookSlug, chapterSlug } = useLocalSearchParams<{ bookSlug: string; chapterSlug: string }>()
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
   const overlayV2 = useReaderOverlayV2Active()
   const [chapter, setChapter] = useState<Chapter | null>(null)
@@ -685,9 +685,11 @@ export default function ReaderScreen() {
       // Render highlight in WebView
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
-      if (editionIdRef.current) {
-        highlightCache.get(editionIdRef.current).then(prev => {
-          highlightCache.set(editionIdRef.current!, [...(prev || []), hl])
+      const uid = user?.id
+      if (uid && editionIdRef.current) {
+        const edId = editionIdRef.current
+        highlightCache.get(uid, edId).then(prev => {
+          highlightCache.set(uid, edId, [...(prev || []), hl])
         })
       }
       if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
@@ -717,21 +719,25 @@ export default function ReaderScreen() {
       }
     }
 
+    const uid = user?.id
     // Cache-first paint so highlights survive offline chapter nav; API
-    // refresh overwrites.
-    highlightCache.get(editionId).then(cached => {
-      if (!cancelled && cached) paint(cached)
-    })
+    // refresh overwrites. Cache keyed per-user so device-shared sign-ins
+    // can't leak another account's highlights.
+    if (uid) {
+      highlightCache.get(uid, editionId).then(cached => {
+        if (!cancelled && cached) paint(cached)
+      })
+    }
 
     highlightsApi.getHighlights(editionId)
       .then(highlights => {
         if (cancelled) return
         paint(highlights)
-        highlightCache.set(editionId, highlights)
+        if (uid) highlightCache.set(uid, editionId, highlights)
       })
       .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id])
+  }, [isAuthenticated, chapter?.id, user?.id])
 
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
@@ -743,9 +749,10 @@ export default function ReaderScreen() {
   useEffect(() => {
     if (!selection) {
       autoSavedRef.current.clear()
-      if (Object.keys(vocabMapRef.current).length > 0) vocabMapCache.set(vocabMapRef.current)
+      const uid = user?.id
+      if (uid && Object.keys(vocabMapRef.current).length > 0) vocabMapCache.set(uid, vocabMapRef.current)
     }
-  }, [selection])
+  }, [selection, user?.id])
 
   // Load and render vocab word underlines. Keyed on `chapter?.id` so a
   // chapter refetch that yields the same id doesn't re-run the fetch (P3-4).
@@ -756,12 +763,15 @@ export default function ReaderScreen() {
     if (!isAuthenticated || !chapterId) return
     let cancelled = false
 
-    vocabMapCache.get().then(cached => {
-      if (!cancelled && cached && Object.keys(cached).length > 0) {
-        vocabMapRef.current = cached
-        injectJs(`markVocabWords(${JSON.stringify(cached)})`)
-      }
-    })
+    const uid = user?.id
+    if (uid) {
+      vocabMapCache.get(uid).then(cached => {
+        if (!cancelled && cached && Object.keys(cached).length > 0) {
+          vocabMapRef.current = cached
+          injectJs(`markVocabWords(${JSON.stringify(cached)})`)
+        }
+      })
+    }
 
     vocabularyApi.getReaderVocab()
       .then(words => {
@@ -770,11 +780,11 @@ export default function ReaderScreen() {
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id, translation: w.translation }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
-        vocabMapCache.set(map)
+        if (uid) vocabMapCache.set(uid, map)
       })
       .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id])
+  }, [isAuthenticated, chapter?.id, user?.id])
 
   // Sync inline translations setting to WebView
   useEffect(() => {
@@ -1135,10 +1145,12 @@ export default function ReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-              if (editionIdRef.current) {
-                highlightCache.get(editionIdRef.current).then(prev => {
+              const uid = user?.id
+              if (uid && editionIdRef.current) {
+                const edId = editionIdRef.current
+                highlightCache.get(uid, edId).then(prev => {
                   if (!prev) return
-                  highlightCache.set(editionIdRef.current!, prev.map(h => h.id === hl.id ? updated : h))
+                  highlightCache.set(uid, edId, prev.map(h => h.id === hl.id ? updated : h))
                 })
               }
             } catch (e) {
@@ -1154,10 +1166,12 @@ export default function ReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-              if (editionIdRef.current) {
-                highlightCache.get(editionIdRef.current).then(prev => {
+              const uid = user?.id
+              if (uid && editionIdRef.current) {
+                const edId = editionIdRef.current
+                highlightCache.get(uid, edId).then(prev => {
                   if (!prev) return
-                  highlightCache.set(editionIdRef.current!, prev.filter(h => h.id !== hl.id))
+                  highlightCache.set(uid, edId, prev.filter(h => h.id !== hl.id))
                 })
               }
             } catch (e) {

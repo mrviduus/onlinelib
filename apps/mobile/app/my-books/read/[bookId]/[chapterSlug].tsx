@@ -41,7 +41,7 @@ function interpolate(template: string, vars: Record<string, string | number>): s
 export default function UserBookReaderScreen() {
   const { bookId, chapterSlug } = useLocalSearchParams<{ bookId: string; chapterSlug: string }>()
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
   const overlayV2 = useReaderOverlayV2Active()
   const [chapter, setChapter] = useState<UserBookChapterDto | null>(null)
@@ -383,9 +383,10 @@ export default function UserBookReaderScreen() {
       })
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
-      if (bookId) {
-        userBookHighlightCache.get(bookId).then(prev => {
-          userBookHighlightCache.set(bookId, [...(prev || []), hl])
+      const uid = user?.id
+      if (uid && bookId) {
+        userBookHighlightCache.get(uid, bookId).then(prev => {
+          userBookHighlightCache.set(uid, bookId, [...(prev || []), hl])
         })
       }
       setSelection(null)
@@ -411,19 +412,22 @@ export default function UserBookReaderScreen() {
       }
     }
 
-    userBookHighlightCache.get(bookId).then(cached => {
-      if (!cancelled && cached) paint(cached)
-    })
+    const uid = user?.id
+    if (uid) {
+      userBookHighlightCache.get(uid, bookId).then(cached => {
+        if (!cancelled && cached) paint(cached)
+      })
+    }
 
     highlightsApi.getUserBookHighlights(bookId)
       .then(highlights => {
         if (cancelled) return
         paint(highlights)
-        userBookHighlightCache.set(bookId, highlights)
+        if (uid) userBookHighlightCache.set(uid, bookId, highlights)
       })
       .catch(e => { if (!cancelled) console.warn('Failed to load user-book highlights:', e) })
     return () => { cancelled = true }
-  }, [isAuthenticated, bookId, chapter?.id])
+  }, [isAuthenticated, bookId, chapter?.id, user?.id])
 
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string }>>({})
@@ -436,12 +440,15 @@ export default function UserBookReaderScreen() {
     if (!isAuthenticated || !chapterId) return
     let cancelled = false
 
-    vocabMapCache.get().then(cached => {
-      if (!cancelled && cached && Object.keys(cached).length > 0) {
-        vocabMapRef.current = cached as Record<string, { stage: number; id: string }>
-        injectJs(`markVocabWords(${JSON.stringify(cached)})`)
-      }
-    })
+    const uid = user?.id
+    if (uid) {
+      vocabMapCache.get(uid).then(cached => {
+        if (!cancelled && cached && Object.keys(cached).length > 0) {
+          vocabMapRef.current = cached as Record<string, { stage: number; id: string }>
+          injectJs(`markVocabWords(${JSON.stringify(cached)})`)
+        }
+      })
+    }
 
     vocabularyApi.getReaderVocab()
       .then(words => {
@@ -450,11 +457,11 @@ export default function UserBookReaderScreen() {
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
-        vocabMapCache.set(map)
+        if (uid) vocabMapCache.set(uid, map)
       })
       .catch(e => { if (!cancelled) console.warn('Failed to load reader vocab:', e) })
     return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id])
+  }, [isAuthenticated, chapter?.id, user?.id])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
@@ -690,10 +697,11 @@ export default function UserBookReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-              if (bookId) {
-                userBookHighlightCache.get(bookId).then(prev => {
+              const uid = user?.id
+              if (uid && bookId) {
+                userBookHighlightCache.get(uid, bookId).then(prev => {
                   if (!prev) return
-                  userBookHighlightCache.set(bookId, prev.map(h => h.id === hl.id ? updated : h))
+                  userBookHighlightCache.set(uid, bookId, prev.map(h => h.id === hl.id ? updated : h))
                 })
               }
             } catch (e) {
@@ -709,10 +717,11 @@ export default function UserBookReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-              if (bookId) {
-                userBookHighlightCache.get(bookId).then(prev => {
+              const uid = user?.id
+              if (uid && bookId) {
+                userBookHighlightCache.get(uid, bookId).then(prev => {
                   if (!prev) return
-                  userBookHighlightCache.set(bookId, prev.filter(h => h.id !== hl.id))
+                  userBookHighlightCache.set(uid, bookId, prev.filter(h => h.id !== hl.id))
                 })
               }
             } catch (e) {

@@ -4,9 +4,15 @@ import type { PublicHighlight } from '@textstack/shared'
 type VocabEntry = { stage: number; id: string; translation?: string }
 type VocabMap = Record<string, VocabEntry>
 
+// User-scoped so a force-kill + user-switch (which bypasses signOut's
+// clearReaderCache) can't leak one user's reader data to another.
 const HL_PREFIX = 'reader.highlights.'
 const UHL_PREFIX = 'reader.userhighlights.'
-const VOCAB_KEY = 'reader.vocab.map'
+const VOCAB_PREFIX = 'reader.vocab.map.'
+
+function hlKey(userId: string, editionId: string) { return `${HL_PREFIX}${userId}.${editionId}` }
+function uhlKey(userId: string, bookId: string) { return `${UHL_PREFIX}${userId}.${bookId}` }
+function vocabKey(userId: string) { return `${VOCAB_PREFIX}${userId}` }
 
 async function readJson<T>(key: string): Promise<T | null> {
   try {
@@ -18,34 +24,47 @@ async function readJson<T>(key: string): Promise<T | null> {
   }
 }
 
-async function writeJson(key: string, value: unknown): Promise<void> {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // Storage full / corrupted — next write wins; loss is non-critical.
-  }
+// Per-key write chain: a `set` waits for the previous `set` on the same
+// key to settle, so rapid get→mutate→set sequences (create-then-delete)
+// can't interleave and clobber each other.
+const pendingWrites = new Map<string, Promise<void>>()
+
+function writeJson(key: string, value: unknown): Promise<void> {
+  const prev = pendingWrites.get(key) || Promise.resolve()
+  const next = prev.then(async () => {
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // Storage full / corrupted — next write wins; loss is non-critical.
+    }
+  }).finally(() => {
+    // Only clear the slot if this promise is still the tail.
+    if (pendingWrites.get(key) === next) pendingWrites.delete(key)
+  })
+  pendingWrites.set(key, next)
+  return next
 }
 
 export const highlightCache = {
-  get: (editionId: string) => readJson<PublicHighlight[]>(`${HL_PREFIX}${editionId}`),
-  set: (editionId: string, list: PublicHighlight[]) => writeJson(`${HL_PREFIX}${editionId}`, list),
+  get: (userId: string, editionId: string) => readJson<PublicHighlight[]>(hlKey(userId, editionId)),
+  set: (userId: string, editionId: string, list: PublicHighlight[]) => writeJson(hlKey(userId, editionId), list),
 }
 
 export const userBookHighlightCache = {
-  get: (bookId: string) => readJson<PublicHighlight[]>(`${UHL_PREFIX}${bookId}`),
-  set: (bookId: string, list: PublicHighlight[]) => writeJson(`${UHL_PREFIX}${bookId}`, list),
+  get: (userId: string, bookId: string) => readJson<PublicHighlight[]>(uhlKey(userId, bookId)),
+  set: (userId: string, bookId: string, list: PublicHighlight[]) => writeJson(uhlKey(userId, bookId), list),
 }
 
 export const vocabMapCache = {
-  get: () => readJson<VocabMap>(VOCAB_KEY),
-  set: (map: VocabMap) => writeJson(VOCAB_KEY, map),
+  get: (userId: string) => readJson<VocabMap>(vocabKey(userId)),
+  set: (userId: string, map: VocabMap) => writeJson(vocabKey(userId), map),
 }
 
 export async function clearReaderCache(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys()
     const match = keys.filter(
-      k => k.startsWith(HL_PREFIX) || k.startsWith(UHL_PREFIX) || k === VOCAB_KEY,
+      k => k.startsWith(HL_PREFIX) || k.startsWith(UHL_PREFIX) || k.startsWith(VOCAB_PREFIX),
     )
     if (match.length) await AsyncStorage.multiRemove(match)
   } catch {
