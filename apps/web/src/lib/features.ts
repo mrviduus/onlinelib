@@ -60,9 +60,23 @@ export function isReaderOverlayRuntimeEnabled(): boolean {
   }
 }
 
+// Per-device killswitch via localStorage. Mirrors mobile cascade so support
+// can hand a user a one-liner — no DevTools-only window flag required:
+//   localStorage.setItem('textstack.readerOverlayV2', '0'); location.reload()
+// Wins over the build-time default; window killswitch above still wins over this.
+export function isReaderOverlayStorageKillswitchSet(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage?.getItem('textstack.readerOverlayV2') === '0'
+  } catch {
+    return false
+  }
+}
+
 // Single resolver used by the reader. Build-time flag OR runtime opt-in, minus
 // killswitch. Callers should depend on this, not the raw FEATURES key.
 export function isReaderOverlayV2Active(): boolean {
   if (isReaderOverlayKillswitchSet()) return false
+  if (isReaderOverlayStorageKillswitchSet()) return false
   return FEATURES.readerOverlayV2 || isReaderOverlayRuntimeEnabled()
 }

@@ -3,6 +3,7 @@ import {
   isRuntimeKillswitchSet,
   isReaderOverlayKillswitchSet,
   isReaderOverlayRuntimeEnabled,
+  isReaderOverlayStorageKillswitchSet,
   isReaderOverlayV2Active,
 } from './features'
 
@@ -80,6 +81,24 @@ describe('isReaderOverlayRuntimeEnabled', () => {
   })
 })
 
+describe('isReaderOverlayStorageKillswitchSet', () => {
+  afterEach(clearAllFlags)
+
+  it('returns false when storage is empty', () => {
+    expect(isReaderOverlayStorageKillswitchSet()).toBe(false)
+  })
+
+  it('returns true when storage is "0"', () => {
+    window.localStorage.setItem('textstack.readerOverlayV2', '0')
+    expect(isReaderOverlayStorageKillswitchSet()).toBe(true)
+  })
+
+  it('returns false when storage is "1" (opt-in, not killswitch)', () => {
+    window.localStorage.setItem('textstack.readerOverlayV2', '1')
+    expect(isReaderOverlayStorageKillswitchSet()).toBe(false)
+  })
+})
+
 describe('isReaderOverlayV2Active', () => {
   afterEach(clearAllFlags)
 
@@ -106,6 +125,12 @@ describe('isReaderOverlayV2Active', () => {
   it('killswitch wins over window override', () => {
     ;(window as unknown as WinFlags).__textstackForceOverlayReader = true
     ;(window as unknown as WinFlags).__textstackForceLegacyReader = true
+    expect(isReaderOverlayV2Active()).toBe(false)
+  })
+
+  it('storage killswitch ("0") disables even when window override is set', () => {
+    window.localStorage.setItem('textstack.readerOverlayV2', '0')
+    ;(window as unknown as WinFlags).__textstackForceOverlayReader = true
     expect(isReaderOverlayV2Active()).toBe(false)
   })
 })
