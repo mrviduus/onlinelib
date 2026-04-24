@@ -532,7 +532,7 @@ export default function UserBookReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden={!barsVisible} />
+      <StatusBar hidden={!barsVisible} style={settings.theme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
         {/* WebView first — overlay bars rendered after so they sit on top of native layer */}
         <WebView
@@ -557,6 +557,8 @@ export default function UserBookReaderScreen() {
           androidLayerType="hardware"
           overScrollMode="never"
           bounces={false}
+          menuItems={[]}
+          cacheEnabled={false}
           // Intercept in-book links; route external URLs out to the OS
           // browser so the WebView keeps its injected script + DOM.
           onShouldStartLoadWithRequest={(req) => {

@@ -950,7 +950,7 @@ export default function ReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden={!barsVisible} />
+      <StatusBar hidden={!barsVisible} style={settings.theme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
         {/* Reader WebView — rendered first so overlay bars sit on top */}
         <WebView
@@ -978,6 +978,17 @@ export default function ReaderScreen() {
           androidLayerType="hardware"
           overScrollMode="never"
           bounces={false}
+          // Suppress the native Copy/Share/Web-Search callout that
+          // pops up on long-press. We already render our own
+          // SelectionToolbar above the selection (Translate / Define /
+          // TTS / Highlight / Save word); the native menu is just
+          // visual duplication on both iOS and Android.
+          menuItems={[]}
+          // We build a fresh inline HTML string each chapter mount
+          // and bake the overlay script into it — there is no shared
+          // cached document to reuse across mounts. Skip the WebView
+          // cache to sidestep Android's stale-injection risk.
+          cacheEnabled={false}
           // Block navigation. The WebView loads an inline HTML string;
           // tapping a link inside the book (footnote anchor, external
           // URL, img src) would navigate the WebView, wiping our
