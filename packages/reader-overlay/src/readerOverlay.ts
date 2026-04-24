@@ -68,21 +68,24 @@ function toDocRect(r: DOMRect, sx: number, sy: number): DOMRect {
   } as DOMRect
 }
 
-// Collapsed ranges (start-of-paragraph caret, between block elements) often
-// return zero client rects. Port of foliate-js/paginator.js:39-53 — try to
-// extend the range by one char before measuring. Mutates a clone so callers
-// keep their original Range intact.
+// Collapsed ranges (start-of-paragraph caret inside a text node) often return
+// zero client rects. Port of foliate-js/paginator.js:39-53 — extend by one
+// char before measuring. Mutates a clone so callers keep their original Range
+// intact.
+//
+// Element-boundary collapse is NOT expanded. Our live ranges are always
+// constructed with setStart/setEnd on Text nodes (textAnchor.ts,
+// vocabHighlightEngine.ts), so a collapse up to an element means the stored
+// text node was detached by a DOM re-render. Expanding via selectNode on the
+// child would wrap the whole first block — producing hundreds of per-line
+// rects that look like every line is underlined (the scroll-flicker regression
+// from 2026-04-24). Dropping this frame is correct; next reflow retries.
 function uncollapseForMeasure(range: Range): Range {
   if (!range.collapsed) return range
+  const { endContainer } = range
+  if (endContainer.nodeType === Node.ELEMENT_NODE) return range
   const clone = range.cloneRange()
-  const { endOffset, endContainer } = clone
-  if (endContainer.nodeType === Node.ELEMENT_NODE) {
-    const el = endContainer as Element
-    const child = el.childNodes[endOffset]
-    if (child) clone.selectNode(child)
-    else clone.selectNodeContents(el)
-    return clone
-  }
+  const endOffset = clone.endOffset
   const len = (endContainer as CharacterData).length
   if (endOffset + 1 <= len) clone.setEnd(endContainer, endOffset + 1)
   else if (endOffset >= 1) clone.setStart(endContainer, endOffset - 1)

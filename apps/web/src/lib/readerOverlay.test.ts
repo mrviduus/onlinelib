@@ -184,6 +184,54 @@ describe('Overlayer', () => {
     expect(draw.mock.calls[0][0]).toHaveLength(1)
   })
 
+  it('drops a range invalidated by DOM re-render instead of wrapping the whole first child', () => {
+    // Regression: 2026-04-24 "every line underlined on scroll". A stored vocab
+    // range was setStart/setEnd on a Text node; chapter innerHTML reset
+    // detached the text node, collapsing the range to the parent element with
+    // endOffset pointing at the new first child. The old fallback ran
+    // selectNode on that child — the huge first paragraph — and emitted one
+    // rect per line. captureRects must now drop this case cleanly.
+    const article = document.createElement('article')
+    const p = document.createElement('p')
+    const text = document.createTextNode('hello world')
+    p.appendChild(text)
+    article.appendChild(p)
+    document.body.appendChild(article)
+
+    const range = document.createRange()
+    range.setStart(text, 0)
+    range.setEnd(text, 5)
+
+    // Simulate DOM re-render: detach the text node so the range collapses up.
+    p.removeChild(text)
+    // After detach, range points into the (now-empty) <p> — still inside the
+    // article subtree. Replace inner content to match the real scenario.
+    article.innerHTML = '<p>giant chapter body that would spread across many lines</p>'
+
+    const onMiss = vi.fn()
+    const localOv = new Overlayer({ onMiss })
+    document.body.appendChild(localOv.element)
+
+    const drawSpy = vi.fn(Overlayer.underline)
+
+    const realFn = Range.prototype.getClientRects
+    let elementScopeCalls = 0
+    Range.prototype.getClientRects = function (this: Range): DOMRectList {
+      // If captureRects ever expands to element scope, the range text would
+      // balloon. Flag that so the test fails loudly.
+      if (this.toString().length > 10) elementScopeCalls++
+      return [] as unknown as DOMRectList
+    }
+    try {
+      localOv.add('k', range, drawSpy)
+    } finally {
+      Range.prototype.getClientRects = realFn
+    }
+    expect(elementScopeCalls).toBe(0)
+    expect(drawSpy.mock.calls[0][0]).toHaveLength(0)
+    expect(onMiss).toHaveBeenCalledWith('k', 'empty-rects')
+  })
+
   it('uncollapses a collapsed range so first-of-paragraph anchors still draw', () => {
     // Start-of-paragraph caret: collapsed range returns no client rects.
     // captureRects must clone+extend it by one char and use those rects.
