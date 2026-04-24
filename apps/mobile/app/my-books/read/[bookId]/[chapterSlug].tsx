@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto, PublicHighlight } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
+import { userBookHighlightCache, vocabMapCache } from '../../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../../src/components/ReaderSettingsDrawer'
@@ -382,11 +383,13 @@ export default function UserBookReaderScreen() {
       })
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
+      if (bookId) {
+        userBookHighlightCache.get(bookId).then(prev => {
+          userBookHighlightCache.set(bookId, [...(prev || []), hl])
+        })
+      }
       setSelection(null)
     } catch (e) {
-      // Match convention elsewhere (`console.warn`). Surfacing a toast
-      // here matters because the user just picked a colour and expects
-      // the marker to show up — silence would look like a dead tap.
       console.warn('Failed to create highlight:', e)
       showToast({ message: 'Could not highlight. Try again.', variant: 'error' })
     }
@@ -399,14 +402,24 @@ export default function UserBookReaderScreen() {
     const chapterId = chapter?.id
     if (!isAuthenticated || !bookId || !chapterId) return
     let cancelled = false
+
+    const paint = (list: PublicHighlight[]) => {
+      const chapterHighlights = list.filter(h => h.userChapterId === chapterId)
+      highlightsRef.current = chapterHighlights
+      for (const h of chapterHighlights) {
+        injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
+      }
+    }
+
+    userBookHighlightCache.get(bookId).then(cached => {
+      if (!cancelled && cached) paint(cached)
+    })
+
     highlightsApi.getUserBookHighlights(bookId)
       .then(highlights => {
         if (cancelled) return
-        const chapterHighlights = highlights.filter(h => h.userChapterId === chapterId)
-        highlightsRef.current = chapterHighlights
-        for (const h of chapterHighlights) {
-          injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
-        }
+        paint(highlights)
+        userBookHighlightCache.set(bookId, highlights)
       })
       .catch(e => { if (!cancelled) console.warn('Failed to load user-book highlights:', e) })
     return () => { cancelled = true }
@@ -417,10 +430,19 @@ export default function UserBookReaderScreen() {
 
   // Load and render vocab word underlines. Keyed on chapter.id with
   // cancellation so fast chapter nav doesn't render stale word map.
+  // Cache-first so offline nav keeps underlines visible.
   useEffect(() => {
     const chapterId = chapter?.id
     if (!isAuthenticated || !chapterId) return
     let cancelled = false
+
+    vocabMapCache.get().then(cached => {
+      if (!cancelled && cached && Object.keys(cached).length > 0) {
+        vocabMapRef.current = cached as Record<string, { stage: number; id: string }>
+        injectJs(`markVocabWords(${JSON.stringify(cached)})`)
+      }
+    })
+
     vocabularyApi.getReaderVocab()
       .then(words => {
         if (cancelled || words.length === 0) return
@@ -428,6 +450,7 @@ export default function UserBookReaderScreen() {
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
+        vocabMapCache.set(map)
       })
       .catch(e => { if (!cancelled) console.warn('Failed to load reader vocab:', e) })
     return () => { cancelled = true }
@@ -667,6 +690,12 @@ export default function UserBookReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+              if (bookId) {
+                userBookHighlightCache.get(bookId).then(prev => {
+                  if (!prev) return
+                  userBookHighlightCache.set(bookId, prev.map(h => h.id === hl.id ? updated : h))
+                })
+              }
             } catch (e) {
               console.warn('Update highlight note failed:', e)
               showToast({ message: 'Could not save note. Try again.', variant: 'error' })
@@ -680,6 +709,12 @@ export default function UserBookReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
+              if (bookId) {
+                userBookHighlightCache.get(bookId).then(prev => {
+                  if (!prev) return
+                  userBookHighlightCache.set(bookId, prev.filter(h => h.id !== hl.id))
+                })
+              }
             } catch (e) {
               console.warn('Delete highlight failed:', e)
               showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })

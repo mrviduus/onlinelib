@@ -5,6 +5,7 @@ import { onAuthFailure } from '../lib/authEvents'
 import { resetAuthFailureLatch } from '../lib/api'
 import { clearVocabStatsCache } from '../lib/vocabStatsCache'
 import { clearAllLocalProgress } from '../lib/progressStorage'
+import { clearReaderCache } from '../lib/readerOfflineCache'
 
 // Storage shim: native → expo-secure-store, web → localStorage.
 //
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // visible and confusing.
     clearVocabStatsCache().catch(() => {})
     clearAllLocalProgress().catch(() => {})
+    clearReaderCache().catch(() => {})
     setUser(null)
   }, [])
 
@@ -159,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         SecureStore.deleteItemAsync('user').catch(() => {})
         clearVocabStatsCache().catch(() => {})
         clearAllLocalProgress().catch(() => {})
+        clearReaderCache().catch(() => {})
         setUser(null)
       }
     })

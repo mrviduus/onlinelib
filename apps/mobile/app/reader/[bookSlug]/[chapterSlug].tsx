@@ -7,6 +7,7 @@ import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@tex
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { saveLocalProgress } from '../../../src/lib/progressStorage'
+import { highlightCache, vocabMapCache } from '../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
@@ -684,6 +685,11 @@ export default function ReaderScreen() {
       // Render highlight in WebView
       injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
       highlightsRef.current = [...highlightsRef.current, hl]
+      if (editionIdRef.current) {
+        highlightCache.get(editionIdRef.current).then(prev => {
+          highlightCache.set(editionIdRef.current!, [...(prev || []), hl])
+        })
+      }
       if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
       setSelection(null)
     } catch (e) {
@@ -702,16 +708,28 @@ export default function ReaderScreen() {
     const chapterId = chapter?.id
     if (!isAuthenticated || !editionId || !chapterId) return
     let cancelled = false
+
+    const paint = (list: PublicHighlight[]) => {
+      const chapterHighlights = list.filter(h => h.chapterId === chapterId)
+      highlightsRef.current = chapterHighlights
+      for (const h of chapterHighlights) {
+        injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
+      }
+    }
+
+    // Cache-first paint so highlights survive offline chapter nav; API
+    // refresh overwrites.
+    highlightCache.get(editionId).then(cached => {
+      if (!cancelled && cached) paint(cached)
+    })
+
     highlightsApi.getHighlights(editionId)
       .then(highlights => {
         if (cancelled) return
-        const chapterHighlights = highlights.filter(h => h.chapterId === chapterId)
-        highlightsRef.current = chapterHighlights
-        for (const h of chapterHighlights) {
-          injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
-        }
+        paint(highlights)
+        highlightCache.set(editionId, highlights)
       })
-      .catch(() => {})
+      .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
   }, [isAuthenticated, chapter?.id])
 
@@ -720,17 +738,31 @@ export default function ReaderScreen() {
 
   // Clear the auto-save dedup as soon as the selection closes — keeps the
   // iOS-dup guard for the current tap but lets the next tap retry freely
-  // even if vocabMapRef didn't catch the save.
+  // even if vocabMapRef didn't catch the save. Also flush the current
+  // vocabMap to cache so offline nav sees words added in this session.
   useEffect(() => {
-    if (!selection) autoSavedRef.current.clear()
+    if (!selection) {
+      autoSavedRef.current.clear()
+      if (Object.keys(vocabMapRef.current).length > 0) vocabMapCache.set(vocabMapRef.current)
+    }
   }, [selection])
 
   // Load and render vocab word underlines. Keyed on `chapter?.id` so a
   // chapter refetch that yields the same id doesn't re-run the fetch (P3-4).
+  // Cache-first: fall back to AsyncStorage when offline so underlines
+  // don't vanish mid-nav.
   useEffect(() => {
     const chapterId = chapter?.id
     if (!isAuthenticated || !chapterId) return
     let cancelled = false
+
+    vocabMapCache.get().then(cached => {
+      if (!cancelled && cached && Object.keys(cached).length > 0) {
+        vocabMapRef.current = cached
+        injectJs(`markVocabWords(${JSON.stringify(cached)})`)
+      }
+    })
+
     vocabularyApi.getReaderVocab()
       .then(words => {
         if (cancelled || words.length === 0) return
@@ -738,8 +770,9 @@ export default function ReaderScreen() {
         for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id, translation: w.translation }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
+        vocabMapCache.set(map)
       })
-      .catch(() => {})
+      .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
   }, [isAuthenticated, chapter?.id])
 
@@ -1102,6 +1135,12 @@ export default function ReaderScreen() {
             try {
               const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
               highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+              if (editionIdRef.current) {
+                highlightCache.get(editionIdRef.current).then(prev => {
+                  if (!prev) return
+                  highlightCache.set(editionIdRef.current!, prev.map(h => h.id === hl.id ? updated : h))
+                })
+              }
             } catch (e) {
               console.warn('Highlight note save failed:', e)
               showToast({ message: 'Could not save note. Try again.', variant: 'error' })
@@ -1115,6 +1154,12 @@ export default function ReaderScreen() {
               await highlightsApi.deleteHighlight(hl.id)
               injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
               highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
+              if (editionIdRef.current) {
+                highlightCache.get(editionIdRef.current).then(prev => {
+                  if (!prev) return
+                  highlightCache.set(editionIdRef.current!, prev.filter(h => h.id !== hl.id))
+                })
+              }
             } catch (e) {
               console.warn('Highlight delete failed:', e)
               showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
