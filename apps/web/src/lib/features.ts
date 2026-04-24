@@ -17,9 +17,11 @@ export const FEATURES = {
   // Oracle shadow-mode: run engine in parallel to legacy and log any diff.
   // Default OFF — enabled in staging before prod rollout.
   vocabHighlightsOracle: readBool(import.meta.env.VITE_READER_HIGHLIGHTS_ORACLE, false),
-  // New unified SVG-overlayer reader (foliate-js port). Default OFF until
-  // slice 8 prod rollout. Fallback = legacy ReaderContent + per-layer DOM.
-  readerOverlayV2: readBool(import.meta.env.VITE_READER_OVERLAY_V2, false),
+  // New unified SVG-overlayer reader (foliate-js port). Default ON after
+  // audit fixes (slices 11-16, 13b, 9.5, 9.6) shipped. Fallback = legacy
+  // ReaderContent + per-layer DOM, reachable via
+  // `localStorage.setItem('textstack.readerOverlayV2', '0')` killswitch.
+  readerOverlayV2: readBool(import.meta.env.VITE_READER_OVERLAY_V2, true),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

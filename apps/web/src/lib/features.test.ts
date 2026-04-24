@@ -102,8 +102,8 @@ describe('isReaderOverlayStorageKillswitchSet', () => {
 describe('isReaderOverlayV2Active', () => {
   afterEach(clearAllFlags)
 
-  it('returns false by default (build flag off, no runtime opt-in)', () => {
-    expect(isReaderOverlayV2Active()).toBe(false)
+  it('returns true by default (build flag on post-flip)', () => {
+    expect(isReaderOverlayV2Active()).toBe(true)
   })
 
   it('returns true when runtime opt-in is set via localStorage', () => {
