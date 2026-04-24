@@ -319,7 +319,9 @@ export default function UserBookReaderScreen() {
           setSelection(null)
         }
       }
-    } catch {}
+    } catch (err) {
+      if (__DEV__) console.warn('[user-book-reader] postMessage handler threw', err, event?.nativeEvent?.data)
+    }
   }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, notifyWordSaved])
 
   const handleSaveWord = async () => {

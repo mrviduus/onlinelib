@@ -472,7 +472,9 @@ export default function ReaderScreen() {
           setSelection(null)
         }
       }
-    } catch {}
+    } catch (err) {
+      if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
+    }
   }, [chapter, settings.autoLookup, isAuthenticated, toggleBars, showBars, hideBars, notifyWordSaved])
 
   const navigateChapter = (slug: string) => {
