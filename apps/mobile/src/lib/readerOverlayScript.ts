@@ -70,6 +70,16 @@ export const READER_OVERLAY_SCRIPT = `
     svg.style.height = '100%';
     svg.style.pointerEvents = 'none';
     var map = {};
+    // Port of foliate-js justAnchored: on annotation tap, open a short
+    // cooldown window. Consumer uses isJustAnchored() to suppress the
+    // selectionchange that otherwise races the tap (and iOS Safari's
+    // synthetic click replay ~300 ms after touchend).
+    var justAnchoredUntil = 0;
+    function nowMs(){
+      return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    }
+    function markJustAnchored(ms){ justAnchoredUntil = nowMs() + (ms || 400); }
+    function isJustAnchored(){ return nowMs() < justAnchoredUntil; }
 
     function syncScroll(){
       var sx = window.scrollX || 0;
@@ -130,7 +140,7 @@ export const READER_OVERLAY_SCRIPT = `
     }
     function size(){ var n = 0; for (var k in map) if (map.hasOwnProperty(k)) n++; return n; }
 
-    return { element: svg, add: add, remove: remove, clear: clear, redraw: redraw, syncScroll: syncScroll, hitTest: hitTest, size: size };
+    return { element: svg, add: add, remove: remove, clear: clear, redraw: redraw, syncScroll: syncScroll, hitTest: hitTest, size: size, markJustAnchored: markJustAnchored, isJustAnchored: isJustAnchored };
   }
 
   // --- Draw palette ---

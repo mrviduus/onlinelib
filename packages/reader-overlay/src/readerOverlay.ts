@@ -103,11 +103,23 @@ function captureRects(range: Range): DOMRect[] {
   return raw.filter((r) => r.width > 0 && r.height > 0).map((r) => toDocRect(r, sx, sy))
 }
 
+// Monotonic clock with a Date.now() fallback for hostless test envs.
+function nowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now()
+}
+
 export class Overlayer {
   readonly #svg: SVGSVGElement
   readonly #map = new Map<string, Entry>()
   readonly #onMiss?: OverlayerOptions['onMiss']
   readonly #onRedraw?: OverlayerOptions['onRedraw']
+  // Port of foliate-js/view.js `justAnchored`. On annotation tap we mark a
+  // short "cooldown" window; any selectionchange or synthetic click (iOS
+  // Safari fires one ~300 ms after touchend) during it is ignored by the
+  // consumer. Eliminates the 50/50 hit-test-vs-selection-popup race.
+  #justAnchoredUntil = 0
 
   constructor(options: OverlayerOptions = {}) {
     this.#svg = createSVGElement('svg')
@@ -123,6 +135,16 @@ export class Overlayer {
     this.#onMiss = options.onMiss
     this.#onRedraw = options.onRedraw
     this.syncScroll()
+  }
+
+  // Open the cooldown window. Default 400 ms covers iOS Safari's 300 ms
+  // synthetic-mouse replay plus a small slop for slow event loops.
+  markJustAnchored(ms = 400): void {
+    this.#justAnchoredUntil = nowMs() + ms
+  }
+
+  isJustAnchored(): boolean {
+    return nowMs() < this.#justAnchoredUntil
   }
 
   #reportMiss(key: string, reason: MissReason): void {

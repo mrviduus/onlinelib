@@ -671,11 +671,15 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         // hitTest returns [key, range] when a rect covers the point.
         document.body.addEventListener('click', function(e){
           if (!_hlOverlayer) return;
+          // iOS WebKit fires a synthetic click ~300 ms after touchend; skip
+          // the replay so a single tap doesn't post highlightTap twice.
+          if (_hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
           var hit = _hlOverlayer.hitTest({ x: e.clientX, y: e.clientY });
           if (!hit || !hit.length || !hit[0]) return;
           var key = hit[0];
           if (key.indexOf('user-hl:') !== 0) return;
           var id = key.slice('user-hl:'.length);
+          if (_hlOverlayer.markJustAnchored) _hlOverlayer.markJustAnchored();
           try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: id })); } catch (err) {}
         }, true);
       } catch (e) {
@@ -1154,6 +1158,9 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       // transient "empty selection" that fires between removeAllRanges and
       // addRange during a programmatic tap-to-select.
       if (Date.now() < _suppressSelectionChangeUntil) return;
+      // If we just anchored an overlay annotation tap, suppress the
+      // selectionchange race that iOS fires on the same touch.
+      if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
         // Only notify parent of "selection cleared" when WE previously

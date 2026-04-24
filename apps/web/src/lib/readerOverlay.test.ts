@@ -320,3 +320,32 @@ describe('Overlayer telemetry callbacks', () => {
     expect(() => ov.add('k', range, Overlayer.highlight)).not.toThrow()
   })
 })
+
+describe('Overlayer justAnchored', () => {
+  it('starts not anchored', () => {
+    const ov = new Overlayer()
+    expect(ov.isJustAnchored()).toBe(false)
+  })
+
+  it('markJustAnchored opens the window', () => {
+    const ov = new Overlayer()
+    ov.markJustAnchored(50)
+    expect(ov.isJustAnchored()).toBe(true)
+  })
+
+  it('isJustAnchored flips false after the window elapses', async () => {
+    const ov = new Overlayer()
+    ov.markJustAnchored(5)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(ov.isJustAnchored()).toBe(false)
+  })
+
+  it('re-marking extends the window', async () => {
+    const ov = new Overlayer()
+    ov.markJustAnchored(5)
+    await new Promise((r) => setTimeout(r, 3))
+    ov.markJustAnchored(50)
+    await new Promise((r) => setTimeout(r, 10))
+    expect(ov.isJustAnchored()).toBe(true)
+  })
+})

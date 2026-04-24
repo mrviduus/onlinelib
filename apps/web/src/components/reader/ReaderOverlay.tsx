@@ -66,8 +66,12 @@ export function ReaderOverlay({ containerRef, overlayerRef, enabled = true }: Pr
     if (!container) return
 
     const handleClick = (e: MouseEvent): void => {
+      // iOS Safari fires a synthetic click ~300 ms after touchend; if we
+      // already anchored on the primary click, skip the replay.
+      if (overlayer.isJustAnchored()) return
       const [key, range] = overlayer.hitTest({ x: e.clientX, y: e.clientY })
       if (!key) return
+      overlayer.markJustAnchored()
       container.dispatchEvent(
         new CustomEvent('reader-annotation-click', {
           detail: { key, range, clientX: e.clientX, clientY: e.clientY },
@@ -77,6 +81,10 @@ export function ReaderOverlay({ containerRef, overlayerRef, enabled = true }: Pr
     }
 
     const handleSelectionChange = (): void => {
+      // Suppress selection-popup race: tapping a highlight often races a
+      // selectionchange from the same touch. If we just handled an
+      // annotation-click, skip this event.
+      if (overlayer.isJustAnchored()) return
       const sel = document.getSelection()
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return
       const range = sel.getRangeAt(0)
