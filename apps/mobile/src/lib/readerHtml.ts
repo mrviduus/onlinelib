@@ -671,6 +671,45 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
           document.fonts.ready.then(function(){ try { _hlOverlayer.redraw(); } catch(e) {} });
         }
+        // Image-load reflow (foliate paginator.js pattern). Images in chapter
+        // intros / PDF illustrations load after first paint → text flows down
+        // → overlay rects stale until scroll. Listen on each img.load; one rAF
+        // redraw per burst.
+        var _imgRedrawScheduled = false;
+        function scheduleImgRedraw() {
+          if (_imgRedrawScheduled || !_hlOverlayer) return;
+          _imgRedrawScheduled = true;
+          requestAnimationFrame(function() {
+            _imgRedrawScheduled = false;
+            try { _hlOverlayer.redraw(); } catch(e) {}
+          });
+        }
+        function watchImage(img) {
+          if (!img || img.__tsReflowWatched) return;
+          img.__tsReflowWatched = true;
+          if (img.complete && img.naturalWidth > 0) return;
+          img.addEventListener('load', scheduleImgRedraw, { once: true });
+          img.addEventListener('error', scheduleImgRedraw, { once: true });
+        }
+        var imgs = document.getElementsByTagName('img');
+        for (var ii = 0; ii < imgs.length; ii++) watchImage(imgs[ii]);
+        try {
+          var _imgObserver = new MutationObserver(function(muts) {
+            for (var mi = 0; mi < muts.length; mi++) {
+              var added = muts[mi].addedNodes;
+              for (var ni = 0; ni < added.length; ni++) {
+                var n = added[ni];
+                if (n.nodeType !== 1) continue;
+                if (n.tagName === 'IMG') watchImage(n);
+                else if (n.getElementsByTagName) {
+                  var nested = n.getElementsByTagName('img');
+                  for (var xi = 0; xi < nested.length; xi++) watchImage(nested[xi]);
+                }
+              }
+            }
+          });
+          _imgObserver.observe(document.body, { childList: true, subtree: true });
+        } catch (e) { /* no MutationObserver */ }
         // Doc-coord rects + CSS counter-translate on scroll → no full redraw
         // per scroll frame, just an O(1) transform update.
         var _scrollScheduled = false;
