@@ -21,15 +21,14 @@ export const READER_OVERLAY_SCRIPT = `
   //   3. zero-area rect filter (Firefox emits at column breaks; unhittable).
   function uncollapseForMeasure(range){
     if (!range.collapsed) return range;
+    // Element-boundary collapse means a stored text-node range was
+    // invalidated by DOM re-render — expanding would wrap the whole first
+    // block and flood the overlay with per-line rects. Drop the frame; next
+    // reflow retries. Matches web fix committed 2026-04-24.
+    if (range.endContainer.nodeType === 1) return range;
     var clone = range.cloneRange();
     var endOffset = clone.endOffset;
     var endContainer = clone.endContainer;
-    if (endContainer.nodeType === 1) {
-      var child = endContainer.childNodes[endOffset];
-      if (child) clone.selectNode(child);
-      else clone.selectNodeContents(endContainer);
-      return clone;
-    }
     var len = endContainer.length;
     if (endOffset + 1 <= len) clone.setEnd(endContainer, endOffset + 1);
     else if (endOffset >= 1) clone.setStart(endContainer, endOffset - 1);
