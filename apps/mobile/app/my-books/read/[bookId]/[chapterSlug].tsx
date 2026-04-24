@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
@@ -556,6 +556,18 @@ export default function UserBookReaderScreen() {
           // GPU-composited page on Android — library reader parity.
           androidLayerType="hardware"
           overScrollMode="never"
+          bounces={false}
+          // Intercept in-book links; route external URLs out to the OS
+          // browser so the WebView keeps its injected script + DOM.
+          onShouldStartLoadWithRequest={(req) => {
+            const { url, navigationType } = req
+            if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
+            if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
+              Linking.openURL(url).catch(() => {})
+              return false
+            }
+            return false
+          }}
         />
 
         {/* Top bar — after WebView so it renders on top */}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
@@ -977,6 +977,21 @@ export default function ReaderScreen() {
           // hardware layer so Chromium composites the page on the GPU.
           androidLayerType="hardware"
           overScrollMode="never"
+          bounces={false}
+          // Block navigation. The WebView loads an inline HTML string;
+          // tapping a link inside the book (footnote anchor, external
+          // URL, img src) would navigate the WebView, wiping our
+          // injected overlay script + rendered chapter. Allow only the
+          // initial document load + in-page anchors (#id).
+          onShouldStartLoadWithRequest={(req) => {
+            const { url, navigationType } = req
+            if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
+            if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
+              Linking.openURL(url).catch(() => {})
+              return false
+            }
+            return false
+          }}
         />
 
         {/* Top bar — rendered after WebView so it's on top of native layer */}
