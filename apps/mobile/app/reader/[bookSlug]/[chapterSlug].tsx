@@ -85,9 +85,10 @@ export default function ReaderScreen() {
   const [lookupState, setLookupState] = useState<
     { kind: 'lookup' | 'lookup_pending'; id: string; tapsRemaining: number | null; busy: boolean } | null
   >(null)
-  // In-flight / already-attempted auto-saves. Guards against rapid re-taps
-  // firing the API twice before vocabMapRef catches up (web does the same
-  // via `useBubbleTranslationSync`). Cleared on error so retry still works.
+  // Dedup for a single selection lifecycle — iOS fires the webview selection
+  // event twice per tap; this Set swallows the duplicate call. Scoped to the
+  // current selection (cleared on dismiss below) so a stale vocabMapRef never
+  // blocks retry across fresh taps.
   const autoSavedRef = useRef<Set<string>>(new Set())
   const [sessionWordCount, setSessionWordCount] = useState(0)
   const [exitSummary, setExitSummary] = useState(false)
@@ -715,14 +716,18 @@ export default function ReaderScreen() {
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
 
+  // Clear the auto-save dedup as soon as the selection closes — keeps the
+  // iOS-dup guard for the current tap but lets the next tap retry freely
+  // even if vocabMapRef didn't catch the save.
+  useEffect(() => {
+    if (!selection) autoSavedRef.current.clear()
+  }, [selection])
+
   // Load and render vocab word underlines. Keyed on `chapter?.id` so a
-  // chapter refetch that yields the same id doesn't re-run the fetch
-  // (P3-4). Also clears the auto-save dedup set so words attempted in the
-  // previous chapter don't block retries in the next one.
+  // chapter refetch that yields the same id doesn't re-run the fetch (P3-4).
   useEffect(() => {
     const chapterId = chapter?.id
     if (!isAuthenticated || !chapterId) return
-    autoSavedRef.current.clear()
     let cancelled = false
     vocabularyApi.getReaderVocab()
       .then(words => {
