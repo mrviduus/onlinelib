@@ -553,6 +553,9 @@ export default function UserBookReaderScreen() {
           originWhitelist={['*']}
           scrollEnabled
           showsVerticalScrollIndicator={false}
+          // GPU-composited page on Android — library reader parity.
+          androidLayerType="hardware"
+          overScrollMode="never"
         />
 
         {/* Top bar — after WebView so it renders on top */}

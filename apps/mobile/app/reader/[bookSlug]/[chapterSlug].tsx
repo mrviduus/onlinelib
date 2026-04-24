@@ -972,6 +972,11 @@ export default function ReaderScreen() {
           originWhitelist={['*']}
           scrollEnabled
           showsVerticalScrollIndicator={false}
+          // Android WebView defaults to a software-rendered view layer —
+          // visible jank on the reader's long scrolling content. Force a
+          // hardware layer so Chromium composites the page on the GPU.
+          androidLayerType="hardware"
+          overScrollMode="never"
         />
 
         {/* Top bar — rendered after WebView so it's on top of native layer */}
