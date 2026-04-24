@@ -409,6 +409,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       // selectionchange that fires within ~1.5s of a tap is native noise
       // (Android ActionMode spawn/dismiss) that would wrongly clear our popup.
       _suppressSelectionChangeUntil = Date.now() + 1500;
+      // Foliate-js justAnchored: block the overlay hit-test on the synthetic
+      // click that iOS replays ~300ms after touchend — otherwise the same
+      // tap fires both 'selection' and 'highlightTap' when a word sits inside
+      // a user-highlight rect.
+      if (_hlOverlayer && _hlOverlayer.markJustAnchored) _hlOverlayer.markJustAnchored();
       _lastDispatchedText = text;
       _lastDispatchWasTap = true;
       window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -518,6 +523,10 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         sel.removeAllRanges();
         if (isMulti) return; // user dismissing a long-press selection
       }
+
+      // Highlight tap just fired — skip word-select so a single tap doesn't
+      // open both the highlight editor and the WordCard.
+      if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
 
       // Try selecting the word under the tap. If it hits a word, the
       // selectionchange listener takes over (pulse + RN message + save).
