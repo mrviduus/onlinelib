@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
@@ -145,6 +145,9 @@ export default function UserBookReaderScreen() {
   }, [hideBars, showBars])
 
   useEffect(() => { if (chapter) startHideTimer() }, [chapter, startHideTimer])
+
+  // Clear pending hide-bars timer on unmount.
+  useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }, [])
 
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
     editionId: null,
@@ -323,7 +326,7 @@ export default function UserBookReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[user-book-reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, notifyWordSaved])
+  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, language, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
 
   const handleSaveWord = async () => {
     if (!selection || !isAuthenticated) return
@@ -529,7 +532,7 @@ export default function UserBookReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden={!barsVisible} />
+      <StatusBar hidden={!barsVisible} style={settings.theme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
         {/* WebView first — overlay bars rendered after so they sit on top of native layer */}
         <WebView
@@ -550,6 +553,23 @@ export default function UserBookReaderScreen() {
           originWhitelist={['*']}
           scrollEnabled
           showsVerticalScrollIndicator={false}
+          // GPU-composited page on Android — library reader parity.
+          androidLayerType="hardware"
+          overScrollMode="never"
+          bounces={false}
+          menuItems={[]}
+          cacheEnabled={false}
+          // Intercept in-book links; route external URLs out to the OS
+          // browser so the WebView keeps its injected script + DOM.
+          onShouldStartLoadWithRequest={(req) => {
+            const { url, navigationType } = req
+            if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
+            if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
+              Linking.openURL(url).catch(() => {})
+              return false
+            }
+            return false
+          }}
         />
 
         {/* Top bar — after WebView so it renders on top */}
@@ -621,10 +641,43 @@ export default function UserBookReaderScreen() {
             <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
               <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
             </View>
-            <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-              {Math.round(progress * 100)}%
-              {totalChapters > 1 && currentChapterIndex >= 0 ? `   ${currentChapterIndex + 1} / ${totalChapters}` : ''}
-            </Text>
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                onPress={() => chapter?.prev && navigateChapter(chapter.prev.slug)}
+                disabled={!chapter?.prev}
+                style={styles.chevronBtn}
+                accessibilityLabel="Previous chapter"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chevron, { color: chapter?.prev ? colors.text : colors.textSecondary, opacity: chapter?.prev ? 1 : 0.3 }]}>‹</Text>
+              </TouchableOpacity>
+
+              <View style={styles.footerInfo}>
+                <Text style={[styles.footerChapter, { color: colors.text }]} numberOfLines={1}>
+                  {chapter?.title || ''}
+                </Text>
+                <View style={styles.footerMeta}>
+                  {totalChapters > 1 && currentChapterIndex >= 0 && (
+                    <Text style={[styles.footerCounter, { color: colors.textSecondary }]}>
+                      {currentChapterIndex + 1} / {totalChapters}
+                    </Text>
+                  )}
+                  <Text style={[styles.footerPercent, { color: colors.textSecondary }]}>
+                    {Math.round(progress * 100)}%
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => chapter?.next && navigateChapter(chapter.next.slug)}
+                disabled={!chapter?.next}
+                style={styles.chevronBtn}
+                accessibilityLabel="Next chapter"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chevron, { color: chapter?.next ? colors.text : colors.textSecondary, opacity: chapter?.next ? 1 : 0.3 }]}>›</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -782,4 +835,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: fonts.sans,
   },
+  footerRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 4, minHeight: 48 },
+  chevronBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
+  chevron: { fontSize: 28, fontFamily: fonts.sans, lineHeight: 28 },
+  footerInfo: { flex: 1, alignItems: 'center' as const, paddingHorizontal: 4 },
+  footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' as const },
+  footerMeta: { flexDirection: 'row', alignItems: 'center' as const, gap: 12, marginTop: 2 },
+  footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
 })

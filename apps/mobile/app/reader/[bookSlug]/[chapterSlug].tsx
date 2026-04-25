@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
@@ -346,6 +346,17 @@ export default function ReaderScreen() {
     return () => { saveProgress() }
   }, [saveProgress])
 
+  // Save progress when the app backgrounds. On Android, Home-button +
+  // OS-kill path skips useEffect cleanup, so the final scroll position
+  // would be lost. AppState fires on home/background; we flush now so
+  // the next launch resumes at the right place.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background' || state === 'inactive') saveProgress()
+    })
+    return () => sub.remove()
+  }, [saveProgress])
+
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
@@ -476,7 +487,7 @@ export default function ReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, settings.autoLookup, isAuthenticated, toggleBars, showBars, hideBars, notifyWordSaved])
+  }, [chapter, isAuthenticated, language, nativeLanguage, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -650,6 +661,16 @@ export default function ReaderScreen() {
   }
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear pending timers on unmount.
+  // - exitTimerRef: 5s summary auto-dismiss → router.back() on stale nav.
+  // - hideTimerRef: 3s chrome auto-hide → setState on unmounted tree.
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    }
+  }, [])
 
   const handleExit = () => {
     saveProgress()
@@ -929,7 +950,7 @@ export default function ReaderScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden={!barsVisible} />
+      <StatusBar hidden={!barsVisible} style={settings.theme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.container, { backgroundColor: barBg }]}>
         {/* Reader WebView — rendered first so overlay bars sit on top */}
         <WebView
@@ -951,6 +972,37 @@ export default function ReaderScreen() {
           originWhitelist={['*']}
           scrollEnabled
           showsVerticalScrollIndicator={false}
+          // Android WebView defaults to a software-rendered view layer —
+          // visible jank on the reader's long scrolling content. Force a
+          // hardware layer so Chromium composites the page on the GPU.
+          androidLayerType="hardware"
+          overScrollMode="never"
+          bounces={false}
+          // Suppress the native Copy/Share/Web-Search callout that
+          // pops up on long-press. We already render our own
+          // SelectionToolbar above the selection (Translate / Define /
+          // TTS / Highlight / Save word); the native menu is just
+          // visual duplication on both iOS and Android.
+          menuItems={[]}
+          // We build a fresh inline HTML string each chapter mount
+          // and bake the overlay script into it — there is no shared
+          // cached document to reuse across mounts. Skip the WebView
+          // cache to sidestep Android's stale-injection risk.
+          cacheEnabled={false}
+          // Block navigation. The WebView loads an inline HTML string;
+          // tapping a link inside the book (footnote anchor, external
+          // URL, img src) would navigate the WebView, wiping our
+          // injected overlay script + rendered chapter. Allow only the
+          // initial document load + in-page anchors (#id).
+          onShouldStartLoadWithRequest={(req) => {
+            const { url, navigationType } = req
+            if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
+            if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
+              Linking.openURL(url).catch(() => {})
+              return false
+            }
+            return false
+          }}
         />
 
         {/* Top bar — rendered after WebView so it's on top of native layer */}
@@ -1049,15 +1101,48 @@ export default function ReaderScreen() {
           )
         )}
 
-        {/* Footer — progress bar + info */}
+        {/* Footer — progress bar + chevrons + chapter title + counter (PWA parity) */}
         <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
           </View>
-          <Text style={[styles.footerProgress, { color: barText + '99', textAlign: 'center', paddingVertical: 8, paddingHorizontal: 16 }]}>
-            {Math.round(progress * 100)}%
-            {totalChapters > 1 && currentChapterIndex >= 0 ? `   ${currentChapterIndex + 1} / ${totalChapters}` : ''}
-          </Text>
+          <View style={styles.footerRow}>
+            <TouchableOpacity
+              onPress={() => chapter?.prev && navigateChapter(chapter.prev.slug)}
+              disabled={!chapter?.prev}
+              style={styles.chevronBtn}
+              accessibilityLabel="Previous chapter"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.chevron, { color: barText + (chapter?.prev ? 'CC' : '40') }]}>‹</Text>
+            </TouchableOpacity>
+
+            <View style={styles.footerInfo}>
+              <Text style={[styles.footerChapter, { color: barText }]} numberOfLines={1}>
+                {chapter?.title || ''}
+              </Text>
+              <View style={styles.footerMeta}>
+                {totalChapters > 1 && currentChapterIndex >= 0 && (
+                  <Text style={[styles.footerCounter, { color: barText + '99' }]}>
+                    {currentChapterIndex + 1} / {totalChapters}
+                  </Text>
+                )}
+                <Text style={[styles.footerPercent, { color: barText + '99' }]}>
+                  {Math.round(progress * 100)}%
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => chapter?.next && navigateChapter(chapter.next.slug)}
+              disabled={!chapter?.next}
+              style={styles.chevronBtn}
+              accessibilityLabel="Next chapter"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.chevron, { color: barText + (chapter?.next ? 'CC' : '40') }]}>›</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {/* First-run tap-to-save hint — self-gated by AsyncStorage flag */}
@@ -1270,7 +1355,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  footerProgress: { fontSize: 14, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, minHeight: 48 },
+  chevronBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  chevron: { fontSize: 28, fontFamily: fonts.sans, lineHeight: 28 },
+  footerInfo: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' },
+  footerMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
+  footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
   // Exit summary

@@ -64,6 +64,9 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       word-wrap: break-word;
       overflow-wrap: break-word;
       -webkit-text-size-adjust: none;
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
     }
     /* Aged book edge shadows — matches PWA */
     body::before {
@@ -500,28 +503,42 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var lastTapTime = 0;
     var tapTimeout = null;
     var touchStartX = 0, touchStartY = 0;
+    var touchStartTime = 0;
     document.addEventListener('touchstart', function(e) {
       touchStartX = e.changedTouches[0].clientX;
       touchStartY = e.changedTouches[0].clientY;
+      touchStartTime = Date.now();
     }, { passive: true });
     document.addEventListener('touchend', function(e) {
       var tx = e.changedTouches[0].clientX;
       var ty = e.changedTouches[0].clientY;
       var dx = tx - touchStartX;
       var dy = ty - touchStartY;
+      var dur = Date.now() - touchStartTime;
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return; // scroll, not tap
+      // Long-press: Android/iOS create a multi-word selection during the
+      // hold, then fire touchend on release. If we treat that touchend as
+      // a tap and call removeAllRanges() we destroy the selection the
+      // user just made. selectionchange already dispatched it to RN, so
+      // bail out here and let the native handles + RN SelectionActionBar
+      // own the lifecycle. 350ms is below Android's 500ms long-press
+      // threshold but above any plausible normal tap.
+      if (dur > 350) return;
       var target = e.target;
       if (target.tagName === 'A' || target.closest('a')) return;
 
-      // Dismiss any native multi-word selection first. Single-word
-      // selections (ours from a prior tap) should NOT block re-tapping
-      // a different word — we'll just re-select below.
+      // Short tap with an active selection in the DOM. selectWordAtPoint
+      // never touches the Selection API, so any non-collapsed selection
+      // here came from a native long-press drag. Preserve multi-word /
+      // long selections (the user just spent effort building them);
+      // only collapse short single-word leftovers so the next tap can
+      // fire word-select cleanly.
       var sel = window.getSelection();
       if (sel && !sel.isCollapsed) {
-        var txt = sel.toString().trim();
-        var isMulti = txt.indexOf(' ') !== -1 || txt.length > 40;
+        var selText = sel.toString().trim();
+        if (selText.indexOf(' ') !== -1 || selText.length > 30) return;
         sel.removeAllRanges();
-        if (isMulti) return; // user dismissing a long-press selection
+        return;
       }
 
       // Highlight tap just fired — skip word-select so a single tap doesn't
@@ -910,11 +927,28 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     function vhlUseNew() { return vhlIsSupported() && !vhlKillswitchSet(); }
 
+    // Word-boundary check using a unicode letter/number class.
+    var VHL_WORDCHAR_RE = /[\\p{L}\\p{N}]/u;
+
     // Pure: TreeWalker → Range objects. No DOM mutation. Rejects SCRIPT/STYLE
-    // and the translation overlay subtree (data-vocab-overlay).
+    // and the translation overlay subtree (data-vocab-overlay). Matches both
+    // single-word and multi-word phrase keys (longest-first to avoid overlap).
     function vhlCompute(vocabMap) {
       var out = [];
       if (!vocabMap) return out;
+
+      // Split keys by whitespace presence: single tokens hit the regex pass,
+      // phrases hit the substring-scan pass first (longest first).
+      var singleKeys = {};
+      var phraseKeys = [];
+      for (var k in vocabMap) {
+        if (!Object.prototype.hasOwnProperty.call(vocabMap, k)) continue;
+        var lk = k.toLowerCase();
+        if (lk.indexOf(' ') === -1) singleKeys[lk] = vocabMap[k];
+        else phraseKeys.push({ key: lk, entry: vocabMap[k] });
+      }
+      phraseKeys.sort(function(a, b) { return b.key.length - a.key.length; });
+
       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
         acceptNode: function(n) {
           var p = n.parentElement;
@@ -929,16 +963,51 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       while (node = walker.nextNode()) {
         var text = node.textContent;
         if (!text || !text.trim()) continue;
+        var lower = text.toLowerCase();
+        var occupied = phraseKeys.length > 0 ? new Uint8Array(text.length) : null;
+
+        // Phrase pass — longest first; word-boundary on both ends; skip
+        // if the span overlaps an already-claimed phrase region.
+        for (var p = 0; p < phraseKeys.length; p++) {
+          var phr = phraseKeys[p];
+          var search = 0;
+          while (true) {
+            var idx = lower.indexOf(phr.key, search);
+            if (idx === -1) break;
+            var endIdx = idx + phr.key.length;
+            var beforeOk = idx === 0 || !VHL_WORDCHAR_RE.test(text.charAt(idx - 1));
+            var afterOk = endIdx >= text.length || !VHL_WORDCHAR_RE.test(text.charAt(endIdx));
+            if (beforeOk && afterOk) {
+              var collide = false;
+              for (var oi = idx; oi < endIdx; oi++) {
+                if (occupied[oi]) { collide = true; break; }
+              }
+              if (!collide) {
+                try {
+                  var rng = document.createRange();
+                  rng.setStart(node, idx);
+                  rng.setEnd(node, endIdx);
+                  out.push({ range: rng, stage: phr.entry.stage, key: phr.key, translation: phr.entry.translation || null });
+                  for (var oj = idx; oj < endIdx; oj++) occupied[oj] = 1;
+                } catch (e) {}
+              }
+            }
+            search = idx + 1;
+          }
+        }
+
+        // Single-word pass — skip indices already claimed by a phrase match.
         VHL_WORD_RE.lastIndex = 0;
         var m;
         while (m = VHL_WORD_RE.exec(text)) {
-          var lower = m[0].toLowerCase();
-          var entry = vocabMap[lower];
-          if (!entry) continue;
+          if (occupied && occupied[m.index]) continue;
+          var sLower = m[0].toLowerCase();
+          var sEntry = singleKeys[sLower];
+          if (!sEntry) continue;
           var range = document.createRange();
           try { range.setStart(node, m.index); range.setEnd(node, m.index + m[0].length); }
           catch (e) { continue; }
-          out.push({ range: range, stage: entry.stage, key: lower, translation: entry.translation || null });
+          out.push({ range: range, stage: sEntry.stage, key: sLower, translation: sEntry.translation || null });
         }
       }
       return out;
@@ -1234,8 +1303,12 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       // Drop duplicates — if the user re-selected the exact same text (e.g.
       // iOS magnifier re-firing), don't re-render the popup.
       if (text === _lastDispatchedText) return;
-      // Single word pulse
-      if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
+      // No tap-pulse here. range.surroundContents() mutates the DOM under
+      // the live Selection — Android aborts the long-press extension when
+      // the selection's text node gets split mid-drag, so the user only
+      // ever gets one word. selectWordAtPoint paints its own pulse via
+      // applyTapPulseRange (which doesn't touch Selection); long-press
+      // already has the native handles for visual feedback.
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
       var anchor = null;
