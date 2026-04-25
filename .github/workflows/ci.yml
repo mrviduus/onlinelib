@@ -68,6 +68,10 @@ jobs:
         working-directory: apps/web
         run: pnpm install --frozen-lockfile && pnpm build
 
+      - name: Drift-check mobile overlay bundle
+        working-directory: apps/web
+        run: pnpm check:mobile-overlay
+
       - name: Install & build admin
         working-directory: apps/admin
         run: pnpm install --frozen-lockfile && pnpm build
