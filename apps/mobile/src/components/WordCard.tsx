@@ -361,12 +361,12 @@ export function WordCard({
           {isAuthenticated && !wordSaved && !stage && !lookupState && (
             <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#10B981' }]}
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
                 onPress={() => { cancelAutoDismiss(); onSave() }}
                 accessibilityRole="button"
                 accessibilityLabel="Save word to vocabulary"
               >
-                <Ionicons name="add" size={18} color="#fff" />
+                <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.saveBtnText}>Save</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   phonetic: {
-    fontFamily: fonts.sans,
+    fontFamily: 'Courier',
     fontSize: 13,
   },
   stageBadge: {
@@ -543,13 +543,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   saveBtnText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 13,
     color: '#fff',
   },
   sessionCount: {
