@@ -500,28 +500,37 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var lastTapTime = 0;
     var tapTimeout = null;
     var touchStartX = 0, touchStartY = 0;
+    var touchStartTime = 0;
     document.addEventListener('touchstart', function(e) {
       touchStartX = e.changedTouches[0].clientX;
       touchStartY = e.changedTouches[0].clientY;
+      touchStartTime = Date.now();
     }, { passive: true });
     document.addEventListener('touchend', function(e) {
       var tx = e.changedTouches[0].clientX;
       var ty = e.changedTouches[0].clientY;
       var dx = tx - touchStartX;
       var dy = ty - touchStartY;
+      var dur = Date.now() - touchStartTime;
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return; // scroll, not tap
+      // Long-press: Android/iOS create a multi-word selection during the
+      // hold, then fire touchend on release. If we treat that touchend as
+      // a tap and call removeAllRanges() we destroy the selection the
+      // user just made. selectionchange already dispatched it to RN, so
+      // bail out here and let the native handles + RN SelectionActionBar
+      // own the lifecycle. 350ms is below Android's 500ms long-press
+      // threshold but above any plausible normal tap.
+      if (dur > 350) return;
       var target = e.target;
       if (target.tagName === 'A' || target.closest('a')) return;
 
-      // Dismiss any native multi-word selection first. Single-word
-      // selections (ours from a prior tap) should NOT block re-tapping
-      // a different word — we'll just re-select below.
+      // Short tap with an active selection in the DOM — that's a prior
+      // long-press selection or a leftover single-word range. Collapse
+      // it so the next tap-to-select can fire cleanly.
       var sel = window.getSelection();
       if (sel && !sel.isCollapsed) {
-        var txt = sel.toString().trim();
-        var isMulti = txt.indexOf(' ') !== -1 || txt.length > 40;
         sel.removeAllRanges();
-        if (isMulti) return; // user dismissing a long-press selection
+        return;
       }
 
       // Highlight tap just fired — skip word-select so a single tap doesn't
