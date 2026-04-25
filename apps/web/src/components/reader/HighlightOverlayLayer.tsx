@@ -5,12 +5,9 @@ import { useOverlayReflow } from '../../hooks/useOverlayReflow'
 import { findTextByAnchor } from '../../lib/textAnchor'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 
-// New highlights path using the shared SVG Overlayer. Behind
-// FEATURES.readerOverlayV2 — legacy HighlightLayer stays as fallback.
-//
-// Positions the overlayer SVG as a viewport-fixed sibling so raw
-// range.getClientRects() coords land 1:1 on screen. Reflow hook drives
-// redraw on resize / font-ready / theme change.
+// Highlights via the shared SVG Overlayer. Positions the overlayer SVG as a
+// viewport-fixed sibling so raw range.getClientRects() coords land 1:1 on
+// screen. Reflow hook drives redraw on resize / font-ready / theme change.
 
 const COLOR_MAP: Record<HighlightColor, string> = {
   yellow: 'rgba(254, 240, 138, 0.5)',

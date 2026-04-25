@@ -15,10 +15,8 @@ import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
-import { HighlightLayer } from './HighlightLayer'
 import { HighlightOverlayLayer } from './HighlightOverlayLayer'
-import { isReaderOverlayV2Active } from '../../lib/features'
-import { VocabHighlightDispatcher } from './VocabHighlightDispatcher'
+import { VocabOverlayLayer } from './VocabOverlayLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
 import { WordPopup } from './WordPopup'
@@ -414,26 +412,17 @@ export function ReaderHighlights({
     <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
       {children}
 
-      {isReaderOverlayV2Active() ? (
-        <HighlightOverlayLayer
-          highlights={highlights}
-          containerRef={containerRef}
-          onHighlightClick={handleHighlightClick}
-        />
-      ) : (
-        <HighlightLayer
-          highlights={highlights}
-          containerRef={containerRef}
-          onHighlightClick={handleHighlightClick}
-        />
-      )}
+      <HighlightOverlayLayer
+        highlights={highlights}
+        containerRef={containerRef}
+        onHighlightClick={handleHighlightClick}
+      />
 
-      <VocabHighlightDispatcher
+      <VocabOverlayLayer
         containerRef={containerRef}
         vocabMap={vocabMap}
         showInlineTranslations={showInlineTranslations}
         activeBubble={bubble ? { word: bubble.word, translation: bubble.translation } : null}
-        chapterId={chapterId}
       />
 
       {/* Multi-word selection → full highlights toolbar */}

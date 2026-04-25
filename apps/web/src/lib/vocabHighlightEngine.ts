@@ -1,5 +1,5 @@
 // Pure engine: compute Range[] per SRS stage for vocab words inside a container.
-// Zero DOM mutation. Consumer feeds ranges to customHighlightRegistry.
+// Zero DOM mutation. Consumer feeds ranges to the SVG overlayer.
 //
 // Reuses tokenize/normalize from vocabKey to stay consistent with save-flow.
 
@@ -20,8 +20,7 @@ export interface WordMatch {
   isActive: boolean
 }
 
-// Highlight-name per stage. These map 1:1 to ::highlight() pseudo-selectors
-// in the reader stylesheet and MUST match customHighlightRegistry clearAll.
+// Highlight-name per stage. Used as overlayer key prefixes.
 export const HIGHLIGHT_NAMES: Record<number, string> = {
   0: 'vocab-new',
   1: 'vocab-recognition',

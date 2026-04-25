@@ -11,9 +11,7 @@ import {
 import type { VocabMap } from '../../hooks/useReaderVocabulary'
 import { VocabTranslationOverlay } from './VocabTranslationOverlay'
 
-// Vocab underlines via the shared SVG Overlayer. Behind
-// FEATURES.readerOverlayV2 in the dispatcher. Reuses the pure
-// computeVocabMatches engine; legacy + custom-highlight paths stay.
+// Vocab underlines via the shared SVG Overlayer.
 
 const COLOR_PER_STAGE: Record<number, string> = {
   0: 'rgba(59, 130, 246, 0.5)',
