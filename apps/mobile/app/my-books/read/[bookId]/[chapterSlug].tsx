@@ -641,10 +641,43 @@ export default function UserBookReaderScreen() {
             <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
               <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
             </View>
-            <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-              {Math.round(progress * 100)}%
-              {totalChapters > 1 && currentChapterIndex >= 0 ? `   ${currentChapterIndex + 1} / ${totalChapters}` : ''}
-            </Text>
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                onPress={() => chapter?.prev && navigateChapter(chapter.prev.slug)}
+                disabled={!chapter?.prev}
+                style={styles.chevronBtn}
+                accessibilityLabel="Previous chapter"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chevron, { color: chapter?.prev ? colors.text : colors.textSecondary, opacity: chapter?.prev ? 1 : 0.3 }]}>‹</Text>
+              </TouchableOpacity>
+
+              <View style={styles.footerInfo}>
+                <Text style={[styles.footerChapter, { color: colors.text }]} numberOfLines={1}>
+                  {chapter?.title || ''}
+                </Text>
+                <View style={styles.footerMeta}>
+                  {totalChapters > 1 && currentChapterIndex >= 0 && (
+                    <Text style={[styles.footerCounter, { color: colors.textSecondary }]}>
+                      {currentChapterIndex + 1} / {totalChapters}
+                    </Text>
+                  )}
+                  <Text style={[styles.footerPercent, { color: colors.textSecondary }]}>
+                    {Math.round(progress * 100)}%
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => chapter?.next && navigateChapter(chapter.next.slug)}
+                disabled={!chapter?.next}
+                style={styles.chevronBtn}
+                accessibilityLabel="Next chapter"
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chevron, { color: chapter?.next ? colors.text : colors.textSecondary, opacity: chapter?.next ? 1 : 0.3 }]}>›</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -802,4 +835,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: fonts.sans,
   },
+  footerRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 4, minHeight: 48 },
+  chevronBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
+  chevron: { fontSize: 28, fontFamily: fonts.sans, lineHeight: 28 },
+  footerInfo: { flex: 1, alignItems: 'center' as const, paddingHorizontal: 4 },
+  footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' as const },
+  footerMeta: { flexDirection: 'row', alignItems: 'center' as const, gap: 12, marginTop: 2 },
+  footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
 })
