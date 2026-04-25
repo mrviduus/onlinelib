@@ -76,8 +76,16 @@ export interface ComputeOptions {
   activeBubble?: ActiveBubbleSnapshot | null
 }
 
+// Word-boundary char class — matches the unicode set tokenizeVocabWords uses,
+// so phrase boundaries align with single-token boundaries (no overlap surprises).
+const WORDCHAR_RE = /[\p{L}\p{M}\p{N}]/u
+
 // Walk text nodes → for each tokenized word that's in vocabMap (or is the
-// active bubble), create a Range covering just that word.
+// active bubble), create a Range covering just that word. Multi-word phrase
+// keys (those containing whitespace) match first via case-insensitive
+// substring scan, longest-first; the single-token pass skips any indices
+// already claimed by a phrase so "make sense" never double-matches as
+// "make" + "sense".
 export function computeVocabMatches(
   container: Node | null | undefined,
   { vocabMap, activeBubble }: ComputeOptions,
@@ -91,14 +99,66 @@ export function computeVocabMatches(
   const matches: WordMatch[] = []
   const textNodes = collectTextNodes(container)
 
+  // Split keys into single-token vs phrase. Phrases sorted longest-first so
+  // "in spite of" claims its span before "spite" can short-match.
+  const phraseKeys: { key: string; entry: { stage: number; translation?: string | null } }[] = []
+  for (const [k, v] of vocabMap.entries()) {
+    if (k.indexOf(' ') !== -1) phraseKeys.push({ key: k, entry: v })
+  }
+  phraseKeys.sort((a, b) => b.key.length - a.key.length)
+
   for (const textNode of textNodes) {
     const text = textNode.data
     if (!text || !text.trim()) continue
+
+    const lower = text.normalize('NFC').toLowerCase()
+    const occupied: Uint8Array | null =
+      phraseKeys.length > 0 ? new Uint8Array(text.length) : null
+
+    if (occupied) {
+      for (const phr of phraseKeys) {
+        let search = 0
+        while (search <= lower.length - phr.key.length) {
+          const idx = lower.indexOf(phr.key, search)
+          if (idx === -1) break
+          const endIdx = idx + phr.key.length
+          const beforeOk = idx === 0 || !WORDCHAR_RE.test(text.charAt(idx - 1))
+          const afterOk = endIdx >= text.length || !WORDCHAR_RE.test(text.charAt(endIdx))
+          if (beforeOk && afterOk) {
+            let collide = false
+            for (let i = idx; i < endIdx; i++) {
+              if (occupied[i]) { collide = true; break }
+            }
+            if (!collide) {
+              const range = doc.createRange()
+              try {
+                range.setStart(textNode, idx)
+                range.setEnd(textNode, endIdx)
+                matches.push({
+                  key: phr.key,
+                  word: text.slice(idx, endIdx),
+                  stage: phr.entry.stage,
+                  translation: phr.entry.translation ?? null,
+                  range,
+                  isActive: false,
+                })
+                for (let i = idx; i < endIdx; i++) occupied[i] = 1
+              } catch {
+                // setStart/setEnd may throw if the text node was mutated mid-walk.
+                // Skip this match and continue — the next call will retry.
+              }
+            }
+          }
+          search = idx + 1
+        }
+      }
+    }
 
     const tokens = tokenizeVocabWords(text)
     if (tokens.length === 0) continue
 
     for (const tok of tokens) {
+      if (occupied && occupied[tok.start]) continue
       const key = normalizeVocabKey(tok.word)
       const entry = vocabMap.get(key)
       const isActive = !entry && activeKey !== null && key === activeKey

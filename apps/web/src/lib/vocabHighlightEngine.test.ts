@@ -162,6 +162,92 @@ describe('computeVocabMatches', () => {
     })
     expect(matches[0].translation).toBeNull()
   })
+
+  describe('multi-word phrase keys', () => {
+    it('matches a phrase across word boundaries', () => {
+      root.textContent = 'From my perspective, this is fine.'
+      const map = mkMap([['from my perspective', { stage: 0, translation: 'с моей точки зрения' }]])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(1)
+      expect(matches[0].key).toBe('from my perspective')
+      expect(matches[0].range.toString()).toBe('From my perspective')
+      expect(matches[0].translation).toBe('с моей точки зрения')
+    })
+
+    it('matches case-insensitively', () => {
+      root.textContent = 'FROM MY PERSPECTIVE this works'
+      const map = mkMap([['from my perspective', { stage: 1 }]])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(1)
+      expect(matches[0].range.toString()).toBe('FROM MY PERSPECTIVE')
+    })
+
+    it('respects word boundaries (rejects partial matches)', () => {
+      root.textContent = 'unfortunate make sense ofthese ideas'
+      const map = mkMap([['make sense of', { stage: 0 }]])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      // "make sense of" is followed by "t" → no afterOk → reject
+      expect(matches).toHaveLength(0)
+    })
+
+    it('prefers the longer phrase when phrases overlap', () => {
+      root.textContent = 'I want to make sense of this'
+      const map = mkMap([
+        ['make sense', { stage: 0 }],
+        ['make sense of', { stage: 1 }],
+      ])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(1)
+      expect(matches[0].key).toBe('make sense of')
+      expect(matches[0].range.toString()).toBe('make sense of')
+    })
+
+    it('matches multiple occurrences of the same phrase', () => {
+      root.textContent = 'on the other hand foo on the other hand bar'
+      const map = mkMap([['on the other hand', { stage: 0 }]])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(2)
+      expect(matches.every((m) => m.range.toString() === 'on the other hand')).toBe(true)
+    })
+
+    it('still matches single-token entries that fall outside the phrase span', () => {
+      root.textContent = 'A case in point is the fox'
+      const map = mkMap([
+        ['a case in point is', { stage: 0 }],
+        ['fox', { stage: 2 }],
+      ])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(2)
+      expect(matches.find((m) => m.key === 'a case in point is')).toBeTruthy()
+      expect(matches.find((m) => m.key === 'fox')).toBeTruthy()
+    })
+
+    it('does not double-match tokens inside a claimed phrase span', () => {
+      root.textContent = 'I want to make sense of this'
+      const map = mkMap([
+        ['make sense of', { stage: 0 }],
+        ['sense', { stage: 0 }],
+        ['of', { stage: 0 }],
+      ])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      // "sense" and "of" are claimed by the phrase; "make" was never in the map
+      expect(matches).toHaveLength(1)
+      expect(matches[0].key).toBe('make sense of')
+    })
+
+    it('mixes phrases and single tokens in one document', () => {
+      root.innerHTML = '<p>Conversely, this stems from a different premise.</p>'
+      const map = mkMap([
+        ['this stems from', { stage: 0, translation: 'это происходит из-за' }],
+        ['conversely', { stage: 1, translation: 'напротив' }],
+      ])
+      const matches = computeVocabMatches(root, { vocabMap: map })
+      expect(matches).toHaveLength(2)
+      expect(new Set(matches.map((m) => m.key))).toEqual(
+        new Set(['this stems from', 'conversely']),
+      )
+    })
+  })
 })
 
 describe('groupByHighlight', () => {
