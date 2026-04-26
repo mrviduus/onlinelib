@@ -9,11 +9,15 @@ import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 // viewport-fixed sibling so raw range.getClientRects() coords land 1:1 on
 // screen. Reflow hook drives redraw on resize / font-ready / theme change.
 
+// CSS-var-driven so theme switches re-render the SVG fill without a redraw
+// pass (`style.fill` follows custom-property changes natively). Light-theme
+// fallbacks match the legacy hardcoded palette; dark/sepia overrides live in
+// reader.css.
 const COLOR_MAP: Record<HighlightColor, string> = {
-  yellow: 'rgba(254, 240, 138, 0.5)',
-  green: 'rgba(187, 247, 208, 0.5)',
-  pink: 'rgba(251, 207, 232, 0.5)',
-  blue: 'rgba(191, 219, 254, 0.5)',
+  yellow: 'var(--reader-overlay-hl-yellow, rgba(254, 240, 138, 0.5))',
+  green: 'var(--reader-overlay-hl-green, rgba(187, 247, 208, 0.5))',
+  pink: 'var(--reader-overlay-hl-pink, rgba(251, 207, 232, 0.5))',
+  blue: 'var(--reader-overlay-hl-blue, rgba(191, 219, 254, 0.5))',
 }
 
 interface Props {
