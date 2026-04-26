@@ -1,22 +1,19 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
 import { useHighlightEdit } from '../../hooks/useHighlightEdit'
-import { useTranslationPopup } from '../../hooks/useTranslationPopup'
-import { useExplainPopup } from '../../hooks/useExplainPopup'
+import { useSelectionActions } from '../../hooks/useSelectionActions'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { useReaderTts } from '../../hooks/useReaderTts'
 import { useReaderVocabulary } from '../../hooks/useReaderVocabulary'
 import { useDictionary } from '../../hooks/useDictionary'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useWordBubble } from '../../hooks/useWordBubble'
-import { normalizeVocabKey } from '../../lib/vocabKey'
-import type { HighlightColor } from '../../lib/offlineDb'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightOverlayLayer } from './HighlightOverlayLayer'
 import { VocabOverlayLayer } from './VocabOverlayLayer'
 import { TranslationPopup } from './TranslationPopup'
 import { ExplanationPopup } from './ExplanationPopup'
-import { WordPopup } from './WordPopup'
+import { WordBubblePopup } from './WordBubblePopup'
 import { NoteEditor } from './NoteEditor'
 import { TtsHighlightOverlay } from './TtsHighlightOverlay'
 import { Toast } from '../Toast'
@@ -145,44 +142,24 @@ export function ReaderHighlights({
     autoPlayWord: bubble?.word ?? null,
   })
 
-  // --- Multi-word translation popup ---
-  const translationPopup = useTranslationPopup({
-    bookLanguage,
-    targetLang,
-    onClose: clearSelection,
-  })
-
-  const handleTranslate = useCallback(() => {
-    if (!selection.text || !selection.rect) return
-    translationPopup.open(selection.text, selection.rect)
-  }, [selection.text, selection.rect, translationPopup])
-
-  // --- Explain popup ---
-  const explainPopup = useExplainPopup({
+  // --- Selection-driven popups + toolbar handlers ---
+  const {
+    translationPopup,
+    explainPopup,
+    handleHighlight,
+    handleTranslate,
+    handleExplain,
+    handleCopy,
+  } = useSelectionActions({
     containerRef,
     editionId,
+    bookLanguage,
+    targetLang,
     nativeLanguage,
-    onClose: clearSelection,
+    selection,
+    clearSelection,
+    createHighlightFromSelection,
   })
-
-  const handleExplain = useCallback(() => {
-    explainPopup.openFromSelection(selection.text, selection.range, selection.rect)
-  }, [explainPopup, selection.text, selection.range, selection.rect])
-
-  // --- Selection toolbar ---
-  const handleHighlight = useCallback(
-    async (color: HighlightColor) => {
-      await createHighlightFromSelection(selection.range, selection.text, color)
-      clearSelection()
-      translationPopup.close()
-    },
-    [selection.range, selection.text, createHighlightFromSelection, clearSelection, translationPopup],
-  )
-
-  const handleCopy = useCallback(() => {
-    clearSelection()
-    translationPopup.close()
-  }, [clearSelection, translationPopup])
 
   // --- Render ---
   return (
@@ -216,47 +193,34 @@ export function ReaderHighlights({
         />
       )}
 
-      {/* Single-word selection → WordPopup (phonetic, translation, definition, Remove). Save is automatic. */}
-      {/* NOT gated on isSingleWord: clicking buttons inside the popup natively
-          clears the document selection — keeping the popup mounted lets the user
-          interact with it (lang picker, etc). Close paths: WordPopup's own
-          click-outside / Escape / × / auto-dismiss, or selection growing to multi-word. */}
-      {bubble && !translationPopup.show && (() => {
-        const entry = vocabMap.get(normalizeVocabKey(bubble.word))
-        const isSaved = !!entry
-        return (
-          <WordPopup
-            word={bubble.word}
-            phonetic={bubble.phonetic}
-            translation={bubble.translation}
-            translationLoading={bubble.translationLoading}
-            definition={bubble.definition}
-            definitionLoading={bubble.definitionLoading}
-            rect={bubble.rect}
-            containerRef={containerRef}
-            onSpeak={() => handleSpeak(bubble.word)}
-            onRemove={entry?.id ? () => {
-              removeWord(entry.id!, bubble.word)
-              // Clear dedup so a subsequent tap on the same word re-auto-saves.
-              clearAutoSave(bubble.word)
-              closeBubble()
-            } : undefined}
-            onClose={closeBubble}
-            isSaved={isSaved}
-            nativeLanguage={nativeLanguage}
-            onChangeNativeLanguage={setNativeLanguage}
-            hasConfirmedLanguage={hasConfirmedLanguage}
-            bookLanguage={bookLanguage}
-            t={t}
-            lookupInfo={lookupState && lookupState.word === bubble.word
-              ? { kind: lookupState.kind, tapsRemaining: lookupState.tapsRemaining }
-              : null}
-            onAddAnyway={lookupState && lookupState.word === bubble.word ? handleAddAnyway : undefined}
-            addAnywayBusy={addAnywayBusy}
-            saveInFlight={savingWord === bubble.word}
-          />
-        )
-      })()}
+      {/* Single-word selection → WordBubblePopup. NOT gated on isSingleWord:
+          clicking buttons inside the popup natively clears the document selection
+          — keeping the popup mounted lets the user interact with it (lang picker,
+          etc). Close paths: WordPopup's own click-outside / Escape / × /
+          auto-dismiss, or selection growing to multi-word. */}
+      {bubble && !translationPopup.show && (
+        <WordBubblePopup
+          bubble={bubble}
+          containerRef={containerRef}
+          vocabMap={vocabMap}
+          lookupState={lookupState}
+          addAnywayBusy={addAnywayBusy}
+          savingWord={savingWord}
+          nativeLanguage={nativeLanguage}
+          hasConfirmedLanguage={hasConfirmedLanguage}
+          bookLanguage={bookLanguage}
+          onSpeak={(text) => handleSpeak(text)}
+          onRemove={(id, word) => {
+            removeWord(id, word)
+            clearAutoSave(word)
+            closeBubble()
+          }}
+          onClose={closeBubble}
+          onChangeNativeLanguage={setNativeLanguage}
+          onAddAnyway={handleAddAnyway}
+          t={t}
+        />
+      )}
 
       {translationPopup.show && (
         <TranslationPopup
