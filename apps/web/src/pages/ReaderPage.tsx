@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useApi } from '../hooks/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import type { Chapter, BookDetail } from '../types/api'
-import { getUserBook, getUserBookChapter } from '../api/userBooks'
 import { useReaderSettings } from '../hooks/useReaderSettings'
+import { useReaderChapter, type ReaderMode } from '../hooks/useReaderChapter'
 import { useReadingProgress } from '../hooks/useReadingProgress'
 import { useRestoreProgress } from '../hooks/useRestoreProgress'
 import { useUserBookProgress } from '../hooks/useUserBookProgress'
@@ -13,11 +11,8 @@ import { useBookmarks } from '../hooks/useBookmarks'
 import { useUserBookBookmarks } from '../hooks/useUserBookBookmarks'
 import { useInBookSearch } from '../hooks/useInBookSearch'
 import { useLibrary } from '../hooks/useLibrary'
-import { useNetworkRecovery } from '../hooks/useNetworkRecovery'
 import { useReaderKeyboard } from '../hooks/useReaderKeyboard'
 import { useImmersiveMode } from '../hooks/useImmersiveMode'
-import { getCachedChapter, cacheChapter } from '../lib/offlineDb'
-import { InvalidContentTypeError } from '../lib/fetchWithRetry'
 import { SeoHead } from '../components/SeoHead'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { Toast } from '../components/Toast'
@@ -26,7 +21,7 @@ import { ReaderSection } from '../components/reader/ReaderSection'
 import { ReaderNav } from '../components/reader/ReaderNav'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
-import { ReaderTocDrawer, type AutoSaveInfo, type TocChapter } from '../components/reader/ReaderTocDrawer'
+import { ReaderTocDrawer, type AutoSaveInfo } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { SearchOverlayLayer } from '../components/reader/SearchOverlayLayer'
@@ -40,30 +35,10 @@ import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import '../styles/micro-practice.css'
 
-export type ReaderMode = 'public' | 'userbook'
+export type { ReaderMode } from '../hooks/useReaderChapter'
 
 interface ReaderPageProps {
   mode?: ReaderMode
-}
-
-// Normalized chapter type for both modes
-interface NormalizedChapter {
-  id: string
-  chapterNumber: number
-  identifier: string // slug for public, chapterNumber as string for userbook
-  title: string
-  html: string
-  wordCount: number | null
-  prev: { identifier: string; title: string } | null
-  next: { identifier: string; title: string } | null
-}
-
-// Normalized book type for both modes
-interface NormalizedBook {
-  id: string
-  title: string
-  totalWordCount?: number | null
-  chapters: TocChapter[]
 }
 
 export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
@@ -77,19 +52,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // For userbook mode, chapterSlug comes from the :chapterSlug param
   const chapterIdentifier = mode === 'public' ? chapterSlug : userChapterSlug
 
-  const api = useApi()
   const { isAuthenticated, openAuthModal, ensureSession } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
   const navigate = useNavigate()
-  // Raw state for public books (needed for scroll reader, caching, etc.)
-  const [publicChapter, setPublicChapter] = useState<Chapter | null>(null)
-  const [publicBook, setPublicBook] = useState<BookDetail | null>(null)
 
-  // Normalized state for both modes
-  const [chapter, setChapter] = useState<NormalizedChapter | null>(null)
-  const [book, setBook] = useState<NormalizedBook | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { chapter, book, publicChapter, publicBook, loading, error } = useReaderChapter({
+    mode,
+    bookSlug,
+    chapterSlug,
+    userBookId: id,
+    userChapterSlug,
+    isAuthenticated,
+  })
 
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -157,9 +131,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   }, [])
 
   const libraryAddedRef = useRef(false)
-  const editionIdRef = useRef<string | null>(null)
-  const fetchedKeyRef = useRef<string | null>(null)
-  const { markFetchStart, wasAbortedDueToWake } = useNetworkRecovery()
 
   const { immersiveMode, showBars: showImmersiveBars } = useImmersiveMode(true, loading)
 
@@ -566,175 +537,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     goToMatch,
     clear: clearSearch,
   } = useInBookSearch(chapterHtml)
-
-  // Fetch chapter and book data
-  useEffect(() => {
-    // Public mode requires bookSlug and chapterSlug
-    if (mode === 'public' && (!bookSlug || !chapterSlug)) return
-    // User mode requires id and chapterSlug, plus auth
-    if (mode === 'userbook' && (!id || !userChapterSlug || !isAuthenticated)) return
-
-    const fetchKey = mode === 'public'
-      ? `public:${bookSlug}:${chapterSlug}`
-      : `userbook:${id}:${userChapterSlug}`
-    // Already loaded this exact path — an isAuthenticated flip (guest creation)
-    // or unrelated re-render shouldn't force a loading flash / drop the popup.
-    if (fetchedKeyRef.current === fetchKey) return
-
-    let cancelled = false
-    if (mode === 'public') markFetchStart()
-
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        if (mode === 'public') {
-          // Try cache first if we have editionId
-          const cachedEditionId = editionIdRef.current
-          if (cachedEditionId) {
-            const cached = await getCachedChapter(cachedEditionId, chapterSlug!)
-            if (cached && !cancelled) {
-              // Set raw public chapter
-              const rawChapter: Chapter = {
-                id: cached.key,
-                chapterNumber: 0,
-                slug: cached.chapterSlug,
-                title: cached.title,
-                html: cached.html,
-                wordCount: cached.wordCount,
-                prev: cached.prev,
-                next: cached.next,
-              }
-              setPublicChapter(rawChapter)
-              // Normalize for UI
-              setChapter({
-                id: rawChapter.id,
-                chapterNumber: rawChapter.chapterNumber,
-                identifier: rawChapter.slug,
-                title: rawChapter.title,
-                html: rawChapter.html,
-                wordCount: rawChapter.wordCount,
-                prev: rawChapter.prev ? { identifier: rawChapter.prev.slug, title: rawChapter.prev.title } : null,
-                next: rawChapter.next ? { identifier: rawChapter.next.slug, title: rawChapter.next.title } : null,
-              })
-              // Still need book for TOC - fetch it
-              try {
-                const bk = await api.getBook(bookSlug!)
-                if (!cancelled) {
-                  setPublicBook(bk)
-                  setBook({
-                    id: bk.id,
-                    title: bk.title,
-                    chapters: bk.chapters.map(c => ({
-                      id: c.id,
-                      identifier: c.slug,
-                      title: c.title,
-                      chapterNumber: c.chapterNumber,
-                    })),
-                  })
-                }
-              } catch {
-                // Book fetch failed but chapter from cache - ok
-              }
-              fetchedKeyRef.current = fetchKey
-              setLoading(false)
-              return
-            }
-          }
-
-          // Cache miss or no editionId - fetch from API
-          const [ch, bk] = await Promise.all([
-            api.getChapter(bookSlug!, chapterSlug!),
-            api.getBook(bookSlug!),
-          ])
-
-          if (cancelled) return
-
-          // Set raw data
-          setPublicChapter(ch)
-          setPublicBook(bk)
-          editionIdRef.current = bk.id
-
-          // Normalize for UI
-          setChapter({
-            id: ch.id,
-            chapterNumber: ch.chapterNumber,
-            identifier: ch.slug,
-            title: ch.title,
-            html: ch.html,
-            wordCount: ch.wordCount,
-            prev: ch.prev ? { identifier: ch.prev.slug, title: ch.prev.title } : null,
-            next: ch.next ? { identifier: ch.next.slug, title: ch.next.title } : null,
-          })
-          setBook({
-            id: bk.id,
-            title: bk.title,
-            chapters: bk.chapters.map(c => ({
-              id: c.id,
-              identifier: c.slug,
-              title: c.title,
-              chapterNumber: c.chapterNumber,
-            })),
-          })
-
-          // Cache for offline use
-          cacheChapter(bk.id, ch).catch(() => {})
-          fetchedKeyRef.current = fetchKey
-        } else {
-          // User book mode - now uses slug
-          const [bk, ch] = await Promise.all([
-            getUserBook(id!),
-            getUserBookChapter(id!, userChapterSlug!),
-          ])
-
-          if (cancelled) return
-
-          // Normalize for UI - use slug as identifier
-          setChapter({
-            id: ch.id,
-            chapterNumber: ch.chapterNumber,
-            identifier: ch.slug || userChapterSlug!,
-            title: ch.title,
-            html: ch.html,
-            wordCount: ch.wordCount,
-            prev: ch.previous ? { identifier: ch.previous.slug || String(ch.previous.chapterNumber), title: ch.previous.title } : null,
-            next: ch.next ? { identifier: ch.next.slug || String(ch.next.chapterNumber), title: ch.next.title } : null,
-          })
-          setBook({
-            id: bk.id,
-            title: bk.title,
-            totalWordCount: bk.totalWordCount,
-            chapters: bk.chapters.map(c => ({
-              id: c.id,
-              identifier: c.slug || String(c.chapterNumber),
-              title: c.title,
-              chapterNumber: c.chapterNumber,
-              wordCount: c.wordCount,
-            })),
-          })
-          fetchedKeyRef.current = fetchKey
-        }
-      } catch (err) {
-        if (cancelled) return
-        // If aborted due to wake, auto-retry (public mode only)
-        if (mode === 'public' && wasAbortedDueToWake()) {
-          fetchData()
-          return
-        }
-        if (err instanceof InvalidContentTypeError) {
-          setError('Chapter not found. The book may have been removed.')
-        } else {
-          setError((err as Error).message)
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    fetchData()
-    return () => { cancelled = true }
-  }, [mode, bookSlug, chapterSlug, id, userChapterSlug, isAuthenticated, api, markFetchStart, wasAbortedDueToWake])
 
   // Chapter URL helper
   const getChapterUrl = useCallback((identifier: string) => {
