@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useReaderSettings } from '../hooks/useReaderSettings'
 import { useReaderChapter, type ReaderMode } from '../hooks/useReaderChapter'
+import { useReaderScrollSync } from '../hooks/useReaderScrollSync'
 import { useReadingProgress } from '../hooks/useReadingProgress'
 import { useRestoreProgress } from '../hooks/useRestoreProgress'
 import { useUserBookProgress } from '../hooks/useUserBookProgress'
@@ -235,9 +236,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     }
   }, [mode, publicBook?.id, publicBook?.chapters, book?.chapters, userProgress.savedProgress])
 
-  // Refs for restore logic
-  const scrollRestoredRef = useRef(false)
-
   // Single chapter mounted; native window scroll drives intra-chapter progress.
   const [overlayScrollProgress, setOverlayScrollProgress] = useState(0)
   useEffect(() => {
@@ -370,104 +368,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [readingSession])
 
-  // Sync progress when scroll position changes
-  // Time-based skip: avoid redundant saves within 2s window (aligns with 600ms debounce)
-  const lastScrollSaveRef = useRef<{ identifier: string; offset: number; timestamp: number } | null>(null)
-  const scrollSaveTimerRef = useRef<number | null>(null)
-  // Store pending scroll save data for flush on visibility/unload
-  const pendingScrollSaveRef = useRef<{
-    identifier: string
-    offset: number
-    progress: number
-  } | null>(null)
-
-  // Flush pending scroll save immediately: populate the hook's pending ref via
-  // updateProgress/saveProgress, then call the hook's flushSave() synchronously so
-  // the request leaves via keepalive fetch before the tab dies. Without the second
-  // call we'd only schedule the hook's 2s debounce — likely to lose the write on
-  // unload (beforeunload handler order isn't guaranteed).
-  const flushScrollSave = useCallback(() => {
-    const pending = pendingScrollSaveRef.current
-    if (!pending) return
-
-    if (scrollSaveTimerRef.current) {
-      clearTimeout(scrollSaveTimerRef.current)
-      scrollSaveTimerRef.current = null
-    }
-
-    const { identifier, offset, progress } = pending
-    const scrollLocator = `scroll:${identifier}:${Math.round(offset)}`
-
-    if (mode === 'public' && publicBook?.chapters) {
-      const bookChapter = publicBook.chapters.find(c => c.slug === identifier)
-      if (bookChapter) {
-        publicProgress.updateProgress(progress, undefined, scrollLocator, bookChapter.id, identifier)
-        publicProgress.flushSave()
-      }
-    } else if (mode === 'userbook') {
-      userProgress.saveProgress(identifier, 0, progress, scrollLocator)
-      userProgress.flushSave()
-    }
-
-    pendingScrollSaveRef.current = null
-  }, [mode, publicBook?.chapters, publicProgress, userProgress])
-
-  useEffect(() => {
-    if (!scrollRestoredRef.current) return
-    const visibleId = chapterIdentifier
-    if (!visibleId) return
-
-    const offset = (document.scrollingElement || document.documentElement).scrollTop
-    const now = Date.now()
-    const last = lastScrollSaveRef.current
-    const chapterChanged = !last || last.identifier !== visibleId
-    if (!chapterChanged && last && (now - last.timestamp) < 2000) return
-
-    lastScrollSaveRef.current = { identifier: visibleId, offset, timestamp: now }
-    pendingScrollSaveRef.current = { identifier: visibleId, offset, progress: overallProgress }
-
-    if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
-    const saveId = visibleId
-    const saveOffset = offset
-    const saveProgress = overallProgress
-
-    scrollSaveTimerRef.current = window.setTimeout(() => {
-      const scrollLocator = `scroll:${saveId}:${Math.round(saveOffset)}`
-      if (mode === 'public' && publicBook?.chapters) {
-        const bookChapter = publicBook.chapters.find(c => c.slug === saveId)
-        if (bookChapter) {
-          publicProgress.updateProgress(saveProgress, undefined, scrollLocator, bookChapter.id, saveId)
-        }
-      } else if (mode === 'userbook') {
-        userProgress.saveProgress(saveId, 0, saveProgress, scrollLocator)
-      }
-      pendingScrollSaveRef.current = null
-      scrollSaveTimerRef.current = null
-    }, 600)
-  }, [mode, publicBook?.chapters, chapterIdentifier, overlayScrollProgress, overallProgress, publicProgress, userProgress])
-
-  // Flush pending save on visibility hidden or unload
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        flushScrollSave()
-      }
-    }
-
-    const handleBeforeUnload = () => {
-      flushScrollSave()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('beforeunload', handleBeforeUnload)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      // Flush on unmount as well
-      flushScrollSave()
-    }
-  }, [flushScrollSave])
+  // Scroll-position restore + debounced save + flush on visibility/unload.
+  useReaderScrollSync({
+    mode,
+    chapterIdentifier,
+    chapterLoaded: !!chapter,
+    overallProgress,
+    effectiveProgress,
+    effectiveLoading,
+    publicBookChapters: publicBook?.chapters,
+    publicProgress,
+    userProgress,
+  })
 
   // Track current book for guest returning user feature
   useEffect(() => {
@@ -488,42 +400,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       .then(() => setToastMessage('Added to library'))
       .catch(() => {}) // silent fail
   }, [overallProgress, book?.id, isInLibrary, addToLibrary])
-
-  // Restore scroll position. Single chapter mounted — locator's chapter slug
-  // must match the current URL chapter, otherwise URL is authoritative and
-  // we just leave scroll at the top.
-  useEffect(() => {
-    if (scrollRestoredRef.current || effectiveLoading) return
-    if (!chapter) return
-
-    if (!effectiveProgress?.locator?.startsWith('scroll:')) {
-      scrollRestoredRef.current = true
-      return
-    }
-
-    const parts = effectiveProgress.locator.split(':')
-    if (parts.length < 3) {
-      scrollRestoredRef.current = true
-      return
-    }
-
-    const savedSlug = parts[1]
-    const savedOffset = parseInt(parts[2], 10)
-    if (isNaN(savedOffset) || savedSlug !== chapterIdentifier) {
-      scrollRestoredRef.current = true
-      return
-    }
-
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: savedOffset, behavior: 'instant' })
-      scrollRestoredRef.current = true
-    })
-  }, [effectiveLoading, effectiveProgress, chapter, chapterIdentifier])
-
-  // Reset restore refs on chapter change
-  useEffect(() => {
-    scrollRestoredRef.current = false
-  }, [chapterIdentifier])
 
   // Search hook needs chapter html, use empty string until loaded
   const chapterHtml = chapter?.html || ''
