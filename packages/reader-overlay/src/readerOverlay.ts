@@ -258,7 +258,9 @@ export class Overlayer {
   static highlight: DrawFn = (rects, options = {}) => {
     const { color = 'yellow', opacity = 0.3, blendMode = 'multiply' } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', color)
+    // style.fill (not setAttribute) so consumers can pass `var(--x)` and
+    // theme switches re-evaluate without a redraw.
+    g.style.fill = color
     g.style.opacity = `var(--overlay-highlight-opacity, ${opacity})`
     g.style.mixBlendMode = `var(--overlay-highlight-blend-mode, ${blendMode})`
     for (const { left, top, height, width } of rects) {
@@ -275,7 +277,7 @@ export class Overlayer {
   static underline: DrawFn = (rects, options = {}) => {
     const { color = 'red', width: strokeWidth = 2, writingMode } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', color)
+    g.style.fill = color
     if (writingMode === 'vertical-rl' || writingMode === 'vertical-lr') {
       for (const { right, top, height } of rects) {
         const el = createSVGElement('rect')
@@ -301,7 +303,7 @@ export class Overlayer {
   static strikethrough: DrawFn = (rects, options = {}) => {
     const { color = 'red', width: strokeWidth = 2, writingMode } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', color)
+    g.style.fill = color
     if (writingMode === 'vertical-rl' || writingMode === 'vertical-lr') {
       for (const { right, left, top, height } of rects) {
         const el = createSVGElement('rect')
@@ -327,9 +329,9 @@ export class Overlayer {
   static squiggly: DrawFn = (rects, options = {}) => {
     const { color = 'red', width: strokeWidth = 2, writingMode } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', 'none')
-    g.setAttribute('stroke', color)
-    g.setAttribute('stroke-width', String(strokeWidth))
+    g.style.fill = 'none'
+    g.style.stroke = color
+    g.style.strokeWidth = String(strokeWidth)
     const block = strokeWidth * 1.5
     if (writingMode === 'vertical-rl' || writingMode === 'vertical-lr') {
       for (const { right, top, height } of rects) {
@@ -356,9 +358,9 @@ export class Overlayer {
   static outline: DrawFn = (rects, options = {}) => {
     const { color = 'red', width: strokeWidth = 3, radius = 3 } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', 'none')
-    g.setAttribute('stroke', color)
-    g.setAttribute('stroke-width', String(strokeWidth))
+    g.style.fill = 'none'
+    g.style.stroke = color
+    g.style.strokeWidth = String(strokeWidth)
     for (const { left, top, height, width } of rects) {
       const el = createSVGElement('rect')
       el.setAttribute('x', String(left))
@@ -376,7 +378,7 @@ export class Overlayer {
   static pulse: DrawFn = (rects, options = {}) => {
     const { color = 'currentColor', opacity = 0.25 } = options
     const g = createSVGElement('g')
-    g.setAttribute('fill', color)
+    g.style.fill = color
     g.setAttribute('class', 'reader-overlay-pulse')
     g.style.opacity = `var(--overlay-pulse-opacity, ${opacity})`
     for (const { left, top, height, width } of rects) {
