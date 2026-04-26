@@ -5,11 +5,8 @@ import { useLanguage } from '../context/LanguageContext'
 import { useReaderSettings } from '../hooks/useReaderSettings'
 import { useReaderChapter, type ReaderMode } from '../hooks/useReaderChapter'
 import { useReaderScrollSync } from '../hooks/useReaderScrollSync'
-import { useReadingProgress } from '../hooks/useReadingProgress'
-import { useRestoreProgress } from '../hooks/useRestoreProgress'
-import { useUserBookProgress } from '../hooks/useUserBookProgress'
-import { useBookmarks } from '../hooks/useBookmarks'
-import { useUserBookBookmarks } from '../hooks/useUserBookBookmarks'
+import { useReaderProgress } from '../hooks/useReaderProgress'
+import { useReaderBookmarks } from '../hooks/useReaderBookmarks'
 import { useInBookSearch } from '../hooks/useInBookSearch'
 import { useLibrary } from '../hooks/useLibrary'
 import { useReaderKeyboard } from '../hooks/useReaderKeyboard'
@@ -22,7 +19,7 @@ import { ReaderSection } from '../components/reader/ReaderSection'
 import { ReaderNav } from '../components/reader/ReaderNav'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
-import { ReaderTocDrawer, type AutoSaveInfo } from '../components/reader/ReaderTocDrawer'
+import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
 import { SearchOverlayLayer } from '../components/reader/SearchOverlayLayer'
@@ -77,34 +74,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const { settings, update } = useReaderSettings()
 
-  // Bookmarks: server sync for both public and userbook modes
-  // Public mode uses useBookmarks with editionId for server sync
-  const publicBookmarks = useBookmarks(mode === 'public' ? (bookSlug || '') : '', {
-    editionId: publicBook?.id,
-    isAuthenticated,
-  })
-  // Userbook mode uses dedicated server-synced hook
-  const userBookmarks = useUserBookBookmarks(mode === 'userbook' ? (id || '') : '')
-
-  // Select which bookmark functions to use based on mode
-  const { bookmarks, removeBookmark, isBookmarked, getBookmarkForChapter } =
-    mode === 'public' ? publicBookmarks : userBookmarks
-
-  // Wrap addBookmark to handle different signatures
-  const addBookmark = useCallback(
-    async (chapterSlug: string, chapterTitle: string) => {
-      if (mode === 'public') {
-        // Public mode needs chapterId for server sync
-        const chapterId = publicChapter?.id
-        return publicBookmarks.addBookmark(chapterSlug, chapterTitle, chapterId)
-      } else {
-        // Userbook mode - find chapterId from book chapters
-        const ch = book?.chapters.find((c) => c.identifier === chapterSlug)
-        return userBookmarks.addBookmark(ch?.id || '', chapterSlug, chapterTitle)
-      }
-    },
-    [mode, publicChapter?.id, book?.chapters, publicBookmarks, userBookmarks]
-  )
+  const { bookmarks, addBookmark, removeBookmark, isBookmarked, getBookmarkForChapter } =
+    useReaderBookmarks({
+      mode,
+      bookSlug,
+      userBookId: id,
+      publicEditionId: publicBook?.id,
+      publicChapter,
+      book,
+      isAuthenticated,
+    })
   const { add: addToLibrary, isInLibrary } = useLibrary()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [bookCompleted, setBookCompleted] = useState(false)
@@ -160,17 +139,19 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const activeChapterIdentifier = chapterIdentifier || ''
   const activeChapter = book?.chapters.find(c => c.identifier === activeChapterIdentifier)
 
-  // Reading progress sync (with server when authenticated) - public mode only
-  const publicProgress = useReadingProgress(
-    mode === 'public' ? (bookSlug || '') : '',
-    mode === 'public' ? (chapterSlug || '') : '',
-    { editionId: publicBook?.id, chapterId: publicChapter?.id, chapterSlug: chapterSlug }
-  )
+  const { publicProgress, userProgress, effectiveProgress, effectiveLoading, autoSaveInfo } =
+    useReaderProgress({
+      mode,
+      bookSlug,
+      chapterSlug,
+      userBookId: id,
+      publicBook,
+      publicChapter,
+      book,
+    })
 
-  // User book progress (localStorage) - userbook mode only
-  const userProgress = useUserBookProgress(mode === 'userbook' ? (id || '') : '')
-
-  // Migrate legacy progress (chapterNumber -> slug) for userbooks
+  // Migrate legacy progress (chapterNumber -> slug) for userbooks. Stays in
+  // page because it owns routing.
   const legacyMigratedRef = useRef(false)
   useEffect(() => {
     if (mode !== 'userbook') return
@@ -181,60 +162,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const legacyChapterNum = userProgress.legacyProgress.chapterNumber
     const targetChapter = book.chapters.find(c => c.chapterNumber === legacyChapterNum)
     if (targetChapter) {
-      // Navigate to the saved chapter using slug
       const qs = window.location.search
       navigate(`/${language}/library/my/${id}/read/${targetChapter.identifier}` + qs, { replace: true })
     }
   }, [mode, userProgress.legacyProgress, book?.chapters, navigate, language, id])
-
-  // Restore progress on mount - public mode only (user books restore handled separately).
-  // URL is authoritative: we never auto-navigate away from a typed chapter URL.
-  const { savedProgress, isLoading: progressLoading } =
-    useRestoreProgress(mode === 'public' ? publicBook?.id : undefined, chapterSlug)
-
-  // Unified progress for restore effects (public + userbook)
-  const effectiveProgress = mode === 'public' ? savedProgress : (
-    userProgress.savedProgress ? {
-      chapterSlug: userProgress.savedProgress.chapterSlug,
-      locator: userProgress.savedProgress.locator || '',
-      percent: userProgress.savedProgress.percent,
-    } : null
-  )
-  const effectiveLoading = mode === 'public' ? progressLoading : userProgress.isLoading
-
-  // Auto-save info for bookmarks drawer
-  const autoSaveInfo = useMemo((): AutoSaveInfo | null => {
-    if (mode === 'public') {
-      if (!publicBook?.id || !publicBook?.chapters) return null
-      try {
-        const stored = localStorage.getItem(`reading.progress.${publicBook.id}`)
-        if (!stored) return null
-        const data = JSON.parse(stored) as { chapterSlug: string; locator: string; percent: number }
-        if (!data.chapterSlug) return null
-        const chapter = publicBook.chapters.find(c => c.slug === data.chapterSlug)
-        if (!chapter) return null
-        return {
-          chapterSlug: data.chapterSlug,
-          chapterTitle: chapter.title,
-          locator: data.locator,
-          percent: data.percent,
-        }
-      } catch {
-        return null
-      }
-    } else {
-      // Userbook mode - use server-synced progress
-      if (!book?.chapters || !userProgress.savedProgress?.chapterSlug) return null
-      const chapter = book.chapters.find(c => c.identifier === userProgress.savedProgress?.chapterSlug)
-      if (!chapter) return null
-      return {
-        chapterSlug: userProgress.savedProgress.chapterSlug,
-        chapterTitle: chapter.title,
-        locator: userProgress.savedProgress.locator || '',
-        percent: userProgress.savedProgress.percent,
-      }
-    }
-  }, [mode, publicBook?.id, publicBook?.chapters, book?.chapters, userProgress.savedProgress])
 
   // Single chapter mounted; native window scroll drives intra-chapter progress.
   const [overlayScrollProgress, setOverlayScrollProgress] = useState(0)
