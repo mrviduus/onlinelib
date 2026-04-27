@@ -6076,6 +6076,10 @@ html.dark .book-hero__read-btn--secondary {
   50% { opacity: 0.7; }
 }
 
+.user-book-card__cover-wrap {
+  position: relative;
+}
+
 .user-book-card__badges {
   position: absolute;
   top: 8px;
@@ -6085,6 +6089,11 @@ html.dark .book-hero__read-btn--secondary {
   align-items: flex-start;
   gap: 4px;
   z-index: 2;
+  pointer-events: none;
+}
+
+.user-book-card__badges > .book-status-badge {
+  pointer-events: auto;
 }
 
 .user-book-card__finished-badge {
@@ -6092,6 +6101,7 @@ html.dark .book-hero__read-btn--secondary {
   top: 8px;
   right: 8px;
   z-index: 2;
+  pointer-events: none;
 }
 
 /* GeneratedCover */

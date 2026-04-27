@@ -4,7 +4,7 @@ export type BookStatusVariant = 'processing' | 'failed' | 'new' | 'finished'
 
 interface BookStatusBadgeProps {
   variant: BookStatusVariant
-  onClick?: (e?: React.MouseEvent) => void
+  onClick?: () => void
   title?: string
 }
 

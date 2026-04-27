@@ -119,24 +119,35 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
 
   return (
     <div className={`user-book-card${highlighted ? ' user-book-card--highlighted' : ''}`}>
-      <Link
-        to={destination}
-        className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
-        onClick={(e) => !isReady && e.preventDefault()}
-      >
-        {book.coverPath ? (
-          <img
-            src={getUserBookCoverUrl(book.coverPath)}
-            alt={book.title}
-            loading="lazy"
-            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden') }}
+      <div className="user-book-card__cover-wrap">
+        <Link
+          to={destination}
+          className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
+          onClick={(e) => !isReady && e.preventDefault()}
+        >
+          {book.coverPath ? (
+            <img
+              src={getUserBookCoverUrl(book.coverPath)}
+              alt={book.title}
+              loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden') }}
+            />
+          ) : null}
+          <GeneratedCover
+            title={book.title || '?'}
+            author={book.author}
+            className={book.coverPath ? 'hidden' : ''}
           />
-        ) : null}
-        <GeneratedCover
-          title={book.title || '?'}
-          author={book.author}
-          className={book.coverPath ? 'hidden' : ''}
-        />
+
+          {isReady && !book.completedAt && percent > 0 && (
+            <div className="user-book-card__progress-bar">
+              <div
+                className="user-book-card__progress-fill"
+                style={{ width: `${Math.round(percent * 100)}%` }}
+              />
+            </div>
+          )}
+        </Link>
 
         <div className="user-book-card__badges">
           {isProcessing && (
@@ -148,7 +159,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           {isFailed && (
             <BookStatusBadge
               variant="failed"
-              onClick={(e) => { e?.stopPropagation?.(); e?.preventDefault?.(); handleRetry() }}
+              onClick={() => handleRetry()}
               title={book.errorMessage || 'Tap to retry'}
             />
           )}
@@ -162,16 +173,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             <BookStatusBadge variant="finished" />
           </div>
         )}
-
-        {isReady && !book.completedAt && percent > 0 && (
-          <div className="user-book-card__progress-bar">
-            <div
-              className="user-book-card__progress-fill"
-              style={{ width: `${Math.round(percent * 100)}%` }}
-            />
-          </div>
-        )}
-      </Link>
+      </div>
 
       <div className="user-book-card__info">
         <div className="user-book-card__text">

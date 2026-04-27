@@ -47,8 +47,9 @@ export function useContinueReadingList(limit = 5): State {
         items.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
         setState({ items: items.slice(0, limit), loading: false })
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return
+        console.warn('[ContinueReadingShelf] failed to load shelf data', err)
         setState({ items: [], loading: false })
       })
 
