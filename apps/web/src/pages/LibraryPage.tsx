@@ -11,6 +11,8 @@ import { OfflineBadge } from '../components/OfflineBadge'
 import { BookCardMenu } from '../components/library/BookCardMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
+import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
+import { features } from '../lib/features'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
 import { EmptyState } from '../components/EmptyState'
@@ -212,6 +214,8 @@ export function LibraryPage() {
           <h1 className="library-header__title">{t('library.title')}</h1>
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
+
+        {features.myBooksV2.continueReading && <ContinueReadingShelf />}
 
         {activeTab === 'saved' && (
           <>

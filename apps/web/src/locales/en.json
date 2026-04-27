@@ -373,6 +373,18 @@
         "shortcut": "or press ⌘U from anywhere"
       }
     },
+    "continueShelf": {
+      "title": "Continue reading",
+      "badge": "Continue",
+      "scrollLeft": "Scroll left",
+      "scrollRight": "Scroll right"
+    },
+    "badge": {
+      "processing": "Processing…",
+      "failed": "Failed",
+      "new": "New",
+      "finished": "Read"
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

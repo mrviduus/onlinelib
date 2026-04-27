@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteUserBook, retryUserBook, cancelUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
-import { stringToColor } from '../../utils/colors'
 import { useLanguage } from '../../context/LanguageContext'
+import { BookStatusBadge } from './BookStatusBadge'
+import { GeneratedCover } from './GeneratedCover'
+
+const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
 
 interface UserBookCardProps {
   book: UserBook
@@ -18,6 +21,12 @@ function formatElapsed(seconds: number): string {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+function isNew(createdAt: string): boolean {
+  const t = new Date(createdAt).getTime()
+  if (!t) return false
+  return Date.now() - t < NEW_BADGE_TTL_MS
 }
 
 export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted }: UserBookCardProps) {
@@ -119,39 +128,38 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           <img
             src={getUserBookCoverUrl(book.coverPath)}
             alt={book.title}
+            loading="lazy"
             onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden') }}
           />
         ) : null}
-        <div
-          className={`user-book-card__cover-placeholder ${book.coverPath ? 'hidden' : ''}`}
-          style={{ backgroundColor: stringToColor(book.title) }}
-        >
-          {book.title?.[0] || '?'}
+        <GeneratedCover
+          title={book.title || '?'}
+          author={book.author}
+          className={book.coverPath ? 'hidden' : ''}
+        />
+
+        <div className="user-book-card__badges">
+          {isProcessing && (
+            <BookStatusBadge
+              variant="processing"
+              title={`${formatElapsed(elapsed)}${isStuck ? ' — possible issue' : ''}`}
+            />
+          )}
+          {isFailed && (
+            <BookStatusBadge
+              variant="failed"
+              onClick={(e) => { e?.stopPropagation?.(); e?.preventDefault?.(); handleRetry() }}
+              title={book.errorMessage || 'Tap to retry'}
+            />
+          )}
+          {isReady && !book.completedAt && isNew(book.createdAt) && (
+            <BookStatusBadge variant="new" />
+          )}
         </div>
 
-        {isProcessing && (
-          <div className={`user-book-card__status user-book-card__status--processing${isStuck ? ' user-book-card__status--stuck' : ''}`}>
-            <span className="user-book-card__spinner" />
-            Processing... {formatElapsed(elapsed)}
-            {isStuck && <span className="user-book-card__stuck-warning">Possible issue</span>}
-          </div>
-        )}
-
-        {isFailed && (
-          <div className="user-book-card__status user-book-card__status--failed">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            Failed
-          </div>
-        )}
-
         {isReady && book.completedAt && (
-          <div className="user-book-card__completed-badge">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Read
+          <div className="user-book-card__finished-badge" aria-label="Read">
+            <BookStatusBadge variant="finished" />
           </div>
         )}
 
