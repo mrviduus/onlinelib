@@ -48,6 +48,24 @@ public static class UserBooksEndpoints
 
         var libraryGroup = app.MapGroup("/me/library").WithTags("User Library");
         libraryGroup.MapGet("/tags", GetUserTags).WithName("GetUserLibraryTags");
+        libraryGroup.MapGet("/search", SearchLibrary).WithName("SearchUserLibrary");
+    }
+
+    private static async Task<IResult> SearchLibrary(
+        HttpContext httpContext, AuthService authService, UserBookSearchService svc,
+        [FromQuery] string? q, [FromQuery] string? tags, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(q)) return Results.Ok(Array.Empty<UserBookSearchHitDto>());
+
+        var tagList = string.IsNullOrWhiteSpace(tags)
+            ? Array.Empty<string>()
+            : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var hits = await svc.SearchAsync(userId.Value, q, tagList, ct);
+        return Results.Ok(hits.Select(h => new UserBookSearchHitDto(
+            h.Id, h.Title, h.Author, h.CoverPath, h.Language, h.Rank, h.Excerpt, h.ChapterSlug)));
     }
 
     private static async Task<IResult> GetBookStats(

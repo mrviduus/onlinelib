@@ -1,11 +1,14 @@
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Application.Common.Interfaces;
 
 public interface IAppDbContext
 {
+    DatabaseFacade Database { get; }
+
     DbSet<Site> Sites { get; }
     DbSet<SiteDomain> SiteDomains { get; }
     DbSet<Work> Works { get; }

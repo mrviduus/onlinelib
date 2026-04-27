@@ -21,6 +21,9 @@ interface UserBookCardProps {
   selectable?: boolean
   selected?: boolean
   onSelectToggle?: (id: string) => void
+  excerpt?: string | null
+  excerptChapterSlug?: string | null
+  excerptQuery?: string
 }
 
 function formatElapsed(seconds: number): string {
@@ -35,7 +38,17 @@ function isNew(createdAt: string): boolean {
   return Date.now() - t < NEW_BADGE_TTL_MS
 }
 
-export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted, selectable, selected, onSelectToggle }: UserBookCardProps) {
+// User-uploaded book text is rendered as plain HTML excerpt; allow only <mark>.
+function sanitizeExcerpt(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
+export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted, selectable, selected, onSelectToggle, excerpt, excerptChapterSlug, excerptQuery }: UserBookCardProps) {
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [elapsed, setElapsed] = useState(0)
@@ -76,9 +89,13 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
   const isFailed = book.status === 'Failed'
   const isStuck = isProcessing && elapsed > 30
 
-  const destination = isReady
-    ? (progress?.chapterSlug ? `/${language}/library/my/${book.id}/read/${progress.chapterSlug}` : `/${language}/library/my/${book.id}`)
+  const targetSlug = excerptChapterSlug || progress?.chapterSlug
+  const baseDestination = isReady
+    ? (targetSlug ? `/${language}/library/my/${book.id}/read/${targetSlug}` : `/${language}/library/my/${book.id}`)
     : '#'
+  const destination = excerpt && excerptQuery && isReady
+    ? `${baseDestination}?find=${encodeURIComponent(excerptQuery)}`
+    : baseDestination
 
   const cardClasses = [
     'user-book-card',
@@ -172,6 +189,12 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           </Link>
           {book.author && (
             <div className="user-book-card__author">{book.author}</div>
+          )}
+          {excerpt && (
+            <div
+              className="user-book-card__excerpt"
+              dangerouslySetInnerHTML={{ __html: sanitizeExcerpt(excerpt) }}
+            />
           )}
           {features.myBooksV2.tags && book.tags && book.tags.length > 0 && (
             <div className="user-book-card__tags">

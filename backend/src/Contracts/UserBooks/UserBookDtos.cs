@@ -122,6 +122,17 @@ public record BulkResultDto(Guid[] Succeeded, BulkFailureDto[] Failed);
 
 public record BulkFailureDto(Guid Id, string Reason);
 
+public record UserBookSearchHitDto(
+    Guid Id,
+    string Title,
+    string? Author,
+    string? CoverPath,
+    string Language,
+    double Rank,
+    string? Excerpt,
+    string? ChapterSlug
+);
+
 public record BookStatsDto(
     Guid BookId,
     int SessionsCount,

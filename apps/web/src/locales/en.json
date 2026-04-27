@@ -406,7 +406,8 @@
       "placeholder": "Search your library…",
       "empty": "No books match \"{query}\"",
       "clear": "Clear search",
-      "shortcut": "Cmd+F to focus"
+      "shortcut": "Cmd+F to focus",
+      "contentToggle": "Search inside books"
     },
     "actions": {
       "menu": "Options",

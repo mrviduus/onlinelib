@@ -34,6 +34,7 @@ import { createApi, getStorageUrl } from '../api/client'
 import {
   getUserBooks, getUserBookCoverUrl, type UserBook,
   bulkDeleteUserBooks, bulkFinishUserBooks, bulkTagUserBooks, bulkAddToCollection,
+  searchUserLibrary, type UserBookSearchHit,
 } from '../api/userBooks'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
@@ -62,7 +63,12 @@ export function LibraryPage() {
   const { filter: savedFilter, setFilter: setSavedFilter } = useLibraryFilter('saved')
   const { filter: uploadsFilter, setFilter: setUploadsFilter } = useLibraryFilter('uploads')
   const { query: savedQuery, debouncedQuery: savedQueryD, setQuery: setSavedQuery, clear: clearSavedQuery } = useLibrarySearch('saved')
-  const { query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery } = useLibrarySearch('uploads')
+  const {
+    query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery,
+    contentSearch: uploadsContentSearch, setContentSearch: setUploadsContentSearch,
+  } = useLibrarySearch('uploads')
+  const [contentHits, setContentHits] = useState<UserBookSearchHit[] | null>(null)
+  const [contentLoading, setContentLoading] = useState(false)
   const { tags: userTags } = useUserTags()
   const [showUploadModal, setShowUploadModal] = useState(false)
   const collectionIdParam = searchParams.get('collection')
@@ -103,6 +109,22 @@ export function LibraryPage() {
   useEffect(() => {
     localStorage.setItem('library-view', viewMode)
   }, [viewMode])
+
+  // Content search (server-side FTS) — runs only when toggle is on and we have a query
+  useEffect(() => {
+    if (!features.myBooksV2.contentSearch) return
+    if (activeTab !== 'uploads') return
+    if (!uploadsContentSearch) { setContentHits(null); return }
+    const parsed = parseQuery(uploadsQueryD)
+    if (!parsed.text) { setContentHits(null); return }
+    const ctrl = new AbortController()
+    setContentLoading(true)
+    searchUserLibrary(parsed.text, parsed.tags, ctrl.signal)
+      .then(hits => setContentHits(hits))
+      .catch(err => { if (err?.name !== 'AbortError') setContentHits([]) })
+      .finally(() => setContentLoading(false))
+    return () => ctrl.abort()
+  }, [uploadsContentSearch, uploadsQueryD, activeTab])
 
   // Fetch user books
   const fetchUserBooks = useCallback(async () => {
@@ -187,7 +209,18 @@ export function LibraryPage() {
     ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
     : searchedUserBooks
   const sortedItems = sortLibraryItems(collectionFilteredItems, savedSort, progressMap)
-  const sortedUserBooks = sortUserBooks(collectionFilteredUserBooks, uploadsSort)
+  const sortedUserBooksBase = sortUserBooks(collectionFilteredUserBooks, uploadsSort)
+
+  // When content search is active, override the list with FTS results (already ranked by relevance).
+  const excerptByBookId = new Map<string, UserBookSearchHit>()
+  let sortedUserBooks = sortedUserBooksBase
+  if (uploadsContentSearch && contentHits) {
+    const bookMap = new Map(userBooks.map(b => [b.id, b]))
+    sortedUserBooks = contentHits
+      .map(h => { excerptByBookId.set(h.id, h); return bookMap.get(h.id) })
+      .filter((b): b is UserBook => !!b)
+  }
+  const contentSearchQuery = uploadsContentSearch ? parseQuery(uploadsQueryD).text : ''
 
   // Bulk handlers (uploads tab) — defined here so sortedUserBooks is in scope
   const runBulk = async (op: () => Promise<void>) => {
@@ -526,7 +559,12 @@ export function LibraryPage() {
 
             {userBooks.length > 0 && (
               <>
-                <LibrarySearch value={uploadsQuery} onChange={setUploadsQuery} />
+                <LibrarySearch
+                  value={uploadsQuery}
+                  onChange={setUploadsQuery}
+                  contentSearch={features.myBooksV2.contentSearch ? uploadsContentSearch : undefined}
+                  onToggleContentSearch={features.myBooksV2.contentSearch ? setUploadsContentSearch : undefined}
+                />
                 <LibraryFilters
                   value={uploadsFilter}
                   onChange={setUploadsFilter}
@@ -542,6 +580,8 @@ export function LibraryPage() {
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : userBooks.length === 0 ? (
               <UploadDropZone />
+            ) : uploadsContentSearch && contentLoading ? (
+              <div className="library-page__loading">{t('library.loading')}</div>
             ) : sortedUserBooks.length === 0 ? (
               uploadsQueryD ? (
                 <div className="library-filters__empty">
@@ -666,20 +706,26 @@ export function LibraryPage() {
               </div>
             ) : (
               <div className="library-page__grid">
-                {sortedUserBooks.map((book) => (
-                  <UserBookCard
-                    key={book.id}
-                    book={book}
-                    onDelete={fetchUserBooks}
-                    onRetry={fetchUserBooks}
-                    onUpdate={fetchUserBooks}
-                    progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
-                    highlighted={highlightedBookId === book.id}
-                    selectable={features.myBooksV2.bulkSelect && selection.active}
-                    selected={selection.isSelected(book.id)}
-                    onSelectToggle={selection.toggle}
-                  />
-                ))}
+                {sortedUserBooks.map((book) => {
+                  const hit = excerptByBookId.get(book.id)
+                  return (
+                    <UserBookCard
+                      key={book.id}
+                      book={book}
+                      onDelete={fetchUserBooks}
+                      onRetry={fetchUserBooks}
+                      onUpdate={fetchUserBooks}
+                      progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
+                      highlighted={highlightedBookId === book.id}
+                      selectable={features.myBooksV2.bulkSelect && selection.active}
+                      selected={selection.isSelected(book.id)}
+                      onSelectToggle={selection.toggle}
+                      excerpt={hit?.excerpt ?? null}
+                      excerptChapterSlug={hit?.chapterSlug ?? null}
+                      excerptQuery={contentSearchQuery}
+                    />
+                  )
+                })}
               </div>
             )}
           </>

@@ -241,6 +241,27 @@ export async function bulkAddToCollection(collectionId: string, ids: string[], b
   })
 }
 
+export interface UserBookSearchHit {
+  id: string
+  title: string
+  author: string | null
+  coverPath: string | null
+  language: string
+  rank: number
+  excerpt: string | null
+  chapterSlug: string | null
+}
+
+export async function searchUserLibrary(
+  query: string,
+  tags: string[],
+  signal?: AbortSignal,
+): Promise<UserBookSearchHit[]> {
+  const params = new URLSearchParams({ q: query })
+  if (tags.length > 0) params.set('tags', tags.join(','))
+  return authFetch<UserBookSearchHit[]>(`/me/library/search?${params}`, { signal })
+}
+
 export interface UserBookStats {
   bookId: string
   sessionsCount: number
