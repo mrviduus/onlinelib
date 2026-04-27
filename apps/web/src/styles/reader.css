@@ -1787,8 +1787,7 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   left: 0;
   white-space: nowrap;
   font-size: 11px;
-  font-style: italic;
-  opacity: 0.55;
+  opacity: 0.8;
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -1801,9 +1800,15 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   animation: vocab-translation-fade 0.25s ease-out;
 }
 
+@media (max-width: 768px) {
+  .vocab-translation-overlay__item {
+    font-size: 13px;
+  }
+}
+
 @keyframes vocab-translation-fade {
   from { opacity: 0; }
-  to { opacity: 0.5; }
+  to { opacity: 0.8; }
 }
 
 /* --- TTS word-highlight overlay (Phase 2.1) --- */
