@@ -17,6 +17,18 @@ import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { ContinueReadingShelf } from '../../src/components/library/ContinueReadingShelf'
+import { BookStatusBadge } from '../../src/components/library/BookStatusBadge'
+import { GeneratedCover } from '../../src/components/library/GeneratedCover'
+import { FEATURES } from '../../src/lib/features'
+
+const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
+const isNewUpload = (createdAt?: string): boolean => {
+  if (!createdAt) return false
+  const ts = Date.parse(createdAt)
+  if (Number.isNaN(ts)) return false
+  return Date.now() - ts < NEW_BADGE_TTL_MS
+}
 
 type Tab = 'saved' | 'uploads'
 type ViewMode = 'list' | 'grid'
@@ -146,6 +158,7 @@ export default function LibraryScreen() {
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
         </Text>
       )}
+      {FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
           {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
@@ -316,11 +329,15 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
                 onLongPress={() => handleAction(item)}
                 activeOpacity={0.85}
               >
-                <Image
-                  source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                  style={[styles.gridCover, { backgroundColor: colors.border }]}
-                  contentFit="cover"
-                />
+                {item.coverPath ? (
+                  <Image
+                    source={getStorageUrl(item.coverPath)}
+                    style={styles.gridCover}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <GeneratedCover title={item.title} style={styles.gridCover} />
+                )}
                 {pct >= 100 && (
                   <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
                     <Ionicons name="checkmark" size={10} color="#fff" />
@@ -344,11 +361,15 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
               activeOpacity={0.85}
             >
               <View style={styles.coverWrapper}>
-                <Image
-                  source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                  style={[styles.cover, { backgroundColor: colors.border }]}
-                  contentFit="cover"
-                />
+                {item.coverPath ? (
+                  <Image
+                    source={getStorageUrl(item.coverPath)}
+                    style={styles.cover}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <GeneratedCover title={item.title} style={styles.cover} />
+                )}
               </View>
               <View style={styles.bookInfo}>
                 <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
@@ -562,6 +583,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
 
             if (viewMode === 'grid') {
               const cardWidth = (width - 20 - (numColumns - 1) * 10) / numColumns
+              const showNew = isReady && !item.completedAt && isNewUpload(item.createdAt)
               return (
                 <TouchableOpacity
                   style={{ width: cardWidth, marginBottom: 14 }}
@@ -570,24 +592,29 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
                   activeOpacity={0.85}
                 >
                   <View>
-                    <Image
-                      source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                      style={[styles.gridCover, { backgroundColor: colors.border }]}
-                      contentFit="cover"
-                    />
-                    {isProcessing && (
-                      <View style={[styles.processingOverlay, { borderRadius: 8 }]}>
-                        <Ionicons name="sync-outline" size={20} color="#fff" />
-                      </View>
+                    {item.coverPath ? (
+                      <Image
+                        source={getStorageUrl(item.coverPath)}
+                        style={styles.gridCover}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <GeneratedCover title={item.title || 'Untitled'} author={item.author} style={styles.gridCover} />
                     )}
                     {isReady && item.completedAt && (
                       <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
                         <Ionicons name="checkmark" size={10} color="#fff" />
                       </View>
                     )}
-                    {isFailed && (
-                      <View style={[styles.gridBadge, { backgroundColor: colors.error }]}>
-                        <Ionicons name="alert" size={10} color="#fff" />
+                    {(isProcessing || isFailed || showNew) && (
+                      <View style={styles.gridPillSlot}>
+                        {isProcessing ? (
+                          <BookStatusBadge variant="processing" />
+                        ) : isFailed ? (
+                          <BookStatusBadge variant="failed" onPress={() => runAction(() => userBooksApi.retryUserBook(item.id), 'Retry')} title={item.errorMessage || 'Tap to retry'} />
+                        ) : (
+                          <BookStatusBadge variant="new" />
+                        )}
                       </View>
                     )}
                   </View>
@@ -611,14 +638,24 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
                 activeOpacity={0.85}
               >
                 <View style={styles.coverWrapper}>
-                  <Image
-                    source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                    style={[styles.cover, { backgroundColor: colors.border }]}
-                    contentFit="cover"
-                  />
-                  {isProcessing && (
-                    <View style={styles.processingOverlay}>
-                      <Ionicons name="sync-outline" size={20} color="#fff" />
+                  {item.coverPath ? (
+                    <Image
+                      source={getStorageUrl(item.coverPath)}
+                      style={styles.cover}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <GeneratedCover title={item.title || 'Untitled'} author={item.author} style={styles.cover} />
+                  )}
+                  {(isProcessing || isFailed || (isReady && !item.completedAt && isNewUpload(item.createdAt))) && (
+                    <View style={styles.listPillSlot}>
+                      {isProcessing ? (
+                        <BookStatusBadge variant="processing" />
+                      ) : isFailed ? (
+                        <BookStatusBadge variant="failed" />
+                      ) : (
+                        <BookStatusBadge variant="new" />
+                      )}
                     </View>
                   )}
                 </View>
@@ -799,6 +836,8 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9,
     justifyContent: 'center', alignItems: 'center',
   },
+  gridPillSlot: { position: 'absolute', top: 4, left: 4 },
+  listPillSlot: { position: 'absolute', top: 4, left: 4 },
   gridProgressTrack: { height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
   gridProgressFill: { height: '100%', borderRadius: 2 },
 })

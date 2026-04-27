@@ -191,7 +191,17 @@
     "timeHoursAgo": "hours ago",
     "timeYesterday": "yesterday",
     "timeDaysAgo": "days ago",
-    "failedToProcess": "Failed to process"
+    "failedToProcess": "Failed to process",
+    "continueShelf": {
+      "title": "Continue reading",
+      "badge": "Continue"
+    },
+    "badge": {
+      "processing": "Processing…",
+      "failed": "Failed",
+      "new": "New",
+      "finished": "Read"
+    }
   },
   "books": {
     "title": "Books",

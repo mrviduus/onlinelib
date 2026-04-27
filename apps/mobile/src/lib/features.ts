@@ -16,6 +16,8 @@ export const FEATURES = {
   // Default ON — already shipped to 100% of users via hardcoded `overlayV2: true`.
   // Flip OFF via env if a regression surfaces; per-device override via AsyncStorage below.
   readerOverlayV2: readBool(process.env.EXPO_PUBLIC_READER_OVERLAY_V2, true),
+  // My Books v2 — Continue Reading shelf at top of Library (Phase 2 / slice 05).
+  myBooksV2ContinueReading: readBool(process.env.EXPO_PUBLIC_MYBOOKS_V2_CONTINUE_READING, true),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES
