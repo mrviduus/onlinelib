@@ -35,6 +35,25 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/cancel", CancelBook).WithName("CancelUserBook");
         group.MapGet("/{id:guid}/export/epub", ExportEpub).WithName("ExportUserBookEpub");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
+        group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
+    }
+
+    private static async Task<IResult> UpdateMetadata(
+        HttpContext httpContext,
+        AuthService authService,
+        MetadataService metadataService,
+        Guid id,
+        [FromBody] UpdateUserBookMetadataRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (updated, error) = await metadataService.UpdateAsync(userId.Value, id, request, ct);
+        if (error is not null)
+            return error == "Book not found" ? Results.NotFound() : Results.BadRequest(new { error });
+
+        return Results.Ok(updated);
     }
 
     private static async Task<IResult> UploadBook(

@@ -159,6 +159,26 @@ export async function getStorageQuota(): Promise<StorageQuota> {
   return authFetch<StorageQuota>('/me/books/quota')
 }
 
+export interface UpdateUserBookMetadataRequest {
+  title: string
+  author?: string | null
+  language: string
+  genre?: string | null
+  description?: string | null
+  publishedYear?: number | null
+}
+
+export async function updateUserBookMetadata(
+  id: string,
+  data: UpdateUserBookMetadataRequest,
+): Promise<UserBookDetail> {
+  return authFetch<UserBookDetail>(`/me/books/${id}/metadata`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
 export function getUserBookCoverUrl(coverPath: string | null | undefined): string | undefined {
   if (!coverPath) return undefined
   return `${API_BASE}/storage/${coverPath}`

@@ -32,6 +32,12 @@ public class UserBook
     public DateTimeOffset? TakedownAt { get; set; }
     public string? TakedownReason { get; set; }
 
+    // Editable metadata (slice 11)
+    // 'auto' = LLM/import-derived, 'manual' = user-edited (protect from auto-overwrite)
+    public string SeoSource { get; set; } = "auto";
+    // JSONB array of prior metadata snapshots (capped at 5 server-side)
+    public string? MetadataHistoryJson { get; set; }
+
     public User User { get; set; } = null!;
     public ICollection<UserChapter> Chapters { get; set; } = [];
     public ICollection<UserBookFile> BookFiles { get; set; } = [];

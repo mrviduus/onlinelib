@@ -428,6 +428,22 @@
       "confirmDeleteConfirm": "Delete",
       "confirmDeleteCancel": "Keep"
     },
+    "editMetadata": {
+      "title": "Edit book metadata",
+      "fieldTitle": "Title",
+      "fieldAuthor": "Author",
+      "fieldLanguage": "Language",
+      "fieldGenre": "Genre",
+      "fieldDescription": "Description",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "errorTitleRequired": "Title is required",
+      "errorTitleTooLong": "Title is too long (max 200)",
+      "errorAuthorTooLong": "Author is too long (max 200)",
+      "errorGenreTooLong": "Genre is too long (max 100)",
+      "errorDescriptionTooLong": "Description is too long (max 2000)"
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

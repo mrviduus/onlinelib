@@ -3574,6 +3574,136 @@ html.dark .search-page__sub-result-highlight b {
 }
 
 /* =============================================
+   Edit Metadata Modal
+   ============================================= */
+
+.user-book-edit-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.user-book-edit-modal__panel {
+  background: var(--color-surface, #FFF);
+  border: 1px solid var(--color-border, #E8E2D9);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.user-book-edit-modal__title {
+  margin: 0 0 16px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text, #2A2620);
+}
+
+.user-book-edit-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.user-book-edit-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-book-edit-modal__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #6B6258);
+}
+
+.user-book-edit-modal__field input,
+.user-book-edit-modal__field select,
+.user-book-edit-modal__field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #E8E2D9);
+  border-radius: 6px;
+  background: var(--color-bg, #FFF);
+  color: var(--color-text, #2A2620);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.user-book-edit-modal__field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.user-book-edit-modal__field input[aria-invalid="true"],
+.user-book-edit-modal__field textarea[aria-invalid="true"] {
+  border-color: #B83232;
+}
+
+.user-book-edit-modal__counter {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--color-text-secondary, #6B6258);
+}
+
+.user-book-edit-modal__err {
+  font-size: 12px;
+  color: #B83232;
+}
+
+.user-book-edit-modal__server-err {
+  padding: 8px 10px;
+  background: #FDEDED;
+  border: 1px solid #F5C2C2;
+  border-radius: 6px;
+  color: #B83232;
+  font-size: 13px;
+}
+
+.user-book-edit-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.user-book-edit-modal__btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #E8E2D9);
+  background: var(--color-surface, #FFF);
+  color: var(--color-text, #2A2620);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.user-book-edit-modal__btn:hover:not(:disabled) {
+  background: var(--color-surface-hover, #F5F1EB);
+}
+
+.user-book-edit-modal__btn--primary {
+  background: var(--color-accent, #2A2620);
+  color: #FFF;
+  border-color: var(--color-accent, #2A2620);
+}
+
+.user-book-edit-modal__btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover, #4a4238);
+}
+
+.user-book-edit-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =============================================
    Library Tabs
    ============================================= */
 

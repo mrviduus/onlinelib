@@ -95,3 +95,12 @@ public record CreateUserBookBookmarkRequest(
     string Locator,
     string? Title
 );
+
+public record UpdateUserBookMetadataRequest(
+    string Title,
+    string? Author,
+    string Language,
+    string? Genre,
+    string? Description,
+    int? PublishedYear
+);

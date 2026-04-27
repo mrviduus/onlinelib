@@ -74,13 +74,12 @@ describe('BookActionMenu (saved)', () => {
 })
 
 describe('BookActionMenu (userbook)', () => {
-  it('Ready book shows view / mark / edit-disabled / delete', () => {
+  it('Ready book shows view / mark / edit / delete', () => {
     wrap(<BookActionMenu type="userbook" book={ub()} onChange={() => {}} />)
     fireEvent.click(screen.getByLabelText('library.actions.menu'))
     expect(screen.getByText('library.actions.viewDetails')).toBeInTheDocument()
     expect(screen.getByText('library.actions.markFinished')).toBeInTheDocument()
-    const editBtn = screen.getByText('library.actions.editMetadata')
-    expect(editBtn).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('library.actions.editMetadata')).toBeInTheDocument()
     expect(screen.getByText('library.actions.delete')).toBeInTheDocument()
   })
 
