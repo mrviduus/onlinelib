@@ -8,5 +8,6 @@ const env = (key: string): boolean | undefined => {
 export const features = {
   myBooksV2: {
     uploadButton: env('VITE_FEATURE_MYBOOKS_V2_UPLOAD_BUTTON') ?? isDev,
+    globalDropZone: env('VITE_FEATURE_MYBOOKS_V2_GLOBAL_DROPZONE') ?? isDev,
   },
 } as const

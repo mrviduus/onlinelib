@@ -11,6 +11,9 @@ export type MyBooksV2Event =
   | 'upload_modal.opened'
   | 'upload.completed'
   | 'upload.failed'
+  | 'dropzone.activated'
+  | 'dropzone.dropped'
+  | 'dropzone.invalid_file'
 
 export function emit(event: MyBooksV2Event, params?: Params): void {
   try {

@@ -1,22 +1,33 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { uploadUserBook, getStorageQuota, type StorageQuota } from '../../api/userBooks'
 import { emit } from '../../lib/telemetry/myBooksV2'
 
 interface UploadFormProps {
   onUploadComplete: (newBookId?: string) => void
+  initialFile?: File
+  queueLabel?: string
 }
 
-export function UploadForm({ onUploadComplete }: UploadFormProps) {
+export function UploadForm({ onUploadComplete, initialFile, queueLabel }: UploadFormProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [quota, setQuota] = useState<StorageQuota | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [ownsRights, setOwnsRights] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(initialFile ?? null)
+  const lastInitialRef = useRef<File | null>(null)
 
   useEffect(() => {
     getStorageQuota().then(setQuota).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (initialFile && initialFile !== lastInitialRef.current) {
+      lastInitialRef.current = initialFile
+      setPendingFile(initialFile)
+    }
+  }, [initialFile])
 
   const handleUpload = useCallback(async (file: File) => {
     if (!ownsRights) {
@@ -43,8 +54,15 @@ export function UploadForm({ onUploadComplete }: UploadFormProps) {
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
+      setPendingFile(null)
     }
   }, [onUploadComplete, ownsRights])
+
+  useEffect(() => {
+    if (pendingFile && ownsRights && !isUploading) {
+      handleUpload(pendingFile)
+    }
+  }, [pendingFile, ownsRights, isUploading, handleUpload])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,6 +94,14 @@ export function UploadForm({ onUploadComplete }: UploadFormProps) {
 
   return (
     <div className="upload-section">
+      {queueLabel && (
+        <div className="upload-section__queue" aria-live="polite">{queueLabel}</div>
+      )}
+      {pendingFile && !isUploading && (
+        <div className="upload-section__pending" aria-live="polite">
+          Ready: <strong>{pendingFile.name}</strong>. Confirm rights to start upload.
+        </div>
+      )}
       <label className="upload-section__rights">
         <input
           type="checkbox"

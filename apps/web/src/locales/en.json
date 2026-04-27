@@ -380,6 +380,13 @@
     },
     "shortcut": {
       "hint": "Upload book (⌘U)"
+    },
+    "dropzone": {
+      "title": "Drop to upload your book",
+      "subtitle": "EPUB, PDF, or FB2",
+      "invalid": "Unsupported file. Use EPUB, PDF or FB2.",
+      "signinRequired": "Sign in to upload books",
+      "signinAction": "Sign in"
     }
   },
   "books": {
