@@ -18,6 +18,9 @@ interface UserBookCardProps {
   onUpdate?: () => void
   progress?: { percent: number | null; chapterSlug: string | null; updatedAt: string | null }
   highlighted?: boolean
+  selectable?: boolean
+  selected?: boolean
+  onSelectToggle?: (id: string) => void
 }
 
 function formatElapsed(seconds: number): string {
@@ -32,7 +35,7 @@ function isNew(createdAt: string): boolean {
   return Date.now() - t < NEW_BADGE_TTL_MS
 }
 
-export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted }: UserBookCardProps) {
+export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted, selectable, selected, onSelectToggle }: UserBookCardProps) {
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [elapsed, setElapsed] = useState(0)
@@ -77,8 +80,32 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
     ? (progress?.chapterSlug ? `/${language}/library/my/${book.id}/read/${progress.chapterSlug}` : `/${language}/library/my/${book.id}`)
     : '#'
 
+  const cardClasses = [
+    'user-book-card',
+    highlighted ? 'user-book-card--highlighted' : '',
+    selectable ? 'user-book-card--selectable' : '',
+    selected ? 'user-book-card--selected' : '',
+  ].filter(Boolean).join(' ')
+
+  const onCardClickCapture = (e: React.MouseEvent) => {
+    if (!selectable || !onSelectToggle) return
+    e.preventDefault()
+    e.stopPropagation()
+    onSelectToggle(book.id)
+  }
+
   return (
-    <div className={`user-book-card${highlighted ? ' user-book-card--highlighted' : ''}`}>
+    <div className={cardClasses} onClickCapture={onCardClickCapture}>
+      {selectable && (
+        <label className="user-book-card__check" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onSelectToggle?.(book.id)}
+            aria-label={`Select ${book.title}`}
+          />
+        </label>
+      )}
       <div className="user-book-card__cover-wrap">
         <Link
           to={destination}

@@ -109,3 +109,15 @@ public record UpdateUserBookMetadataRequest(
 public record SetTagsRequest(string[] Tags);
 
 public record TagCountDto(string Tag, int Count);
+
+public record BulkIdsRequest(Guid[] Ids);
+
+public record BulkFinishRequest(Guid[] Ids, bool IsFinished);
+
+public record BulkTagsRequest(Guid[] Ids, string[]? AddTags, string[]? RemoveTags);
+
+public record BulkCollectionRequest(Guid[] Ids, string BookType);
+
+public record BulkResultDto(Guid[] Succeeded, BulkFailureDto[] Failed);
+
+public record BulkFailureDto(Guid Id, string Reason);

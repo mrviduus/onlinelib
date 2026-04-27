@@ -26,9 +26,15 @@ import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { CollectionChips } from '../components/library/CollectionChips'
 import { getCollectionBookIds } from '../api/collections'
+import { BulkActionBar } from '../components/library/BulkActionBar'
+import { useLibrarySelection } from '../hooks/useLibrarySelection'
+import { invalidateUserTagsCache } from '../hooks/useUserTags'
 import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
-import { getUserBooks, getUserBookCoverUrl, type UserBook } from '../api/userBooks'
+import {
+  getUserBooks, getUserBookCoverUrl, type UserBook,
+  bulkDeleteUserBooks, bulkFinishUserBooks, bulkTagUserBooks, bulkAddToCollection,
+} from '../api/userBooks'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
 
@@ -62,6 +68,8 @@ export function LibraryPage() {
   const collectionIdParam = searchParams.get('collection')
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
   const [collectionBookIds, setCollectionBookIds] = useState<Set<string> | null>(null)
+  const selection = useLibrarySelection()
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
     if (!features.myBooksV2.collections) return
@@ -180,6 +188,54 @@ export function LibraryPage() {
     : searchedUserBooks
   const sortedItems = sortLibraryItems(collectionFilteredItems, savedSort, progressMap)
   const sortedUserBooks = sortUserBooks(collectionFilteredUserBooks, uploadsSort)
+
+  // Bulk handlers (uploads tab) — defined here so sortedUserBooks is in scope
+  const runBulk = async (op: () => Promise<void>) => {
+    setBulkBusy(true)
+    try { await op() } finally { setBulkBusy(false) }
+  }
+  const ids = () => Array.from(selection.selected)
+  const onBulkFinish = () => runBulk(async () => {
+    await bulkFinishUserBooks(ids(), true)
+    selection.exit()
+    fetchUserBooks()
+  })
+  const onBulkDelete = () => {
+    const titles = userBooks.filter(b => selection.selected.has(b.id)).slice(0, 5).map(b => b.title)
+    const more = selection.count - titles.length
+    const msg = `Delete ${selection.count} book${selection.count === 1 ? '' : 's'}?\n\n` +
+      titles.join('\n') + (more > 0 ? `\n…and ${more} more` : '')
+    if (!window.confirm(msg)) return
+    runBulk(async () => {
+      await bulkDeleteUserBooks(ids())
+      selection.exit()
+      fetchUserBooks()
+    })
+  }
+  const onBulkAddTag = (tag: string) => runBulk(async () => {
+    await bulkTagUserBooks(ids(), [tag], [])
+    invalidateUserTagsCache()
+    fetchUserBooks()
+  })
+  const onBulkAddToCollection = (collectionId: string) => runBulk(async () => {
+    await bulkAddToCollection(collectionId, ids(), 'userbook')
+    selection.exit()
+    fetchUserBooks()
+  })
+  const onSelectAllVisible = () => selection.selectAll(sortedUserBooks.map(b => ({ id: b.id })))
+
+  useEffect(() => {
+    if (!selection.active) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        onSelectAllVisible()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection.active, sortedUserBooks])
 
   if (authLoading) {
     return (
@@ -440,6 +496,15 @@ export function LibraryPage() {
             <div className="library-toolbar">
               <div className="library-toolbar__left">
                 <LibrarySortMenu value={uploadsSort} onChange={setUploadsSort} />
+                {features.myBooksV2.bulkSelect && userBooks.length > 0 && (
+                  <button
+                    type="button"
+                    className={`library-select-btn ${selection.active ? 'library-select-btn--active' : ''}`}
+                    onClick={() => selection.active ? selection.exit() : selection.enter()}
+                  >
+                    {selection.active ? t('library.bulk.cancel') : t('library.bulk.select')}
+                  </button>
+                )}
               </div>
               <div className="library-toolbar__right">
                 <button
@@ -610,6 +675,9 @@ export function LibraryPage() {
                     onUpdate={fetchUserBooks}
                     progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
                     highlighted={highlightedBookId === book.id}
+                    selectable={features.myBooksV2.bulkSelect && selection.active}
+                    selected={selection.isSelected(book.id)}
+                    onSelectToggle={selection.toggle}
                   />
                 ))}
               </div>
@@ -620,7 +688,7 @@ export function LibraryPage() {
       </main>
 
       {/* FAB */}
-      {activeTab === 'uploads' && (
+      {activeTab === 'uploads' && !selection.active && (
         <button
           className="library-fab"
           onClick={() => setShowUploadModal(true)}
@@ -628,6 +696,19 @@ export function LibraryPage() {
         >
           <span className="material-icons-outlined">add</span>
         </button>
+      )}
+
+      {features.myBooksV2.bulkSelect && selection.active && activeTab === 'uploads' && (
+        <BulkActionBar
+          count={selection.count}
+          onCancel={selection.exit}
+          onSelectAll={onSelectAllVisible}
+          onMarkFinished={onBulkFinish}
+          onDelete={onBulkDelete}
+          onAddTag={onBulkAddTag}
+          onAddToCollection={onBulkAddToCollection}
+          busy={bulkBusy}
+        />
       )}
     </div>
     <Footer />

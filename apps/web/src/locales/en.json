@@ -458,6 +458,21 @@
       "newPlaceholder": "Collection name…",
       "add": "Add"
     },
+    "bulk": {
+      "select": "Select",
+      "cancel": "Cancel",
+      "selectedCount": "{n} selected",
+      "selectAll": "Select all",
+      "markFinished": "Mark finished",
+      "addToCollection": "Add to collection",
+      "addTag": "Add tag",
+      "delete": "Delete",
+      "confirmDeleteTitle": "Delete {n} books?",
+      "confirmDeleteList": "and {n} more",
+      "confirmDelete": "Delete",
+      "doneSummary": "{ok} done, {fail} failed",
+      "tagPlaceholder": "Tag name…"
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

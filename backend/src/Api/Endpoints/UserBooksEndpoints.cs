@@ -38,8 +38,64 @@ public static class UserBooksEndpoints
         group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
         group.MapPut("/{id:guid}/tags", SetTags).WithName("SetUserBookTags");
 
+        group.MapPost("/bulk/finish", BulkFinish).WithName("BulkFinishUserBooks");
+        group.MapPost("/bulk/delete", BulkDelete).WithName("BulkDeleteUserBooks");
+        group.MapPost("/bulk/tags", BulkTags).WithName("BulkTagsUserBooks");
+        group.MapPost("/bulk/collection/{collectionId:guid}/add", BulkAddToCollection).WithName("BulkAddCollection");
+        group.MapPost("/bulk/collection/{collectionId:guid}/remove", BulkRemoveFromCollection).WithName("BulkRemoveCollection");
+
         var libraryGroup = app.MapGroup("/me/library").WithTags("User Library");
         libraryGroup.MapGet("/tags", GetUserTags).WithName("GetUserLibraryTags");
+    }
+
+    private static async Task<IResult> BulkFinish(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkFinishRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.SetFinishedAsync(userId.Value, req.Ids ?? [], req.IsFinished, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkDelete(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkIdsRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.DeleteAsync(userId.Value, req.Ids ?? [], ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkTags(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkTagsRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.AddTagsAsync(userId.Value, req.Ids ?? [], req.AddTags ?? [], req.RemoveTags ?? [], ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkAddToCollection(
+        Guid collectionId, HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkCollectionRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.AddToCollectionAsync(userId.Value, collectionId, req.Ids ?? [], req.BookType, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkRemoveFromCollection(
+        Guid collectionId, HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkCollectionRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.RemoveFromCollectionAsync(userId.Value, collectionId, req.Ids ?? [], req.BookType, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
     }
 
     private static async Task<IResult> SetTags(
