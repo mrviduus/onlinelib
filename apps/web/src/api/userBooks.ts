@@ -241,6 +241,21 @@ export async function bulkAddToCollection(collectionId: string, ids: string[], b
   })
 }
 
+export interface UserBookStats {
+  bookId: string
+  sessionsCount: number
+  totalReadMinutes: number
+  wordsRead: number
+  vocabSavedCount: number
+  highlightsCount: number
+  averageWordsPerMinute: number
+  estimatedMinutesRemaining: number | null
+}
+
+export async function getUserBookStats(bookId: string): Promise<UserBookStats> {
+  return authFetch<UserBookStats>(`/me/books/${bookId}/stats`)
+}
+
 export async function bulkRemoveFromCollection(collectionId: string, ids: string[], bookType: 'userbook' | 'savedbook'): Promise<BulkResult> {
   return authFetch<BulkResult>(`/me/books/bulk/collection/${collectionId}/remove`, {
     method: 'POST',

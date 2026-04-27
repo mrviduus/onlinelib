@@ -7,6 +7,8 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
+import { BookStatsSection } from '../components/library/BookStatsSection'
+import { features } from '../lib/features'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -283,6 +285,10 @@ export function UserBookDetailPage() {
           </div>
         </div>
       </div>
+
+      {features.myBooksV2.bookStats && isReady && book && (
+        <BookStatsSection bookId={book.id} />
+      )}
 
       {isReady && book.chapters.length > 0 && (
         <div className="user-book-detail__chapters">

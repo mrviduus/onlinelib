@@ -121,3 +121,14 @@ public record BulkCollectionRequest(Guid[] Ids, string BookType);
 public record BulkResultDto(Guid[] Succeeded, BulkFailureDto[] Failed);
 
 public record BulkFailureDto(Guid Id, string Reason);
+
+public record BookStatsDto(
+    Guid BookId,
+    int SessionsCount,
+    long TotalReadMinutes,
+    int WordsRead,
+    int VocabSavedCount,
+    int HighlightsCount,
+    decimal AverageWordsPerMinute,
+    int? EstimatedMinutesRemaining
+);

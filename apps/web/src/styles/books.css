@@ -6812,3 +6812,17 @@ html.dark .book-hero__read-btn--secondary {
 }
 .bulk-action-bar__menu--list button:hover { background: var(--color-accent-bg, #f1ece2); }
 
+
+/* Per-book stats (slice 15) */
+.book-stats { margin: 24px 0; padding: 20px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e0d8c8); border-radius: 12px; }
+.book-stats--empty { display: flex; align-items: center; gap: 12px; padding: 16px 20px; color: var(--color-text-secondary, #666); }
+.book-stats__empty-icon { font-size: 24px; }
+.book-stats__title { font-size: 16px; margin: 0 0 16px 0; color: var(--color-text-secondary, #666); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.book-stats__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.book-stats__tile { padding: 12px; background: var(--color-bg, #fafaf7); border-radius: 8px; }
+.book-stats__tile--link { text-decoration: none; color: inherit; transition: background 120ms; }
+.book-stats__tile--link:hover { background: var(--color-accent-bg, #f1ece2); }
+.book-stats__tile-label { font-size: 12px; color: var(--color-text-secondary, #888); margin-bottom: 4px; }
+.book-stats__tile-value { font-size: 22px; font-weight: 700; color: var(--color-text, #333); }
+.book-stats__tile-unit { font-size: 12px; font-weight: 400; color: var(--color-text-secondary, #888); }
+

@@ -121,6 +121,7 @@ builder.Services.AddScoped<Application.UserBooks.MetadataService>();
 builder.Services.AddScoped<Application.UserBooks.TagService>();
 builder.Services.AddScoped<Application.Collections.CollectionService>();
 builder.Services.AddScoped<Application.UserBooks.BulkActionService>();
+builder.Services.AddScoped<Application.UserBooks.BookStatsService>();
 
 // Standard Ebooks sync
 builder.Services.AddHttpClient<StandardEbooksSyncService>();

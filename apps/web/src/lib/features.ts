@@ -14,5 +14,6 @@ export const features = {
     tags: env('VITE_FEATURE_MYBOOKS_V2_TAGS') ?? isDev,
     collections: env('VITE_FEATURE_MYBOOKS_V2_COLLECTIONS') ?? isDev,
     bulkSelect: env('VITE_FEATURE_MYBOOKS_V2_BULK_SELECT') ?? isDev,
+    bookStats: env('VITE_FEATURE_MYBOOKS_V2_BOOK_STATS') ?? isDev,
   },
 } as const

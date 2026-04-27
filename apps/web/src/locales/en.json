@@ -458,6 +458,17 @@
       "newPlaceholder": "Collection name…",
       "add": "Add"
     },
+    "bookStats": {
+      "title": "Your stats",
+      "empty": "Start reading to see stats",
+      "readingTime": "Reading time",
+      "sessions": "Sessions",
+      "wordsRead": "Words read",
+      "vocabSaved": "Vocab saved",
+      "highlights": "Highlights",
+      "pace": "Pace",
+      "timeLeft": "Time left"
+    },
     "bulk": {
       "select": "Select",
       "cancel": "Cancel",

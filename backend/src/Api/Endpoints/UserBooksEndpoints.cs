@@ -38,6 +38,8 @@ public static class UserBooksEndpoints
         group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
         group.MapPut("/{id:guid}/tags", SetTags).WithName("SetUserBookTags");
 
+        group.MapGet("/{id:guid}/stats", GetBookStats).WithName("GetUserBookStats");
+
         group.MapPost("/bulk/finish", BulkFinish).WithName("BulkFinishUserBooks");
         group.MapPost("/bulk/delete", BulkDelete).WithName("BulkDeleteUserBooks");
         group.MapPost("/bulk/tags", BulkTags).WithName("BulkTagsUserBooks");
@@ -46,6 +48,18 @@ public static class UserBooksEndpoints
 
         var libraryGroup = app.MapGroup("/me/library").WithTags("User Library");
         libraryGroup.MapGet("/tags", GetUserTags).WithName("GetUserLibraryTags");
+    }
+
+    private static async Task<IResult> GetBookStats(
+        Guid id, HttpContext httpContext, AuthService authService, BookStatsService svc, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var stats = await svc.GetStatsAsync(userId.Value, id, ct);
+        if (stats is null) return Results.NotFound();
+        return Results.Ok(new BookStatsDto(
+            stats.BookId, stats.SessionsCount, stats.TotalReadMinutes, stats.WordsRead,
+            stats.VocabSavedCount, stats.HighlightsCount, stats.AverageWordsPerMinute, stats.EstimatedMinutesRemaining));
     }
 
     private static async Task<IResult> BulkFinish(
