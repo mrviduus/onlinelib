@@ -127,7 +127,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.CompletedAt,
                 b.ProgressPercent,
                 b.ProgressUpdatedAt,
-                b.ProgressChapterSlug
+                b.ProgressChapterSlug,
+                b.Tags
             })
             .ToListAsync(ct);
 
@@ -148,7 +149,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             b.CompletedAt,
             b.ProgressPercent,
             b.ProgressUpdatedAt,
-            b.ProgressChapterSlug
+            b.ProgressChapterSlug,
+            b.Tags ?? []
         )).ToList();
     }
 

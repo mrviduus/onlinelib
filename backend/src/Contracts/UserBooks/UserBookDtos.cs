@@ -17,7 +17,8 @@ public record UserBookListDto(
     DateTimeOffset? CompletedAt,
     double? ProgressPercent,
     DateTimeOffset? ProgressUpdatedAt,
-    string? ProgressChapterSlug
+    string? ProgressChapterSlug,
+    string[] Tags
 );
 
 public record UserBookDetailDto(
@@ -104,3 +105,7 @@ public record UpdateUserBookMetadataRequest(
     string? Description,
     int? PublishedYear
 );
+
+public record SetTagsRequest(string[] Tags);
+
+public record TagCountDto(string Tag, int Count);

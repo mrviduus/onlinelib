@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
 import { useLanguage } from '../../context/LanguageContext'
 import { BookStatusBadge } from './BookStatusBadge'
 import { GeneratedCover } from './GeneratedCover'
 import { BookActionMenu } from './BookActionMenu'
+import { TagPill } from './TagPill'
+import { features } from '../../lib/features'
 
 const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -34,6 +36,15 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [elapsed, setElapsed] = useState(0)
+  const [, setSearchParams] = useSearchParams()
+  const filterByTag = (tag: string) => {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev)
+      sp.set('tab', 'uploads')
+      sp.set('q', `tag:${tag}`)
+      return sp
+    }, { replace: false })
+  }
 
   const isProcessing = book.status === 'Processing'
 
@@ -134,6 +145,16 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           </Link>
           {book.author && (
             <div className="user-book-card__author">{book.author}</div>
+          )}
+          {features.myBooksV2.tags && book.tags && book.tags.length > 0 && (
+            <div className="user-book-card__tags">
+              {book.tags.slice(0, 4).map((tag) => (
+                <TagPill key={tag} tag={tag} onClick={() => filterByTag(tag)} />
+              ))}
+              {book.tags.length > 4 && (
+                <span className="user-book-card__tags-more">+{book.tags.length - 4}</span>
+              )}
+            </div>
           )}
           <div className="user-book-card__meta">
             {isReady && book.completedAt && (

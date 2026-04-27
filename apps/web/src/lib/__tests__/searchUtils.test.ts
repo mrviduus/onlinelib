@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchesQuery, normalizeForSearch } from '../searchUtils'
+import { matchesQuery, normalizeForSearch, parseQuery } from '../searchUtils'
 
 describe('normalizeForSearch', () => {
   it('strips diacritics + lowercases', () => {
@@ -39,5 +39,37 @@ describe('matchesQuery', () => {
   it('null fields handled', () => {
     expect(matchesQuery({ title: null, author: null }, 'foo')).toBe(false)
     expect(matchesQuery({ title: null, author: 'Tolstoy' }, 'tolstoy')).toBe(true)
+  })
+})
+
+describe('parseQuery', () => {
+  it('extracts tag tokens and remaining text', () => {
+    expect(parseQuery('tag:fantasy tolkien')).toEqual({ tags: ['fantasy'], text: 'tolkien' })
+  })
+  it('handles multiple tag tokens', () => {
+    expect(parseQuery('tag:fantasy tag:2026')).toEqual({ tags: ['fantasy', '2026'], text: '' })
+  })
+  it('lowercases tag values and strips empties', () => {
+    expect(parseQuery('TAG:FOO bar')).toEqual({ tags: ['foo'], text: 'bar' })
+  })
+  it('returns empty arrays for plain text', () => {
+    expect(parseQuery('war and peace')).toEqual({ tags: [], text: 'war and peace' })
+  })
+})
+
+describe('matchesQuery with tags', () => {
+  const book = { title: 'Lord of the Rings', author: 'Tolkien', tags: ['fantasy', 'classic'] }
+
+  it('tag: filter requires presence', () => {
+    expect(matchesQuery(book, 'tag:fantasy')).toBe(true)
+    expect(matchesQuery(book, 'tag:scifi')).toBe(false)
+  })
+  it('multiple tag: tokens are AND', () => {
+    expect(matchesQuery(book, 'tag:fantasy tag:classic')).toBe(true)
+    expect(matchesQuery(book, 'tag:fantasy tag:scifi')).toBe(false)
+  })
+  it('tag + text combine', () => {
+    expect(matchesQuery(book, 'tag:fantasy tolkien')).toBe(true)
+    expect(matchesQuery(book, 'tag:fantasy dickens')).toBe(false)
   })
 })

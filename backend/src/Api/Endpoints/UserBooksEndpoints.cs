@@ -36,6 +36,39 @@ public static class UserBooksEndpoints
         group.MapGet("/{id:guid}/export/epub", ExportEpub).WithName("ExportUserBookEpub");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
         group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
+        group.MapPut("/{id:guid}/tags", SetTags).WithName("SetUserBookTags");
+
+        var libraryGroup = app.MapGroup("/me/library").WithTags("User Library");
+        libraryGroup.MapGet("/tags", GetUserTags).WithName("GetUserLibraryTags");
+    }
+
+    private static async Task<IResult> SetTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        [FromBody] SetTagsRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (tags, error) = await tagService.SetTagsAsync(userId.Value, id, request.Tags ?? [], ct);
+        if (error is not null) return Results.NotFound();
+        return Results.Ok(new { tags });
+    }
+
+    private static async Task<IResult> GetUserTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var tags = await tagService.GetUserTagsAsync(userId.Value, ct);
+        return Results.Ok(tags.Select(t => new TagCountDto(t.Tag, t.Count)));
     }
 
     private static async Task<IResult> UpdateMetadata(

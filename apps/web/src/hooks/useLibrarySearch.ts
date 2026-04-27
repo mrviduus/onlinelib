@@ -24,6 +24,13 @@ export function useLibrarySearch(tab: LibraryTab) {
     }, { replace: true })
   }, [debouncedQuery, setSearchParams])
 
+  // sync FROM url when it changes externally (e.g. tag pill click)
+  const urlQ = searchParams.get('q') ?? ''
+  useEffect(() => {
+    if (urlQ !== query) setQueryState(urlQ)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlQ])
+
   const setQuery = useCallback((next: string) => { setQueryState(next) }, [])
   const clear = useCallback(() => { setQueryState('') }, [])
 

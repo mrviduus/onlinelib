@@ -38,6 +38,9 @@ public class UserBook
     // JSONB array of prior metadata snapshots (capped at 5 server-side)
     public string? MetadataHistoryJson { get; set; }
 
+    // User-defined tags (slice 12) — Postgres text[] with GIN index, max 20 enforced server-side
+    public string[] Tags { get; set; } = [];
+
     public User User { get; set; } = null!;
     public ICollection<UserChapter> Chapters { get; set; } = [];
     public ICollection<UserBookFile> BookFiles { get; set; } = [];

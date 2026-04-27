@@ -6,15 +6,18 @@ vi.mock('../../../hooks/useTranslation', () => ({
 }))
 
 const updateMock = vi.fn(async (_id: string, _data: unknown) => ({}))
+const setTagsMock = vi.fn(async (_id: string, _tags: string[]) => [])
 
 vi.mock('../../../api/userBooks', () => ({
   updateUserBookMetadata: (id: string, data: unknown) => updateMock(id, data),
+  setUserBookTags: (id: string, tags: string[]) => setTagsMock(id, tags),
+  getUserTags: async () => [],
 }))
 
 import { UserBookEditModal } from '../UserBookEditModal'
 import type { UserBook } from '../../../api/userBooks'
 
-afterEach(() => { cleanup(); updateMock.mockClear() })
+afterEach(() => { cleanup(); updateMock.mockClear(); setTagsMock.mockClear() })
 
 const book: UserBook = {
   id: 'b1', title: 'My Book', slug: 'my-book', language: 'en', author: 'Author',

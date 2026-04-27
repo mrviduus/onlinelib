@@ -19,6 +19,7 @@ export interface UserBook {
   progressPercent: number | null
   progressUpdatedAt: string | null
   progressChapterSlug: string | null
+  tags?: string[]
 }
 
 export interface UserChapterSummary {
@@ -182,6 +183,24 @@ export async function updateUserBookMetadata(
 export function getUserBookCoverUrl(coverPath: string | null | undefined): string | undefined {
   if (!coverPath) return undefined
   return `${API_BASE}/storage/${coverPath}`
+}
+
+// Tags API
+export interface TagCount {
+  tag: string
+  count: number
+}
+
+export async function setUserBookTags(bookId: string, tags: string[]): Promise<string[]> {
+  return authFetch<string[]>(`/me/books/${bookId}/tags`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tags }),
+  })
+}
+
+export async function getUserTags(): Promise<TagCount[]> {
+  return authFetch<TagCount[]>('/me/library/tags')
 }
 
 // Progress API

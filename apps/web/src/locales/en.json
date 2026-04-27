@@ -444,6 +444,13 @@
       "errorGenreTooLong": "Genre is too long (max 100)",
       "errorDescriptionTooLong": "Description is too long (max 2000)"
     },
+    "tags": {
+      "add": "Tags",
+      "placeholder": "Add tag…",
+      "limit": "Tag limit reached (20)",
+      "dropdown": "All tags",
+      "clear": "Clear tag filter"
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

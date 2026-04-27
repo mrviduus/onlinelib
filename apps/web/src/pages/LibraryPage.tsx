@@ -20,8 +20,9 @@ import {
   useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../hooks/useLibraryFilter'
 import { useLibrarySearch } from '../hooks/useLibrarySearch'
-import { matchesQuery } from '../lib/searchUtils'
+import { matchesQuery, parseQuery } from '../lib/searchUtils'
 import { features } from '../lib/features'
+import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
@@ -54,7 +55,15 @@ export function LibraryPage() {
   const { filter: uploadsFilter, setFilter: setUploadsFilter } = useLibraryFilter('uploads')
   const { query: savedQuery, debouncedQuery: savedQueryD, setQuery: setSavedQuery, clear: clearSavedQuery } = useLibrarySearch('saved')
   const { query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery } = useLibrarySearch('uploads')
+  const { tags: userTags } = useUserTags()
   const [showUploadModal, setShowUploadModal] = useState(false)
+
+  const activeUploadTag = features.myBooksV2.tags ? (parseQuery(uploadsQueryD).tags[0] ?? null) : null
+  const onUploadTagSelect = (tag: string | null) => {
+    if (!tag) { setUploadsQuery(parseQuery(uploadsQueryD).text) ; return }
+    const text = parseQuery(uploadsQueryD).text
+    setUploadsQuery(text ? `tag:${tag} ${text}` : `tag:${tag}`)
+  }
 
   // Persist view mode
   useEffect(() => {
@@ -136,7 +145,7 @@ export function LibraryPage() {
   const filteredItems = filterLibraryItems(items, savedFilter, progressMap)
   const filteredUserBooks = filterUserBooks(userBooks, uploadsFilter)
   const searchedItems = savedQueryD ? filteredItems.filter(i => matchesQuery({ title: i.title }, savedQueryD)) : filteredItems
-  const searchedUserBooks = uploadsQueryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author }, uploadsQueryD)) : filteredUserBooks
+  const searchedUserBooks = uploadsQueryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author, tags: b.tags }, uploadsQueryD)) : filteredUserBooks
   const sortedItems = sortLibraryItems(searchedItems, savedSort, progressMap)
   const sortedUserBooks = sortUserBooks(searchedUserBooks, uploadsSort)
 
@@ -417,7 +426,14 @@ export function LibraryPage() {
             {userBooks.length > 0 && (
               <>
                 <LibrarySearch value={uploadsQuery} onChange={setUploadsQuery} />
-                <LibraryFilters value={uploadsFilter} onChange={setUploadsFilter} counts={uploadsCounts} />
+                <LibraryFilters
+                  value={uploadsFilter}
+                  onChange={setUploadsFilter}
+                  counts={uploadsCounts}
+                  tags={features.myBooksV2.tags ? userTags : undefined}
+                  activeTag={activeUploadTag}
+                  onTagClick={features.myBooksV2.tags ? onUploadTagSelect : undefined}
+                />
               </>
             )}
 

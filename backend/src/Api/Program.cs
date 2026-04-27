@@ -118,6 +118,7 @@ builder.Services.AddScoped<TextStackImportService>();
 // User books
 builder.Services.AddScoped<Application.UserBooks.UserBookService>();
 builder.Services.AddScoped<Application.UserBooks.MetadataService>();
+builder.Services.AddScoped<Application.UserBooks.TagService>();
 
 // Standard Ebooks sync
 builder.Services.AddHttpClient<StandardEbooksSyncService>();

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useUpdateUserBookMetadata } from '../../hooks/useUpdateUserBookMetadata'
-import type { UserBook } from '../../api/userBooks'
+import { setUserBookTags, type UserBook } from '../../api/userBooks'
+import { invalidateUserTagsCache } from '../../hooks/useUserTags'
+import { features } from '../../lib/features'
+import { TagInput } from './TagInput'
 
 interface Props {
   open: boolean
@@ -26,6 +29,7 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
   const [language, setLanguage] = useState(book.language)
   const [genre, setGenre] = useState(book.genre ?? '')
   const [description, setDescription] = useState(book.description ?? '')
+  const [tags, setTags] = useState<string[]>(book.tags ?? [])
 
   const panelRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -37,7 +41,8 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
     setLanguage(book.language)
     setGenre(book.genre ?? '')
     setDescription(book.description ?? '')
-  }, [open, book.id, book.title, book.author, book.language, book.genre, book.description])
+    setTags(book.tags ?? [])
+  }, [open, book.id, book.title, book.author, book.language, book.genre, book.description, book.tags])
 
   useEffect(() => {
     if (!open) return
@@ -71,6 +76,18 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
       description: description.trim() || null,
     })
     if (result) {
+      if (features.myBooksV2.tags) {
+        const before = (book.tags ?? []).slice().sort().join('|')
+        const after = tags.slice().sort().join('|')
+        if (before !== after) {
+          try {
+            await setUserBookTags(book.id, tags)
+            invalidateUserTagsCache()
+          } catch {
+            // ignore — metadata already saved
+          }
+        }
+      }
       onSaved()
       onClose()
     }
@@ -176,6 +193,15 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
             </span>
             {descriptionError && <span className="user-book-edit-modal__err">{descriptionError}</span>}
           </label>
+
+          {features.myBooksV2.tags && (
+            <div className="user-book-edit-modal__field">
+              <span className="user-book-edit-modal__label">
+                {t('library.tags.add')}
+              </span>
+              <TagInput value={tags} onChange={setTags} disabled={saving} />
+            </div>
+          )}
 
           {error && <div className="user-book-edit-modal__server-err" role="alert">{error}</div>}
 
