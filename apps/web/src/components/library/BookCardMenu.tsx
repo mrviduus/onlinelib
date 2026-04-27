@@ -1,3 +1,4 @@
+// TODO(my-books-v2 cleanup): remove — replaced by BookActionMenu (slice 10)
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
