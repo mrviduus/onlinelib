@@ -365,6 +365,14 @@
     "failed": "Failed",
     "noUploads": "No uploaded books yet.",
     "uploadHint": "Click the + button to upload EPUB, PDF or FB2 files.",
+    "empty": {
+      "uploads": {
+        "title": "Drop your first book here",
+        "subtitle": "EPUB, PDF, or FB2",
+        "cta": "Or browse files",
+        "shortcut": "or press ⌘U from anywhere"
+      }
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

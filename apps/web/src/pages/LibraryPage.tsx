@@ -10,6 +10,7 @@ import { Footer } from '../components/Footer'
 import { OfflineBadge } from '../components/OfflineBadge'
 import { BookCardMenu } from '../components/library/BookCardMenu'
 import { UploadSection } from '../components/library/UploadSection'
+import { UploadDropZone } from '../components/library/UploadDropZone'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { UserBookMenu } from '../components/library/UserBookMenu'
 import { EmptyState } from '../components/EmptyState'
@@ -456,7 +457,7 @@ export function LibraryPage() {
             {userBooksLoading && userBooks.length === 0 ? (
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : userBooks.length === 0 ? (
-              <EmptyState icon="☁️" title={t('library.noUploads')} subtitle={t('library.uploadHint')} />
+              <UploadDropZone />
             ) : viewMode === 'list' ? (
               <div className="library-list">
                 {sortedUserBooks.map((book) => {
