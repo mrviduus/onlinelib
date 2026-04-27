@@ -55,7 +55,7 @@ public static class UserBooksEndpoints
 
         var (tags, error) = await tagService.SetTagsAsync(userId.Value, id, request.Tags ?? [], ct);
         if (error is not null) return Results.NotFound();
-        return Results.Ok(new { tags });
+        return Results.Ok(tags);
     }
 
     private static async Task<IResult> GetUserTags(

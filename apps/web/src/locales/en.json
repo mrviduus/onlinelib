@@ -451,6 +451,13 @@
       "dropdown": "All tags",
       "clear": "Clear tag filter"
     },
+    "collections": {
+      "aria": "Collections",
+      "all": "All books",
+      "new": "New collection",
+      "newPlaceholder": "Collection name…",
+      "add": "Add"
+    },
     "timeJustNow": "just now",
     "timeMinAgo": "min ago",
     "timeHoursAgo": "hours ago",

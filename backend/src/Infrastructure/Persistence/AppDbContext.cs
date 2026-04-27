@@ -58,6 +58,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<SeoTemplate> SeoTemplates => Set<SeoTemplate>();
     public DbSet<SeoBackfillJob> SeoBackfillJobs => Set<SeoBackfillJob>();
     public DbSet<SeoBackfillSettings> SeoBackfillSettings => Set<SeoBackfillSettings>();
+    public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<BookCollection> BookCollections => Set<BookCollection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -362,6 +364,25 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Tags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
             e.HasIndex(x => x.Tags).HasMethod("gin");
             e.HasOne(x => x.User).WithMany(x => x.UserBooks).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Collection (slice 13)
+        modelBuilder.Entity<Collection>(e =>
+        {
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => new { x.UserId, x.SortOrder });
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Color).HasMaxLength(20).HasDefaultValue("default");
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // BookCollection (slice 13) — composite PK on (CollectionId, BookId, BookType)
+        modelBuilder.Entity<BookCollection>(e =>
+        {
+            e.HasKey(x => new { x.CollectionId, x.BookId, x.BookType });
+            e.HasIndex(x => x.BookId);
+            e.Property(x => x.BookType).HasMaxLength(20).IsRequired();
+            e.HasOne(x => x.Collection).WithMany(c => c.Books).HasForeignKey(x => x.CollectionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // UserChapter

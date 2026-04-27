@@ -24,6 +24,8 @@ import { matchesQuery, parseQuery } from '../lib/searchUtils'
 import { features } from '../lib/features'
 import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
+import { CollectionChips } from '../components/library/CollectionChips'
+import { getCollectionBookIds } from '../api/collections'
 import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
 import { getUserBooks, getUserBookCoverUrl, type UserBook } from '../api/userBooks'
@@ -39,7 +41,7 @@ export function LibraryPage() {
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParamsLib] = useSearchParams()
   const tabFromUrl = searchParams.get('tab')
   const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
   const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
@@ -57,6 +59,30 @@ export function LibraryPage() {
   const { query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery } = useLibrarySearch('uploads')
   const { tags: userTags } = useUserTags()
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const collectionIdParam = searchParams.get('collection')
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
+  const [collectionBookIds, setCollectionBookIds] = useState<Set<string> | null>(null)
+
+  useEffect(() => {
+    if (!features.myBooksV2.collections) return
+    if (!activeCollectionId) { setCollectionBookIds(null); return }
+    let cancelled = false
+    const bookType = activeTab === 'uploads' ? 'userbook' : 'savedbook'
+    getCollectionBookIds(activeCollectionId, bookType)
+      .then((ids) => { if (!cancelled) setCollectionBookIds(new Set(ids)) })
+      .catch(() => { if (!cancelled) setCollectionBookIds(new Set()) })
+    return () => { cancelled = true }
+  }, [activeCollectionId, activeTab])
+
+  const onCollectionChange = (id: string | null) => {
+    setActiveCollectionId(id)
+    setSearchParamsLib((prev) => {
+      const sp = new URLSearchParams(prev)
+      if (id) sp.set('collection', id)
+      else sp.delete('collection')
+      return sp
+    }, { replace: true })
+  }
 
   const activeUploadTag = features.myBooksV2.tags ? (parseQuery(uploadsQueryD).tags[0] ?? null) : null
   const onUploadTagSelect = (tag: string | null) => {
@@ -146,8 +172,14 @@ export function LibraryPage() {
   const filteredUserBooks = filterUserBooks(userBooks, uploadsFilter)
   const searchedItems = savedQueryD ? filteredItems.filter(i => matchesQuery({ title: i.title }, savedQueryD)) : filteredItems
   const searchedUserBooks = uploadsQueryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author, tags: b.tags }, uploadsQueryD)) : filteredUserBooks
-  const sortedItems = sortLibraryItems(searchedItems, savedSort, progressMap)
-  const sortedUserBooks = sortUserBooks(searchedUserBooks, uploadsSort)
+  const collectionFilteredItems = features.myBooksV2.collections && activeCollectionId && activeTab === 'saved' && collectionBookIds
+    ? searchedItems.filter(i => collectionBookIds.has(i.editionId))
+    : searchedItems
+  const collectionFilteredUserBooks = features.myBooksV2.collections && activeCollectionId && activeTab === 'uploads' && collectionBookIds
+    ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
+    : searchedUserBooks
+  const sortedItems = sortLibraryItems(collectionFilteredItems, savedSort, progressMap)
+  const sortedUserBooks = sortUserBooks(collectionFilteredUserBooks, uploadsSort)
 
   if (authLoading) {
     return (
@@ -208,6 +240,10 @@ export function LibraryPage() {
         </header>
 
         {features.myBooksV2.continueReading && <ContinueReadingShelf />}
+
+        {features.myBooksV2.collections && (
+          <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
+        )}
 
         {activeTab === 'saved' && (
           <>

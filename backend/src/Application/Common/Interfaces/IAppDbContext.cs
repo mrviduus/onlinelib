@@ -52,6 +52,8 @@ public interface IAppDbContext
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
+    DbSet<Collection> Collections { get; }
+    DbSet<BookCollection> BookCollections { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 

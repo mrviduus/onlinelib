@@ -6638,3 +6638,61 @@ html.dark .book-hero__read-btn--secondary {
 }
 .library-filters__tag-item:hover { background: var(--color-accent-bg, #f1ece2); }
 .library-filters__tag-item--active { font-weight: 600; }
+
+/* ── Collections (slice 13) ───────────────────────────────────────── */
+.collection-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+  align-items: center;
+}
+.collection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  border: 1px solid var(--color-border, #e0d8c8);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--color-text, #333);
+  transition: background 120ms, border-color 120ms;
+}
+.collection-chip:hover { background: var(--color-accent-bg, #f1ece2); }
+.collection-chip--active { background: var(--color-primary, #8b7355); color: #fff; border-color: var(--color-primary, #8b7355); }
+.collection-chip__count { font-size: 11px; opacity: 0.7; }
+.collection-chip--add { color: var(--color-primary, #8b7355); border-style: dashed; }
+.collection-chip--blue { border-left: 3px solid #4a90e2; }
+.collection-chip--green { border-left: 3px solid #4caf50; }
+.collection-chip--amber { border-left: 3px solid #ffb300; }
+.collection-chip--rose { border-left: 3px solid #e91e63; }
+.collection-chip--violet { border-left: 3px solid #9c27b0; }
+.collection-chip--teal { border-left: 3px solid #009688; }
+.collection-chip--slate { border-left: 3px solid #607d8b; }
+.collection-chip__form {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.collection-chip__form input {
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--color-border, #e0d8c8);
+  border-radius: 999px;
+  outline: none;
+}
+.collection-chip__form button {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--color-primary, #8b7355);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.collection-chip__form button:disabled { opacity: 0.5; cursor: not-allowed; }
+.collection-chip__form button:last-child { background: transparent; color: var(--color-text-secondary, #888); }

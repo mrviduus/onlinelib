@@ -12,5 +12,6 @@ export const features = {
     continueReading: env('VITE_FEATURE_MYBOOKS_V2_CONTINUE_READING') ?? isDev,
     editMetadata: env('VITE_FEATURE_MYBOOKS_V2_EDIT_METADATA') ?? isDev,
     tags: env('VITE_FEATURE_MYBOOKS_V2_TAGS') ?? isDev,
+    collections: env('VITE_FEATURE_MYBOOKS_V2_COLLECTIONS') ?? isDev,
   },
 } as const
