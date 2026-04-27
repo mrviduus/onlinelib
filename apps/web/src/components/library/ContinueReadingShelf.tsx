@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useContinueReadingList, type ContinueItem } from '../../hooks/useContinueReadingList'
 import { LocalizedLink } from '../LocalizedLink'
@@ -34,6 +34,20 @@ export function ContinueReadingShelf() {
   const { t } = useTranslation()
   const { items, loading } = useContinueReadingList(5)
   const trackRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+      if (el.scrollWidth <= el.clientWidth) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [items.length])
 
   if (loading || items.length === 0) return null
 
