@@ -1793,14 +1793,14 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #000;
+  color: #555;
   transform: translate(var(--x, 0), var(--y, 0)) translate(-50%, -100%);
   will-change: transform;
   animation: vocab-translation-fade 0.25s ease-out;
 }
 
 html[data-theme="dark"] .vocab-translation-overlay__item {
-  color: #fff;
+  color: #aaa;
 }
 
 @media (max-width: 768px) {
