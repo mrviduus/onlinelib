@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   gridCover: { width: '100%', aspectRatio: 2 / 3, borderRadius: 8 },
   gridTitle: { fontFamily: fonts.sansMedium, fontSize: 12, marginTop: 4 },
   gridBadge: {
-    position: 'absolute', top: 4, right: 32, width: 18, height: 18, borderRadius: 9,
+    position: 'absolute', top: 4, left: 4, width: 18, height: 18, borderRadius: 9,
     justifyContent: 'center', alignItems: 'center',
   },
   gridPillSlot: { position: 'absolute', top: 4, left: 4 },

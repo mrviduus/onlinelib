@@ -17,7 +17,7 @@ export function ConfirmDeleteModal({ open, title, bodyTitle, onConfirm, onCancel
 
   useEffect(() => {
     if (!open) return
-    confirmBtn.current?.focus()
+    if (!busy) confirmBtn.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onCancel(); return }
       if (e.key !== 'Tab' || !panelRef.current) return
@@ -42,7 +42,7 @@ export function ConfirmDeleteModal({ open, title, bodyTitle, onConfirm, onCancel
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
+  }, [open, busy, onCancel])
 
   if (!open) return null
 
