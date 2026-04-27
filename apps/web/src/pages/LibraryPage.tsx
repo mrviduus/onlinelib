@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useHighlightedBook } from '../hooks/useHighlightedBook'
 import { useLibrary } from '../hooks/useLibrary'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
@@ -27,7 +28,11 @@ export function LibraryPage() {
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [activeTab, setActiveTab] = useState<SidebarTab>(isGuest ? 'uploads' : 'saved')
+  const [searchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
+  const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
+  const highlightedBookId = useHighlightedBook()
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -571,6 +576,7 @@ export function LibraryPage() {
                     onRetry={fetchUserBooks}
                     onUpdate={fetchUserBooks}
                     progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
+                    highlighted={highlightedBookId === book.id}
                   />
                 ))}
               </div>

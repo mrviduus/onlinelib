@@ -372,6 +372,16 @@
     "timeDaysAgo": "days ago",
     "failedToProcess": "Failed to process"
   },
+  "upload": {
+    "button": "Upload book",
+    "modal": {
+      "title": "Upload a book",
+      "signin": "Sign in to upload"
+    },
+    "shortcut": {
+      "hint": "Upload book (⌘U)"
+    }
+  },
   "books": {
     "title": "Books",
     "seoDesc": "Read books online for free | TextStack Reader",

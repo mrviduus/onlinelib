@@ -11,6 +11,7 @@ interface UserBookCardProps {
   onCancel?: () => void
   onUpdate?: () => void
   progress?: { percent: number | null; chapterSlug: string | null; updatedAt: string | null }
+  highlighted?: boolean
 }
 
 function formatElapsed(seconds: number): string {
@@ -19,7 +20,7 @@ function formatElapsed(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress }: UserBookCardProps) {
+export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted }: UserBookCardProps) {
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [menuOpen, setMenuOpen] = useState(false)
@@ -108,7 +109,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
     : '#'
 
   return (
-    <div className="user-book-card">
+    <div className={`user-book-card${highlighted ? ' user-book-card--highlighted' : ''}`}>
       <Link
         to={destination}
         className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
