@@ -467,8 +467,9 @@ export function LibraryPage() {
                     ? (book.progressChapterSlug ? `/${language}/library/my/${book.id}/read/${book.progressChapterSlug}` : `/${language}/library/my/${book.id}`)
                     : '#'
                   const coverUrl = getUserBookCoverUrl(book.coverPath)
+                  const isHighlighted = highlightedBookId === book.id
                   return (
-                    <article key={book.id} className="library-list-item">
+                    <article key={book.id} className={`library-list-item${isHighlighted ? ' library-list-item--highlighted' : ''}`}>
                       {isReady ? (
                         <Link to={destination} className="library-list-item__cover">
                           {coverUrl ? (
