@@ -33,6 +33,7 @@ export function useContinueReadingList(limit = 5): State {
         for (const item of library.items) {
           const p = progressMap.get(item.editionId)
           if (!p || p.percent == null || p.percent <= 0 || p.percent >= 1) continue
+          if (!p.chapterSlug) continue
           items.push({ kind: 'edition', updatedAt: p.updatedAt, percent: p.percent, item, progress: p })
         }
 
@@ -41,6 +42,7 @@ export function useContinueReadingList(limit = 5): State {
           const pct = ub.progressPercent ?? 0
           if (pct <= 0 || pct >= 1) continue
           if (!ub.progressUpdatedAt) continue
+          if (!ub.progressChapterSlug) continue
           items.push({ kind: 'userbook', updatedAt: ub.progressUpdatedAt, percent: pct, book: ub })
         }
 

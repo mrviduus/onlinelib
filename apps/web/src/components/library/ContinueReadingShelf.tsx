@@ -25,11 +25,9 @@ function itemCover(it: ContinueItem): string | undefined {
 
 function itemHref(it: ContinueItem): string {
   if (it.kind === 'edition') {
-    const slug = it.progress.chapterSlug ?? ''
-    return `/books/${it.item.slug}/${slug}`
+    return `/books/${it.item.slug}/${it.progress.chapterSlug}`
   }
-  const ch = it.book.progressChapterSlug ?? ''
-  return `/library/my/${it.book.id}/read/${ch}`
+  return `/library/my/${it.book.id}/read/${it.book.progressChapterSlug}`
 }
 
 export function ContinueReadingShelf() {

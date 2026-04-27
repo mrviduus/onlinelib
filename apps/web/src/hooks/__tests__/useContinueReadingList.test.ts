@@ -96,6 +96,25 @@ describe('useContinueReadingList', () => {
     expect((result.current.items[0] as any).item.title).toBe('Reading')
   })
 
+  it('filters out items missing chapterSlug (would produce broken URLs)', async () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true })
+    getLibraryMock.mockResolvedValue({
+      total: 1,
+      items: [lib('e1', 's1', 'NoSlug')],
+    })
+    getAllProgressMock.mockResolvedValue({
+      total: 1,
+      items: [{ editionId: 'e1', chapterId: 'c1', chapterSlug: null, locator: '{}', percent: 0.4, updatedAt: '2026-04-25T10:00:00Z' }],
+    })
+    getUserBooksMock.mockResolvedValue([
+      { id: 'u1', title: 'NoChapter', author: null, status: 'Ready', progressPercent: 0.5, progressUpdatedAt: '2026-04-24T10:00:00Z', progressChapterSlug: null, coverPath: null },
+    ])
+
+    const { result } = renderHook(() => useContinueReadingList(5))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.items).toHaveLength(0)
+  })
+
   it('respects limit', async () => {
     useAuthMock.mockReturnValue({ isAuthenticated: true })
     getLibraryMock.mockResolvedValue({
