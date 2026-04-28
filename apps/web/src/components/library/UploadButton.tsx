@@ -7,7 +7,6 @@ import { useGlobalUploadShortcut } from '../../hooks/useGlobalUploadShortcut'
 import { emit } from '../../lib/telemetry/myBooksV2'
 import { UploadModal } from './UploadModal'
 import { AddMenu } from './AddMenu'
-import { features } from '../../lib/features'
 
 export function UploadButton() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -57,31 +56,13 @@ export function UploadButton() {
     )
   }
 
-  if (features.myBooksV3.addMenu) {
-    return (
-      <>
-        <AddMenu
-          onUpload={openModal}
-          triggerLabel={t('upload.button')}
-          triggerTitle={t('upload.shortcut.hint')}
-        />
-        <UploadModal open={open} onClose={closeModal} />
-      </>
-    )
-  }
-
   return (
     <>
-      <button
-        className="site-header__upload-btn"
-        onClick={openModal}
-        title={t('upload.shortcut.hint')}
-        aria-label={t('upload.button')}
-        type="button"
-      >
-        <span className="material-icons-outlined">add</span>
-        <span className="site-header__upload-btn-label">{t('upload.button')}</span>
-      </button>
+      <AddMenu
+        onUpload={openModal}
+        triggerLabel={t('upload.button')}
+        triggerTitle={t('upload.shortcut.hint')}
+      />
       <UploadModal open={open} onClose={closeModal} />
     </>
   )

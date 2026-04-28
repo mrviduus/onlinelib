@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
-import { FEATURES } from '../lib/features'
 import { AddMenuBottomSheet } from './library/AddMenuBottomSheet'
 
 export function UploadTabButton() {
@@ -12,7 +11,6 @@ export function UploadTabButton() {
   const { isAuthenticated } = useAuth()
   const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
-  const addMenu = FEATURES.myBooksV3AddMenu
 
   const goUpload = () => router.push('/my-books/upload')
 
@@ -21,11 +19,7 @@ export function UploadTabButton() {
       router.push('/auth/login')
       return
     }
-    if (addMenu) {
-      setSheetOpen(true)
-    } else {
-      goUpload()
-    }
+    setSheetOpen(true)
   }
 
   return (
@@ -41,13 +35,11 @@ export function UploadTabButton() {
           <Ionicons name="add" size={28} color="#fff" />
         </View>
       </TouchableOpacity>
-      {addMenu && (
-        <AddMenuBottomSheet
-          visible={sheetOpen}
-          onClose={() => setSheetOpen(false)}
-          onUpload={goUpload}
-        />
-      )}
+      <AddMenuBottomSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onUpload={goUpload}
+      />
     </>
   )
 }

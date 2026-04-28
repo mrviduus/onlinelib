@@ -1,5 +1,7 @@
 # My Books v2 — UX roadmap
 
+> **Status (2026-04-28):** Superseded by [v3 IA refactor](../ux-roadmap-v3/README.md). v2 shipped in full and remained stable for a week; v3 then layered IA changes on top (header reframe, library shelves, sidebar, status tabs primary, +menu). All v3 slices landed and cleanup is complete. Treat this doc as historical.
+
 Four-phase rebuild of the user-owned books experience: from "upload buried 4 clicks deep" to "Kindle-like library with tags, collections, and AI assistance."
 
 **Branch:** `ux/my-books-v2` (cut from `main` AFTER `reader/overlay-v2-foundations` merges to avoid context churn).

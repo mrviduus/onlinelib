@@ -17,17 +17,14 @@ import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
-import { ContinueReadingShelf } from '../../src/components/library/ContinueReadingShelf'
 import { LibraryShelves } from '../../src/components/library/LibraryShelves'
 import { LibrarySidebarDrawer, type LibrarySource } from '../../src/components/library/LibrarySidebarDrawer'
 import { BookStatusBadge } from '../../src/components/library/BookStatusBadge'
 import { GeneratedCover } from '../../src/components/library/GeneratedCover'
-import { FEATURES } from '../../src/lib/features'
 import { useLibrarySort, sortLibraryItems, sortUserBooks, type LibrarySortKey } from '../../src/hooks/useLibrarySort'
 import {
-  useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
+  filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../../src/hooks/useLibraryFilter'
-import { LibraryFilters } from '../../src/components/library/LibraryFilters'
 import { LibraryStatusTabs } from '../../src/components/library/LibraryStatusTabs'
 import { useLibraryStatus } from '../../src/hooks/useLibraryStatus'
 import { useLibrarySearch } from '../../src/hooks/useLibrarySearch'
@@ -57,7 +54,6 @@ export default function LibraryScreen() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const sidebarV3 = FEATURES.myBooksV3LibrarySidebar
   const [source, setSource] = useState<LibrarySource>('all')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
@@ -167,31 +163,25 @@ export default function LibraryScreen() {
     )
   }
 
-  const effectiveTab: Tab = sidebarV3 && source === 'uploads' ? 'uploads'
-    : sidebarV3 && source === 'catalog' ? 'saved'
+  const effectiveTab: Tab = source === 'uploads' ? 'uploads'
+    : source === 'catalog' ? 'saved'
     : tab
-  const showTabs = !sidebarV3 || source === 'all'
+  const showTabs = source === 'all'
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {sidebarV3 && (
-        <View style={styles.sidebarHeader}>
-          <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.menuBtn}>
-            <Ionicons name="menu" size={20} color={colors.text} />
-            <Text style={[styles.menuBtnText, { color: colors.text }]}>{t('library.sidebar.open')}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.sidebarHeader}>
+        <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.menuBtn}>
+          <Ionicons name="menu" size={20} color={colors.text} />
+          <Text style={[styles.menuBtnText, { color: colors.text }]}>{t('library.sidebar.open')}</Text>
+        </TouchableOpacity>
+      </View>
       {user && (
         <Text style={[styles.emailText, { color: colors.textSecondary }]}>
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
         </Text>
       )}
-      {FEATURES.myBooksV3LibraryShelves ? (
-        <LibraryShelves hasAnyContent={library.length > 0 || userBooks.length > 0} />
-      ) : (
-        FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />
-      )}
+      <LibraryShelves hasAnyContent={library.length > 0 || userBooks.length > 0} />
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {showTabs && (
           <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
@@ -222,19 +212,17 @@ export default function LibraryScreen() {
       ) : (
         <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       )}
-      {sidebarV3 && (
-        <LibrarySidebarDrawer
-          visible={drawerOpen}
-          source={source}
-          counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
-          onSelect={(next) => {
-            setSource(next)
-            if (next === 'uploads') setTab('uploads')
-            else if (next === 'catalog') setTab('saved')
-          }}
-          onClose={() => setDrawerOpen(false)}
-        />
-      )}
+      <LibrarySidebarDrawer
+        visible={drawerOpen}
+        source={source}
+        counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
+        onSelect={(next) => {
+          setSource(next)
+          if (next === 'uploads') setTab('uploads')
+          else if (next === 'catalog') setTab('saved')
+        }}
+        onClose={() => setDrawerOpen(false)}
+      />
     </View>
   )
 }
@@ -259,11 +247,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const { t } = useLanguage()
   const { width } = useWindowDimensions()
   const { sort, setSort } = useLibrarySort('saved')
-  const { filter: filterRaw, setFilter: setFilterRaw } = useLibraryFilter('saved')
-  const statusTabsV3 = FEATURES.myBooksV3StatusTabsPrimary
-  const v3Status = useLibraryStatus()
-  const filter = statusTabsV3 ? v3Status.status : filterRaw
-  const setFilter = statusTabsV3 ? v3Status.setStatus : setFilterRaw
+  const { status: filter, setStatus: setFilter } = useLibraryStatus()
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('saved')
   const counts = countsForLibrary(library, progressMap)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
@@ -299,11 +283,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
         ListHeaderComponent={
           <View>
             <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
-            {statusTabsV3 ? (
-              <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
-            ) : (
-              <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
-            )}
+            <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedSortRow}>
               {SORT_KEYS.map(key => (
                 <TouchableOpacity
@@ -464,11 +444,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
   const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
   const { sort, setSort } = useLibrarySort('uploads')
-  const { filter: filterRaw, setFilter: setFilterRaw } = useLibraryFilter('uploads')
-  const statusTabsV3 = FEATURES.myBooksV3StatusTabsPrimary
-  const v3Status = useLibraryStatus()
-  const filter = statusTabsV3 ? v3Status.status : filterRaw
-  const setFilter = statusTabsV3 ? v3Status.setStatus : setFilterRaw
+  const { status: filter, setStatus: setFilter } = useLibraryStatus()
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('uploads')
   const counts = countsForUploads(books)
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
@@ -528,11 +504,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
       {books.length > 0 && (
         <>
           <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
-          {statusTabsV3 ? (
-            <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
-          ) : (
-            <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
-          )}
+          <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
         </>
       )}
 

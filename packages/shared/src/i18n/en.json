@@ -193,10 +193,6 @@
     "timeYesterday": "yesterday",
     "timeDaysAgo": "days ago",
     "failedToProcess": "Failed to process",
-    "continueShelf": {
-      "title": "Continue reading",
-      "badge": "Continue"
-    },
     "sidebar": {
       "all": "All books",
       "uploads": "My uploads",
@@ -207,9 +203,6 @@
       "newCollection": "+ New collection",
       "open": "Open filters",
       "close": "Close filters"
-    },
-    "tab": {
-      "bookmarked": "Bookmarked"
     },
     "shelves": {
       "continueReading": { "title": "Continue reading", "subtitle": "Pick up where you left off" },

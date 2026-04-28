@@ -157,10 +157,28 @@ Tick after merge (do not pre-tick).
 
 - [x] 01 Header reframe
 - [ ] 02 Smart shelves at top of Library
-- [ ] 03 Library sidebar — source as filter
-- [ ] 04 Status tabs primary
-- [ ] 05 + button → menu
-- [ ] 06 Cleanup — remove `myBooksV3` flags + legacy markers
+- [x] 03 Library sidebar — source as filter
+- [x] 04 Status tabs primary
+- [x] 05 + button → menu
+- [x] 06 Cleanup — remove `myBooksV3` flags + legacy markers
+
+---
+
+## Post-mortem (slice 06 closeout — 2026-04-28)
+
+All 6 slices landed. v3 is the only path; flags removed, legacy components deleted.
+
+What went well:
+- Each slice flag-gated and bundled into one PR per slice (no CI spam).
+- Mobile + web moved together per slice 01 decision — no IA drift between platforms.
+- Telemetry module renamed `myBooksV3.ts` → `navTelemetry.ts` (drop v3 marker; it's just current state).
+- e2e race in slice 04 (default `status='reading'` filter vs progressMap fetch) caught and fixed before merge.
+
+Deleted in slice 06:
+- `apps/web/src/components/library/LibraryFilters.tsx`, `ContinueReadingShelf.tsx`, `useContinueReadingList.ts` (+ tests)
+- Mobile equivalents
+- All `VITE_FEATURE_MYBOOKSV3_*` env wiring in `.github/workflows/deploy.yml`
+- Legacy i18n keys: `library.tab.bookmarked`, `library.continueShelf.title`, `library.continueShelf.badge`
 
 ---
 
