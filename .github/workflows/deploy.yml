@@ -49,7 +49,9 @@ jobs:
         run: |
           cd $PROJECT_DIR/apps/web
           pnpm install
-          VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app pnpm build
+          VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
+            VITE_FEATURE_MYBOOKSV3_HEADER_REFRAME=false \
+            pnpm build
 
       - name: Deploy containers
         run: |

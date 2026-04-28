@@ -11,6 +11,8 @@ import { useQuickStats } from '../hooks/useQuickStats'
 import { StreakBadge } from './StreakBadge'
 import { VocabBadgePopup } from './VocabBadgePopup'
 import { UploadButton } from './library/UploadButton'
+import { features } from '../lib/features'
+import { emit } from '../lib/telemetry/myBooksV3'
 
 export function Header() {
   const [badgePopup, setBadgePopup] = useState(false)
@@ -21,20 +23,76 @@ export function Header() {
   const { t } = useTranslation()
   const quickStats = useQuickStats()
 
+  const v3 = features.myBooksV3.headerReframe
+  // /home doesn't exist until slice 03 — fall back to /library.
+  const homeTarget = '/library'
+
   return (
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
       <div className="site-header__left">
-        <LocalizedLink to="/" className="site-header__brand" title={t('nav.brandTitle')}>
+        <LocalizedLink
+          to={v3 && isAuthenticated ? homeTarget : '/'}
+          className="site-header__brand"
+          title={t('nav.brandTitle')}
+          onClick={() => v3 && emit('header.click', { item: 'logo', auth: isAuthenticated })}
+        >
           <span className="site-header__wordmark">TextStack</span>
         </LocalizedLink>
         <nav className="site-header__nav-links">
-          <DiscoverMenu />
-          <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
-            {t('nav.vocabulary')}
-          </LocalizedLink>
-          <LocalizedLink to="/about" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.aboutTextStack')}>
-            {t('nav.about')}
-          </LocalizedLink>
+          {v3 ? (
+            <>
+              {isAuthenticated && (
+                <LocalizedLink
+                  to={homeTarget}
+                  className="site-header__nav-link"
+                  title={t('nav.home')}
+                  onClick={() => emit('header.click', { item: 'home' })}
+                >
+                  {t('nav.home')}
+                </LocalizedLink>
+              )}
+              {isAuthenticated && (
+                <LocalizedLink
+                  to="/library"
+                  className="site-header__nav-link"
+                  title={t('nav.library')}
+                  onClick={() => emit('header.click', { item: 'library' })}
+                >
+                  {t('nav.library')}
+                </LocalizedLink>
+              )}
+              <DiscoverMenu />
+              {isAuthenticated && (
+                <LocalizedLink
+                  to="/vocabulary"
+                  className="site-header__nav-link"
+                  title={t('nav.vocabulary')}
+                  onClick={() => emit('header.click', { item: 'vocabulary' })}
+                >
+                  {t('nav.vocabulary')}
+                </LocalizedLink>
+              )}
+              {!isAuthenticated && (
+                <LocalizedLink
+                  to="/about"
+                  className="site-header__nav-link site-header__nav-link--secondary"
+                  title={t('nav.aboutTextStack')}
+                >
+                  {t('nav.about')}
+                </LocalizedLink>
+              )}
+            </>
+          ) : (
+            <>
+              <DiscoverMenu />
+              <LocalizedLink to="/vocabulary" className="site-header__nav-link" title={t('nav.vocabulary')}>
+                {t('nav.vocabulary')}
+              </LocalizedLink>
+              <LocalizedLink to="/about" className="site-header__nav-link site-header__nav-link--secondary" title={t('nav.aboutTextStack')}>
+                {t('nav.about')}
+              </LocalizedLink>
+            </>
+          )}
         </nav>
       </div>
       <div className="site-header__right">

@@ -18,6 +18,9 @@ export const FEATURES = {
   readerOverlayV2: readBool(process.env.EXPO_PUBLIC_READER_OVERLAY_V2, true),
   // My Books v2 — Continue Reading shelf at top of Library (Phase 2 / slice 05).
   myBooksV2ContinueReading: readBool(process.env.EXPO_PUBLIC_MYBOOKS_V2_CONTINUE_READING, true),
+  // My Books v3 — header/tab reframe (Home/Discover/+/Library/Vocab on mobile).
+  // Default OFF in prod; enable AFTER slice 04 ships smart shelves on /home.
+  myBooksV3HeaderReframe: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_HEADER_REFRAME, false),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES
