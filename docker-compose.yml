@@ -62,6 +62,8 @@ services:
       Jwt__Audience: ${JWT_AUDIENCE}
       Google__ClientId: ${GOOGLE_CLIENT_ID}
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
+      Search__Meilisearch__Url: http://meilisearch:7700
+      Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-}
       Tts__CachePath: /data/tts-cache
       Explain__CachePath: /data/explain-cache
       Translate__CachePath: /data/translate-cache
@@ -110,6 +112,8 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Storage__RootPath: /storage
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
+      Search__Meilisearch__Url: http://meilisearch:7700
+      Search__Meilisearch__MasterKey: ${MEILI_MASTER_KEY:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
