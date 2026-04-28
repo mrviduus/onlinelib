@@ -5018,6 +5018,89 @@ html.dark .user-book-detail__spinner {
   .library-filters__chip { flex-shrink: 0; }
 }
 
+/* My Books v3 — status tabs (slice 04) */
+.library-status-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.library-status-tabs__primary {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.library-status-tabs__secondary {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.library-status-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.library-status-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.library-status-tabs__tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text);
+}
+
+.library-status-tabs__tab--secondary {
+  font-size: 13px;
+  padding: 10px 10px;
+  opacity: 0.75;
+}
+
+.library-status-tabs__tab--secondary.library-status-tabs__tab--active {
+  opacity: 1;
+}
+
+.library-status-tabs__count {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+}
+
+.library-status-tabs__tab--active .library-status-tabs__count {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .library-status-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .library-status-tabs::-webkit-scrollbar { display: none; }
+  .library-status-tabs__primary { gap: 2px; }
+  .library-status-tabs__tab { padding: 10px 10px; font-size: 13px; flex-shrink: 0; }
+  .library-status-tabs__tab--secondary { padding: 10px 8px; }
+}
+
 /* View toggle */
 .library-view-btn {
   display: flex;

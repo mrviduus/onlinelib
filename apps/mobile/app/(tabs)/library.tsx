@@ -28,6 +28,8 @@ import {
   useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../../src/hooks/useLibraryFilter'
 import { LibraryFilters } from '../../src/components/library/LibraryFilters'
+import { LibraryStatusTabs } from '../../src/components/library/LibraryStatusTabs'
+import { useLibraryStatus } from '../../src/hooks/useLibraryStatus'
 import { useLibrarySearch } from '../../src/hooks/useLibrarySearch'
 import { matchesQuery } from '../../src/lib/searchUtils'
 import { LibrarySearch } from '../../src/components/library/LibrarySearch'
@@ -257,7 +259,11 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const { t } = useLanguage()
   const { width } = useWindowDimensions()
   const { sort, setSort } = useLibrarySort('saved')
-  const { filter, setFilter } = useLibraryFilter('saved')
+  const { filter: filterRaw, setFilter: setFilterRaw } = useLibraryFilter('saved')
+  const statusTabsV3 = FEATURES.myBooksV3StatusTabsPrimary
+  const v3Status = useLibraryStatus()
+  const filter = statusTabsV3 ? v3Status.status : filterRaw
+  const setFilter = statusTabsV3 ? v3Status.setStatus : setFilterRaw
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('saved')
   const counts = countsForLibrary(library, progressMap)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
@@ -293,7 +299,11 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
         ListHeaderComponent={
           <View>
             <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
-            <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+            {statusTabsV3 ? (
+              <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
+            ) : (
+              <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+            )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedSortRow}>
               {SORT_KEYS.map(key => (
                 <TouchableOpacity
@@ -454,7 +464,11 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
   const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
   const { sort, setSort } = useLibrarySort('uploads')
-  const { filter, setFilter } = useLibraryFilter('uploads')
+  const { filter: filterRaw, setFilter: setFilterRaw } = useLibraryFilter('uploads')
+  const statusTabsV3 = FEATURES.myBooksV3StatusTabsPrimary
+  const v3Status = useLibraryStatus()
+  const filter = statusTabsV3 ? v3Status.status : filterRaw
+  const setFilter = statusTabsV3 ? v3Status.setStatus : setFilterRaw
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('uploads')
   const counts = countsForUploads(books)
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
@@ -514,7 +528,11 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
       {books.length > 0 && (
         <>
           <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
-          <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+          {statusTabsV3 ? (
+            <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
+          ) : (
+            <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+          )}
         </>
       )}
 

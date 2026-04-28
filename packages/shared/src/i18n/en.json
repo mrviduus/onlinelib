@@ -245,6 +245,21 @@
       "empty": "No books match this filter",
       "clear": "Clear filter"
     },
+    "status": {
+      "reading": "Reading",
+      "finished": "Finished",
+      "notStarted": "Not started",
+      "failed": "Failed",
+      "all": "All",
+      "empty": {
+        "reading": "Open a book to start reading",
+        "finished": "Finish your first book this month",
+        "notStarted": "Looking good — you're on top of your library",
+        "failed": "These uploads need attention",
+        "all": "No books match this filter"
+      },
+      "ariaLabel": "Filter by status"
+    },
     "search": {
       "placeholder": "Search your library…",
       "empty": "No books match \"{query}\"",
