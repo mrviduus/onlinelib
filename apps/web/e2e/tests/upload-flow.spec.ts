@@ -7,7 +7,7 @@ test.describe('Header upload button (authenticated)', () => {
     const btn = page.getByRole('button', { name: /upload book/i })
     await expect(btn).toBeVisible()
     await btn.click()
-    const dialog = page.getByRole('dialog')
+    const dialog = page.getByRole('dialog', { name: /upload a book/i })
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
@@ -16,7 +16,7 @@ test.describe('Header upload button (authenticated)', () => {
   test('Cmd+U opens modal globally', async ({ authedPage: page }) => {
     await page.goto('/en/books')
     await page.keyboard.press('Meta+u')
-    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: /upload a book/i })).toBeVisible()
   })
 
   test('button visible on /en/library', async ({ authedPage: page }) => {
