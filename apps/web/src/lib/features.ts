@@ -10,5 +10,6 @@ export const features = {
     headerReframe: env('VITE_FEATURE_MYBOOKSV3_HEADER_REFRAME') ?? isDev,
     libraryShelves: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SHELVES') ?? isDev,
     librarySidebar: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SIDEBAR') ?? isDev,
+    statusTabsPrimary: env('VITE_FEATURE_MYBOOKSV3_STATUS_TABS_PRIMARY') ?? isDev,
   },
 } as const

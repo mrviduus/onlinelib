@@ -19,11 +19,13 @@ import { features } from '../lib/features'
 import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
 import { LibraryFilters } from '../components/library/LibraryFilters'
+import { LibraryStatusTabs } from '../components/library/LibraryStatusTabs'
 import { LibrarySearch } from '../components/library/LibrarySearch'
 import { useLibrarySort, sortLibraryItems, sortUserBooks } from '../hooks/useLibrarySort'
 import {
   useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../hooks/useLibraryFilter'
+import { useLibraryStatus } from '../hooks/useLibraryStatus'
 import { useLibrarySearch } from '../hooks/useLibrarySearch'
 import { matchesQuery, parseQuery } from '../lib/searchUtils'
 import { useUserTags } from '../hooks/useUserTags'
@@ -73,8 +75,14 @@ export function LibraryPage() {
   })
   const { sort: savedSort, setSort: setSavedSort } = useLibrarySort('saved')
   const { sort: uploadsSort, setSort: setUploadsSort } = useLibrarySort('uploads')
-  const { filter: savedFilter, setFilter: setSavedFilter } = useLibraryFilter('saved')
-  const { filter: uploadsFilter, setFilter: setUploadsFilter } = useLibraryFilter('uploads')
+  const { filter: savedFilterRaw, setFilter: setSavedFilterRaw } = useLibraryFilter('saved')
+  const { filter: uploadsFilterRaw, setFilter: setUploadsFilterRaw } = useLibraryFilter('uploads')
+  const statusTabsV3 = features.myBooksV3.statusTabsPrimary
+  const v3Status = useLibraryStatus()
+  const savedFilter = statusTabsV3 ? v3Status.status : savedFilterRaw
+  const setSavedFilter = statusTabsV3 ? v3Status.setStatus : setSavedFilterRaw
+  const uploadsFilter = statusTabsV3 ? v3Status.status : uploadsFilterRaw
+  const setUploadsFilter = statusTabsV3 ? v3Status.setStatus : setUploadsFilterRaw
   const { query: savedQuery, debouncedQuery: savedQueryD, setQuery: setSavedQuery, clear: clearSavedQuery } = useLibrarySearch('saved')
   const {
     query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery,
@@ -429,7 +437,11 @@ export function LibraryPage() {
             {items.length > 0 && (
               <>
                 <LibrarySearch value={savedQuery} onChange={setSavedQuery} />
-                <LibraryFilters value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
+                {statusTabsV3 ? (
+                  <LibraryStatusTabs value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
+                ) : (
+                  <LibraryFilters value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
+                )}
               </>
             )}
 
@@ -632,14 +644,22 @@ export function LibraryPage() {
                   contentSearch={uploadsContentSearch}
                   onToggleContentSearch={setUploadsContentSearch}
                 />
-                <LibraryFilters
-                  value={uploadsFilter}
-                  onChange={setUploadsFilter}
-                  counts={uploadsCounts}
-                  tags={userTags}
-                  activeTag={activeUploadTag}
-                  onTagClick={onUploadTagSelect}
-                />
+                {statusTabsV3 ? (
+                  <LibraryStatusTabs
+                    value={uploadsFilter}
+                    onChange={setUploadsFilter}
+                    counts={uploadsCounts}
+                  />
+                ) : (
+                  <LibraryFilters
+                    value={uploadsFilter}
+                    onChange={setUploadsFilter}
+                    counts={uploadsCounts}
+                    tags={userTags}
+                    activeTag={activeUploadTag}
+                    onTagClick={onUploadTagSelect}
+                  />
+                )}
               </>
             )}
 
