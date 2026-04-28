@@ -6694,6 +6694,119 @@ html.dark .book-hero__read-btn--secondary {
   background: var(--color-accent-bg, #f3ecd9);
 }
 
+/* ── Command palette (slice 18) ─────────────────────────────────────── */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+  animation: cmd-palette-fade 120ms ease-out;
+}
+.cmd-palette {
+  position: fixed;
+  top: 15vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 92vw);
+  max-height: 70vh;
+  z-index: 100;
+  background: var(--color-card-bg, #fff);
+  border: 1px solid var(--color-border, #e0d8c8);
+  border-radius: 12px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: cmd-palette-rise 120ms ease-out;
+}
+@keyframes cmd-palette-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cmd-palette-rise {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.cmd-palette__input {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 16px 18px;
+  font-size: 15px;
+  background: transparent;
+  color: var(--color-text, #2a2a2a);
+  border-bottom: 1px solid var(--color-border, #e0d8c8);
+  font-family: inherit;
+}
+.cmd-palette__list {
+  overflow-y: auto;
+  padding: 6px;
+  flex: 1;
+  min-height: 0;
+}
+.cmd-palette__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-secondary, #888);
+  font-size: 13px;
+}
+.cmd-palette__group {
+  margin-bottom: 6px;
+}
+.cmd-palette__group [cmdk-group-heading] {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #888);
+}
+.cmd-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-text, #2a2a2a);
+  cursor: pointer;
+}
+.cmd-palette__item[data-selected='true'],
+.cmd-palette__item:hover {
+  background: var(--color-accent-bg, #f3ecd9);
+}
+.cmd-palette__icon {
+  font-size: 16px;
+  color: var(--color-text-secondary, #888);
+}
+.cmd-palette__book-title { font-weight: 500; }
+.cmd-palette__book-author {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-secondary, #888);
+}
+.cmd-palette__footer {
+  border-top: 1px solid var(--color-border, #e0d8c8);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--color-text-secondary, #888);
+  background: var(--color-card-bg-soft, #fafaf6);
+}
+.cmd-palette__footer kbd {
+  font-family: var(--font-mono, monospace);
+  background: var(--color-border, #e0d8c8);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-right: 2px;
+}
+.cmd-palette__footer-spacer { flex: 1; }
+.cmd-palette__footer-lang {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
 .tag-input { position: relative; }
 .tag-input__pills {
   display: flex;
@@ -6789,17 +6902,18 @@ html.dark .book-hero__read-btn--secondary {
   padding: 5px 12px;
   font-size: 13px;
   font-family: inherit;
-  background: #fff;
+  background: var(--color-bg-card, #fff);
   border: 1px solid var(--color-border, #e0d8c8);
   border-radius: 999px;
   cursor: pointer;
   color: var(--color-text, #333);
-  transition: background 120ms, border-color 120ms;
+  transition: background 120ms, border-color 120ms, color 120ms;
 }
-.collection-chip:hover { background: var(--color-accent-bg, #f1ece2); }
-.collection-chip--active { background: var(--color-primary, #8b7355); color: #fff; border-color: var(--color-primary, #8b7355); }
+.collection-chip:hover { background: var(--color-bg-secondary, #f1ece2); border-color: var(--color-primary, #8b7355); }
+.collection-chip--active { background: var(--color-primary, #8b7355); color: var(--color-bg, #fff); border-color: var(--color-primary, #8b7355); }
 .collection-chip__count { font-size: 11px; opacity: 0.7; }
-.collection-chip--add { color: var(--color-primary, #8b7355); border-style: dashed; }
+.collection-chip--add { color: var(--color-primary, #8b7355); border-style: dashed; background: transparent; }
+.collection-chip--add:hover { background: var(--color-bg-secondary, #f1ece2); }
 .collection-chip--blue { border-left: 3px solid #4a90e2; }
 .collection-chip--green { border-left: 3px solid #4caf50; }
 .collection-chip--amber { border-left: 3px solid #ffb300; }

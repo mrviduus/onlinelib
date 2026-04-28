@@ -39,6 +39,7 @@ import { AuthModal } from './components/auth/AuthModal'
 import { CookieBanner } from './components/CookieBanner'
 import { Toast } from './components/Toast'
 import { GlobalDropZone } from './components/library/GlobalDropZone'
+import { CommandPaletteProvider } from './components/CommandPaletteProvider'
 import { useTranslation } from './hooks/useTranslation'
 import './styles/theme.css'
 import './styles/reader.css'
@@ -75,6 +76,7 @@ function LanguageRoutes() {
       {!isReaderPage && !isUserBookReaderPage && <Header />}
       <AuthSuccessToast />
       {!isReaderPage && !isUserBookReaderPage && <GlobalDropZone />}
+      <CommandPaletteProvider />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />

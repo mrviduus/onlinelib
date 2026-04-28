@@ -25,6 +25,13 @@ export function UploadButton() {
   useGlobalUploadShortcut(isAuthenticated, openModal)
 
   useEffect(() => {
+    if (!isAuthenticated) return
+    const handler = () => openModal()
+    window.addEventListener('textstack:open-upload', handler)
+    return () => window.removeEventListener('textstack:open-upload', handler)
+  }, [isAuthenticated, openModal])
+
+  useEffect(() => {
     if (!open) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'

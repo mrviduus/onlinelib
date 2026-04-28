@@ -460,6 +460,39 @@
       "dismiss": "Dismiss",
       "empty": "No suggestions"
     },
+    "palette": {
+      "title": "Command palette",
+      "placeholder": "Jump to a page, book, or run a command…",
+      "empty": "No matches",
+      "groups": {
+        "recent": "Recent",
+        "pages": "Pages",
+        "actions": "Actions",
+        "books": "Your books"
+      },
+      "pages": {
+        "home": "Home",
+        "library": "My library",
+        "discover": "Discover books",
+        "search": "Search",
+        "vocabulary": "Vocabulary",
+        "vocabularyReview": "Vocabulary review",
+        "highlights": "Highlights",
+        "stats": "Reading stats",
+        "about": "About"
+      },
+      "actions": {
+        "upload": "Upload a book",
+        "toggleTheme": "Toggle theme",
+        "signOut": "Sign out",
+        "signIn": "Sign in"
+      },
+      "kbd": {
+        "navigate": "navigate",
+        "select": "select",
+        "close": "close"
+      }
+    },
     "collections": {
       "aria": "Collections",
       "all": "All books",
