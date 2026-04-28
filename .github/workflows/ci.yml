@@ -209,6 +209,7 @@ jobs:
           API_URL: http://localhost:8080
           BASE_URL: http://localhost:5173
           ADMIN_URL: http://localhost:81
+          VITE_FEATURE_MYBOOKS_V2_UPLOAD_BUTTON: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

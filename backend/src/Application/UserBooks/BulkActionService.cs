@@ -76,7 +76,10 @@ public class BulkActionService(IAppDbContext db, UserBookService userBookService
             if (existingSet.Contains(id)) continue;
             db.BookCollections.Add(new BookCollection
             {
-                CollectionId = collectionId, BookId = id, BookType = bookType, AddedAt = now,
+                CollectionId = collectionId,
+                BookId = id,
+                BookType = bookType,
+                AddedAt = now,
             });
         }
         await db.SaveChangesAsync(ct);
