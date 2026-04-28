@@ -6425,6 +6425,76 @@ html.dark .book-hero__read-btn--secondary {
   .continue-shelf__title { font-size: 16px; }
 }
 
+/* v3-02 — Library smart shelves (stack of carousels above grid) */
+.library-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+
+.library-shelf__subtitle {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+.library-shelf__view-all {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-accent, #ff6b35);
+  white-space: nowrap;
+  scroll-snap-align: start;
+}
+.library-shelf__view-all:hover { text-decoration: underline; }
+
+.library-empty-state {
+  text-align: center;
+  padding: 48px 16px 32px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.library-empty-state__icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+.library-empty-state__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.library-empty-state__copy {
+  font-size: 14px;
+  opacity: 0.75;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.library-empty-state__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.library-empty-state__catalog-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent, #ff6b35);
+  text-decoration: none;
+}
+.library-empty-state__catalog-link:hover { text-decoration: underline; }
+
 /* Slice 06 — cover-grid + status badges + generated cover */
 .book-status-badge {
   display: inline-flex;

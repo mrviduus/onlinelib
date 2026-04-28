@@ -331,7 +331,7 @@ public class LibraryShelvesService(IAppDbContext db)
             .ToList();
     }
 
-    private static int? EstimateRemaining(int? totalWords, double progress, decimal pace)
+    public static int? EstimateRemaining(int? totalWords, double progress, decimal pace)
     {
         if (pace < MinSanePace) return null;
         if (totalWords is null or <= 0) return null;

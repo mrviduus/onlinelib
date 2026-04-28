@@ -21,6 +21,8 @@ export const FEATURES = {
   // My Books v3 — header/tab reframe (Home/Discover/+/Library/Vocab on mobile).
   // Default OFF in prod; enable AFTER slice 04 ships smart shelves on /home.
   myBooksV3HeaderReframe: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_HEADER_REFRAME, false),
+  // My Books v3 slice 02 — smart shelves at top of Library (4 shelves: Continue / Recently added / Quick reads / Finished this month).
+  myBooksV3LibraryShelves: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SHELVES, false),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

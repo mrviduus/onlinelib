@@ -12,6 +12,8 @@ import { BookActionMenu } from '../components/library/BookActionMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
 import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
+import { LibraryShelves } from '../components/library/LibraryShelves'
+import { features } from '../lib/features'
 import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
 import { LibraryFilters } from '../components/library/LibraryFilters'
@@ -328,7 +330,11 @@ export function LibraryPage() {
 
         {isAuthenticated && <LibraryStatsHeader />}
 
-        <ContinueReadingShelf />
+        {features.myBooksV3.libraryShelves ? (
+          <LibraryShelves hasAnyContent={items.length > 0 || userBooks.length > 0} />
+        ) : (
+          <ContinueReadingShelf />
+        )}
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 

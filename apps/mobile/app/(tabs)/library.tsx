@@ -18,6 +18,7 @@ import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { ContinueReadingShelf } from '../../src/components/library/ContinueReadingShelf'
+import { LibraryShelves } from '../../src/components/library/LibraryShelves'
 import { BookStatusBadge } from '../../src/components/library/BookStatusBadge'
 import { GeneratedCover } from '../../src/components/library/GeneratedCover'
 import { FEATURES } from '../../src/lib/features'
@@ -167,7 +168,11 @@ export default function LibraryScreen() {
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
         </Text>
       )}
-      {FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />}
+      {FEATURES.myBooksV3LibraryShelves ? (
+        <LibraryShelves hasAnyContent={library.length > 0 || userBooks.length > 0} />
+      ) : (
+        FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />
+      )}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
           {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (

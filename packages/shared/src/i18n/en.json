@@ -197,6 +197,17 @@
       "title": "Continue reading",
       "badge": "Continue"
     },
+    "shelves": {
+      "continueReading": { "title": "Continue reading", "subtitle": "Pick up where you left off" },
+      "recentlyAdded": { "title": "Recently added", "subtitle": "New in your library" },
+      "quickReads": { "title": "Quick reads", "subtitle": "Under an hour to finish" },
+      "finishedThisMonth": { "title": "Finished this month", "subtitle": "Recent wins" },
+      "empty": {
+        "title": "Your library is empty",
+        "copy": "Upload a book or browse the catalog to get started.",
+        "browseCatalog": "Browse catalog"
+      }
+    },
     "badge": {
       "processing": "Processing…",
       "failed": "Failed",
