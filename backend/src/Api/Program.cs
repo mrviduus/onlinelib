@@ -123,6 +123,7 @@ builder.Services.AddScoped<Application.Collections.CollectionService>();
 builder.Services.AddScoped<Application.UserBooks.BulkActionService>();
 builder.Services.AddScoped<Application.UserBooks.BookStatsService>();
 builder.Services.AddScoped<Application.UserBooks.UserBookSearchService>();
+builder.Services.AddScoped<Application.Library.LibraryShelvesService>();
 
 // Standard Ebooks sync
 builder.Services.AddHttpClient<StandardEbooksSyncService>();
@@ -442,6 +443,7 @@ app.MapTranslationEndpoints();
 app.MapExplainEndpoints();
 app.MapDictionaryEndpoints();
 app.MapUserBooksEndpoints();
+app.MapLibraryShelvesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapReadingTrackingEndpoints();
 app.MapAdminBookQualityEndpoints();
