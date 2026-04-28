@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { CommandPalette } from './CommandPalette'
-import { features } from '../lib/features'
 import { useTrackVisitedRoute } from '../hooks/useTrackVisitedRoute'
 
 function isTypingTarget(el: EventTarget | null): boolean {
@@ -16,7 +15,6 @@ export function CommandPaletteProvider() {
   useTrackVisitedRoute()
 
   useEffect(() => {
-    if (!features.myBooksV2.commandPalette) return
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return
       if (e.key.toLowerCase() !== 'k') return
@@ -29,8 +27,6 @@ export function CommandPaletteProvider() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [open])
-
-  if (!features.myBooksV2.commandPalette) return null
 
   return <CommandPalette open={open} onClose={() => setOpen(false)} />
 }

@@ -7,7 +7,6 @@ import { GeneratedCover } from './GeneratedCover'
 import { BookActionMenu } from './BookActionMenu'
 import { TagPill } from './TagPill'
 import { SuggestedTagsPopover } from './SuggestedTagsPopover'
-import { features } from '../../lib/features'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useReadingPace } from '../../hooks/useReadingPace'
 import { estimateMinutesRemaining, formatTimeLeft } from '../../lib/timeEstimate'
@@ -203,7 +202,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
               dangerouslySetInnerHTML={{ __html: sanitizeExcerpt(excerpt) }}
             />
           )}
-          {features.myBooksV2.tags && book.tags && book.tags.length > 0 && (
+          {book.tags && book.tags.length > 0 && (
             <div className="user-book-card__tags">
               {book.tags.slice(0, 4).map((tag) => (
                 <TagPill key={tag} tag={tag} onClick={() => filterByTag(tag)} />
@@ -213,7 +212,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
               )}
             </div>
           )}
-          {features.myBooksV2.aiTags && isReady && book.suggestedTags && book.suggestedTags.length > 0 && (!book.tags || book.tags.length === 0) && (
+          {isReady && book.suggestedTags && book.suggestedTags.length > 0 && (!book.tags || book.tags.length === 0) && (
             <div className="user-book-card__suggested-wrap">
               <button
                 type="button"

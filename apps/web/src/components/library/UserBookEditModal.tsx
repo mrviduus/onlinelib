@@ -3,7 +3,6 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { useUpdateUserBookMetadata } from '../../hooks/useUpdateUserBookMetadata'
 import { setUserBookTags, type UserBook } from '../../api/userBooks'
 import { invalidateUserTagsCache } from '../../hooks/useUserTags'
-import { features } from '../../lib/features'
 import { TagInput } from './TagInput'
 
 interface Props {
@@ -76,16 +75,14 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
       description: description.trim() || null,
     })
     if (result) {
-      if (features.myBooksV2.tags) {
-        const before = (book.tags ?? []).slice().sort().join('|')
-        const after = tags.slice().sort().join('|')
-        if (before !== after) {
-          try {
-            await setUserBookTags(book.id, tags)
-            invalidateUserTagsCache()
-          } catch {
-            // ignore — metadata already saved
-          }
+      const before = (book.tags ?? []).slice().sort().join('|')
+      const after = tags.slice().sort().join('|')
+      if (before !== after) {
+        try {
+          await setUserBookTags(book.id, tags)
+          invalidateUserTagsCache()
+        } catch {
+          // ignore — metadata already saved
         }
       }
       onSaved()
@@ -194,14 +191,12 @@ export function UserBookEditModal({ open, book, onClose, onSaved }: Props) {
             {descriptionError && <span className="user-book-edit-modal__err">{descriptionError}</span>}
           </label>
 
-          {features.myBooksV2.tags && (
-            <div className="user-book-edit-modal__field">
-              <span className="user-book-edit-modal__label">
-                {t('library.tags.add')}
-              </span>
-              <TagInput value={tags} onChange={setTags} disabled={saving} />
-            </div>
-          )}
+          <div className="user-book-edit-modal__field">
+            <span className="user-book-edit-modal__label">
+              {t('library.tags.add')}
+            </span>
+            <TagInput value={tags} onChange={setTags} disabled={saving} />
+          </div>
 
           {error && <div className="user-book-edit-modal__server-err" role="alert">{error}</div>}
 

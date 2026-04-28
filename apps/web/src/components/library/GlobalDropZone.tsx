@@ -6,7 +6,6 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useDragFileTracker } from '../../hooks/useDragFileTracker'
 import { partitionFiles } from '../../lib/uploadFileValidation'
-import { features } from '../../lib/features'
 import { emit } from '../../lib/telemetry/myBooksV2'
 import { Toast } from '../Toast'
 import { UploadModal } from './UploadModal'
@@ -14,7 +13,6 @@ import { UploadModal } from './UploadModal'
 type ToastState = { kind: 'invalid' | 'signin'; key: number } | null
 
 export function GlobalDropZone() {
-  const enabled = features.myBooksV2.globalDropZone
   const { isAuthenticated, isLoading } = useAuth()
   const { getLocalizedPath } = useLanguage()
   const { t } = useTranslation()
@@ -44,7 +42,7 @@ export function GlobalDropZone() {
   }, [isAuthenticated])
 
   const { isDragging } = useDragFileTracker({
-    enabled: enabled && !modalOpen && !isLoading,
+    enabled: !modalOpen && !isLoading,
     onDrop: handleDrop,
   })
 
@@ -64,8 +62,6 @@ export function GlobalDropZone() {
     setToast(null)
     navigate(getLocalizedPath('/login?next=/library'))
   }, [navigate, getLocalizedPath])
-
-  if (!enabled) return null
 
   return (
     <>

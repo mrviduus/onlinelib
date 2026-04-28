@@ -5,7 +5,6 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useBookActions } from '../../hooks/useBookActions'
 import { ConfirmDeleteModal } from './ConfirmDeleteModal'
 import { UserBookEditModal } from './UserBookEditModal'
-import { features } from '../../lib/features'
 import type { LibraryItem } from '../../api/auth'
 import type { UserBook } from '../../api/userBooks'
 
@@ -221,17 +220,12 @@ function UserBookMenu({
               {isFinished ? t('library.actions.markUnfinished') : t('library.actions.markFinished')}
             </button>
           )}
-          {isReady && features.myBooksV2.editMetadata && (
+          {isReady && (
             <button
               className="book-card-menu__item"
               role="menuitem"
               onClick={() => { close(); setEditOpen(true) }}
             >
-              {t('library.actions.editMetadata')}
-            </button>
-          )}
-          {isReady && !features.myBooksV2.editMetadata && (
-            <button className="book-card-menu__item" role="menuitem" disabled aria-disabled="true">
               {t('library.actions.editMetadata')}
             </button>
           )}
@@ -273,14 +267,12 @@ function UserBookMenu({
         onCancel={() => setConfirmDelete(false)}
         onConfirm={async () => { await actions.remove(); setConfirmDelete(false) }}
       />
-      {features.myBooksV2.editMetadata && (
-        <UserBookEditModal
-          open={editOpen}
-          book={book}
-          onClose={() => setEditOpen(false)}
-          onSaved={onChange}
-        />
-      )}
+      <UserBookEditModal
+        open={editOpen}
+        book={book}
+        onClose={() => setEditOpen(false)}
+        onSaved={onChange}
+      />
     </div>
   )
 }

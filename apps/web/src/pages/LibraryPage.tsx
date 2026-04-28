@@ -22,7 +22,6 @@ import {
 } from '../hooks/useLibraryFilter'
 import { useLibrarySearch } from '../hooks/useLibrarySearch'
 import { matchesQuery, parseQuery } from '../lib/searchUtils'
-import { features } from '../lib/features'
 import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { CollectionChips } from '../components/library/CollectionChips'
@@ -79,7 +78,6 @@ export function LibraryPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
-    if (!features.myBooksV2.collections) return
     if (!activeCollectionId) { setCollectionBookIds(null); return }
     let cancelled = false
     const bookType = activeTab === 'uploads' ? 'userbook' : 'savedbook'
@@ -99,7 +97,7 @@ export function LibraryPage() {
     }, { replace: true })
   }
 
-  const activeUploadTag = features.myBooksV2.tags ? (parseQuery(uploadsQueryD).tags[0] ?? null) : null
+  const activeUploadTag = parseQuery(uploadsQueryD).tags[0] ?? null
   const onUploadTagSelect = (tag: string | null) => {
     if (!tag) { setUploadsQuery(parseQuery(uploadsQueryD).text) ; return }
     const text = parseQuery(uploadsQueryD).text
@@ -113,7 +111,6 @@ export function LibraryPage() {
 
   // Content search (server-side FTS) — runs only when toggle is on and we have a query
   useEffect(() => {
-    if (!features.myBooksV2.contentSearch) return
     if (activeTab !== 'uploads') return
     if (!uploadsContentSearch) { setContentHits(null); return }
     const parsed = parseQuery(uploadsQueryD)
@@ -203,10 +200,10 @@ export function LibraryPage() {
   const filteredUserBooks = filterUserBooks(userBooks, uploadsFilter)
   const searchedItems = savedQueryD ? filteredItems.filter(i => matchesQuery({ title: i.title }, savedQueryD)) : filteredItems
   const searchedUserBooks = uploadsQueryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author, tags: b.tags }, uploadsQueryD)) : filteredUserBooks
-  const collectionFilteredItems = features.myBooksV2.collections && activeCollectionId && activeTab === 'saved' && collectionBookIds
+  const collectionFilteredItems = activeCollectionId && activeTab === 'saved' && collectionBookIds
     ? searchedItems.filter(i => collectionBookIds.has(i.editionId))
     : searchedItems
-  const collectionFilteredUserBooks = features.myBooksV2.collections && activeCollectionId && activeTab === 'uploads' && collectionBookIds
+  const collectionFilteredUserBooks = activeCollectionId && activeTab === 'uploads' && collectionBookIds
     ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
     : searchedUserBooks
   const sortedItems = sortLibraryItems(collectionFilteredItems, savedSort, progressMap)
@@ -329,13 +326,11 @@ export function LibraryPage() {
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
 
-        {features.myBooksV2.libraryStatsHeader && isAuthenticated && <LibraryStatsHeader />}
+        {isAuthenticated && <LibraryStatsHeader />}
 
-        {features.myBooksV2.continueReading && <ContinueReadingShelf />}
+        <ContinueReadingShelf />
 
-        {features.myBooksV2.collections && (
-          <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
-        )}
+        <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
         {activeTab === 'saved' && (
           <>
@@ -532,7 +527,7 @@ export function LibraryPage() {
             <div className="library-toolbar">
               <div className="library-toolbar__left">
                 <LibrarySortMenu value={uploadsSort} onChange={setUploadsSort} />
-                {features.myBooksV2.bulkSelect && userBooks.length > 0 && (
+                {userBooks.length > 0 && (
                   <button
                     type="button"
                     className={`library-select-btn ${selection.active ? 'library-select-btn--active' : ''}`}
@@ -565,16 +560,16 @@ export function LibraryPage() {
                 <LibrarySearch
                   value={uploadsQuery}
                   onChange={setUploadsQuery}
-                  contentSearch={features.myBooksV2.contentSearch ? uploadsContentSearch : undefined}
-                  onToggleContentSearch={features.myBooksV2.contentSearch ? setUploadsContentSearch : undefined}
+                  contentSearch={uploadsContentSearch}
+                  onToggleContentSearch={setUploadsContentSearch}
                 />
                 <LibraryFilters
                   value={uploadsFilter}
                   onChange={setUploadsFilter}
                   counts={uploadsCounts}
-                  tags={features.myBooksV2.tags ? userTags : undefined}
+                  tags={userTags}
                   activeTag={activeUploadTag}
-                  onTagClick={features.myBooksV2.tags ? onUploadTagSelect : undefined}
+                  onTagClick={onUploadTagSelect}
                 />
               </>
             )}
@@ -720,7 +715,7 @@ export function LibraryPage() {
                       onUpdate={fetchUserBooks}
                       progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
                       highlighted={highlightedBookId === book.id}
-                      selectable={features.myBooksV2.bulkSelect && selection.active}
+                      selectable={selection.active}
                       selected={selection.isSelected(book.id)}
                       onSelectToggle={selection.toggle}
                       excerpt={hit?.excerpt ?? null}
@@ -747,7 +742,7 @@ export function LibraryPage() {
         </button>
       )}
 
-      {features.myBooksV2.bulkSelect && selection.active && activeTab === 'uploads' && (
+      {selection.active && activeTab === 'uploads' && (
         <BulkActionBar
           count={selection.count}
           onCancel={selection.exit}

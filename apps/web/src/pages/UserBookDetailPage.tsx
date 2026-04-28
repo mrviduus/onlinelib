@@ -8,7 +8,6 @@ import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
 import { BookStatsSection } from '../components/library/BookStatsSection'
-import { features } from '../lib/features'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -286,7 +285,7 @@ export function UserBookDetailPage() {
         </div>
       </div>
 
-      {features.myBooksV2.bookStats && isReady && book && (
+      {isReady && book && (
         <BookStatsSection bookId={book.id} />
       )}
 
