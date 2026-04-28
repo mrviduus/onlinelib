@@ -61,7 +61,12 @@ public class LibraryShelvesService(IAppDbContext db)
             .Take(ShelfLimit * 2)
             .Select(b => new
             {
-                b.Id, b.Title, b.Author, b.CoverPath, b.Slug, b.Language,
+                b.Id,
+                b.Title,
+                b.Author,
+                b.CoverPath,
+                b.Slug,
+                b.Language,
                 Progress = b.ProgressPercent ?? 0,
                 LastOpened = b.ProgressUpdatedAt,
                 b.CreatedAt,
@@ -132,7 +137,12 @@ public class LibraryShelvesService(IAppDbContext db)
             .Take(ShelfLimit * 2)
             .Select(b => new
             {
-                b.Id, b.Title, b.Author, b.CoverPath, b.Slug, b.Language,
+                b.Id,
+                b.Title,
+                b.Author,
+                b.CoverPath,
+                b.Slug,
+                b.Language,
                 Progress = b.ProgressPercent ?? 0,
                 LastOpened = b.ProgressUpdatedAt,
                 b.CreatedAt,
@@ -203,7 +213,12 @@ public class LibraryShelvesService(IAppDbContext db)
             .Take(ShelfLimit * 4)
             .Select(b => new
             {
-                b.Id, b.Title, b.Author, b.CoverPath, b.Slug, b.Language,
+                b.Id,
+                b.Title,
+                b.Author,
+                b.CoverPath,
+                b.Slug,
+                b.Language,
                 Progress = b.ProgressPercent ?? 0,
                 LastOpened = b.ProgressUpdatedAt,
                 b.CreatedAt,
@@ -283,7 +298,12 @@ public class LibraryShelvesService(IAppDbContext db)
             .Take(ShelfLimit * 2)
             .Select(b => new
             {
-                b.Id, b.Title, b.Author, b.CoverPath, b.Slug, b.Language,
+                b.Id,
+                b.Title,
+                b.Author,
+                b.CoverPath,
+                b.Slug,
+                b.Language,
                 FinishedAt = b.CompletedAt!.Value,
                 b.CreatedAt
             })
