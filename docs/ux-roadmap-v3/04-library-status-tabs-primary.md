@@ -1,4 +1,4 @@
-# Slice 06 — Status as primary horizontal tabs (Reading / Finished / Not started)
+# Slice 04 — Status as primary horizontal tabs (Reading / Finished / Not started)
 
 **Phase:** 2 (Library restructure) · **Estimated:** 1 day · **Risk:** low · **Flag:** `myBooksV3.statusTabsPrimary`
 
@@ -16,7 +16,7 @@ Promote v2 slice 08 filter chips (`All / Reading / Finished / Not started / Fail
    - **All** — last position, less prominent (smaller tab or "View all" link)
 2. **Default tab = Reading** (changed from old default "All"). User who lands in Library most often wants to continue reading something.
 3. Active tab visually distinct (underline + bold + count badge).
-4. Tab combines with all other filters (sidebar source from slice 05, search from v2 slice 09, sort from v2 slice 07).
+4. Tab combines with all other filters (sidebar source from slice 03, search from v2 slice 09, sort from v2 slice 07).
 5. v2 slice 08 filter chips component (`LibraryFilters.tsx`) **removed** — superseded by tabs.
 6. URL: `?status=reading` (default omitted), `?status=finished`, etc.
 7. Empty state per tab:
@@ -80,7 +80,7 @@ cd apps/mobile && npx tsc --noEmit
 
 ## Rollback plan
 
-Toggle `VITE_FEATURE_MYBOOKSV3_STATUS_TABS_PRIMARY=false`. Filter chips render. Old code path preserved until slice 08 cleanup.
+Toggle `VITE_FEATURE_MYBOOKSV3_STATUS_TABS_PRIMARY=false`. Filter chips render. Old code path preserved until slice 06 cleanup.
 
 ## Follow-ups
 

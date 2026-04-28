@@ -1,4 +1,4 @@
-# Slice 05 — Library sidebar (source as filter, not tabs)
+# Slice 03 — Library sidebar (source as filter, not tabs)
 
 **Phase:** 2 (Library restructure) · **Estimated:** 2 days · **Risk:** medium · **Flag:** `myBooksV3.librarySidebar`
 
@@ -21,10 +21,10 @@ After this slice, the user thinks of their library as **one collection of books*
      - **Collections** (header)
        - Each user collection (count)
        - "+ New collection" link
-   - **Center column:** book grid + status tabs (slice 06) + sort + search.
+   - **Center column:** book grid + status tabs (slice 04) + sort + search.
 2. Tabs `Saved | Uploads` at top of library are **removed**.
 3. Selected sidebar item highlighted; click switches the grid contents.
-4. URL reflects selection: `?source=uploads`, `?source=catalog`, `?tag=fantasy`, `?collection=summer`. Combinable with status (slice 06) and search.
+4. URL reflects selection: `?source=uploads`, `?source=catalog`, `?tag=fantasy`, `?collection=summer`. Combinable with status (slice 04) and search.
 5. Mobile: sidebar collapses into a hamburger drawer (slide from left). Default closed; tap sidebar icon to open.
 6. UI copy follows locked-in decision: tab key `library.tab.saved` → `library.tab.bookmarked`; sidebar entry uses `library.sidebar.catalog` with value "Bookmarked from catalog". DB column `saved_books` is NOT renamed.
 7. Behind `myBooksV3.librarySidebar`. When OFF, old tabs render.
@@ -58,8 +58,8 @@ After this slice, the user thinks of their library as **one collection of books*
 
 ## Out of scope
 
-- Status tabs (slice 06).
-- + button menu (slice 07).
+- Status tabs (slice 04).
+- + button menu (slice 05).
 - Tag/collection management UIs (already done in v2 slices 12/13).
 
 ## Tests

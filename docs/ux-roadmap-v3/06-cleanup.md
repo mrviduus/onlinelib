@@ -1,23 +1,24 @@
-# Slice 08 — Cleanup: remove `myBooksV3` flags + legacy markers
+# Slice 06 — Cleanup: remove `myBooksV3` flags + legacy markers
 
-**Phase:** 3 (Add unification + cleanup) · **Estimated:** 0.5 day · **Risk:** low (if rollout was stable) · **Flag:** none
+**Phase:** 3 (cleanup) · **Estimated:** 0.5 day · **Risk:** low (if rollout was stable) · **Flag:** none
 
 ## Goal
 
-Mirrors v2 slice 99. After all 7 v3 slices have been at 100% rollout for ≥ 2 weeks with no regressions: remove every `myBooksV3.*` feature flag, delete every `// TODO(my-books-v3 cleanup): remove` marker (and the code it points to), drop dead imports and i18n keys.
+Mirrors v2 slice 99. After all 5 v3 slices have been at 100% rollout for ≥ 2 weeks with no regressions: remove every `myBooksV3.*` feature flag, delete every `// TODO(my-books-v3 cleanup): remove` marker (and the code it points to), drop dead imports and i18n keys.
 
 ## Acceptance criteria
 
 1. `grep -rE "myBooksV3\." apps/web/src apps/mobile/src` returns 0.
 2. `grep -rE "TODO\(my-books-v3 cleanup\)" apps/web/src apps/mobile/src backend/src` returns 0.
-3. Deleted files (driven by markers added in slices 01-07):
-   - `apps/web/src/components/library/LibraryFilters.tsx` (replaced by `LibraryStatusTabs` in slice 06)
-   - Old route definitions for `/books/*` in `App.tsx` (replaced by `/discover/*` in slice 02 — kept as safety net during rollout, removed here once nginx redirect proven)
-   - Any other files marked during slice 01-07 execution.
-4. Cleanup of `apps/web/src/lib/features.ts`:
+3. Deleted files (driven by markers added in slices 01-05):
+   - `apps/web/src/components/library/LibraryFilters.tsx` (replaced by `LibraryStatusTabs` in slice 04)
+   - Legacy header avatar dropdown items in `UserMenu.tsx` (Highlights / My Library / Vocabulary / My language) — slice 01 promoted them to primary nav
+   - Any other files marked during slice 01-05 execution.
+4. Cleanup of `apps/web/src/lib/features.ts` and `apps/mobile/src/lib/features.ts`:
    - Remove all `myBooksV3.*` keys.
    - If file becomes empty (no flags at all) → delete file entirely; otherwise leave for future flags.
-5. Telemetry module `apps/web/src/lib/telemetry/myBooksV3.ts` — keep but rename to `apps/web/src/lib/telemetry/navTelemetry.ts` (drop v3 marker; it's just current state).
+   - Remove matching `VITE_FEATURE_MYBOOKSV3_*` lines from `.github/workflows/deploy.yml`.
+5. Telemetry module `apps/web/src/lib/telemetry/myBooksV3.ts` — keep but rename to `apps/web/src/lib/telemetry/navTelemetry.ts` (drop v3 marker; it's just current state). Update imports.
 6. i18n keys removed:
    - `library.tab.saved`, `library.tab.uploads` (replaced by sidebar copy)
    - `library.filter.all`, `library.filter.reading`, etc. (replaced by status tab copy)
@@ -43,19 +44,19 @@ Determined dynamically by the two grep commands above. Expect ~10-15 files touch
   } else {
     return <LibraryFilters />  // legacy
   }
-  
+
   // After:
   return <LibraryStatusTabs />
   ```
 - **Import cleanup:** after deletion, run `pnpm -C apps/web lint --fix` then `tsc --noEmit` to verify.
 - **No DB migrations** in this slice. Backend additive columns (e.g. shelves data) stay forever.
-- **`/books/*` React Router fallback removal** — only safe AFTER 4+ weeks of nginx redirect serving 100% traffic. Verify Search Console shows no `/books/*` impressions before deleting.
+- **No URL changes** in v3 — `/books/*` route stays as it was. Nothing to "migrate" or "redirect" in cleanup.
 
 ## Out of scope
 
-- Reverting backend additive changes (HomeShelves endpoint, etc.) — first-class data, not flags.
+- Reverting backend additive changes (LibraryShelves endpoint, etc.) — first-class data, not flags.
 - Removing `docs/ux-roadmap-v3/` folder — it's project history, keep it.
-- Reverting URL migration `/books/*` → `/discover/*` is NOT cleanup — it's the new state.
+- Renaming `/books/*` route — explicitly out of v3 scope (locked-in decision in README).
 
 ## Tests
 
@@ -94,5 +95,5 @@ Future v4 candidates collected from research doc + execution learnings:
 - Persistent right-side detail panel
 - Pinned views / saved smart filters
 - Notebook tab per book (highlights aggregation view)
-- Configurable home shelves
+- Configurable library shelves
 - Calibre/Kindle-export import flow
