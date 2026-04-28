@@ -130,12 +130,12 @@ test.describe('QA-001: Reading Progress', () => {
     // Wait for auto-save
     await page.waitForTimeout(5000)
 
-    // Check library
-    await page.goto('/en/library')
+    // Check library — pin both legacy & v3 filter params to 'all' so the
+    // default 'reading' tab (slice 04) doesn't race with progressMap fetch.
+    await page.goto('/en/library?filter=all&status=all')
     await page.waitForLoadState('networkidle')
 
     const libraryItems = page.locator('.library-list-item, .library-card')
-    const count = await libraryItems.count()
-    expect(count).toBeGreaterThan(0)
+    await expect(libraryItems.first()).toBeVisible({ timeout: 10_000 })
   })
 })
