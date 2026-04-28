@@ -10,6 +10,9 @@ export type MyBooksV3Event =
   | 'header.click'
   | 'header.search.opened'
   | 'home.landed'
+  | 'library.shelf.view'
+  | 'library.shelf.click'
+  | 'library.shelf.viewAll'
 
 export function emit(event: MyBooksV3Event, params?: Params): void {
   try {
