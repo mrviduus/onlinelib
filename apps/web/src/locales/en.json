@@ -271,6 +271,9 @@
   "nav": {
     "catalog": "Catalog",
     "books": "Books",
+    "home": "Home",
+    "library": "Library",
+    "discover": "Discover",
     "vocabulary": "Vocabulary",
     "highlights": "Highlights",
     "about": "About",

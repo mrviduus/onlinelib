@@ -3,6 +3,7 @@ import { LocalizedLink } from './LocalizedLink'
 import { useApi } from '../hooks/useApi'
 import { useTranslation } from '../hooks/useTranslation'
 import { getStorageUrl } from '../api/client'
+import { features } from '../lib/features'
 
 interface Genre {
   id: string
@@ -103,7 +104,7 @@ export function DiscoverMenu() {
         aria-expanded={open}
         aria-haspopup="true"
       >
-        {t('nav.books')}
+        {t(features.myBooksV3.headerReframe ? 'nav.discover' : 'nav.books')}
         <span className="discover-menu__chevron" aria-hidden="true">
           <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
             <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

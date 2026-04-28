@@ -7,6 +7,7 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { useOnline } from '../../hooks/useOnline'
 import { getAnonymousReader } from '@textstack/shared'
 import { getUserInitials } from '../../lib/userInitials'
+import { features } from '../../lib/features'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
@@ -48,6 +49,7 @@ export function UserMenu() {
 
   const showAnimal = !avatarSrc && !!anon?.avatarPath && !anonImgFailed
   const nativeLang = user.nativeLanguage ? getLanguage(user.nativeLanguage) : null
+  const v3 = features.myBooksV3.headerReframe
 
   return (
     <>
@@ -87,56 +89,62 @@ export function UserMenu() {
               <span className="user-menu__email">{displaySubtitle}</span>
             </div>
             <hr className="user-menu__divider" />
-            <button
-              className="user-menu__item user-menu__item--lang"
-              onClick={() => { setOpen(false); setShowProfile(true) }}
-              title="Change your native language — used for translations in the reader"
-            >
-              <span className="user-menu__item-label">My language</span>
-              <span className="user-menu__item-value">
-                {nativeLang ? (
-                  <>
-                    <img
-                      src={getFlagUrl(nativeLang.code)}
-                      alt=""
-                      width="16"
-                      height="12"
-                      className="user-menu__flag"
-                    />
-                    {nativeLang.englishName}
-                  </>
-                ) : (
-                  <span className="user-menu__item-placeholder">Set language</span>
-                )}
-              </span>
-            </button>
+            {!v3 && (
+              <button
+                className="user-menu__item user-menu__item--lang"
+                onClick={() => { setOpen(false); setShowProfile(true) }}
+                title="Change your native language — used for translations in the reader"
+              >
+                <span className="user-menu__item-label">My language</span>
+                <span className="user-menu__item-value">
+                  {nativeLang ? (
+                    <>
+                      <img
+                        src={getFlagUrl(nativeLang.code)}
+                        alt=""
+                        width="16"
+                        height="12"
+                        className="user-menu__flag"
+                      />
+                      {nativeLang.englishName}
+                    </>
+                  ) : (
+                    <span className="user-menu__item-placeholder">Set language</span>
+                  )}
+                </span>
+              </button>
+            )}
             <button
               className="user-menu__item"
               onClick={() => { setOpen(false); setShowProfile(true) }}
             >
               Edit profile
             </button>
-            <LocalizedLink
-              to="/library"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              My Library
-            </LocalizedLink>
-            <LocalizedLink
-              to="/highlights"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              Highlights
-            </LocalizedLink>
-            <LocalizedLink
-              to="/vocabulary"
-              className="user-menu__item"
-              onClick={() => setOpen(false)}
-            >
-              Vocabulary
-            </LocalizedLink>
+            {!v3 && (
+              <>
+                <LocalizedLink
+                  to="/library"
+                  className="user-menu__item"
+                  onClick={() => setOpen(false)}
+                >
+                  My Library
+                </LocalizedLink>
+                <LocalizedLink
+                  to="/highlights"
+                  className="user-menu__item"
+                  onClick={() => setOpen(false)}
+                >
+                  Highlights
+                </LocalizedLink>
+                <LocalizedLink
+                  to="/vocabulary"
+                  className="user-menu__item"
+                  onClick={() => setOpen(false)}
+                >
+                  Vocabulary
+                </LocalizedLink>
+              </>
+            )}
             <hr className="user-menu__divider" />
             <button
               className="user-menu__item user-menu__item--danger"

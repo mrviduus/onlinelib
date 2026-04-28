@@ -89,7 +89,7 @@
   },
   "nav": {
     "catalog": "Catalog",
-    "library": "My Library",
+    "library": "Library",
     "stats": "Stats",
     "vocabulary": "Vocabulary",
     "about": "About",
@@ -97,6 +97,7 @@
     "browseBooks": "Browse all books",
     "aboutTextStack": "About TextStack",
     "read": "Read",
+    "home": "Home",
     "discover": "Discover",
     "profile": "Profile"
   },
