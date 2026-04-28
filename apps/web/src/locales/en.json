@@ -465,6 +465,26 @@
       "fromYourPace": "Based on your reading pace",
       "fallback": "Based on average reader (200 wpm)"
     },
+    "statsHeader": {
+      "title": "Your stats",
+      "expand": "Show stats",
+      "collapse": "Hide stats",
+      "pagesThisMonth": "Pages this month",
+      "streak": "Streak",
+      "daysCount": "{{n}} days",
+      "goal": "Goal",
+      "dailyGoal": "Today's goal",
+      "yearlyGoal": "Year's goal",
+      "minSuffix": "min",
+      "booksSuffix": "books",
+      "booksYtd": "Books finished YTD",
+      "empty": {
+        "pages": "Read your first pages",
+        "streak": "Start a streak",
+        "goal": "Set a reading goal →",
+        "books": "Finish your first book"
+      }
+    },
     "palette": {
       "title": "Command palette",
       "placeholder": "Jump to a page, book, or run a command…",

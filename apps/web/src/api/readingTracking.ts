@@ -161,6 +161,23 @@ export async function getReadingPace(): Promise<ReadingPaceDto> {
   return authFetch<ReadingPaceDto>('/me/reading/pace')
 }
 
+export interface GoalSummaryDto { type: 'daily_minutes' | 'books_per_year'; current: number; target: number }
+export interface LibrarySummaryDto {
+  pagesThisMonth: number
+  minutesThisMonth: number
+  currentStreak: number
+  streakMinMinutes: number
+  booksFinishedYtd: number
+  goal: GoalSummaryDto | null
+}
+
+export async function getLibrarySummary(tz?: number): Promise<LibrarySummaryDto> {
+  const params = new URLSearchParams()
+  if (tz != null) params.set('tz', String(tz))
+  const qs = params.toString()
+  return authFetch<LibrarySummaryDto>(`/me/reading/library-summary${qs ? `?${qs}` : ''}`)
+}
+
 export async function getBookStats(year?: number): Promise<BookStatsResponse> {
   const params = new URLSearchParams()
   if (year) params.set('year', String(year))

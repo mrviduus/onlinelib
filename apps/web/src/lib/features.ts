@@ -18,5 +18,6 @@ export const features = {
     contentSearch: env('VITE_FEATURE_MYBOOKS_V2_CONTENT_SEARCH') ?? isDev,
     aiTags: env('VITE_FEATURE_MYBOOKS_V2_AI_TAGS') ?? isDev,
     commandPalette: env('VITE_FEATURE_MYBOOKS_V2_COMMAND_PALETTE') ?? isDev,
+    libraryStatsHeader: env('VITE_FEATURE_MYBOOKS_V2_LIBRARY_STATS_HEADER') ?? isDev,
   },
 } as const

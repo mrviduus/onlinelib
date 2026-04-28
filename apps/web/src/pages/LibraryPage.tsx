@@ -12,6 +12,7 @@ import { BookActionMenu } from '../components/library/BookActionMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
 import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
+import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
 import { LibraryFilters } from '../components/library/LibraryFilters'
 import { LibrarySearch } from '../components/library/LibrarySearch'
@@ -327,6 +328,8 @@ export function LibraryPage() {
           <h1 className="library-header__title">{t('library.title')}</h1>
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
+
+        {features.myBooksV2.libraryStatsHeader && isAuthenticated && <LibraryStatsHeader />}
 
         {features.myBooksV2.continueReading && <ContinueReadingShelf />}
 
