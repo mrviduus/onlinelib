@@ -148,24 +148,25 @@ If you find yourself wanting to add a slice during execution, write it down, shi
 
 Tick after merge (do not pre-tick).
 
-- [ ] 01 Header upload button
-- [ ] 02 Drag-drop anywhere
+- [x] 01 Header upload button
+- [x] 02 Drag-drop anywhere
 - [ ] 03 Mobile bottom-tabs upload
-- [ ] 04 Library empty-state dropzone
-- [ ] 05 Continue Reading shelf
-- [ ] 06 Cover grid + progress badges
-- [ ] 07 Sort options
-- [ ] 08 Filter chips
-- [ ] 09 In-library search (titles)
-- [ ] 10 Per-book action menu
-- [ ] 11 Editable metadata
-- [ ] 12 Tags
-- [ ] 13 Collections
-- [ ] 14 Bulk select
-- [ ] 15 Per-book stats page
-- [ ] 16 FTS content search
-- [ ] 17 AI auto-tags
-- [ ] 18 Cmd+K palette
-- [ ] 19 Reading time estimate
-- [ ] 20 Library stats dashboard
-- [ ] 99 Cleanup — remove `myBooksV2` flag + legacy markers
+  *Slice 03 deferred — mobile upload remains via Library tab. Revisit when mobile UX retro happens.*
+- [x] 04 Library empty-state dropzone
+- [x] 05 Continue Reading shelf
+- [x] 06 Cover grid + progress badges
+- [x] 07 Sort options
+- [x] 08 Filter chips
+- [x] 09 In-library search (titles)
+- [x] 10 Per-book action menu
+- [x] 11 Editable metadata
+- [x] 12 Tags
+- [x] 13 Collections
+- [x] 14 Bulk select
+- [x] 15 Per-book stats page
+- [x] 16 FTS content search
+- [x] 17 AI auto-tags
+- [x] 18 Cmd+K palette
+- [x] 19 Reading time estimate
+- [x] 20 Library stats dashboard
+- [x] 99 Cleanup — remove `myBooksV2` flag + legacy markers
