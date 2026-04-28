@@ -1,4 +1,4 @@
-# Slice 07 — `+` button becomes a menu
+# Slice 05 — `+` button becomes a menu
 
 **Phase:** 3 (Add unification + cleanup) · **Estimated:** 1.5 days · **Risk:** low · **Flag:** `myBooksV3.addMenu`
 
@@ -18,7 +18,7 @@ Mirrors Readwise's `+` menu (research doc) — single entry point for content ad
    - **🌐 Browser extension** — opens new tab to extension install page (or Chrome Web Store URL placeholder)
    - **📱 Mobile apps** — link to download page
    - ─────
-   - **🔍 Discover books** — link to `/discover`
+   - **🔍 Browse all books** — link to `/books`
 2. Menu mirrors Readwise pattern: primary actions on top, integrations in middle, discovery at bottom.
 3. Cmd+U keyboard shortcut still opens upload modal directly (skips the menu).
 4. "Coming soon" items are visually distinct (muted, italic) and show tooltip on hover: "Coming in a future update."
@@ -51,7 +51,7 @@ Mirrors Readwise's `+` menu (research doc) — single entry point for content ad
 - Implementing Email-to-Upload (requires backend incoming-mail handler — separate epic).
 - Implementing URL paste (requires content fetcher + parser).
 - Browser extension itself (already has placeholder install URL).
-- Removing v2 UploadButton flag — that happens in cleanup slice 08.
+- Removing v2 UploadButton flag — that happens in cleanup slice 06.
 
 ## Tests
 
