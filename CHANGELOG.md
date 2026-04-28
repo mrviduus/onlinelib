@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+### My Books v2 — Library + Upload UX overhaul (2026-04-26)
+
+Complete rebuild of the user-owned books experience. From "upload buried 4 clicks deep" to a Kindle-class library with tags, collections, full-text search, AI assistance, and command palette. 20 slices shipped behind feature flags then enabled all-on after stable rollout.
+
+#### Upload UX
+- **Persistent upload button in header** ([`28a377c`](https://github.com/mrviduus/textstack/commit/28a377c)) — `+ Upload book` button now lives in the main header on every page; Cmd+U opens the modal from anywhere. Cuts upload from 4 clicks to 1.
+- **Drag-and-drop anywhere on web** ([`1592991`](https://github.com/mrviduus/textstack/commit/1592991)) — drop an EPUB / PDF / FB2 onto any page and the upload modal opens with the file pre-loaded. Matches the Notion / Linear / Slack pattern modern users expect.
+- **Library empty state is now an active drop zone** ([`d7ec6bb`](https://github.com/mrviduus/textstack/commit/d7ec6bb)) — first-run users see a large drop-zone CTA instead of a passive "no books yet" message. The empty state now teaches the upload action by demonstrating it.
+
+#### Library
+- **Continue Reading shelf at the top of Library** ([`34d818e`](https://github.com/mrviduus/textstack/commit/34d818e)) — last-opened books appear as a horizontal shelf so resuming is one tap, not a scan of the grid. The #1 reason users open Library now has a one-tap path.
+- **Cover grid with progress and status badges** ([`34d818e`](https://github.com/mrviduus/textstack/commit/34d818e)) — bigger covers, percent-read printed on the cover, and Reading / Finished / Processing / Failed badges that read at a glance. Brings the grid up to Kindle quality.
+- **Five-option sort menu** ([`35747c2`](https://github.com/mrviduus/textstack/commit/35747c2)) — Recently opened (default), Recently added, Title, Author, Progress. Replaces the limited 3-option control and matches Kindle / Calibre conventions.
+- **Filter chips for reading state** ([`35747c2`](https://github.com/mrviduus/textstack/commit/35747c2)) — All / Reading / Finished / Not started / Failed chips above the grid. Users with 20+ books can now scope to "what am I reading right now" without scrolling.
+- **In-library search by title and author** ([`35747c2`](https://github.com/mrviduus/textstack/commit/35747c2)) — search bar filters the grid live as you type. At 50+ books, recall beats browsing.
+- **Unified per-book action menu** ([`35747c2`](https://github.com/mrviduus/textstack/commit/35747c2)) — single `BookActionMenu` replaces the two drift-prone menus (saved vs uploaded). Adds Mark finished / unfinished and creates the surface for slices 11+.
+
+#### Power features (tags, collections, search, stats)
+- **Editable book metadata** ([`1e74a6a`](https://github.com/mrviduus/textstack/commit/1e74a6a)) — modal to fix title, author, language, genre, and description on uploaded books. Respects user agency when LLM enrichment guesses wrong.
+- **Free-form tags on uploaded books** ([`a35ec67`](https://github.com/mrviduus/textstack/commit/a35ec67)) — attach multiple tags (`fantasy`, `for-work`, `2026-reading-list`), filter by tag, and use `tag:` syntax in search. Power-user organization Kindle's collections cannot do.
+- **Collections — named shelves** ([`cb255ec`](https://github.com/mrviduus/textstack/commit/cb255ec)) — create shelves like "Summer reading" or "Russian classics" and put books in many at once. Complements tags: tags are facets, collections are intentional groupings.
+- **Bulk select + bulk actions** ([`d7b6c6b`](https://github.com/mrviduus/textstack/commit/d7b6c6b)) — multi-select books and apply Mark finished, Add to collection, Add tag, or Delete in one go. Necessary for hygiene at 30+ books.
+- **Per-book personal stats page** ([`3f2419e`](https://github.com/mrviduus/textstack/commit/3f2419e)) — book detail now shows hours read, words encountered, vocab saved from this book, highlights count, sessions, and current pace. The data Kindle does not give you.
+- **Full-text content search across uploads** ([`e2830ca`](https://github.com/mrviduus/textstack/commit/e2830ca)) — opt-in toggle extends Library search into chapter content via PostgreSQL FTS. "I remember a passage about X" now has an answer.
+
+#### AI + polish
+- **AI auto-tag suggestions via Ollama** ([`c3c6d3f`](https://github.com/mrviduus/textstack/commit/c3c6d3f)) — after ingestion, Ollama proposes 3–5 tags from title, author, and the first chapter; one click to accept. Removes the friction of manual tagging from slice 12.
+- **Cmd+K command palette** ([`b0f1c74`](https://github.com/mrviduus/textstack/commit/b0f1c74)) — search-driven palette to jump anywhere or run any action in one keystroke. Standard pattern in Linear / Raycast / GitHub — devs and students will recognize it.
+- **Reading time estimate per book** ([`9701567`](https://github.com/mrviduus/textstack/commit/9701567)) — "~3h 20m left" on cards and detail pages, computed from the user's actual pace, not a generic 200 wpm. Tiny touch, big perceived smarts.
+- **Library stats dashboard strip** ([`391ff64`](https://github.com/mrviduus/textstack/commit/391ff64)) — compact monthly snapshot at the top of Library: pages this month, current streak, goal progress. Surfaces the value of staying in TextStack without forcing users into the Stats page.
+
+#### Cleanup
+- **Slice 99 — drop feature flags** ([`08d9de8`](https://github.com/mrviduus/textstack/commit/08d9de8)) — removed 19 flag references and `features.ts`. Features now always-on. Roadmap closed.
+
 ### SEO Backfill Automation (2026-04-14)
 - **ADR-010** — `docs/ADR-010-seo-backfill-automation.md` describes architecture.
 - **Editable prompt templates** — admin panel CRUD (per entity_type × field_type × language), version-frozen on edit.
