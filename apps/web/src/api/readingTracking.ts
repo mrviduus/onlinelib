@@ -151,6 +151,16 @@ export interface BookStatsResponse {
   availableYears: number[]
 }
 
+export interface ReadingPaceDto {
+  wpm: number
+  sessionCount: number
+  isUserSpecific: boolean
+}
+
+export async function getReadingPace(): Promise<ReadingPaceDto> {
+  return authFetch<ReadingPaceDto>('/me/reading/pace')
+}
+
 export async function getBookStats(year?: number): Promise<BookStatsResponse> {
   const params = new URLSearchParams()
   if (year) params.set('year', String(year))

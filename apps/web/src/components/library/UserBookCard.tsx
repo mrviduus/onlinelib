@@ -8,6 +8,9 @@ import { BookActionMenu } from './BookActionMenu'
 import { TagPill } from './TagPill'
 import { SuggestedTagsPopover } from './SuggestedTagsPopover'
 import { features } from '../../lib/features'
+import { useTranslation } from '../../hooks/useTranslation'
+import { useReadingPace } from '../../hooks/useReadingPace'
+import { estimateMinutesRemaining, formatTimeLeft } from '../../lib/timeEstimate'
 
 const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -51,6 +54,8 @@ function sanitizeExcerpt(raw: string): string {
 
 export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted, selectable, selected, onSelectToggle, excerpt, excerptChapterSlug, excerptQuery }: UserBookCardProps) {
   const { language } = useLanguage()
+  const { t } = useTranslation()
+  const pace = useReadingPace()
   const percent = progress?.percent ?? 0
   const [elapsed, setElapsed] = useState(0)
   const [suggestedOpen, setSuggestedOpen] = useState(false)
@@ -240,6 +245,21 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             {isReady && !book.completedAt && book.chapterCount > 0 && percent === 0 && (
               <span>{book.chapterCount} chapters</span>
             )}
+            {isReady && !book.completedAt && (() => {
+              const minutes = estimateMinutesRemaining(
+                { totalWordCount: book.totalWordCount, progressPercent: percent },
+                pace.wpm,
+              )
+              if (minutes == null || minutes === 0) return null
+              return (
+                <span
+                  className="user-book-card__time-left"
+                  title={pace.isUserSpecific ? t('library.estimate.fromYourPace') : t('library.estimate.fallback')}
+                >
+                  · {t('library.estimate.left', { time: formatTimeLeft(minutes) })}
+                </span>
+              )
+            })()}
             {isFailed && book.errorMessage && (
               <span className="user-book-card__error" title={book.errorMessage}>
                 {book.errorMessage.length > 40

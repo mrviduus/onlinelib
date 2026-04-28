@@ -6,6 +6,7 @@ using Application.ReadingTracking;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Api.Endpoints;
 
@@ -24,6 +25,50 @@ public static class ReadingTrackingEndpoints
         group.MapDelete("/goals/{id:guid}", DeleteGoal).WithName("DeleteReadingGoal");
         group.MapGet("/achievements", GetAchievements).WithName("GetAchievements");
         group.MapGet("/book-stats", GetBookStats).WithName("GetBookStats");
+        group.MapGet("/pace", GetPace).WithName("GetReadingPace");
+    }
+
+    // --- Reading Pace (slice 19) ---
+
+    private const int PaceMinSessions = 3;
+    private const int FallbackPaceWpm = 200;
+
+    private static async Task<IResult> GetPace(
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        IMemoryCache cache,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var siteId = httpContext.GetSiteId();
+
+        var cacheKey = $"reading-pace:{userId.Value}:{siteId}";
+        if (cache.TryGetValue<ReadingPaceDto>(cacheKey, out var cached) && cached != null)
+            return Results.Ok(cached);
+
+        var agg = await db.ReadingSessions
+            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.WordsRead > 0 && s.DurationSeconds > 0)
+            .GroupBy(_ => 1)
+            .Select(g => new { Sessions = g.Count(), Words = g.Sum(s => (long)s.WordsRead), Seconds = g.Sum(s => (long)s.DurationSeconds) })
+            .FirstOrDefaultAsync(ct);
+
+        ReadingPaceDto dto;
+        if (agg == null || agg.Sessions < PaceMinSessions || agg.Seconds <= 0)
+        {
+            dto = new ReadingPaceDto(FallbackPaceWpm, agg?.Sessions ?? 0, false);
+        }
+        else
+        {
+            var wpm = (int)Math.Round(agg.Words / (agg.Seconds / 60.0));
+            // Clamp to sane range — guards against ultra-short sessions skewing avg
+            wpm = Math.Clamp(wpm, 50, 800);
+            dto = new ReadingPaceDto(wpm, agg.Sessions, true);
+        }
+
+        cache.Set(cacheKey, dto, TimeSpan.FromHours(1));
+        return Results.Ok(dto);
     }
 
     // --- Sessions ---
@@ -739,6 +784,8 @@ public record GoalDto(Guid Id, string GoalType, int TargetValue, int Year, int S
 public record CreateGoalRequest(string GoalType, int TargetValue, int Year, int? StreakMinMinutes);
 
 public record AchievementDto(string Code, DateTimeOffset UnlockedAt);
+
+public record ReadingPaceDto(int Wpm, int SessionCount, bool IsUserSpecific);
 
 // Book Stats DTOs
 public record BookStatsResponse(

@@ -4013,6 +4013,12 @@ html.dark .search-page__sub-result-highlight b {
 .user-book-card__progress-text {
   color: var(--color-primary, #8B7355);
 }
+.user-book-card__time-left {
+  color: var(--color-text-secondary, #888);
+  font-size: 12px;
+  margin-left: 4px;
+  cursor: help;
+}
 
 .user-book-card__completed-badge {
   position: absolute;

@@ -460,6 +460,11 @@
       "dismiss": "Dismiss",
       "empty": "No suggestions"
     },
+    "estimate": {
+      "left": "{{time}} left",
+      "fromYourPace": "Based on your reading pace",
+      "fallback": "Based on average reader (200 wpm)"
+    },
     "palette": {
       "title": "Command palette",
       "placeholder": "Jump to a page, book, or run a command…",
