@@ -11,5 +11,6 @@ export const features = {
     libraryShelves: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SHELVES') ?? isDev,
     librarySidebar: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SIDEBAR') ?? isDev,
     statusTabsPrimary: env('VITE_FEATURE_MYBOOKSV3_STATUS_TABS_PRIMARY') ?? isDev,
+    addMenu: env('VITE_FEATURE_MYBOOKSV3_ADD_MENU') ?? isDev,
   },
 } as const
