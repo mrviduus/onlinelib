@@ -382,6 +382,20 @@
       "scrollLeft": "Scroll left",
       "scrollRight": "Scroll right"
     },
+    "sidebar": {
+      "all": "All books",
+      "uploads": "My uploads",
+      "catalog": "Bookmarked from catalog",
+      "tags": "Tags",
+      "collections": "Collections",
+      "allTags": "All tags →",
+      "newCollection": "+ New collection",
+      "open": "Open filters",
+      "close": "Close filters"
+    },
+    "tab": {
+      "bookmarked": "Bookmarked"
+    },
     "shelves": {
       "viewAll": "View all",
       "continueReading": {

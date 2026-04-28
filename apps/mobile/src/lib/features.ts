@@ -23,6 +23,8 @@ export const FEATURES = {
   myBooksV3HeaderReframe: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_HEADER_REFRAME, false),
   // My Books v3 slice 02 — smart shelves at top of Library (4 shelves: Continue / Recently added / Quick reads / Finished this month).
   myBooksV3LibraryShelves: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SHELVES, false),
+  // My Books v3 slice 03 — Library sidebar drawer (source/tags/collections filters replace Saved/Uploads tabs).
+  myBooksV3LibrarySidebar: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SIDEBAR, false),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

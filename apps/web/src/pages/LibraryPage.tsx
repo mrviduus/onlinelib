@@ -13,6 +13,8 @@ import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
 import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
 import { LibraryShelves } from '../components/library/LibraryShelves'
+import { LibrarySidebar } from '../components/library/LibrarySidebar'
+import { useLibrarySource } from '../hooks/useLibrarySource'
 import { features } from '../lib/features'
 import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
@@ -54,6 +56,15 @@ export function LibraryPage() {
   const tabFromUrl = searchParams.get('tab')
   const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
   const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
+  const sidebarV3 = features.myBooksV3.librarySidebar
+  const librarySource = useLibrarySource()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const showSavedBlock = sidebarV3
+    ? (librarySource.source === 'all' || librarySource.source === 'catalog')
+    : activeTab === 'saved'
+  const showUploadsBlock = sidebarV3
+    ? (librarySource.source === 'all' || librarySource.source === 'uploads')
+    : activeTab === 'uploads'
   const highlightedBookId = useHighlightedBook()
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
@@ -113,7 +124,7 @@ export function LibraryPage() {
 
   // Content search (server-side FTS) — runs only when toggle is on and we have a query
   useEffect(() => {
-    if (activeTab !== 'uploads') return
+    if (!showUploadsBlock) return
     if (!uploadsContentSearch) { setContentHits(null); return }
     const parsed = parseQuery(uploadsQueryD)
     if (!parsed.text) { setContentHits(null); return }
@@ -124,7 +135,7 @@ export function LibraryPage() {
       .catch(err => { if (err?.name !== 'AbortError') setContentHits([]) })
       .finally(() => setContentLoading(false))
     return () => ctrl.abort()
-  }, [uploadsContentSearch, uploadsQueryD, activeTab])
+  }, [uploadsContentSearch, uploadsQueryD, showUploadsBlock])
 
   // Fetch user books
   const fetchUserBooks = useCallback(async () => {
@@ -300,30 +311,82 @@ export function LibraryPage() {
       <SeoHead title={t('library.title')} noindex />
 
       {/* Sidebar */}
-      <aside className="library-sidebar">
-        <div className="library-sidebar__inner">
-          <button
-            className={`library-sidebar__btn ${activeTab === 'saved' ? 'library-sidebar__btn--active' : ''}`}
-            onClick={() => setActiveTab('saved')}
-          >
-            <span className="material-icons-outlined">book</span>
-            <span>{t('library.saved')}</span>
-            {items.length > 0 && <span className="library-sidebar__count">{items.length}</span>}
-          </button>
-          <button
-            className={`library-sidebar__btn ${activeTab === 'uploads' ? 'library-sidebar__btn--active' : ''}`}
-            onClick={() => setActiveTab('uploads')}
-          >
-            <span className="material-icons-outlined">file_upload</span>
-            <span>{t('library.uploads')}</span>
-            {userBooks.length > 0 && <span className="library-sidebar__count">{userBooks.length}</span>}
-          </button>
-        </div>
-      </aside>
+      {sidebarV3 ? (
+        <>
+          {sidebarOpen && (
+            <div
+              className="library-sidebar-v3__backdrop"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+          <aside className={`library-sidebar-v3 ${sidebarOpen ? 'library-sidebar-v3--open' : ''}`}>
+            <LibrarySidebar
+              source={librarySource.source}
+              tag={librarySource.tag}
+              collection={librarySource.collection}
+              counts={{
+                all: items.length + userBooks.length,
+                uploads: userBooks.length,
+                catalog: items.length,
+              }}
+              onSourceChange={(s) => {
+                librarySource.setSource(s)
+                setSidebarOpen(false)
+                if (s === 'uploads') setActiveTab('uploads')
+                else if (s === 'catalog') setActiveTab('saved')
+              }}
+              onTagChange={(next) => {
+                librarySource.setTag(next)
+                setSidebarOpen(false)
+                onUploadTagSelect(next)
+                setActiveTab('uploads')
+              }}
+              onCollectionChange={(id) => {
+                librarySource.setCollection(id)
+                setSidebarOpen(false)
+                onCollectionChange(id)
+              }}
+            />
+          </aside>
+        </>
+      ) : (
+        <aside className="library-sidebar">
+          <div className="library-sidebar__inner">
+            <button
+              className={`library-sidebar__btn ${activeTab === 'saved' ? 'library-sidebar__btn--active' : ''}`}
+              onClick={() => setActiveTab('saved')}
+            >
+              <span className="material-icons-outlined">book</span>
+              <span>{t('library.saved')}</span>
+              {items.length > 0 && <span className="library-sidebar__count">{items.length}</span>}
+            </button>
+            <button
+              className={`library-sidebar__btn ${activeTab === 'uploads' ? 'library-sidebar__btn--active' : ''}`}
+              onClick={() => setActiveTab('uploads')}
+            >
+              <span className="material-icons-outlined">file_upload</span>
+              <span>{t('library.uploads')}</span>
+              {userBooks.length > 0 && <span className="library-sidebar__count">{userBooks.length}</span>}
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Main Content */}
       <main className="library-main">
         <header className="library-header">
+          {sidebarV3 && (
+            <button
+              type="button"
+              className="library-sidebar-toggle"
+              onClick={() => setSidebarOpen(true)}
+              aria-label={t('library.sidebar.open')}
+            >
+              <span className="material-icons-outlined">menu</span>
+              {t('library.sidebar.open')}
+            </button>
+          )}
           <h1 className="library-header__title">{t('library.title')}</h1>
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
@@ -338,7 +401,7 @@ export function LibraryPage() {
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
-        {activeTab === 'saved' && (
+        {showSavedBlock && (
           <>
             {/* Toolbar */}
             <div className="library-toolbar">
@@ -523,7 +586,7 @@ export function LibraryPage() {
           </>
         )}
 
-        {activeTab === 'uploads' && (
+        {showUploadsBlock && (
           <>
             {showUploadModal && (
               <UploadSection onUploadComplete={() => { fetchUserBooks(); setShowUploadModal(false) }} />
@@ -738,7 +801,7 @@ export function LibraryPage() {
       </main>
 
       {/* FAB */}
-      {activeTab === 'uploads' && !selection.active && (
+      {showUploadsBlock && !selection.active && (
         <button
           className="library-fab"
           onClick={() => setShowUploadModal(true)}
@@ -748,7 +811,7 @@ export function LibraryPage() {
         </button>
       )}
 
-      {selection.active && activeTab === 'uploads' && (
+      {selection.active && showUploadsBlock && (
         <BulkActionBar
           count={selection.count}
           onCancel={selection.exit}

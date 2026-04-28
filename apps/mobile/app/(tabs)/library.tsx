@@ -19,6 +19,7 @@ import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { ContinueReadingShelf } from '../../src/components/library/ContinueReadingShelf'
 import { LibraryShelves } from '../../src/components/library/LibraryShelves'
+import { LibrarySidebarDrawer, type LibrarySource } from '../../src/components/library/LibrarySidebarDrawer'
 import { BookStatusBadge } from '../../src/components/library/BookStatusBadge'
 import { GeneratedCover } from '../../src/components/library/GeneratedCover'
 import { FEATURES } from '../../src/lib/features'
@@ -54,6 +55,9 @@ export default function LibraryScreen() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('saved')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const sidebarV3 = FEATURES.myBooksV3LibrarySidebar
+  const [source, setSource] = useState<LibrarySource>('all')
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
@@ -161,8 +165,21 @@ export default function LibraryScreen() {
     )
   }
 
+  const effectiveTab: Tab = sidebarV3 && source === 'uploads' ? 'uploads'
+    : sidebarV3 && source === 'catalog' ? 'saved'
+    : tab
+  const showTabs = !sidebarV3 || source === 'all'
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {sidebarV3 && (
+        <View style={styles.sidebarHeader}>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.menuBtn}>
+            <Ionicons name="menu" size={20} color={colors.text} />
+            <Text style={[styles.menuBtnText, { color: colors.text }]}>{t('library.sidebar.open')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {user && (
         <Text style={[styles.emailText, { color: colors.textSecondary }]}>
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
@@ -174,17 +191,20 @@ export default function LibraryScreen() {
         FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
-          {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-              onPress={() => setTab(t)}
-            >
-              <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {showTabs && (
+          <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
+            {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setTab(t)}
+              >
+                <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {!showTabs && <View style={{ flex: 1 }} />}
         <View style={{ flexDirection: 'row', paddingRight: 10, gap: 2 }}>
           <TouchableOpacity onPress={() => toggleView('grid')} hitSlop={6} style={{ padding: 4 }}>
             <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? colors.primary : colors.textSecondary} />
@@ -195,10 +215,23 @@ export default function LibraryScreen() {
         </View>
       </View>
 
-      {tab === 'saved' ? (
+      {effectiveTab === 'saved' ? (
         <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
       ) : (
         <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
+      )}
+      {sidebarV3 && (
+        <LibrarySidebarDrawer
+          visible={drawerOpen}
+          source={source}
+          counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
+          onSelect={(next) => {
+            setSource(next)
+            if (next === 'uploads') setTab('uploads')
+            else if (next === 'catalog') setTab('saved')
+          }}
+          onClose={() => setDrawerOpen(false)}
+        />
       )}
     </View>
   )
@@ -837,4 +870,13 @@ const styles = StyleSheet.create({
   rowDotsBtn: {
     paddingHorizontal: 10, alignSelf: 'center', justifyContent: 'center',
   },
+  sidebarHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingTop: 8,
+  },
+  menuBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 6, paddingHorizontal: 10,
+  },
+  menuBtnText: { fontFamily: fonts.sansMedium, fontSize: 13 },
 })
