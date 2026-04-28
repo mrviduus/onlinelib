@@ -377,8 +377,6 @@
       }
     },
     "continueShelf": {
-      "title": "Continue reading",
-      "badge": "Continue",
       "scrollLeft": "Scroll left",
       "scrollRight": "Scroll right"
     },
@@ -392,9 +390,6 @@
       "newCollection": "+ New collection",
       "open": "Open filters",
       "close": "Close filters"
-    },
-    "tab": {
-      "bookmarked": "Bookmarked"
     },
     "shelves": {
       "viewAll": "View all",

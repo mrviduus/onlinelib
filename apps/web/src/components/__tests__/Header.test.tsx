@@ -41,13 +41,6 @@ vi.mock('../library/UploadButton', () => ({ UploadButton: () => <button>Upload</
 vi.mock('../StreakBadge', () => ({ StreakBadge: () => null }))
 vi.mock('../VocabBadgePopup', () => ({ VocabBadgePopup: () => null }))
 
-const flagState = { v3: true }
-vi.mock('../../lib/features', () => ({
-  features: {
-    get myBooksV3() { return { headerReframe: flagState.v3 } },
-  },
-}))
-
 function renderHeader() {
   return render(
     <MemoryRouter>
@@ -56,15 +49,13 @@ function renderHeader() {
   )
 }
 
-describe('Header (myBooksV3 reframe)', () => {
+describe('Header', () => {
   beforeEach(() => {
-    flagState.v3 = true
     authState.isAuthenticated = false
     authState.isLoading = false
   })
 
-  it('flag ON + authenticated: shows Home / Library / Discover / Vocabulary, hides About', () => {
-    flagState.v3 = true
+  it('authenticated: shows Home / Library / Discover / Vocabulary, hides About', () => {
     authState.isAuthenticated = true
     renderHeader()
     expect(screen.getByTitle('Home')).toBeInTheDocument()
@@ -74,8 +65,7 @@ describe('Header (myBooksV3 reframe)', () => {
     expect(screen.queryByTitle('About TextStack')).not.toBeInTheDocument()
   })
 
-  it('flag ON + unauthenticated: hides Home/Library/Vocabulary, keeps Discover + About', () => {
-    flagState.v3 = true
+  it('unauthenticated: hides Home/Library/Vocabulary, keeps Discover + About', () => {
     authState.isAuthenticated = false
     renderHeader()
     expect(screen.queryByTitle('Home')).not.toBeInTheDocument()
@@ -84,27 +74,14 @@ describe('Header (myBooksV3 reframe)', () => {
     expect(screen.getByTitle('About TextStack')).toBeInTheDocument()
   })
 
-  it('flag OFF: legacy structure (Discover + Vocabulary + About, no Home / Library)', () => {
-    flagState.v3 = false
-    authState.isAuthenticated = true
-    renderHeader()
-    expect(screen.queryByTitle('Home')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Library')).not.toBeInTheDocument()
-    expect(screen.getByTestId('discover-menu')).toBeInTheDocument()
-    expect(screen.getByTitle('Vocabulary')).toBeInTheDocument()
-    expect(screen.getByTitle('About TextStack')).toBeInTheDocument()
-  })
-
-  it('flag ON + authenticated: logo links to /en/library (home fallback until slice 03)', () => {
-    flagState.v3 = true
+  it('authenticated: logo links to /en/library', () => {
     authState.isAuthenticated = true
     renderHeader()
     const brand = screen.getByTitle('TextStack')
     expect(brand).toHaveAttribute('href', '/en/library')
   })
 
-  it('flag ON + unauthenticated: logo links to /en (marketing root)', () => {
-    flagState.v3 = true
+  it('unauthenticated: logo links to /en (marketing root)', () => {
     authState.isAuthenticated = false
     renderHeader()
     const brand = screen.getByTitle('TextStack')

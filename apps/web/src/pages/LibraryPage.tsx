@@ -11,24 +11,20 @@ import { OfflineBadge } from '../components/OfflineBadge'
 import { BookActionMenu } from '../components/library/BookActionMenu'
 import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
-import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
 import { LibraryShelves } from '../components/library/LibraryShelves'
 import { LibrarySidebar } from '../components/library/LibrarySidebar'
 import { useLibrarySource } from '../hooks/useLibrarySource'
-import { features } from '../lib/features'
 import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
-import { LibraryFilters } from '../components/library/LibraryFilters'
 import { LibraryStatusTabs } from '../components/library/LibraryStatusTabs'
 import { LibrarySearch } from '../components/library/LibrarySearch'
 import { useLibrarySort, sortLibraryItems, sortUserBooks } from '../hooks/useLibrarySort'
 import {
-  useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
+  filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../hooks/useLibraryFilter'
 import { useLibraryStatus } from '../hooks/useLibraryStatus'
 import { useLibrarySearch } from '../hooks/useLibrarySearch'
 import { matchesQuery, parseQuery } from '../lib/searchUtils'
-import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
 import { CollectionChips } from '../components/library/CollectionChips'
 import { getCollectionBookIds } from '../api/collections'
@@ -58,15 +54,10 @@ export function LibraryPage() {
   const tabFromUrl = searchParams.get('tab')
   const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
   const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
-  const sidebarV3 = features.myBooksV3.librarySidebar
   const librarySource = useLibrarySource()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const showSavedBlock = sidebarV3
-    ? (librarySource.source === 'all' || librarySource.source === 'catalog')
-    : activeTab === 'saved'
-  const showUploadsBlock = sidebarV3
-    ? (librarySource.source === 'all' || librarySource.source === 'uploads')
-    : activeTab === 'uploads'
+  const showSavedBlock = librarySource.source === 'all' || librarySource.source === 'catalog'
+  const showUploadsBlock = librarySource.source === 'all' || librarySource.source === 'uploads'
   const highlightedBookId = useHighlightedBook()
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
@@ -75,14 +66,11 @@ export function LibraryPage() {
   })
   const { sort: savedSort, setSort: setSavedSort } = useLibrarySort('saved')
   const { sort: uploadsSort, setSort: setUploadsSort } = useLibrarySort('uploads')
-  const { filter: savedFilterRaw, setFilter: setSavedFilterRaw } = useLibraryFilter('saved')
-  const { filter: uploadsFilterRaw, setFilter: setUploadsFilterRaw } = useLibraryFilter('uploads')
-  const statusTabsV3 = features.myBooksV3.statusTabsPrimary
-  const v3Status = useLibraryStatus()
-  const savedFilter = statusTabsV3 ? v3Status.status : savedFilterRaw
-  const setSavedFilter = statusTabsV3 ? v3Status.setStatus : setSavedFilterRaw
-  const uploadsFilter = statusTabsV3 ? v3Status.status : uploadsFilterRaw
-  const setUploadsFilter = statusTabsV3 ? v3Status.setStatus : setUploadsFilterRaw
+  const { status, setStatus } = useLibraryStatus()
+  const savedFilter = status
+  const setSavedFilter = setStatus
+  const uploadsFilter = status
+  const setUploadsFilter = setStatus
   const { query: savedQuery, debouncedQuery: savedQueryD, setQuery: setSavedQuery, clear: clearSavedQuery } = useLibrarySearch('saved')
   const {
     query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery,
@@ -90,7 +78,6 @@ export function LibraryPage() {
   } = useLibrarySearch('uploads')
   const [contentHits, setContentHits] = useState<UserBookSearchHit[] | null>(null)
   const [contentLoading, setContentLoading] = useState(false)
-  const { tags: userTags } = useUserTags()
   const [showUploadModal, setShowUploadModal] = useState(false)
   const collectionIdParam = searchParams.get('collection')
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
@@ -118,7 +105,6 @@ export function LibraryPage() {
     }, { replace: true })
   }
 
-  const activeUploadTag = parseQuery(uploadsQueryD).tags[0] ?? null
   const onUploadTagSelect = (tag: string | null) => {
     if (!tag) { setUploadsQuery(parseQuery(uploadsQueryD).text) ; return }
     const text = parseQuery(uploadsQueryD).text
@@ -319,93 +305,62 @@ export function LibraryPage() {
       <SeoHead title={t('library.title')} noindex />
 
       {/* Sidebar */}
-      {sidebarV3 ? (
-        <>
-          {sidebarOpen && (
-            <div
-              className="library-sidebar-v3__backdrop"
-              onClick={() => setSidebarOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-          <aside className={`library-sidebar-v3 ${sidebarOpen ? 'library-sidebar-v3--open' : ''}`}>
-            <LibrarySidebar
-              source={librarySource.source}
-              tag={librarySource.tag}
-              collection={librarySource.collection}
-              counts={{
-                all: items.length + userBooks.length,
-                uploads: userBooks.length,
-                catalog: items.length,
-              }}
-              onSourceChange={(s) => {
-                librarySource.setSource(s)
-                setSidebarOpen(false)
-                if (s === 'uploads') setActiveTab('uploads')
-                else if (s === 'catalog') setActiveTab('saved')
-              }}
-              onTagChange={(next) => {
-                librarySource.setTag(next)
-                setSidebarOpen(false)
-                onUploadTagSelect(next)
-                setActiveTab('uploads')
-              }}
-              onCollectionChange={(id) => {
-                librarySource.setCollection(id)
-                setSidebarOpen(false)
-                onCollectionChange(id)
-              }}
-            />
-          </aside>
-        </>
-      ) : (
-        <aside className="library-sidebar">
-          <div className="library-sidebar__inner">
-            <button
-              className={`library-sidebar__btn ${activeTab === 'saved' ? 'library-sidebar__btn--active' : ''}`}
-              onClick={() => setActiveTab('saved')}
-            >
-              <span className="material-icons-outlined">book</span>
-              <span>{t('library.saved')}</span>
-              {items.length > 0 && <span className="library-sidebar__count">{items.length}</span>}
-            </button>
-            <button
-              className={`library-sidebar__btn ${activeTab === 'uploads' ? 'library-sidebar__btn--active' : ''}`}
-              onClick={() => setActiveTab('uploads')}
-            >
-              <span className="material-icons-outlined">file_upload</span>
-              <span>{t('library.uploads')}</span>
-              {userBooks.length > 0 && <span className="library-sidebar__count">{userBooks.length}</span>}
-            </button>
-          </div>
-        </aside>
+      {sidebarOpen && (
+        <div
+          className="library-sidebar-v3__backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
+      <aside className={`library-sidebar-v3 ${sidebarOpen ? 'library-sidebar-v3--open' : ''}`}>
+        <LibrarySidebar
+          source={librarySource.source}
+          tag={librarySource.tag}
+          collection={librarySource.collection}
+          counts={{
+            all: items.length + userBooks.length,
+            uploads: userBooks.length,
+            catalog: items.length,
+          }}
+          onSourceChange={(s) => {
+            librarySource.setSource(s)
+            setSidebarOpen(false)
+            if (s === 'uploads') setActiveTab('uploads')
+            else if (s === 'catalog') setActiveTab('saved')
+          }}
+          onTagChange={(next) => {
+            librarySource.setTag(next)
+            setSidebarOpen(false)
+            onUploadTagSelect(next)
+            setActiveTab('uploads')
+          }}
+          onCollectionChange={(id) => {
+            librarySource.setCollection(id)
+            setSidebarOpen(false)
+            onCollectionChange(id)
+          }}
+        />
+      </aside>
 
       {/* Main Content */}
       <main className="library-main">
         <header className="library-header">
-          {sidebarV3 && (
-            <button
-              type="button"
-              className="library-sidebar-toggle"
-              onClick={() => setSidebarOpen(true)}
-              aria-label={t('library.sidebar.open')}
-            >
-              <span className="material-icons-outlined">menu</span>
-              {t('library.sidebar.open')}
-            </button>
-          )}
+          <button
+            type="button"
+            className="library-sidebar-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label={t('library.sidebar.open')}
+          >
+            <span className="material-icons-outlined">menu</span>
+            {t('library.sidebar.open')}
+          </button>
           <h1 className="library-header__title">{t('library.title')}</h1>
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
 
         {isAuthenticated && <LibraryStatsHeader />}
 
-        {features.myBooksV3.libraryShelves ? (
-          <LibraryShelves hasAnyContent={items.length > 0 || userBooks.length > 0} />
-        ) : (
-          <ContinueReadingShelf />
-        )}
+        <LibraryShelves hasAnyContent={items.length > 0 || userBooks.length > 0} />
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
@@ -437,11 +392,7 @@ export function LibraryPage() {
             {items.length > 0 && (
               <>
                 <LibrarySearch value={savedQuery} onChange={setSavedQuery} />
-                {statusTabsV3 ? (
-                  <LibraryStatusTabs value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
-                ) : (
-                  <LibraryFilters value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
-                )}
+                <LibraryStatusTabs value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
               </>
             )}
 
@@ -644,22 +595,11 @@ export function LibraryPage() {
                   contentSearch={uploadsContentSearch}
                   onToggleContentSearch={setUploadsContentSearch}
                 />
-                {statusTabsV3 ? (
-                  <LibraryStatusTabs
-                    value={uploadsFilter}
-                    onChange={setUploadsFilter}
-                    counts={uploadsCounts}
-                  />
-                ) : (
-                  <LibraryFilters
-                    value={uploadsFilter}
-                    onChange={setUploadsFilter}
-                    counts={uploadsCounts}
-                    tags={userTags}
-                    activeTag={activeUploadTag}
-                    onTagClick={onUploadTagSelect}
-                  />
-                )}
+                <LibraryStatusTabs
+                  value={uploadsFilter}
+                  onChange={setUploadsFilter}
+                  counts={uploadsCounts}
+                />
               </>
             )}
 

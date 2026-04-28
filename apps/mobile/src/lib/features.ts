@@ -16,19 +16,6 @@ export const FEATURES = {
   // Default ON — already shipped to 100% of users via hardcoded `overlayV2: true`.
   // Flip OFF via env if a regression surfaces; per-device override via AsyncStorage below.
   readerOverlayV2: readBool(process.env.EXPO_PUBLIC_READER_OVERLAY_V2, true),
-  // My Books v2 — Continue Reading shelf at top of Library (Phase 2 / slice 05).
-  myBooksV2ContinueReading: readBool(process.env.EXPO_PUBLIC_MYBOOKS_V2_CONTINUE_READING, true),
-  // My Books v3 — header/tab reframe (Home/Discover/+/Library/Vocab on mobile).
-  // Default OFF in prod; enable AFTER slice 04 ships smart shelves on /home.
-  myBooksV3HeaderReframe: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_HEADER_REFRAME, false),
-  // My Books v3 slice 02 — smart shelves at top of Library (4 shelves: Continue / Recently added / Quick reads / Finished this month).
-  myBooksV3LibraryShelves: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SHELVES, false),
-  // My Books v3 slice 03 — Library sidebar drawer (source/tags/collections filters replace Saved/Uploads tabs).
-  myBooksV3LibrarySidebar: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SIDEBAR, false),
-  // My Books v3 slice 04 — Status as primary horizontal tabs (Reading/Finished/Not started/Failed/All).
-  myBooksV3StatusTabsPrimary: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_STATUS_TABS_PRIMARY, false),
-  // My Books v3 slice 05 — `+` button becomes a menu (Upload / coming-soon items / Browse all).
-  myBooksV3AddMenu: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_ADD_MENU, false),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

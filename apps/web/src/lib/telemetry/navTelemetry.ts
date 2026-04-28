@@ -6,7 +6,7 @@ const isDev =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (import.meta as any).env?.DEV === true
 
-export type MyBooksV3Event =
+export type NavTelemetryEvent =
   | 'header.click'
   | 'header.search.opened'
   | 'home.landed'
@@ -14,12 +14,12 @@ export type MyBooksV3Event =
   | 'library.shelf.click'
   | 'library.shelf.viewAll'
 
-export function emit(event: MyBooksV3Event, params?: Params): void {
+export function emit(event: NavTelemetryEvent, params?: Params): void {
   try {
     const payload = { ...(params ?? {}), ts: Date.now() }
     if (isDev) {
       // eslint-disable-next-line no-console
-      console.debug('[myBooksV3]', event, payload)
+      console.debug('[nav]', event, payload)
     }
     if (!isBrowser) return
     const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag

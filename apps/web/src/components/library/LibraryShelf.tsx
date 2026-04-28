@@ -4,7 +4,7 @@ import { LocalizedLink } from '../LocalizedLink'
 import { getStorageUrl } from '../../api/client'
 import { getUserBookCoverUrl } from '../../api/userBooks'
 import type { LibraryShelfItem } from '../../api/library'
-import { emit as emitV3 } from '../../lib/telemetry/myBooksV3'
+import { emit as emitV3 } from '../../lib/telemetry/navTelemetry'
 
 interface LibraryShelfProps {
   shelfId: 'continueReading' | 'recentlyAdded' | 'quickReads' | 'finishedThisMonth'
