@@ -9,5 +9,6 @@ export const features = {
   myBooksV3: {
     headerReframe: env('VITE_FEATURE_MYBOOKSV3_HEADER_REFRAME') ?? isDev,
     libraryShelves: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SHELVES') ?? isDev,
+    librarySidebar: env('VITE_FEATURE_MYBOOKSV3_LIBRARY_SIDEBAR') ?? isDev,
   },
 } as const
