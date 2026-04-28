@@ -631,6 +631,17 @@
       "signinAction": "Sign in"
     }
   },
+  "addMenu": {
+    "ariaLabel": "Add content menu",
+    "comingSoon": "Coming in a future update",
+    "uploadFile": "Upload file",
+    "uploadShortcut": "U",
+    "pasteUrl": "Paste URL",
+    "emailBook": "Email a book",
+    "browserExtension": "Browser extension",
+    "mobileApps": "Mobile apps",
+    "browseAll": "Browse all books"
+  },
   "books": {
     "title": "Books",
     "seoDesc": "Read books online for free | TextStack Reader",

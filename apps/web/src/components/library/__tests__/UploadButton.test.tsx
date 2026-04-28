@@ -19,6 +19,9 @@ vi.mock('react-router-dom', () => ({
 vi.mock('../UploadModal', () => ({
   UploadModal: ({ open }: { open: boolean }) => (open ? <div data-testid="modal" /> : null),
 }))
+vi.mock('../../../lib/features', () => ({
+  features: { myBooksV3: { addMenu: false } },
+}))
 
 import { UploadButton } from '../UploadButton'
 

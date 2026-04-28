@@ -27,6 +27,8 @@ export const FEATURES = {
   myBooksV3LibrarySidebar: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_LIBRARY_SIDEBAR, false),
   // My Books v3 slice 04 — Status as primary horizontal tabs (Reading/Finished/Not started/Failed/All).
   myBooksV3StatusTabsPrimary: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_STATUS_TABS_PRIMARY, false),
+  // My Books v3 slice 05 — `+` button becomes a menu (Upload / coming-soon items / Browse all).
+  myBooksV3AddMenu: readBool(process.env.EXPO_PUBLIC_MYBOOKSV3_ADD_MENU, false),
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

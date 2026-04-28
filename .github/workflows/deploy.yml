@@ -54,6 +54,7 @@ jobs:
             VITE_FEATURE_MYBOOKSV3_LIBRARY_SHELVES=false \
             VITE_FEATURE_MYBOOKSV3_LIBRARY_SIDEBAR=false \
             VITE_FEATURE_MYBOOKSV3_STATUS_TABS_PRIMARY=false \
+            VITE_FEATURE_MYBOOKSV3_ADD_MENU=false \
             pnpm build
 
       - name: Deploy containers
