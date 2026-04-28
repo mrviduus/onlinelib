@@ -37,6 +37,8 @@ public static class UserBooksEndpoints
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
         group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
         group.MapPut("/{id:guid}/tags", SetTags).WithName("SetUserBookTags");
+        group.MapPost("/{id:guid}/suggested-tags/accept", AcceptSuggestedTags).WithName("AcceptSuggestedTags");
+        group.MapPost("/{id:guid}/suggested-tags/dismiss", DismissSuggestedTags).WithName("DismissSuggestedTags");
 
         group.MapGet("/{id:guid}/stats", GetBookStats).WithName("GetUserBookStats");
 
@@ -144,6 +146,36 @@ public static class UserBooksEndpoints
         var (tags, error) = await tagService.SetTagsAsync(userId.Value, id, request.Tags ?? [], ct);
         if (error is not null) return Results.NotFound();
         return Results.Ok(tags);
+    }
+
+    private static async Task<IResult> AcceptSuggestedTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        [FromBody] AcceptSuggestedTagsRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (tags, error) = await tagService.AcceptSuggestedTagsAsync(userId.Value, id, request.Accepted ?? [], ct);
+        if (error is not null) return Results.NotFound();
+        return Results.Ok(tags);
+    }
+
+    private static async Task<IResult> DismissSuggestedTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var ok = await tagService.DismissSuggestedTagsAsync(userId.Value, id, ct);
+        return ok ? Results.NoContent() : Results.NotFound();
     }
 
     private static async Task<IResult> GetUserTags(

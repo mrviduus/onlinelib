@@ -18,8 +18,11 @@ public record UserBookListDto(
     double? ProgressPercent,
     DateTimeOffset? ProgressUpdatedAt,
     string? ProgressChapterSlug,
-    string[] Tags
+    string[] Tags,
+    string[] SuggestedTags
 );
+
+public record AcceptSuggestedTagsRequest(string[] Accepted);
 
 public record UserBookDetailDto(
     Guid Id,

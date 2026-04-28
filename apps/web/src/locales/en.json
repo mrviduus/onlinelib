@@ -452,6 +452,14 @@
       "dropdown": "All tags",
       "clear": "Clear tag filter"
     },
+    "suggestedTags": {
+      "pill": "✨ Suggested tags",
+      "title": "AI-suggested tags",
+      "subtitle": "Pick the ones you want to keep.",
+      "add": "Add selected",
+      "dismiss": "Dismiss",
+      "empty": "No suggestions"
+    },
     "collections": {
       "aria": "Collections",
       "all": "All books",

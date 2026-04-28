@@ -19,6 +19,7 @@ public class UserIngestionService
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly IImageOptimizer _imageOptimizer;
     private readonly IBookMetadataGenerator _metadataGenerator;
+    private readonly ITagSuggestionGenerator _tagGenerator;
     private readonly ILogger<UserIngestionService> _logger;
 
     public UserIngestionService(
@@ -27,6 +28,7 @@ public class UserIngestionService
         IExtractorRegistry extractorRegistry,
         IImageOptimizer imageOptimizer,
         IBookMetadataGenerator metadataGenerator,
+        ITagSuggestionGenerator tagGenerator,
         ILogger<UserIngestionService> logger)
     {
         _dbFactory = dbFactory;
@@ -34,6 +36,7 @@ public class UserIngestionService
         _extractorRegistry = extractorRegistry;
         _imageOptimizer = imageOptimizer;
         _metadataGenerator = metadataGenerator;
+        _tagGenerator = tagGenerator;
         _logger = logger;
     }
 
@@ -247,6 +250,10 @@ public class UserIngestionService
             var bookId = job.UserBookId;
             var bookTitle = job.UserBook.Title;
             var bookAuthor = job.UserBook.Author;
+            var bookLanguage = job.UserBook.Language;
+            var bookUserId = job.UserBook.UserId;
+            var firstChapterExcerpt = result.Units.FirstOrDefault()?.PlainText;
+            var bookHasTags = job.UserBook.Tags.Length > 0;
             var needsDesc = string.IsNullOrEmpty(job.UserBook.Description);
             _ = Task.Run(async () =>
             {
@@ -289,6 +296,52 @@ public class UserIngestionService
                     _logger.LogError(ex, "Failed to enrich book metadata {BookId}", bookId);
                 }
             });
+
+            // Fire-and-forget: AI auto-tags via Ollama (slice 17). Skip if user already tagged.
+            if (!bookHasTags)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await using var bgDb = await _dbFactory.CreateDbContextAsync(CancellationToken.None);
+                        var nativeLang = await bgDb.Users
+                            .Where(u => u.Id == bookUserId)
+                            .Select(u => u.NativeLanguage)
+                            .FirstOrDefaultAsync(CancellationToken.None);
+
+                        var tags = await _tagGenerator.GenerateAsync(
+                            bookTitle, bookAuthor, bookLanguage, firstChapterExcerpt,
+                            nativeLang, CancellationToken.None);
+
+                        if (tags.Length == 0) return;
+
+                        var book = await bgDb.UserBooks.FirstOrDefaultAsync(
+                            b => b.Id == bookId, CancellationToken.None);
+                        if (book is null) return;
+
+                        // Don't overwrite if user has tagged in the meantime
+                        if (book.Tags.Length > 0) return;
+
+                        book.SuggestedTags = tags;
+                        book.SuggestedTagsAt = DateTimeOffset.UtcNow;
+                        book.UpdatedAt = DateTimeOffset.UtcNow;
+                        await bgDb.SaveChangesAsync(CancellationToken.None);
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogWarning(ex, "Ollama unavailable for tag suggestion {BookId}", bookId);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        _logger.LogWarning("Ollama timeout for tag suggestion {BookId}", bookId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to generate tag suggestions {BookId}", bookId);
+                    }
+                });
+            }
 
             _logger.LogInformation("User book job {JobId} completed. {ChapterCount} chapters created.",
                 jobId, result.Units.Count);

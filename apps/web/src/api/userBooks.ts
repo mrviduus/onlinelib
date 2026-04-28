@@ -20,6 +20,7 @@ export interface UserBook {
   progressUpdatedAt: string | null
   progressChapterSlug: string | null
   tags?: string[]
+  suggestedTags?: string[]
 }
 
 export interface UserChapterSummary {
@@ -201,6 +202,18 @@ export async function setUserBookTags(bookId: string, tags: string[]): Promise<s
 
 export async function getUserTags(): Promise<TagCount[]> {
   return authFetch<TagCount[]>('/me/library/tags')
+}
+
+export async function acceptSuggestedTags(bookId: string, accepted: string[]): Promise<string[]> {
+  return authFetch<string[]>(`/me/books/${bookId}/suggested-tags/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accepted }),
+  })
+}
+
+export async function dismissSuggestedTags(bookId: string): Promise<void> {
+  await authFetch<void>(`/me/books/${bookId}/suggested-tags/dismiss`, { method: 'POST' })
 }
 
 // Bulk actions

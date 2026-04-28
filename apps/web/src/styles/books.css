@@ -6601,6 +6601,99 @@ html.dark .book-hero__read-btn--secondary {
   align-self: center;
 }
 
+/* ── Suggested tags (slice 17) ─────────────────────────────────────── */
+.user-book-card__suggested-wrap { position: relative; margin-top: 4px; }
+.user-book-card__suggested-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-primary, #8b7355);
+  background: transparent;
+  color: var(--color-primary, #8b7355);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms;
+}
+.user-book-card__suggested-pill:hover {
+  background: var(--color-accent-bg, #f3ecd9);
+}
+.suggested-tags-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  max-width: 280px;
+  background: var(--color-card-bg, #fff);
+  border: 1px solid var(--color-border, #e0d8c8);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+}
+.suggested-tags-popover__title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.suggested-tags-popover__subtitle {
+  font-size: 11px;
+  color: var(--color-text-secondary, #888);
+  margin-bottom: 8px;
+}
+.suggested-tags-popover__empty {
+  font-size: 12px;
+  color: var(--color-text-secondary, #888);
+  padding: 8px 0;
+}
+.suggested-tags-popover__list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.suggested-tags-popover__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+.suggested-tags-popover__tag {
+  font-family: var(--font-mono, monospace);
+  color: var(--color-primary, #8b7355);
+}
+.suggested-tags-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.suggested-tags-popover__btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--color-border, #e0d8c8);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+.suggested-tags-popover__btn--primary {
+  background: var(--color-primary, #8b7355);
+  border-color: var(--color-primary, #8b7355);
+  color: #fff;
+}
+.suggested-tags-popover__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.suggested-tags-popover__btn--secondary:hover {
+  background: var(--color-accent-bg, #f3ecd9);
+}
+
 .tag-input { position: relative; }
 .tag-input__pills {
   display: flex;

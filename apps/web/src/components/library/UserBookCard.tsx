@@ -6,6 +6,7 @@ import { BookStatusBadge } from './BookStatusBadge'
 import { GeneratedCover } from './GeneratedCover'
 import { BookActionMenu } from './BookActionMenu'
 import { TagPill } from './TagPill'
+import { SuggestedTagsPopover } from './SuggestedTagsPopover'
 import { features } from '../../lib/features'
 
 const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
@@ -52,6 +53,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
   const { language } = useLanguage()
   const percent = progress?.percent ?? 0
   const [elapsed, setElapsed] = useState(0)
+  const [suggestedOpen, setSuggestedOpen] = useState(false)
   const [, setSearchParams] = useSearchParams()
   const filterByTag = (tag: string) => {
     setSearchParams((prev) => {
@@ -203,6 +205,28 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
               ))}
               {book.tags.length > 4 && (
                 <span className="user-book-card__tags-more">+{book.tags.length - 4}</span>
+              )}
+            </div>
+          )}
+          {features.myBooksV2.aiTags && isReady && book.suggestedTags && book.suggestedTags.length > 0 && (!book.tags || book.tags.length === 0) && (
+            <div className="user-book-card__suggested-wrap">
+              <button
+                type="button"
+                className="user-book-card__suggested-pill"
+                onClick={(e) => { e.stopPropagation(); setSuggestedOpen((v) => !v) }}
+                aria-haspopup="dialog"
+                aria-expanded={suggestedOpen}
+              >
+                ✨ {book.suggestedTags.length} suggested
+              </button>
+              {suggestedOpen && (
+                <SuggestedTagsPopover
+                  bookId={book.id}
+                  suggestions={book.suggestedTags}
+                  existingTags={book.tags ?? []}
+                  onClose={() => setSuggestedOpen(false)}
+                  onApplied={() => onUpdate?.()}
+                />
               )}
             </div>
           )}

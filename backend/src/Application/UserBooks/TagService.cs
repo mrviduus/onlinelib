@@ -39,6 +39,37 @@ public class TagService(IAppDbContext db)
         return (normalized, null);
     }
 
+    public async Task<(string[]? Tags, string? Error)> AcceptSuggestedTagsAsync(
+        Guid userId, Guid bookId, IEnumerable<string> accepted, CancellationToken ct)
+    {
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == bookId && b.UserId == userId, ct);
+        if (book is null) return (null, "Book not found");
+
+        var suggestedSet = new HashSet<string>(book.SuggestedTags, StringComparer.OrdinalIgnoreCase);
+        var picked = (accepted ?? []).Where(t => suggestedSet.Contains(t));
+        var merged = NormalizeAll(book.Tags.Concat(picked));
+
+        book.Tags = merged;
+        book.SuggestedTags = [];
+        book.SuggestedTagsAt = null;
+        book.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return (merged, null);
+    }
+
+    public async Task<bool> DismissSuggestedTagsAsync(
+        Guid userId, Guid bookId, CancellationToken ct)
+    {
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == bookId && b.UserId == userId, ct);
+        if (book is null) return false;
+
+        book.SuggestedTags = [];
+        book.SuggestedTagsAt = null;
+        book.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task<List<TagCount>> GetUserTagsAsync(Guid userId, CancellationToken ct)
     {
         var rows = await db.UserBooks
