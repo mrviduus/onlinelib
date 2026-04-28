@@ -1,0 +1,70 @@
+import { useCallback, useState } from 'react'
+import {
+  cancelUserBook,
+  deleteUserBook,
+  markUserBookComplete,
+  retryUserBook,
+  unmarkUserBookComplete,
+  type UserBook,
+} from '../api/userBooks'
+
+interface Options {
+  onChange?: () => void
+  onDelete?: () => void
+}
+
+export function useBookActions(book: UserBook, opts: Options = {}) {
+  const [pending, setPending] = useState<null | 'mark' | 'retry' | 'cancel' | 'delete'>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = useCallback(async (
+    kind: 'mark' | 'retry' | 'cancel' | 'delete',
+    fn: () => Promise<void>,
+    after?: () => void,
+  ) => {
+    if (pending) return
+    setPending(kind)
+    setError(null)
+    try {
+      await fn()
+      after?.()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Action failed'
+      setError(msg)
+      console.error(`[useBookActions] ${kind} failed:`, err)
+    } finally {
+      setPending(null)
+    }
+  }, [pending])
+
+  const markFinished = useCallback(() => {
+    return run('mark', () => markUserBookComplete(book.id), opts.onChange)
+  }, [book.id, opts.onChange, run])
+
+  const markUnfinished = useCallback(() => {
+    return run('mark', () => unmarkUserBookComplete(book.id), opts.onChange)
+  }, [book.id, opts.onChange, run])
+
+  const retry = useCallback(() => {
+    return run('retry', () => retryUserBook(book.id), opts.onChange)
+  }, [book.id, opts.onChange, run])
+
+  const cancel = useCallback(() => {
+    return run('cancel', () => cancelUserBook(book.id), opts.onChange)
+  }, [book.id, opts.onChange, run])
+
+  const remove = useCallback(() => {
+    return run('delete', () => deleteUserBook(book.id), opts.onDelete ?? opts.onChange)
+  }, [book.id, opts.onChange, opts.onDelete, run])
+
+  return {
+    markFinished,
+    markUnfinished,
+    retry,
+    cancel,
+    remove,
+    pending,
+    error,
+    isLoading: pending !== null,
+  }
+}

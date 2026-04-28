@@ -338,6 +338,34 @@ namespace Infrastructure.Migrations
                     b.ToTable("book_assets", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.BookCollection", b =>
+                {
+                    b.Property<Guid>("CollectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_id");
+
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("book_id");
+
+                    b.Property<string>("BookType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("book_type");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.HasKey("CollectionId", "BookId", "BookType")
+                        .HasName("pk_book_collections");
+
+                    b.HasIndex("BookId")
+                        .HasDatabaseName("ix_book_collections_book_id");
+
+                    b.ToTable("book_collections", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -582,6 +610,55 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("ix_chapters_edition_id_slug");
 
                     b.ToTable("chapters", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Collection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("default")
+                        .HasColumnName("color");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_collections");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_collections_user_id");
+
+                    b.HasIndex("UserId", "SortOrder")
+                        .HasDatabaseName("ix_collections_user_id_sort_order");
+
+                    b.ToTable("collections", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Edition", b =>
@@ -2160,6 +2237,10 @@ namespace Infrastructure.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("language");
 
+                    b.Property<string>("MetadataHistoryJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("metadata_history_json");
+
                     b.Property<string>("ProgressChapterSlug")
                         .HasColumnType("text")
                         .HasColumnName("progress_chapter_slug");
@@ -2180,6 +2261,14 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("published_year");
 
+                    b.Property<string>("SeoSource")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("auto")
+                        .HasColumnName("seo_source");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -2189,6 +2278,24 @@ namespace Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");
+
+                    b.PrimitiveCollection<string[]>("SuggestedTags")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("suggested_tags")
+                        .HasDefaultValueSql("ARRAY[]::text[]");
+
+                    b.Property<DateTimeOffset?>("SuggestedTagsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suggested_tags_at");
+
+                    b.PrimitiveCollection<string[]>("Tags")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("tags")
+                        .HasDefaultValueSql("ARRAY[]::text[]");
 
                     b.Property<DateTimeOffset?>("TakedownAt")
                         .HasColumnType("timestamp with time zone")
@@ -2226,6 +2333,11 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_user_books_status");
+
+                    b.HasIndex("Tags")
+                        .HasDatabaseName("ix_user_books_tags");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Tags"), "gin");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_user_books_user_id");
@@ -3152,6 +3264,18 @@ namespace Infrastructure.Migrations
                     b.Navigation("Edition");
                 });
 
+            modelBuilder.Entity("Domain.Entities.BookCollection", b =>
+                {
+                    b.HasOne("Domain.Entities.Collection", "Collection")
+                        .WithMany("Books")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_book_collections_collections_collection_id");
+
+                    b.Navigation("Collection");
+                });
+
             modelBuilder.Entity("Domain.Entities.BookFile", b =>
                 {
                     b.HasOne("Domain.Entities.Edition", "Edition")
@@ -3232,6 +3356,18 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("fk_chapters_editions_edition_id");
 
                     b.Navigation("Edition");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Collection", b =>
+                {
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_collections_users_user_id");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Domain.Entities.Edition", b =>
@@ -4023,6 +4159,11 @@ namespace Infrastructure.Migrations
                     b.Navigation("Notes");
 
                     b.Navigation("ReadingProgresses");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Collection", b =>
+                {
+                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("Domain.Entities.Edition", b =>

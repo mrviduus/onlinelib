@@ -38,6 +38,8 @@ import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
 import { CookieBanner } from './components/CookieBanner'
 import { Toast } from './components/Toast'
+import { GlobalDropZone } from './components/library/GlobalDropZone'
+import { CommandPaletteProvider } from './components/CommandPaletteProvider'
 import { useTranslation } from './hooks/useTranslation'
 import './styles/theme.css'
 import './styles/reader.css'
@@ -47,6 +49,7 @@ import './styles/vocabulary.css'
 import './styles/highlights.css'
 import './styles/auth.css'
 import './styles/profile.css'
+import './styles/dropzone.css'
 
 function AuthSuccessToast() {
   const { authSuccessToast, dismissAuthSuccessToast } = useAuth()
@@ -72,6 +75,8 @@ function LanguageRoutes() {
     <LanguageProvider>
       {!isReaderPage && !isUserBookReaderPage && <Header />}
       <AuthSuccessToast />
+      {!isReaderPage && !isUserBookReaderPage && <GlobalDropZone />}
+      <CommandPaletteProvider />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />

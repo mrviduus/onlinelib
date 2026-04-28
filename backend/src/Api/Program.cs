@@ -117,6 +117,12 @@ builder.Services.AddScoped<TextStackImportService>();
 
 // User books
 builder.Services.AddScoped<Application.UserBooks.UserBookService>();
+builder.Services.AddScoped<Application.UserBooks.MetadataService>();
+builder.Services.AddScoped<Application.UserBooks.TagService>();
+builder.Services.AddScoped<Application.Collections.CollectionService>();
+builder.Services.AddScoped<Application.UserBooks.BulkActionService>();
+builder.Services.AddScoped<Application.UserBooks.BookStatsService>();
+builder.Services.AddScoped<Application.UserBooks.UserBookSearchService>();
 
 // Standard Ebooks sync
 builder.Services.AddHttpClient<StandardEbooksSyncService>();
@@ -436,6 +442,7 @@ app.MapTranslationEndpoints();
 app.MapExplainEndpoints();
 app.MapDictionaryEndpoints();
 app.MapUserBooksEndpoints();
+app.MapCollectionsEndpoints();
 app.MapReadingTrackingEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapVocabularyEndpoints();

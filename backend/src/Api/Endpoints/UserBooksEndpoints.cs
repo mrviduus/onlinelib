@@ -35,6 +35,178 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/cancel", CancelBook).WithName("CancelUserBook");
         group.MapGet("/{id:guid}/export/epub", ExportEpub).WithName("ExportUserBookEpub");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
+        group.MapPut("/{id:guid}/metadata", UpdateMetadata).WithName("UpdateUserBookMetadata");
+        group.MapPut("/{id:guid}/tags", SetTags).WithName("SetUserBookTags");
+        group.MapPost("/{id:guid}/suggested-tags/accept", AcceptSuggestedTags).WithName("AcceptSuggestedTags");
+        group.MapPost("/{id:guid}/suggested-tags/dismiss", DismissSuggestedTags).WithName("DismissSuggestedTags");
+
+        group.MapGet("/{id:guid}/stats", GetBookStats).WithName("GetUserBookStats");
+
+        group.MapPost("/bulk/finish", BulkFinish).WithName("BulkFinishUserBooks");
+        group.MapPost("/bulk/delete", BulkDelete).WithName("BulkDeleteUserBooks");
+        group.MapPost("/bulk/tags", BulkTags).WithName("BulkTagsUserBooks");
+        group.MapPost("/bulk/collection/{collectionId:guid}/add", BulkAddToCollection).WithName("BulkAddCollection");
+        group.MapPost("/bulk/collection/{collectionId:guid}/remove", BulkRemoveFromCollection).WithName("BulkRemoveCollection");
+
+        var libraryGroup = app.MapGroup("/me/library").WithTags("User Library");
+        libraryGroup.MapGet("/tags", GetUserTags).WithName("GetUserLibraryTags");
+        libraryGroup.MapGet("/search", SearchLibrary).WithName("SearchUserLibrary");
+    }
+
+    private static async Task<IResult> SearchLibrary(
+        HttpContext httpContext, AuthService authService, UserBookSearchService svc,
+        [FromQuery] string? q, [FromQuery] string? tags, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(q)) return Results.Ok(Array.Empty<UserBookSearchHitDto>());
+
+        var tagList = string.IsNullOrWhiteSpace(tags)
+            ? Array.Empty<string>()
+            : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var hits = await svc.SearchAsync(userId.Value, q, tagList, ct);
+        return Results.Ok(hits.Select(h => new UserBookSearchHitDto(
+            h.Id, h.Title, h.Author, h.CoverPath, h.Language, h.Rank, h.Excerpt, h.ChapterSlug)));
+    }
+
+    private static async Task<IResult> GetBookStats(
+        Guid id, HttpContext httpContext, AuthService authService, BookStatsService svc, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var stats = await svc.GetStatsAsync(userId.Value, id, ct);
+        if (stats is null) return Results.NotFound();
+        return Results.Ok(new BookStatsDto(
+            stats.BookId, stats.SessionsCount, stats.TotalReadMinutes, stats.WordsRead,
+            stats.VocabSavedCount, stats.HighlightsCount, stats.AverageWordsPerMinute, stats.EstimatedMinutesRemaining));
+    }
+
+    private static async Task<IResult> BulkFinish(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkFinishRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.SetFinishedAsync(userId.Value, req.Ids ?? [], req.IsFinished, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkDelete(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkIdsRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.DeleteAsync(userId.Value, req.Ids ?? [], ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkTags(
+        HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkTagsRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.AddTagsAsync(userId.Value, req.Ids ?? [], req.AddTags ?? [], req.RemoveTags ?? [], ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkAddToCollection(
+        Guid collectionId, HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkCollectionRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.AddToCollectionAsync(userId.Value, collectionId, req.Ids ?? [], req.BookType, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> BulkRemoveFromCollection(
+        Guid collectionId, HttpContext httpContext, AuthService authService, BulkActionService svc,
+        [FromBody] BulkCollectionRequest req, CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+        var r = await svc.RemoveFromCollectionAsync(userId.Value, collectionId, req.Ids ?? [], req.BookType, ct);
+        return Results.Ok(new BulkResultDto(r.Succeeded, r.Failed.Select(f => new BulkFailureDto(f.Id, f.Reason)).ToArray()));
+    }
+
+    private static async Task<IResult> SetTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        [FromBody] SetTagsRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (tags, error) = await tagService.SetTagsAsync(userId.Value, id, request.Tags ?? [], ct);
+        if (error is not null) return Results.NotFound();
+        return Results.Ok(tags);
+    }
+
+    private static async Task<IResult> AcceptSuggestedTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        [FromBody] AcceptSuggestedTagsRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (tags, error) = await tagService.AcceptSuggestedTagsAsync(userId.Value, id, request.Accepted ?? [], ct);
+        if (error is not null) return Results.NotFound();
+        return Results.Ok(tags);
+    }
+
+    private static async Task<IResult> DismissSuggestedTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        Guid id,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var ok = await tagService.DismissSuggestedTagsAsync(userId.Value, id, ct);
+        return ok ? Results.NoContent() : Results.NotFound();
+    }
+
+    private static async Task<IResult> GetUserTags(
+        HttpContext httpContext,
+        AuthService authService,
+        TagService tagService,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var tags = await tagService.GetUserTagsAsync(userId.Value, ct);
+        return Results.Ok(tags.Select(t => new TagCountDto(t.Tag, t.Count)));
+    }
+
+    private static async Task<IResult> UpdateMetadata(
+        HttpContext httpContext,
+        AuthService authService,
+        MetadataService metadataService,
+        Guid id,
+        [FromBody] UpdateUserBookMetadataRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var (updated, error) = await metadataService.UpdateAsync(userId.Value, id, request, ct);
+        if (error is not null)
+            return error == "Book not found" ? Results.NotFound() : Results.BadRequest(new { error });
+
+        return Results.Ok(updated);
     }
 
     private static async Task<IResult> UploadBook(

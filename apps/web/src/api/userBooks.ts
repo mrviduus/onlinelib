@@ -19,6 +19,8 @@ export interface UserBook {
   progressPercent: number | null
   progressUpdatedAt: string | null
   progressChapterSlug: string | null
+  tags?: string[]
+  suggestedTags?: string[]
 }
 
 export interface UserChapterSummary {
@@ -159,9 +161,141 @@ export async function getStorageQuota(): Promise<StorageQuota> {
   return authFetch<StorageQuota>('/me/books/quota')
 }
 
+export interface UpdateUserBookMetadataRequest {
+  title: string
+  author?: string | null
+  language: string
+  genre?: string | null
+  description?: string | null
+  publishedYear?: number | null
+}
+
+export async function updateUserBookMetadata(
+  id: string,
+  data: UpdateUserBookMetadataRequest,
+): Promise<UserBookDetail> {
+  return authFetch<UserBookDetail>(`/me/books/${id}/metadata`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
 export function getUserBookCoverUrl(coverPath: string | null | undefined): string | undefined {
   if (!coverPath) return undefined
   return `${API_BASE}/storage/${coverPath}`
+}
+
+// Tags API
+export interface TagCount {
+  tag: string
+  count: number
+}
+
+export async function setUserBookTags(bookId: string, tags: string[]): Promise<string[]> {
+  return authFetch<string[]>(`/me/books/${bookId}/tags`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tags }),
+  })
+}
+
+export async function getUserTags(): Promise<TagCount[]> {
+  return authFetch<TagCount[]>('/me/library/tags')
+}
+
+export async function acceptSuggestedTags(bookId: string, accepted: string[]): Promise<string[]> {
+  return authFetch<string[]>(`/me/books/${bookId}/suggested-tags/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accepted }),
+  })
+}
+
+export async function dismissSuggestedTags(bookId: string): Promise<void> {
+  await authFetch<void>(`/me/books/${bookId}/suggested-tags/dismiss`, { method: 'POST' })
+}
+
+// Bulk actions
+export interface BulkResult {
+  succeeded: string[]
+  failed: { id: string; reason: string }[]
+}
+
+export async function bulkFinishUserBooks(ids: string[], isFinished: boolean): Promise<BulkResult> {
+  return authFetch<BulkResult>('/me/books/bulk/finish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, isFinished }),
+  })
+}
+
+export async function bulkDeleteUserBooks(ids: string[]): Promise<BulkResult> {
+  return authFetch<BulkResult>('/me/books/bulk/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+}
+
+export async function bulkTagUserBooks(ids: string[], addTags: string[], removeTags: string[]): Promise<BulkResult> {
+  return authFetch<BulkResult>('/me/books/bulk/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, addTags, removeTags }),
+  })
+}
+
+export async function bulkAddToCollection(collectionId: string, ids: string[], bookType: 'userbook' | 'savedbook'): Promise<BulkResult> {
+  return authFetch<BulkResult>(`/me/books/bulk/collection/${collectionId}/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, bookType }),
+  })
+}
+
+export interface UserBookSearchHit {
+  id: string
+  title: string
+  author: string | null
+  coverPath: string | null
+  language: string
+  rank: number
+  excerpt: string | null
+  chapterSlug: string | null
+}
+
+export async function searchUserLibrary(
+  query: string,
+  tags: string[],
+  signal?: AbortSignal,
+): Promise<UserBookSearchHit[]> {
+  const params = new URLSearchParams({ q: query })
+  if (tags.length > 0) params.set('tags', tags.join(','))
+  return authFetch<UserBookSearchHit[]>(`/me/library/search?${params}`, { signal })
+}
+
+export interface UserBookStats {
+  bookId: string
+  sessionsCount: number
+  totalReadMinutes: number
+  wordsRead: number
+  vocabSavedCount: number
+  highlightsCount: number
+  averageWordsPerMinute: number
+  estimatedMinutesRemaining: number | null
+}
+
+export async function getUserBookStats(bookId: string): Promise<UserBookStats> {
+  return authFetch<UserBookStats>(`/me/books/${bookId}/stats`)
+}
+
+export async function bulkRemoveFromCollection(collectionId: string, ids: string[], bookType: 'userbook' | 'savedbook'): Promise<BulkResult> {
+  return authFetch<BulkResult>(`/me/books/bulk/collection/${collectionId}/remove`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, bookType }),
+  })
 }
 
 // Progress API

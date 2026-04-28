@@ -1,11 +1,14 @@
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Application.Common.Interfaces;
 
 public interface IAppDbContext
 {
+    DatabaseFacade Database { get; }
+
     DbSet<Site> Sites { get; }
     DbSet<SiteDomain> SiteDomains { get; }
     DbSet<Work> Works { get; }
@@ -52,6 +55,8 @@ public interface IAppDbContext
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
+    DbSet<Collection> Collections { get; }
+    DbSet<BookCollection> BookCollections { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 

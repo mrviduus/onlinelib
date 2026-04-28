@@ -1,8 +1,18 @@
-import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { deleteUserBook, retryUserBook, cancelUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
-import { stringToColor } from '../../utils/colors'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { getUserBookCoverUrl, type UserBook } from '../../api/userBooks'
 import { useLanguage } from '../../context/LanguageContext'
+import { BookStatusBadge } from './BookStatusBadge'
+import { GeneratedCover } from './GeneratedCover'
+import { BookActionMenu } from './BookActionMenu'
+import { TagPill } from './TagPill'
+import { SuggestedTagsPopover } from './SuggestedTagsPopover'
+import { features } from '../../lib/features'
+import { useTranslation } from '../../hooks/useTranslation'
+import { useReadingPace } from '../../hooks/useReadingPace'
+import { estimateMinutesRemaining, formatTimeLeft } from '../../lib/timeEstimate'
+
+const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
 
 interface UserBookCardProps {
   book: UserBook
@@ -11,6 +21,13 @@ interface UserBookCardProps {
   onCancel?: () => void
   onUpdate?: () => void
   progress?: { percent: number | null; chapterSlug: string | null; updatedAt: string | null }
+  highlighted?: boolean
+  selectable?: boolean
+  selected?: boolean
+  onSelectToggle?: (id: string) => void
+  excerpt?: string | null
+  excerptChapterSlug?: string | null
+  excerptQuery?: string
 }
 
 function formatElapsed(seconds: number): string {
@@ -19,15 +36,38 @@ function formatElapsed(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress }: UserBookCardProps) {
+function isNew(createdAt: string): boolean {
+  const t = new Date(createdAt).getTime()
+  if (!t) return false
+  return Date.now() - t < NEW_BADGE_TTL_MS
+}
+
+// User-uploaded book text is rendered as plain HTML excerpt; allow only <mark>.
+function sanitizeExcerpt(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
+export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, progress, highlighted, selectable, selected, onSelectToggle, excerpt, excerptChapterSlug, excerptQuery }: UserBookCardProps) {
   const { language } = useLanguage()
+  const { t } = useTranslation()
+  const pace = useReadingPace()
   const percent = progress?.percent ?? 0
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [retrying, setRetrying] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [suggestedOpen, setSuggestedOpen] = useState(false)
+  const [, setSearchParams] = useSearchParams()
+  const filterByTag = (tag: string) => {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev)
+      sp.set('tab', 'uploads')
+      sp.set('q', `tag:${tag}`)
+      return sp
+    }, { replace: false })
+  }
 
   const isProcessing = book.status === 'Processing'
 
@@ -45,124 +85,105 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
     return () => clearInterval(timer)
   }, [isProcessing, book.createdAt])
 
-  // Close menu on click outside
-  useEffect(() => {
-    if (!menuOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [menuOpen])
-
-  const handleDelete = async () => {
-    if (deleting) return
-    setDeleting(true)
-    try {
-      await deleteUserBook(book.id)
-      onDelete()
-    } catch (err) {
-      console.error('Failed to delete book:', err)
-    } finally {
-      setDeleting(false)
-      setMenuOpen(false)
-    }
-  }
-
-  const handleRetry = async () => {
-    if (retrying) return
-    setRetrying(true)
-    try {
-      await retryUserBook(book.id)
-      onRetry?.()
-    } catch (err) {
-      console.error('Failed to retry book:', err)
-    } finally {
-      setRetrying(false)
-      setMenuOpen(false)
-    }
-  }
-
-  const handleCancel = async () => {
-    if (cancelling) return
-    setCancelling(true)
-    try {
-      await cancelUserBook(book.id)
-      onCancel?.()
-    } catch (err) {
-      console.error('Failed to cancel book:', err)
-    } finally {
-      setCancelling(false)
-      setMenuOpen(false)
-    }
+  const onChange = () => {
+    onUpdate?.()
+    onRetry?.()
+    onCancel?.()
+    onDelete()
   }
 
   const isReady = book.status === 'Ready'
   const isFailed = book.status === 'Failed'
-  const isStuck = isProcessing && elapsed > 30 // 30 seconds
+  const isStuck = isProcessing && elapsed > 30
 
-  const destination = isReady
-    ? (progress?.chapterSlug ? `/${language}/library/my/${book.id}/read/${progress.chapterSlug}` : `/${language}/library/my/${book.id}`)
+  const targetSlug = excerptChapterSlug || progress?.chapterSlug
+  const baseDestination = isReady
+    ? (targetSlug ? `/${language}/library/my/${book.id}/read/${targetSlug}` : `/${language}/library/my/${book.id}`)
     : '#'
+  const destination = excerpt && excerptQuery && isReady
+    ? `${baseDestination}?find=${encodeURIComponent(excerptQuery)}`
+    : baseDestination
+
+  const cardClasses = [
+    'user-book-card',
+    highlighted ? 'user-book-card--highlighted' : '',
+    selectable ? 'user-book-card--selectable' : '',
+    selected ? 'user-book-card--selected' : '',
+  ].filter(Boolean).join(' ')
+
+  const onCardClickCapture = (e: React.MouseEvent) => {
+    if (!selectable || !onSelectToggle) return
+    e.preventDefault()
+    e.stopPropagation()
+    onSelectToggle(book.id)
+  }
 
   return (
-    <div className="user-book-card">
-      <Link
-        to={destination}
-        className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
-        onClick={(e) => !isReady && e.preventDefault()}
-      >
-        {book.coverPath ? (
-          <img
-            src={getUserBookCoverUrl(book.coverPath)}
-            alt={book.title}
-            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden') }}
+    <div className={cardClasses} onClickCapture={onCardClickCapture}>
+      {selectable && (
+        <label className="user-book-card__check" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onSelectToggle?.(book.id)}
+            aria-label={`Select ${book.title}`}
           />
-        ) : null}
-        <div
-          className={`user-book-card__cover-placeholder ${book.coverPath ? 'hidden' : ''}`}
-          style={{ backgroundColor: stringToColor(book.title) }}
+        </label>
+      )}
+      <div className="user-book-card__cover-wrap">
+        <Link
+          to={destination}
+          className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
+          onClick={(e) => !isReady && e.preventDefault()}
         >
-          {book.title?.[0] || '?'}
+          {book.coverPath ? (
+            <img
+              src={getUserBookCoverUrl(book.coverPath)}
+              alt={book.title}
+              loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden') }}
+            />
+          ) : null}
+          <GeneratedCover
+            title={book.title || '?'}
+            author={book.author}
+            className={book.coverPath ? 'hidden' : ''}
+          />
+
+          {isReady && !book.completedAt && percent > 0 && (
+            <div className="user-book-card__progress-bar">
+              <div
+                className="user-book-card__progress-fill"
+                style={{ width: `${Math.round(percent * 100)}%` }}
+              />
+            </div>
+          )}
+        </Link>
+
+        <div className="user-book-card__badges">
+          {isProcessing && (
+            <BookStatusBadge
+              variant="processing"
+              title={`${formatElapsed(elapsed)}${isStuck ? ' — possible issue' : ''}`}
+            />
+          )}
+          {isFailed && (
+            <BookStatusBadge
+              variant="failed"
+              title={book.errorMessage || 'Tap to retry'}
+            />
+          )}
+          {isReady && !book.completedAt && isNew(book.createdAt) && (
+            <BookStatusBadge variant="new" />
+          )}
         </div>
 
-        {isProcessing && (
-          <div className={`user-book-card__status user-book-card__status--processing${isStuck ? ' user-book-card__status--stuck' : ''}`}>
-            <span className="user-book-card__spinner" />
-            Processing... {formatElapsed(elapsed)}
-            {isStuck && <span className="user-book-card__stuck-warning">Possible issue</span>}
-          </div>
-        )}
-
-        {isFailed && (
-          <div className="user-book-card__status user-book-card__status--failed">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            Failed
-          </div>
-        )}
-
         {isReady && book.completedAt && (
-          <div className="user-book-card__completed-badge">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Read
+          <div className="user-book-card__finished-badge" aria-label="Read">
+            <BookStatusBadge variant="finished" />
           </div>
         )}
-
-        {isReady && !book.completedAt && percent > 0 && (
-          <div className="user-book-card__progress-bar">
-            <div
-              className="user-book-card__progress-fill"
-              style={{ width: `${Math.round(percent * 100)}%` }}
-            />
-          </div>
-        )}
-      </Link>
+      </div>
 
       <div className="user-book-card__info">
         <div className="user-book-card__text">
@@ -176,6 +197,44 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           {book.author && (
             <div className="user-book-card__author">{book.author}</div>
           )}
+          {excerpt && (
+            <div
+              className="user-book-card__excerpt"
+              dangerouslySetInnerHTML={{ __html: sanitizeExcerpt(excerpt) }}
+            />
+          )}
+          {features.myBooksV2.tags && book.tags && book.tags.length > 0 && (
+            <div className="user-book-card__tags">
+              {book.tags.slice(0, 4).map((tag) => (
+                <TagPill key={tag} tag={tag} onClick={() => filterByTag(tag)} />
+              ))}
+              {book.tags.length > 4 && (
+                <span className="user-book-card__tags-more">+{book.tags.length - 4}</span>
+              )}
+            </div>
+          )}
+          {features.myBooksV2.aiTags && isReady && book.suggestedTags && book.suggestedTags.length > 0 && (!book.tags || book.tags.length === 0) && (
+            <div className="user-book-card__suggested-wrap">
+              <button
+                type="button"
+                className="user-book-card__suggested-pill"
+                onClick={(e) => { e.stopPropagation(); setSuggestedOpen((v) => !v) }}
+                aria-haspopup="dialog"
+                aria-expanded={suggestedOpen}
+              >
+                ✨ {book.suggestedTags.length} suggested
+              </button>
+              {suggestedOpen && (
+                <SuggestedTagsPopover
+                  bookId={book.id}
+                  suggestions={book.suggestedTags}
+                  existingTags={book.tags ?? []}
+                  onClose={() => setSuggestedOpen(false)}
+                  onApplied={() => onUpdate?.()}
+                />
+              )}
+            </div>
+          )}
           <div className="user-book-card__meta">
             {isReady && book.completedAt && (
               <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>
@@ -186,6 +245,21 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             {isReady && !book.completedAt && book.chapterCount > 0 && percent === 0 && (
               <span>{book.chapterCount} chapters</span>
             )}
+            {isReady && !book.completedAt && (() => {
+              const minutes = estimateMinutesRemaining(
+                { totalWordCount: book.totalWordCount, progressPercent: percent },
+                pace.wpm,
+              )
+              if (minutes == null || minutes === 0) return null
+              return (
+                <span
+                  className="user-book-card__time-left"
+                  title={pace.isUserSpecific ? t('library.estimate.fromYourPace') : t('library.estimate.fallback')}
+                >
+                  · {t('library.estimate.left', { time: formatTimeLeft(minutes) })}
+                </span>
+              )
+            })()}
             {isFailed && book.errorMessage && (
               <span className="user-book-card__error" title={book.errorMessage}>
                 {book.errorMessage.length > 40
@@ -196,118 +270,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           </div>
         </div>
 
-        <div className="user-book-card__menu" ref={menuRef}>
-          <button
-            className="user-book-card__menu-trigger"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="true"
-            aria-expanded={menuOpen}
-            title="Options"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="12" cy="19" r="2" />
-            </svg>
-          </button>
-
-          {menuOpen && (
-            <div className="user-book-card__dropdown" role="menu">
-              {isReady && (
-                <Link
-                  to={`/${language}/library/my/${book.id}`}
-                  className="user-book-card__item"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                  </svg>
-                  View details
-                </Link>
-              )}
-
-              {isReady && !book.completedAt && (
-                <button
-                  className="user-book-card__item"
-                  onClick={async () => {
-                    await markUserBookComplete(book.id)
-                    onUpdate?.()
-                    setMenuOpen(false)
-                  }}
-                  role="menuitem"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Mark as read
-                </button>
-              )}
-
-              {isReady && book.completedAt && (
-                <button
-                  className="user-book-card__item"
-                  onClick={async () => {
-                    await unmarkUserBookComplete(book.id)
-                    onUpdate?.()
-                    setMenuOpen(false)
-                  }}
-                  role="menuitem"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                  Mark as unread
-                </button>
-              )}
-
-              {isFailed && (
-                <button
-                  className="user-book-card__item"
-                  onClick={handleRetry}
-                  disabled={retrying}
-                  role="menuitem"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M23 4v6h-6M1 20v-6h6" />
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                  </svg>
-                  {retrying ? 'Retrying...' : 'Retry'}
-                </button>
-              )}
-
-              {isProcessing && (
-                <button
-                  className="user-book-card__item user-book-card__item--danger"
-                  onClick={handleCancel}
-                  disabled={cancelling}
-                  role="menuitem"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M15 9l-6 6M9 9l6 6" />
-                  </svg>
-                  {cancelling ? 'Cancelling...' : 'Cancel'}
-                </button>
-              )}
-
-              <button
-                className="user-book-card__item user-book-card__item--danger"
-                onClick={handleDelete}
-                disabled={deleting}
-                role="menuitem"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          )}
-        </div>
+        <BookActionMenu type="userbook" book={book} onChange={onChange} />
       </div>
     </div>
   )

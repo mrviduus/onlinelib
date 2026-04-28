@@ -17,8 +17,12 @@ public record UserBookListDto(
     DateTimeOffset? CompletedAt,
     double? ProgressPercent,
     DateTimeOffset? ProgressUpdatedAt,
-    string? ProgressChapterSlug
+    string? ProgressChapterSlug,
+    string[] Tags,
+    string[] SuggestedTags
 );
+
+public record AcceptSuggestedTagsRequest(string[] Accepted);
 
 public record UserBookDetailDto(
     Guid Id,
@@ -94,4 +98,51 @@ public record CreateUserBookBookmarkRequest(
     Guid ChapterId,
     string Locator,
     string? Title
+);
+
+public record UpdateUserBookMetadataRequest(
+    string Title,
+    string? Author,
+    string Language,
+    string? Genre,
+    string? Description,
+    int? PublishedYear
+);
+
+public record SetTagsRequest(string[] Tags);
+
+public record TagCountDto(string Tag, int Count);
+
+public record BulkIdsRequest(Guid[] Ids);
+
+public record BulkFinishRequest(Guid[] Ids, bool IsFinished);
+
+public record BulkTagsRequest(Guid[] Ids, string[]? AddTags, string[]? RemoveTags);
+
+public record BulkCollectionRequest(Guid[] Ids, string BookType);
+
+public record BulkResultDto(Guid[] Succeeded, BulkFailureDto[] Failed);
+
+public record BulkFailureDto(Guid Id, string Reason);
+
+public record UserBookSearchHitDto(
+    Guid Id,
+    string Title,
+    string? Author,
+    string? CoverPath,
+    string Language,
+    double Rank,
+    string? Excerpt,
+    string? ChapterSlug
+);
+
+public record BookStatsDto(
+    Guid BookId,
+    int SessionsCount,
+    long TotalReadMinutes,
+    int WordsRead,
+    int VocabSavedCount,
+    int HighlightsCount,
+    decimal AverageWordsPerMinute,
+    int? EstimatedMinutesRemaining
 );

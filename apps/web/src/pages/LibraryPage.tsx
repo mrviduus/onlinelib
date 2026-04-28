@@ -1,24 +1,46 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useHighlightedBook } from '../hooks/useHighlightedBook'
 import { useLibrary } from '../hooks/useLibrary'
 import { useLanguage } from '../context/LanguageContext'
 import { useTranslation } from '../hooks/useTranslation'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { OfflineBadge } from '../components/OfflineBadge'
-import { BookCardMenu } from '../components/library/BookCardMenu'
+import { BookActionMenu } from '../components/library/BookActionMenu'
 import { UploadSection } from '../components/library/UploadSection'
+import { UploadDropZone } from '../components/library/UploadDropZone'
+import { ContinueReadingShelf } from '../components/library/ContinueReadingShelf'
+import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
+import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
+import { LibraryFilters } from '../components/library/LibraryFilters'
+import { LibrarySearch } from '../components/library/LibrarySearch'
+import { useLibrarySort, sortLibraryItems, sortUserBooks } from '../hooks/useLibrarySort'
+import {
+  useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
+} from '../hooks/useLibraryFilter'
+import { useLibrarySearch } from '../hooks/useLibrarySearch'
+import { matchesQuery, parseQuery } from '../lib/searchUtils'
+import { features } from '../lib/features'
+import { useUserTags } from '../hooks/useUserTags'
 import { UserBookCard } from '../components/library/UserBookCard'
-import { UserBookMenu } from '../components/library/UserBookMenu'
+import { CollectionChips } from '../components/library/CollectionChips'
+import { getCollectionBookIds } from '../api/collections'
+import { BulkActionBar } from '../components/library/BulkActionBar'
+import { useLibrarySelection } from '../hooks/useLibrarySelection'
+import { invalidateUserTagsCache } from '../hooks/useUserTags'
 import { EmptyState } from '../components/EmptyState'
 import { createApi, getStorageUrl } from '../api/client'
-import { getUserBooks, getUserBookCoverUrl, type UserBook } from '../api/userBooks'
+import {
+  getUserBooks, getUserBookCoverUrl, type UserBook,
+  bulkDeleteUserBooks, bulkFinishUserBooks, bulkTagUserBooks, bulkAddToCollection,
+  searchUserLibrary, type UserBookSearchHit,
+} from '../api/userBooks'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
 
 type ViewMode = 'list' | 'grid'
-type SortOption = 'recent' | 'title' | 'progress'
 type SidebarTab = 'saved' | 'uploads'
 
 export function LibraryPage() {
@@ -27,20 +49,83 @@ export function LibraryPage() {
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
-  const [activeTab, setActiveTab] = useState<SidebarTab>(isGuest ? 'uploads' : 'saved')
+  const [searchParams, setSearchParamsLib] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
+  const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
+  const highlightedBookId = useHighlightedBook()
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('library-view') as ViewMode) || 'list'
   })
-  const [sortBy, setSortBy] = useState<SortOption>('recent')
-  const [showSortMenu, setShowSortMenu] = useState(false)
+  const { sort: savedSort, setSort: setSavedSort } = useLibrarySort('saved')
+  const { sort: uploadsSort, setSort: setUploadsSort } = useLibrarySort('uploads')
+  const { filter: savedFilter, setFilter: setSavedFilter } = useLibraryFilter('saved')
+  const { filter: uploadsFilter, setFilter: setUploadsFilter } = useLibraryFilter('uploads')
+  const { query: savedQuery, debouncedQuery: savedQueryD, setQuery: setSavedQuery, clear: clearSavedQuery } = useLibrarySearch('saved')
+  const {
+    query: uploadsQuery, debouncedQuery: uploadsQueryD, setQuery: setUploadsQuery, clear: clearUploadsQuery,
+    contentSearch: uploadsContentSearch, setContentSearch: setUploadsContentSearch,
+  } = useLibrarySearch('uploads')
+  const [contentHits, setContentHits] = useState<UserBookSearchHit[] | null>(null)
+  const [contentLoading, setContentLoading] = useState(false)
+  const { tags: userTags } = useUserTags()
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const collectionIdParam = searchParams.get('collection')
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
+  const [collectionBookIds, setCollectionBookIds] = useState<Set<string> | null>(null)
+  const selection = useLibrarySelection()
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  useEffect(() => {
+    if (!features.myBooksV2.collections) return
+    if (!activeCollectionId) { setCollectionBookIds(null); return }
+    let cancelled = false
+    const bookType = activeTab === 'uploads' ? 'userbook' : 'savedbook'
+    getCollectionBookIds(activeCollectionId, bookType)
+      .then((ids) => { if (!cancelled) setCollectionBookIds(new Set(ids)) })
+      .catch(() => { if (!cancelled) setCollectionBookIds(new Set()) })
+    return () => { cancelled = true }
+  }, [activeCollectionId, activeTab])
+
+  const onCollectionChange = (id: string | null) => {
+    setActiveCollectionId(id)
+    setSearchParamsLib((prev) => {
+      const sp = new URLSearchParams(prev)
+      if (id) sp.set('collection', id)
+      else sp.delete('collection')
+      return sp
+    }, { replace: true })
+  }
+
+  const activeUploadTag = features.myBooksV2.tags ? (parseQuery(uploadsQueryD).tags[0] ?? null) : null
+  const onUploadTagSelect = (tag: string | null) => {
+    if (!tag) { setUploadsQuery(parseQuery(uploadsQueryD).text) ; return }
+    const text = parseQuery(uploadsQueryD).text
+    setUploadsQuery(text ? `tag:${tag} ${text}` : `tag:${tag}`)
+  }
 
   // Persist view mode
   useEffect(() => {
     localStorage.setItem('library-view', viewMode)
   }, [viewMode])
+
+  // Content search (server-side FTS) — runs only when toggle is on and we have a query
+  useEffect(() => {
+    if (!features.myBooksV2.contentSearch) return
+    if (activeTab !== 'uploads') return
+    if (!uploadsContentSearch) { setContentHits(null); return }
+    const parsed = parseQuery(uploadsQueryD)
+    if (!parsed.text) { setContentHits(null); return }
+    const ctrl = new AbortController()
+    setContentLoading(true)
+    searchUserLibrary(parsed.text, parsed.tags, ctrl.signal)
+      .then(hits => setContentHits(hits))
+      .catch(err => { if (err?.name !== 'AbortError') setContentHits([]) })
+      .finally(() => setContentLoading(false))
+    return () => ctrl.abort()
+  }, [uploadsContentSearch, uploadsQueryD, activeTab])
 
   // Fetch user books
   const fetchUserBooks = useCallback(async () => {
@@ -112,42 +197,79 @@ export function LibraryPage() {
       .catch(() => {})
   }, [isAuthenticated])
 
-  // Sort items
-  const sortedItems = [...items].sort((a, b) => {
-    switch (sortBy) {
-      case 'title':
-        return a.title.localeCompare(b.title)
-      case 'progress':
-        const pA = progressMap[a.editionId]?.percent ?? 0
-        const pB = progressMap[b.editionId]?.percent ?? 0
-        return pB - pA
-      default:
-        return 0
-    }
-  })
+  const savedCounts = countsForLibrary(items, progressMap)
+  const uploadsCounts = countsForUploads(userBooks)
+  const filteredItems = filterLibraryItems(items, savedFilter, progressMap)
+  const filteredUserBooks = filterUserBooks(userBooks, uploadsFilter)
+  const searchedItems = savedQueryD ? filteredItems.filter(i => matchesQuery({ title: i.title }, savedQueryD)) : filteredItems
+  const searchedUserBooks = uploadsQueryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author, tags: b.tags }, uploadsQueryD)) : filteredUserBooks
+  const collectionFilteredItems = features.myBooksV2.collections && activeCollectionId && activeTab === 'saved' && collectionBookIds
+    ? searchedItems.filter(i => collectionBookIds.has(i.editionId))
+    : searchedItems
+  const collectionFilteredUserBooks = features.myBooksV2.collections && activeCollectionId && activeTab === 'uploads' && collectionBookIds
+    ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
+    : searchedUserBooks
+  const sortedItems = sortLibraryItems(collectionFilteredItems, savedSort, progressMap)
+  const sortedUserBooksBase = sortUserBooks(collectionFilteredUserBooks, uploadsSort)
 
-  // Sort user books
-  const sortedUserBooks = [...userBooks].sort((a, b) => {
-    switch (sortBy) {
-      case 'title':
-        return a.title.localeCompare(b.title)
-      case 'recent': {
-        const aDate = a.progressUpdatedAt || a.createdAt
-        const bDate = b.progressUpdatedAt || b.createdAt
-        return new Date(bDate).getTime() - new Date(aDate).getTime()
-      }
-      case 'progress':
-        return (b.progressPercent ?? 0) - (a.progressPercent ?? 0)
-      default:
-        return 0
-    }
-  })
-
-  const sortLabels: Record<SortOption, string> = {
-    recent: t('library.sortRecent'),
-    title: t('library.sortTitle'),
-    progress: t('library.sortProgress')
+  // When content search is active, override the list with FTS results (already ranked by relevance).
+  const excerptByBookId = new Map<string, UserBookSearchHit>()
+  let sortedUserBooks = sortedUserBooksBase
+  if (uploadsContentSearch && contentHits) {
+    const bookMap = new Map(userBooks.map(b => [b.id, b]))
+    sortedUserBooks = contentHits
+      .map(h => { excerptByBookId.set(h.id, h); return bookMap.get(h.id) })
+      .filter((b): b is UserBook => !!b)
   }
+  const contentSearchQuery = uploadsContentSearch ? parseQuery(uploadsQueryD).text : ''
+
+  // Bulk handlers (uploads tab) — defined here so sortedUserBooks is in scope
+  const runBulk = async (op: () => Promise<void>) => {
+    setBulkBusy(true)
+    try { await op() } finally { setBulkBusy(false) }
+  }
+  const ids = () => Array.from(selection.selected)
+  const onBulkFinish = () => runBulk(async () => {
+    await bulkFinishUserBooks(ids(), true)
+    selection.exit()
+    fetchUserBooks()
+  })
+  const onBulkDelete = () => {
+    const titles = userBooks.filter(b => selection.selected.has(b.id)).slice(0, 5).map(b => b.title)
+    const more = selection.count - titles.length
+    const msg = `Delete ${selection.count} book${selection.count === 1 ? '' : 's'}?\n\n` +
+      titles.join('\n') + (more > 0 ? `\n…and ${more} more` : '')
+    if (!window.confirm(msg)) return
+    runBulk(async () => {
+      await bulkDeleteUserBooks(ids())
+      selection.exit()
+      fetchUserBooks()
+    })
+  }
+  const onBulkAddTag = (tag: string) => runBulk(async () => {
+    await bulkTagUserBooks(ids(), [tag], [])
+    invalidateUserTagsCache()
+    fetchUserBooks()
+  })
+  const onBulkAddToCollection = (collectionId: string) => runBulk(async () => {
+    await bulkAddToCollection(collectionId, ids(), 'userbook')
+    selection.exit()
+    fetchUserBooks()
+  })
+  const onSelectAllVisible = () => selection.selectAll(sortedUserBooks.map(b => ({ id: b.id })))
+
+  useEffect(() => {
+    if (!selection.active) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        onSelectAllVisible()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection.active, sortedUserBooks])
 
   if (authLoading) {
     return (
@@ -207,36 +329,20 @@ export function LibraryPage() {
           {user && <p className="library-header__email">{user.email}</p>}
         </header>
 
+        {features.myBooksV2.libraryStatsHeader && isAuthenticated && <LibraryStatsHeader />}
+
+        {features.myBooksV2.continueReading && <ContinueReadingShelf />}
+
+        {features.myBooksV2.collections && (
+          <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
+        )}
+
         {activeTab === 'saved' && (
           <>
             {/* Toolbar */}
             <div className="library-toolbar">
               <div className="library-toolbar__left">
-                <div className="library-sort">
-                  <button
-                    className="library-sort__trigger"
-                    onClick={() => setShowSortMenu(!showSortMenu)}
-                  >
-                    {t('library.sortBy')}: {sortLabels[sortBy]}
-                    <span className="material-icons-outlined">expand_more</span>
-                  </button>
-                  {showSortMenu && (
-                    <>
-                      <div className="library-sort__backdrop" onClick={() => setShowSortMenu(false)} />
-                      <div className="library-sort__menu">
-                        {(Object.keys(sortLabels) as SortOption[]).map((key) => (
-                          <button
-                            key={key}
-                            className={`library-sort__option ${sortBy === key ? 'library-sort__option--active' : ''}`}
-                            onClick={() => { setSortBy(key); setShowSortMenu(false) }}
-                          >
-                            {sortLabels[key]}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <LibrarySortMenu value={savedSort} onChange={setSavedSort} />
               </div>
               <div className="library-toolbar__right">
                 <button
@@ -256,10 +362,29 @@ export function LibraryPage() {
               </div>
             </div>
 
+            {items.length > 0 && (
+              <>
+                <LibrarySearch value={savedQuery} onChange={setSavedQuery} />
+                <LibraryFilters value={savedFilter} onChange={setSavedFilter} counts={savedCounts} />
+              </>
+            )}
+
             {loading ? (
               <div className="library-page__loading">{t('library.loading')}</div>
-            ) : sortedItems.length === 0 ? (
+            ) : items.length === 0 ? (
               <EmptyState icon="📖" title={t('library.emptyLibrary')} buttonLabel={t('library.browseBooks')} buttonTo="/books" />
+            ) : sortedItems.length === 0 ? (
+              savedQueryD ? (
+                <div className="library-filters__empty">
+                  <p>{t('library.search.empty').replace('{query}', savedQueryD)}</p>
+                  <button type="button" onClick={clearSavedQuery}>{t('library.search.clear')}</button>
+                </div>
+              ) : (
+                <div className="library-filters__empty">
+                  <p>{t('library.filter.empty')}</p>
+                  <button type="button" onClick={() => setSavedFilter('all')}>{t('library.filter.clear')}</button>
+                </div>
+              )
             ) : viewMode === 'list' ? (
               <div className="library-list">
                 {sortedItems.map((item) => {
@@ -312,12 +437,13 @@ export function LibraryPage() {
                         </div>
                       </div>
                       <div className="library-list-item__actions">
-                        <BookCardMenu
+                        <BookActionMenu
+                          type="saved"
                           book={item}
-                          isRead={percent >= 1}
+                          isFinished={percent >= 1}
                           onRemove={() => remove(item.editionId)}
-                          onMarkRead={() => handleMarkRead(item.editionId, item.slug, item.language)}
-                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug, item.language)}
+                          onMarkFinished={() => handleMarkRead(item.editionId, item.slug, item.language)}
+                          onMarkUnfinished={() => handleMarkUnread(item.editionId, item.slug, item.language)}
                         />
                       </div>
                     </article>
@@ -379,12 +505,13 @@ export function LibraryPage() {
                             <OfflineBadge editionId={item.editionId} />
                           </div>
                         </div>
-                        <BookCardMenu
+                        <BookActionMenu
+                          type="saved"
                           book={item}
-                          isRead={percent >= 1}
+                          isFinished={percent >= 1}
                           onRemove={() => remove(item.editionId)}
-                          onMarkRead={() => handleMarkRead(item.editionId, item.slug, item.language)}
-                          onMarkUnread={() => handleMarkUnread(item.editionId, item.slug, item.language)}
+                          onMarkFinished={() => handleMarkRead(item.editionId, item.slug, item.language)}
+                          onMarkUnfinished={() => handleMarkUnread(item.editionId, item.slug, item.language)}
                         />
                       </div>
                     </div>
@@ -404,31 +531,16 @@ export function LibraryPage() {
             {/* Toolbar */}
             <div className="library-toolbar">
               <div className="library-toolbar__left">
-                <div className="library-sort">
+                <LibrarySortMenu value={uploadsSort} onChange={setUploadsSort} />
+                {features.myBooksV2.bulkSelect && userBooks.length > 0 && (
                   <button
-                    className="library-sort__trigger"
-                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    type="button"
+                    className={`library-select-btn ${selection.active ? 'library-select-btn--active' : ''}`}
+                    onClick={() => selection.active ? selection.exit() : selection.enter()}
                   >
-                    {t('library.sortBy')}: {sortLabels[sortBy]}
-                    <span className="material-icons-outlined">expand_more</span>
+                    {selection.active ? t('library.bulk.cancel') : t('library.bulk.select')}
                   </button>
-                  {showSortMenu && (
-                    <>
-                      <div className="library-sort__backdrop" onClick={() => setShowSortMenu(false)} />
-                      <div className="library-sort__menu">
-                        {(Object.keys(sortLabels) as SortOption[]).map((key) => (
-                          <button
-                            key={key}
-                            className={`library-sort__option ${sortBy === key ? 'library-sort__option--active' : ''}`}
-                            onClick={() => { setSortBy(key); setShowSortMenu(false) }}
-                          >
-                            {sortLabels[key]}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
               </div>
               <div className="library-toolbar__right">
                 <button
@@ -448,10 +560,43 @@ export function LibraryPage() {
               </div>
             </div>
 
+            {userBooks.length > 0 && (
+              <>
+                <LibrarySearch
+                  value={uploadsQuery}
+                  onChange={setUploadsQuery}
+                  contentSearch={features.myBooksV2.contentSearch ? uploadsContentSearch : undefined}
+                  onToggleContentSearch={features.myBooksV2.contentSearch ? setUploadsContentSearch : undefined}
+                />
+                <LibraryFilters
+                  value={uploadsFilter}
+                  onChange={setUploadsFilter}
+                  counts={uploadsCounts}
+                  tags={features.myBooksV2.tags ? userTags : undefined}
+                  activeTag={activeUploadTag}
+                  onTagClick={features.myBooksV2.tags ? onUploadTagSelect : undefined}
+                />
+              </>
+            )}
+
             {userBooksLoading && userBooks.length === 0 ? (
               <div className="library-page__loading">{t('library.loading')}</div>
             ) : userBooks.length === 0 ? (
-              <EmptyState icon="☁️" title={t('library.noUploads')} subtitle={t('library.uploadHint')} />
+              <UploadDropZone />
+            ) : uploadsContentSearch && contentLoading ? (
+              <div className="library-page__loading">{t('library.loading')}</div>
+            ) : sortedUserBooks.length === 0 ? (
+              uploadsQueryD ? (
+                <div className="library-filters__empty">
+                  <p>{t('library.search.empty').replace('{query}', uploadsQueryD)}</p>
+                  <button type="button" onClick={clearUploadsQuery}>{t('library.search.clear')}</button>
+                </div>
+              ) : (
+                <div className="library-filters__empty">
+                  <p>{t('library.filter.empty')}</p>
+                  <button type="button" onClick={() => setUploadsFilter('all')}>{t('library.filter.clear')}</button>
+                </div>
+              )
             ) : viewMode === 'list' ? (
               <div className="library-list">
                 {sortedUserBooks.map((book) => {
@@ -461,8 +606,9 @@ export function LibraryPage() {
                     ? (book.progressChapterSlug ? `/${language}/library/my/${book.id}/read/${book.progressChapterSlug}` : `/${language}/library/my/${book.id}`)
                     : '#'
                   const coverUrl = getUserBookCoverUrl(book.coverPath)
+                  const isHighlighted = highlightedBookId === book.id
                   return (
-                    <article key={book.id} className="library-list-item">
+                    <article key={book.id} className={`library-list-item${isHighlighted ? ' library-list-item--highlighted' : ''}`}>
                       {isReady ? (
                         <Link to={destination} className="library-list-item__cover">
                           {coverUrl ? (
@@ -555,7 +701,7 @@ export function LibraryPage() {
                         </div>
                       </div>
                       <div className="library-list-item__actions">
-                        <UserBookMenu book={book} onAction={fetchUserBooks} />
+                        <BookActionMenu type="userbook" book={book} onChange={fetchUserBooks} />
                       </div>
                     </article>
                   )
@@ -563,16 +709,26 @@ export function LibraryPage() {
               </div>
             ) : (
               <div className="library-page__grid">
-                {sortedUserBooks.map((book) => (
-                  <UserBookCard
-                    key={book.id}
-                    book={book}
-                    onDelete={fetchUserBooks}
-                    onRetry={fetchUserBooks}
-                    onUpdate={fetchUserBooks}
-                    progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
-                  />
-                ))}
+                {sortedUserBooks.map((book) => {
+                  const hit = excerptByBookId.get(book.id)
+                  return (
+                    <UserBookCard
+                      key={book.id}
+                      book={book}
+                      onDelete={fetchUserBooks}
+                      onRetry={fetchUserBooks}
+                      onUpdate={fetchUserBooks}
+                      progress={{ percent: book.progressPercent, chapterSlug: book.progressChapterSlug, updatedAt: book.progressUpdatedAt }}
+                      highlighted={highlightedBookId === book.id}
+                      selectable={features.myBooksV2.bulkSelect && selection.active}
+                      selected={selection.isSelected(book.id)}
+                      onSelectToggle={selection.toggle}
+                      excerpt={hit?.excerpt ?? null}
+                      excerptChapterSlug={hit?.chapterSlug ?? null}
+                      excerptQuery={contentSearchQuery}
+                    />
+                  )
+                })}
               </div>
             )}
           </>
@@ -581,7 +737,7 @@ export function LibraryPage() {
       </main>
 
       {/* FAB */}
-      {activeTab === 'uploads' && (
+      {activeTab === 'uploads' && !selection.active && (
         <button
           className="library-fab"
           onClick={() => setShowUploadModal(true)}
@@ -589,6 +745,19 @@ export function LibraryPage() {
         >
           <span className="material-icons-outlined">add</span>
         </button>
+      )}
+
+      {features.myBooksV2.bulkSelect && selection.active && activeTab === 'uploads' && (
+        <BulkActionBar
+          count={selection.count}
+          onCancel={selection.exit}
+          onSelectAll={onSelectAllVisible}
+          onMarkFinished={onBulkFinish}
+          onDelete={onBulkDelete}
+          onAddTag={onBulkAddTag}
+          onAddToCollection={onBulkAddToCollection}
+          busy={bulkBusy}
+        />
       )}
     </div>
     <Footer />

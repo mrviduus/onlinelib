@@ -1,3 +1,4 @@
+// TODO(my-books-v2 cleanup): remove — replaced by BookActionMenu (slice 10)
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteUserBook, retryUserBook, cancelUserBook, markUserBookComplete, unmarkUserBookComplete, type UserBook } from '../../api/userBooks'

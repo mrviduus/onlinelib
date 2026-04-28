@@ -63,6 +63,7 @@ builder.Services.AddHttpClient();
 
 // Services
 builder.Services.AddSingleton<IBookMetadataGenerator, BookMetadataGenerator>();
+builder.Services.AddSingleton<ITagSuggestionGenerator, TagSuggestionGenerator>();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();

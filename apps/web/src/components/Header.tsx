@@ -10,6 +10,8 @@ import { useTranslation } from '../hooks/useTranslation'
 import { useQuickStats } from '../hooks/useQuickStats'
 import { StreakBadge } from './StreakBadge'
 import { VocabBadgePopup } from './VocabBadgePopup'
+import { UploadButton } from './library/UploadButton'
+import { features } from '../lib/features'
 
 export function Header() {
   const [badgePopup, setBadgePopup] = useState(false)
@@ -37,6 +39,7 @@ export function Header() {
         </nav>
       </div>
       <div className="site-header__right">
+        {features.myBooksV2.uploadButton && <UploadButton />}
         <button
           className="site-header__icon-btn"
           onClick={toggleTheme}

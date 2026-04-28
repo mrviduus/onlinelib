@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, useWindowDimensions,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView, useWindowDimensions,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi, getStorageUrl, createBooksApi,
+  libraryApi, readingProgressApi, userBooksApi, getStorageUrl,
 } from '@textstack/shared'
 import { getAnonymousReaderName, type UserLibraryItem, type UserBookDto, type ReadingProgressDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
@@ -17,6 +17,27 @@ import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { ContinueReadingShelf } from '../../src/components/library/ContinueReadingShelf'
+import { BookStatusBadge } from '../../src/components/library/BookStatusBadge'
+import { GeneratedCover } from '../../src/components/library/GeneratedCover'
+import { FEATURES } from '../../src/lib/features'
+import { useLibrarySort, sortLibraryItems, sortUserBooks, type LibrarySortKey } from '../../src/hooks/useLibrarySort'
+import {
+  useLibraryFilter, filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
+} from '../../src/hooks/useLibraryFilter'
+import { LibraryFilters } from '../../src/components/library/LibraryFilters'
+import { useLibrarySearch } from '../../src/hooks/useLibrarySearch'
+import { matchesQuery } from '../../src/lib/searchUtils'
+import { LibrarySearch } from '../../src/components/library/LibrarySearch'
+import { useBookActions } from '../../src/hooks/useBookActions'
+
+const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
+const isNewUpload = (createdAt?: string): boolean => {
+  if (!createdAt) return false
+  const ts = Date.parse(createdAt)
+  if (Number.isNaN(ts)) return false
+  return Date.now() - ts < NEW_BADGE_TTL_MS
+}
 
 type Tab = 'saved' | 'uploads'
 type ViewMode = 'list' | 'grid'
@@ -146,6 +167,7 @@ export default function LibraryScreen() {
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
         </Text>
       )}
+      {FEATURES.myBooksV2ContinueReading && <ContinueReadingShelf />}
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
           {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
@@ -177,7 +199,7 @@ export default function LibraryScreen() {
   )
 }
 
-type SavedSort = 'recent' | 'title' | 'progress'
+const SORT_KEYS: LibrarySortKey[] = ['recent', 'added', 'title', 'author', 'progress']
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -194,63 +216,17 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
 }) {
   const router = useRouter()
   const { colors } = useTheme()
-  const { language, t } = useLanguage()
-  const { show: showToast } = useToast()
+  const { t } = useLanguage()
   const { width } = useWindowDimensions()
-  const [sort, setSort] = useState<SavedSort>('recent')
+  const { sort, setSort } = useLibrarySort('saved')
+  const { filter, setFilter } = useLibraryFilter('saved')
+  const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('saved')
+  const counts = countsForLibrary(library, progressMap)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
+  const { showSavedActions } = useBookActions()
 
-  const handleAction = (item: UserLibraryItem) => {
-    const progress = progressMap[item.editionId]
-    const isRead = progress?.percent === 1
-    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = []
-
-    buttons.push({
-      text: isRead ? 'Mark as unread' : 'Mark as read',
-      onPress: async () => {
-        try {
-          const api = createBooksApi(language)
-          const book = await api.getBook(item.slug)
-          if (book.chapters.length === 0) return
-          const ch = isRead ? book.chapters[0] : book.chapters[book.chapters.length - 1]
-          await readingProgressApi.updateProgress(item.editionId, {
-            chapterId: ch.id,
-            chapterSlug: ch.slug,
-            progress: isRead ? 0 : 1,
-          })
-          setProgressMap(prev => ({
-            ...prev,
-            [item.editionId]: { ...prev[item.editionId], editionId: item.editionId, percent: isRead ? 0 : 1, chapterSlug: ch.slug, updatedAt: new Date().toISOString() },
-          }))
-        } catch (e) {
-          console.warn('Toggle read state failed:', e)
-          showToast({ message: 'Could not update progress. Try again.', variant: 'error' })
-        }
-      },
-    })
-
-    buttons.push({
-      text: 'Remove from Library', style: 'destructive',
-      onPress: async () => {
-        // Optimistic remove + rollback. The action sits behind Alert.alert
-        // so double-tap isn't a concern, but a 5xx response used to leave
-        // the book in state while the server thought it was gone — next
-        // sync would flap.
-        const snapshot = library
-        setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
-        try {
-          await libraryApi.removeFromLibrary(item.editionId)
-        } catch (e) {
-          console.warn('Remove from library failed:', e)
-          setLibrary(snapshot)
-          showToast({ message: 'Could not remove book. Try again.', variant: 'error' })
-        }
-      },
-    })
-
-    buttons.push({ text: 'Cancel', style: 'cancel' })
-    Alert.alert(item.title, undefined, buttons)
-  }
+  const handleAction = (item: UserLibraryItem) =>
+    showSavedActions(item, { progressMap, setLibrary, setProgressMap, library })
 
   if (library.length === 0) {
     return (
@@ -266,18 +242,9 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
     )
   }
 
-  const sorted = [...library].sort((a, b) => {
-    if (sort === 'title') return (a.title || '').localeCompare(b.title || '')
-    if (sort === 'progress') {
-      const pa = progressMap[a.editionId]?.percent || 0
-      const pb = progressMap[b.editionId]?.percent || 0
-      return pb - pa
-    }
-    // recent: sort by last read (updatedAt) if available, then by createdAt
-    const aTime = progressMap[a.editionId]?.updatedAt || a.createdAt
-    const bTime = progressMap[b.editionId]?.updatedAt || b.createdAt
-    return new Date(bTime).getTime() - new Date(aTime).getTime()
-  })
+  const filtered = filterLibraryItems(library, filter, progressMap)
+  const searched = debouncedQuery ? filtered.filter(i => matchesQuery({ title: i.title }, debouncedQuery)) : filtered
+  const sorted = sortLibraryItems(searched, sort, progressMap)
 
   return (
       <FlatList
@@ -286,16 +253,35 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
         numColumns={viewMode === 'grid' ? numColumns : 1}
         keyExtractor={item => item.editionId}
         ListHeaderComponent={
-          <View style={styles.savedSortRow}>
-            {([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']] as const).map(([key, label]) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => setSort(key)}
-                style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
-              >
-                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View>
+            <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
+            <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedSortRow}>
+              {SORT_KEYS.map(key => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setSort(key)}
+                  style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
+                >
+                  <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{t(`library.sort.${key}`)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {sorted.length === 0 && (
+              <View style={styles.filterEmpty}>
+                <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+                  {debouncedQuery ? t('library.search.empty').replace('{query}', debouncedQuery) : t('library.filter.empty')}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => { if (debouncedQuery) clearQuery(); else setFilter('all') }}
+                  style={[styles.filterEmptyBtn, { borderColor: colors.border }]}
+                >
+                  <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text }}>
+                    {debouncedQuery ? t('library.search.clear') : t('library.filter.clear')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -310,84 +296,109 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
           if (viewMode === 'grid') {
             const cardWidth = (width - 20 - (numColumns - 1) * 10) / numColumns
             return (
-              <TouchableOpacity
-                style={{ width: cardWidth, marginBottom: 14 }}
-                onPress={() => router.push(`/book/${item.slug}`)}
-                onLongPress={() => handleAction(item)}
-                activeOpacity={0.85}
-              >
-                <Image
-                  source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                  style={[styles.gridCover, { backgroundColor: colors.border }]}
-                  contentFit="cover"
-                />
-                {pct >= 100 && (
-                  <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
-                    <Ionicons name="checkmark" size={10} color="#fff" />
-                  </View>
-                )}
-                {pct > 0 && pct < 100 && (
-                  <View style={[styles.gridProgressTrack, { backgroundColor: colors.border }]}>
-                    <View style={[styles.gridProgressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
-                  </View>
-                )}
-                <Text style={[styles.gridTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
-              </TouchableOpacity>
+              <View style={{ width: cardWidth, marginBottom: 14, position: 'relative' }}>
+                <TouchableOpacity
+                  onPress={() => router.push(`/book/${item.slug}`)}
+                  onLongPress={() => handleAction(item)}
+                  activeOpacity={0.85}
+                >
+                  {item.coverPath ? (
+                    <Image
+                      source={getStorageUrl(item.coverPath)}
+                      style={styles.gridCover}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <GeneratedCover title={item.title} style={styles.gridCover} />
+                  )}
+                  {pct >= 100 && (
+                    <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
+                      <Ionicons name="checkmark" size={10} color="#fff" />
+                    </View>
+                  )}
+                  {pct > 0 && pct < 100 && (
+                    <View style={[styles.gridProgressTrack, { backgroundColor: colors.border }]}>
+                      <View style={[styles.gridProgressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                    </View>
+                  )}
+                  <Text style={[styles.gridTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.gridDotsBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+                  onPress={() => handleAction(item)}
+                  hitSlop={8}
+                  accessibilityLabel={t('library.actions.menu')}
+                >
+                  <Ionicons name="ellipsis-vertical" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
             )
           }
 
           return (
-            <TouchableOpacity
-              style={[styles.bookRow, { borderBottomColor: colors.border }]}
-              onPress={() => router.push(`/book/${item.slug}`)}
-              onLongPress={() => handleAction(item)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.coverWrapper}>
-                <Image
-                  source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                  style={[styles.cover, { backgroundColor: colors.border }]}
-                  contentFit="cover"
-                />
-              </View>
-              <View style={styles.bookInfo}>
-                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
-                {pct >= 100 ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                    <Text style={{ fontSize: 12, color: colors.success, fontFamily: fonts.sansMedium }}>Read</Text>
-                  </View>
-                ) : pct > 0 ? (
-                  <View style={styles.progressRow}>
-                    <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                      <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+            <View style={[styles.bookRow, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', flex: 1 }}
+                onPress={() => router.push(`/book/${item.slug}`)}
+                onLongPress={() => handleAction(item)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.coverWrapper}>
+                  {item.coverPath ? (
+                    <Image
+                      source={getStorageUrl(item.coverPath)}
+                      style={styles.cover}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <GeneratedCover title={item.title} style={styles.cover} />
+                  )}
+                </View>
+                <View style={styles.bookInfo}>
+                  <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
+                  {pct >= 100 ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                      <Text style={{ fontSize: 12, color: colors.success, fontFamily: fonts.sansMedium }}>Read</Text>
                     </View>
-                    <Text style={[styles.progressText, { color: colors.textSecondary }]}>{pct}%</Text>
-                  </View>
-                ) : null}
-                {lastRead && (
-                  <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
-                    Last read {formatTimeAgo(lastRead)}
-                  </Text>
-                )}
-                {continueSlug ? (
-                  <TouchableOpacity
-                    style={[styles.continueBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => router.push(`/reader/${item.slug}/${continueSlug}`)}
-                  >
-                    <Ionicons name="play" size={12} color="#fff" />
-                    <Text style={styles.continueBtnText}>Continue</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </TouchableOpacity>
+                  ) : pct > 0 ? (
+                    <View style={styles.progressRow}>
+                      <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                        <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                      </View>
+                      <Text style={[styles.progressText, { color: colors.textSecondary }]}>{pct}%</Text>
+                    </View>
+                  ) : null}
+                  {lastRead && (
+                    <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
+                      Last read {formatTimeAgo(lastRead)}
+                    </Text>
+                  )}
+                  {continueSlug ? (
+                    <TouchableOpacity
+                      style={[styles.continueBtn, { backgroundColor: colors.primary }]}
+                      onPress={() => router.push(`/reader/${item.slug}/${continueSlug}`)}
+                    >
+                      <Ionicons name="play" size={12} color="#fff" />
+                      <Text style={styles.continueBtnText}>Continue</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rowDotsBtn}
+                onPress={() => handleAction(item)}
+                hitSlop={10}
+                accessibilityLabel={t('library.actions.menu')}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           )
         }}
       />
   )
 }
-
-type UploadSort = 'recent' | 'title' | 'progress'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -404,7 +415,10 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
   const { t } = useLanguage()
   const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
-  const [sort, setSort] = useState<UploadSort>('recent')
+  const { sort, setSort } = useLibrarySort('uploads')
+  const { filter, setFilter } = useLibraryFilter('uploads')
+  const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('uploads')
+  const counts = countsForUploads(books)
   const [quota, setQuota] = useState<{ usedBytes: number; limitBytes: number } | null>(null)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
 
@@ -417,8 +431,13 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
     )
   }, [books.length])
 
-  // Small helper so each action handler can't silently swallow failures —
-  // every API rejection now surfaces a toast the user can actually see.
+  const { showUploadActions } = useBookActions()
+  const handleBookAction = (item: UserBookDto) =>
+    showUploadActions(item, {
+      onChange: onRefresh,
+      openDetails: (id) => router.push(`/my-books/${id}`),
+    })
+
   const runAction = async (fn: () => Promise<unknown>, label: string) => {
     try {
       await fn()
@@ -429,66 +448,9 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
     }
   }
 
-  const handleBookAction = (item: UserBookDto) => {
-    const s = item.status.toLowerCase()
-    const isReady = s === 'ready' || s === 'completed'
-    const isFailed = s === 'failed'
-    const isProcessing = !isReady && !isFailed
-
-    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = []
-
-    if (isReady) {
-      buttons.push({ text: 'View Details', onPress: () => router.push(`/my-books/${item.id}`) })
-      if (!item.completedAt) {
-        buttons.push({
-          text: 'Mark as Read',
-          onPress: () => runAction(() => userBooksApi.markUserBookComplete(item.id), 'Mark as read'),
-        })
-      } else {
-        buttons.push({
-          text: 'Mark as Unread',
-          onPress: () => runAction(() => userBooksApi.unmarkUserBookComplete(item.id), 'Mark as unread'),
-        })
-      }
-    }
-    if (isFailed) {
-      buttons.push({
-        text: 'Retry',
-        onPress: () => runAction(() => userBooksApi.retryUserBook(item.id), 'Retry'),
-      })
-    }
-    if (isProcessing) {
-      buttons.push({
-        text: 'Cancel', style: 'destructive',
-        onPress: () => runAction(() => userBooksApi.cancelUserBook(item.id), 'Cancel upload'),
-      })
-    }
-    buttons.push({
-      text: 'Delete', style: 'destructive', onPress: () => {
-        Alert.alert('Delete Book', `Delete "${item.title || 'Untitled'}"? This cannot be undone.`, [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete', style: 'destructive',
-            onPress: () => runAction(() => userBooksApi.deleteUserBook(item.id), 'Delete book'),
-          },
-        ])
-      },
-    })
-    buttons.push({ text: 'Cancel', style: 'cancel' })
-
-    Alert.alert(item.title || 'Untitled', undefined, buttons)
-  }
-
-  const sorted = [...books].sort((a, b) => {
-    if (sort === 'title') return (a.title || '').localeCompare(b.title || '')
-    if (sort === 'progress') return (b.progressPercent ?? 0) - (a.progressPercent ?? 0)
-    if (sort === 'recent') {
-      const aDate = a.progressUpdatedAt || a.createdAt
-      const bDate = b.progressUpdatedAt || b.createdAt
-      return new Date(bDate).getTime() - new Date(aDate).getTime()
-    }
-    return 0
-  })
+  const filtered = filterUserBooks(books, filter)
+  const searched = debouncedQuery ? filtered.filter(b => matchesQuery({ title: b.title, author: b.author }, debouncedQuery)) : filtered
+  const sorted = sortUserBooks(searched, sort)
 
   const listHeader = (
     <>
@@ -511,18 +473,25 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
         </View>
       )}
 
+      {books.length > 0 && (
+        <>
+          <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
+          <LibraryFilters value={filter} onChange={setFilter} counts={counts} />
+        </>
+      )}
+
       {books.length > 1 && (
-        <View style={styles.savedSortRow}>
-          {([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']] as const).map(([key, label]) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedSortRow}>
+          {SORT_KEYS.map(key => (
             <TouchableOpacity
               key={key}
               onPress={() => setSort(key)}
               style={[styles.savedSortChip, sort === key && { backgroundColor: colors.primaryLight }]}
             >
-              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{label}</Text>
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 12, color: sort === key ? colors.primary : colors.textSecondary }}>{t(`library.sort.${key}`)}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
     </>
   )
@@ -531,13 +500,29 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
     return (
       <View style={{ flex: 1 }}>
         {listHeader}
-        <View style={styles.center}>
-          <EmptyState
-            icon="cloud-upload-outline"
-            title={t('library.noUploads')}
-            subtitle={t('library.uploadHint')}
-          />
-        </View>
+        {books.length === 0 ? (
+          <View style={styles.center}>
+            <EmptyState
+              icon="cloud-upload-outline"
+              title={t('library.noUploads')}
+              subtitle={t('library.uploadHint')}
+            />
+          </View>
+        ) : (
+          <View style={styles.filterEmpty}>
+            <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+              {debouncedQuery ? t('library.search.empty').replace('{query}', debouncedQuery) : t('library.filter.empty')}
+            </Text>
+            <TouchableOpacity
+              onPress={() => { if (debouncedQuery) clearQuery(); else setFilter('all') }}
+              style={[styles.filterEmptyBtn, { borderColor: colors.border }]}
+            >
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text }}>
+                {debouncedQuery ? t('library.search.clear') : t('library.filter.clear')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     )
   }
@@ -562,63 +547,89 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
 
             if (viewMode === 'grid') {
               const cardWidth = (width - 20 - (numColumns - 1) * 10) / numColumns
+              const showNew = isReady && !item.completedAt && isNewUpload(item.createdAt)
               return (
-                <TouchableOpacity
-                  style={{ width: cardWidth, marginBottom: 14 }}
-                  onPress={() => { if (isReady) router.push(`/my-books/${item.id}`) }}
-                  onLongPress={() => handleBookAction(item)}
-                  activeOpacity={0.85}
-                >
-                  <View>
-                    <Image
-                      source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                      style={[styles.gridCover, { backgroundColor: colors.border }]}
-                      contentFit="cover"
-                    />
-                    {isProcessing && (
-                      <View style={[styles.processingOverlay, { borderRadius: 8 }]}>
-                        <Ionicons name="sync-outline" size={20} color="#fff" />
-                      </View>
-                    )}
-                    {isReady && item.completedAt && (
-                      <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
-                        <Ionicons name="checkmark" size={10} color="#fff" />
-                      </View>
-                    )}
-                    {isFailed && (
-                      <View style={[styles.gridBadge, { backgroundColor: colors.error }]}>
-                        <Ionicons name="alert" size={10} color="#fff" />
-                      </View>
-                    )}
-                  </View>
-                  {pct > 0 && pct < 100 && (
-                    <View style={[styles.gridProgressTrack, { backgroundColor: colors.border }]}>
-                      <View style={[styles.gridProgressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                <View style={{ width: cardWidth, marginBottom: 14, position: 'relative' }}>
+                  <TouchableOpacity
+                    onPress={() => { if (isReady) router.push(`/my-books/${item.id}`) }}
+                    onLongPress={() => handleBookAction(item)}
+                    activeOpacity={0.85}
+                  >
+                    <View>
+                      {item.coverPath ? (
+                        <Image
+                          source={getStorageUrl(item.coverPath)}
+                          style={styles.gridCover}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <GeneratedCover title={item.title || 'Untitled'} author={item.author} style={styles.gridCover} />
+                      )}
+                      {isReady && item.completedAt && (
+                        <View style={[styles.gridBadge, { backgroundColor: colors.success }]}>
+                          <Ionicons name="checkmark" size={10} color="#fff" />
+                        </View>
+                      )}
+                      {(isProcessing || isFailed || showNew) && (
+                        <View style={styles.gridPillSlot}>
+                          {isProcessing ? (
+                            <BookStatusBadge variant="processing" />
+                          ) : isFailed ? (
+                            <BookStatusBadge variant="failed" onPress={() => runAction(() => userBooksApi.retryUserBook(item.id), 'Retry')} title={item.errorMessage || 'Tap to retry'} />
+                          ) : (
+                            <BookStatusBadge variant="new" />
+                          )}
+                        </View>
+                      )}
                     </View>
-                  )}
-                  <Text style={[styles.gridTitle, { color: isReady ? colors.text : colors.textSecondary }]} numberOfLines={2}>
-                    {item.title || 'Untitled'}
-                  </Text>
-                </TouchableOpacity>
+                    {pct > 0 && pct < 100 && (
+                      <View style={[styles.gridProgressTrack, { backgroundColor: colors.border }]}>
+                        <View style={[styles.gridProgressFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                      </View>
+                    )}
+                    <Text style={[styles.gridTitle, { color: isReady ? colors.text : colors.textSecondary }]} numberOfLines={2}>
+                      {item.title || 'Untitled'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.gridDotsBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+                    onPress={() => handleBookAction(item)}
+                    hitSlop={8}
+                    accessibilityLabel={t('library.actions.menu')}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
               )
             }
 
             return (
-              <TouchableOpacity
-                style={[styles.bookRow, { borderBottomColor: colors.border }]}
-                onPress={() => { if (isReady) router.push(`/my-books/${item.id}`) }}
-                onLongPress={() => handleBookAction(item)}
-                activeOpacity={0.85}
-              >
+              <View style={[styles.bookRow, { borderBottomColor: colors.border }]}>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', flex: 1 }}
+                  onPress={() => { if (isReady) router.push(`/my-books/${item.id}`) }}
+                  onLongPress={() => handleBookAction(item)}
+                  activeOpacity={0.85}
+                >
                 <View style={styles.coverWrapper}>
-                  <Image
-                    source={item.coverPath ? getStorageUrl(item.coverPath) : undefined}
-                    style={[styles.cover, { backgroundColor: colors.border }]}
-                    contentFit="cover"
-                  />
-                  {isProcessing && (
-                    <View style={styles.processingOverlay}>
-                      <Ionicons name="sync-outline" size={20} color="#fff" />
+                  {item.coverPath ? (
+                    <Image
+                      source={getStorageUrl(item.coverPath)}
+                      style={styles.cover}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <GeneratedCover title={item.title || 'Untitled'} author={item.author} style={styles.cover} />
+                  )}
+                  {(isProcessing || isFailed || (isReady && !item.completedAt && isNewUpload(item.createdAt))) && (
+                    <View style={styles.listPillSlot}>
+                      {isProcessing ? (
+                        <BookStatusBadge variant="processing" />
+                      ) : isFailed ? (
+                        <BookStatusBadge variant="failed" />
+                      ) : (
+                        <BookStatusBadge variant="new" />
+                      )}
                     </View>
                   )}
                 </View>
@@ -660,7 +671,16 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
                     </TouchableOpacity>
                   )}
                 </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rowDotsBtn}
+                  onPress={() => handleBookAction(item)}
+                  hitSlop={10}
+                  accessibilityLabel={t('library.actions.menu')}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
             )
           }}
         />
@@ -791,14 +811,25 @@ const styles = StyleSheet.create({
   quotaFill: { height: '100%', borderRadius: 2 },
   savedSortRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingVertical: 10 },
   savedSortChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
+  filterEmpty: { padding: 32, alignItems: 'center', gap: 12 },
+  filterEmptyBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
   // Grid styles
   gridContent: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 20 },
   gridCover: { width: '100%', aspectRatio: 2 / 3, borderRadius: 8 },
   gridTitle: { fontFamily: fonts.sansMedium, fontSize: 12, marginTop: 4 },
   gridBadge: {
-    position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9,
+    position: 'absolute', top: 4, left: 4, width: 18, height: 18, borderRadius: 9,
     justifyContent: 'center', alignItems: 'center',
   },
+  gridPillSlot: { position: 'absolute', top: 4, left: 4 },
+  listPillSlot: { position: 'absolute', top: 4, left: 4 },
   gridProgressTrack: { height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
   gridProgressFill: { height: '100%', borderRadius: 2 },
+  gridDotsBtn: {
+    position: 'absolute', top: 4, right: 4, width: 24, height: 24, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  rowDotsBtn: {
+    paddingHorizontal: 10, alignSelf: 'center', justifyContent: 'center',
+  },
 })

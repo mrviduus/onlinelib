@@ -345,6 +345,19 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     clear: clearSearch,
   } = useInBookSearch(chapterHtml)
 
+  // Seed search from `?find=` (slice 16 deep-link from library content search).
+  // Runs once when chapter HTML first arrives to avoid clobbering the user's manual search.
+  const findSeededRef = useRef(false)
+  useEffect(() => {
+    if (findSeededRef.current) return
+    if (!chapterHtml) return
+    const findParam = new URLSearchParams(window.location.search).get('find')
+    if (!findParam) { findSeededRef.current = true; return }
+    findSeededRef.current = true
+    search(findParam)
+    setSearchOpen(true)
+  }, [chapterHtml, search])
+
   // Chapter URL helper
   const getChapterUrl = useCallback((identifier: string) => {
     if (mode === 'public') {
