@@ -10,6 +10,7 @@ import { saveLocalProgress } from '../../../src/lib/progressStorage'
 import { highlightCache, vocabMapCache } from '../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
+import { useReaderBars } from '../../../src/hooks/useReaderBars'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -146,13 +147,14 @@ export default function ReaderScreen() {
   const topBarHeight = 56 + insets.top
   const footerHeight = 60 + insets.bottom
 
-  // Immersive mode — auto-hide bars
-  const [barsVisible, setBarsVisible] = useState(true)
-  const barsVisibleRef = useRef(true)
-  const barsAnim = useRef(new Animated.Value(1)).current
-  const topBarTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [-topBarHeight, 0] })
-  const footerTranslateY = barsAnim.interpolate({ inputRange: [0, 1], outputRange: [footerHeight, 0] })
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Immersive mode — auto-hide bars. Auto-hide on first chapter load gives
+  // the reader chrome to orient with; after that visibility is driven by
+  // scroll direction (see handleMessage 'scrollDir').
+  const { barsVisible, barsAnim, topBarTranslateY, footerTranslateY, showBars, hideBars, toggleBars } = useReaderBars({
+    topBarHeight,
+    footerHeight,
+    autoHideTrigger: !loading && !!chapter,
+  })
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
 
@@ -162,48 +164,6 @@ export default function ReaderScreen() {
     wordCount: wordCountRef.current,
     isAuthenticated,
   })
-
-  const hideBars = useCallback(() => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current)
-      hideTimerRef.current = null
-    }
-    if (!barsVisibleRef.current) return
-    barsVisibleRef.current = false
-    setBarsVisible(false)
-    Animated.timing(barsAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
-  }, [barsAnim])
-
-  const showBars = useCallback(() => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current)
-      hideTimerRef.current = null
-    }
-    if (barsVisibleRef.current) return
-    barsVisibleRef.current = true
-    setBarsVisible(true)
-    Animated.timing(barsAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
-  }, [barsAnim])
-
-  const startHideTimer = useCallback(() => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => {
-      hideBars()
-    }, 3000)
-  }, [hideBars])
-
-  const toggleBars = useCallback(() => {
-    if (barsVisibleRef.current) hideBars()
-    else showBars()
-  }, [hideBars, showBars])
-
-  // When chapter first loads, show bars briefly then auto-hide so the
-  // reader has chrome to orient with. From there on, visibility is
-  // driven entirely by scroll direction (see handleMessage 'scrollDir').
-  useEffect(() => {
-    if (!loading && chapter) startHideTimer()
-    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
-  }, [loading, chapter, startHideTimer])
 
   // Resolve editionId from bookSlug (needed for progress + bookmarks).
   // On network failure fall back to the offline book catalog so a fully
@@ -662,13 +622,10 @@ export default function ReaderScreen() {
 
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Clear pending timers on unmount.
-  // - exitTimerRef: 5s summary auto-dismiss → router.back() on stale nav.
-  // - hideTimerRef: 3s chrome auto-hide → setState on unmounted tree.
+  // exitTimerRef: 5s summary auto-dismiss → router.back() on stale nav.
   useEffect(() => {
     return () => {
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     }
   }, [])
 
