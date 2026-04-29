@@ -46,6 +46,10 @@ if ! docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>
   exit 1
 fi
 
+echo "[verify] pre-creating roles referenced by dump ..."
+docker exec "$CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -c \
+  "CREATE ROLE textstack_prod;" >/dev/null 2>&1 || true
+
 echo "[verify] restoring $BACKUP_FILE ..."
 # Redirect stderr to catch restore errors; NOTICE/WARNING on reload are normal.
 if ! gunzip -c "$BACKUP_FILE" | docker exec -i "$CONTAINER" psql -U "$PG_USER" -d "$PG_DB" --set=ON_ERROR_STOP=on >/dev/null; then
