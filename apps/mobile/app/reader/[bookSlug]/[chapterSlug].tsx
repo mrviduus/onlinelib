@@ -14,6 +14,7 @@ import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
 import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
 import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
 import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
+import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -319,6 +320,23 @@ export default function ReaderScreen() {
     exitLater: handleExitLater,
   } = useReaderExitSummary({ router, saveProgress })
 
+  const vocabActions = useReaderVocabActions({
+    vocabMapRef,
+    bookTitleRef,
+    editionIdRef,
+    chapter,
+    language,
+    nativeLanguage,
+    isAuthenticated,
+    injectJs,
+    notifyWordSaved,
+    setSessionWordCount,
+    setWordSaved,
+    setSelection,
+    setLookupState,
+    showToast,
+  })
+
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
@@ -460,140 +478,10 @@ export default function ReaderScreen() {
     return toggleBookmark({ chapter, slug: activeSlug })
   }
 
-  const handleSaveWord = async () => {
-    if (!selection || !isAuthenticated) return
-    try {
-      const resp = await vocabularyApi.saveWord({
-        word: selection.text,
-        language,
-        sentence: selection.sentence || null,
-        bookTitle: bookTitleRef.current || null,
-        editionId: editionIdRef.current || null,
-        chapterId: chapter?.id || null,
-      })
-      if (resp.outcome === 'pending') {
-        showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
-        return
-      }
-      if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
-        if (resp.lookupId) {
-          setLookupState({ kind: resp.outcome, id: resp.lookupId, tapsRemaining: resp.tapsRemaining, busy: false })
-        }
-        return
-      }
-      if (resp.outcome === 'already_saved') return
-      const saved = resp.word
-      if (!saved) return
-      // Update local vocab map + WebView underlines
-      const key = saved.word.toLowerCase()
-      vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
-      injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
-      setWordSaved(true)
-      setSessionWordCount(c => c + 1)
-      notifyWordSaved()
-      trackVocabSaved({ language, nativeLanguage, source: 'reader' })
-      // Persist translation to saved word (fire-and-forget)
-      const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
-      trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
-      translationApi.translate(selection.text, language, targetLang)
-        .then(res => {
-          if (res.translatedText && saved.id) {
-            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(e => console.warn('Word translation persist failed:', e))
-            vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
-            // Push full map so the inline-translation span renders above the
-            // underline (auto-save path does the same — this was missing here,
-            // leaving manually-saved words without the gray caption).
-            injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-          }
-        })
-        .catch(e => console.warn('Word translation lookup failed:', e))
-    } catch (e) {
-      console.warn('Save word failed:', e)
-      showToast({ message: 'Could not save word. Try again.', variant: 'error' })
-    }
-  }
-
-  // F1 anti-spiral: "Add to SRS anyway" on a rare-word notice.
-  // Promotes the WordLookup row → VocabularyWord (bypasses daily cap) and
-  // mirrors the post-save flow so the word gets underlined + translated
-  // just like a normal tap.
-  const handlePromoteLookup = async () => {
-    if (!selection || !lookupState) return
-    setLookupState({ ...lookupState, busy: true })
-    try {
-      const saved = await vocabularyApi.promoteLookup(lookupState.id)
-      const key = saved.word.toLowerCase()
-      vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
-      injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
-      setLookupState(null)
-      setWordSaved(true)
-      setSessionWordCount(c => c + 1)
-      notifyWordSaved()
-      showToast({ message: t(language, 'reader.vocab.addedToSrs'), variant: 'success' })
-      trackVocabSaved({ language, nativeLanguage, source: 'reader' })
-      const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
-      translationApi.translate(saved.word, language, targetLang)
-        .then(res => {
-          if (res.translatedText && saved.id) {
-            vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
-            vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
-            injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-          }
-        })
-        .catch(() => {})
-    } catch (e) {
-      console.warn('Promote lookup failed:', e)
-      setLookupState({ ...lookupState, busy: false })
-      showToast({ message: t(language, 'reader.vocab.addAnywayFailed'), variant: 'error' })
-    }
-  }
-
-  const handleMarkKnown = async () => {
-    if (!selection || !isAuthenticated) return
-    const key = selection.text.toLowerCase()
-    const entry = vocabMapRef.current[key]
-    if (!entry) return
-    try {
-      await vocabularyApi.markAsKnown(entry.id)
-      vocabMapRef.current[key] = { ...entry, stage: 4 }
-      injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
-      if (__DEV__) console.log('[diag] setSelection NULL (markKnown)')
-      setSelection(null)
-    } catch (e) {
-      console.warn('Mark as known failed:', e)
-      showToast({ message: 'Could not mark as known. Try again.', variant: 'error' })
-    }
-  }
-
-  // B-79 web-parity: Ignore (remove) an already-saved word directly from the
-  // WordCard. Optimistic update — we drop the word locally and re-mark the
-  // WebView map immediately so the UI feels instant. On network failure the
-  // snapshot is restored and a toast surfaces so the user knows to retry.
-  // Note: no dedicated `removeVocabWord` helper in readerHtml.ts — the
-  // existing `markVocabWords` re-renders the map from scratch, so passing
-  // the updated map is sufficient.
-  const handleRemoveWord = async () => {
-    if (!selection || !isAuthenticated) return
-    const key = selection.text.toLowerCase()
-    const entry = vocabMapRef.current[key]
-    if (!entry) return
-    const snapshot = { ...entry }
-    delete vocabMapRef.current[key]
-    injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-    setWordSaved(false)
-    try {
-      await vocabularyApi.deleteWord(entry.id)
-      if (__DEV__) console.log('[diag] setSelection NULL (removeWord)')
-      setSelection(null)
-    } catch (e) {
-      console.warn('Remove word failed:', e)
-      // Rollback optimistic update
-      vocabMapRef.current[key] = snapshot
-      injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-      setWordSaved(true)
-      showToast({ message: 'Could not remove word. Try again.', variant: 'error' })
-    }
-  }
+  const handleSaveWord = () => selection ? vocabActions.saveWord(selection) : undefined
+  const handlePromoteLookup = () => lookupState ? vocabActions.promoteLookup(lookupState) : undefined
+  const handleMarkKnown = () => selection ? vocabActions.markKnown(selection) : undefined
+  const handleRemoveWord = () => selection ? vocabActions.removeWord(selection) : undefined
 
   const handleHighlight = useCallback(async (color: string) => {
     if (!selection || !chapter) return
