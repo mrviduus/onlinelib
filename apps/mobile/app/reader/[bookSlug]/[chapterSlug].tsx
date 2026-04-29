@@ -12,6 +12,7 @@ import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
 import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useReaderBookmarks'
+import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -87,8 +88,6 @@ export default function ReaderScreen() {
   // current selection (cleared on dismiss below) so a stale vocabMapRef never
   // blocks retry across fresh taps.
   const autoSavedRef = useRef<Set<string>>(new Set())
-  const [sessionWordCount, setSessionWordCount] = useState(0)
-  const [exitSummary, setExitSummary] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
@@ -319,6 +318,15 @@ export default function ReaderScreen() {
     })
     return () => sub.remove()
   }, [saveProgress])
+
+  const {
+    sessionWordCount,
+    setSessionWordCount,
+    exitSummary,
+    exit: handleExit,
+    exitToReview: handleExitReview,
+    exitLater: handleExitLater,
+  } = useReaderExitSummary({ router, saveProgress })
 
   const handleMessage = useCallback((event: any) => {
     try {
@@ -597,35 +605,6 @@ export default function ReaderScreen() {
       setWordSaved(true)
       showToast({ message: 'Could not remove word. Try again.', variant: 'error' })
     }
-  }
-
-  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // exitTimerRef: 5s summary auto-dismiss → router.back() on stale nav.
-  useEffect(() => {
-    return () => {
-      if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
-    }
-  }, [])
-
-  const handleExit = () => {
-    saveProgress()
-    if (sessionWordCount > 0) {
-      setExitSummary(true)
-      exitTimerRef.current = setTimeout(() => router.back(), 5000)
-    } else {
-      router.back()
-    }
-  }
-
-  const handleExitReview = () => {
-    if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
-    router.replace('/vocabulary/review')
-  }
-
-  const handleExitLater = () => {
-    if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
-    router.back()
   }
 
   const handleHighlight = async (color: string) => {
