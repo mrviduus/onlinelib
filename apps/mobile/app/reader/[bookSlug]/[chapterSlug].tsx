@@ -2,17 +2,18 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, highlightsApi, translationApi, t } from '@textstack/shared'
-import type { Chapter, BookmarkDto, ChapterSummary, PublicHighlight } from '@textstack/shared'
+import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, translationApi, t } from '@textstack/shared'
+import type { Chapter, ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { saveLocalProgress } from '../../../src/lib/progressStorage'
-import { highlightCache, vocabMapCache } from '../../../src/lib/readerOfflineCache'
+import { vocabMapCache } from '../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
 import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useReaderBookmarks'
 import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
+import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -91,19 +92,21 @@ export default function ReaderScreen() {
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
-  // Cross-platform edit-note sheet for tapped highlights. Replaces the
-  // iOS-only `Alert.prompt` which silently did nothing on Android (B-02).
-  const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
   const [chapters, setChapters] = useState<ChapterSummary[]>([])
   const [progress, setProgress] = useState(0)
   const [bookTitle, setBookTitle] = useState('')
   const { toggle: toggleTts, isSpeaking } = useTts()
   const webViewRef = useRef<WebView>(null)
+  // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
+  // via the console bridge, instead of being silently swallowed by the
+  // `;true;` sentinel (diagnostics Phase 1).
+  const injectJs = useCallback((js: string) => {
+    webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
+  }, [])
   const progressRef = useRef(0)
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
   const wordCountRef = useRef(0)
-  const highlightsRef = useRef<PublicHighlight[]>([])
   const totalWordCountRef = useRef(0)
 
   const { colors } = useTheme()
@@ -121,6 +124,22 @@ export default function ReaderScreen() {
     toggle: toggleBookmark,
     remove: removeBookmark,
   } = useReaderBookmarks({ editionIdRef, isAuthenticated, showToast })
+
+  const {
+    highlightsRef,
+    editingHighlight,
+    setEditingHighlight,
+    create: createHighlight,
+    saveNote: saveHighlightNote,
+    remove: removeHighlight,
+  } = useReaderHighlights({
+    editionIdRef,
+    user,
+    isAuthenticated,
+    chapterId: chapter?.id,
+    injectJs,
+    showToast,
+  })
 
   // Single source of truth for "word added" feedback — keeps toast copy + haptic
   // cue + session counter consistent across the two save paths (auto-save on
@@ -600,73 +619,12 @@ export default function ReaderScreen() {
     }
   }
 
-  const handleHighlight = async (color: string) => {
-    if (!selection || !isAuthenticated || !editionIdRef.current || !chapter) return
-    try {
-      const anchorJson = selection.anchor ? JSON.stringify(selection.anchor) : JSON.stringify({ exact: selection.text })
-      const hl = await highlightsApi.createHighlight({
-        editionId: editionIdRef.current,
-        chapterId: chapter.id,
-        anchorJson,
-        color,
-        selectedText: selection.text,
-      })
-      // Render highlight in WebView
-      injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
-      highlightsRef.current = [...highlightsRef.current, hl]
-      const uid = user?.id
-      if (uid && editionIdRef.current) {
-        const edId = editionIdRef.current
-        highlightCache.get(uid, edId).then(prev => {
-          highlightCache.set(uid, edId, [...(prev || []), hl])
-        })
-      }
-      if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
-      setSelection(null)
-    } catch (e) {
-      console.warn('Failed to create highlight:', e)
-      showToast({ message: 'Could not add highlight. Try again.', variant: 'error' })
-    }
-  }
-
-  // Load and render existing highlights when chapter loads.
-  // Depending on the `chapter` object reference re-ran this effect any
-  // time the chapter was refetched (e.g. retry), even though the id was
-  // identical. Keying off `chapter?.id` (P3-4) makes the re-fetch fire
-  // only when we actually switch chapters.
-  useEffect(() => {
-    const editionId = editionIdRef.current
-    const chapterId = chapter?.id
-    if (!isAuthenticated || !editionId || !chapterId) return
-    let cancelled = false
-
-    const paint = (list: PublicHighlight[]) => {
-      const chapterHighlights = list.filter(h => h.chapterId === chapterId)
-      highlightsRef.current = chapterHighlights
-      for (const h of chapterHighlights) {
-        injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
-      }
-    }
-
-    const uid = user?.id
-    // Cache-first paint so highlights survive offline chapter nav; API
-    // refresh overwrites. Cache keyed per-user so device-shared sign-ins
-    // can't leak another account's highlights.
-    if (uid) {
-      highlightCache.get(uid, editionId).then(cached => {
-        if (!cancelled && cached) paint(cached)
-      })
-    }
-
-    highlightsApi.getHighlights(editionId)
-      .then(highlights => {
-        if (cancelled) return
-        paint(highlights)
-        if (uid) highlightCache.set(uid, editionId, highlights)
-      })
-      .catch(() => { /* offline — cache paint already rendered */ })
-    return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id, user?.id])
+  const handleHighlight = useCallback(async (color: string) => {
+    if (!selection || !chapter) return
+    await createHighlight({ color, selection, chapter })
+    if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
+    setSelection(null)
+  }, [selection, chapter, createHighlight])
 
   // Vocab map ref for selection lookups
   const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
@@ -722,11 +680,6 @@ export default function ReaderScreen() {
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
-  // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
-  // via the console bridge, instead of being silently swallowed by the
-  // `;true;` sentinel (diagnostics Phase 1).
-  const injectJs = (js: string) =>
-    webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
   const loadNextChapter = async () => {
     const next = nextChapterRef.current
     if (!next || !bookSlug) return
@@ -1099,43 +1052,12 @@ export default function ReaderScreen() {
           onSave={async (note) => {
             const hl = editingHighlight
             setEditingHighlight(null)
-            if (!hl) return
-            try {
-              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
-              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-              const uid = user?.id
-              if (uid && editionIdRef.current) {
-                const edId = editionIdRef.current
-                highlightCache.get(uid, edId).then(prev => {
-                  if (!prev) return
-                  highlightCache.set(uid, edId, prev.map(h => h.id === hl.id ? updated : h))
-                })
-              }
-            } catch (e) {
-              console.warn('Highlight note save failed:', e)
-              showToast({ message: 'Could not save note. Try again.', variant: 'error' })
-            }
+            if (hl) await saveHighlightNote(hl.id, note)
           }}
           onDelete={async () => {
             const hl = editingHighlight
             setEditingHighlight(null)
-            if (!hl) return
-            try {
-              await highlightsApi.deleteHighlight(hl.id)
-              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-              highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-              const uid = user?.id
-              if (uid && editionIdRef.current) {
-                const edId = editionIdRef.current
-                highlightCache.get(uid, edId).then(prev => {
-                  if (!prev) return
-                  highlightCache.set(uid, edId, prev.filter(h => h.id !== hl.id))
-                })
-              }
-            } catch (e) {
-              console.warn('Highlight delete failed:', e)
-              showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
-            }
+            if (hl) await removeHighlight(hl.id)
           }}
         />
 
