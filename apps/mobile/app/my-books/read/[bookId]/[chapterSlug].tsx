@@ -14,7 +14,6 @@ import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
 import { ExplanationSheet } from '../../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../../src/components/HighlightNoteModal'
-import { ReaderSearchBar } from '../../../../src/components/ReaderSearchBar'
 import { BookmarksSheet } from '../../../../src/components/BookmarksSheet'
 import { TocSheet } from '../../../../src/components/TocSheet'
 import { useTts } from '../../../../src/hooks/useTts'
@@ -56,9 +55,6 @@ export default function UserBookReaderScreen() {
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchMatchCount, setSearchMatchCount] = useState(0)
-  const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
   const [progress, setProgress] = useState(0)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
@@ -283,9 +279,6 @@ export default function UserBookReaderScreen() {
         }
       } else if (data.type === 'requestNextChapter') {
         loadNextChapter()
-      } else if (data.type === 'search') {
-        setSearchMatchCount(data.matchCount || 0)
-        setSearchCurrentMatch(data.currentMatch || 0)
       } else if (data.type === 'highlightTap') {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
         if (hl) setEditingHighlight(hl)
@@ -473,10 +466,6 @@ export default function UserBookReaderScreen() {
   }
 
   const injectJs = (js: string) => webViewRef.current?.injectJavaScript(js + ';true;')
-  const handleSearch = (q: string) => injectJs(`searchInContent(${JSON.stringify(q)})`)
-  const handleSearchNext = () => injectJs('nextMatch()')
-  const handleSearchPrev = () => injectJs('prevMatch()')
-  const handleSearchClose = () => { injectJs('clearSearch()'); setSearchOpen(false) }
 
   const loadNextChapter = async () => {
     const next = nextChapterRef.current
@@ -592,19 +581,6 @@ export default function UserBookReaderScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-
-        {searchOpen && (
-          <View style={{ position: 'absolute', top: topBarHeight, left: 0, right: 0, zIndex: 10 }}>
-            <ReaderSearchBar
-              onSearch={handleSearch}
-              onNext={handleSearchNext}
-              onPrev={handleSearchPrev}
-              onClose={handleSearchClose}
-              matchCount={searchMatchCount}
-              currentMatch={searchCurrentMatch}
-            />
-          </View>
-        )}
 
         {selection && (
           <SelectionActionBar

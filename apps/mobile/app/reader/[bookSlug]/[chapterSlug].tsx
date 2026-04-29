@@ -22,7 +22,6 @@ import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { ExplanationSheet } from '../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
 import { TocSheet } from '../../../src/components/TocSheet'
-import { ReaderSearchBar } from '../../../src/components/ReaderSearchBar'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
 import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
@@ -92,9 +91,6 @@ export default function ReaderScreen() {
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchMatchCount, setSearchMatchCount] = useState(0)
-  const [searchCurrentMatch, setSearchCurrentMatch] = useState(0)
   // Cross-platform edit-note sheet for tapped highlights. Replaces the
   // iOS-only `Alert.prompt` which silently did nothing on Android (B-02).
   const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
@@ -354,9 +350,6 @@ export default function ReaderScreen() {
           currentChapterSlugRef.current = data.chapterSlug
           setVisibleChapterSlug(data.chapterSlug)
         }
-      } else if (data.type === 'search') {
-        setSearchMatchCount(data.matchCount || 0)
-        setSearchCurrentMatch(data.currentMatch || 0)
       } else if (data.type === 'loaded') {
         // Enable infinite scroll if there's a next chapter
         if (chapter?.next) {
@@ -734,11 +727,6 @@ export default function ReaderScreen() {
   // `;true;` sentinel (diagnostics Phase 1).
   const injectJs = (js: string) =>
     webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
-  const handleSearch = (q: string) => injectJs(`searchInContent(${JSON.stringify(q)})`)
-  const handleSearchNext = () => injectJs('nextMatch()')
-  const handleSearchPrev = () => injectJs('prevMatch()')
-  const handleSearchClose = () => { injectJs('clearSearch()'); setSearchOpen(false) }
-
   const loadNextChapter = async () => {
     const next = nextChapterRef.current
     if (!next || !bookSlug) return
@@ -939,20 +927,6 @@ export default function ReaderScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-
-        {/* Search bar */}
-        {searchOpen && (
-          <View style={{ position: 'absolute', top: topBarHeight, left: 0, right: 0, zIndex: 10 }}>
-            <ReaderSearchBar
-              onSearch={handleSearch}
-              onNext={handleSearchNext}
-              onPrev={handleSearchPrev}
-              onClose={handleSearchClose}
-              matchCount={searchMatchCount}
-              currentMatch={searchCurrentMatch}
-            />
-          </View>
-        )}
 
         {/* Selection: WordCard for single words, ActionBar for multi-word.
             Both are absolutely positioned above the footer via `bottomOffset`
