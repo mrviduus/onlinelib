@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, AppState, Linking } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, readingProgressApi, bookmarksApi, vocabularyApi, translationApi, t } from '@textstack/shared'
+import { createBooksApi, bookmarksApi, vocabularyApi, translationApi, t } from '@textstack/shared'
 import type { Chapter, ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
-import { saveLocalProgress } from '../../../src/lib/progressStorage'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
@@ -14,6 +13,7 @@ import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useRe
 import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
 import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
 import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
+import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -301,45 +301,14 @@ export default function ReaderScreen() {
     return () => { cancelled = true }
   }, [bookSlug, chapterSlug, language])
 
-  const saveProgress = useCallback(() => {
-    if (!editionIdRef.current || !chapter || !chapterSlug) return
-    const slug = currentChapterSlugRef.current || chapterSlug
-    const percent = progressRef.current
-    const updatedAt = Date.now()
-
-    // Offline-first: always persist locally, even for guests. Survives flaky network,
-    // crashes between PUTs, and gives ContinueReadingCard a fallback when server is
-    // unreachable. LWW merge in consumers uses this `updatedAt`.
-    saveLocalProgress(editionIdRef.current, {
-      chapterId: chapter.id,
-      chapterSlug: slug,
-      percent,
-      updatedAt,
-    }).catch(() => {})
-
-    if (!isAuthenticated) return
-    readingProgressApi.updateProgress(editionIdRef.current, {
-      chapterId: chapter.id,
-      chapterSlug: slug,
-      progress: percent,
-    }).catch(() => {})
-  }, [isAuthenticated, chapter, chapterSlug])
-
-  // Save progress when leaving reader
-  useEffect(() => {
-    return () => { saveProgress() }
-  }, [saveProgress])
-
-  // Save progress when the app backgrounds. On Android, Home-button +
-  // OS-kill path skips useEffect cleanup, so the final scroll position
-  // would be lost. AppState fires on home/background; we flush now so
-  // the next launch resumes at the right place.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'background' || state === 'inactive') saveProgress()
-    })
-    return () => sub.remove()
-  }, [saveProgress])
+  const { saveProgress } = useReaderProgress({
+    editionIdRef,
+    chapter,
+    chapterSlug,
+    currentChapterSlugRef,
+    progressRef,
+    isAuthenticated,
+  })
 
   const {
     sessionWordCount,
