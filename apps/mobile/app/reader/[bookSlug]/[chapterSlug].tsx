@@ -11,6 +11,7 @@ import { highlightCache, vocabMapCache } from '../../../src/lib/readerOfflineCac
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
+import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useReaderBookmarks'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -38,11 +39,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { trackBookOpened, trackVocabSaved, trackTranslationUsed } from '../../../src/lib/analytics'
 
-/** Extract chapterSlug from bookmark locator (format: "chapter:slug") */
-function getSlugFromLocator(locator: string): string {
-  return locator.startsWith('chapter:') ? locator.slice(8) : locator
-}
-
 /** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
 function interpolate(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
@@ -65,7 +61,6 @@ export default function ReaderScreen() {
   const [chapterError, setChapterError] = useState<'offline' | 'notfound' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
-  const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
   // `selectionId` increments per selection *event* (even when the user taps
   // the same word twice). WordCard uses it as a useEffect dep so the
   // auto-dismiss timer resets on each re-select (B-12) — and we use it at
@@ -123,6 +118,14 @@ export default function ReaderScreen() {
   const haptics = useHaptics()
   const { show: showToast } = useToast()
   const sessionWordCountRef = useRef(0)
+
+  const {
+    bookmarks,
+    setBookmarks,
+    isBookmarked,
+    toggle: toggleBookmark,
+    remove: removeBookmark,
+  } = useReaderBookmarks({ editionIdRef, isAuthenticated, showToast })
 
   // Single source of truth for "word added" feedback — keeps toast copy + haptic
   // cue + session counter consistent across the two save paths (auto-save on
@@ -455,34 +458,10 @@ export default function ReaderScreen() {
   }
 
   const activeSlug = visibleChapterSlug ?? chapterSlug
-  const isCurrentBookmarked = bookmarks.some(b => getSlugFromLocator(b.locator) === activeSlug)
-
-  const toggleBookmark = async () => {
-    if (!isAuthenticated || !editionIdRef.current || !chapter || !activeSlug) return
-    const existing = bookmarks.find(b => getSlugFromLocator(b.locator) === activeSlug)
-    if (existing) {
-      // Optimistic remove — restore the bookmark if the server rejects it
-      // so the UI doesn't silently lie about state (P2-3).
-      setBookmarks(prev => prev.filter(b => b.id !== existing.id))
-      try {
-        await bookmarksApi.deleteBookmark(existing.id)
-      } catch {
-        setBookmarks(prev => (prev.some(b => b.id === existing.id) ? prev : [...prev, existing]))
-        showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
-      }
-    } else {
-      try {
-        const bm = await bookmarksApi.createBookmark({
-          editionId: editionIdRef.current,
-          chapterId: chapter.id,
-          locator: `chapter:${activeSlug}`,
-          title: chapter.title,
-        })
-        setBookmarks(prev => [...prev, bm])
-      } catch {
-        showToast({ message: 'Could not add bookmark. Try again.', variant: 'error' })
-      }
-    }
+  const isCurrentBookmarked = isBookmarked(activeSlug)
+  const toggleCurrentBookmark = () => {
+    if (!chapter || !activeSlug) return
+    return toggleBookmark({ chapter, slug: activeSlug })
   }
 
   const handleSaveWord = async () => {
@@ -770,22 +749,6 @@ export default function ReaderScreen() {
   }, [settings.showInlineTranslations])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
-
-  const deleteBookmark = async (id: string) => {
-    // Snapshot the row we're removing so we can restore it on failure
-    // (P2-3). Without the rollback the bookmark disappears from the
-    // sheet even though it's still on the server.
-    const snapshot = bookmarks.find(b => b.id === id)
-    setBookmarks(prev => prev.filter(b => b.id !== id))
-    try {
-      await bookmarksApi.deleteBookmark(id)
-    } catch {
-      if (snapshot) {
-        setBookmarks(prev => (prev.some(b => b.id === id) ? prev : [...prev, snapshot]))
-      }
-      showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
-    }
-  }
 
   // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
   // via the console bridge, instead of being silently swallowed by the
@@ -1129,8 +1092,8 @@ export default function ReaderScreen() {
           bookmarks={bookmarks}
           currentChapterSlug={activeSlug || ''}
           onNavigate={navigateChapter}
-          onDelete={deleteBookmark}
-          onToggleCurrent={toggleBookmark}
+          onDelete={removeBookmark}
+          onToggleCurrent={toggleCurrentBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
         />
 
