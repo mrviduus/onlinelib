@@ -7,13 +7,13 @@ import type { Chapter, ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { saveLocalProgress } from '../../../src/lib/progressStorage'
-import { vocabMapCache } from '../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
 import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useReaderBookmarks'
 import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
 import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
+import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -139,6 +139,13 @@ export default function ReaderScreen() {
     chapterId: chapter?.id,
     injectJs,
     showToast,
+  })
+
+  const { vocabMapRef, flushToCache: flushVocabMap } = useReaderVocabMap({
+    user,
+    isAuthenticated,
+    chapterId: chapter?.id,
+    injectJs,
   })
 
   // Single source of truth for "word added" feedback — keeps toast copy + haptic
@@ -626,52 +633,15 @@ export default function ReaderScreen() {
     setSelection(null)
   }, [selection, chapter, createHighlight])
 
-  // Vocab map ref for selection lookups
-  const vocabMapRef = useRef<Record<string, { stage: number; id: string; translation?: string }>>({})
-
-  // Clear the auto-save dedup as soon as the selection closes — keeps the
-  // iOS-dup guard for the current tap but lets the next tap retry freely
-  // even if vocabMapRef didn't catch the save. Also flush the current
-  // vocabMap to cache so offline nav sees words added in this session.
+  // Clear the auto-save dedup + flush vocab map to cache as soon as the
+  // selection closes — keeps the iOS-dup guard for the current tap but lets
+  // the next tap retry freely even if vocabMapRef didn't catch the save.
   useEffect(() => {
     if (!selection) {
       autoSavedRef.current.clear()
-      const uid = user?.id
-      if (uid && Object.keys(vocabMapRef.current).length > 0) vocabMapCache.set(uid, vocabMapRef.current)
+      flushVocabMap()
     }
-  }, [selection, user?.id])
-
-  // Load and render vocab word underlines. Keyed on `chapter?.id` so a
-  // chapter refetch that yields the same id doesn't re-run the fetch (P3-4).
-  // Cache-first: fall back to AsyncStorage when offline so underlines
-  // don't vanish mid-nav.
-  useEffect(() => {
-    const chapterId = chapter?.id
-    if (!isAuthenticated || !chapterId) return
-    let cancelled = false
-
-    const uid = user?.id
-    if (uid) {
-      vocabMapCache.get(uid).then(cached => {
-        if (!cancelled && cached && Object.keys(cached).length > 0) {
-          vocabMapRef.current = cached
-          injectJs(`markVocabWords(${JSON.stringify(cached)})`)
-        }
-      })
-    }
-
-    vocabularyApi.getReaderVocab()
-      .then(words => {
-        if (cancelled || words.length === 0) return
-        const map: Record<string, { stage: number; id: string; translation?: string }> = {}
-        for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id, translation: w.translation }
-        vocabMapRef.current = map
-        injectJs(`markVocabWords(${JSON.stringify(map)})`)
-        if (uid) vocabMapCache.set(uid, map)
-      })
-      .catch(() => { /* offline — cache paint already rendered */ })
-    return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id, user?.id])
+  }, [selection, flushVocabMap])
 
   // Sync inline translations setting to WebView
   useEffect(() => {
