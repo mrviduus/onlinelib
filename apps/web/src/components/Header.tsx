@@ -22,14 +22,11 @@ export function Header() {
   const { t } = useTranslation()
   const quickStats = useQuickStats()
 
-  // /home doesn't exist yet — fall back to /library for authenticated users.
-  const homeTarget = '/library'
-
   return (
     <header className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`}>
       <div className="site-header__left">
         <LocalizedLink
-          to={isAuthenticated ? homeTarget : '/'}
+          to={isAuthenticated ? '/library' : '/'}
           className="site-header__brand"
           title={t('nav.brandTitle')}
           onClick={() => emit('header.click', { item: 'logo', auth: isAuthenticated })}
@@ -37,16 +34,6 @@ export function Header() {
           <span className="site-header__wordmark">TextStack</span>
         </LocalizedLink>
         <nav className="site-header__nav-links">
-          {isAuthenticated && (
-            <LocalizedLink
-              to={homeTarget}
-              className="site-header__nav-link"
-              title={t('nav.home')}
-              onClick={() => emit('header.click', { item: 'home' })}
-            >
-              {t('nav.home')}
-            </LocalizedLink>
-          )}
           {isAuthenticated && (
             <LocalizedLink
               to="/library"

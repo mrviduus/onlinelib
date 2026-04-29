@@ -55,17 +55,17 @@ describe('Header', () => {
     authState.isLoading = false
   })
 
-  it('authenticated: shows Home / Library / Discover / Vocabulary, hides About', () => {
+  it('authenticated: shows Library / Discover / Vocabulary, hides Home + About', () => {
     authState.isAuthenticated = true
     renderHeader()
-    expect(screen.getByTitle('Home')).toBeInTheDocument()
+    expect(screen.queryByTitle('Home')).not.toBeInTheDocument()
     expect(screen.getByTitle('Library')).toBeInTheDocument()
     expect(screen.getByTestId('discover-menu')).toBeInTheDocument()
     expect(screen.getByTitle('Vocabulary')).toBeInTheDocument()
     expect(screen.queryByTitle('About TextStack')).not.toBeInTheDocument()
   })
 
-  it('unauthenticated: hides Home/Library/Vocabulary, keeps Discover + About', () => {
+  it('unauthenticated: hides Library/Vocabulary, keeps Discover + About', () => {
     authState.isAuthenticated = false
     renderHeader()
     expect(screen.queryByTitle('Home')).not.toBeInTheDocument()
