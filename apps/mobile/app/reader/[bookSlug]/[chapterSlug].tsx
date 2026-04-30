@@ -15,6 +15,7 @@ import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
 import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
 import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
 import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
+import { useReaderSelection } from '../../../src/hooks/useReaderSelection'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -63,32 +64,6 @@ export default function ReaderScreen() {
   const [chapterError, setChapterError] = useState<'offline' | 'notfound' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
-  // `selectionId` increments per selection *event* (even when the user taps
-  // the same word twice). WordCard uses it as a useEffect dep so the
-  // auto-dismiss timer resets on each re-select (B-12) — and we use it at
-  // the parent to toggle dismiss when the same word is re-tapped.
-  const [selection, setSelection] = useState<
-    { text: string; sentence: string; anchor?: any; selectionId: number } | null
-  >(null)
-  const selectionIdRef = useRef(0)
-  useEffect(() => {
-    if (__DEV__) console.log('[diag] selection STATE:', selection?.text ?? 'null', 'id=', selection?.selectionId)
-  }, [selection])
-  const [wordSaved, setWordSaved] = useState(false)
-  /**
-   * F1 anti-spiral state: when the backend classifies a tapped word as
-   * `lookup` / `lookup_pending` (top-15k but not top-5k, or rare), we keep
-   * the id + tapsRemaining here so the WordCard can render a
-   * `RareWordNotice` with the "Add anyway" escalation path.
-   */
-  const [lookupState, setLookupState] = useState<
-    { kind: 'lookup' | 'lookup_pending'; id: string; tapsRemaining: number | null; busy: boolean } | null
-  >(null)
-  // Dedup for a single selection lifecycle — iOS fires the webview selection
-  // event twice per tap; this Set swallows the duplicate call. Scoped to the
-  // current selection (cleared on dismiss below) so a stale vocabMapRef never
-  // blocks retry across fresh taps.
-  const autoSavedRef = useRef<Set<string>>(new Set())
   const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
@@ -148,6 +123,17 @@ export default function ReaderScreen() {
     chapterId: chapter?.id,
     injectJs,
   })
+
+  const {
+    selection,
+    setSelection,
+    wordSaved,
+    setWordSaved,
+    lookupState,
+    setLookupState,
+    selectionIdRef,
+    autoSavedRef,
+  } = useReaderSelection({ flushVocabMap })
 
   // Single source of truth for "word added" feedback — keeps toast copy + haptic
   // cue + session counter consistent across the two save paths (auto-save on
@@ -428,15 +414,6 @@ export default function ReaderScreen() {
     setSelection(null)
   }, [selection, chapter, createHighlight])
 
-  // Clear the auto-save dedup + flush vocab map to cache as soon as the
-  // selection closes — keeps the iOS-dup guard for the current tap but lets
-  // the next tap retry freely even if vocabMapRef didn't catch the save.
-  useEffect(() => {
-    if (!selection) {
-      autoSavedRef.current.clear()
-      flushVocabMap()
-    }
-  }, [selection, flushVocabMap])
 
   // Sync inline translations setting to WebView
   useEffect(() => {
