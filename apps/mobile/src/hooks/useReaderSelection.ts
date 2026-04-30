@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type Selection = {
   text: string
@@ -54,6 +54,34 @@ export function useReaderSelection({ flushVocabMap }: Options) {
     }
   }, [selection, flushVocabMap])
 
+  /**
+   * Opens or closes the selection in response to a WebView postMessage.
+   * Returns the freshly minted `selectionId` for single-word callers that
+   * still need to wire up auto-TTS / auto-save (the hook stays out of those
+   * concerns to avoid coupling to vocab/TTS internals).
+   */
+  const openSelection = useCallback(
+    (payload: { text: string; sentence?: string; anchor?: any } | null): number | null => {
+      if (!payload || !payload.text) {
+        if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
+        setSelection(null)
+        return null
+      }
+      if (__DEV__) console.log('[diag] setSelection OPEN', payload.text)
+      const nextId = ++selectionIdRef.current
+      setSelection({
+        text: payload.text,
+        sentence: payload.sentence || '',
+        anchor: payload.anchor || null,
+        selectionId: nextId,
+      })
+      setWordSaved(false)
+      setLookupState(null)
+      return nextId
+    },
+    [],
+  )
+
   return {
     selection,
     setSelection,
@@ -63,5 +91,6 @@ export function useReaderSelection({ flushVocabMap }: Options) {
     setLookupState,
     selectionIdRef,
     autoSavedRef,
+    openSelection,
   }
 }
