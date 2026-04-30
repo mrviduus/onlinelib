@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, t } from '@textstack/shared'
+import { t } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
@@ -16,6 +16,7 @@ import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
 import { useReaderSelection } from '../../../src/hooks/useReaderSelection'
 import { useReaderChapter } from '../../../src/hooks/useReaderChapter'
 import { useReaderBook } from '../../../src/hooks/useReaderBook'
+import { useReaderInfiniteScroll } from '../../../src/hooks/useReaderInfiniteScroll'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -147,7 +148,13 @@ export default function ReaderScreen() {
       duration: 2400,
     })
   }, [haptics, showToast, language, router])
-  const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
+
+  const { enableForChapter: enableInfiniteScrollFor, loadNext: loadNextChapter } = useReaderInfiniteScroll({
+    bookSlug,
+    language,
+    injectJs,
+    wordCountRef,
+  })
   const insets = useSafeAreaInsets()
   const topBarHeight = 56 + insets.top
   const footerHeight = 60 + insets.bottom
@@ -242,11 +249,7 @@ export default function ReaderScreen() {
           setVisibleChapterSlug(data.chapterSlug)
         }
       } else if (data.type === 'loaded') {
-        // Enable infinite scroll if there's a next chapter
-        if (chapter?.next) {
-          nextChapterRef.current = chapter.next
-          injectJs('enableInfiniteScroll()')
-        }
+        enableInfiniteScrollFor(chapter)
       } else if (data.type === 'requestNextChapter') {
         loadNextChapter()
       } else if (data.type === 'highlightTap') {
@@ -280,7 +283,7 @@ export default function ReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress])
+  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -313,21 +316,6 @@ export default function ReaderScreen() {
   }, [settings.showInlineTranslations])
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
-
-  const loadNextChapter = async () => {
-    const next = nextChapterRef.current
-    if (!next || !bookSlug) return
-    try {
-      const api = createBooksApi(language)
-      const ch = await api.getChapter(bookSlug, next.slug)
-      injectJs(`appendChapter(${JSON.stringify({ html: ch.html, title: ch.title, slug: ch.slug })})`)
-      wordCountRef.current += ch.wordCount || 0
-      nextChapterRef.current = ch.next || null
-      if (!ch.next) injectJs('disableInfiniteScroll()')
-    } catch {
-      injectJs('disableInfiniteScroll()')
-    }
-  }
 
   // Chapter counter for footer
   const currentChapterIndex = chapters.findIndex(c => c.slug === chapterSlug)
