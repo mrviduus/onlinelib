@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, 
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { createBooksApi, bookmarksApi, t } from '@textstack/shared'
-import type { Chapter, ChapterSummary } from '@textstack/shared'
+import type { ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
-import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
+import { getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
@@ -16,6 +16,7 @@ import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
 import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
 import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
 import { useReaderSelection } from '../../../src/hooks/useReaderSelection'
+import { useReaderChapter } from '../../../src/hooks/useReaderChapter'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -53,15 +54,6 @@ export default function ReaderScreen() {
   const { isAuthenticated, user } = useAuth()
   const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
   const overlayV2 = useReaderOverlayV2Active()
-  const [chapter, setChapter] = useState<Chapter | null>(null)
-  const [loading, setLoading] = useState(true)
-  /**
-   * Non-null when we have nothing to render: either no cached copy and the
-   * network failed (`'offline'`), or the server says the chapter is gone
-   * (`'notfound'`). Used to replace the eternal spinner with a real
-   * empty-state (R-4).
-   */
-  const [chapterError, setChapterError] = useState<'offline' | 'notfound' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [dictOpen, setDictOpen] = useState(false)
@@ -82,7 +74,6 @@ export default function ReaderScreen() {
   const progressRef = useRef(0)
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
-  const wordCountRef = useRef(0)
   const totalWordCountRef = useRef(0)
 
   const { colors } = useTheme()
@@ -92,6 +83,13 @@ export default function ReaderScreen() {
   const haptics = useHaptics()
   const { show: showToast } = useToast()
   const sessionWordCountRef = useRef(0)
+
+  const { chapter, setChapter, loading, chapterError, wordCountRef } = useReaderChapter({
+    bookSlug,
+    chapterSlug,
+    language,
+    editionIdRef,
+  })
 
   const {
     bookmarks,
@@ -218,75 +216,6 @@ export default function ReaderScreen() {
       })
     return () => { cancelled = true }
   }, [bookSlug, isAuthenticated, language])
-
-  // Chapter fetch — network first, then SQLite cache. Adds cancellation so
-  // rapid chapter navigation can't let a stale response stomp the current
-  // chapter (R-4) and updates the offline-miss path to surface a real
-  // empty-state rather than leaving the user on a permanent spinner.
-  useEffect(() => {
-    if (!bookSlug || !chapterSlug) return
-    let cancelled = false
-    setLoading(true)
-    setChapterError(null)
-
-    ;(async () => {
-      let onlineError: unknown = null
-      try {
-        const api = createBooksApi(language)
-        const ch = await api.getChapter(bookSlug, chapterSlug)
-        if (cancelled) return
-        setChapter(ch)
-        wordCountRef.current = ch.wordCount || 0
-        setLoading(false)
-        return
-      } catch (err) {
-        onlineError = err
-      }
-
-      // Online fetch failed — try the offline cache. Prefer the
-      // already-resolved editionId from the book effect; fall back to
-      // iterating cached books so a cold start (no book meta yet) still
-      // works.
-      try {
-        let editionId = editionIdRef.current
-        if (!editionId) {
-          const books = await getAllCachedBooks()
-          if (cancelled) return
-          editionId = books.find(b => b.slug === bookSlug)?.editionId ?? null
-        }
-        if (editionId) {
-          const cached = await getCachedChapter(editionId, chapterSlug)
-          if (cancelled) return
-          if (cached) {
-            setChapter({
-              id: '',
-              chapterNumber: 0,
-              slug: cached.chapterSlug,
-              title: cached.title,
-              html: cached.html,
-              wordCount: cached.wordCount,
-              prev: cached.prev,
-              next: cached.next,
-            })
-            wordCountRef.current = cached.wordCount || 0
-            setLoading(false)
-            return
-          }
-        }
-      } catch (e) {
-        if (!cancelled) console.warn('Offline cache read failed:', e)
-      }
-
-      // No online response AND no cached copy — show a proper empty state.
-      if (cancelled) return
-      const status = (onlineError as { status?: number } | null)?.status
-      setChapter(null)
-      setChapterError(status === 404 ? 'notfound' : 'offline')
-      setLoading(false)
-    })()
-
-    return () => { cancelled = true }
-  }, [bookSlug, chapterSlug, language])
 
   const { saveProgress } = useReaderProgress({
     editionIdRef,
