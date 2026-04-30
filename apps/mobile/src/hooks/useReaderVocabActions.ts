@@ -141,6 +141,56 @@ export function useReaderVocabActions({
   }, [isAuthenticated, vocabMapRef, injectJs, setSelection, showToast])
 
   /**
+   * Auto-save on single-word tap. Mirrors the manual saveWord flow but:
+   * - dedupes via autoSavedRef so the iOS double-fire of the WebView
+   *   selection event doesn't post twice
+   * - silent on failure (no error toast — auto path shouldn't nag)
+   * - removes the dedup entry on lookup/already_saved so a re-tap can retry
+   */
+  const autoSaveWord = useCallback(async (
+    selection: Selection,
+    autoSavedRef: MutableRefObject<Set<string>>,
+  ) => {
+    if (!isAuthenticated) return
+    const keyLc = selection.text.toLowerCase()
+    if (vocabMapRef.current[keyLc]) return
+    if (autoSavedRef.current.has(keyLc)) return
+    autoSavedRef.current.add(keyLc)
+    try {
+      const resp = await vocabularyApi.saveWord({
+        word: selection.text,
+        language,
+        sentence: selection.sentence || null,
+        bookTitle: bookTitleRef.current || null,
+        editionId: editionIdRef.current || null,
+        chapterId: chapter?.id || null,
+      })
+      if (resp.outcome === 'pending') {
+        showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+        return
+      }
+      if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
+        if (resp.lookupId) {
+          setLookupState({ kind: resp.outcome, id: resp.lookupId, tapsRemaining: resp.tapsRemaining, busy: false })
+        }
+        // Let a re-tap hit the API again — that's how lookup_pending decrements tapsRemaining.
+        autoSavedRef.current.delete(keyLc)
+        return
+      }
+      if (resp.outcome === 'already_saved') {
+        // vocabMapRef may not have this key (stale fetch) — let a re-tap retry.
+        autoSavedRef.current.delete(keyLc)
+        return
+      }
+      const saved = resp.word
+      if (!saved) return
+      onWordSaved(saved, selection.text)
+    } catch {
+      autoSavedRef.current.delete(keyLc)
+    }
+  }, [isAuthenticated, vocabMapRef, language, bookTitleRef, editionIdRef, chapter, showToast, setLookupState, onWordSaved])
+
+  /**
    * B-79 web-parity: optimistic remove. We drop the word locally and re-mark
    * the WebView map immediately. On network failure the snapshot is restored.
    * markVocabWords re-renders from scratch — no dedicated removeVocabWord.
@@ -166,5 +216,5 @@ export function useReaderVocabActions({
     }
   }, [isAuthenticated, vocabMapRef, injectJs, setWordSaved, setSelection, showToast])
 
-  return { saveWord, promoteLookup, markKnown, removeWord }
+  return { saveWord, autoSaveWord, promoteLookup, markKnown, removeWord }
 }

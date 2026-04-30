@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, bookmarksApi, vocabularyApi, translationApi, t } from '@textstack/shared'
+import { createBooksApi, bookmarksApi, t } from '@textstack/shared'
 import type { Chapter, ChapterSummary } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getCachedChapter, getAllCachedBooks } from '../../../src/lib/offlineDb'
@@ -39,7 +39,7 @@ import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
-import { trackBookOpened, trackVocabSaved, trackTranslationUsed } from '../../../src/lib/analytics'
+import { trackBookOpened } from '../../../src/lib/analytics'
 
 /** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -389,72 +389,10 @@ export default function ReaderScreen() {
           // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
           if (!data.text.includes(' ')) {
             toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-            const keyLc = data.text.toLowerCase()
-            const alreadySaved = !!vocabMapRef.current[keyLc]
-            const alreadyAttempted = autoSavedRef.current.has(keyLc)
-            if (__DEV__) console.log('[diag] tap gate — auth:', isAuthenticated, 'already-saved:', alreadySaved, 'attempted:', alreadyAttempted)
-            if (isAuthenticated && !alreadySaved && !alreadyAttempted) {
-              autoSavedRef.current.add(keyLc)
-              vocabularyApi.saveWord({
-                word: data.text,
-                language,
-                sentence: data.sentence || null,
-                bookTitle: bookTitleRef.current || null,
-                editionId: editionIdRef.current || null,
-                chapterId: chapter?.id || null,
-              }).then(resp => {
-                if (resp.outcome === 'pending') {
-                  if (__DEV__) console.log('[diag] saveWord pending (daily cap)')
-                  showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
-                  return
-                }
-                if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
-                  if (__DEV__) console.log('[diag] saveWord', resp.outcome, 'id=', resp.lookupId)
-                  if (resp.lookupId) {
-                    setLookupState({ kind: resp.outcome, id: resp.lookupId, tapsRemaining: resp.tapsRemaining, busy: false })
-                  }
-                  // Let a re-tap hit the API again — that's how
-                  // `lookup_pending` decrements `tapsRemaining`.
-                  autoSavedRef.current.delete(keyLc)
-                  return
-                }
-                if (resp.outcome === 'already_saved') {
-                  if (__DEV__) console.log('[diag] saveWord already_saved')
-                  // vocabMapRef may not have this key (e.g. stale fetch) — let a
-                  // re-tap retry so underline can render on next interaction.
-                  autoSavedRef.current.delete(keyLc)
-                  return
-                }
-                const saved = resp.word
-                if (!saved) return
-                const key = saved.word.toLowerCase()
-                vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
-                if (__DEV__) console.log('[diag] saveWord OK → addVocabWord', key, saved.stage)
-                injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
-                setWordSaved(true)
-                setSessionWordCount(c => c + 1)
-                notifyWordSaved()
-                trackVocabSaved({ language, nativeLanguage, source: 'reader' })
-                // Persist translation
-                const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
-                trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
-                translationApi.translate(data.text, language, targetLang)
-                  .then(res => {
-                    if (res.translatedText && saved.id) {
-                      vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
-                      vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
-                      if (__DEV__) console.log('[diag] translation → markVocabWords', key, res.translatedText)
-                      // Push full map so the inline-translation span renders above the underline.
-                      // addVocabWord alone only carries {stage}, wiping any prior translation in
-                      // _currentVocabMap and leaving the gray caption invisible.
-                      injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-                    }
-                  }).catch((e) => { if (__DEV__) console.log('[diag] translate failed', e && e.message) })
-              }).catch((e) => {
-                autoSavedRef.current.delete(keyLc)
-                if (__DEV__) console.log('[diag] saveWord failed', e && e.message)
-              })
-            }
+            vocabActions.autoSaveWord(
+              { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
+              autoSavedRef,
+            )
           }
         } else {
           if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
@@ -464,7 +402,7 @@ export default function ReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, isAuthenticated, language, nativeLanguage, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
+  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
