@@ -28,6 +28,7 @@ import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
 import { TocSheet } from '../../../src/components/TocSheet'
 import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
 import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
+import { ReaderTopBar } from '../../../src/components/reader/ReaderTopBar'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
 import { useReaderOverlayV2Active } from '../../../src/hooks/useReaderOverlayV2Active'
 import { useTts } from '../../../src/hooks/useTts'
@@ -454,40 +455,24 @@ export default function ReaderScreen() {
         />
 
         {/* Top bar — rendered after WebView so it's on top of native layer */}
-        <Animated.View style={[styles.topBar, { backgroundColor: barBg, paddingTop: insets.top, opacity: barsAnim, transform: [{ translateY: topBarTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
-          <TouchableOpacity onPress={handleExit} style={styles.topBarBtn}>
-            <Ionicons name="chevron-back" size={24} color={barText} />
-          </TouchableOpacity>
-          <View style={styles.titleStack}>
-            {bookTitle ? (
-              <Text style={[styles.bookTitle, { color: barText }]} numberOfLines={1}>{bookTitle}</Text>
-            ) : null}
-            <Text style={[styles.chapterTitle, { color: barText + '99' }]} numberOfLines={1}>
-              {chapter.title}
-            </Text>
-          </View>
-          {sessionWordCount > 0 && (
-            <View style={styles.wordsBadge}>
-              <Ionicons name="school" size={12} color="#10B981" />
-              <Text style={styles.wordsBadgeText}>{sessionWordCount}</Text>
-            </View>
-          )}
-          <View style={styles.topBarRight}>
-            {isAuthenticated && (
-              <TouchableOpacity onPress={() => setBookmarksOpen(true)} style={styles.iconBtn}>
-                <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
-              </TouchableOpacity>
-            )}
-            {chapters.length > 0 && (
-              <TouchableOpacity onPress={() => setTocOpen(true)} style={styles.iconBtn}>
-                <Ionicons name="list-outline" size={20} color={barText} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
-              <Ionicons name="options-outline" size={20} color={barText} />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+        <ReaderTopBar
+          barBg={barBg}
+          barText={barText}
+          barsAnim={barsAnim}
+          topBarTranslateY={topBarTranslateY}
+          barsVisible={barsVisible}
+          topInset={insets.top}
+          bookTitle={bookTitle}
+          chapterTitle={chapter.title}
+          sessionWordCount={sessionWordCount}
+          isAuthenticated={isAuthenticated}
+          hasChapters={chapters.length > 0}
+          isCurrentBookmarked={isCurrentBookmarked}
+          onExit={handleExit}
+          onBookmarksPress={() => setBookmarksOpen(true)}
+          onTocPress={() => setTocOpen(true)}
+          onSettingsPress={() => setSettingsOpen(true)}
+        />
 
         {/* Selection: WordCard for single words, ActionBar for multi-word.
             Both are absolutely positioned above the footer via `bottomOffset`
@@ -719,30 +704,6 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   container: { flex: 1 },
-  // Top bar — absolute overlay, slides down on tap
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 56,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  topBarBtn: { minWidth: 44, minHeight: 44, justifyContent: 'center' as const },
-  titleStack: { flex: 1, marginHorizontal: 8 },
-  bookTitle: { fontSize: 14, fontWeight: '600' as const, fontFamily: fonts.sansMedium },
-  chapterTitle: { fontSize: 12, fontFamily: fonts.sans },
-  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  iconBtn: { padding: 8, minWidth: 40, minHeight: 40, justifyContent: 'center' as const, alignItems: 'center' as const, borderRadius: 4 },
   webview: { flex: 1 },
   // Footer — absolute overlay, slides up on tap
   footer: {
@@ -803,20 +764,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
     color: '#fff',
-  },
-  // Words badge in top bar
-  wordsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  wordsBadgeText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    color: '#10B981',
   },
 })
