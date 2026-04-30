@@ -593,6 +593,11 @@
     "banner": {
       "budgetReached": "Weekly goal reached. See you next week!"
     },
+    "practice": {
+      "title": "Practice",
+      "cta": "Practice anyway",
+      "subtitle": "Doesn't affect your SRS schedule"
+    },
     "retired": {
       "title": "Mastered — retired",
       "subtitle": "Graduated from review. Tap to bring back.",

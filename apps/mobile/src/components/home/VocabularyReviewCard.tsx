@@ -183,9 +183,9 @@ export function VocabularyReviewCard() {
       return {
         headline: savedTitle(),
         subline: t('vocabulary.banner.budgetReached'),
-        ctaLabel: t('home.vocabCard.openCta'),
-        iconName: 'checkmark-done',
-        ctaAction: openVocab,
+        ctaLabel: t('vocabulary.practice.cta'),
+        iconName: 'infinite',
+        ctaAction: () => router.push('/vocabulary/review?practice=1' as never),
       }
     }
     if (dueNow > 0) {
@@ -216,7 +216,7 @@ export function VocabularyReviewCard() {
   }
 
   const { headline, subline, ctaLabel, iconName, ctaAction } = resolveState()
-  const isActionable = dueNow > 0
+  const isActionable = dueNow > 0 || budgetReached
 
   // Stitch together a single accessibility label so VoiceOver reads the card
   // as one coherent announcement instead of three separate children.

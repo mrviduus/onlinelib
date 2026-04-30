@@ -22,8 +22,9 @@ export default function VocabularyReviewScreen() {
   const { colors } = useTheme()
   const { language, t } = useLanguage()
   const router = useRouter()
-  const params = useLocalSearchParams<{ limit?: string; reviewMode?: string; cluster?: string }>()
+  const params = useLocalSearchParams<{ limit?: string; reviewMode?: string; cluster?: string; practice?: string }>()
   const clusterId = typeof params.cluster === 'string' ? params.cluster : null
+  const practiceMode = params.practice === '1' || params.practice === 'true'
 
   const [batchSize, setBatchSize] = useState(() => {
     const v = parseInt(params.limit || String(DEFAULT_BATCH_SIZE), 10)
@@ -50,11 +51,11 @@ export default function VocabularyReviewScreen() {
     if (clusterId) {
       review.startClusterSession(clusterId, review.reviewMode)
     } else {
-      review.startSession(batchSize, review.reviewMode)
+      review.startSession(batchSize, review.reviewMode, practiceMode)
     }
     // `review` is stable per-hook, review.reviewMode read at call time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSize, clusterId])
+  }, [batchSize, clusterId, practiceMode])
 
   // Haptic on session-complete — must be in an effect, not render, or
   // it re-fires on every re-render while the summary is visible.
@@ -78,7 +79,14 @@ export default function VocabularyReviewScreen() {
 
   const handleAgain = () => {
     sessionStartRef.current = Date.now()
-    review.startSession(batchSize, review.reviewMode)
+    review.startSession(batchSize, review.reviewMode, practiceMode)
+  }
+
+  const handlePracticeAnyway = () => {
+    router.replace({
+      pathname: '/vocabulary/review',
+      params: { ...params, practice: '1' },
+    } as any)
   }
 
   // Loading
@@ -91,10 +99,11 @@ export default function VocabularyReviewScreen() {
     )
   }
 
-  const budgetReached = !review.hasCards && (review.weeklyProgress?.remaining ?? 1) <= 0
+  const budgetReached = !practiceMode && !review.hasCards && (review.weeklyProgress?.remaining ?? 1) <= 0
 
   // Budget-reached empty state — served when the backend returned no cards
   // because the weekly budget is exhausted (not because nothing is due).
+  // Practice mode bypasses the budget entirely so this branch never fires there.
   if (budgetReached) {
     return (
       <>
@@ -110,10 +119,18 @@ export default function VocabularyReviewScreen() {
               {t('vocabulary.weeklyBudget.emptyStateSubtitle')}
             </Text>
             <PressableScale
-              onPress={() => router.back()}
+              onPress={handlePracticeAnyway}
               style={[styles.budgetReachedCta, { backgroundColor: colors.primary }]}
             >
               <Text style={styles.budgetReachedCtaText}>
+                {t('vocabulary.practice.cta')}
+              </Text>
+            </PressableScale>
+            <PressableScale
+              onPress={() => router.back()}
+              style={styles.budgetReachedSecondary}
+            >
+              <Text style={[styles.budgetReachedSecondaryText, { color: colors.textSecondary }]}>
                 {t('vocabulary.weeklyBudget.backToReading')}
               </Text>
             </PressableScale>
@@ -150,7 +167,9 @@ export default function VocabularyReviewScreen() {
   return (
     <>
       <Stack.Screen options={{
-        title: `Practice (${review.currentIndex + 1}/${review.cards.length})`,
+        title: practiceMode
+          ? `Practice (${review.currentIndex + 1}/${review.cards.length}) · Free`
+          : `Practice (${review.currentIndex + 1}/${review.cards.length})`,
         headerShown: true,
         headerRight: () => (
           <View style={styles.headerRight}>
@@ -166,7 +185,7 @@ export default function VocabularyReviewScreen() {
       }} />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
+          {!practiceMode && review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
 
           {/* Progress */}
           <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
@@ -181,6 +200,14 @@ export default function VocabularyReviewScreen() {
                 {review.reviewMode === 'blitz' ? 'Blitz' : 'Flashcards'}
               </Text>
             </View>
+            {practiceMode && (
+              <View style={[styles.modeBadge, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary }]}>
+                <Ionicons name="infinite" size={12} color={colors.primary} />
+                <Text style={[styles.modeBadgeText, { color: colors.primary }]}>
+                  {t('vocabulary.practice.title')}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Card area */}
@@ -240,4 +267,6 @@ const styles = StyleSheet.create({
   budgetReachedSubtitle: { fontSize: 14, marginTop: 8, textAlign: 'center' },
   budgetReachedCta: { marginTop: 24, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
   budgetReachedCtaText: { color: '#fff', fontFamily: 'Inter-Medium' },
+  budgetReachedSecondary: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8 },
+  budgetReachedSecondaryText: { fontSize: 13, fontFamily: 'Inter-Regular' },
 })

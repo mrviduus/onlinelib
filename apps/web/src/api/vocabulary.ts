@@ -69,7 +69,7 @@ export interface WeeklyProgressDto {
 export interface ReviewQueueResponse {
   cards: ReviewCardDto[]
   totalDue: number
-  weeklyProgress: WeeklyProgressDto
+  weeklyProgress: WeeklyProgressDto | null
 }
 
 export interface VocabSettingsDto {
@@ -87,6 +87,7 @@ export interface SubmitReviewRequest {
   isCorrect: boolean
   responseTimeMs: number
   selfAssessment?: SelfAssessment
+  isPractice?: boolean
 }
 
 export interface SubmitReviewResponse {
@@ -266,10 +267,11 @@ export async function updateWord(id: string, data: UpdateWordRequest): Promise<V
   })
 }
 
-export async function getReviewQueue(limit?: number, includeAll?: boolean): Promise<ReviewQueueResponse> {
+export async function getReviewQueue(limit?: number, includeAll?: boolean, practice?: boolean): Promise<ReviewQueueResponse> {
   const params = new URLSearchParams()
   if (limit) params.set('limit', String(limit))
   if (includeAll) params.set('includeAll', 'true')
+  if (practice) params.set('practice', 'true')
   const qs = params.toString()
   return authFetch<ReviewQueueResponse>(`/me/vocabulary/review${qs ? `?${qs}` : ''}`)
 }

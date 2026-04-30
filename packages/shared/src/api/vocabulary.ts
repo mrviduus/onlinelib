@@ -57,9 +57,9 @@ export function deleteWord(id: string) {
   return authFetch<void>(`/me/vocabulary/words/${id}`, { method: 'DELETE' })
 }
 
-export function getReviewQueue(limit?: number) {
-  return authFetch<{ cards: ReviewCardDto[]; totalDue: number; weeklyProgress: WeeklyProgressDto }>(
-    `/me/vocabulary/review${buildQuery({ limit })}`
+export function getReviewQueue(limit?: number, practice?: boolean) {
+  return authFetch<{ cards: ReviewCardDto[]; totalDue: number; weeklyProgress: WeeklyProgressDto | null }>(
+    `/me/vocabulary/review${buildQuery({ limit, practice: practice ? true : undefined })}`
   )
 }
 
@@ -75,7 +75,7 @@ export function unretireWord(id: string) {
   return authFetch<VocabularyWordDto>(`/me/vocabulary/words/${id}/unretire`, { method: 'POST' })
 }
 
-export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; selfAssessment?: string }) {
+export function submitReview(data: { wordId: string; isCorrect: boolean; responseTimeMs: number; selfAssessment?: string; isPractice?: boolean }) {
   return authFetch<SubmitReviewResponse>('/me/vocabulary/review', jsonBody('POST', data))
 }
 

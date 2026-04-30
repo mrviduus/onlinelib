@@ -997,6 +997,11 @@
       "emptyStateSubtitle": "You've hit your weekly review target. Read — new reviews unlock as old ones age out.",
       "backToReading": "Back to reading"
     },
+    "practice": {
+      "title": "Practice",
+      "cta": "Practice anyway",
+      "subtitle": "Doesn't affect your SRS schedule"
+    },
     "retired": {
       "title": "Mastered — retired",
       "subtitle": "Graduated from review. Tap to bring back.",

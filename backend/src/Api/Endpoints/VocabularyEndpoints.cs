@@ -453,6 +453,7 @@ public static class VocabularyEndpoints
         [FromQuery] int? limit,
         [FromQuery] string? mode,
         [FromQuery] bool? includeAll,
+        [FromQuery] bool? practice,
         CancellationToken ct)
     {
         if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
@@ -460,13 +461,17 @@ public static class VocabularyEndpoints
 
         var now = DateTimeOffset.UtcNow;
         var batchSize = Math.Min(limit ?? 10, 50);
+        var isPractice = practice == true;
 
-        // Anti-spiral F5: clamp the batch by remaining weekly budget so a user
-        // who already reviewed 70 this week sees an empty queue instead of a
-        // bottomless backlog. ResetAt is when the oldest review in the 7d
-        // window rolls off — frontend shows "back tomorrow at X" messaging.
-        var weeklyProgress = await weeklyBudget.GetProgressAsync(userId, siteId, ct);
-        var fetchLimit = Math.Min(batchSize, weeklyProgress.Remaining);
+        // Anti-spiral F5 bypass: practice mode skips the budget clamp so users
+        // can drill words anytime without waiting for the 7d window to roll.
+        // Practice rows never feed back into the budget (see WeeklyBudgetService).
+        WeeklyProgress? weeklyProgress = isPractice
+            ? null
+            : await weeklyBudget.GetProgressAsync(userId, siteId, ct);
+        var fetchLimit = isPractice
+            ? batchSize
+            : Math.Min(batchSize, weeklyProgress!.Remaining);
 
         // Retired rows (F4) are hidden from the queue — they already graduated.
         var baseQuery = db.VocabularyWords
@@ -475,7 +480,7 @@ public static class VocabularyEndpoints
         var totalDue = await baseQuery
             .CountAsync(w => w.NextReviewAt <= now, ct);
 
-        var weeklyProgressDto = ToDto(weeklyProgress);
+        var weeklyProgressDto = weeklyProgress is null ? null : ToDto(weeklyProgress);
 
         if (fetchLimit == 0)
             return Results.Ok(new ReviewQueueResponse([], totalDue, weeklyProgressDto));
@@ -489,8 +494,9 @@ public static class VocabularyEndpoints
             .Take(fetchLimit)
             .ToListAsync(ct);
 
-        // When no due words and includeAll requested, return non-due words (closest to due first)
-        if (dueWords.Count == 0 && includeAll == true)
+        // Practice mode wants something to drill even when nothing is due —
+        // fall back to closest-to-due words (same as explicit ?includeAll=true).
+        if (dueWords.Count == 0 && (includeAll == true || isPractice))
         {
             dueWords = await baseQuery
                 .OrderBy(w => w.NextReviewAt)
@@ -552,39 +558,55 @@ public static class VocabularyEndpoints
 
         var prevStage = word.Stage;
         var now = DateTimeOffset.UtcNow;
+        var isPractice = request.IsPractice;
 
-        // Always full SRS calculation
-        var (newStage, newInterval, newConsecutive) = srsEngine.Calculate(
-            word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
-        word.Stage = newStage;
-        word.IntervalDays = newInterval;
-        word.ConsecutiveCorrect = newConsecutive;
-        word.NextReviewAt = now.AddDays(newInterval);
+        // Practice mode: don't touch SRS state at all. The user wanted a way to
+        // drill words anytime without disrupting their schedule — so Stage,
+        // Interval, ConsecutiveCorrect, NextReviewAt, retirement, and the
+        // word-level review counters all stay frozen. We still write a
+        // VocabularyReview row (prefixed `practice_`) so daily stats and the
+        // streak query pick it up; AchievementChecker is skipped so users can't
+        // grind achievements by spamming practice answers.
+        int newStage = prevStage;
+        double newInterval = word.IntervalDays;
 
-        word.LastReviewedAt = now;
-        word.TotalReviews++;
-        if (request.IsCorrect) word.CorrectReviews++;
-        word.UpdatedAt = now;
-
-        // Anti-spiral F4: retire immediately on threshold cross. Waiting for
-        // the 6h sweeper would re-surface the word in the next queue fetch,
-        // negating the "Mastered" graduation UX. Respect AutoRetireEnabled —
-        // users who disabled it should keep Mastered words reviewable.
-        if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
+        if (!isPractice)
         {
-            var autoRetireEnabled = await db.UserVocabularySettings
-                .Where(s => s.UserId == userId && s.SiteId == siteId)
-                .Select(s => (bool?)s.AutoRetireEnabled)
-                .FirstOrDefaultAsync(ct) ?? true;
-            if (autoRetireEnabled)
+            var (calcStage, calcInterval, calcConsecutive) = srsEngine.Calculate(
+                word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
+            newStage = calcStage;
+            newInterval = calcInterval;
+            word.Stage = newStage;
+            word.IntervalDays = newInterval;
+            word.ConsecutiveCorrect = calcConsecutive;
+            word.NextReviewAt = now.AddDays(newInterval);
+
+            word.LastReviewedAt = now;
+            word.TotalReviews++;
+            if (request.IsCorrect) word.CorrectReviews++;
+            word.UpdatedAt = now;
+
+            // Anti-spiral F4: retire immediately on threshold cross. Waiting for
+            // the 6h sweeper would re-surface the word in the next queue fetch,
+            // negating the "Mastered" graduation UX. Respect AutoRetireEnabled —
+            // users who disabled it should keep Mastered words reviewable.
+            if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
             {
-                word.IsRetired = true;
-                word.RetiredAt = now;
-                word.RetiredReason = "auto_3_correct_long_interval";
+                var autoRetireEnabled = await db.UserVocabularySettings
+                    .Where(s => s.UserId == userId && s.SiteId == siteId)
+                    .Select(s => (bool?)s.AutoRetireEnabled)
+                    .FirstOrDefaultAsync(ct) ?? true;
+                if (autoRetireEnabled)
+                {
+                    word.IsRetired = true;
+                    word.RetiredAt = now;
+                    word.RetiredReason = "auto_3_correct_long_interval";
+                }
             }
         }
 
-        var reviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
+        var baseReviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
+        var reviewMode = isPractice ? "practice_" + baseReviewMode : baseReviewMode;
         var review = new VocabularyReview
         {
             Id = Guid.NewGuid(),
@@ -602,10 +624,15 @@ public static class VocabularyEndpoints
         db.VocabularyReviews.Add(review);
         await db.SaveChangesAsync(ct);
 
-        // Check streak achievements (vocab reviews now count toward streak)
-        var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId, siteId, ct);
-        var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId, siteId, streakMinMinutes, now, ct);
-        await new AchievementChecker(db).CheckAfterReview(userId, siteId, currentStreak, ct);
+        // SRS-only path runs achievement checks. Practice rows still hit the
+        // streak query (it scans VocabularyReviews) but skipping the checker
+        // here prevents grinding "1000 reviews"-style achievements.
+        if (!isPractice)
+        {
+            var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId, siteId, ct);
+            var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId, siteId, streakMinMinutes, now, ct);
+            await new AchievementChecker(db).CheckAfterReview(userId, siteId, currentStreak, ct);
+        }
 
         return Results.Ok(new SubmitReviewResponse(
             word.Id, prevStage, newStage, prevStage != newStage,
@@ -1457,7 +1484,7 @@ public record VocabWordDto(
     int TotalReviews, int CorrectReviews,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
-public record ReviewQueueResponse(List<ReviewCardDto> Cards, int TotalDue, WeeklyProgressDto WeeklyProgress);
+public record ReviewQueueResponse(List<ReviewCardDto> Cards, int TotalDue, WeeklyProgressDto? WeeklyProgress);
 
 public record WeeklyProgressDto(int Used, int Budget, int Remaining, DateTimeOffset ResetAt);
 
@@ -1468,7 +1495,7 @@ public record ReviewCardDto(
     string? Hint, string? Explanation, bool IsNew,
     List<string>? Options, int? CorrectOptionIndex);
 
-public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs, string? Mode = null, string? SelfAssessment = null);
+public record SubmitReviewRequest(Guid WordId, bool IsCorrect, int ResponseTimeMs, string? Mode = null, string? SelfAssessment = null, bool IsPractice = false);
 
 public record SubmitReviewResponse(
     Guid WordId, int PreviousStage, int NewStage, bool StageChanged,
