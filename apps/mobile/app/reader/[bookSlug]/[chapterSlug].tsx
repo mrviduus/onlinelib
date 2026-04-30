@@ -126,8 +126,8 @@ export default function ReaderScreen() {
     setWordSaved,
     lookupState,
     setLookupState,
-    selectionIdRef,
     autoSavedRef,
+    openSelection,
   } = useReaderSelection({ flushVocabMap })
 
   // Single source of truth for "word added" feedback — keeps toast copy + haptic
@@ -256,34 +256,20 @@ export default function ReaderScreen() {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
         if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
-        if (data.text) {
-          if (__DEV__) console.log('[diag] setSelection OPEN', data.text)
-          const nextId = ++selectionIdRef.current
-          setSelection({
-            text: data.text,
-            sentence: data.sentence || '',
-            anchor: data.anchor || null,
-            selectionId: nextId,
-          })
-          setWordSaved(false)
-          setLookupState(null)
-          // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
-          if (!data.text.includes(' ')) {
-            toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-            vocabActions.autoSaveWord(
-              { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
-              autoSavedRef,
-            )
-          }
-        } else {
-          if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
-          setSelection(null)
+        const nextId = openSelection(data.text ? data : null)
+        // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
+        if (nextId !== null && !data.text.includes(' ')) {
+          toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
+          vocabActions.autoSaveWord(
+            { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
+            autoSavedRef,
+          )
         }
       }
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter])
+  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, autoSavedRef])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
