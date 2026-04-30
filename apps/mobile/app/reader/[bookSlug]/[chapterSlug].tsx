@@ -2,10 +2,8 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { createBooksApi, bookmarksApi, t } from '@textstack/shared'
-import type { ChapterSummary } from '@textstack/shared'
+import { createBooksApi, t } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
-import { getAllCachedBooks } from '../../../src/lib/offlineDb'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
@@ -17,6 +15,7 @@ import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
 import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
 import { useReaderSelection } from '../../../src/hooks/useReaderSelection'
 import { useReaderChapter } from '../../../src/hooks/useReaderChapter'
+import { useReaderBook } from '../../../src/hooks/useReaderBook'
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
@@ -41,7 +40,6 @@ import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
-import { trackBookOpened } from '../../../src/lib/analytics'
 
 /** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -60,9 +58,7 @@ export default function ReaderScreen() {
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
-  const [chapters, setChapters] = useState<ChapterSummary[]>([])
   const [progress, setProgress] = useState(0)
-  const [bookTitle, setBookTitle] = useState('')
   const { toggle: toggleTts, isSpeaking } = useTts()
   const webViewRef = useRef<WebView>(null)
   // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
@@ -174,48 +170,15 @@ export default function ReaderScreen() {
     isAuthenticated,
   })
 
-  // Resolve editionId from bookSlug (needed for progress + bookmarks).
-  // On network failure fall back to the offline book catalog so a fully
-  // downloaded book still picks up its editionId, bookmarks, and progress
-  // events keep working.
-  const bookOpenedFiredRef = useRef(false)
-  useEffect(() => {
-    if (!bookSlug) return
-    let cancelled = false
-    const api = createBooksApi(language)
-    api.getBook(bookSlug)
-      .then(b => {
-        if (cancelled) return
-        editionIdRef.current = b.id
-        bookTitleRef.current = b.title
-        setBookTitle(b.title)
-        if (!bookOpenedFiredRef.current) {
-          bookOpenedFiredRef.current = true
-          trackBookOpened({ source: 'library', editionId: b.id, language })
-        }
-        if (b.chapters) {
-          setChapters(b.chapters)
-          totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
-        }
-        if (isAuthenticated) {
-          bookmarksApi.getBookmarks(b.id)
-            .then(res => { if (!cancelled) setBookmarks(res) })
-            .catch(() => {})
-        }
-      })
-      .catch(() => {
-        getAllCachedBooks().then(books => {
-          if (cancelled) return
-          const match = books.find(b => b.slug === bookSlug)
-          if (match) {
-            editionIdRef.current = match.editionId
-            bookTitleRef.current = match.title
-            setBookTitle(match.title)
-          }
-        }).catch(() => {})
-      })
-    return () => { cancelled = true }
-  }, [bookSlug, isAuthenticated, language])
+  const { bookTitle, chapters } = useReaderBook({
+    bookSlug,
+    language,
+    isAuthenticated,
+    editionIdRef,
+    bookTitleRef,
+    totalWordCountRef,
+    setBookmarks,
+  })
 
   const { saveProgress } = useReaderProgress({
     editionIdRef,
