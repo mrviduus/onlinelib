@@ -27,6 +27,7 @@ export function useVocabularyReview() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
   const [showingNewWord, setShowingNewWord] = useState(false)
   const [activeClusterId, setActiveClusterId] = useState<string | null>(null)
+  const [isPractice, setIsPractice] = useState(false)
 
   // Guards against state updates after unmount. The two async calls below
   // (getReviewQueue, submitReview) can resolve after the user has navigated
@@ -54,15 +55,17 @@ export function useVocabularyReview() {
     }
   }, [])
 
-  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode) => {
+  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode, practice?: boolean) => {
     if (rMode) setReviewMode(rMode)
+    const practiceFlag = practice === true
+    setIsPractice(practiceFlag)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
     setActiveClusterId(null)
     resetAnswerState()
     try {
-      const queue = await vocabularyApi.getReviewQueue(limit)
+      const queue = await vocabularyApi.getReviewQueue(limit, practiceFlag)
       if (!mountedRef.current) return
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
@@ -79,6 +82,7 @@ export function useVocabularyReview() {
 
   const startClusterSession = useCallback(async (clusterId: string, rMode?: ReviewMode) => {
     if (rMode) setReviewMode(rMode)
+    setIsPractice(false)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
@@ -119,6 +123,7 @@ export function useVocabularyReview() {
         isCorrect,
         responseTimeMs,
         selfAssessment,
+        isPractice,
       })
       if (!mountedRef.current) return
       setLastResult(result)
@@ -135,7 +140,7 @@ export function useVocabularyReview() {
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
-  }, [cards, currentIndex, submitting])
+  }, [cards, currentIndex, submitting, isPractice])
 
   const nextCard = useCallback(() => {
     const nextIdx = currentIndex + 1
@@ -166,6 +171,7 @@ export function useVocabularyReview() {
     reviewMode,
     showingNewWord,
     activeClusterId,
+    isPractice,
     startSession,
     startClusterSession,
     submitAnswer,

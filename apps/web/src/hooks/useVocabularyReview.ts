@@ -36,6 +36,7 @@ export function useVocabularyReview() {
   const [showingNewWord, setShowingNewWord] = useState(false)
   const [wrongCards, setWrongCards] = useState<ReviewCardDto[]>([])
   const [activeClusterId, setActiveClusterId] = useState<string | null>(null)
+  const [isPractice, setIsPractice] = useState(false)
 
   const resetAnswerState = useCallback(() => {
     setLastResult(null)
@@ -50,8 +51,10 @@ export function useVocabularyReview() {
     }
   }, [])
 
-  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode, includeAll?: boolean) => {
+  const startSession = useCallback(async (limit?: number, rMode?: ReviewMode, includeAll?: boolean, practice?: boolean) => {
     if (rMode) setReviewMode(rMode)
+    const practiceFlag = practice === true
+    setIsPractice(practiceFlag)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
@@ -59,7 +62,7 @@ export function useVocabularyReview() {
     setActiveClusterId(null)
     resetAnswerState()
     try {
-      const queue = await getReviewQueue(limit, includeAll ?? true)
+      const queue = await getReviewQueue(limit, includeAll ?? true, practiceFlag)
       setCards(queue.cards)
       setTotalDue(queue.totalDue)
       setWeeklyProgress(queue.weeklyProgress ?? null)
@@ -74,6 +77,7 @@ export function useVocabularyReview() {
 
   const startClusterSession = useCallback(async (clusterId: string, rMode?: ReviewMode) => {
     if (rMode) setReviewMode(rMode)
+    setIsPractice(false)
     setLoading(true)
     setError(null)
     setCurrentIndex(0)
@@ -113,6 +117,7 @@ export function useVocabularyReview() {
         isCorrect,
         responseTimeMs,
         selfAssessment,
+        isPractice,
       })
       setLastResult(result)
       setLastAnswerCorrect(isCorrect)
@@ -134,7 +139,7 @@ export function useVocabularyReview() {
     } finally {
       setSubmitting(false)
     }
-  }, [cards, currentIndex, submitting])
+  }, [cards, currentIndex, submitting, isPractice])
 
   const nextCard = useCallback(() => {
     const nextIdx = currentIndex + 1
@@ -177,6 +182,7 @@ export function useVocabularyReview() {
     showingNewWord,
     wrongCards,
     activeClusterId,
+    isPractice,
     startSession,
     startClusterSession,
     submitAnswer,

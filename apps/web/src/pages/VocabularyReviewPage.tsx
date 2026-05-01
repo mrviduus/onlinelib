@@ -24,6 +24,7 @@ export function VocabularyReviewPage() {
   const [searchParams] = useSearchParams()
   const initialReviewMode = (searchParams.get('reviewMode') as ReviewMode) || 'classic'
   const clusterIdParam = searchParams.get('cluster')
+  const practiceMode = searchParams.get('practice') === '1' || searchParams.get('practice') === 'true'
   const initialBatchSize = useMemo(() => {
     const v = parseInt(searchParams.get('limit') || String(DEFAULT_BATCH_SIZE), 10)
     return (REVIEW_BATCH_SIZES as readonly number[]).includes(v) ? v : DEFAULT_BATCH_SIZE
@@ -44,10 +45,10 @@ export function VocabularyReviewPage() {
       if (clusterIdParam) {
         review.startClusterSession(clusterIdParam, initialReviewMode)
       } else {
-        review.startSession(initialBatchSize, initialReviewMode)
+        review.startSession(initialBatchSize, initialReviewMode, undefined, practiceMode)
       }
     }
-  }, [user, initialReviewMode, clusterIdParam]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, initialReviewMode, clusterIdParam, practiceMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (isCorrect: boolean, responseTimeMs: number, selfAssessment?: SelfAssessment) => {
     playSound(isCorrect ? 'correct' : 'wrong')
@@ -65,7 +66,7 @@ export function VocabularyReviewPage() {
     }
   }, [review.isSessionComplete]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const budgetReached = (review.weeklyProgress?.remaining ?? 1) <= 0
+  const budgetReached = !practiceMode && (review.weeklyProgress?.remaining ?? 1) <= 0
 
   // Redirect to vocabulary if no cards available AND user hasn't hit weekly cap.
   // When cap is reached, we show a dedicated "weekly goal" empty state instead.
@@ -114,8 +115,8 @@ export function VocabularyReviewPage() {
             icon="🎯"
             title={t('vocabulary.banner.budgetReached')}
             subtitle={t('vocabulary.weeklyBudget.emptyStateSubtitle')}
-            buttonLabel={t('vocabulary.weeklyBudget.backToReading')}
-            buttonTo="/library"
+            buttonLabel={t('vocabulary.practice.cta')}
+            buttonTo={`/${language}/vocabulary/review?practice=1`}
           />
         </div>
       )
@@ -160,7 +161,7 @@ export function VocabularyReviewPage() {
         </button>
       </div>
 
-      {review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
+      {!practiceMode && review.weeklyProgress && <WeeklyBudgetBar progress={review.weeklyProgress} />}
 
       <div className="review-progress">
         <div className="review-progress__bar">

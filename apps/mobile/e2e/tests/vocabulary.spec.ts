@@ -31,4 +31,14 @@ test.describe('Vocabulary', () => {
     const hasReview = await page.locator('text=/Review|No words|nothing to review/i').first().isVisible({ timeout: 10000 }).catch(() => false)
     expect(hasReview).toBeTruthy()
   })
+
+  test('practice mode route loads', async ({ page }) => {
+    await page.goto('/vocabulary/review?practice=1')
+    await page.waitForLoadState('networkidle')
+
+    // Practice route is reachable — backend returns weeklyProgress=null so
+    // the bar is hidden; just verify the page itself renders without crashing.
+    const hasPage = await page.locator('text=/Practice|Review|No words|nothing to review/i').first().isVisible({ timeout: 10000 }).catch(() => false)
+    expect(hasPage).toBeTruthy()
+  })
 })
