@@ -1000,19 +1000,17 @@
     "practice": {
       "title": "Practice",
       "cta": "Practice anyway",
-      "subtitle": "Doesn't affect your SRS schedule"
-    },
-    "retired": {
-      "title": "Mastered — retired",
-      "subtitle": "Graduated from review. Tap to bring back.",
-      "unretire": "Bring back to review"
-    },
-    "practice": {
+      "subtitle": "Doesn't affect your SRS schedule",
       "mode": "Mode",
       "length": "Length",
       "flashcards": "Flashcards",
       "blitz": "Blitz",
       "wordsUnit": "words"
+    },
+    "retired": {
+      "title": "Mastered — retired",
+      "subtitle": "Graduated from review. Tap to bring back.",
+      "unretire": "Bring back to review"
     },
     "chart": {
       "title": "Practice every day",
