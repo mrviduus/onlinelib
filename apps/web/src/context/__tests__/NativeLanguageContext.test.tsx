@@ -129,7 +129,12 @@ describe('NativeLanguageContext', () => {
     })
 
     const { result } = renderHook(() => useNativeLanguage(), { wrapper })
-    await waitFor(() => expect(result.current.nativeLanguage).toBe('en'))
+    // Wait for auth bootstrap to actually load the user — `nativeLanguage`
+    // defaults to 'en' from navigator.language before user is set, so waiting
+    // on it races: we'd fire setNativeLanguage with user still null and
+    // updateProfile would be skipped. hasConfirmedLanguage flips true only
+    // inside the server→local effect, which requires user.
+    await waitFor(() => expect(result.current.hasConfirmedLanguage).toBe(true))
 
     act(() => result.current.setNativeLanguage('fr'))
 
