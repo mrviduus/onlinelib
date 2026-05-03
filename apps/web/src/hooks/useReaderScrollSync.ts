@@ -58,31 +58,25 @@ export function useReaderScrollSync({
     scrollRestoredRef.current = false
   }, [chapterIdentifier])
 
-  // Restore scroll: locator must match current chapter, otherwise URL wins.
+  // Restore scroll: locator must match current chapter. Otherwise scroll to
+  // top — React Router preserves scrollY across route changes, so without
+  // this, hitting "Next" at the bottom of ch1 leaves you mid-/end-of ch2.
   useEffect(() => {
     if (scrollRestoredRef.current || effectiveLoading) return
     if (!chapterLoaded) return
 
-    if (!effectiveProgress?.locator?.startsWith('scroll:')) {
-      scrollRestoredRef.current = true
-      return
-    }
-
-    const parts = effectiveProgress.locator.split(':')
-    if (parts.length < 3) {
-      scrollRestoredRef.current = true
-      return
-    }
-
-    const savedSlug = parts[1]
-    const savedOffset = parseInt(parts[2], 10)
-    if (isNaN(savedOffset) || savedSlug !== chapterIdentifier) {
-      scrollRestoredRef.current = true
-      return
-    }
+    const targetOffset = (() => {
+      if (!effectiveProgress?.locator?.startsWith('scroll:')) return 0
+      const parts = effectiveProgress.locator.split(':')
+      if (parts.length < 3) return 0
+      const savedSlug = parts[1]
+      const savedOffset = parseInt(parts[2], 10)
+      if (isNaN(savedOffset) || savedSlug !== chapterIdentifier) return 0
+      return savedOffset
+    })()
 
     requestAnimationFrame(() => {
-      window.scrollTo({ top: savedOffset, behavior: 'instant' })
+      window.scrollTo({ top: targetOffset, behavior: 'instant' })
       scrollRestoredRef.current = true
     })
   }, [chapterLoaded, effectiveLoading, effectiveProgress, chapterIdentifier])
