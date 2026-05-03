@@ -25,8 +25,10 @@ const noopUserProgress = {
   flushSave: vi.fn(),
 }
 
-const baseProps = {
-  mode: 'public' as const,
+type Props = Parameters<typeof useReaderScrollSync>[0]
+
+const baseProps: Props = {
+  mode: 'public',
   chapterIdentifier: 'ch1',
   chapterLoaded: true,
   overallProgress: 0,
@@ -110,7 +112,7 @@ describe('useReaderScrollSync — scroll restore', () => {
   it('on chapter change with stale locator (savedSlug=ch1, new=ch2) → scrolls to top', () => {
     // Simulates the bug PR #193 fixed: user clicks Next at the bottom of ch1,
     // chapterIdentifier flips to ch2, locator still points at ch1.
-    const { rerender } = renderHook((props: typeof baseProps) => useReaderScrollSync(props), {
+    const { rerender } = renderHook((props: Props) => useReaderScrollSync(props), {
       initialProps: { ...baseProps, effectiveProgress: { locator: 'scroll:ch1:8000' } },
     })
     // First render restored to saved offset.
