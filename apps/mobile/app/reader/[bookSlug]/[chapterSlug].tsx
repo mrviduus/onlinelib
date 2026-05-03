@@ -97,6 +97,19 @@ export default function ReaderScreen() {
     remove: removeBookmark,
   } = useReaderBookmarks({ editionIdRef, isAuthenticated, showToast })
 
+  // Hoisted above useReaderHighlights so its `editionId` state is available
+  // — without it the highlights effect can race chapterId against editionId
+  // and miss the load when chapter wins.
+  const { bookTitle, chapters, editionId } = useReaderBook({
+    bookSlug,
+    language,
+    isAuthenticated,
+    editionIdRef,
+    bookTitleRef,
+    totalWordCountRef,
+    setBookmarks,
+  })
+
   const {
     highlightsRef,
     editingHighlight,
@@ -105,6 +118,7 @@ export default function ReaderScreen() {
     saveNote: saveHighlightNote,
     remove: removeHighlight,
   } = useReaderHighlights({
+    editionId,
     editionIdRef,
     user,
     isAuthenticated,
@@ -176,16 +190,6 @@ export default function ReaderScreen() {
     editionId: editionIdRef.current,
     wordCount: wordCountRef.current,
     isAuthenticated,
-  })
-
-  const { bookTitle, chapters } = useReaderBook({
-    bookSlug,
-    language,
-    isAuthenticated,
-    editionIdRef,
-    bookTitleRef,
-    totalWordCountRef,
-    setBookmarks,
   })
 
   const { saveProgress } = useReaderProgress({
@@ -270,7 +274,10 @@ export default function ReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, highlightsRef, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, autoSavedRef])
+    // Refs (highlightsRef, autoSavedRef) are read inside but intentionally
+    // omitted from deps — refs don't trigger re-creation and listing them
+    // here only adds noise.
+  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -278,6 +285,11 @@ export default function ReaderScreen() {
   }
 
   const activeSlug = visibleChapterSlug ?? chapterSlug
+  // Footer/topbar reflect the chapter that's actually visible — during
+  // infinite scroll the URL chapterSlug stays put while visibleChapterSlug
+  // advances, so reading `chapter.title` (URL-keyed via useReaderChapter)
+  // would show the wrong title and counter.
+  const activeChapter = chapters.find(c => c.slug === activeSlug)
   const isCurrentBookmarked = isBookmarked(activeSlug)
   const toggleCurrentBookmark = () => {
     if (!chapter || !activeSlug) return
@@ -304,8 +316,8 @@ export default function ReaderScreen() {
 
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
-  // Chapter counter for footer
-  const currentChapterIndex = chapters.findIndex(c => c.slug === chapterSlug)
+  // Chapter counter for footer — track the visible chapter, not the URL's.
+  const currentChapterIndex = chapters.findIndex(c => c.slug === activeSlug)
   const totalChapters = chapters.length
 
   // Large HTML string. Rebuilding every render burns CPU and — if the
@@ -463,7 +475,7 @@ export default function ReaderScreen() {
           barsVisible={barsVisible}
           topInset={insets.top}
           bookTitle={bookTitle}
-          chapterTitle={chapter.title}
+          chapterTitle={activeChapter?.title ?? chapter.title}
           sessionWordCount={sessionWordCount}
           isAuthenticated={isAuthenticated}
           hasChapters={chapters.length > 0}
@@ -538,7 +550,7 @@ export default function ReaderScreen() {
 
             <View style={styles.footerInfo}>
               <Text style={[styles.footerChapter, { color: barText }]} numberOfLines={1}>
-                {chapter?.title || ''}
+                {activeChapter?.title ?? chapter?.title ?? ''}
               </Text>
               <View style={styles.footerMeta}>
                 {totalChapters > 1 && currentChapterIndex >= 0 && (

@@ -39,6 +39,10 @@ export function useReaderBook({
 }: Options) {
   const [bookTitle, setBookTitle] = useState('')
   const [chapters, setChapters] = useState<ChapterSummary[]>([])
+  // State mirror of editionIdRef so consumers (e.g. useReaderHighlights) can
+  // depend on it in effect deps. The ref alone wouldn't re-trigger an effect
+  // when its value lands after chapterId.
+  const [editionId, setEditionId] = useState<string | null>(null)
   const bookOpenedFiredRef = useRef(false)
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export function useReaderBook({
       .then(b => {
         if (cancelled) return
         editionIdRef.current = b.id
+        setEditionId(b.id)
         bookTitleRef.current = b.title
         setBookTitle(b.title)
         if (!bookOpenedFiredRef.current) {
@@ -71,6 +76,7 @@ export function useReaderBook({
           const match = books.find(b => b.slug === bookSlug)
           if (match) {
             editionIdRef.current = match.editionId
+            setEditionId(match.editionId)
             bookTitleRef.current = match.title
             setBookTitle(match.title)
           }
@@ -79,5 +85,5 @@ export function useReaderBook({
     return () => { cancelled = true }
   }, [bookSlug, isAuthenticated, language, editionIdRef, bookTitleRef, totalWordCountRef, setBookmarks])
 
-  return { bookTitle, chapters }
+  return { bookTitle, chapters, editionId }
 }

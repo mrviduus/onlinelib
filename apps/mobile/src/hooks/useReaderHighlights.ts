@@ -8,6 +8,9 @@ type ToastFn = (t: { message: string; variant: 'error' | 'success' | 'info' }) =
 type User = { id: string } | null | undefined
 
 type Options = {
+  /** State mirror — must come from useState so the load effect re-runs when it lands. */
+  editionId: string | null
+  /** Sync handle for callbacks (create/saveNote/remove) that fire later. */
   editionIdRef: MutableRefObject<string | null>
   user: User
   isAuthenticated: boolean
@@ -17,6 +20,7 @@ type Options = {
 }
 
 export function useReaderHighlights({
+  editionId,
   editionIdRef,
   user,
   isAuthenticated,
@@ -31,9 +35,10 @@ export function useReaderHighlights({
   // for offline survival; API refresh overwrites. Cache keyed per-user so
   // device-shared sign-ins can't leak another account's highlights.
   // Keys off chapterId (not the chapter object) so a refetch with the same
-  // id doesn't re-trigger.
+  // id doesn't re-trigger. Keys off editionId state (not the ref) so a race
+  // where chapterId arrives before editionId still loads highlights once
+  // editionId lands.
   useEffect(() => {
-    const editionId = editionIdRef.current
     if (!isAuthenticated || !editionId || !chapterId) return
     let cancelled = false
 
@@ -60,7 +65,7 @@ export function useReaderHighlights({
       })
       .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
-  }, [isAuthenticated, chapterId, user?.id, editionIdRef, injectJs])
+  }, [isAuthenticated, chapterId, user?.id, editionId, injectJs])
 
   const create = useCallback(
     async ({ color, selection, chapter }: { color: string; selection: NonNullable<Selection>; chapter: Chapter }) => {
