@@ -15,8 +15,19 @@ fi
 
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
-# Load .env
+# Load .env. Validate first — bash `source` on a malformed file (e.g. a
+# stray `KEY = value` with spaces around `=`) silently runs the LHS as a
+# command, fails with "command not found", and `set -e` then kills us
+# inside <1s before claude is even invoked. This bit us 2026-04 → 2026-05
+# when a hand-edit added spaces to OPENAI_API_KEY's line. Fail loud, fail
+# specific.
 if [ -f "$REPO_DIR/.env" ]; then
+  bad_lines=$(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]+=|^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[[:space:]]' "$REPO_DIR/.env" || true)
+  if [ -n "$bad_lines" ]; then
+    echo "ERROR: $REPO_DIR/.env has KEY = VALUE with whitespace around '=' — bash source will fail. Fix these lines:" >&2
+    echo "$bad_lines" | sed 's/=.*/=<redacted>/' >&2
+    exit 1
+  fi
   set -a
   source "$REPO_DIR/.env"
   set +a

@@ -19,8 +19,16 @@ STATUS_PUBLISHING=4
 STATUS_COMPLETED=5
 STATUS_FAILED=6
 
-# Load .env
+# Load .env. Validate first — see seo-generate.sh for the full story; tl;dr
+# `KEY = value` with whitespace around `=` makes bash run KEY as a command,
+# `set -e` kills the script, and the failure mode is invisible.
 if [ -f "$REPO_DIR/.env" ]; then
+  bad_lines=$(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]+=|^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[[:space:]]' "$REPO_DIR/.env" || true)
+  if [ -n "$bad_lines" ]; then
+    echo "ERROR: $REPO_DIR/.env has KEY = VALUE with whitespace around '=' — bash source will fail. Fix these lines:" >&2
+    echo "$bad_lines" | sed 's/=.*/=<redacted>/' >&2
+    exit 1
+  fi
   set -a
   source "$REPO_DIR/.env"
   set +a
@@ -72,6 +80,22 @@ update_job() {
   db_exec "UPDATE auto_publish_jobs SET $* WHERE id = '$job_id';" >/dev/null 2>&1
 }
 
+# Backstop for job failures: process_job already records detailed errors on
+# every code path it controls. This only kicks in when process_job died
+# unexpectedly (e.g. set -e on an early db_query) before writing terminal
+# status — leaving the row in RUNNING/GENERATING_SEO with no error. The
+# previous version unconditionally overwrote whatever process_job set with
+# the literal string 'Script failed', erasing the diagnostic.
+finalize_failed_job() {
+  local job_id="$1"
+  db_exec "UPDATE auto_publish_jobs
+    SET status = $STATUS_FAILED,
+        error = COALESCE(NULLIF(error, ''), 'Script exited unexpectedly'),
+        finished_at = COALESCE(finished_at, NOW())
+    WHERE id = '$job_id'
+      AND status NOT IN ($STATUS_COMPLETED, $STATUS_FAILED, $STATUS_AWAITING_REVIEW);" >/dev/null 2>&1
+}
+
 check_edition_seo_ready() {
   local edition_id="$1"
   db_query "SELECT CASE
@@ -101,6 +125,12 @@ auto_create_job() {
     lang_clause="AND e.language = '$lang_filter'"
   fi
 
+  # Circuit breaker: skip editions that already failed >= 5 times in the
+  # last 24h. Without this, one bad edition (e.g. SIGPIPE on its excerpt)
+  # gets re-picked every minute, burns the daily quota on retries, and
+  # blocks healthy candidates. Failed jobs (status=6) are otherwise
+  # invisible to the NOT EXISTS clause, so a repeatedly-failing edition
+  # was an infinite candidate.
   local edition_id
   edition_id=$(db_query "SELECT e.id FROM editions e
     WHERE e.status = 0
@@ -108,6 +138,10 @@ auto_create_job() {
     AND EXISTS(SELECT 1 FROM chapters c WHERE c.edition_id = e.id)
     AND NOT EXISTS(SELECT 1 FROM auto_publish_jobs j
       WHERE j.edition_id = e.id AND j.status IN (0,1,2,3,4,5))
+    AND (SELECT COUNT(*) FROM auto_publish_jobs j2
+      WHERE j2.edition_id = e.id
+      AND j2.status = $STATUS_FAILED
+      AND j2.created_at > NOW() - INTERVAL '24 hours') < 5
     $lang_clause
     ORDER BY e.created_at ASC LIMIT 1")
 
@@ -240,7 +274,10 @@ while true; do
     if [ -n "$priority_job" ]; then
       process_job "$priority_job" || {
         log "Priority job $priority_job failed"
-        update_job "$priority_job" "status = $STATUS_FAILED, error = 'Script failed', finished_at = NOW()"
+        # process_job sets a detailed error on all its own failure paths; only
+        # backstop with the generic 'Script failed' when it died early
+        # without recording terminal state (status still RUNNING).
+        finalize_failed_job "$priority_job"
       }
     fi
     sleep "$POLL_INTERVAL"
@@ -270,7 +307,7 @@ while true; do
   if [ -n "$job_id" ]; then
     process_job "$job_id" || {
       log "Job $job_id failed"
-      update_job "$job_id" "status = $STATUS_FAILED, error = 'Script failed', finished_at = NOW()"
+      finalize_failed_job "$job_id"
     }
   fi
 
