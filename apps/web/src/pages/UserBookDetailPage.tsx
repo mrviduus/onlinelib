@@ -8,6 +8,7 @@ import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
 import { BookStatsSection } from '../components/library/BookStatsSection'
+import { AddToCollectionButton } from '../components/library/AddToCollectionButton'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -252,6 +253,15 @@ export function UserBookDetailPage() {
               >
                 Mark as unread
               </button>
+            )}
+
+            {isReady && (
+              <AddToCollectionButton
+                variant="button"
+                bookId={book.id}
+                bookType="userbook"
+                className="user-book-detail__mark-btn"
+              />
             )}
 
             <button

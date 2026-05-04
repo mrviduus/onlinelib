@@ -20,6 +20,7 @@ import { TermsPage } from './pages/TermsPage'
 import { DmcaPage } from './pages/DmcaPage'
 import { ContactPage } from './pages/ContactPage'
 import { LibraryPage } from './pages/LibraryPage'
+import { LibraryShelfPage } from './pages/LibraryShelfPage'
 import { UserBookDetailPage } from './pages/UserBookDetailPage'
 import { StatsPage } from './pages/StatsPage'
 import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
@@ -97,6 +98,7 @@ function LanguageRoutes() {
         <Route path="/dmca" element={<DmcaPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/library" element={<LibraryPage />} />
+        <Route path="/library/shelf/:shelfId" element={<LibraryShelfPage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/vocabulary" element={<VocabularyPage />} />
         <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
