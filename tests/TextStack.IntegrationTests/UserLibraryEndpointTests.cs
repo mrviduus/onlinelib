@@ -46,10 +46,16 @@ public class UserLibraryEndpointTests : IClassFixture<LiveApiFixture>, IClassFix
     [Fact]
     public async Task GetLibrary_Authenticated_ReturnsLibraryItemsWithAuthorField()
     {
+        if (!_auth.IsAuthenticated)
+            Assert.Skip("ENABLE_TEST_AUTH not set on the API — cannot exercise authenticated endpoint");
+
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/library");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError) return;
+        if (response.StatusCode == HttpStatusCode.InternalServerError)
+            Assert.Skip("Server returned 500 — environment-level failure, not a test concern");
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            Assert.Skip("Endpoint not available on this build");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<LibraryResponse>(
@@ -78,21 +84,28 @@ public class UserLibraryEndpointTests : IClassFixture<LiveApiFixture>, IClassFix
     [Fact]
     public async Task AddCatalogBookToLibrary_ReturnsJoinedAuthorString()
     {
+        if (!_auth.IsAuthenticated)
+            Assert.Skip("ENABLE_TEST_AUTH not set — cannot mutate library");
+
         // 1. Find a catalog book with at least one author
         var catalogReq = _anon.CreateRequest(HttpMethod.Get, "/books?limit=20");
         var catalogResp = await _anon.Client.SendAsync(catalogReq, TestContext.Current.CancellationToken);
-        if (catalogResp.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError) return;
+        if (catalogResp.StatusCode == HttpStatusCode.InternalServerError)
+            Assert.Skip("Catalog returned 500 — environment-level failure");
+        if (catalogResp.StatusCode == HttpStatusCode.NotFound)
+            Assert.Skip("Catalog endpoint not available");
         Assert.Equal(HttpStatusCode.OK, catalogResp.StatusCode);
 
         var catalog = await catalogResp.Content.ReadFromJsonAsync<CatalogResponse>(
             cancellationToken: TestContext.Current.CancellationToken);
-        if (catalog is null || catalog.Items.Length == 0) return; // empty catalog — nothing to test
-        var seed = catalog.Items.FirstOrDefault(b => b.Authors.Length > 0);
-        if (seed is null) return; // no book with authors in this site
-        var expectedAuthor = string.Join(", ", seed.Authors.Select(a => a.Name));
+        if (catalog is null || catalog.Items.Length == 0)
+            Assert.Skip("Catalog is empty in this environment");
+        var seed = catalog!.Items.FirstOrDefault(b => b.Authors.Length > 0);
+        if (seed is null)
+            Assert.Skip("No catalog book with authors found in the first 20 — strengthen seed data or raise limit");
+        var expectedAuthor = string.Join(", ", seed!.Authors.Select(a => a.Name));
 
-        // 2. Add to library — auth required
-        if (!_auth.IsAuthenticated) return;
+        // 2. Add to library
         var addReq = _auth.CreateRequest(HttpMethod.Post, $"/me/library/{seed.Id}");
         var addResp = await _auth.Client.SendAsync(addReq, TestContext.Current.CancellationToken);
         Assert.True(addResp.IsSuccessStatusCode,
