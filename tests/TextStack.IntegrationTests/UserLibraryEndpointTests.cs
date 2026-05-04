@@ -29,6 +29,12 @@ public class UserLibraryEndpointTests : IClassFixture<LiveApiFixture>, IClassFix
 
     private record LibraryResponse(int Total, LibraryItem[] Items);
 
+    private record CatalogAuthor(Guid Id, string Slug, string Name, string Role);
+    private record CatalogBook(Guid Id, string Slug, string Title, string Language,
+        string? Description, string? CoverPath, DateTimeOffset? PublishedAt,
+        int ChapterCount, CatalogAuthor[] Authors);
+    private record CatalogResponse(int Total, CatalogBook[] Items);
+
     [Fact]
     public async Task GetLibrary_WithoutAuth_Returns401()
     {
@@ -52,20 +58,70 @@ public class UserLibraryEndpointTests : IClassFixture<LiveApiFixture>, IClassFix
         Assert.NotNull(body!.Items);
         Assert.True(body.Total >= body.Items.Length);
 
-        // Schema check: every item has the new Author field (string? — null or
-        // non-empty joined string). This is the regression guard: if someone
-        // breaks the EF projection, deserialisation still succeeds with null
-        // for every row, so we also assert that AT LEAST ONE item has an
-        // author when the library has any books with authors attached.
         foreach (var item in body.Items)
         {
-            // Author may be null (book without authors), but if set it must
-            // be a non-empty string.
             if (item.Author is not null)
             {
                 Assert.False(string.IsNullOrWhiteSpace(item.Author),
                     $"Library item {item.EditionId} has empty Author string");
             }
+        }
+    }
+
+    /// <summary>
+    /// Stronger regression test: take a book from the catalog (which we know has
+    /// authors), add it to the library, then read the library back and assert
+    /// Author equals the joined name list from the catalog. Catches logic bugs
+    /// (e.g. EF returning null for everyone) that the schema-only test misses.
+    /// Cleans up the added entry on the way out.
+    /// </summary>
+    [Fact]
+    public async Task AddCatalogBookToLibrary_ReturnsJoinedAuthorString()
+    {
+        // 1. Find a catalog book with at least one author
+        var catalogReq = _anon.CreateRequest(HttpMethod.Get, "/books?limit=20");
+        var catalogResp = await _anon.Client.SendAsync(catalogReq, TestContext.Current.CancellationToken);
+        if (catalogResp.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError) return;
+        Assert.Equal(HttpStatusCode.OK, catalogResp.StatusCode);
+
+        var catalog = await catalogResp.Content.ReadFromJsonAsync<CatalogResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        if (catalog is null || catalog.Items.Length == 0) return; // empty catalog — nothing to test
+        var seed = catalog.Items.FirstOrDefault(b => b.Authors.Length > 0);
+        if (seed is null) return; // no book with authors in this site
+        var expectedAuthor = string.Join(", ", seed.Authors.Select(a => a.Name));
+
+        // 2. Add to library — auth required
+        if (!_auth.IsAuthenticated) return;
+        var addReq = _auth.CreateRequest(HttpMethod.Post, $"/me/library/{seed.Id}");
+        var addResp = await _auth.Client.SendAsync(addReq, TestContext.Current.CancellationToken);
+        Assert.True(addResp.IsSuccessStatusCode,
+            $"AddToLibrary failed: {(int)addResp.StatusCode} {addResp.ReasonPhrase}");
+
+        try
+        {
+            // POST returns the LibraryItemDto directly — author should already be there
+            var added = await addResp.Content.ReadFromJsonAsync<LibraryItem>(
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.NotNull(added);
+            Assert.Equal(expectedAuthor, added!.Author);
+
+            // 3. Read it back via list to confirm GetLibrary projection matches
+            var listReq = _auth.CreateRequest(HttpMethod.Get, "/me/library?limit=200");
+            var listResp = await _auth.Client.SendAsync(listReq, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, listResp.StatusCode);
+            var list = await listResp.Content.ReadFromJsonAsync<LibraryResponse>(
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.NotNull(list);
+            var found = list!.Items.FirstOrDefault(i => i.EditionId == seed.Id);
+            Assert.NotNull(found);
+            Assert.Equal(expectedAuthor, found!.Author);
+        }
+        finally
+        {
+            // 4. Cleanup
+            var delReq = _auth.CreateRequest(HttpMethod.Delete, $"/me/library/{seed.Id}");
+            await _auth.Client.SendAsync(delReq, TestContext.Current.CancellationToken);
         }
     }
 }

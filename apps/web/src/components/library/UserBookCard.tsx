@@ -189,12 +189,13 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
           <Link
             to={destination}
             className="user-book-card__title"
+            title={book.title}
             onClick={(e) => !isReady && e.preventDefault()}
           >
             {book.title}
           </Link>
           {book.author && (
-            <div className="user-book-card__author">{book.author}</div>
+            <div className="user-book-card__author" title={book.author}>{book.author}</div>
           )}
           {excerpt && (
             <div
