@@ -533,7 +533,7 @@ export function LibraryPage() {
                           )}
                         </Link>
                         <div className="library-list-item__content">
-                          <Link to={destination} className="library-list-item__title">
+                          <Link to={destination} className="library-list-item__title" title={item.title}>
                             {item.title}
                           </Link>
                           <div className="library-list-item__progress">
@@ -550,7 +550,7 @@ export function LibraryPage() {
                           </div>
                           <div className="library-list-item__info">
                             {item.author && (
-                              <span className="library-list-item__info-item">{item.author}</span>
+                              <span className="library-list-item__info-item" title={item.author}>{item.author}</span>
                             )}
                             {progress?.updatedAt && (
                               <span className="library-list-item__info-item">
@@ -720,11 +720,11 @@ export function LibraryPage() {
                         </Link>
                         <div className="library-card__info">
                           <div className="library-card__text">
-                            <Link to={destination} className="library-card__title">
+                            <Link to={destination} className="library-card__title" title={item.title}>
                               {item.title}
                             </Link>
                             {item.author && (
-                              <span className="user-book-card__author">{item.author}</span>
+                              <span className="user-book-card__author" title={item.author}>{item.author}</span>
                             )}
                             <div className="library-card__meta">
                               {percent >= 1 && (
