@@ -3115,6 +3115,7 @@ html.dark .search-page__sub-result-highlight b {
   overflow: hidden;
   background: var(--color-bg-secondary, #f0f0f0);
   margin-bottom: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 .library-card__cover img {
@@ -3130,8 +3131,8 @@ html.dark .search-page__sub-result-highlight b {
   align-items: center;
   justify-content: center;
   font-size: 48px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.8);
+  font-weight: 600;
+  color: #fff;
 }
 
 .library-card__info {
@@ -3926,6 +3927,7 @@ html.dark .search-page__sub-result-highlight b {
   background: #f0f0f0;
   text-decoration: none;
   display: block;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 .user-book-card__cover--disabled {
