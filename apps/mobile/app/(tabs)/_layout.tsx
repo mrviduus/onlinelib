@@ -92,8 +92,12 @@ export default function TabLayout() {
         name="upload"
         options={{
           title: '',
-          href: isAuthenticated ? '/my-books/upload' : null,
-          tabBarButton: isAuthenticated ? () => <UploadTabButton /> : undefined,
+          // Expo Router rejects href + tabBarButton together. Authed users
+          // get the custom "+" button (it owns navigation via router.push);
+          // guests get the tab hidden via href: null.
+          ...(isAuthenticated
+            ? { tabBarButton: () => <UploadTabButton /> }
+            : { href: null }),
         }}
       />
       <Tabs.Screen
