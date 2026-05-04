@@ -18,7 +18,7 @@ import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
 import { LibraryStatusTabs } from '../components/library/LibraryStatusTabs'
 import { LibrarySearch } from '../components/library/LibrarySearch'
-import { useLibrarySort, sortLibraryItems, sortUserBooks } from '../hooks/useLibrarySort'
+import { useLibrarySort } from '../hooks/useLibrarySort'
 import {
   filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../hooks/useLibraryFilter'
@@ -69,7 +69,7 @@ export function LibraryPage() {
   const {
     query, debouncedQuery: queryD, setQuery, clear: clearQuery,
     contentSearch, setContentSearch,
-  } = useLibrarySearch('saved')
+  } = useLibrarySearch()
   const [contentHits, setContentHits] = useState<UserBookSearchHit[] | null>(null)
   const [contentLoading, setContentLoading] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -215,18 +215,82 @@ export function LibraryPage() {
   const collectionFilteredUserBooks = activeCollectionId && activeTab === 'uploads' && collectionBookIds
     ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
     : searchedUserBooks
-  const sortedItems = sortLibraryItems(collectionFilteredItems, sort, progressMap)
-  const sortedUserBooksBase = sortUserBooks(collectionFilteredUserBooks, sort)
-
-  // When content search is active, override the list with FTS results (already ranked by relevance).
-  const excerptByBookId = new Map<string, UserBookSearchHit>()
-  let sortedUserBooks = sortedUserBooksBase
-  if (contentSearch && contentHits) {
-    const bookMap = new Map(userBooks.map(b => [b.id, b]))
-    sortedUserBooks = contentHits
-      .map(h => { excerptByBookId.set(h.id, h); return bookMap.get(h.id) })
-      .filter((b): b is UserBook => !!b)
+  // Unified merge-sort: tag each item by kind and apply a single comparator so
+  // saved + uploads can be interleaved correctly by the chosen sort key.
+  type CombinedItem =
+    | { kind: 'saved'; item: typeof items[number] }
+    | { kind: 'upload'; book: UserBook }
+  const combinedCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
+  const timeOf = (s: string | null | undefined): number => {
+    if (!s) return 0
+    const t = Date.parse(s)
+    return Number.isNaN(t) ? 0 : t
   }
+  const combinedItems: CombinedItem[] = [
+    ...(showSavedBlock ? collectionFilteredItems.map((item) => ({ kind: 'saved' as const, item })) : []),
+    ...(showUploadsBlock ? collectionFilteredUserBooks.map((book) => ({ kind: 'upload' as const, book })) : []),
+  ]
+  const attentionRank = (c: CombinedItem): number => {
+    if (c.kind === 'upload' && c.book.status !== 'Ready') return 0
+    return 1
+  }
+  const compareCombined = (a: CombinedItem, b: CombinedItem): number => {
+    const ar = attentionRank(a)
+    const br = attentionRank(b)
+    if (ar !== br) return ar - br
+    switch (sort) {
+      case 'title': {
+        const ta = a.kind === 'saved' ? a.item.title : a.book.title
+        const tb = b.kind === 'saved' ? b.item.title : b.book.title
+        return combinedCollator.compare(ta || '', tb || '')
+      }
+      case 'author': {
+        const aa = a.kind === 'saved' ? '' : (a.book.author || '')
+        const ab = b.kind === 'saved' ? '' : (b.book.author || '')
+        if (!aa && !ab) return 0
+        if (!aa) return 1
+        if (!ab) return -1
+        return combinedCollator.compare(aa, ab)
+      }
+      case 'added': {
+        const da = a.kind === 'saved' ? a.item.createdAt : a.book.createdAt
+        const db = b.kind === 'saved' ? b.item.createdAt : b.book.createdAt
+        return timeOf(db) - timeOf(da)
+      }
+      case 'progress': {
+        const pa = a.kind === 'saved' ? (progressMap[a.item.editionId]?.percent ?? 0) : (a.book.progressPercent ?? 0)
+        const pb = b.kind === 'saved' ? (progressMap[b.item.editionId]?.percent ?? 0) : (b.book.progressPercent ?? 0)
+        return pb - pa
+      }
+      case 'recent':
+      default: {
+        const ta = a.kind === 'saved'
+          ? (timeOf(progressMap[a.item.editionId]?.updatedAt) || timeOf(a.item.createdAt))
+          : timeOf(a.book.progressUpdatedAt || a.book.createdAt)
+        const tb = b.kind === 'saved'
+          ? (timeOf(progressMap[b.item.editionId]?.updatedAt) || timeOf(b.item.createdAt))
+          : timeOf(b.book.progressUpdatedAt || b.book.createdAt)
+        return tb - ta
+      }
+    }
+  }
+  const combinedSorted: CombinedItem[] = [...combinedItems].sort(compareCombined)
+
+  // FTS content-search override: replace combined list with upload-only FTS hits
+  // (saved books don't have content FTS, so showing them mixed in would be misleading).
+  const excerptByBookId = new Map<string, UserBookSearchHit>()
+  let renderList: CombinedItem[] = combinedSorted
+  if (showUploadsBlock && contentSearch && contentHits) {
+    const bookMap = new Map(userBooks.map(b => [b.id, b]))
+    const ftsList: CombinedItem[] = []
+    for (const h of contentHits) {
+      excerptByBookId.set(h.id, h)
+      const book = bookMap.get(h.id)
+      if (book) ftsList.push({ kind: 'upload', book })
+    }
+    renderList = ftsList
+  }
+  const sortedUserBooks: UserBook[] = renderList.flatMap(c => (c.kind === 'upload' ? [c.book] : []))
   const contentSearchQuery = contentSearch ? parseQuery(queryD).text : ''
 
   // Bulk handlers (uploads tab) — defined here so sortedUserBooks is in scope
@@ -372,9 +436,7 @@ export function LibraryPage() {
 
         {(() => {
           const totalRaw = (showSavedBlock ? items.length : 0) + (showUploadsBlock ? userBooks.length : 0)
-          const visibleSaved = showSavedBlock ? sortedItems : []
-          const visibleUploads = showUploadsBlock ? sortedUserBooks : []
-          const totalVisible = visibleSaved.length + visibleUploads.length
+          const totalVisible = renderList.length
           const isLoadingAny = (showSavedBlock && loading) || (showUploadsBlock && userBooksLoading && userBooks.length === 0)
 
           return (
@@ -447,7 +509,8 @@ export function LibraryPage() {
                 )
               ) : viewMode === 'list' ? (
                 <div className="library-list">
-                  {visibleSaved.map((item) => {
+                  {renderList.map((c) => c.kind === 'saved' ? (() => {
+                    const item = c.item
                     const progress = progressMap[item.editionId]
                     const percent = progress?.percent ?? 0
                     const destination = progress?.chapterSlug
@@ -505,8 +568,8 @@ export function LibraryPage() {
                         </div>
                       </article>
                     )
-                  })}
-                  {visibleUploads.map((book) => {
+                  })() : (() => {
+                    const book = c.book
                     const isReady = book.status === 'Ready'
                     const percent = book.progressPercent ?? 0
                     const destination = isReady
@@ -609,11 +672,12 @@ export function LibraryPage() {
                         </div>
                       </article>
                     )
-                  })}
+                  })())}
                 </div>
               ) : (
                 <div className="library-page__grid">
-                  {visibleSaved.map((item) => {
+                  {renderList.map((c) => c.kind === 'saved' ? (() => {
+                    const item = c.item
                     const progress = progressMap[item.editionId]
                     const percent = progress?.percent ?? 0
                     const destination = progress?.chapterSlug
@@ -677,8 +741,8 @@ export function LibraryPage() {
                         </div>
                       </div>
                     )
-                  })}
-                  {visibleUploads.map((book) => {
+                  })() : (() => {
+                    const book = c.book
                     const hit = excerptByBookId.get(book.id)
                     return (
                       <UserBookCard
@@ -697,7 +761,7 @@ export function LibraryPage() {
                         excerptQuery={contentSearchQuery}
                       />
                     )
-                  })}
+                  })())}
                 </div>
               )}
             </>
