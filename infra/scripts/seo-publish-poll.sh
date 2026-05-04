@@ -50,16 +50,20 @@ db_exec() {
     psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1" 2>/dev/null
 }
 
+# db_query already returns one row from psql -tAc; piping through `head -1`
+# closes the pipe early and triggers SIGPIPE on multi-line values, which
+# `set -o pipefail` then turns into a non-zero pipeline exit and `set -e`
+# kills the script. Drop the head; rely on the SQL itself returning one row.
 get_setting() {
   local key="$1" default="$2"
   local val
-  val=$(db_query "SELECT value FROM admin_settings WHERE key='$key'" | head -1)
+  val=$(db_query "SELECT value FROM admin_settings WHERE key='$key'")
   echo "${val:-$default}"
 }
 
 get_job_field() {
   local job_id="$1" field="$2"
-  db_query "SELECT $field FROM auto_publish_jobs WHERE id = '$job_id'" | head -1
+  db_query "SELECT $field FROM auto_publish_jobs WHERE id = '$job_id'"
 }
 
 update_job() {
@@ -76,7 +80,7 @@ check_edition_seo_ready() {
     AND seo_themes_json IS NOT NULL AND seo_themes_json != ''
     AND seo_faqs_json IS NOT NULL AND seo_faqs_json != ''
     THEN 'yes' ELSE 'no' END
-    FROM editions WHERE id='$edition_id'" | head -1
+    FROM editions WHERE id='$edition_id'"
 }
 
 check_author_seo_ready() {
@@ -87,7 +91,7 @@ check_author_seo_ready() {
     AND seo_themes_json IS NOT NULL AND seo_themes_json != ''
     AND seo_faqs_json IS NOT NULL AND seo_faqs_json != ''
     THEN 'yes' ELSE 'no' END
-    FROM authors WHERE id='$author_id'" | head -1
+    FROM authors WHERE id='$author_id'"
 }
 
 auto_create_job() {
@@ -105,7 +109,7 @@ auto_create_job() {
     AND NOT EXISTS(SELECT 1 FROM auto_publish_jobs j
       WHERE j.edition_id = e.id AND j.status IN (0,1,2,3,4,5))
     $lang_clause
-    ORDER BY e.created_at ASC LIMIT 1" | head -1)
+    ORDER BY e.created_at ASC LIMIT 1")
 
   if [ -z "$edition_id" ]; then
     return 1
@@ -130,7 +134,7 @@ process_job() {
   edition_id=$(get_job_field "$job_id" "edition_id")
 
   local title
-  title=$(db_query "SELECT title FROM editions WHERE id='$edition_id'" | head -1)
+  title=$(db_query "SELECT title FROM editions WHERE id='$edition_id'")
   log "Processing job $job_id: $title"
 
   update_job "$job_id" "status = $STATUS_RUNNING, started_at = NOW()"
