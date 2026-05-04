@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BUSL--1.1-blue.svg" alt="Business Source License 1.1"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="GNU AGPL v3.0"></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
   <img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19">
   <img src="https://img.shields.io/badge/Expo-55-000020" alt="Expo 55">
@@ -195,15 +195,18 @@ that I'm building the right thing.
 
 ## License
 
-[Business Source License 1.1](LICENSE) © 2026 Vasyl Vdovychenko.
+[GNU Affero General Public License v3.0](LICENSE) © 2026 Vasyl Vdovychenko.
 
-Source-available, **not** open source. You may fork, modify, and self-host
-for personal or internal use. You may **not** offer TextStack as a hosted
-commercial service without a commercial license. On **2030-04-22** the code
-auto-converts to Apache 2.0 and all restrictions drop. See
-[COPYRIGHT.md](COPYRIGHT.md) for plain-English summary.
+TextStack is free and open-source software. You may use, modify, and
+self-host it freely for personal, internal, or community purposes. If you
+modify TextStack and run it as a network-accessible service, AGPL-3.0
+requires you to publish your modifications under the same license.
 
-- Source code: BUSL-1.1 → Apache-2.0 (2030-04-22)
+**Commercial license available** for organizations that need to use
+TextStack without AGPL obligations (e.g. proprietary forks, hosted
+commercial services). Contact: mrviduus@gmail.com.
+
+- Source code: AGPL-3.0
 - Standard Ebooks corpus (included in seed data): CC0 / public domain
 - Edge TTS: used under Microsoft's Edge Read Aloud terms
 - Third-party deps: their respective licenses

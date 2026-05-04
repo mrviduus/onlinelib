@@ -95,6 +95,27 @@ apps/
 
 Deeper detail: [docs/01-architecture/](docs/01-architecture/).
 
+## Contributor License Agreement
+
+By submitting a pull request to this repository, you agree that:
+
+1. Your contribution is your original work or you have the right to
+   submit it under the project license.
+2. Your contribution is licensed under AGPL-3.0, the same license as
+   the rest of the project.
+3. You grant Vasyl Vdovychenko (the project copyright holder) a
+   perpetual, worldwide, non-exclusive, royalty-free license to
+   relicense your contribution under any license, including commercial
+   proprietary licenses, for the purpose of dual-licensing TextStack to
+   commercial customers.
+
+This CLA exists so the project can offer commercial licenses alongside
+the AGPL-3.0 community version, which helps fund continued development.
+
+If you do not agree with this CLA, do not submit pull requests. You can
+still file issues, fork the project, and run your own version under
+AGPL-3.0.
+
 ## Code of Conduct
 
 Be kind. Assume good faith. That's it.
