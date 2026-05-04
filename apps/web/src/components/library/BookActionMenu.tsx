@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useLanguage } from '../../context/LanguageContext'
 import { useBookActions } from '../../hooks/useBookActions'
+import { useCollections, invalidateCollectionsCache } from '../../hooks/useCollections'
+import { addBookToCollection, type BookType } from '../../api/collections'
 import { ConfirmDeleteModal } from './ConfirmDeleteModal'
 import { UserBookEditModal } from './UserBookEditModal'
 import type { LibraryItem } from '../../api/auth'
@@ -134,12 +136,26 @@ function Trigger({ open, setOpen, t }: { open: boolean; setOpen: (v: boolean) =>
   )
 }
 
+type Toast = { msg: string; tone: 'success' | 'error' }
+
 function SavedMenu({
   book, isFinished, onMarkFinished, onMarkUnfinished, onRemove,
   wrapRef, open, setOpen, confirmDelete, setConfirmDelete, t, navigate, language,
 }: SavedProps & SharedRender) {
+  const [toast, setToast] = useState<Toast | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const ms = toast.tone === 'error' ? 4000 : 2500
+    const id = window.setTimeout(() => setToast(null), ms)
+    return () => window.clearTimeout(id)
+  }, [toast])
   return (
     <div className="book-card-menu" ref={wrapRef}>
+      {toast && (
+        <div className={`book-card-menu__toast book-card-menu__toast--${toast.tone}`} role="status" aria-live="polite">
+          {toast.msg}
+        </div>
+      )}
       <Trigger open={open} setOpen={setOpen} t={t} />
       {open && (
         <div className="book-card-menu__dropdown" role="menu">
@@ -153,6 +169,13 @@ function SavedMenu({
           >
             {isFinished ? t('library.actions.markUnfinished') : t('library.actions.markFinished')}
           </button>
+          <AddToCollectionItem
+            bookId={book.editionId}
+            bookType="savedbook"
+            t={t}
+            close={() => setOpen(false)}
+            onToast={setToast}
+          />
           <div className="book-card-menu__divider" />
           <button
             className="book-card-menu__item book-card-menu__item--danger"
@@ -174,6 +197,80 @@ function SavedMenu({
   )
 }
 
+function AddToCollectionItem({
+  bookId, bookType, t, close, onToast,
+}: {
+  bookId: string
+  bookType: BookType
+  t: SharedRender['t']
+  close: () => void
+  onToast: (toast: Toast) => void
+}) {
+  const { collections } = useCollections()
+  const [expanded, setExpanded] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const handlePick = async (collectionId: string, name: string) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await addBookToCollection(collectionId, bookId, bookType)
+      invalidateCollectionsCache()
+      onToast({ msg: t('library.actions.addedToCollection', { name }), tone: 'success' })
+      setExpanded(false)
+      close()
+    } catch {
+      onToast({ msg: t('library.actions.addToCollectionFailed'), tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (collections.length === 0) {
+    return (
+      <button
+        className="book-card-menu__item"
+        role="menuitem"
+        disabled
+        aria-disabled="true"
+        title={t('library.actions.addToCollectionEmpty')}
+      >
+        {t('library.actions.addToCollection')}
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <button
+        className="book-card-menu__item"
+        role="menuitem"
+        aria-haspopup="menu"
+        aria-expanded={expanded}
+        onClick={(e) => { e.preventDefault(); setExpanded((v) => !v) }}
+      >
+        {t('library.actions.addToCollection')}
+        <span aria-hidden="true" style={{ marginLeft: 'auto', opacity: 0.6 }}>{expanded ? '▾' : '▸'}</span>
+      </button>
+      {expanded && (
+        <div className="book-card-menu__submenu" role="menu">
+          {collections.map((c) => (
+            <button
+              key={c.id}
+              className="book-card-menu__item"
+              role="menuitem"
+              disabled={busy}
+              onClick={() => handlePick(c.id, c.name)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 function UserBookMenu({
   book, onChange,
   wrapRef, open, setOpen, confirmDelete, setConfirmDelete, t, navigate, language,
@@ -183,23 +280,28 @@ function UserBookMenu({
   const isFailed = book.status === 'Failed'
   const isProcessing = book.status === 'Processing'
   const isFinished = !!book.completedAt
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<Toast | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     if (!actions.error) return
-    setToast(actions.error)
-    const id = window.setTimeout(() => setToast(null), 4000)
-    return () => window.clearTimeout(id)
+    setToast({ msg: actions.error, tone: 'error' })
   }, [actions.error])
+
+  useEffect(() => {
+    if (!toast) return
+    const ms = toast.tone === 'error' ? 4000 : 2500
+    const id = window.setTimeout(() => setToast(null), ms)
+    return () => window.clearTimeout(id)
+  }, [toast])
 
   const close = () => setOpen(false)
 
   return (
     <div className="book-card-menu" ref={wrapRef}>
       {toast && (
-        <div className="book-card-menu__toast" role="status" aria-live="polite">
-          {toast}
+        <div className={`book-card-menu__toast book-card-menu__toast--${toast.tone}`} role="status" aria-live="polite">
+          {toast.msg}
         </div>
       )}
       <Trigger open={open} setOpen={setOpen} t={t} />
@@ -228,6 +330,15 @@ function UserBookMenu({
             >
               {t('library.actions.editMetadata')}
             </button>
+          )}
+          {isReady && (
+            <AddToCollectionItem
+              bookId={book.id}
+              bookType="userbook"
+              t={t}
+              close={close}
+              onToast={setToast}
+            />
           )}
           {isFailed && (
             <button

@@ -7,6 +7,7 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
+import { BookDetailHero } from '../components/BookDetailHero'
 import { BookStatsSection } from '../components/library/BookStatsSection'
 
 interface SavedProgress {
@@ -162,69 +163,59 @@ export function UserBookDetailPage() {
         </Link>
       </div>
 
-      <div className="user-book-detail__content">
-        <div className="user-book-detail__cover">
-          {book.coverPath ? (
-            <img src={getUserBookCoverUrl(book.coverPath)} alt={book.title} />
-          ) : (
-            <div
-              className="user-book-detail__cover-placeholder"
-              style={{ backgroundColor: stringToColor(book.title) }}
-            >
-              {book.title?.[0] || '?'}
-            </div>
-          )}
+      {isProcessing && (
+        <div className="user-book-detail__status user-book-detail__status--processing">
+          <span className="user-book-detail__spinner" />
+          Processing... This may take a few minutes.
         </div>
+      )}
 
-        <div className="user-book-detail__info">
-          <h1 className="user-book-detail__title">{book.title}</h1>
+      {isFailed && (
+        <div className="user-book-detail__status user-book-detail__status--failed">
+          <strong>Processing Failed</strong>
+          {book.errorMessage && <p>{book.errorMessage}</p>}
+        </div>
+      )}
 
-          {book.author && (
-            <p className="user-book-detail__author">{book.author}</p>
-          )}
-
-          {book.description && (
-            <p className="user-book-detail__description">{book.description}</p>
-          )}
-
-          <div className="user-book-detail__meta">
-            <span>Language: {book.language}</span>
-            {book.genre && <span>{book.genre}</span>}
-            {book.publishedYear && <span>{book.publishedYear}</span>}
-            {isReady && <span>{book.chapters.length} chapters</span>}
-            {book.totalWordCount != null && book.totalWordCount > 0 && (
-              <span>{Math.round(book.totalWordCount / 250).toLocaleString()} pages</span>
+      <BookDetailHero
+        title={book.title}
+        coverImageSrc={book.coverPath ? getUserBookCoverUrl(book.coverPath) : null}
+        coverImageAlt={book.title}
+        coverPlaceholderBg={stringToColor(book.title)}
+        authorContent={book.author || undefined}
+        descriptionText={book.description || undefined}
+        metaContent={
+          <>
+            <span className="book-hero__meta-item book-hero__meta-item--lang">
+              {book.language.toUpperCase()}
+            </span>
+            {book.genre && <span className="book-hero__meta-item">{book.genre}</span>}
+            {book.publishedYear && <span className="book-hero__meta-item">{book.publishedYear}</span>}
+            {isReady && (
+              <span className="book-hero__meta-item">
+                <span className="material-icons-outlined">auto_stories</span>
+                {book.chapters.length} chapters
+              </span>
             )}
-          </div>
-
-          {isProcessing && (
-            <div className="user-book-detail__status user-book-detail__status--processing">
-              <span className="user-book-detail__spinner" />
-              Processing... This may take a few minutes.
-            </div>
-          )}
-
-          {isFailed && (
-            <div className="user-book-detail__status user-book-detail__status--failed">
-              <strong>Processing Failed</strong>
-              {book.errorMessage && <p>{book.errorMessage}</p>}
-            </div>
-          )}
-
-          {isReady && book.completedAt && (
-            <div className="user-book-detail__completed">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              Read
-            </div>
-          )}
-
-          <div className="user-book-detail__actions">
+            {book.totalWordCount != null && book.totalWordCount > 0 && (
+              <span className="book-hero__meta-item">{Math.round(book.totalWordCount / 250).toLocaleString()} pages</span>
+            )}
+            {isReady && book.completedAt && (
+              <span className="user-book-detail__completed">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Read
+              </span>
+            )}
+          </>
+        }
+        actionsContent={
+          <>
             {isReady && book.chapters.length > 0 && (
               <Link
                 to={`/${language}/library/my/${book.id}/read/${continueReadingSlug || book.chapters[0].slug || book.chapters[0].chapterNumber}`}
-                className="user-book-detail__read-btn"
+                className="book-hero__read-btn"
               >
                 {continueReadingSlug ? 'Continue Reading' : 'Start Reading'}
               </Link>
@@ -236,7 +227,7 @@ export function UserBookDetailPage() {
                   await markUserBookComplete(book.id)
                   setBook({ ...book, completedAt: new Date().toISOString() })
                 }}
-                className="user-book-detail__mark-btn"
+                className="book-hero__read-btn book-hero__read-btn--secondary"
               >
                 Mark as read
               </button>
@@ -248,7 +239,7 @@ export function UserBookDetailPage() {
                   await unmarkUserBookComplete(book.id)
                   setBook({ ...book, completedAt: null })
                 }}
-                className="user-book-detail__mark-btn"
+                className="book-hero__read-btn book-hero__read-btn--secondary"
               >
                 Mark as unread
               </button>
@@ -257,7 +248,7 @@ export function UserBookDetailPage() {
             {isReady && (
               <a
                 href={`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/me/books/${book.id}/export/epub`}
-                className="user-book-detail__read-btn"
+                className="book-hero__read-btn book-hero__read-btn--secondary"
                 style={{ textDecoration: 'none' }}
                 download
               >
@@ -268,7 +259,7 @@ export function UserBookDetailPage() {
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="user-book-detail__delete-btn"
+              className="book-hero__read-btn book-hero__read-btn--danger"
             >
               {deleting ? 'Deleting...' : 'Delete Book'}
             </button>
@@ -281,9 +272,9 @@ export function UserBookDetailPage() {
                 linkOnly
               />
             )}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {isReady && book && (
         <BookStatsSection bookId={book.id} />

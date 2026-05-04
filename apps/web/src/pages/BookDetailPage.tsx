@@ -22,6 +22,7 @@ import {
   generateThemeDescription,
 } from '../lib/bookSeo'
 import { ShareButtons } from '../components/ShareButtons'
+import { BookDetailHero } from '../components/BookDetailHero'
 import { isNotFoundError } from '../lib/errorUtils'
 import type { BookDetail } from '../types/api'
 
@@ -224,50 +225,26 @@ export function BookDetailPage() {
         ]}
       />
 
-      {/* Hero Section */}
-      <section className="book-hero">
-        {/* Cover */}
-        <div className="book-hero__cover-wrapper">
-          <div
-            className="book-hero__cover"
-            style={{ backgroundColor: book.coverPath ? undefined : stringToColor(book.title) }}
-          >
-            {book.coverPath ? (
-              <img src={getStorageUrl(book.coverPath)} alt={book.title} title={t('bookDetail.readOnlineFree').replace('{title}', book.title)} />
-            ) : (
-              <span className="book-hero__cover-text">{book.title?.[0] || '?'}</span>
-            )}
-          </div>
-          <div className="book-hero__cover-border" />
-        </div>
-
-        {/* Info */}
-        <div className="book-hero__info">
-          <h1 className="book-hero__title">{book.title}</h1>
-
-          <p className="book-hero__author">
-            {book.authors.length > 0
-              ? book.authors.map((a, i) => (
-                  <span key={a.id}>
-                    {i > 0 && ', '}
-                    <LocalizedLink to={`/authors/${a.slug}`} className="book-hero__author-link" title={t('bookDetail.viewBiography').replace('{name}', a.name)}>
-                      {a.name}
-                    </LocalizedLink>
-                  </span>
-                ))
-              : t('books.unknown')}
-          </p>
-
-          {book.description && (
-            <div className="book-hero__about">
-              <h2 className="book-hero__about-title">
-                {t('bookDetail.whatIsAbout').replace('{title}', book.title)}
-              </h2>
-              <p className="book-hero__about-text">{stripHtml(book.description)}</p>
-            </div>
-          )}
-
-          <div className="book-hero__meta">
+      <BookDetailHero
+        title={book.title}
+        coverImageSrc={book.coverPath ? getStorageUrl(book.coverPath) : null}
+        coverImageAlt={book.title}
+        coverImageTitle={t('bookDetail.readOnlineFree').replace('{title}', book.title)}
+        coverPlaceholderBg={stringToColor(book.title)}
+        authorContent={book.authors.length > 0
+          ? book.authors.map((a, i) => (
+              <span key={a.id}>
+                {i > 0 && ', '}
+                <LocalizedLink to={`/authors/${a.slug}`} className="book-hero__author-link" title={t('bookDetail.viewBiography').replace('{name}', a.name)}>
+                  {a.name}
+                </LocalizedLink>
+              </span>
+            ))
+          : t('books.unknown')}
+        descriptionHeading={t('bookDetail.whatIsAbout').replace('{title}', book.title)}
+        descriptionText={book.description ? stripHtml(book.description) : undefined}
+        metaContent={
+          <>
             <span className="book-hero__meta-item">
               <span className="material-icons-outlined">auto_stories</span>
               {book.chapters.length} {t('books.chapters')}
@@ -281,9 +258,10 @@ export function BookDetailPage() {
                 {g.name}
               </LocalizedLink>
             ))}
-          </div>
-
-          <div className="book-hero__actions">
+          </>
+        }
+        actionsContent={
+          <>
             {firstChapter && (
               <LocalizedLink
                 to={continueSlug
@@ -328,9 +306,9 @@ export function BookDetailPage() {
               title={book.title}
               subtitle={book.authors.map(a => a.name).join(', ')}
             />
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       {/* Chapters */}
       <section className="book-tabs">
