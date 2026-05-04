@@ -260,7 +260,7 @@ export function UserBookDetailPage() {
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="user-book-detail__delete-btn"
+              className="book-hero__read-btn book-hero__read-btn--danger"
             >
               {deleting ? 'Deleting...' : 'Delete Book'}
             </button>

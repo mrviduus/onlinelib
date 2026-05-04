@@ -4197,62 +4197,6 @@ html.dark .search-page__sub-result-highlight b {
   color: var(--color-text, #191919);
 }
 
-.user-book-detail__content {
-  display: flex;
-  gap: 32px;
-  margin-bottom: 32px;
-}
-
-.user-book-detail__cover {
-  flex-shrink: 0;
-  width: 200px;
-}
-
-.user-book-detail__cover img {
-  width: 100%;
-  border-radius: 8px;
-}
-
-.user-book-detail__cover-placeholder {
-  aspect-ratio: 2/3;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 64px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.user-book-detail__info {
-  flex: 1;
-}
-
-.user-book-detail__title {
-  font-size: 28px;
-  margin: 0 0 4px;
-}
-
-.user-book-detail__author {
-  font-size: 16px;
-  color: var(--color-text-secondary, #555);
-  margin: 0 0 16px;
-}
-
-.user-book-detail__description {
-  color: var(--color-text-secondary, #555);
-  margin: 0 0 16px;
-  line-height: 1.6;
-}
-
-.user-book-detail__meta {
-  display: flex;
-  gap: 16px;
-  font-size: 14px;
-  color: var(--color-text-secondary, #555);
-  margin-bottom: 24px;
-}
-
 .user-book-detail__status {
   padding: 16px;
   border-radius: 8px;
@@ -4283,26 +4227,6 @@ html.dark .search-page__sub-result-highlight b {
   animation: spin 1s linear infinite;
 }
 
-.user-book-detail__actions {
-  display: flex;
-  gap: 12px;
-}
-
-.user-book-detail__read-btn {
-  display: inline-block;
-  padding: 12px 24px;
-  background: var(--color-text, #191919);
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: opacity 0.15s ease;
-}
-
-.user-book-detail__read-btn:hover {
-  opacity: 0.9;
-}
-
 .user-book-detail__completed {
   display: flex;
   align-items: center;
@@ -4311,41 +4235,6 @@ html.dark .search-page__sub-result-highlight b {
   font-weight: 600;
   font-size: 0.95rem;
   margin-bottom: 4px;
-}
-
-.user-book-detail__mark-btn {
-  padding: 12px 24px;
-  background: none;
-  border: 1px solid var(--color-border, #d1d5db);
-  color: var(--color-text-secondary, #6b7280);
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.user-book-detail__mark-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.user-book-detail__delete-btn {
-  padding: 12px 24px;
-  background: none;
-  border: 1px solid #dc2626;
-  color: #dc2626;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.user-book-detail__delete-btn:hover {
-  background: #fef2f2;
-}
-
-.user-book-detail__delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .user-book-detail__chapters h2 {
@@ -4420,18 +4309,9 @@ html.dark .search-page__sub-result-highlight b {
 }
 
 /* Dark mode */
-html.dark .user-book-detail__read-btn {
-  background: #fff;
-  color: #0a0a0a;
-}
-
 html.dark .user-book-detail__back {
   background: #fff;
   color: #0a0a0a;
-}
-
-html.dark .user-book-detail__delete-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
 }
 
 html.dark .user-book-detail__status--processing {
@@ -4449,27 +4329,6 @@ html.dark .user-book-detail__status--failed {
 html.dark .user-book-detail__spinner {
   border-color: rgba(147, 180, 253, 0.3);
   border-top-color: #93b4fd;
-}
-
-/* Mobile adjustments */
-@media (max-width: 600px) {
-  .user-book-detail__content {
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .user-book-detail__cover {
-    width: 150px;
-    margin: 0 auto;
-  }
-
-  .user-book-detail__title {
-    font-size: 24px;
-  }
-
-  .user-book-detail__actions {
-    flex-direction: column;
-  }
 }
 
 /* =============================================
@@ -5686,6 +5545,30 @@ html.dark .book-hero__read-btn--secondary {
   background: transparent;
   color: #fff;
   border-color: #fff;
+}
+
+.book-hero__read-btn--danger {
+  background: transparent;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  box-shadow: none;
+  cursor: pointer;
+}
+.book-hero__read-btn--danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  box-shadow: none;
+  transform: none;
+}
+.book-hero__read-btn--danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+html.dark .book-hero__read-btn--danger {
+  color: #fca5a5;
+  border-color: #fca5a5;
+}
+html.dark .book-hero__read-btn--danger:hover {
+  background: rgba(252, 165, 165, 0.12);
 }
 
 /* Chapters Section */
