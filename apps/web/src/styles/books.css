@@ -4228,13 +4228,12 @@ html.dark .search-page__sub-result-highlight b {
 }
 
 .user-book-detail__completed {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   color: #2e7d32;
   font-weight: 600;
-  font-size: 0.95rem;
-  margin-bottom: 4px;
+  font-size: 0.85rem;
 }
 
 .user-book-detail__chapters h2 {

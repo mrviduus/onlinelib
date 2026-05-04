@@ -163,6 +163,20 @@ export function UserBookDetailPage() {
         </Link>
       </div>
 
+      {isProcessing && (
+        <div className="user-book-detail__status user-book-detail__status--processing">
+          <span className="user-book-detail__spinner" />
+          Processing... This may take a few minutes.
+        </div>
+      )}
+
+      {isFailed && (
+        <div className="user-book-detail__status user-book-detail__status--failed">
+          <strong>Processing Failed</strong>
+          {book.errorMessage && <p>{book.errorMessage}</p>}
+        </div>
+      )}
+
       <BookDetailHero
         title={book.title}
         coverImageSrc={book.coverPath ? getUserBookCoverUrl(book.coverPath) : null}
@@ -186,33 +200,18 @@ export function UserBookDetailPage() {
             {book.totalWordCount != null && book.totalWordCount > 0 && (
               <span className="book-hero__meta-item">{Math.round(book.totalWordCount / 250).toLocaleString()} pages</span>
             )}
-          </>
-        }
-        actionsContent={
-          <>
-            {isProcessing && (
-              <div className="user-book-detail__status user-book-detail__status--processing">
-                <span className="user-book-detail__spinner" />
-                Processing... This may take a few minutes.
-              </div>
-            )}
-
-            {isFailed && (
-              <div className="user-book-detail__status user-book-detail__status--failed">
-                <strong>Processing Failed</strong>
-                {book.errorMessage && <p>{book.errorMessage}</p>}
-              </div>
-            )}
-
             {isReady && book.completedAt && (
-              <div className="user-book-detail__completed">
+              <span className="user-book-detail__completed">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 Read
-              </div>
+              </span>
             )}
-
+          </>
+        }
+        actionsContent={
+          <>
             {isReady && book.chapters.length > 0 && (
               <Link
                 to={`/${language}/library/my/${book.id}/read/${continueReadingSlug || book.chapters[0].slug || book.chapters[0].chapterNumber}`}
