@@ -32,14 +32,14 @@ export function LibraryShelves({ hasAnyContent }: LibraryShelvesProps) {
         title={t('library.shelves.continueReading.title')}
         subtitle={t('library.shelves.continueReading.subtitle')}
         items={shelves.continueReading}
-        viewAllHref="/library?filter=reading"
+        viewAllHref="/library?status=reading"
       />
       <LibraryShelf
         shelfId="recentlyAdded"
         title={t('library.shelves.recentlyAdded.title')}
         subtitle={t('library.shelves.recentlyAdded.subtitle')}
         items={shelves.recentlyAdded}
-        viewAllHref="/library?sort=created_desc"
+        viewAllHref="/library?status=all&sort=added"
       />
       <LibraryShelf
         shelfId="quickReads"
@@ -52,7 +52,7 @@ export function LibraryShelves({ hasAnyContent }: LibraryShelvesProps) {
         title={t('library.shelves.finishedThisMonth.title')}
         subtitle={t('library.shelves.finishedThisMonth.subtitle')}
         items={shelves.finishedThisMonth}
-        viewAllHref="/library?filter=finished"
+        viewAllHref="/library?status=finished"
       />
     </div>
   )

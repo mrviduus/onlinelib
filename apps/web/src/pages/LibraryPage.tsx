@@ -18,7 +18,7 @@ import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
 import { LibrarySortMenu } from '../components/library/LibrarySortMenu'
 import { LibraryStatusTabs } from '../components/library/LibraryStatusTabs'
 import { LibrarySearch } from '../components/library/LibrarySearch'
-import { useLibrarySort, sortLibraryItems, sortUserBooks } from '../hooks/useLibrarySort'
+import { useLibrarySort, sortLibraryItems, sortUserBooks, type LibrarySortKey } from '../hooks/useLibrarySort'
 import {
   filterLibraryItems, filterUserBooks, countsForLibrary, countsForUploads,
 } from '../hooks/useLibraryFilter'
@@ -84,6 +84,23 @@ export function LibraryPage() {
   const [collectionBookIds, setCollectionBookIds] = useState<Set<string> | null>(null)
   const selection = useLibrarySelection()
   const [bulkBusy, setBulkBusy] = useState(false)
+
+  // Consume ?sort= once when arriving via shelf "View all" links — the sort hook
+  // is localStorage-backed, not URL-backed, so we mirror it once and strip the param.
+  useEffect(() => {
+    const sortParam = searchParams.get('sort')
+    if (!sortParam) return
+    const VALID: LibrarySortKey[] = ['recent', 'added', 'title', 'author', 'progress']
+    if ((VALID as string[]).includes(sortParam)) {
+      setSavedSort(sortParam as LibrarySortKey)
+      setUploadsSort(sortParam as LibrarySortKey)
+    }
+    setSearchParamsLib((prev) => {
+      const sp = new URLSearchParams(prev)
+      sp.delete('sort')
+      return sp
+    }, { replace: true })
+  }, [searchParams, setSavedSort, setUploadsSort, setSearchParamsLib])
 
   useEffect(() => {
     if (!activeCollectionId) { setCollectionBookIds(null); return }
