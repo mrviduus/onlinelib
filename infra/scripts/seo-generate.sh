@@ -53,11 +53,16 @@ escape_sql() {
 generate_edition_seo() {
   local id="$1"
 
+  # `db_query | head -1` was the historical pattern but `head -1` closes the
+  # pipe after the first line; for multi-line values like plain_text excerpts
+  # that triggers SIGPIPE on psql, which `set -o pipefail` then propagates as
+  # a non-zero pipeline exit, killing the script via `set -e`. The queries
+  # already return one row each (LIMIT 1 / pk lookup), so just take the row.
   local title author lang excerpt
-  title=$(db_query "SELECT title FROM editions WHERE id='$id'" | head -1)
-  author=$(db_query "SELECT a.name FROM authors a JOIN edition_authors ea ON a.id = ea.author_id WHERE ea.edition_id='$id' LIMIT 1" | head -1)
-  lang=$(db_query "SELECT language FROM editions WHERE id='$id'" | head -1)
-  excerpt=$(db_query "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY sort_order LIMIT 1" | head -1)
+  title=$(db_query "SELECT title FROM editions WHERE id='$id'")
+  author=$(db_query "SELECT a.name FROM authors a JOIN edition_authors ea ON a.id = ea.author_id WHERE ea.edition_id='$id' LIMIT 1")
+  lang=$(db_query "SELECT language FROM editions WHERE id='$id'")
+  excerpt=$(db_query "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY sort_order LIMIT 1")
 
   if [ -z "$title" ]; then
     log "ERROR: Edition $id not found"
@@ -147,9 +152,9 @@ generate_author_seo() {
   local id="$1"
 
   local name books lang
-  name=$(db_query "SELECT name FROM authors WHERE id='$id'" | head -1)
-  books=$(db_query "SELECT string_agg(e.title, ', ' ORDER BY e.title) FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' AND e.status = 1" | head -1)
-  lang=$(db_query "SELECT COALESCE(e.language, 'en') FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' LIMIT 1" | head -1)
+  name=$(db_query "SELECT name FROM authors WHERE id='$id'")
+  books=$(db_query "SELECT string_agg(e.title, ', ' ORDER BY e.title) FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' AND e.status = 1")
+  lang=$(db_query "SELECT COALESCE(e.language, 'en') FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' LIMIT 1")
 
   if [ -z "$name" ]; then
     log "ERROR: Author $id not found"
