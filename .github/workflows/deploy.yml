@@ -158,9 +158,17 @@ jobs:
           echo "All SEO checks passed"
 
       - name: Restart systemd pollers
+        # GH Actions runner job doesn't inherit a user DBus session, so plain
+        # `systemctl --user` returned an error and fell through to the "not
+        # installed" branch — silently skipping the restart for ~weeks. Set
+        # XDG_RUNTIME_DIR explicitly so the user-systemd is reachable
+        # (linger=yes is already enabled for vasyl, so /run/user/1000 exists
+        # independent of login sessions).
+        env:
+          XDG_RUNTIME_DIR: /run/user/1000
         run: |
-          systemctl --user restart seo-publish-poller 2>/dev/null && echo "SEO Publish poller restarted" || echo "SEO Publish poller not installed"
-          systemctl --user restart seo-backfill-poller 2>/dev/null && echo "SEO Backfill poller restarted" || echo "SEO Backfill poller not installed (run: make seo-backfill-setup)"
+          systemctl --user restart seo-publish-poller && echo "SEO Publish poller restarted" || echo "SEO Publish poller restart FAILED"
+          systemctl --user restart seo-backfill-poller && echo "SEO Backfill poller restarted" || echo "SEO Backfill poller restart FAILED (run: make seo-backfill-setup if not installed)"
 
       - name: Cleanup old images
         run: docker image prune -f
