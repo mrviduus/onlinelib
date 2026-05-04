@@ -368,7 +368,11 @@ public static class UserDataEndpoints
                 l.Edition.Title,
                 l.Edition.Language,
                 l.Edition.CoverPath,
-                l.CreatedAt
+                l.CreatedAt,
+                l.Edition.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => ea.Author.Name)
+                    .FirstOrDefault()
             ))
             .ToListAsync(ct);
 
@@ -386,8 +390,15 @@ public static class UserDataEndpoints
         if (userId == null) return Results.Unauthorized();
 
         // Check if edition exists
-        var edition = await db.Editions.FirstOrDefaultAsync(e => e.Id == editionId, ct);
+        var edition = await db.Editions
+            .Include(e => e.EditionAuthors).ThenInclude(ea => ea.Author)
+            .FirstOrDefaultAsync(e => e.Id == editionId, ct);
         if (edition == null) return Results.NotFound("Edition not found");
+
+        var primaryAuthor = edition.EditionAuthors
+            .OrderBy(ea => ea.Order)
+            .Select(ea => ea.Author.Name)
+            .FirstOrDefault();
 
         // Check if already in library
         var existing = await db.UserLibraries
@@ -400,7 +411,8 @@ public static class UserDataEndpoints
                 edition.Title,
                 edition.Language,
                 edition.CoverPath,
-                existing.CreatedAt
+                existing.CreatedAt,
+                primaryAuthor
             ));
 
         var libraryItem = new UserLibrary
@@ -420,7 +432,8 @@ public static class UserDataEndpoints
             edition.Title,
             edition.Language,
             edition.CoverPath,
-            libraryItem.CreatedAt
+            libraryItem.CreatedAt,
+            primaryAuthor
         ));
     }
 
@@ -485,5 +498,6 @@ public record LibraryItemDto(
     string Title,
     string Language,
     string? CoverPath,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? Author
 );

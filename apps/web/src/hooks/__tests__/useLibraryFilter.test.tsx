@@ -14,7 +14,7 @@ import type { UserBook } from '../../api/userBooks'
 
 const lib = (editionId: string, title: string): LibraryItem => ({
   editionId, slug: title.toLowerCase(), title, language: 'en', coverPath: null,
-  createdAt: '2026-04-01T00:00:00Z',
+  createdAt: '2026-04-01T00:00:00Z', author: null,
 })
 const prog = (editionId: string, percent: number): ReadingProgressDto => ({
   editionId, chapterId: 'c1', chapterSlug: 'ch1', locator: '{}', percent, updatedAt: '2026-04-25T00:00:00Z',

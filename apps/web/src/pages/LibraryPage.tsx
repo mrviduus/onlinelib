@@ -42,18 +42,14 @@ import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
 
 type ViewMode = 'list' | 'grid'
-type SidebarTab = 'saved' | 'uploads'
 
 export function LibraryPage() {
-  const { isAuthenticated, isGuest, isLoading: authLoading, user } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   const { items, loading, remove } = useLibrary()
   const { language } = useLanguage()
   const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
   const [searchParams, setSearchParamsLib] = useSearchParams()
-  const tabFromUrl = searchParams.get('tab')
-  const initialTab: SidebarTab = tabFromUrl === 'uploads' ? 'uploads' : (isGuest ? 'uploads' : 'saved')
-  const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
   const librarySource = useLibrarySource()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const showSavedBlock = librarySource.source === 'all' || librarySource.source === 'catalog'
@@ -75,19 +71,28 @@ export function LibraryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const collectionIdParam = searchParams.get('collection')
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
-  const [collectionBookIds, setCollectionBookIds] = useState<Set<string> | null>(null)
+  const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
+  const [collectionUploadIds, setCollectionUploadIds] = useState<Set<string> | null>(null)
   const selection = useLibrarySelection()
   const [bulkBusy, setBulkBusy] = useState(false)
 
   useEffect(() => {
-    if (!activeCollectionId) { setCollectionBookIds(null); return }
+    if (!activeCollectionId) {
+      setCollectionSavedIds(null)
+      setCollectionUploadIds(null)
+      return
+    }
     let cancelled = false
-    const bookType = activeTab === 'uploads' ? 'userbook' : 'savedbook'
-    getCollectionBookIds(activeCollectionId, bookType)
-      .then((ids) => { if (!cancelled) setCollectionBookIds(new Set(ids)) })
-      .catch(() => { if (!cancelled) setCollectionBookIds(new Set()) })
+    Promise.all([
+      getCollectionBookIds(activeCollectionId, 'savedbook').catch(() => [] as string[]),
+      getCollectionBookIds(activeCollectionId, 'userbook').catch(() => [] as string[]),
+    ]).then(([saved, uploads]) => {
+      if (cancelled) return
+      setCollectionSavedIds(new Set(saved))
+      setCollectionUploadIds(new Set(uploads))
+    })
     return () => { cancelled = true }
-  }, [activeCollectionId, activeTab])
+  }, [activeCollectionId])
 
   const onCollectionChange = (id: string | null) => {
     setActiveCollectionId(id)
@@ -207,13 +212,13 @@ export function LibraryPage() {
   }
   const filteredItems = filterLibraryItems(items, status, progressMap)
   const filteredUserBooks = filterUserBooks(userBooks, status)
-  const searchedItems = queryD ? filteredItems.filter(i => matchesQuery({ title: i.title }, queryD)) : filteredItems
+  const searchedItems = queryD ? filteredItems.filter(i => matchesQuery({ title: i.title, author: i.author ?? undefined }, queryD)) : filteredItems
   const searchedUserBooks = queryD ? filteredUserBooks.filter(b => matchesQuery({ title: b.title, author: b.author, tags: b.tags }, queryD)) : filteredUserBooks
-  const collectionFilteredItems = activeCollectionId && activeTab === 'saved' && collectionBookIds
-    ? searchedItems.filter(i => collectionBookIds.has(i.editionId))
+  const collectionFilteredItems = activeCollectionId && collectionSavedIds
+    ? searchedItems.filter(i => collectionSavedIds.has(i.editionId))
     : searchedItems
-  const collectionFilteredUserBooks = activeCollectionId && activeTab === 'uploads' && collectionBookIds
-    ? searchedUserBooks.filter(b => collectionBookIds.has(b.id))
+  const collectionFilteredUserBooks = activeCollectionId && collectionUploadIds
+    ? searchedUserBooks.filter(b => collectionUploadIds.has(b.id))
     : searchedUserBooks
   // Unified merge-sort: tag each item by kind and apply a single comparator so
   // saved + uploads can be interleaved correctly by the chosen sort key.
@@ -245,8 +250,8 @@ export function LibraryPage() {
         return combinedCollator.compare(ta || '', tb || '')
       }
       case 'author': {
-        const aa = a.kind === 'saved' ? '' : (a.book.author || '')
-        const ab = b.kind === 'saved' ? '' : (b.book.author || '')
+        const aa = a.kind === 'saved' ? (a.item.author || '') : (a.book.author || '')
+        const ab = b.kind === 'saved' ? (b.item.author || '') : (b.book.author || '')
         if (!aa && !ab) return 0
         if (!aa) return 1
         if (!ab) return -1
@@ -391,14 +396,11 @@ export function LibraryPage() {
           onSourceChange={(s) => {
             librarySource.setSource(s)
             setSidebarOpen(false)
-            if (s === 'uploads') setActiveTab('uploads')
-            else if (s === 'catalog') setActiveTab('saved')
           }}
           onTagChange={(next) => {
             librarySource.setTag(next)
             setSidebarOpen(false)
             onUploadTagSelect(next)
-            setActiveTab('uploads')
           }}
           onCollectionChange={(id) => {
             librarySource.setCollection(id)
@@ -547,6 +549,9 @@ export function LibraryPage() {
                             </div>
                           </div>
                           <div className="library-list-item__info">
+                            {item.author && (
+                              <span className="library-list-item__info-item">{item.author}</span>
+                            )}
                             {progress?.updatedAt && (
                               <span className="library-list-item__info-item">
                                 <span className="material-icons-outlined">schedule</span>
@@ -718,6 +723,9 @@ export function LibraryPage() {
                             <Link to={destination} className="library-card__title">
                               {item.title}
                             </Link>
+                            {item.author && (
+                              <span className="user-book-card__author">{item.author}</span>
+                            )}
                             <div className="library-card__meta">
                               {percent >= 1 && (
                                 <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>

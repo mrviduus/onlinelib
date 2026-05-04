@@ -201,6 +201,7 @@ export interface LibraryItem {
   language: string
   coverPath: string | null
   createdAt: string
+  author: string | null
 }
 
 export interface LibraryResponse {
