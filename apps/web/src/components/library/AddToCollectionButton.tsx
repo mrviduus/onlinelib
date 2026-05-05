@@ -27,10 +27,12 @@ type Props = MenuVariantProps | ButtonVariantProps
 
 export function AddToCollectionButton(props: Props) {
   const { t } = useTranslation()
-  const { collections } = useCollections()
+  const { collections, create } = useCollections()
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [localToast, setLocalToast] = useState<Toast | null>(null)
+  const [creatingNew, setCreatingNew] = useState(false)
+  const [newName, setNewName] = useState('')
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -69,6 +71,28 @@ export function AddToCollectionButton(props: Props) {
       invalidateCollectionsCache()
       emitToast({ msg: t('library.actions.addedToCollection', { name }), tone: 'success' })
       setExpanded(false)
+      setCreatingNew(false)
+      setNewName('')
+      if (props.variant === 'menu') props.close()
+    } catch {
+      emitToast({ msg: t('library.actions.addToCollectionFailed'), tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleCreateAndAdd = async () => {
+    const trimmed = newName.trim()
+    if (!trimmed || busy) return
+    setBusy(true)
+    try {
+      const c = await create(trimmed)
+      await addBookToCollection(c.id, props.bookId, props.bookType)
+      invalidateCollectionsCache()
+      emitToast({ msg: t('library.actions.addedToCollection', { name: c.name }), tone: 'success' })
+      setExpanded(false)
+      setCreatingNew(false)
+      setNewName('')
       if (props.variant === 'menu') props.close()
     } catch {
       emitToast({ msg: t('library.actions.addToCollectionFailed'), tone: 'error' })
@@ -179,6 +203,46 @@ export function AddToCollectionButton(props: Props) {
               {c.name}
             </button>
           ))}
+          {creatingNew ? (
+            <form
+              className="add-to-collection__create"
+              onSubmit={(e) => { e.preventDefault(); handleCreateAndAdd() }}
+            >
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t('library.collections.newPlaceholder')}
+                maxLength={100}
+                autoFocus
+                disabled={busy}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setCreatingNew(false)
+                    setNewName('')
+                  }
+                }}
+              />
+              <button type="submit" disabled={busy || !newName.trim()}>
+                {t('library.collections.add')}
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="add-to-collection__option add-to-collection__option--new"
+              role="menuitem"
+              disabled={busy}
+              onClick={() => setCreatingNew(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              {t('library.collections.new')}
+            </button>
+          )}
         </div>
       )}
     </div>

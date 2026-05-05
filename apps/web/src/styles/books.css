@@ -3587,7 +3587,8 @@ html.dark .search-page__sub-result-highlight b {
 }
 
 /* Icon-only "Add to collection" button — circular, sits next to share/copy
-   icons on detail pages. Apple-style: small affordance, not a third pill. */
+   icons on detail pages. Apple-style: small affordance, not a third pill.
+   Custom CSS tooltip beats native title="" (which has a 1-2s delay). */
 .add-to-collection-button--icon {
   display: inline-flex;
   align-items: center;
@@ -3600,6 +3601,7 @@ html.dark .search-page__sub-result-highlight b {
   color: var(--color-text, #191919);
   cursor: pointer;
   padding: 0;
+  position: relative;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .add-to-collection-button--icon:hover:not(:disabled) {
@@ -3610,6 +3612,28 @@ html.dark .search-page__sub-result-highlight b {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.add-to-collection-button--icon[aria-label]::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--color-text, #191919);
+  color: var(--color-bg, #fff);
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease 0s;
+  z-index: 100;
+}
+.add-to-collection-button--icon:hover[aria-label]::after,
+.add-to-collection-button--icon:focus-visible[aria-label]::after {
+  opacity: 1;
+  transition-delay: 0.25s;
+}
 html.dark .add-to-collection-button--icon {
   border-color: rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -3617,6 +3641,54 @@ html.dark .add-to-collection-button--icon {
 html.dark .add-to-collection-button--icon:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
   border-color: #fff;
+}
+html.dark .add-to-collection-button--icon[aria-label]::after {
+  background: #fff;
+  color: #0a0a0a;
+}
+
+/* Inline "+ New collection" form inside the popover — Apple Notes-style:
+   one tap to start typing, no extra dialog. */
+.add-to-collection__option--new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary, #8b7355);
+  border-top: 1px solid var(--color-border, #E8E2D9);
+  margin-top: 4px;
+}
+.add-to-collection__create {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--color-border, #E8E2D9);
+  margin-top: 4px;
+}
+.add-to-collection__create input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--color-border, #E8E2D9);
+  border-radius: 6px;
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #191919);
+}
+.add-to-collection__create button {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-text, #191919);
+  color: var(--color-bg, #fff);
+  cursor: pointer;
+}
+.add-to-collection__create button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* =============================================
@@ -4493,7 +4565,7 @@ html.dark .add-to-collection-button--icon:hover:not(:disabled) {
 
 /* Danger zone — destructive actions live below the chapters list, not
    in the primary action row. Apple HIG: distance + understatement
-   reduce accidental clicks. */
+   reduce accidental clicks. Trash icon + custom hover tooltip. */
 .user-book-detail__danger-zone {
   margin-top: 48px;
   padding-top: 24px;
@@ -4501,26 +4573,53 @@ html.dark .add-to-collection-button--icon:hover:not(:disabled) {
   display: flex;
   justify-content: center;
 }
-.user-book-detail__delete-link {
-  background: none;
-  border: none;
+.user-book-detail__delete-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid #dc2626;
   color: #dc2626;
-  font-size: 13px;
-  font-family: inherit;
   cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 6px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: background 0.15s ease;
+  padding: 0;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.user-book-detail__delete-link:hover:not(:disabled) {
-  background: rgba(220, 38, 38, 0.06);
-  text-decoration: none;
+.user-book-detail__delete-icon:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
 }
-.user-book-detail__delete-link:disabled {
+.user-book-detail__delete-icon:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.user-book-detail__delete-icon[aria-label]::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--color-text, #191919);
+  color: var(--color-bg, #fff);
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease 0s;
+  z-index: 100;
+}
+.user-book-detail__delete-icon:hover[aria-label]::after,
+.user-book-detail__delete-icon:focus-visible[aria-label]::after {
+  opacity: 1;
+  transition-delay: 0.25s;
+}
+html.dark .user-book-detail__delete-icon[aria-label]::after {
+  background: #fff;
+  color: #0a0a0a;
 }
 
 .user-book-detail__chapters h2 {
