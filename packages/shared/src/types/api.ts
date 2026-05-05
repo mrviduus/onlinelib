@@ -392,6 +392,7 @@ export interface UserLibraryItem {
   language: string
   coverPath: string | null
   createdAt: string
+  author: string | null
 }
 
 // User Books
