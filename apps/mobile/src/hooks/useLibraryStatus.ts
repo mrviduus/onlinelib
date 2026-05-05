@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { LibraryFilterKey } from './useLibraryFilter'
 
 export type LibraryStatus = LibraryFilterKey
-export const DEFAULT_STATUS: LibraryStatus = 'reading'
+export const DEFAULT_STATUS: LibraryStatus = 'all'
 
 export interface LibraryStatusState {
   status: LibraryStatus
