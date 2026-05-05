@@ -4491,22 +4491,34 @@ html.dark .add-to-collection-button--icon:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.04);
 }
 
-.user-book-detail__delete-btn {
-  padding: 12px 24px;
+/* Danger zone — destructive actions live below the chapters list, not
+   in the primary action row. Apple HIG: distance + understatement
+   reduce accidental clicks. */
+.user-book-detail__danger-zone {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border, #E8E2D9);
+  display: flex;
+  justify-content: center;
+}
+.user-book-detail__delete-link {
   background: none;
-  border: 1px solid #dc2626;
+  border: none;
   color: #dc2626;
-  border-radius: 8px;
-  font-weight: 500;
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   transition: background 0.15s ease;
 }
-
-.user-book-detail__delete-btn:hover {
-  background: #fef2f2;
+.user-book-detail__delete-link:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.06);
+  text-decoration: none;
 }
-
-.user-book-detail__delete-btn:disabled {
+.user-book-detail__delete-link:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -5211,9 +5223,11 @@ html.dark .user-book-detail__spinner {
   margin-bottom: 24px;
   border-bottom: 1px solid var(--color-border);
   /* Sticky on scroll so users keep status filters visible while browsing
-     a long grid. top:64px sits below the page header. */
+     a long grid. .site-header is 80px at top, 64px when scrolled — using
+     80 means a small (16px) gap when the header collapses but never an
+     overlap. */
   position: sticky;
-  top: 64px;
+  top: 80px;
   background: var(--color-bg, #fff);
   z-index: 5;
 }
