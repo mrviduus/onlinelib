@@ -27,10 +27,6 @@ import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
 import { HighlightReviewPage } from './pages/HighlightReviewPage'
 import { VocabularyPage } from './pages/VocabularyPage'
 import { HighlightsPage } from './pages/HighlightsPage'
-import { LearnEnglishBrazilPage } from './pages/LearnEnglishBrazilPage'
-import { LearnEnglishSpainPage } from './pages/LearnEnglishSpainPage'
-import { ReadBooksInEnglishPage } from './pages/ReadBooksInEnglishPage'
-import { BooksWithTranslationPage } from './pages/BooksWithTranslationPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SitemapPage } from './pages/SitemapPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -88,10 +84,6 @@ function LanguageRoutes() {
         <Route path="/authors/:slug" element={<AuthorDetailPage />} />
         <Route path="/genres" element={<GenresPage />} />
         <Route path="/genres/:slug" element={<GenreDetailPage />} />
-        <Route path="/learn-english-brazil" element={<LearnEnglishBrazilPage />} />
-        <Route path="/learn-english-spain" element={<LearnEnglishSpainPage />} />
-        <Route path="/read-books-in-english" element={<ReadBooksInEnglishPage />} />
-        <Route path="/books-with-translation" element={<BooksWithTranslationPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
@@ -152,8 +144,6 @@ function AppRoutes() {
       <Route path="/vocabulary/review" element={<LegacyRedirect />} />
       <Route path="/highlights" element={<LegacyRedirect />} />
       <Route path="/highlights/review" element={<LegacyRedirect />} />
-      <Route path="/read-books-in-english" element={<LegacyRedirect />} />
-      <Route path="/books-with-translation" element={<LegacyRedirect />} />
       <Route path="/:lang/*" element={<LanguageRoutes />} />
     </Routes>
   )
