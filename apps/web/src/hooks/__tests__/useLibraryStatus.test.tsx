@@ -9,10 +9,10 @@ const wrapper = (initial = '/library') => ({ children }: { children: ReactNode }
 )
 
 describe('useLibraryStatus', () => {
-  it('defaults to reading when no status param', () => {
+  it('defaults to all when no status param', () => {
     const { result } = renderHook(() => useLibraryStatus(), { wrapper: wrapper() })
-    expect(result.current.status).toBe('reading')
-    expect(DEFAULT_STATUS).toBe('reading')
+    expect(result.current.status).toBe('all')
+    expect(DEFAULT_STATUS).toBe('all')
   })
 
   it('reads valid status values from URL', () => {
@@ -24,11 +24,11 @@ describe('useLibraryStatus', () => {
     }
   })
 
-  it('falls back to reading for unknown status value', () => {
+  it('falls back to all for unknown status value', () => {
     const { result } = renderHook(() => useLibraryStatus(), {
       wrapper: wrapper('/library?status=garbage'),
     })
-    expect(result.current.status).toBe('reading')
+    expect(result.current.status).toBe('all')
   })
 
   it('setStatus(non-default) writes status param', () => {
@@ -45,7 +45,7 @@ describe('useLibraryStatus', () => {
     expect(location.search).toBe('?status=finished')
   })
 
-  it('setStatus(reading) deletes status param (default cleanup)', () => {
+  it('setStatus(all) deletes status param (default cleanup)', () => {
     let location: { search: string } = { search: '' }
     const Capture = () => { location = useLocation(); return null }
     const w = ({ children }: { children: ReactNode }) => (
@@ -55,7 +55,7 @@ describe('useLibraryStatus', () => {
       </MemoryRouter>
     )
     const { result } = renderHook(() => useLibraryStatus(), { wrapper: w })
-    act(() => result.current.setStatus('reading'))
+    act(() => result.current.setStatus('all'))
     expect(location.search).toBe('')
   })
 
