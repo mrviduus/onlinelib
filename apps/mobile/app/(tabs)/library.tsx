@@ -15,6 +15,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
+import { useCollectionsVersion } from '../../src/hooks/useCollections'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -60,6 +61,7 @@ export default function LibraryScreen() {
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
   const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
   const [collectionUploadIds, setCollectionUploadIds] = useState<Set<string> | null>(null)
+  const collectionsVersion = useCollectionsVersion()
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
@@ -144,7 +146,10 @@ export default function LibraryScreen() {
       setCollectionUploadIds(new Set(u))
     })
     return () => { cancelled = true }
-  }, [activeCollectionId])
+    // collectionsVersion bumps when caches invalidate (e.g. after add-to-
+    // collection) — refetch keeps the active filter in sync without the user
+    // having to leave & re-enter the collection.
+  }, [activeCollectionId, collectionsVersion])
 
   const onRefresh = async () => {
     setRefreshing(true)

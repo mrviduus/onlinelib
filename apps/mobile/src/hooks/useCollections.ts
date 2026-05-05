@@ -4,7 +4,14 @@ import { collectionsApi, type Collection } from '@textstack/shared'
 let cache: { ts: number; data: Collection[] } | null = null
 let inflight: Promise<Collection[]> | null = null
 const subs = new Set<(c: Collection[]) => void>()
+const versionSubs = new Set<(v: number) => void>()
+let version = 0
 const TTL = 60_000
+
+function bumpVersion() {
+  version += 1
+  versionSubs.forEach((s) => s(version))
+}
 
 async function load(force: boolean): Promise<Collection[]> {
   if (!force && cache && Date.now() - cache.ts < TTL) return cache.data
@@ -14,6 +21,7 @@ async function load(force: boolean): Promise<Collection[]> {
       const data = await collectionsApi.listCollections()
       cache = { ts: Date.now(), data }
       subs.forEach((s) => s(data))
+      bumpVersion()
       return data
     } finally {
       inflight = null
@@ -24,6 +32,25 @@ async function load(force: boolean): Promise<Collection[]> {
 
 export function invalidateCollectionsCache() {
   cache = null
+  // Bump version eagerly so subscribers can refetch derived data (collection
+  // membership, etc.) without waiting for the next refresh cycle.
+  bumpVersion()
+}
+
+/**
+ * Subscribe to the global collections cache version. Increments on every
+ * successful refresh and on every invalidation, so consumers that depend on
+ * derived data (e.g. /me/library/collections/{id}/books) can refetch without
+ * holding the full collection list themselves.
+ */
+export function useCollectionsVersion(): number {
+  const [v, setV] = useState(version)
+  useEffect(() => {
+    const sub = (next: number) => setV(next)
+    versionSubs.add(sub)
+    return () => { versionSubs.delete(sub) }
+  }, [])
+  return v
 }
 
 export function useCollections() {
