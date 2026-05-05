@@ -102,6 +102,13 @@ export function LibraryPage() {
       else sp.delete('collection')
       return sp
     }, { replace: true })
+    // Anchor scroll to the grid so the user sees the filtered list update
+    // immediately. Defer one frame so the layout has applied the new filter.
+    if (id) {
+      window.requestAnimationFrame(() => {
+        document.getElementById('library-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
   }
 
   const onUploadTagSelect = (tag: string | null) => {
@@ -442,7 +449,7 @@ export function LibraryPage() {
           const isLoadingAny = (showSavedBlock && loading) || (showUploadsBlock && userBooksLoading && userBooks.length === 0)
 
           return (
-            <>
+            <div id="library-grid" style={{ scrollMarginTop: '90px' }}>
               {/* Toolbar (single, unified) */}
               <div className="library-toolbar">
                 <div className="library-toolbar__left">
@@ -772,7 +779,7 @@ export function LibraryPage() {
                   })())}
                 </div>
               )}
-            </>
+            </div>
           )
         })()}
 

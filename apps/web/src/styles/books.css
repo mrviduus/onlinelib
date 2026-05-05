@@ -3586,6 +3586,39 @@ html.dark .search-page__sub-result-highlight b {
   background: #15803d;
 }
 
+/* Icon-only "Add to collection" button — circular, sits next to share/copy
+   icons on detail pages. Apple-style: small affordance, not a third pill. */
+.add-to-collection-button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--color-border, #E8E2D9);
+  color: var(--color-text, #191919);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.add-to-collection-button--icon:hover:not(:disabled) {
+  background: var(--color-bg-secondary, #F5F0E8);
+  border-color: var(--color-text, #191919);
+}
+.add-to-collection-button--icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+html.dark .add-to-collection-button--icon {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+html.dark .add-to-collection-button--icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #fff;
+}
+
 /* =============================================
    Library Shelf Page (/library/shelf/:id)
    ============================================= */
@@ -7438,7 +7471,18 @@ html.dark .book-hero__read-btn--secondary {
   transition: background 120ms, border-color 120ms, color 120ms;
 }
 .collection-chip:hover { background: var(--color-bg-secondary, #f1ece2); border-color: var(--color-primary, #8b7355); }
-.collection-chip--active { background: var(--color-primary, #8b7355); color: var(--color-bg, #fff); border-color: var(--color-primary, #8b7355); }
+.collection-chip--active {
+  background: var(--color-text, #191919);
+  color: var(--color-bg, #fff);
+  border-color: var(--color-text, #191919);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+html.dark .collection-chip--active {
+  background: #fff;
+  color: #0a0a0a;
+  border-color: #fff;
+}
 .collection-chip__count { font-size: 11px; opacity: 0.7; }
 .collection-chip--add { color: var(--color-primary, #8b7355); border-style: dashed; background: transparent; }
 .collection-chip--add:hover { background: var(--color-bg-secondary, #f1ece2); }
