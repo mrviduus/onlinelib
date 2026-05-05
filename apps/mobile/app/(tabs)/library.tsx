@@ -350,6 +350,9 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
                     </View>
                   )}
                   <Text style={[styles.gridTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
+                  {item.author && (
+                    <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{item.author}</Text>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.gridDotsBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
@@ -384,6 +387,9 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
                 </View>
                 <View style={styles.bookInfo}>
                   <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
+                  {item.author && (
+                    <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{item.author}</Text>
+                  )}
                   {pct >= 100 ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
                       <Ionicons name="checkmark-circle" size={14} color={colors.success} />

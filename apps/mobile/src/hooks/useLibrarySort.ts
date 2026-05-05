@@ -46,7 +46,14 @@ export function sortLibraryItems(
     case 'progress':
       return copy.sort((a, b) => (progressMap[b.editionId]?.percent ?? 0) - (progressMap[a.editionId]?.percent ?? 0))
     case 'author':
-      return copy
+      return copy.sort((a, b) => {
+        const aa = a.author || ''
+        const ab = b.author || ''
+        if (!aa && !ab) return 0
+        if (!aa) return 1
+        if (!ab) return -1
+        return collator.compare(aa, ab)
+      })
     case 'recent':
     default:
       return copy.sort((a, b) => {
