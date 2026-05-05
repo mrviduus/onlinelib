@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import {
   libraryApi, readingProgressApi, userBooksApi, getStorageUrl,
 } from '@textstack/shared'
-import { getAnonymousReaderName, type UserLibraryItem, type UserBookDto, type ReadingProgressDto } from '@textstack/shared'
+import { getAnonymousReaderName, collectionsApi, type UserLibraryItem, type UserBookDto, type ReadingProgressDto } from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -57,6 +57,9 @@ export default function LibraryScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [source, setSource] = useState<LibrarySource>('all')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
+  const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
+  const [collectionUploadIds, setCollectionUploadIds] = useState<Set<string> | null>(null)
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
@@ -124,6 +127,24 @@ export default function LibraryScreen() {
   useFocusEffect(useCallback(() => {
     if (isAuthenticated && !loading) loadData()
   }, [isAuthenticated, loading, loadData]))
+
+  useEffect(() => {
+    if (!activeCollectionId) {
+      setCollectionSavedIds(null)
+      setCollectionUploadIds(null)
+      return
+    }
+    let cancelled = false
+    Promise.all([
+      collectionsApi.getCollectionBookIds(activeCollectionId, 'savedbook').catch(() => [] as string[]),
+      collectionsApi.getCollectionBookIds(activeCollectionId, 'userbook').catch(() => [] as string[]),
+    ]).then(([s, u]) => {
+      if (cancelled) return
+      setCollectionSavedIds(new Set(s))
+      setCollectionUploadIds(new Set(u))
+    })
+    return () => { cancelled = true }
+  }, [activeCollectionId])
 
   const onRefresh = async () => {
     setRefreshing(true)
@@ -209,19 +230,21 @@ export default function LibraryScreen() {
       </View>
 
       {effectiveTab === 'saved' ? (
-        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
+        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionSavedIds} />
       ) : (
-        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} />
+        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionUploadIds} />
       )}
       <LibrarySidebarDrawer
         visible={drawerOpen}
         source={source}
         counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
+        activeCollectionId={activeCollectionId}
         onSelect={(next) => {
           setSource(next)
           if (next === 'uploads') setTab('uploads')
           else if (next === 'catalog') setTab('saved')
         }}
+        onCollectionSelect={setActiveCollectionId}
         onClose={() => setDrawerOpen(false)}
       />
     </View>
@@ -240,8 +263,8 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshing, onRefresh, viewMode }: {
-  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode
+function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshing, onRefresh, viewMode, collectionFilterIds }: {
+  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null
 }) {
   const router = useRouter()
   const { colors } = useTheme()
@@ -278,7 +301,8 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
 
   const filtered = filterLibraryItems(library, filter, progressMap)
   const searched = debouncedQuery ? filtered.filter(i => matchesQuery({ title: i.title }, debouncedQuery)) : filtered
-  const sorted = sortLibraryItems(searched, sort, progressMap)
+  const collectionFiltered = collectionFilterIds ? searched.filter(i => collectionFilterIds.has(i.editionId)) : searched
+  const sorted = sortLibraryItems(collectionFiltered, sort, progressMap)
 
   return (
     <>
@@ -456,8 +480,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-function UploadsList({ books, refreshing, onRefresh, viewMode }: {
-  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode
+function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterIds }: {
+  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null
 }) {
   const router = useRouter()
   const { colors } = useTheme()
@@ -501,7 +525,8 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
 
   const filtered = filterUserBooks(books, filter)
   const searched = debouncedQuery ? filtered.filter(b => matchesQuery({ title: b.title, author: b.author }, debouncedQuery)) : filtered
-  const sorted = sortUserBooks(searched, sort)
+  const collectionFiltered = collectionFilterIds ? searched.filter(b => collectionFilterIds.has(b.id)) : searched
+  const sorted = sortUserBooks(collectionFiltered, sort)
 
   const listHeader = (
     <>
