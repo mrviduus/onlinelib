@@ -52,12 +52,14 @@ export function LibraryShelves({ hasAnyContent }: Props) {
         title={t('library.shelves.continueReading.title')}
         subtitle={t('library.shelves.continueReading.subtitle')}
         items={shelves.continueReading}
+        viewAllHref="/library/shelf/continueReading"
       />
       <LibraryShelf
         shelfId="recentlyAdded"
         title={t('library.shelves.recentlyAdded.title')}
         subtitle={t('library.shelves.recentlyAdded.subtitle')}
         items={shelves.recentlyAdded}
+        viewAllHref="/library/shelf/recentlyAdded"
       />
       <LibraryShelf
         shelfId="quickReads"
@@ -70,6 +72,7 @@ export function LibraryShelves({ hasAnyContent }: Props) {
         title={t('library.shelves.finishedThisMonth.title')}
         subtitle={t('library.shelves.finishedThisMonth.subtitle')}
         items={shelves.finishedThisMonth}
+        viewAllHref="/library/shelf/finishedThisMonth"
       />
     </View>
   )
