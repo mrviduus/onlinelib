@@ -10,6 +10,7 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
+import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
 import {
   isBookFullyCached,
   getAllCachedBooks,
@@ -24,7 +25,7 @@ export default function BookDetailScreen() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const toast = useToast()
   const { downloads, startDownload, cancelDownload, removeDownload, retryFailed } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
@@ -32,6 +33,7 @@ export default function BookDetailScreen() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [cached, setCached] = useState(false)
   const [inLibrary, setInLibrary] = useState(false)
+  const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
   const [continueSlug, setContinueSlug] = useState<string | null>(null)
   const [showAllChapters, setShowAllChapters] = useState(false)
   // True when the page is rendering a minimal view built from the offline
@@ -340,6 +342,18 @@ export default function BookDetailScreen() {
           wrapped in try/catch + toast on failure (B-76).
         */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16, gap: 10 }}>
+          {inLibrary && (
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: colors.border }]}
+              onPress={() => setCollectionSheetOpen(true)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('library.actions.addToCollection')}
+            >
+              <Ionicons name="folder-outline" size={18} color={colors.text} />
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>{t('library.actions.addToCollection')}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: colors.border }]}
             onPress={async () => {
@@ -362,6 +376,14 @@ export default function BookDetailScreen() {
             <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Share</Text>
           </TouchableOpacity>
         </View>
+
+        <AddToCollectionSheet
+          visible={collectionSheetOpen}
+          bookId={book.id}
+          bookType="savedbook"
+          onClose={() => setCollectionSheetOpen(false)}
+          onAdded={(name) => toast.show({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
         {(showAllChapters ? book.chapters : book.chapters.slice(0, 10)).map((ch) => (

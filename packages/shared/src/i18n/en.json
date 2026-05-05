@@ -272,12 +272,23 @@
       "cancelling": "Cancelling…",
       "downloadOriginal": "Download original",
       "removeFromLibrary": "Remove from library",
+      "addToCollection": "Add to collection",
+      "addToCollectionEmpty": "No collections yet — create one below",
+      "addToCollectionFailed": "Couldn't add to collection",
+      "addedToCollection": "Added to {{name}}",
       "delete": "Delete",
       "deleting": "Deleting…",
       "confirmDeleteTitle": "Delete this book?",
       "confirmDeleteBody": "This permanently removes \"{title}\" and all its data. This cannot be undone.",
       "confirmDeleteConfirm": "Delete",
       "confirmDeleteCancel": "Keep"
+    },
+    "collections": {
+      "aria": "Collections",
+      "all": "All books",
+      "new": "+ New collection",
+      "newPlaceholder": "Collection name…",
+      "add": "Add"
     }
   },
   "addMenu": {

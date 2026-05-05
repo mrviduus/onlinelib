@@ -14,6 +14,7 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
+import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
@@ -245,6 +246,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const router = useRouter()
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
   const { sort, setSort } = useLibrarySort('saved')
   const { status: filter, setStatus: setFilter } = useLibraryStatus()
@@ -252,9 +254,13 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const counts = countsForLibrary(library, progressMap)
   const numColumns = viewMode === 'grid' ? Math.floor(width / 130) : 1
   const { showSavedActions } = useBookActions()
+  const [collectionTarget, setCollectionTarget] = useState<UserLibraryItem | null>(null)
 
   const handleAction = (item: UserLibraryItem) =>
-    showSavedActions(item, { progressMap, setLibrary, setProgressMap, library })
+    showSavedActions(item, {
+      progressMap, setLibrary, setProgressMap, library,
+      onAddToCollection: () => setCollectionTarget(item),
+    })
 
   if (library.length === 0) {
     return (
@@ -275,6 +281,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
   const sorted = sortLibraryItems(searched, sort, progressMap)
 
   return (
+    <>
       <FlatList
         key={viewMode}
         data={sorted}
@@ -431,6 +438,14 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
           )
         }}
       />
+      <AddToCollectionSheet
+        visible={!!collectionTarget}
+        bookId={collectionTarget?.editionId ?? null}
+        bookType="savedbook"
+        onClose={() => setCollectionTarget(null)}
+        onAdded={(name) => showToast({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
+      />
+    </>
   )
 }
 
@@ -466,10 +481,12 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
   }, [books.length])
 
   const { showUploadActions } = useBookActions()
+  const [collectionTarget, setCollectionTarget] = useState<UserBookDto | null>(null)
   const handleBookAction = (item: UserBookDto) =>
     showUploadActions(item, {
       onChange: onRefresh,
       openDetails: (id) => router.push(`/my-books/${id}`),
+      onAddToCollection: () => setCollectionTarget(item),
     })
 
   const runAction = async (fn: () => Promise<unknown>, label: string) => {
@@ -718,6 +735,13 @@ function UploadsList({ books, refreshing, onRefresh, viewMode }: {
             )
           }}
         />
+      <AddToCollectionSheet
+        visible={!!collectionTarget}
+        bookId={collectionTarget?.id ?? null}
+        bookType="userbook"
+        onClose={() => setCollectionTarget(null)}
+        onAdded={(name) => showToast({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
+      />
     </View>
   )
 }
