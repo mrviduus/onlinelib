@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-### My Books v2 — Library + Upload UX overhaul (2026-04-26)
+### Library + Mobile parity wave (2026-05-05)
+
+Web library got the duplication / discoverability fixes that surfaced once a real user (mrviduus, 26 uploads) started actually living in it. Mobile then absorbed every web change so iOS/Android shipped in the same shape — no more drift between platforms.
+
+#### Web
+- **Shelf "View all →" → dedicated page** ([#203](https://github.com/mrviduus/textstack/pull/203), [#204](https://github.com/mrviduus/textstack/pull/204)) — Continue reading / Recently added / Finished this month each render at `/library/shelf/:id` with the full grid instead of vanishing into a query-string filter.
+- **Saved + Uploads merged on /library** ([#204](https://github.com/mrviduus/textstack/pull/204)) — single search, single status-tabs (combined counts), single sort, single grid. Combined merge-sort interleaves both lists; processing/failed uploads pin to top.
+- **Add to collection on book detail pages** ([#204](https://github.com/mrviduus/textstack/pull/204)) — new `<AddToCollectionButton>` with `menu` and `button` variants. Wired into kebab, classic detail (when in library), and user-upload detail (when ready).
+- **`BookDetailHero` extracted** ([#203](https://github.com/mrviduus/textstack/pull/203)) — cover/title/author/description/meta/actions slots shared by classic and user-upload detail pages. Eliminates the previous duplicate hero markup.
+- **Saved cards finally show author** ([#204](https://github.com/mrviduus/textstack/pull/204)) — backend `LibraryItemDto` projects joined author names; combined sort/search use the field; cards render it under the title.
+- **Collection sidebar filter applies to both saved + uploads** ([#204](https://github.com/mrviduus/textstack/pull/204)) — parallel fetch of both book-id sets so a single collection click filters everything in unified mode.
+- **`status='all'` is the new default** ([#205](https://github.com/mrviduus/textstack/pull/205)) — fresh `/library` no longer applies a hidden Reading filter that silently hid Not-started + Finished books. Sidebar count and grid count finally match.
+- **UX polish round 1** ([#218](https://github.com/mrviduus/textstack/pull/218)) — clicking a collection smooth-scrolls to the grid (was an invisible-above-fold change), active chip uses inverted bg/fg + bold + small shadow for Apple-grade visibility in light mode, and Add-to-collection on detail pages becomes a 36×36 circular `+` icon next to share/copy instead of a third giant pill.
+- **UX polish round 2** ([#219](https://github.com/mrviduus/textstack/pull/219)) — sidebar is the canonical "+ New collection" entry (chip-row duplicate removed); empty-state chip-row hides entirely; status tabs become `position: sticky` so the active filter stays visible while scrolling a long grid.
+- **UX polish round 3** ([#220](https://github.com/mrviduus/textstack/pull/220)) — sticky offset is now `top:80` to match `.site-header` height (no overlap during the collapse animation); destructive `Delete Book` moved out of the primary action row into a quiet "danger zone" text-link below the chapters list (Apple HIG: distance + understatement for destructive actions).
+- **UX polish round 4** — Add-to-collection popover gains an inline "+ New collection" form (Apple Notes pattern; no extra dialog); icon buttons get an instant custom CSS hover tooltip instead of the 1-2s delayed native `title=""`; "Delete this book" in the danger zone is now a circular trash icon button matching the `+` icon pattern across the page.
+- **Removed 4 unused SEO landing pages** ([#217](https://github.com/mrviduus/textstack/pull/217)) — `/learn-english-{brazil,spain}`, `/read-books-in-english`, `/books-with-translation` plus their components/CSS/routes/sitemap entries/nginx blocks. Not linked, not in sitemap, no traffic signal, three-week stale, and Brazil/Spain shipped with mixed-language UX. ~650 LOC, 23KB JS+CSS gzipped removed.
+
+#### Mobile (iOS + Android)
+Same arc, same scope — every web change ported. Shipped over OTA via EAS Updates so existing app installs picked everything up on next launch without a Store rebuild.
+
+- **`DEFAULT_STATUS = 'all'`** ([#206](https://github.com/mrviduus/textstack/pull/206)) — mirror of #205. iOS/Android library now opens with the full collection, not the Reading-only subset.
+- **Author on saved cards + sort** ([#207](https://github.com/mrviduus/textstack/pull/207)) — shared `UserLibraryItem` type gains `author`, sortLibraryItems handles author with the same null-rules as uploads, both grid and list views render the author line under the title.
+- **Collections support** ([#208](https://github.com/mrviduus/textstack/pull/208)) — shared `collectionsApi` (list/create/update/delete + add/remove/getBookIds). New `useCollections` hook (60s cache + subs). New `<AddToCollectionSheet>` bottom-sheet picker. `useBookActions` accepts `onAddToCollection`; both action sheets prepend it. Detail pages get an "Add to collection" button.
+- **Shelf "View all" screens** ([#209](https://github.com/mrviduus/textstack/pull/209)) — `/library/shelf/[shelfId]` route renders a full grid of any shelf; carousel headers gained the link.
+- **Sidebar collections section + filter** ([#210](https://github.com/mrviduus/textstack/pull/210)) — drawer renders the user's collections under the source tabs; tapping one filters both saved and uploads in parallel.
+- **Auto-refetch on cache invalidation** ([#211](https://github.com/mrviduus/textstack/pull/211), [#212](https://github.com/mrviduus/textstack/pull/212)) — adding a book to the active collection now re-fetches the membership immediately. Implemented via a versioned subscription that landed first as a hand-rolled hook then rewrote on `useSyncExternalStore` for tear-free concurrent reads.
+- **EAS Updates wired up** ([#213](https://github.com/mrviduus/textstack/pull/213), [#214](https://github.com/mrviduus/textstack/pull/214)) — `runtimeVersion: { policy: "appVersion" }` + `updates.url` pointing at the existing EAS project. `eas update --platform all` now ships JS-only changes to existing apps without a binary rebuild.
+- **Web shim for offlineDb** ([#215](https://github.com/mrviduus/textstack/pull/215)) — `apps/mobile/src/lib/offlineDb.web.ts` no-op stubs unblock `eas update --platform all`. expo-sqlite was pulling its `.wasm` import into the web bundle and crashing the export.
+- **dist-web/ added to .gitignore** ([#216](https://github.com/mrviduus/textstack/pull/216)) — prevents test-export artefacts from being committed.
+
+
 
 Complete rebuild of the user-owned books experience. From "upload buried 4 clicks deep" to a Kindle-class library with tags, collections, full-text search, AI assistance, and command palette. 20 slices shipped behind feature flags then enabled all-on after stable rollout.
 
