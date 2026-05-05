@@ -3622,7 +3622,13 @@ html.dark .search-page__sub-result-highlight b {
   background: var(--color-text, #191919);
   color: var(--color-bg, #fff);
   font-size: 12px;
-  white-space: nowrap;
+  /* wrap so the longer empty-state hint ("Create a collection…") fits
+     narrow viewports instead of clipping at the right edge. */
+  white-space: normal;
+  text-align: center;
+  width: max-content;
+  max-width: min(220px, calc(100vw - 24px));
+  line-height: 1.35;
   border-radius: 6px;
   pointer-events: none;
   opacity: 0;
@@ -4605,7 +4611,11 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   background: var(--color-text, #191919);
   color: var(--color-bg, #fff);
   font-size: 12px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  width: max-content;
+  max-width: min(220px, calc(100vw - 24px));
+  line-height: 1.35;
   border-radius: 6px;
   pointer-events: none;
   opacity: 0;
