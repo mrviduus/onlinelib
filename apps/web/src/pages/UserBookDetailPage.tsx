@@ -264,14 +264,6 @@ export function UserBookDetailPage() {
               />
             )}
 
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="user-book-detail__delete-btn"
-            >
-              {deleting ? 'Deleting...' : 'Delete Book'}
-            </button>
-
             {isReady && (
               <ShareButtons
                 url={window.location.href}
@@ -310,6 +302,19 @@ export function UserBookDetailPage() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {isReady && (
+        <div className="user-book-detail__danger-zone">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="user-book-detail__delete-link"
+          >
+            {deleting ? 'Deleting…' : 'Delete this book'}
+          </button>
         </div>
       )}
     </div>
