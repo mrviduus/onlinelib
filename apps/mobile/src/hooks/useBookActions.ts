@@ -12,11 +12,13 @@ interface SavedCtx {
   setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>
   setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>
   library: UserLibraryItem[]
+  onAddToCollection?: () => void
 }
 
 interface UploadCtx {
   onChange: () => void
   openDetails: (id: string) => void
+  onAddToCollection?: () => void
 }
 
 export function useBookActions() {
@@ -57,6 +59,13 @@ export function useBookActions() {
         }
       },
     })
+
+    if (ctx.onAddToCollection) {
+      buttons.push({
+        text: t('library.actions.addToCollection'),
+        onPress: ctx.onAddToCollection,
+      })
+    }
 
     buttons.push({
       text: t('library.actions.removeFromLibrary'),
@@ -106,6 +115,12 @@ export function useBookActions() {
           isFinished ? 'Mark as unfinished' : 'Mark as finished',
         ),
       })
+      if (ctx.onAddToCollection) {
+        buttons.push({
+          text: t('library.actions.addToCollection'),
+          onPress: ctx.onAddToCollection,
+        })
+      }
     }
     if (isFailed) {
       buttons.push({

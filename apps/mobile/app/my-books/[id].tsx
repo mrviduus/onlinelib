@@ -7,19 +7,23 @@ import { userBooksApi, getStorageUrl, getApiConfig } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { trackBookOpened } from '../../src/lib/analytics'
+import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const { colors } = useTheme()
   const { show: showToast } = useToast()
+  const { t } = useLanguage()
   const [book, setBook] = useState<UserBookDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmountedRef = useRef(false)
 
@@ -357,6 +361,15 @@ export default function UserBookDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              onPress={() => setCollectionSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('library.actions.addToCollection')}
+            >
+              <Ionicons name="folder-outline" size={18} color={colors.text} />
+              <Text style={[styles.secondaryBtnText, { color: colors.text }]}>{t('library.actions.addToCollection')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
               onPress={handleShare}
               accessibilityRole="button"
               accessibilityLabel={`Share ${book.title || 'book'}`}
@@ -366,6 +379,14 @@ export default function UserBookDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        <AddToCollectionSheet
+          visible={collectionSheetOpen}
+          bookId={isReady ? book.id : null}
+          bookType="userbook"
+          onClose={() => setCollectionSheetOpen(false)}
+          onAdded={(name) => showToast({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
+        />
 
         {/* Chapter list */}
         {isReady && book.chapters.length > 0 && (
