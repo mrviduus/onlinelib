@@ -5210,6 +5210,12 @@ html.dark .user-book-detail__spinner {
   gap: 16px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--color-border);
+  /* Sticky on scroll so users keep status filters visible while browsing
+     a long grid. top:64px sits below the page header. */
+  position: sticky;
+  top: 64px;
+  background: var(--color-bg, #fff);
+  z-index: 5;
 }
 
 .library-status-tabs__primary {

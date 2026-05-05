@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useCollections } from '../../hooks/useCollections'
 
@@ -9,24 +8,12 @@ interface Props {
 
 export function CollectionChips({ activeId, onSelect }: Props) {
   const { t } = useTranslation()
-  const { collections, create } = useCollections()
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { collections } = useCollections()
 
-  const handleCreate = async () => {
-    const trimmed = name.trim()
-    if (!trimmed || busy) return
-    setBusy(true)
-    try {
-      const c = await create(trimmed)
-      onSelect(c.id)
-      setName('')
-      setCreating(false)
-    } finally {
-      setBusy(false)
-    }
-  }
+  // Hide entirely when the user has no collections yet — the chip row would be
+  // a single "All books" with nothing to switch to. Sidebar is the canonical
+  // entry point for creating new collections (was duplicated here).
+  if (collections.length === 0) return null
 
   return (
     <div className="collection-chips" role="tablist" aria-label={t('library.collections.aria')}>
@@ -48,29 +35,6 @@ export function CollectionChips({ activeId, onSelect }: Props) {
           <span className="collection-chip__count">{c.count}</span>
         </button>
       ))}
-      {creating ? (
-        <form className="collection-chip__form" onSubmit={(e) => { e.preventDefault(); handleCreate() }}>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t('library.collections.newPlaceholder')}
-            maxLength={100}
-            autoFocus
-            disabled={busy}
-          />
-          <button type="submit" disabled={busy || !name.trim()}>{t('library.collections.add')}</button>
-          <button type="button" onClick={() => { setCreating(false); setName('') }}>×</button>
-        </form>
-      ) : (
-        <button
-          type="button"
-          className="collection-chip collection-chip--add"
-          onClick={() => setCreating(true)}
-        >
-          + {t('library.collections.new')}
-        </button>
-      )}
     </div>
   )
 }
