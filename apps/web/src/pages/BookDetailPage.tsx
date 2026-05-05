@@ -23,6 +23,7 @@ import {
 } from '../lib/bookSeo'
 import { ShareButtons } from '../components/ShareButtons'
 import { BookDetailHero } from '../components/BookDetailHero'
+import { AddToCollectionButton } from '../components/library/AddToCollectionButton'
 import { isNotFoundError } from '../lib/errorUtils'
 import type { BookDetail } from '../types/api'
 
@@ -299,6 +300,15 @@ export function BookDetailPage() {
                 </svg>
                 {t('bookDetail.downloadForOffline')}
               </button>
+            )}
+
+            {book.id && isInLibrary(book.id) && (
+              <AddToCollectionButton
+                variant="button"
+                bookId={book.id}
+                bookType="savedbook"
+                className="book-hero__read-btn book-hero__read-btn--secondary"
+              />
             )}
 
             <ShareButtons

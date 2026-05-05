@@ -358,19 +358,33 @@ public static class UserDataEndpoints
             .OrderByDescending(l => l.CreatedAt);
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var raw = await query
             .Skip(offset ?? 0)
             .Take(limit ?? 50)
-            .Include(l => l.Edition)
-            .Select(l => new LibraryItemDto(
+            .Select(l => new
+            {
                 l.EditionId,
                 l.Edition.Slug,
                 l.Edition.Title,
                 l.Edition.Language,
                 l.Edition.CoverPath,
-                l.CreatedAt
-            ))
+                l.CreatedAt,
+                AuthorNames = l.Edition.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => ea.Author.Name)
+                    .ToList()
+            })
             .ToListAsync(ct);
+
+        var items = raw.Select(r => new LibraryItemDto(
+            r.EditionId,
+            r.Slug,
+            r.Title,
+            r.Language,
+            r.CoverPath,
+            r.CreatedAt,
+            r.AuthorNames.Count > 0 ? string.Join(", ", r.AuthorNames) : null
+        )).ToList();
 
         return Results.Ok(new { total, items });
     }
@@ -385,9 +399,27 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        // Check if edition exists
-        var edition = await db.Editions.FirstOrDefaultAsync(e => e.Id == editionId, ct);
-        if (edition == null) return Results.NotFound("Edition not found");
+        // Check if edition exists; project only what we need (avoids materialising
+        // related authors as full entities — we only want their names).
+        var editionInfo = await db.Editions
+            .Where(e => e.Id == editionId)
+            .Select(e => new
+            {
+                e.Slug,
+                e.Title,
+                e.Language,
+                e.CoverPath,
+                AuthorNames = e.EditionAuthors
+                    .OrderBy(ea => ea.Order)
+                    .Select(ea => ea.Author.Name)
+                    .ToList()
+            })
+            .FirstOrDefaultAsync(ct);
+        if (editionInfo == null) return Results.NotFound("Edition not found");
+
+        var authorJoined = editionInfo.AuthorNames.Count > 0
+            ? string.Join(", ", editionInfo.AuthorNames)
+            : null;
 
         // Check if already in library
         var existing = await db.UserLibraries
@@ -396,11 +428,12 @@ public static class UserDataEndpoints
         if (existing != null)
             return Results.Ok(new LibraryItemDto(
                 existing.EditionId,
-                edition.Slug,
-                edition.Title,
-                edition.Language,
-                edition.CoverPath,
-                existing.CreatedAt
+                editionInfo.Slug,
+                editionInfo.Title,
+                editionInfo.Language,
+                editionInfo.CoverPath,
+                existing.CreatedAt,
+                authorJoined
             ));
 
         var libraryItem = new UserLibrary
@@ -416,11 +449,12 @@ public static class UserDataEndpoints
 
         return Results.Created($"/me/library/{editionId}", new LibraryItemDto(
             libraryItem.EditionId,
-            edition.Slug,
-            edition.Title,
-            edition.Language,
-            edition.CoverPath,
-            libraryItem.CreatedAt
+            editionInfo.Slug,
+            editionInfo.Title,
+            editionInfo.Language,
+            editionInfo.CoverPath,
+            libraryItem.CreatedAt,
+            authorJoined
         ));
     }
 
@@ -485,5 +519,6 @@ public record LibraryItemDto(
     string Title,
     string Language,
     string? CoverPath,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? Author
 );

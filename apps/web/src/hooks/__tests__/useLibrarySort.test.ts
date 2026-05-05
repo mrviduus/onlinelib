@@ -5,7 +5,7 @@ import type { LibraryItem, ReadingProgressDto } from '../../api/auth'
 import type { UserBook } from '../../api/userBooks'
 
 const lib = (editionId: string, title: string, createdAt: string): LibraryItem => ({
-  editionId, slug: title.toLowerCase(), title, language: 'en', coverPath: null, createdAt,
+  editionId, slug: title.toLowerCase(), title, language: 'en', coverPath: null, createdAt, author: null,
 })
 
 const prog = (editionId: string, percent: number, updatedAt: string): ReadingProgressDto => ({
