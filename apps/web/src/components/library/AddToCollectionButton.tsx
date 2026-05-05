@@ -158,14 +158,15 @@ export function AddToCollectionButton(props: Props) {
     </svg>
   ) : label
   if (collections.length === 0) {
+    const emptyHint = t('library.actions.addToCollectionEmpty')
     return (
       <button
         type="button"
         className={baseClass}
         disabled
         aria-disabled="true"
-        aria-label={iconOnly ? label : undefined}
-        title={t('library.actions.addToCollectionEmpty')}
+        aria-label={iconOnly ? emptyHint : undefined}
+        title={iconOnly ? undefined : emptyHint}
       >
         {buttonContent}
       </button>
@@ -184,7 +185,6 @@ export function AddToCollectionButton(props: Props) {
         aria-haspopup="menu"
         aria-expanded={expanded}
         aria-label={iconOnly ? label : undefined}
-        title={iconOnly ? label : undefined}
         onClick={() => setExpanded((v) => !v)}
       >
         {buttonContent}
