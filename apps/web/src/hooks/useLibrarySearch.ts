@@ -1,22 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDebounce } from './useDebounce'
 
-export type LibraryTab = 'saved' | 'uploads'
-
-export function useLibrarySearch(tab: LibraryTab) {
+export function useLibrarySearch() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQueryState] = useState<string>(() => searchParams.get('q') ?? '')
   const [contentSearch, setContentSearchState] = useState<boolean>(() => searchParams.get('content') === '1')
   const debounceMs = contentSearch ? 250 : 150
   const debouncedQuery = useDebounce(query, debounceMs)
-  const skipNextTabSync = useRef(true)
-
-  useEffect(() => {
-    if (skipNextTabSync.current) { skipNextTabSync.current = false; return }
-    setQueryState('')
-    setContentSearchState(false)
-  }, [tab])
 
   useEffect(() => {
     setSearchParams(prev => {
