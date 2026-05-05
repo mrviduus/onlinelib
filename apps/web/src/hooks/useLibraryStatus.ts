@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import type { LibraryFilterKey } from './useLibraryFilter'
 
 export type LibraryStatus = LibraryFilterKey
-export const DEFAULT_STATUS: LibraryStatus = 'reading'
+export const DEFAULT_STATUS: LibraryStatus = 'all'
 
 const VALID: LibraryStatus[] = ['all', 'reading', 'finished', 'notStarted', 'failed']
 
