@@ -21,9 +21,10 @@ interface Props {
   title: string
   subtitle?: string
   items: LibraryShelfItem[]
+  viewAllHref?: string
 }
 
-export function LibraryShelf({ title, subtitle, items }: Props) {
+export function LibraryShelf({ shelfId, title, subtitle, items, viewAllHref }: Props) {
   const { colors } = useTheme()
   const router = useRouter()
 
@@ -32,10 +33,21 @@ export function LibraryShelf({ title, subtitle, items }: Props) {
   return (
     <View style={styles.section}>
       <View style={styles.head}>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        {subtitle ? (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
-        ) : null}
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+          ) : null}
+        </View>
+        {viewAllHref && (
+          <PressableScale
+            onPress={() => router.push(viewAllHref as never)}
+            accessibilityRole="link"
+            accessibilityLabel={`View all ${title}`}
+          >
+            <Text style={[styles.viewAll, { color: colors.primary }]}>View all →</Text>
+          </PressableScale>
+        )}
       </View>
       <ScrollView
         horizontal
@@ -94,9 +106,10 @@ export function LibraryShelf({ title, subtitle, items }: Props) {
 
 const styles = StyleSheet.create({
   section: { paddingTop: 12, paddingBottom: 6 },
-  head: { paddingHorizontal: 14, marginBottom: 8 },
+  head: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 8 },
   title: { fontFamily: fonts.serifBold, fontSize: 16 },
   subtitle: { fontFamily: fonts.sans, fontSize: 11, marginTop: 2, opacity: 0.7 },
+  viewAll: { fontFamily: fonts.sansMedium, fontSize: 13 },
   track: { paddingHorizontal: 14, gap: 12 },
   coverWrap: { position: 'relative', borderRadius: 8, overflow: 'hidden' },
   cover: { width: '100%', height: '100%', borderRadius: 8 },
