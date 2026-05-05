@@ -307,7 +307,7 @@ export function BookDetailPage() {
                 variant="button"
                 bookId={book.id}
                 bookType="savedbook"
-                className="book-hero__read-btn book-hero__read-btn--secondary"
+                iconOnly
               />
             )}
 

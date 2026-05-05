@@ -19,6 +19,8 @@ interface MenuVariantProps extends CommonProps {
 interface ButtonVariantProps extends CommonProps {
   variant: 'button'
   className?: string
+  /** Render a circular `+` icon instead of the text label. */
+  iconOnly?: boolean
 }
 
 type Props = MenuVariantProps | ButtonVariantProps
@@ -121,7 +123,16 @@ export function AddToCollectionButton(props: Props) {
   }
 
   // variant === 'button'
-  const baseClass = props.className || 'add-to-collection-button'
+  const iconOnly = !!props.iconOnly
+  const baseClass = props.className
+    || (iconOnly ? 'add-to-collection-button add-to-collection-button--icon' : 'add-to-collection-button')
+  const label = t('library.actions.addToCollection')
+  const buttonContent = iconOnly ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ) : label
   if (collections.length === 0) {
     return (
       <button
@@ -129,9 +140,10 @@ export function AddToCollectionButton(props: Props) {
         className={baseClass}
         disabled
         aria-disabled="true"
+        aria-label={iconOnly ? label : undefined}
         title={t('library.actions.addToCollectionEmpty')}
       >
-        {t('library.actions.addToCollection')}
+        {buttonContent}
       </button>
     )
   }
@@ -147,9 +159,11 @@ export function AddToCollectionButton(props: Props) {
         className={baseClass}
         aria-haspopup="menu"
         aria-expanded={expanded}
+        aria-label={iconOnly ? label : undefined}
+        title={iconOnly ? label : undefined}
         onClick={() => setExpanded((v) => !v)}
       >
-        {t('library.actions.addToCollection')}
+        {buttonContent}
       </button>
       {expanded && (
         <div className="add-to-collection__popover" role="menu">

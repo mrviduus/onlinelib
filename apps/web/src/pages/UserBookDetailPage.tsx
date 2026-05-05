@@ -260,7 +260,7 @@ export function UserBookDetailPage() {
                 variant="button"
                 bookId={book.id}
                 bookType="userbook"
-                className="user-book-detail__mark-btn"
+                iconOnly
               />
             )}
 
