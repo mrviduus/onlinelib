@@ -58,6 +58,16 @@ export function AddToCollectionButton(props: Props) {
     }
   }, [expanded, props.variant])
 
+  // Reset the inline create form whenever the popover closes — otherwise the
+  // next open would land in create-mode with whatever was typed last time
+  // instead of the collections list.
+  useEffect(() => {
+    if (!expanded) {
+      setCreatingNew(false)
+      setNewName('')
+    }
+  }, [expanded])
+
   const emitToast = (toast: Toast) => {
     if (props.onToast) props.onToast(toast)
     else setLocalToast(toast)
