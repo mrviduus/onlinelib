@@ -182,9 +182,10 @@ export function AddToCollectionButton(props: Props) {
         aria-expanded={expanded}
         aria-label={iconOnly ? label : undefined}
         onClick={() => {
-          // Empty state: skip the (almost-empty) popover and jump straight
-          // into the inline create form — fewer taps from intent to result.
-          if (isEmpty) setCreatingNew(true)
+          // Only flip into create-mode when *opening* the popover in empty
+          // state — otherwise toggling closed → open from non-empty to
+          // empty (cache invalidation race) would land in a stale form.
+          if (!expanded && isEmpty) setCreatingNew(true)
           setExpanded((v) => !v)
         }}
       >
@@ -192,11 +193,6 @@ export function AddToCollectionButton(props: Props) {
       </button>
       {expanded && (
         <div className="add-to-collection__popover" role="menu">
-          {isEmpty && !creatingNew && (
-            <p className="add-to-collection__empty-hint">
-              {t('library.actions.addToCollectionEmpty')}
-            </p>
-          )}
           {collections.map((c) => (
             <button
               key={c.id}
