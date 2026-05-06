@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useUserTags } from '../../hooks/useUserTags'
 import { useCollections } from '../../hooks/useCollections'
@@ -20,11 +20,15 @@ interface Props {
   onSourceChange: (next: LibrarySource) => void
   onTagChange: (next: string | null) => void
   onCollectionChange: (next: string | null) => void
+  /** True when the sidebar is the mobile drawer and currently visible.
+   *  Used purely to reset transient form state when the drawer hides. */
+  drawerOpen?: boolean
 }
 
 export function LibrarySidebar({
   source, tag, collection, counts,
   onSourceChange, onTagChange, onCollectionChange,
+  drawerOpen,
 }: Props) {
   const { t } = useTranslation()
   const { tags } = useUserTags()
@@ -32,6 +36,17 @@ export function LibrarySidebar({
   const [creatingCollection, setCreatingCollection] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [busyCreate, setBusyCreate] = useState(false)
+
+  // Mobile drawer hides via CSS class but stays mounted; reset the create
+  // form on close so re-opening doesn't surface stale typed state. On
+  // desktop drawerOpen is undefined so this effect no-ops (the sidebar
+  // is always visible there anyway).
+  useEffect(() => {
+    if (drawerOpen === false) {
+      setCreatingCollection(false)
+      setNewCollectionName('')
+    }
+  }, [drawerOpen])
 
   const visibleTags = tags.slice(0, TAG_LIMIT)
   const moreTags = tags.length > TAG_LIMIT
