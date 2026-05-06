@@ -3653,16 +3653,6 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   color: #0a0a0a;
 }
 
-/* Empty-state hint shown above the create form when no collections exist
-   yet. Communicates the implicit "no list to pick from — make one". */
-.add-to-collection__empty-hint {
-  margin: 0;
-  padding: 10px 14px 8px;
-  font-size: 12px;
-  color: var(--color-text-secondary, #555);
-  line-height: 1.4;
-}
-
 /* Inline "+ New collection" form inside the popover — Apple Notes-style:
    one tap to start typing, no extra dialog. */
 .add-to-collection__option--new {
