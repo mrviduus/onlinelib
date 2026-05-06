@@ -167,21 +167,7 @@ export function AddToCollectionButton(props: Props) {
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   ) : label
-  if (collections.length === 0) {
-    const emptyHint = t('library.actions.addToCollectionEmpty')
-    return (
-      <button
-        type="button"
-        className={baseClass}
-        disabled
-        aria-disabled="true"
-        aria-label={iconOnly ? emptyHint : undefined}
-        title={iconOnly ? undefined : emptyHint}
-      >
-        {buttonContent}
-      </button>
-    )
-  }
+  const isEmpty = collections.length === 0
   return (
     <div className="add-to-collection" ref={wrapRef}>
       {localToast && (
@@ -195,12 +181,22 @@ export function AddToCollectionButton(props: Props) {
         aria-haspopup="menu"
         aria-expanded={expanded}
         aria-label={iconOnly ? label : undefined}
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          // Empty state: skip the (almost-empty) popover and jump straight
+          // into the inline create form — fewer taps from intent to result.
+          if (isEmpty) setCreatingNew(true)
+          setExpanded((v) => !v)
+        }}
       >
         {buttonContent}
       </button>
       {expanded && (
         <div className="add-to-collection__popover" role="menu">
+          {isEmpty && !creatingNew && (
+            <p className="add-to-collection__empty-hint">
+              {t('library.actions.addToCollectionEmpty')}
+            </p>
+          )}
           {collections.map((c) => (
             <button
               key={c.id}
