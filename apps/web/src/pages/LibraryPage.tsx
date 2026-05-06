@@ -395,6 +395,7 @@ export function LibraryPage() {
           source={librarySource.source}
           tag={librarySource.tag}
           collection={librarySource.collection}
+          drawerOpen={sidebarOpen}
           counts={{
             all: items.length + userBooks.length,
             uploads: userBooks.length,
