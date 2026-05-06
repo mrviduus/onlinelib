@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [v0.1.0] — 2026-05-06
+
+### Headline
+
+First tagged release of TextStack under **GNU Affero General Public License v3.0**. Earlier development was BUSL-1.1; v0.1.0 onwards is AGPL-3.0 (PR #201). See `release-notes-v0.1.0.md` for the user-facing announcement.
+
 ### Library + Mobile parity wave (2026-05-05)
 
 Web library got the duplication / discoverability fixes that surfaced once a real user (mrviduus, 26 uploads) started actually living in it. Mobile then absorbed every web change so iOS/Android shipped in the same shape — no more drift between platforms.
