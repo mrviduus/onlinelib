@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { collectionsApi, type CollectionBookType } from '@textstack/shared'
@@ -23,14 +23,19 @@ export function AddToCollectionSheet({ visible, bookId, bookType, onClose, onAdd
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
 
-  const reset = () => {
-    setBusy(false)
-    setCreating(false)
-    setNewName('')
-  }
+  // Parent can flip `visible` to false from anywhere (route change, focus
+  // loss, programmatic dismiss). handleClose runs reset() only when *we*
+  // close the sheet — those external flips would leave stale create-mode
+  // state for the next open. Mirror the web popover's effect-based reset.
+  useEffect(() => {
+    if (!visible) {
+      setBusy(false)
+      setCreating(false)
+      setNewName('')
+    }
+  }, [visible])
 
   const handleClose = () => {
-    reset()
     onClose()
   }
 
