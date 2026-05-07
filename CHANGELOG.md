@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+- **Local LLM model**: switched from `qwen3:8b` to `gemma4:e4b` (Google's
+  Gemma 4 effective-4B, multimodal — text + vision + audio capable). Same
+  `ILlmService` interface, no API changes.
+- **Ollama container**: image pinned to `ollama/ollama:0.23.1` (the floating
+  `latest` tag was still serving 0.22.x which doesn't recognise the
+  `gemma4` family). Memory limits raised from 4G/2G to 12G/8G — `gemma4:e4b`
+  needs ~9.8 GiB RAM to load weights + KV cache. Server has 31 GB total so
+  the headroom is plenty.
+- To roll back: set `Ollama__Model=qwen3:8b` env var or revert this commit.
+
 ## [v0.1.0] — 2026-05-06
 
 ### Headline

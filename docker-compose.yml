@@ -66,7 +66,7 @@ services:
       Explain__CachePath: /data/explain-cache
       Translate__CachePath: /data/translate-cache
       Ollama__BaseUrl: http://ollama:11434
-      Ollama__Model: qwen3:8b
+      Ollama__Model: gemma4:e4b
       OpenAI__ApiKey: ${OPENAI_API_KEY:-}
       OpenAI__Model: ${OPENAI_MODEL:-gpt-4.1-nano}
       Resend__ApiKey: ${RESEND_API_KEY:-}
@@ -228,7 +228,7 @@ services:
   # ===========================================
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.23.1
     container_name: textstack_ollama
     volumes:
       - ./data/ollama:/root/.ollama
@@ -242,7 +242,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 12G
         reservations:
-          memory: 2G
+          memory: 8G
 

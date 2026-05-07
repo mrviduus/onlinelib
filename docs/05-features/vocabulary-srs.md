@@ -40,7 +40,7 @@ When building MC prompt: definition → translation → blank sentence (if LLM d
 
 MC quiz quality depends on plausible wrong answers. Random words = too easy.
 
-**Solution**: Local Ollama LLM (`gemma3:4b`) generates 5 semantically similar distractors per word.
+**Solution**: Local Ollama LLM (`gemma4:e4b`) generates 5 semantically similar distractors per word.
 
 ### Flow
 1. User saves word in reader → API saves to DB immediately (fast response)
@@ -64,11 +64,11 @@ ollama:
         memory: 4G
 ```
 
-Config: `Ollama:BaseUrl`, `Ollama:Model` (gemma3:4b), `Ollama:TimeoutSeconds` (10)
+Config: `Ollama:BaseUrl`, `Ollama:Model` (gemma4:e4b), `Ollama:TimeoutSeconds` (10)
 
 ### Model Pull
 ```bash
-docker compose exec ollama ollama pull gemma3:4b
+docker compose exec ollama ollama pull gemma4:e4b
 ```
 
 ## API Endpoints

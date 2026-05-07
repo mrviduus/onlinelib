@@ -25,7 +25,7 @@ This unblocks everything downstream — copy, pricing, feature priorities all fl
 ## What exists today
 
 **Reader**: tap-to-translate (18+ languages), dictionary popup, highlights, bookmarks, vocab marks
-**SRS**: 5-stage spaced repetition, multiple choice + context cloze, LLM-generated distractors (Ollama qwen3)
+**SRS**: 5-stage spaced repetition, multiple choice + context cloze, LLM-generated distractors (Ollama gemma4:e4b)
 **Catalog**: 146 books, 47 authors, 20 genres, SSG-prerendered SEO pages
 **User uploads**: EPUB + PDF + FB2 → extraction → chapters + metadata enrichment (Ollama)
 **Stats**: sessions, streaks, 20 achievements, heatmap, goals

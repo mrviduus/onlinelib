@@ -200,7 +200,7 @@ All services: API :8080 | Web :5173 | Admin :81 | DB :5432
 │                                                                             │
 │   SRS: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4)     │
 │   Modes: multiple_choice | typed_recall | context                           │
-│   Distractors: Ollama gemma3:4b generates 5 plausible wrong answers        │
+│   Distractors: Ollama gemma4:e4b generates 5 plausible wrong answers       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -767,6 +767,6 @@ AssetKind          { Cover=0, InlineImage=1 }
 21. **Reading goals** - Daily minutes or books/year with streak tracking (min minutes threshold)
 22. **Achievements** - 20 codes across milestone/streak/time/special; AchievementChecker runs after sessions
 23. **Vocabulary SRS** - 5-stage spaced repetition (New→Recognition→Recall→Context→Mastered)
-25. **LLM distractors** - Ollama gemma3:4b generates MC wrong answers at word save time; stored as JSON
+25. **LLM distractors** - Ollama gemma4:e4b generates MC wrong answers at word save time; stored as JSON
 26. **Fire-and-forget distractors** - IServiceScopeFactory creates scoped DbContext for background generation
 27. **Vocabulary word uniqueness** - unique(user_id, site_id, word, language) prevents duplicates
