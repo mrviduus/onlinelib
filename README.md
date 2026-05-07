@@ -1,13 +1,19 @@
 # TextStack
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/mrviduus/textstack/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/mrviduus/textstack?style=social)](https://github.com/mrviduus/textstack/stargazers)
+
 <p align="center">
-  <img src="docs/assets/hero.png" alt="TextStack — deep reading for developers learning AI engineering" width="800">
+  <img src="docs/assets/hero.png" alt="TextStack — a reader for developers finishing English technical books in their native language" width="800">
 </p>
 
 <p align="center">
-  <strong>Deep-reading tool for developers learning AI engineering.</strong><br>
-  Tap an unknown term → context-aware explanation inline. Capped weekly SRS queue.<br>
-  A modern replacement for Kindle Word Wise and LingQ — built for technical books.
+  <strong>A reader for developers who want to finish English technical books in their native language.</strong><br>
+  Tap any term → context-aware translation that knows the book's domain. Capped weekly SRS queue.<br>
+  A modern replacement for Kindle Word Wise — built for technical books, not conversational language learning.
 </p>
 
 <p align="center">
@@ -16,13 +22,16 @@
   <a href="https://twitter.com/Rexetdeus">@Rexetdeus</a>
 </p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="GNU AGPL v3.0"></a>
-  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
-  <img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19">
-  <img src="https://img.shields.io/badge/Expo-55-000020" alt="Expo 55">
-  <img src="https://img.shields.io/badge/PostgreSQL-16-336791" alt="PostgreSQL 16">
-</p>
+---
+
+I quit *Designing Data-Intensive Applications* three times before I built this.
+
+<!-- TODO: Replace with actual demo GIF showing tap-word → translation flow -->
+<!-- Suggested: 3-5 second GIF, ~600px wide, showing a real DDIA paragraph with a tap interaction -->
+
+![TextStack demo — tap any term, get a context-aware translation](docs/demo.gif)
+
+> ⭐ Star the repo if you've ever abandoned a technical book mid-way — it's the strongest signal that this kind of tool is worth building.
 
 ---
 
@@ -39,21 +48,26 @@ understanding is to read them — but the friction has to go.
 
 ## What TextStack does
 
-**Tap a term → 2–3 sentence LLM-powered explanation tied to the book's
-domain.** Not a dictionary definition. If you tap "attention" in an ML
-textbook you get the ML meaning, not the everyday one. Powered by OpenAI
-`gpt-5-mini` (swap-in friendly — any `ILlmService` impl works).
+**Tap any term → translation in your native language, aware of the book's
+domain.** Tap "attention" in an ML book and you get *увага (механізм у
+нейромережах)* in Ukrainian or *внимание (механизм в нейросетях)* in
+Russian — not the everyday meaning of the word. Explanation mode (no
+translation) is also available for native English readers who want the
+term clarified instead of translated. Powered by OpenAI `gpt-5-mini`,
+swap-in friendly — any `ILlmService` impl works. 18+ target languages
+supported, with Russian and Ukrainian as the focus during current
+development.
 
 Terms you don't recognize enter a **capped weekly SRS queue** — no infinite
 backlog, no guilt. Common words and the top 15K English words are filtered
 out; only technical vocabulary gets surfaced.
 
-| What others do | What TextStack does |
+| Other tools | TextStack |
 |---|---|
-| Dictionary definitions | Context-aware explanations |
-| Infinite SRS queue | Capped weekly (no spiral) |
-| One-size-fits-all | Domain-aware per book |
-| Static Kindle Word Wise (2014) | LLM-powered (2026) |
+| Dictionary translation, word-by-word | Context-aware translation that knows the domain |
+| Infinite SRS queue | Capped weekly — no review spiral |
+| Generic content for casual learners | Built for dense technical books |
+| Static Kindle Word Wise (2014) | LLM-powered (2026), 18+ target languages |
 
 ## Try it
 
@@ -69,8 +83,9 @@ out; only technical vocabulary gets surfaced.
 **Reader**
 - Kindle-like experience — themes (light/sepia/dark), fonts, fullscreen,
   keyboard shortcuts
-- Text selection — contextual explanation (OpenAI `gpt-5-mini`), dictionary
-  fallback (Free Dictionary API), translation (OpenAI), highlights
+- Text selection — contextual translation in 18+ languages (OpenAI
+  `gpt-5-mini`), explanation mode for English-only readers, dictionary
+  fallback (Free Dictionary API), highlights
 - TTS — Edge TTS via direct WebSocket (200+ voices, 0.75×–2.0× speed, two-
   layer cache)
 - Offline reading — PWA with IndexedDB caching, download manager
@@ -194,6 +209,12 @@ that I'm building the right thing.
 ---
 
 ## License
+
+**Why AGPL?** TextStack is built to be self-hosted and modified freely by
+individuals, teams, and small communities. AGPL ensures that if someone
+runs a modified version as a public service, those modifications are
+shared back. If your organization needs a non-AGPL license for a
+commercial fork or hosted product, see the commercial license note below.
 
 [GNU Affero General Public License v3.0](LICENSE) © 2026 Vasyl Vdovychenko.
 
