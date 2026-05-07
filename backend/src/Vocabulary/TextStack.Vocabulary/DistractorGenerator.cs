@@ -49,6 +49,7 @@ public sealed class DistractorGenerator : IDistractorGenerator
         parts.Add("- Similar difficulty level");
         parts.Add("- NOT synonyms");
         parts.Add("- Could plausibly confuse a learner");
+        parts.Add("- SINGLE WORD ONLY — no spaces, no multi-word phrases (use \"linearizability\" not \"strong consistency\"; \"sharding\" not \"data partitioning\"). Hyphens are fine.");
         parts.Add("");
         parts.Add("Task 2 - Hint: Write ONE short sentence (under 15 words) describing what this word means.");
         parts.Add($"Do NOT use the word \"{word}\" or direct synonyms in the hint.");
