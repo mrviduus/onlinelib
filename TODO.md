@@ -29,11 +29,10 @@
 - Review queue view
 
 ### Open Questions (TBD)
-1. **Ollama model?** - llama3, mistral, qwen, phi? Need to test quality vs speed tradeoff
-2. **Prompt templates storage?** - Options: DB (editable at runtime), config file (version controlled), hardcoded (simplest). Decision depends on how often prompts need tuning
-3. **Rate limiting?** - How many ms/sec between LLM calls? Depends on Ollama performance on server hardware
-4. **Error handling?** - Retry count? Exponential backoff? Mark as failed and skip?
-5. **Rollback storage?** - New `Edition.original_description` field or separate `edition_history` table?
+1. **Prompt templates storage?** - Options: DB (editable at runtime), config file (version controlled), hardcoded (simplest). Decision depends on how often prompts need tuning
+2. **Rate limiting?** - How many ms/sec between LLM calls? Depends on Ollama performance on server hardware
+3. **Error handling?** - Retry count? Exponential backoff? Mark as failed and skip?
+4. **Rollback storage?** - New `Edition.original_description` field or separate `edition_history` table?
 
 ---
 

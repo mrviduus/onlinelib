@@ -25,7 +25,7 @@ public class OllamaLlmService : ILlmService
             ?? "http://localhost:11434";
         _model = config["Ollama:Model"]
             ?? Environment.GetEnvironmentVariable("OLLAMA_MODEL")
-            ?? "qwen3:8b";
+            ?? "gemma4:e4b";
         _timeoutSeconds = config.GetValue("Ollama:TimeoutSeconds", 30);
     }
 

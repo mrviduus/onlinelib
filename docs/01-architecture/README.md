@@ -28,7 +28,7 @@ Modular monolith: single API + Worker, layered architecture, PostgreSQL.
                     ▼               │
             ┌───────────────┐       │     ┌───────────────┐
             │   Storage     │◄──────┘     │    Ollama     │
-            │ (bind mount)  │             │  gemma3:4b    │
+            │ (bind mount)  │             │  gemma4:e4b   │
             └───────────────┘             └───────────────┘
                                           ┌───────────────┐
                                           │LibreTranslate │
