@@ -232,6 +232,8 @@ services:
     container_name: textstack_ollama
     volumes:
       - ./data/ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
