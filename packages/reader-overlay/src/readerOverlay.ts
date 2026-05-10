@@ -134,6 +134,12 @@ export class Overlayer {
       width: '100%',
       height: '100%',
       pointerEvents: 'none',
+      // UA default for outer <svg> is overflow:hidden — clips any rect whose
+      // internal y exceeds svg.height. Our rects are stored in DOCUMENT coords
+      // and rendered via transform:translate(-scrollX,-scrollY), so anything
+      // past the first viewport (y > h) gets silently clipped → vocab/highlight
+      // underlines vanish after scroll.
+      overflow: 'visible',
     })
     this.#onMiss = options.onMiss
     this.#onRedraw = options.onRedraw

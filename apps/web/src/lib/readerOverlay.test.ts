@@ -50,6 +50,35 @@ describe('Overlayer', () => {
     expect(ov.element.getAttribute('data-reader-overlay')).toBe('true')
   })
 
+  // Rects are stored in document coords; the SVG host is sized 100% of its
+  // parent (typically viewport-sized). Without overflow:visible, the UA default
+  // overflow:hidden clips any rect whose internal y exceeds svg.height —
+  // i.e. every annotation past the first viewport vanishes after scroll.
+  it('SVG root sets overflow:visible so document-coord rects are not clipped past viewport', () => {
+    expect(ov.element.style.overflow).toBe('visible')
+  })
+
+  // Regression for the scroll-past-viewport clipping bug: a rect at document y
+  // far below the SVG's intrinsic height (which is bounded by the viewport)
+  // must still emit an SVG <rect> with the document-coord y attribute. The
+  // overflow:visible style above is what keeps it visually painted; this test
+  // pins the data path so a future refactor can't silently switch coord systems.
+  it('renders rects at document-coord y past viewport height (e.g. scrollY=2000 word)', () => {
+    const range = mkRange()
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 2000 })
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 0 })
+    stubRects(range, [{ left: 100, top: 50, width: 80, height: 2 }])
+    ov.add('vocab-deep', range, Overlayer.underline)
+    const rect = ov.element.querySelector('rect')
+    expect(rect).not.toBeNull()
+    // y attribute = viewport top + scrollY = 50 + 2000 = 2050. Far beyond the
+    // SVG's 100% height (which in jsdom is 0/auto). The bug surfaces when this
+    // value is clipped by the parent SVG; overflow:visible is the only thing
+    // letting it paint.
+    expect(parseFloat(rect!.getAttribute('y')!)).toBeCloseTo(2050 + 2 - 2, 0) // bottom - strokeWidth
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+  })
+
   it('add inserts an element and tracks the key', () => {
     const range = mkRange()
     stubRects(range, [{ left: 10, top: 10, width: 50, height: 20 }])
