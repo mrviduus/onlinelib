@@ -100,7 +100,7 @@ public sealed class PdfTextExtractor : ITextExtractor
 
         // Extract metadata
         var info = document.Information;
-        var title = NullIfEmpty(info.Title);
+        var title = BookTitleCleaner.Clean(NullIfEmpty(info.Title));
         var authors = NullIfEmpty(info.Author);
         var description = NullIfEmpty(info.Subject);
 

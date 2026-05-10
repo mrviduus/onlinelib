@@ -36,7 +36,7 @@ public sealed class EpubTextExtractor : ITextExtractor
                 new ExtractionDiagnostics(TextSource.None, null, warnings));
         }
 
-        var title = book.Title;
+        var title = BookTitleCleaner.Clean(book.Title);
         var authors = book.AuthorList?.Count > 0 ? string.Join(", ", book.AuthorList) : null;
         var description = book.Description;
         var language = ExtractLanguage(book);

@@ -53,7 +53,7 @@ public sealed class Fb2TextExtractor : ITextExtractor
         // --- Metadata ---
         var titleInfo = root.Element(ns + "description")?.Element(ns + "title-info");
 
-        var title = titleInfo?.Element(ns + "book-title")?.Value?.Trim();
+        var title = BookTitleCleaner.Clean(titleInfo?.Element(ns + "book-title")?.Value?.Trim());
 
         var authors = titleInfo?.Elements(ns + "author")
             .Select(a => string.Join(" ",
