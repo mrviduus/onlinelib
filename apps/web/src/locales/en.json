@@ -628,11 +628,25 @@
       "hint": "Upload book (⌘U)"
     },
     "dropzone": {
-      "title": "Drop to upload your book",
+      "title": "Drop EPUB, PDF or FB2 here",
+      "browse": "or click to browse",
       "subtitle": "EPUB, PDF, or FB2",
       "invalid": "Unsupported file. Use EPUB, PDF or FB2.",
       "signinRequired": "Sign in to upload books",
       "signinAction": "Sign in"
+    },
+    "status": {
+      "uploading": "uploading…",
+      "processing": "Preparing your book…",
+      "processingHint": "Extracting chapters and indexing for search. This usually takes 10–30 seconds.",
+      "readyTitle": "Your book is ready",
+      "readyFallback": "Book ready",
+      "readyChapters": "{{n}} chapters indexed and ready to read.",
+      "readyDefault": "Indexing complete. Open the reader to start.",
+      "readNow": "Read now",
+      "viewInLibrary": "View in library",
+      "failed": "Something went wrong while processing this book.",
+      "failedTitle": "Couldn't process this book"
     }
   },
   "addMenu": {

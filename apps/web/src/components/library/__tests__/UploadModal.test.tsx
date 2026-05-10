@@ -17,6 +17,11 @@ vi.mock('../UploadForm', () => ({
     <button data-testid="fake-upload" onClick={() => onUploadComplete('book-42')}>upload</button>
   ),
 }))
+// getUserBook is polled after upload — keep it pending so the modal stays in
+// the Processing phase (no auto-transition during these tests).
+vi.mock('../../../api/userBooks', () => ({
+  getUserBook: vi.fn(() => new Promise(() => {})),
+}))
 
 import { UploadModal } from '../UploadModal'
 
@@ -51,11 +56,22 @@ describe('UploadModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('on upload complete navigates to library w/ highlight + closes', () => {
+  it('after upload the modal stays open and shows the processing state', () => {
     const onClose = vi.fn()
     render(<UploadModal open={true} onClose={onClose} />)
     fireEvent.click(screen.getByTestId('fake-upload'))
-    expect(onClose).toHaveBeenCalled()
-    expect(navigateMock).toHaveBeenCalledWith('/en/library?tab=uploads&highlight=book-42')
+    // No close, no navigate — user sees the post-upload status UI.
+    expect(onClose).not.toHaveBeenCalled()
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(screen.getByText('upload.status.processing')).toBeInTheDocument()
+  })
+
+  it('after upload broadcasts user-books-changed so the library refetches', () => {
+    const listener = vi.fn()
+    window.addEventListener('textstack:user-books-changed', listener)
+    render(<UploadModal open={true} onClose={() => {}} />)
+    fireEvent.click(screen.getByTestId('fake-upload'))
+    expect(listener).toHaveBeenCalled()
+    window.removeEventListener('textstack:user-books-changed', listener)
   })
 })

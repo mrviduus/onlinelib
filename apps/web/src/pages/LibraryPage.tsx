@@ -155,6 +155,16 @@ export function LibraryPage() {
     fetchUserBooks()
   }, [fetchUserBooks])
 
+  // Refetch when an upload completes anywhere in the app (UploadModal, drag-
+  // drop, FAB-modal, etc). Otherwise navigating to /library?tab=uploads from
+  // a modal that mounted while LibraryPage was already alive doesn't trigger
+  // a re-fetch and the new book stays invisible until manual reload.
+  useEffect(() => {
+    const handler = () => fetchUserBooks()
+    window.addEventListener('textstack:user-books-changed', handler)
+    return () => window.removeEventListener('textstack:user-books-changed', handler)
+  }, [fetchUserBooks])
+
 
   // Auto-refresh processing books
   useEffect(() => {
