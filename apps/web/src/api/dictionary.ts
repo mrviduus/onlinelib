@@ -24,8 +24,11 @@ export async function lookupWord(
   lang: string,
   word: string
 ): Promise<DictionaryEntry> {
+  // API_BASE = host in dev, `/api` in prod (nginx strips the prefix).
+  // Backend route is `/dictionary/...` — don't double up `/api/` or prod
+  // hits `/api/api/dictionary/...` and 404s.
   const response = await fetch(
-    `${API_BASE}/api/dictionary/${encodeURIComponent(lang)}/${encodeURIComponent(word)}`
+    `${API_BASE}/dictionary/${encodeURIComponent(lang)}/${encodeURIComponent(word)}`
   )
 
   if (response.status === 404) {
