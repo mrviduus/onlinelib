@@ -7,6 +7,7 @@ import {
   unmarkUserBookComplete,
   type UserBook,
 } from '../api/userBooks'
+import { emitDataChanges } from '../lib/dataEvents'
 
 interface Options {
   onChange?: () => void
@@ -27,6 +28,10 @@ export function useBookActions(book: UserBook, opts: Options = {}) {
     setError(null)
     try {
       await fn()
+      // Any user-book mutation also affects the cached shelves (recently
+      // added / continue reading / quick reads). Broadcast both so every
+      // consumer (LibraryPage, sidebar counts, shelves cache) refreshes.
+      emitDataChanges(['user-books', 'shelves'])
       after?.()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Action failed'

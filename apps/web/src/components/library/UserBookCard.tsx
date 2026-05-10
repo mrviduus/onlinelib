@@ -118,7 +118,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
   }
 
   return (
-    <div className={cardClasses} onClickCapture={onCardClickCapture}>
+    <div className={cardClasses} data-book-id={book.id} onClickCapture={onCardClickCapture}>
       {selectable && (
         <label className="user-book-card__check" onClick={(e) => e.stopPropagation()}>
           <input

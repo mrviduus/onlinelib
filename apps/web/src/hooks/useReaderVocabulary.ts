@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { getReaderVocab, markAsKnown as markAsKnownApi, saveWord, deleteWord as deleteWordApi, updateWord, type SaveWordRequest, type SaveWordResponse, type VocabWordDto } from '../api/vocabulary'
+import { emitDataChange } from '../lib/dataEvents'
 import { translate as translateWord } from '../api/translation'
 import {
   addPendingVocabWord,
@@ -173,6 +174,10 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
             translation: existing?.translation || saved.translation || undefined,
           }))
         }
+        // Notify the Vocabulary page (and any other vocab consumer) so it
+        // refreshes without remount. No-op on this page since useReader
+        // doesn't subscribe to its own emissions.
+        emitDataChange('vocabulary')
       }
       return resp
     }
@@ -234,6 +239,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
     if (!isAuthenticated) return null
     const updated = await markAsKnownApi(id)
     updateMap(m => m.set(normalizeVocabKey(word), { stage: 4, id: updated.id }))
+    emitDataChange('vocabulary')
     return updated
   }, [isAuthenticated, updateMap])
 
@@ -242,6 +248,7 @@ export function useReaderVocabulary(bookLanguage?: string, targetLang?: string |
       await deleteWordApi(id)
     }
     updateMap(m => m.delete(normalizeVocabKey(word)))
+    emitDataChange('vocabulary')
   }, [isAuthenticated, updateMap])
 
   // External insert path for flows that create a VocabularyWord outside of

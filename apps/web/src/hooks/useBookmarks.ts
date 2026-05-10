@@ -5,6 +5,7 @@ import {
   createPublicBookmark,
   deletePublicBookmark,
 } from '../api/userData'
+import { emitDataChange } from '../lib/dataEvents'
 
 export interface Bookmark {
   id: string
@@ -186,6 +187,7 @@ export function useBookmarks(bookId: string, options?: UseBookmarksOptions) {
           // Also save to IndexedDB for offline
           await addBookmarkToDB({ bookId, chapterSlug, chapterTitle, chapterId })
           setBookmarks((prev) => [bookmark, ...prev])
+          emitDataChange('bookmarks')
           return bookmark
         } catch {
           // Fall through to local-only
@@ -195,6 +197,7 @@ export function useBookmarks(bookId: string, options?: UseBookmarksOptions) {
       // Local-only bookmark
       const bookmark = await addBookmarkToDB({ bookId, chapterSlug, chapterTitle, chapterId })
       setBookmarks((prev) => [bookmark, ...prev])
+      emitDataChange('bookmarks')
       return bookmark
     },
     [bookId, editionId, isAuthenticated, bookmarks]
@@ -213,6 +216,7 @@ export function useBookmarks(bookId: string, options?: UseBookmarksOptions) {
 
       await removeBookmarkFromDB(id)
       setBookmarks((prev) => prev.filter((b) => b.id !== id))
+      emitDataChange('bookmarks')
     },
     [editionId, isAuthenticated]
   )

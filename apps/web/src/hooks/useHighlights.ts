@@ -15,6 +15,7 @@ import {
   updatePublicHighlight,
   deletePublicHighlight,
 } from '../api/userData'
+import { emitDataChange } from '../lib/dataEvents'
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -169,6 +170,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
 
       await saveHighlight(highlight)
       setHighlights((prev) => [highlight, ...prev])
+      emitDataChange('highlights')
       return highlight
     },
     [bookId, isAuthenticated, isUserBook]
@@ -211,6 +213,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
 
       await saveHighlight(updated)
       setHighlights((prev) => prev.map((h) => (h.id === id ? updated : h)))
+      emitDataChange('highlights')
       return updated
     },
     [highlights, isAuthenticated]
@@ -229,6 +232,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
 
       await deleteHighlightFromDB(id)
       setHighlights((prev) => prev.filter((h) => h.id !== id))
+      emitDataChange('highlights')
     },
     [isAuthenticated]
   )

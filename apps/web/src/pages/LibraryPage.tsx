@@ -40,6 +40,7 @@ import {
 } from '../api/userBooks'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
+import { emitDataChanges, useDataChange } from '../lib/dataEvents'
 
 type ViewMode = 'list' | 'grid'
 
@@ -155,15 +156,10 @@ export function LibraryPage() {
     fetchUserBooks()
   }, [fetchUserBooks])
 
-  // Refetch when an upload completes anywhere in the app (UploadModal, drag-
-  // drop, FAB-modal, etc). Otherwise navigating to /library?tab=uploads from
-  // a modal that mounted while LibraryPage was already alive doesn't trigger
-  // a re-fetch and the new book stays invisible until manual reload.
-  useEffect(() => {
-    const handler = () => fetchUserBooks()
-    window.addEventListener('textstack:user-books-changed', handler)
-    return () => window.removeEventListener('textstack:user-books-changed', handler)
-  }, [fetchUserBooks])
+  // Cross-component refresh: any add/delete/update in user-books anywhere in
+  // the app (upload modal, action menu, bulk bar, detail page, etc) refetches
+  // here. See lib/dataEvents.ts for the bus.
+  useDataChange('user-books', fetchUserBooks)
 
 
   // Auto-refresh processing books
@@ -324,7 +320,7 @@ export function LibraryPage() {
   const onBulkFinish = () => runBulk(async () => {
     await bulkFinishUserBooks(ids(), true)
     selection.exit()
-    fetchUserBooks()
+    emitDataChanges(['user-books', 'shelves'])
   })
   const onBulkDelete = () => {
     const titles = userBooks.filter(b => selection.selected.has(b.id)).slice(0, 5).map(b => b.title)
@@ -335,18 +331,18 @@ export function LibraryPage() {
     runBulk(async () => {
       await bulkDeleteUserBooks(ids())
       selection.exit()
-      fetchUserBooks()
+      emitDataChanges(['user-books', 'shelves'])
     })
   }
   const onBulkAddTag = (tag: string) => runBulk(async () => {
     await bulkTagUserBooks(ids(), [tag], [])
     invalidateUserTagsCache()
-    fetchUserBooks()
+    emitDataChanges(['user-books', 'tags'])
   })
   const onBulkAddToCollection = (collectionId: string) => runBulk(async () => {
     await bulkAddToCollection(collectionId, ids(), 'userbook')
     selection.exit()
-    fetchUserBooks()
+    emitDataChanges(['user-books', 'collections'])
   })
   const onSelectAllVisible = () => selection.selectAll(sortedUserBooks.map(b => ({ id: b.id })))
 
@@ -601,7 +597,7 @@ export function LibraryPage() {
                     const coverUrl = getUserBookCoverUrl(book.coverPath)
                     const isHighlighted = highlightedBookId === book.id
                     return (
-                      <article key={`upload-${book.id}`} className={`library-list-item${isHighlighted ? ' library-list-item--highlighted' : ''}`}>
+                      <article key={`upload-${book.id}`} data-book-id={book.id} className={`library-list-item${isHighlighted ? ' library-list-item--highlighted' : ''}`}>
                         {isReady ? (
                           <Link to={destination} className="library-list-item__cover">
                             {coverUrl ? (

@@ -66,12 +66,16 @@ describe('UploadModal', () => {
     expect(screen.getByText('upload.status.processing')).toBeInTheDocument()
   })
 
-  it('after upload broadcasts user-books-changed so the library refetches', () => {
-    const listener = vi.fn()
-    window.addEventListener('textstack:user-books-changed', listener)
+  it('after upload broadcasts user-books + shelves changes so consumers refetch', () => {
+    const userBooks = vi.fn()
+    const shelves = vi.fn()
+    window.addEventListener('textstack:data:user-books', userBooks)
+    window.addEventListener('textstack:data:shelves', shelves)
     render(<UploadModal open={true} onClose={() => {}} />)
     fireEvent.click(screen.getByTestId('fake-upload'))
-    expect(listener).toHaveBeenCalled()
-    window.removeEventListener('textstack:user-books-changed', listener)
+    expect(userBooks).toHaveBeenCalled()
+    expect(shelves).toHaveBeenCalled()
+    window.removeEventListener('textstack:data:user-books', userBooks)
+    window.removeEventListener('textstack:data:shelves', shelves)
   })
 })

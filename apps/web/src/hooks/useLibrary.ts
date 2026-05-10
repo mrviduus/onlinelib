@@ -4,6 +4,7 @@ import { useDownload } from '../context/DownloadContext'
 import { useLanguage } from '../context/LanguageContext'
 import { getLibrary, addToLibrary, removeFromLibrary, LibraryItem } from '../api/auth'
 import { deleteAllCachedData } from '../lib/offlineDb'
+import { emitDataChanges, useDataChange } from '../lib/dataEvents'
 
 export function useLibrary() {
   const { isAuthenticated } = useAuth()
@@ -13,35 +14,40 @@ export function useLibrary() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch library on mount (if authenticated)
+  const fetchLibrary = useCallback(async () => {
+    if (!isAuthenticated) return
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await getLibrary()
+      setItems(response.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load library')
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  // Fetch library on mount + on auth changes.
   useEffect(() => {
     if (!isAuthenticated) {
       setItems([])
       setLoading(false)
       return
     }
-
-    const fetchLibrary = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const response = await getLibrary()
-        setItems(response.items)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load library')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchLibrary()
-  }, [isAuthenticated])
+  }, [isAuthenticated, fetchLibrary])
+
+  // Cross-component refresh: any other component that adds/removes a saved
+  // book broadcasts `library`. Re-pull so this hook stays in sync.
+  useDataChange('library', fetchLibrary)
 
   const add = useCallback(async (editionId: string) => {
     if (!isAuthenticated) return
     try {
       const item = await addToLibrary(editionId)
       setItems(prev => [item, ...prev])
+      emitDataChanges(['library', 'shelves'])
       // Start background download for offline use
       startDownload(editionId, item.slug, item.title, language)
       return item
@@ -58,6 +64,7 @@ export function useLibrary() {
       cancelDownload(editionId)
       await removeFromLibrary(editionId)
       setItems(prev => prev.filter(item => item.editionId !== editionId))
+      emitDataChanges(['library', 'shelves'])
       // Clean up cached data
       deleteAllCachedData(editionId).catch(() => {})
     } catch (err) {

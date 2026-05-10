@@ -6,6 +6,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useTranslation } from '../../hooks/useTranslation'
 import { UploadForm } from './UploadForm'
 import { getUserBook } from '../../api/userBooks'
+import { emitDataChanges } from '../../lib/dataEvents'
 
 interface UploadModalProps {
   open: boolean
@@ -25,8 +26,6 @@ const POLL_INTERVAL_MS = 2000
 // timeout we keep the book in the user's library (server-side job continues)
 // and surface an "it's still processing" message with link to library.
 const POLL_TIMEOUT_MS = 5 * 60_000
-
-const USER_BOOKS_CHANGED_EVENT = 'textstack:user-books-changed'
 
 export function UploadModal({ open, onClose, initialFile, queue }: UploadModalProps) {
   const containerRef = useFocusTrap(open)
@@ -73,11 +72,12 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
     return () => { document.body.style.overflow = prev }
   }, [open])
 
-  // Notify the rest of the app (LibraryPage etc) that the user's books list
-  // changed — both on transition into Processing (so the placeholder card
-  // appears immediately) and again on Ready (cover/chapters now available).
+  // Notify the rest of the app (LibraryPage, shelves, sidebar counts) that
+  // the user's books list changed. Fires on transition into Processing (so
+  // the placeholder card appears immediately) and again on Ready (cover +
+  // chapter count now available). Shelves cache is invalidated alongside.
   const broadcastChange = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(USER_BOOKS_CHANGED_EVENT))
+    emitDataChanges(['user-books', 'shelves'])
   }, [])
 
   const pollStatus = useCallback((bookId: string) => {
@@ -295,5 +295,3 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
   )
 }
 
-// Re-export the event name so other modules listen against a single source.
-export const USER_BOOKS_CHANGED = USER_BOOKS_CHANGED_EVENT

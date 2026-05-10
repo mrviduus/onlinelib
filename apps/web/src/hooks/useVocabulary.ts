@@ -9,6 +9,7 @@ import {
   type VocabWordDto,
   type VocabStatsDto,
 } from '../api/vocabulary'
+import { emitDataChange, useDataChange } from '../lib/dataEvents'
 
 interface VocabFilters {
   stage?: string
@@ -62,11 +63,19 @@ export function useVocabulary() {
     fetchStats()
   }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Word saved/deleted/edited from anywhere else (reader bubble, review
+  // session, etc) → refetch list + stats so this page stays current.
+  useDataChange('vocabulary', () => {
+    fetchWords()
+    fetchStats()
+  })
+
   const removeWord = useCallback(async (id: string) => {
     try {
       await deleteWordApi(id)
       setWords(prev => prev.filter(w => w.id !== id))
       setTotal(prev => prev - 1)
+      emitDataChange('vocabulary')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete')
     }
@@ -78,6 +87,7 @@ export function useVocabulary() {
       setWords([])
       setTotal(0)
       fetchStats()
+      emitDataChange('vocabulary')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete all')
     }
@@ -87,6 +97,7 @@ export function useVocabulary() {
     try {
       const updated = await updateWordApi(id, data)
       setWords(prev => prev.map(w => w.id === id ? updated : w))
+      emitDataChange('vocabulary')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update')
     }

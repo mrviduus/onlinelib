@@ -7,6 +7,7 @@ import { getAllHighlights, type HighlightListItem } from '../api/userData'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { EmptyState } from '../components/EmptyState'
+import { useDataChange } from '../lib/dataEvents'
 
 const COLORS = ['yellow', 'green', 'pink', 'blue'] as const
 const PAGE_SIZE = 50
@@ -66,6 +67,13 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
     setOffset(0)
     fetchHighlights(true)
   }, [isAuthenticated, activeTab, search, colorFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Highlights added/removed in the reader (or any other surface) re-pull
+  // the list so this page stays current without remount.
+  useDataChange('highlights', () => {
+    setOffset(0)
+    fetchHighlights(true)
+  })
 
   // Group by book
   const groups: BookGroup[] = []

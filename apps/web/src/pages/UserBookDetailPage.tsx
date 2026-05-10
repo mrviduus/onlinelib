@@ -8,6 +8,7 @@ import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
 import { ShareButtons } from '../components/ShareButtons'
 import { BookStatsSection } from '../components/library/BookStatsSection'
+import { emitDataChanges } from '../lib/dataEvents'
 import { AddToCollectionButton } from '../components/library/AddToCollectionButton'
 
 interface SavedProgress {
@@ -97,6 +98,8 @@ export function UserBookDetailPage() {
     setDeleting(true)
     try {
       await deleteUserBook(id)
+      // LibraryPage + shelves listen to these and refresh on arrival.
+      emitDataChanges(['user-books', 'shelves'])
       navigate(`/${language}/library`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete')
