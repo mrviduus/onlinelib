@@ -22,6 +22,7 @@ import { ExplanationPopup } from './ExplanationPopup'
 import { WordPopup } from './WordPopup'
 import { NoteEditor } from './NoteEditor'
 import { TtsHighlightOverlay } from './TtsHighlightOverlay'
+import { ImageLightbox } from './ImageLightbox'
 import { Toast } from '../Toast'
 import { useAuth } from '../../context/AuthContext'
 
@@ -407,9 +408,28 @@ export function ReaderHighlights({
     translationPopup.close()
   }, [clearSelection, translationPopup])
 
+  // --- Image lightbox (tap chapter <img> → fullscreen viewer w/ zoom+pan) ---
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
+  const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement
+    if (t.tagName !== 'IMG') return
+    // Skip overlay images (translation tags, vocab underlines etc render no <img>,
+    // but be defensive against future overlay layers).
+    if (t.closest('[data-vocab-overlay]') || t.closest('[data-reader-overlay]')) return
+    // If wrapped in <a>, prevent navigation in favor of the lightbox.
+    if (t.closest('a')) e.preventDefault()
+    const img = t as HTMLImageElement
+    setLightbox({ src: img.currentSrc || img.src, alt: img.alt || '' })
+  }, [])
+
   // --- Render ---
   return (
-    <div ref={wrapperRef} className="reader-highlights-wrapper" onContextMenu={(e) => e.preventDefault()}>
+    <div
+      ref={wrapperRef}
+      className="reader-highlights-wrapper"
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={handleContentClick}
+    >
       {children}
 
       <HighlightOverlayLayer
@@ -549,6 +569,14 @@ export function ReaderHighlights({
         visible={ttsPlaying && !!ttsSpokenText && countWords(ttsSpokenText) > 1}
         onStop={handleStopTts}
       />
+
+      {lightbox && (
+        <ImageLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   )
 }

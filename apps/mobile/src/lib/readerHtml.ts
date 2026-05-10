@@ -82,7 +82,35 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
             ? 'rgba(50,25,10,0.6), inset -80px 0 60px -60px rgba(50,25,10,0.6), inset 0 50px 40px -40px rgba(50,25,10,0.4), inset 0 -50px 40px -40px rgba(50,25,10,0.4)'
             : 'rgba(30,15,5,0.5), inset -80px 0 60px -60px rgba(30,15,5,0.5), inset 0 50px 40px -40px rgba(30,15,5,0.3), inset 0 -50px 40px -40px rgba(30,15,5,0.3)'};
     }
-    img { max-width: 100%; height: auto; }
+    img { max-width: 100%; height: auto; cursor: pointer; }
+    .ts-img-lightbox {
+      position: fixed; inset: 0;
+      z-index: 100000;
+      background: rgba(0,0,0,0.95);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 200ms ease-out;
+      touch-action: pinch-zoom;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ts-img-lightbox.open { opacity: 1; pointer-events: auto; }
+    .ts-img-lightbox img {
+      max-width: 100%; max-height: 100%;
+      transform-origin: center center;
+      transition: transform 200ms ease-out;
+      user-select: none; -webkit-user-select: none;
+    }
+    .ts-img-lightbox.dragging img { transition: none; }
+    .ts-img-lightbox__close {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      right: 16px;
+      width: 44px; height: 44px;
+      border-radius: 22px; border: 0;
+      background: rgba(255,255,255,0.18);
+      color: #fff; font-size: 24px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
     h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.5em; }
     p { margin: 0.5em 0; }
     a { color: #2563EB; }
@@ -1250,6 +1278,111 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         anchor: anchor
       }));
     });
+
+    // --- Image lightbox: tap chapter <img> → fullscreen viewer ---
+    // Self-contained vanilla JS; no postMessage / native bridge needed.
+    // Pinch via touch-action:pinch-zoom on the overlay (overrides global
+    // user-scalable=no). Double-tap toggles 1×↔2.5× as fallback for
+    // engines that gate pinch-zoom regardless.
+    (function(){
+      var _lb = null;
+      var _lastTap = 0;
+      var _swipe = null;
+
+      function close() {
+        if (!_lb) return;
+        var node = _lb;
+        _lb = null;
+        node.classList.remove('open');
+        setTimeout(function(){ if (node && node.parentNode) node.parentNode.removeChild(node); }, 220);
+      }
+      // Expose for chapter switches / hard close from RN side if ever needed.
+      window.__closeImageLightbox = close;
+
+      function open(src, alt) {
+        if (_lb) close();
+        var box = document.createElement('div');
+        box.className = 'ts-img-lightbox';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+
+        var img = document.createElement('img');
+        img.src = src;
+        if (alt) img.alt = alt;
+        img.draggable = false;
+        box.appendChild(img);
+
+        var btn = document.createElement('button');
+        btn.className = 'ts-img-lightbox__close';
+        btn.setAttribute('aria-label', 'Close image');
+        btn.textContent = '×';
+        box.appendChild(btn);
+
+        var scale = 1;
+        function setScale(s) {
+          scale = Math.max(1, Math.min(4, s));
+          img.style.transform = 'scale(' + scale + ')';
+        }
+
+        // Tap dismiss + double-tap toggle zoom.
+        img.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var now = Date.now();
+          if (now - _lastTap < 280) {
+            setScale(scale > 1 ? 1 : 2.5);
+            _lastTap = 0;
+          } else {
+            _lastTap = now;
+          }
+        });
+        box.addEventListener('click', function(e) {
+          if (e.target === box) close();
+        });
+        btn.addEventListener('click', function(e) { e.stopPropagation(); close(); });
+
+        // Swipe-down to close (only when not zoomed and gesture starts on overlay).
+        box.addEventListener('touchstart', function(e) {
+          if (scale > 1) { _swipe = null; return; }
+          var t = e.touches && e.touches[0];
+          if (!t) return;
+          _swipe = { x: t.clientX, y: t.clientY };
+        }, { passive: true });
+        box.addEventListener('touchmove', function(e) {
+          if (!_swipe || scale > 1) return;
+          var t = e.touches && e.touches[0];
+          if (!t) return;
+          var dy = t.clientY - _swipe.y;
+          if (dy > 80 && Math.abs(t.clientX - _swipe.x) < 60) {
+            _swipe = null;
+            close();
+          }
+        }, { passive: true });
+        box.addEventListener('touchend', function(){ _swipe = null; }, { passive: true });
+
+        document.body.appendChild(box);
+        // Force reflow before adding .open so transition fires.
+        // eslint-disable-next-line no-unused-expressions
+        box.offsetHeight;
+        box.classList.add('open');
+        _lb = box;
+      }
+
+      function isLightboxImg(t) {
+        return t && t.tagName === 'IMG' && !t.closest('.ts-img-lightbox');
+      }
+
+      // Delegate on body. Use click (after touchend), iOS WebKit fires it ~300ms after.
+      document.body.addEventListener('click', function(e) {
+        var t = e.target;
+        if (!isLightboxImg(t)) return;
+        // Don't open if image is inside an overlay layer (defensive).
+        if (t.closest('[data-vocab-overlay]') || t.closest('[data-reader-overlay]')) return;
+        // If wrapped in <a>, prevent navigation in favor of lightbox.
+        var a = t.closest('a');
+        if (a) e.preventDefault();
+        open(t.currentSrc || t.src, t.alt || '');
+      });
+    })();
   </script>
 </head>
 <body>

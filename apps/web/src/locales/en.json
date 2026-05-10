@@ -231,6 +231,12 @@
       "cancel": "Cancel",
       "save": "Save"
     },
+    "image": {
+      "close": "Close image",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "reset": "Reset zoom"
+    },
     "idbUnavailable": "Can't save offline here. Tap to create a free account and keep your words.",
     "vocab": {
       "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
