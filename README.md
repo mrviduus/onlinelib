@@ -7,13 +7,12 @@
 [![GitHub stars](https://img.shields.io/github/stars/mrviduus/textstack?style=social)](https://github.com/mrviduus/textstack/stargazers)
 
 <p align="center">
-  <img src="docs/assets/hero.png" alt="TextStack — a reader for developers finishing English technical books in their native language" width="800">
+  <img src="docs/demo.gif" alt="TextStack — select any technical phrase, get a 2-3 sentence explanation in your native language" width="800">
 </p>
 
 <p align="center">
-  <strong>A reader for developers who want to finish English technical books in their native language.</strong><br>
-  Tap any term → context-aware translation that knows the book's domain. Capped weekly SRS queue.<br>
-  A modern replacement for Kindle Word Wise — built for technical books, not conversational language learning.
+  <strong>Finish English technical books in your native language.</strong><br>
+  Select any term → 2-3 sentence explanation that knows the book's domain. A modern Kindle Word Wise, built for dense tech reading.
 </p>
 
 <p align="center">
@@ -21,12 +20,6 @@
   <a href="https://dev.to/mrviduus/i-quit-designing-data-intensive-applications-ddia-three-times-heres-what-i-build-on-the-fourth-5bom">Why I built it</a> ·
   <a href="https://twitter.com/Rexetdeus">@Rexetdeus</a>
 </p>
-
----
-
-I quit *Designing Data-Intensive Applications* three times before I built this.
-
-![TextStack demo — select any technical phrase, get a 2-3 sentence explanation in your native language](docs/demo.gif)
 
 > ⭐ Star the repo if you've ever abandoned a technical book mid-way — it's the strongest signal that this kind of tool is worth building.
 
