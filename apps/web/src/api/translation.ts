@@ -11,11 +11,23 @@ export interface LanguageInfo {
   name: string
 }
 
+export interface TranslateContext {
+  /** Book id (editionId for catalog books, userBookId for uploads). Backend
+   *  uses it to look up the book's genre and bias the prompt toward the
+   *  domain-specific meaning when the word is ambiguous. */
+  bookId?: string | null
+  /** The sentence the word was tapped in. Lets the model disambiguate
+   *  ("warehouse" → storage facility vs data warehouse) without us having to
+   *  enumerate domains client-side. */
+  sentence?: string | null
+}
+
 export async function translate(
   text: string,
   sourceLang: string,
   targetLang: string,
   signal?: AbortSignal,
+  ctx?: TranslateContext,
 ): Promise<TranslateResponse> {
   const res = await fetch(`${API_BASE}/api/translate`, {
     method: 'POST',
@@ -24,6 +36,10 @@ export async function translate(
       text,
       sourceLang,
       targetLang,
+      // Optional fields — backend ignores when absent and falls back to
+      // the legacy context-free prompt.
+      bookId: ctx?.bookId ?? undefined,
+      sentence: ctx?.sentence ?? undefined,
     }),
     signal,
   })

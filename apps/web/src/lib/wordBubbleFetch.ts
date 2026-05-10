@@ -32,6 +32,11 @@ interface FetchWordBubbleOpts {
   /** Merge a partial update into the active bubble if it's still the same word.
    *  Caller implements the stale-word guard using their bubble state. */
   patch: (fields: WordBubbleFetchFields) => void
+  /** Optional book id (editionId or userBookId). Forwarded to the translation
+   *  endpoint so it can pick a domain-aware reading. */
+  bookId?: string | null
+  /** Optional surrounding sentence — same disambiguation purpose. */
+  sentence?: string | null
 }
 
 export function fetchWordBubble(opts: FetchWordBubbleOpts) {
@@ -39,6 +44,7 @@ export function fetchWordBubble(opts: FetchWordBubbleOpts) {
     word, bookLanguage, targetLang,
     lookup, vocabMap, updateTranslation,
     signal, patch,
+    bookId, sentence,
   } = opts
 
   // Dictionary (phonetic + definition) — runs regardless of targetLang.
@@ -58,7 +64,7 @@ export function fetchWordBubble(opts: FetchWordBubbleOpts) {
 
   // Translation fetch (no save). Skipped in same-lang definition mode.
   if (!targetLang) return
-  translateApi(word, bookLanguage, targetLang, signal)
+  translateApi(word, bookLanguage, targetLang, signal, { bookId, sentence })
     .then((res) => {
       if (signal.aborted) return
       const translatedText = res?.translatedText ?? null

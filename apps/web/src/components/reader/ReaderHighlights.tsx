@@ -230,11 +230,19 @@ export function ReaderHighlights({
       rect,
       range,
     })
+    // Pass book context so translation can pick the domain-aware reading
+    // ("warehouse" in a CS book → data-warehouse, in a logistics book →
+    // storage facility). Same sentence-extraction logic the save flow uses.
+    const container = containerRef.current
+    const sentence = range && container ? extractSentence(range, container) ?? undefined : undefined
+    const bookId = userBookId || editionId || undefined
     fetchWordBubble({
       word, bookLanguage, targetLang,
       lookup: lookupWord, vocabMap, updateTranslation,
       signal: ctrl.signal,
       patch: (fields) => setBubble((prev) => (prev && prev.word === word ? { ...prev, ...fields } : prev)),
+      bookId,
+      sentence,
     })
 
     // Auto-save via shared dedup hook (sync ref seals race that vocabMap can't —
@@ -244,7 +252,7 @@ export function ReaderHighlights({
     if (hasConfirmedLanguage) {
       triggerAutoSave(word, () => handleSave(word, range))
     }
-  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave, triggerAutoSave, hasConfirmedLanguage])
+  }, [bookLanguage, targetLang, vocabMap, updateTranslation, lookupWord, handleSave, triggerAutoSave, hasConfirmedLanguage, containerRef, userBookId, editionId])
 
   // Catch-up auto-save: if the user taps a word BEFORE confirming native
   // language, openBubble opens the popup but skips the save. When they then

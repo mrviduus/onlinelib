@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Application.Common.Interfaces;
 using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Endpoints;
 
@@ -23,10 +25,12 @@ public static class TranslationEndpoints
         [FromBody] TranslateRequest request,
         IConfiguration config,
         ILlmServiceFactory llmFactory,
+        IAppDbContext db,
         ILogger<Program> logger,
         CancellationToken ct)
     {
         var maxLength = config.GetValue("OpenAI:Translate:MaxTextLength", 500);
+        var maxSentenceLength = config.GetValue("OpenAI:Translate:MaxSentenceLength", 800);
         var cachePath = config.GetValue<string>("Translate:CachePath") ?? "/tmp/translate-cache";
         var cacheTtlDays = config.GetValue("Translate:CacheTtlDays", 30);
 
@@ -42,10 +46,43 @@ public static class TranslationEndpoints
         if (string.IsNullOrWhiteSpace(request.TargetLang))
             return Results.BadRequest("Target language is required");
 
+        // Soft-cap on sentence — we still translate the word, we just drop the
+        // context to keep prompt size predictable.
+        var sentence = request.Sentence;
+        if (!string.IsNullOrWhiteSpace(sentence) && sentence.Length > maxSentenceLength)
+            sentence = null;
+
         var srcLang = request.SourceLang.Split('-')[0];
         var tgtLang = request.TargetLang.Split('-')[0];
 
-        var cacheKey = ComputeCacheKey(request.Text, srcLang, tgtLang);
+        // Resolve genre from request → Editions (catalog book) → UserBooks (user
+        // upload). Mirrors ExplainEndpoints. Fail-soft: a lookup error logs and
+        // falls through to the no-domain prompt rather than 500'ing the request.
+        var genre = request.Genre;
+        if (string.IsNullOrWhiteSpace(genre) && !string.IsNullOrWhiteSpace(request.BookId)
+            && Guid.TryParse(request.BookId, out var bookId))
+        {
+            try
+            {
+                genre = await db.Editions
+                    .Where(e => e.Id == bookId)
+                    .SelectMany(e => e.Genres.Select(g => g.Name))
+                    .FirstOrDefaultAsync(ct);
+                if (string.IsNullOrWhiteSpace(genre))
+                {
+                    genre = await db.UserBooks
+                        .Where(ub => ub.Id == bookId)
+                        .Select(ub => ub.Genre)
+                        .FirstOrDefaultAsync(ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Translate genre lookup failed, using 'general' domain");
+            }
+        }
+
+        var cacheKey = ComputeCacheKey(request.Text, srcLang, tgtLang, genre, sentence);
         var cacheFile = Path.Combine(cachePath, cacheKey + ".json");
 
         try
@@ -68,8 +105,7 @@ public static class TranslationEndpoints
             logger.LogWarning(ex, "Translate cache read failed, falling through to LLM");
         }
 
-        var systemPrompt = $"You are a translation engine. Translate from {srcLang} to {tgtLang}. " +
-                           "Output ONLY the translated text. No preface, no quotes, no explanation.";
+        var systemPrompt = BuildSystemPrompt(srcLang, tgtLang, genre, sentence);
 
         try
         {
@@ -109,9 +145,57 @@ public static class TranslationEndpoints
         }
     }
 
-    private static string ComputeCacheKey(string text, string srcLang, string tgtLang)
+    /// <summary>
+    /// Build the translation system prompt. Without genre/sentence we behave
+    /// like the legacy engine. With them we bias the model toward the
+    /// domain-specific reading and ask for a parenthetical clarifier when the
+    /// word is genuinely ambiguous (the README's "увага (механізм у нейромережах)"
+    /// pattern).
+    /// </summary>
+    private static string BuildSystemPrompt(string srcLang, string tgtLang, string? genre, string? sentence)
     {
-        var payload = $"{srcLang}|{tgtLang}|{text}";
+        var sb = new StringBuilder();
+        sb.Append("You are a translation engine for readers of books and articles. ");
+        sb.Append($"Translate from {srcLang} to {tgtLang}. ");
+
+        if (!string.IsNullOrWhiteSpace(genre))
+        {
+            sb.Append($"Domain hint: {genre.Trim()}. ");
+            sb.Append("Prefer the domain-specific meaning over the everyday meaning when the word is ambiguous, ");
+            sb.Append("but never force a technical reading on a clearly non-technical context. ");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sentence))
+        {
+            // Quote the sentence and escape any internal double-quotes so the
+            // prompt stays parseable for the model.
+            var escaped = sentence.Trim().Replace("\"", "\\\"");
+            sb.Append($"Sentence context: \"{escaped}\". ");
+        }
+
+        sb.Append("Output ONLY the translation. ");
+
+        if (!string.IsNullOrWhiteSpace(genre) || !string.IsNullOrWhiteSpace(sentence))
+        {
+            sb.Append("If the word has a domain-specific meaning that differs materially ");
+            sb.Append("from its everyday meaning, append a SHORT clarifier in ");
+            sb.Append($"{tgtLang} parentheses, e.g. \"увага (механізм у нейромережах)\" ");
+            sb.Append("or \"опитування (періодичний запит до сервера)\". ");
+            sb.Append("Otherwise output just the translation. ");
+        }
+
+        sb.Append("No preface, no quotes, no markdown.");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Cache key includes genre + sentence so a domain-specific translation of
+    /// "polling" in a CS book does not poison the cache for the same word in a
+    /// political-news article.
+    /// </summary>
+    private static string ComputeCacheKey(string text, string srcLang, string tgtLang, string? genre, string? sentence)
+    {
+        var payload = $"{srcLang}|{tgtLang}|{genre ?? ""}|{sentence ?? ""}|{text}";
         var bytes = Encoding.UTF8.GetBytes(payload);
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
@@ -147,7 +231,10 @@ public static class TranslationEndpoints
 public record TranslateRequest(
     string Text,
     string SourceLang,
-    string TargetLang
+    string TargetLang,
+    string? BookId = null,
+    string? Sentence = null,
+    string? Genre = null
 );
 
 public record TranslateResponse(
