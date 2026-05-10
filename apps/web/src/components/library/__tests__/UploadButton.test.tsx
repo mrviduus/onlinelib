@@ -19,11 +19,6 @@ vi.mock('react-router-dom', () => ({
 vi.mock('../UploadModal', () => ({
   UploadModal: ({ open }: { open: boolean }) => (open ? <div data-testid="modal" /> : null),
 }))
-vi.mock('../AddMenu', () => ({
-  AddMenu: ({ onUpload, triggerLabel }: { onUpload: () => void; triggerLabel: string }) => (
-    <button onClick={onUpload}>{triggerLabel}</button>
-  ),
-}))
 
 import { UploadButton } from '../UploadButton'
 
@@ -48,7 +43,7 @@ describe('UploadButton', () => {
     expect(navigateMock).toHaveBeenCalledWith('/en/login?next=/library')
   })
 
-  it('renders AddMenu trigger + opens modal when upload entry fires', () => {
+  it('opens upload modal directly on click (no intermediate menu)', () => {
     useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false })
     render(<UploadButton />)
     const btn = screen.getByRole('button', { name: 'upload.button' })

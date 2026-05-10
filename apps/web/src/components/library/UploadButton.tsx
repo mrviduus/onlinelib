@@ -6,7 +6,6 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { useGlobalUploadShortcut } from '../../hooks/useGlobalUploadShortcut'
 import { emit } from '../../lib/telemetry/myBooksV2'
 import { UploadModal } from './UploadModal'
-import { AddMenu } from './AddMenu'
 
 export function UploadButton() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -32,13 +31,6 @@ export function UploadButton() {
     return () => window.removeEventListener('textstack:open-upload', handler)
   }, [isAuthenticated, openModal])
 
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
-
   if (isLoading) return null
 
   if (!isAuthenticated) {
@@ -56,13 +48,22 @@ export function UploadButton() {
     )
   }
 
+  // Direct-action button: clicking it opens the upload modal immediately.
+  // We intentionally do NOT show a dropdown of unimplemented sources here —
+  // less clicks, less to think about. URL/email/extension entry points will
+  // resurface in their own flow once implemented.
   return (
     <>
-      <AddMenu
-        onUpload={openModal}
-        triggerLabel={t('upload.button')}
-        triggerTitle={t('upload.shortcut.hint')}
-      />
+      <button
+        type="button"
+        className="site-header__upload-btn"
+        onClick={openModal}
+        title={t('upload.shortcut.hint')}
+        aria-label={t('upload.button')}
+      >
+        <span className="material-icons-outlined">add</span>
+        <span className="site-header__upload-btn-label">{t('upload.button')}</span>
+      </button>
       <UploadModal open={open} onClose={closeModal} />
     </>
   )
