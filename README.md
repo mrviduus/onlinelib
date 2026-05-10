@@ -26,10 +26,7 @@
 
 I quit *Designing Data-Intensive Applications* three times before I built this.
 
-<!-- TODO: Replace with actual demo GIF showing tap-word → translation flow -->
-<!-- Suggested: 3-5 second GIF, ~600px wide, showing a real DDIA paragraph with a tap interaction -->
-
-![TextStack demo — tap any term, get a context-aware translation](docs/demo.gif)
+![TextStack demo — select any technical phrase, get a 2-3 sentence explanation in your native language](docs/demo.gif)
 
 > ⭐ Star the repo if you've ever abandoned a technical book mid-way — it's the strongest signal that this kind of tool is worth building.
 
@@ -83,9 +80,12 @@ out; only technical vocabulary gets surfaced.
 **Reader**
 - Kindle-like experience — themes (light/sepia/dark), fonts, fullscreen,
   keyboard shortcuts
-- Text selection — contextual translation in 18+ languages (OpenAI
-  `gpt-5-mini`), explanation mode for English-only readers, dictionary
-  fallback (Free Dictionary API), highlights
+- **Explain** — select any technical phrase → 2-3 sentence explanation in
+  your native language, aware of the book's domain. Uses OpenAI
+  `gpt-5-mini`. Includes a concrete analogy when the term is technical
+  (see GIF above).
+- Text selection extras — contextual translation in 18+ languages,
+  dictionary fallback (Free Dictionary API), highlights
 - TTS — Edge TTS via direct WebSocket (200+ voices, 0.75×–2.0× speed, two-
   layer cache)
 - Offline reading — PWA with IndexedDB caching, download manager
