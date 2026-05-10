@@ -17,15 +17,24 @@ namespace TextStack.Extraction.Utilities;
 /// </remarks>
 public static class BookTitleCleaner
 {
-    // Tail "(for ...)" where the inside is empty or template-only.
-    // ${var} / {{var}} / $var / %var / nothing.
+    // Class for "non-content" chars between `for` and `)` — regular whitespace
+    // (\s = \p{Z} + tabs/CR/LF), Unicode format chars (\p{Cf} — covers ZWSP
+    // U+200B, ZWJ U+200D, BOM U+FEFF, soft hyphen U+00AD, etc.). EPUB metadata
+    // pipelines that strip variables sometimes leave these invisible chars
+    // behind, so plain `\s*` misses them and the cleaner returns the title
+    // unchanged.
+    private const string Empty = @"[\s\p{Cf}]*";
+
+    // Tail "(for ...)" where the inside is empty (incl. invisible chars) or
+    // a known template placeholder syntax (${var} / {{var}} / $var / %var).
     private static readonly Regex EmptyForParens = new(
-        @"\s*\(\s*for\b\s*(?:\$\{[^}]*\}|\{\{[^}]*\}\}|\$[A-Za-z_][\w.]*|%\w+|)\s*\)\s*$",
+        @"[\s\p{Cf}]*\(" + Empty + @"for\b(?:" + Empty +
+        @"(?:\$\{[^}]*\}|\{\{[^}]*\}\}|\$[A-Za-z_][\w.]*|%\w+))?" + Empty + @"\)" + Empty + @"$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // Generic empty parens at the tail (e.g. "Title ()" or "Title (   )").
     private static readonly Regex EmptyTailParens = new(
-        @"\s*\(\s*\)\s*$",
+        Empty + @"\(" + Empty + @"\)" + Empty + @"$",
         RegexOptions.Compiled);
 
     // Standalone template placeholders anywhere in the title.

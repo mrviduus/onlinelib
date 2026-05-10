@@ -39,4 +39,19 @@ public class BookTitleCleanerTests
     {
         Assert.Equal(expected, BookTitleCleaner.Clean(input));
     }
+
+    // Invisible / format-only chars that EPUB metadata pipelines leave behind.
+    [Theory]
+    [InlineData("Title (for ​)")]   // zero-width space
+    [InlineData("Title (for ‌)")]   // zero-width non-joiner
+    [InlineData("Title (for ‍)")]   // zero-width joiner
+    [InlineData("Title (for ﻿)")]   // byte-order mark
+    [InlineData("Title (for  )")]   // non-breaking space
+    [InlineData("Title (for ­)")]   // soft hyphen
+    [InlineData("Title (for ​ ​)")] // mix
+    [InlineData("Title (for​)")] // NBSP outside parens too
+    public void Clean_InvisibleChars_StripsForParens(string input)
+    {
+        Assert.Equal("Title", BookTitleCleaner.Clean(input));
+    }
 }
