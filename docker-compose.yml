@@ -174,6 +174,11 @@ services:
       context: ./apps/web
       dockerfile: Dockerfile.ssg-worker
     container_name: textstack_ssg_worker
+    # tini reaps Chromium/chrome_crashpad children left behind by Puppeteer.
+    # Without this, each prerender leaves a <defunct> Z process on the host
+    # (28 chromium + 28 crashpad zombies observed over a few hours of SSG
+    # activity). Doesn't change behaviour, just keeps the process table clean.
+    init: true
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}"
       API_URL: http://api:8080
