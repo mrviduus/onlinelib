@@ -137,6 +137,87 @@ After the 30 s → 90 s timeout bump + worker URL fix, success rate is
 expected to climb to ~100 %. Will re-measure after a deploy cycle and
 post the delta in the article body.
 
+### Punchline — Gemma 4 thinking mode was eating the answer
+
+The real root cause behind the 2/13 success rate wasn't the timeout
+or the Ollama URL. It was **thinking mode**. Direct probe on prod:
+
+```text
+$ ollama run gemma4:e2b "Reply EXACTLY: GENRE: <...>\nYEAR: <...>..."
+Thinking...
+Thinking Process:
+1. **Analyze the Request:** The user provided a context...
+2. **Analyze the Constraint:** The instruction is to "Reply EXACTLY..."
+...
+```
+
+Gemma 4 (both `e4b` and `e2b`) is a reasoning model. Every call emits
+a long chain-of-thought preamble before the answer. With
+`num_predict=600` (our cap for `DistractorGenerator` /
+`BookMetadataGenerator`), the thinking budget ate the whole window
+and the response we tried to parse contained no `GENRE:` /
+`DISTRACTORS:` / `HINT:` / `EXPLANATION:` lines — every fire-and-
+forget enrichment returned null. The 2 successful calls in the
+2/13 sample? Pure luck — those prompts happened to finish thinking
+inside the token budget.
+
+Fix: pass `think: false` in the `/api/generate` body. Ollama 0.6+
+supports the flag for thinking-capable models; non-thinking models
+silently ignore it. One JSON field, four lines of code:
+
+```csharp
+var request = new
+{
+    model = _model,
+    prompt,
+    stream = false,
+    think = false,    // ← this one
+    options = new { num_predict = maxOutputTokens },
+};
+```
+
+### Production numbers, after `think: false` (re-collected 2026-05-11)
+
+| Metric                        | Before (no `think:false`) | After (`think:false`) |
+|-------------------------------|---------------------------|-----------------------|
+| Enrichment success rate       | 2 / 13 = **15 %**         | 12 / 12 = **100 %**   |
+| Per-call inference time       | 90 s → **timeout**        | 0.6 s eval / 1.5 s total |
+| Tokens emitted per call       | ~600 (capped, all thinking) | **13**              |
+| CPU burn per 5 saves          | 5–8 min of 100 % CPU      | ~7.5 s of 100 % CPU   |
+| `MetadataBackfillWorker` run  | enriched = 0 / 6          | enriched = 6 / 6      |
+
+Real (word → distractors) samples written by Gemma 4 e2b after the
+fix, harvested from `vocabulary_words`:
+
+```
+were    → ["was", "is", "am", "be", "had"]
+without → ["lacking", "except", "beyond", "unless", "besides"]
+warehouse → ["storeroom", "depot", "facility", "silo", "loft"]
+```
+
+Clean, single-word, semantically adjacent, no synonyms. Exactly the
+shape `DistractorGenerator.BuildPrompt` asks for. The hint sentences
+and per-word Russian explanations land equally well — full samples in
+the article body.
+
+CPU temperature on the prod box (Ryzen 5 4600H, no GPU) sits at ~43 °C
+idle, peaks at ~71 °C during a 5-word burst, falls back inside a
+minute. Throttle threshold is ~95 °C; we're nowhere near it.
+
+### Also fixed in the same pass
+
+- **SSG worker zombie pile-up** — Puppeteer was leaving `<defunct>`
+  Chromium + `chrome_crashpad` children every prerender (28 + 28 = 56
+  observed on the host). Added `init: true` to the `ssg-worker`
+  service in `docker-compose.yml`; Docker now runs `tini` as PID 1 to
+  reap SIGCHLD'd children. Zero behaviour change in SSG output, just
+  keeps the process table from drifting toward PID exhaustion.
+- **OpenTelemetry CVEs** — bumped `OpenTelemetry.Api` /
+  `OpenTelemetry.Exporter.OpenTelemetryProtocol` / instrumentation
+  packages from 1.11.x to 1.15.3 (stable). Clears GHSA-4625-4j76-fww9
+  and GHSA-g94r-2vxg-569j. `dotnet list package --vulnerable` now
+  reports zero hits across the solution.
+
 ### Up next — load testing with LoadSurge
 
 The single-user prod numbers above are honest but limited; "100 readers
