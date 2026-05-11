@@ -110,6 +110,12 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Storage__RootPath: /storage
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
+      # Worker reaches Ollama via the Docker service name, not localhost
+      # (without this override it falls back to appsettings.json's
+      # "http://localhost:11434" and silently fails every vocab-enrichment
+      # call — symptom: words save with NULL distractors/hint/explanation).
+      Ollama__BaseUrl: http://ollama:11434
+      Ollama__Model: gemma4:e4b
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     volumes:
       - ./data/storage:/storage
