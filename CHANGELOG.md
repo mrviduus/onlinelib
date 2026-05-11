@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
+### Headline — Gemma 4 swap + the bugs it surfaced
+
+Switching the local LLM from `qwen3:8b` to `gemma4:e4b` looked like a
+five-minute model-name change. Behind it sat a chain of latent prod bugs
+that only became visible once we started actually reading the saved
+distractors/hints/explanations and the freshly enriched book metadata.
+This `[Unreleased]` block tracks the swap **and** every follow-up fix that
+landed before publishing the Gemma 4 Challenge write-up.
+
 ### Changed
+
 - **Local LLM model**: switched from `qwen3:8b` to `gemma4:e4b` (Google's
   Gemma 4 effective-4B, multimodal — text + vision + audio capable). Same
   `ILlmService` interface, no API changes.
@@ -11,7 +21,113 @@
   `gemma4` family). Memory limits raised from 4G/2G to 12G/8G — `gemma4:e4b`
   needs ~9.8 GiB RAM to load weights + KV cache. Server has 31 GB total so
   the headroom is plenty.
-- To roll back: set `Ollama__Model=qwen3:8b` env var or revert this commit.
+- **Ollama `keep_alive=-1`**: PR #234 — keep the model resident across idle
+  windows. Without this, a 5-minute lull (typical between two user-vocab
+  saves) made every next save eat a 30-60s cold model load. `ollama ps`
+  now consistently shows `UNTIL=Forever` for `gemma4:e4b`.
+- **API + Worker Ollama timeout**: raised `Ollama:TimeoutSeconds` from
+  `30` → `90` in both `appsettings.json`. Gemma 4 e4b on CPU-only takes
+  >30 s for some prompts (especially first inference after a model load).
+  At 30 s the API logged a 100% timeout rate for vocab enrichment; at 90 s
+  the success rate climbs back to normal. Cost: cap on worst-case latency
+  per word doubled, but enrichment is fire-and-forget so the user sees no
+  difference. To roll back: revert this commit or override via env var
+  `Ollama__TimeoutSeconds`.
+- To roll back the model entirely: set `Ollama__Model=qwen3:8b` env var or
+  revert the swap commit.
+
+### Fixed
+
+- **Worker couldn't reach Ollama** (`localhost:11434` instead of
+  `http://ollama:11434`). `docker-compose.yml` had set `Ollama__BaseUrl`
+  on the `api` service but not on `worker`, so every
+  `BookMetadataGenerator` call from the worker hit `Connection refused`
+  silently — every user-uploaded book ended up with `genre = NULL`, which
+  in turn meant the domain-aware translation prompt had nothing to bias
+  against. Fix: add `Ollama__BaseUrl` + `Ollama__Model` to the worker env
+  block, mirroring the api block. Discovered by greping the worker logs
+  during prod-stats collection for the Gemma 4 article — visible only via
+  `docker compose logs worker | grep "Connection refused"`.
+- **`MetadataBackfillWorker` (one-shot)**: new `BackgroundService` that
+  on worker startup picks up to 50 user_books with `Status=Ready AND
+  Genre IS NULL`, runs `BookMetadataGenerator` against each (2 s gaps),
+  and writes the result back. Heals the ~10 books that were ingested
+  while the worker was pointing at the wrong host. Idempotent —
+  re-running on a healthy DB is a no-op.
+- **`/api/explain` returned 404**: client called `${API_BASE}/api/explain`
+  but in prod `API_BASE='/api'`, so the URL became `/api/api/explain`.
+  Translation got away with the same bug because it has a `/translate`
+  compat route on the backend; Explain didn't. Fix in
+  `apps/web/src/api/explain.ts` and `dictionary.ts`: drop the redundant
+  `/api/` prefix. Backend `Map("/explain")` route untouched.
+- **Domain-aware tap-on-word translation**: `TranslateRequest` now
+  accepts optional `BookId` / `Sentence` / `Genre`. Backend mirrors
+  ExplainEndpoints to resolve genre from `Editions` then `UserBooks`,
+  fails soft if neither exists. Prompt biases toward the
+  domain-specific reading and asks for a short parenthetical clarifier
+  in the target language (the README's "увага (механізм у нейромережах)"
+  pattern). Cache key now includes genre + sentence so a CS-context
+  translation of "polling" doesn't poison the cache for the same word
+  in a news-context query.
+- **EPUB titles like `"Designing Data-Intensive Applications (for )"`**:
+  O'Reilly Atlas templates ship `dc:title` with `(for ${atlas.author_email})`;
+  some retail pipelines strip the variable but leave the parens. New
+  `BookTitleCleaner` utility (`backend/src/Extraction/.../Utilities/`)
+  removes the trailing parenthetical when its content is empty,
+  whitespace-only, a known template syntax (`${var}`, `{{var}}`, `$var`,
+  `%var`), or any combination of Unicode formatting chars (ZWSP, ZWJ,
+  BOM, NBSP, soft hyphen, embedding controls). Wired into Epub/FB2/PDF
+  extractors. 26 unit-test cases covering real-world variants.
+- **Migration `\b` bug — PostgreSQL doesn't treat `\b` as a word
+  boundary**: V1 and V2 of `CleanUserBookTitles` used `\b` inside the
+  SQL regex assuming Perl/PCRE semantics. PostgreSQL's Advanced Regex
+  Engine treats `\b` as backspace (`U+0008`), so the migrations
+  silently no-op'd against actual `(for )` titles in prod. Verified
+  with:
+
+  ```sql
+  SELECT 'X (for )' ~ '\(\s*for\b\s*\)\s*$';  -- false (!)
+  SELECT 'X (for )' ~ '\(\s*for\s*\)\s*$';    -- true
+  ```
+
+  V3 migration (`20260511012517_CleanUserBookTitlesV3`) drops the `\b`
+  entirely — the surrounding parens already pin "for". The clean-up
+  finally applied retroactively on deploy.
+- **Translate cache permission**: `/data/translate-cache` was mounted
+  root-owned (uid 0) while the api container runs as uid 1000. Every
+  cache write logged EACCES (translation worked but nothing got cached).
+  `Makefile` `fix-permissions` target gains the `translate-cache` dir;
+  GitHub Actions deploy workflow now runs `make fix-permissions` before
+  `docker compose up`. Idempotent, adds ~1 s per deploy.
+
+### Production snapshot (collected for the article)
+
+Read-only data pull from prod 2026-05-11 ahead of publish, after the
+`Connection refused` worker bug got patched but before the timeout bump
+landed:
+
+- **Words saved since the Gemma 4 swap (2026-05-07 → 2026-05-11):** 13.
+- **Of those, Gemma-generated `Distractors` / `Hint` / `Explanation`:** 2
+  each. The other 11 hit the 30 s Ollama timeout and fell through to the
+  random+hardcoded distractor fallback (no hint, no explanation).
+- **Average distractors per generated word:** 4.5 (range 4–5; target 5).
+- **Time window since swap:** 70.4 hours.
+- **Ollama uptime:** the model was resident the entire time (`ollama ps`
+  showed `UNTIL=Forever` consistently) — every miss was a wall-clock
+  timeout, not a cold-load.
+- **One real (word, distractors) pair worth quoting in the article:**
+  `warehouse → ["storeroom", "depot", "facility", "silo", "loft"]`. Five
+  domain-adjacent single-word distractors, exactly the shape the prompt
+  asks for.
+- **One real example of the prompt working in context:** Explain on
+  *Designing Data-Intensive Applications*, ETL phrase, target Spanish,
+  produces a 2-3-sentence explanation with a concrete analogy ("Es como
+  recoger ingredientes de varias tiendas, prepararlos y luego guardarlos
+  en una despensa lista para cocinar."). That clip is `docs/demo.gif`.
+
+After the 30 s → 90 s timeout bump + worker URL fix, success rate is
+expected to climb to ~100 %. Will re-measure after a deploy cycle and
+post the delta in the article body.
 
 ## [v0.1.0] — 2026-05-06
 
