@@ -137,6 +137,29 @@ After the 30 s → 90 s timeout bump + worker URL fix, success rate is
 expected to climb to ~100 %. Will re-measure after a deploy cycle and
 post the delta in the article body.
 
+### Up next — load testing with LoadSurge
+
+The single-user prod numbers above are honest but limited; "100 readers
+all save a vocab word at the same instant" is the next failure mode to
+prove or disprove. Plan: a small .NET load harness on top of
+[LoadSurge](https://github.com/mrviduus/LoadSurge) (in-house actor-based
+load runner, `dotnet add package LoadSurge`). Same language as the
+backend, so the test plan lives in the repo and exercises the real
+`VocabularyEndpoints.SaveWord` path with a realistic concurrency curve
+(ramp 0 → 100 VU over 30 s, hold 5 min). What we want from the run:
+
+- p50 / p95 / p99 translation latency under load (OpenAI-bound — should
+  stay flat).
+- Distractor success rate under load (Ollama-bound — the interesting
+  number, given the single CPU serialises every inference).
+- Ollama timeout count vs the post-swap baseline above.
+
+If distractor success craters under concurrency, the fix is a bounded
+background queue (`Channels` or Polly bulkhead, `MaxConcurrency=2`) plus
+a per-`(word, language)` distractor cache — write once, reuse for every
+later user who saves the same term. Translation already has the disk
+cache; distractors will get the same treatment.
+
 ## [v0.1.0] — 2026-05-06
 
 ### Headline
