@@ -38,15 +38,19 @@
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.72" />
     <PackageVersion Include="PdfPig" Version="0.1.13" />
     <PackageVersion Include="PDFtoImage" Version="4.1.1" />
-    <!-- OpenTelemetry -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.11.2" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
+    <!-- OpenTelemetry. Bumped 1.11.x → 1.15.x to clear GHSA-4625-4j76-fww9
+         (OTLP Exporter) and GHSA-g94r-2vxg-569j (Api). Stable channel. -->
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <!-- This package has no stable channel; pinned to last-known-good beta
+         we already used. Bumping to latest 1.15.1-beta.1 changes API
+         (SetDbStatementForText → SetDbStatement on the options object). -->
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
     <!-- Security (override transitive for CVE fix) -->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.6" />
     <!-- Testing -->
