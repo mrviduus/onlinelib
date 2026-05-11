@@ -37,6 +37,41 @@ export function AboutPage() {
               <p>{t('about.mission1')}</p>
 
               <p>{t('about.mission2')}</p>
+
+              <h2 className="about-page__mission-heading">{t('about.openSourceHeading')}</h2>
+
+              <p>{t('about.openSource1')}</p>
+
+              <div className="about-page__os-buttons">
+                <a
+                  href="https://github.com/mrviduus/textstack"
+                  className="about-page__btn about-page__btn--primary"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Star TextStack on GitHub"
+                >
+                  <span className="material-icons-outlined">star</span>
+                  {t('about.starOnGitHub')}
+                </a>
+                <a
+                  href="https://github.com/mrviduus/textstack#deploy"
+                  className="about-page__btn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Self-host TextStack"
+                >
+                  <span className="material-icons-outlined">dns</span>
+                  {t('about.selfHostGuide')}
+                </a>
+              </div>
+
+              <h2 className="about-page__mission-heading">{t('about.techHeading')}</h2>
+
+              <p>{t('about.tech1')}</p>
+
+              <p className="about-page__stack">
+                <strong>{t('about.techStackLabel')}:</strong> {t('about.techStackValue')}
+              </p>
             </div>
           </section>
         </div>

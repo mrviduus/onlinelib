@@ -268,3 +268,77 @@
     grid-column: 1;
   }
 }
+
+/* Open Source + Tech Stack buttons (left column) */
+.about-page__os-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.about-page__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-bg-secondary, #f5f1ea);
+  color: var(--color-text);
+  border: 1px solid var(--color-border, #e2dccf);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.about-page__btn:hover {
+  background: var(--color-bg-hover, #e8e2d9);
+  border-color: var(--color-border-hover, #d0c9be);
+}
+
+.about-page__btn--primary {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-color: var(--color-text);
+}
+
+.about-page__btn--primary:hover {
+  opacity: 0.85;
+  background: var(--color-text);
+  border-color: var(--color-text);
+}
+
+.about-page__btn .material-icons-outlined {
+  font-size: 18px;
+}
+
+/* Tech stack one-liner */
+.about-page__stack {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  line-height: 1.55;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-secondary, #f5f1ea);
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e2dccf);
+}
+
+.about-page__stack strong {
+  font-family: inherit;
+  color: var(--color-text);
+}
+
+/* Mobile — stack buttons full-width for tap area */
+@media (max-width: 480px) {
+  .about-page__os-buttons {
+    flex-direction: column;
+  }
+
+  .about-page__btn {
+    justify-content: center;
+  }
+}
