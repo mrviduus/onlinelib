@@ -13,14 +13,22 @@ landed before publishing the Gemma 4 Challenge write-up.
 
 ### Changed
 
-- **Local LLM model**: switched from `qwen3:8b` to `gemma4:e4b` (Google's
-  Gemma 4 effective-4B, multimodal — text + vision + audio capable). Same
-  `ILlmService` interface, no API changes.
+- **Local LLM model**: switched from `qwen3:8b` to `gemma4:e4b`, then
+  trimmed once more to `gemma4:e2b` after prod data showed CPU-only
+  `e4b` inference was missing the 30 s timeout window on most requests.
+  Both are Gemma 4 (challenge-condition preserved); `e2b` is the
+  effective-2B MoE variant — 7.2 GB on disk vs 9.6 GB for `e4b`, ~2-3×
+  faster inference on the same CPU. Quality on the
+  distractor / hint / explanation prompt is comparable for short
+  single-word outputs; will measure on prod 1-2 days post-swap. Same
+  `ILlmService` interface, no API changes. To roll back to `e4b`:
+  override env `Ollama__Model=gemma4:e4b`.
 - **Ollama container**: image pinned to `ollama/ollama:0.23.1` (the floating
   `latest` tag was still serving 0.22.x which doesn't recognise the
   `gemma4` family). Memory limits raised from 4G/2G to 12G/8G — `gemma4:e4b`
-  needs ~9.8 GiB RAM to load weights + KV cache. Server has 31 GB total so
-  the headroom is plenty.
+  needs ~9.8 GiB RAM to load weights + KV cache, `gemma4:e2b` needs ~5 GiB
+  but we keep the 12G ceiling so swapping back to `e4b` is one env-var
+  change away. Server has 31 GB total so the headroom is plenty.
 - **Ollama `keep_alive=-1`**: PR #234 — keep the model resident across idle
   windows. Without this, a 5-minute lull (typical between two user-vocab
   saves) made every next save eat a 30-60s cold model load. `ollama ps`
