@@ -52,6 +52,14 @@ jobs:
           VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
             pnpm build
 
+      - name: Fix cache volume permissions
+        # Container runs as uid 1000 but host-mounted cache dirs default to
+        # root ownership. Without this, every translate/explain/tts cache
+        # write logs a permission error. Idempotent.
+        run: |
+          cd $PROJECT_DIR
+          make fix-permissions
+
       - name: Deploy containers
         run: |
           cd $PROJECT_DIR
