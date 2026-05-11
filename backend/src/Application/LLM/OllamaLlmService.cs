@@ -44,11 +44,19 @@ public class OllamaLlmService : ILlmService
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(_timeoutSeconds);
 
+        // think=false disables chain-of-thought on Gemma-4 / Qwen-3 / similar
+        // reasoning models. Without this, gemma4:e2b emits a long
+        // "Thinking Process: 1. Analyze the Request..." preamble that eats
+        // the entire num_predict budget — our parsers (BookMetadataGenerator,
+        // DistractorGenerator) then see no GENRE: / DISTRACTORS: lines and
+        // every fire-and-forget enrichment call returns null. Backwards
+        // compatible: non-thinking models ignore the field.
         var request = new
         {
             model = _model,
             prompt,
             stream = false,
+            think = false,
             options = new { num_predict = maxOutputTokens },
         };
 
