@@ -89,7 +89,10 @@ public sealed class PublicEndpointLoadTests : IDisposable
                 sentence = $"A distributed system relies on {word} to stay consistent.",
                 targetLang = "ru",
             };
-            var resp = await _http.PostAsJsonAsync("/api/explain", body);
+            // Backend registers Explain at /explain (no /api/ group); nginx
+            // maps /api/explain → /explain at the proxy layer. We hit Kestrel
+            // directly, so use the bare path.
+            var resp = await _http.PostAsJsonAsync("/explain", body);
             return resp.IsSuccessStatusCode;
         });
 
@@ -102,6 +105,9 @@ public sealed class PublicEndpointLoadTests : IDisposable
         // Trivial sanity load — every request is /health, every response should
         // be 200. If this fails under our chosen concurrency, something
         // upstream (nginx, kestrel, db) is the bottleneck, not the LLM path.
+        // Backend exposes /health when reached directly (nginx maps /api/health
+        // separately). We hit /health here because the tunnel-based runs go
+        // straight at Kestrel.
         var result = await RunPlan("health", async () =>
         {
             var resp = await _http.GetAsync("/health");
@@ -114,10 +120,10 @@ public sealed class PublicEndpointLoadTests : IDisposable
 
     private async Task<LoadResult> RunPlan(string name, Func<Task<bool>> action)
     {
-        _output.WriteLine($"Target:      {_http.BaseAddress}");
-        _output.WriteLine($"Scenario:    {name}");
-        _output.WriteLine($"Concurrency: {_concurrency}");
-        _output.WriteLine($"Duration:    {_duration.TotalSeconds}s");
+        Emit($"Target:      {_http.BaseAddress}");
+        Emit($"Scenario:    {name}");
+        Emit($"Concurrency: {_concurrency}");
+        Emit($"Duration:    {_duration.TotalSeconds}s");
 
         var plan = new LoadExecutionPlan
         {
@@ -133,16 +139,48 @@ public sealed class PublicEndpointLoadTests : IDisposable
 
         var result = await LoadRunner.Run(plan);
 
-        _output.WriteLine("");
-        _output.WriteLine("==== RESULT ====");
-        _output.WriteLine($"Total:    {result.Total}");
-        _output.WriteLine($"Success:  {result.Success}");
-        _output.WriteLine($"Failed:   {result.Failure}");
-        _output.WriteLine($"RPS:      {result.RequestsPerSecond:F1}");
-        _output.WriteLine($"Avg ms:   {result.AverageLatency:F1}");
-        _output.WriteLine($"P95 ms:   {result.Percentile95Latency:F1}");
+        Emit("");
+        Emit("==== RESULT ====");
+        Emit($"Total:    {result.Total}");
+        Emit($"Success:  {result.Success}");
+        Emit($"Failed:   {result.Failure}");
+        Emit($"RPS:      {result.RequestsPerSecond:F1}");
+        Emit($"Avg ms:   {result.AverageLatency:F1}");
+        Emit($"P95 ms:   {result.Percentile95Latency:F1}");
+
+        // Dump a machine-parseable summary too. The orchestrator reads this
+        // file directly; relying on xUnit's stdout capture is brittle (it
+        // silently swallows ITestOutputHelper writes for --logger console).
+        var dir = Environment.GetEnvironmentVariable("TEXTSTACK_REPORT_DIR");
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, $"{name}.json"),
+                $$"""
+                {
+                  "name": "{{name}}",
+                  "target": "{{_http.BaseAddress}}",
+                  "concurrency": {{_concurrency}},
+                  "duration_s": {{_duration.TotalSeconds}},
+                  "total": {{result.Total}},
+                  "success": {{result.Success}},
+                  "failure": {{result.Failure}},
+                  "rps": {{result.RequestsPerSecond:F2}},
+                  "avg_ms": {{result.AverageLatency:F2}},
+                  "p95_ms": {{result.Percentile95Latency:F2}}
+                }
+                """);
+        }
 
         return result;
+    }
+
+    private void Emit(string s)
+    {
+        _output.WriteLine(s);
+        // xUnit captures ITestOutputHelper away from stdout; mirror to Console
+        // so `dotnet test > log.txt` actually catches the LoadSurge results.
+        Console.WriteLine(s);
     }
 
     public void Dispose() => _http.Dispose();

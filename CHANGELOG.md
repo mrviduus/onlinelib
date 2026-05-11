@@ -218,6 +218,32 @@ minute. Throttle threshold is ~95 °C; we're nowhere near it.
   and GHSA-g94r-2vxg-569j. `dotnet list package --vulnerable` now
   reports zero hits across the solution.
 
+### Load test — 2026-05-11
+
+First end-to-end load run after the `think:false` deploy. Driven by
+`scripts/loadtest/run.sh`: SSH-tunnel into `asus:127.0.0.1:8080`
+(bypasses nginx so a single laptop can saturate the box), pre-warm
+translate + explain disk caches with 10 fixed inputs (one-off
+$0.002 OpenAI), then 50 / 50 / 30 VU bursts against `/health` /
+cached `/api/translate` / cached `/explain`. Server-side metrics
+collected via `scripts/loadtest/collect-metrics.sh` (vmstat /
+thermal / docker stats / `ollama ps`).
+
+Full report + raw artifacts: `docs/loadtest/run-20260511-103451/`.
+
+| Scenario       | VU | Duration | Requests | Success | RPS    | p95     |
+|----------------|---:|---------:|---------:|--------:|-------:|--------:|
+| smoke `/health`| 50 | 30 s     | 15 000   | 100 %   | 500.0  | 20.5 ms |
+| translate cached | 50 | 60 s   | 30 000   | 100 %   | 500.0  | 18.5 ms |
+| explain cached | 30 | 60 s     | 18 000   | 100 %   | 300.0  | 18.4 ms |
+
+Box stayed almost cold: idle 38 °C → burst 42 °C → cooldown 39 °C
+(throttle threshold is 95 °C). System-wide CPU peaked at 12 %; only
+the API container worked, peaking at **71 % CPU** under the smoke
+run — that is the next ceiling. No memory growth, no rate-limiter
+spillover, no disk delta (all cache hits). OpenAI calls during the
+stress phase: **0**. 63 000 requests served, zero failures.
+
 ### Up next — load testing with LoadSurge
 
 The single-user prod numbers above are honest but limited; "100 readers
