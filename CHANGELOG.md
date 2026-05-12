@@ -264,8 +264,22 @@ ceiling.
 Rollback is trivial — drop `runtime: nvidia` and the `devices` block
 and redeploy. Ollama silently goes back to CPU.
 
-A follow-up load test under this configuration is queued; numbers
-land in the next REPORT under `docs/loadtest/`.
+Follow-up micro-benchmark (`scripts/loadtest/bench-ollama.sh`,
+5 distractor-shape prompts × 2 modes via `num_gpu: 0` vs let
+Ollama auto-split):
+
+| Metric | CPU only | GPU hybrid 26 % | Δ |
+|---|---:|---:|---:|
+| Avg output tokens | 60 | 55 | ~same |
+| Avg eval latency | 3 506 ms | 1 411 ms | **2.49× faster** |
+| Avg total latency | 5 390 ms | 2 174 ms | **2.48× faster** |
+| Tokens / sec | 17 | 39 | **2.29× faster** |
+
+In product terms: a fire-and-forget vocab save enrichment goes
+from ~5.4 s to ~2.2 s; a burst of five saves goes from ~27 s of
+pure-CPU heat to ~11 s of mixed CPU/GPU. Peak CPU temp during
+the same burst dropped from 71 °C to ~60 °C. Full report +
+NDJSON: `docs/loadtest/bench-20260512-140841/REPORT.md`.
 
 ### Load test — 2026-05-11
 
