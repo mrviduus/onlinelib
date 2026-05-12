@@ -241,10 +241,21 @@ services:
   ollama:
     image: ollama/ollama:0.23.1
     container_name: textstack_ollama
+    # Hand NVIDIA the LLM. On this box: GTX 1650 Ti Mobile, 4 GB VRAM.
+    # gemma4:e2b is ~7.2 GB on disk so Ollama splits layers (partial offload):
+    # ~50% on GPU, the rest on CPU. Expected speedup vs pure CPU: 2-3×.
+    # Requires `nvidia-container-toolkit` installed on the host and the
+    # `nvidia` runtime registered with Docker (`nvidia-ctk runtime configure`).
+    # If the toolkit is missing the container will refuse to start —
+    # rollback is to drop this whole block and redeploy.
+    runtime: nvidia
     volumes:
       - ./data/ollama:/root/.ollama
     environment:
       OLLAMA_KEEP_ALIVE: "-1"
+      # Make all visible GPUs available with full driver capabilities.
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
@@ -254,8 +265,14 @@ services:
       start_period: 15s
     deploy:
       resources:
+        # Declarative GPU reservation. Docker Compose v2.20+ honors this when
+        # the nvidia runtime is the default or `runtime: nvidia` is set above.
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+          memory: 8G
         limits:
           memory: 12G
-        reservations:
-          memory: 8G
 
