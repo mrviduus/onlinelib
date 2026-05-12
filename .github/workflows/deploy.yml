@@ -61,9 +61,13 @@ jobs:
           make fix-permissions
 
       - name: Deploy containers
+        # docker-compose.gpu.yml is a prod-only overlay that adds
+        # `runtime: nvidia` + GPU device reservation to the ollama service.
+        # CI runners don't have nvidia-container-toolkit, so it's NOT in
+        # the default compose file (that would break the ci/docker job).
         run: |
           cd $PROJECT_DIR
-          docker compose up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 
       - name: Sync nginx config
         run: |
