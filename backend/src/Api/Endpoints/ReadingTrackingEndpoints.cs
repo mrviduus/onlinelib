@@ -177,6 +177,23 @@ public static class ReadingTrackingEndpoints
         if (elapsed < request.DurationSeconds)
             return Results.BadRequest("EndedAt - StartedAt must be >= DurationSeconds");
 
+        // Pre-check the unique-by-(user, user_book, started_at) constraint
+        // for user-book sessions. The DB constraint is the source of truth
+        // and the catch below still covers a race; this just keeps the
+        // happy path off the "SQL error level: ERROR" log line that
+        // Npgsql emits before the catch can swallow it. The constraint is
+        // partial (WHERE user_book_id IS NOT NULL), so edition-only
+        // sessions skip the check entirely.
+        if (request.UserBookId != null)
+        {
+            var dup = await db.ReadingSessions.AnyAsync(
+                s => s.UserId == userId.Value
+                  && s.UserBookId == request.UserBookId
+                  && s.StartedAt == request.StartedAt,
+                ct);
+            if (dup) return Results.Ok(new SubmitSessionResponse(Guid.Empty, []));
+        }
+
         var session = new ReadingSession
         {
             Id = Guid.NewGuid(),
@@ -201,7 +218,9 @@ public static class ReadingTrackingEndpoints
         }
         catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
         {
-            // Unique constraint violation (duplicate) — ignore
+            // Race-window fallback: another concurrent request slipped in
+            // between our pre-check and SaveChanges. The first one won; we
+            // ack idempotently.
             return Results.Ok(new SubmitSessionResponse(session.Id, []));
         }
 
