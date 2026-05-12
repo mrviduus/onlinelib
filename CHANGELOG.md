@@ -218,6 +218,55 @@ minute. Throttle threshold is ~95 °C; we're nowhere near it.
   and GHSA-g94r-2vxg-569j. `dotnet list package --vulnerable` now
   reports zero hits across the solution.
 
+### Discovery — there's a GPU on prod, it was sitting idle
+
+Pulling system info for the load-test bottleneck section surfaced a
+discrete GPU the deployment never actually used:
+
+```
+$ lspci | grep -iE 'vga|3d'
+01:00.0 NVIDIA Corporation TU117M [GeForce GTX 1650 Ti Mobile]
+05:00.0 AMD [Radeon RX Vega 6 ...]
+$ nvidia-smi --query-gpu=name,memory.used --format=csv
+NVIDIA GeForce GTX 1650 Ti, 5 MiB
+```
+
+The 1650 Ti is a 4 GB-VRAM mobile-class card — small for an LLM —
+but with `gemma4:e2b` taking ~7.2 GB on disk, even **partial GPU
+offload** (half the layers on GPU, half on CPU) is meaningfully
+faster than the pure-CPU baseline we'd been measuring.
+
+What was missing:
+- `nvidia-container-toolkit` on the host (Docker had no `nvidia`
+  runtime — `docker info` showed only `runc`)
+- `runtime: nvidia` + a `gpu` device reservation on the ollama
+  service in `docker-compose.yml`
+
+Wired both in this pass. Host bootstrap is one-shot via
+`scripts/loadtest/install-nvidia-toolkit.sh` (idempotent — installs
+the toolkit if absent, registers the runtime with dockerd, runs a
+`nvidia/cuda` smoke container to verify the GPU shows up inside). The
+compose change deploys via GH Actions like everything else.
+
+Smoke verification on prod after the toolkit install:
+
+```
+$ docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.2.0-base nvidia-smi -L
+GPU 0: NVIDIA GeForce GTX 1650 Ti (UUID: GPU-60920952-b37a-b82f-...)
+```
+
+Capacity caveat baked into the compose comment: 4 GB VRAM vs 7.2 GB
+model = partial offload. Realistic speedup vs pure CPU: **2–3×**, not
+the ~10× a full-offload datacenter card would give. Even so, every
+factor matters when one user heating a laptop CPU is the current
+ceiling.
+
+Rollback is trivial — drop `runtime: nvidia` and the `devices` block
+and redeploy. Ollama silently goes back to CPU.
+
+A follow-up load test under this configuration is queued; numbers
+land in the next REPORT under `docs/loadtest/`.
+
 ### Load test — 2026-05-11
 
 First end-to-end load run after the `think:false` deploy. Driven by
