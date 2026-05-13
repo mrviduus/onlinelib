@@ -61,8 +61,14 @@ public class SsgRouteProvider : ISsgRouteProvider
         string[]? slugs,
         CancellationToken ct)
     {
+        // Book detail pages are rendered for every Published edition, even
+        // when Indexable == false. The renderer reads the same DB column and
+        // emits <meta name="robots" content="noindex,follow"> in the HTML,
+        // so search engines stay out while direct visitors (e.g. campaign
+        // traffic) still get the static page. Filtering Indexable here
+        // would just leave nginx serving a hard 404 for the slug.
         var query = _db.Editions
-            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published && e.Indexable);
+            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published);
 
         if (mode == SsgRebuildMode.Specific && slugs?.Length > 0)
             query = query.Where(e => slugs.Contains(e.Slug));

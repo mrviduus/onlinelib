@@ -22,7 +22,7 @@ not first-load cost. Raw responses live in `bench-cpu.ndjson` and
 
 ## Result
 
-| Metric | CPU only | GPU hybrid (26 % layers offloaded) | Δ |
+| Metric | CPU only | GPU hybrid (35/36 layers on GPU, 26 % of weights) | Δ |
 |---|---:|---:|---:|
 | Avg output tokens / call | 60 | 55 | ~same |
 | Avg eval latency (token gen only) | **3 506 ms** | **1 411 ms** | **-60 %  ·  2.49× faster** |
@@ -43,15 +43,42 @@ NVIDIA GTX 1650 Ti, used 1998 MiB, free 1909 MiB, util 32 %
 process: /usr/bin/ollama, 1998 MiB used
 ```
 
+## Reading the split correctly
+
+`ollama ps` reports `74%/26% CPU/GPU` for this model on this box. The
+first read of that number is "26 % of the layers fit on GPU." The
+load logs say something different — and the difference matters.
+
+Per Ollama's load output, **35 of the model's 36 transformer blocks
+were offloaded to the GPU**. By layer count, almost the entire
+forward pass is on the card. The `26 %` in `ollama ps` is the
+**memory** split — the share of total model weights resident in
+VRAM — not the layer split.
+
+The two diverge because layers in this model aren't the same size.
+The single layer that stayed on the CPU is the output projection
+(the final matmul that turns hidden states into a distribution over
+the vocabulary). Gemma's vocabulary is large, which makes that one
+layer disproportionately heavy by weight. There isn't headroom in
+4 GB to fit the output layer alongside the transformer stack and
+still leave room for the KV cache and forward-pass scratch space,
+so Ollama puts it on the CPU.
+
+Every generated token round-trips through that CPU-resident output
+layer. GPU does the parallel work over 35 layers, then hands
+activations back to the CPU for the final projection, then waits
+for the next token. The per-token rate is bounded by that mandatory
+CPU step. It's not "74 % of layers running slowly on CPU" — it's
+"100 % of tokens crossing the same CPU bottleneck on their way out."
+
 ## What this means
 
-This number landed inside the predicted range — 4 GB VRAM only fits
-26 % of a 7.8 GB model, so we **don't** get the 10× a full-offload
-card would give. The other ~74 % of layers still run on the same
-Ryzen 4600H that's been doing the work all along. The interesting
-result is the engine *does* parallelise the layers it can across
-GPU + CPU, and the GPU half is fast enough that overall throughput
-roughly doubles.
+The 2.5× number lands where it does because almost all the
+parallelisable compute moved to the GPU, but one serial step per
+token stayed on the slower device. A full-offload card with enough
+VRAM to hold the output layer too would shift that last step to the
+GPU and unlock the 10× figure cited in other writeups. We're
+running on commodity hardware that can't make that move.
 
 For a real save in TextStack — distractors + hint + explanation in
 a single Ollama call, average output ~60 tokens, prompt ~150 tokens

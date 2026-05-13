@@ -107,6 +107,7 @@ describe('generateFAQs', () => {
     coverPath: null,
     publishedAt: '1866-01-01T00:00:00Z',
     isPublicDomain: true,
+    indexable: true,
     seoTitle: null,
     seoDescription: null,
     seoRelevanceText: null,

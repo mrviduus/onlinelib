@@ -63,6 +63,10 @@ export interface BookDetail {
   coverPath: string | null
   publishedAt: string | null
   isPublicDomain: boolean
+  // Mirrors the DB column. When false, BookDetailPage emits noindex so
+  // copyright-grey items still render for direct visitors but stay out of
+  // search engines.
+  indexable: boolean
   seoTitle: string | null
   seoDescription: string | null
   // SEO content blocks

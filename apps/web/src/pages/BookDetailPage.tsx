@@ -178,6 +178,11 @@ export function BookDetailPage() {
         image={book.coverPath ? getStorageUrl(book.coverPath) : undefined}
         type="book"
         availableLanguages={availableLanguages}
+        // DB column `indexable`. We keep some copyright-grey editions
+        // reachable via direct link (e.g. campaign traffic) without
+        // adding them to Google's index — Camus's The Plague is the
+        // canonical example.
+        noindex={!book.indexable}
       />
       <JsonLd
         data={(() => {
@@ -197,7 +202,10 @@ export function BookDetailPage() {
             description: book.description || undefined,
             inLanguage: book.language,
             bookFormat: 'https://schema.org/EBook',
-            isAccessibleForFree: true,
+            // Only assert "free" when the work is genuinely public domain.
+            // Declaring isAccessibleForFree on a copyrighted edition is the
+            // exact signal rights-holders' takedown bots look for.
+            isAccessibleForFree: book.isPublicDomain,
             datePublished,
             numberOfPages,
             image: book.coverPath ? (() => {

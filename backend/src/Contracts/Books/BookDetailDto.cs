@@ -9,6 +9,7 @@ public record BookDetailDto(
     string? CoverPath,
     DateTimeOffset? PublishedAt,
     bool IsPublicDomain,
+    bool Indexable,
     string? SeoTitle,
     string? SeoDescription,
     // SEO content blocks
