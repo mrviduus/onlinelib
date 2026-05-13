@@ -333,11 +333,17 @@ async function renderRoute(browser, routeObj) {
     // Get the rendered HTML
     let html = await page.content();
 
-    // Skip saving pages with noindex (real 404 or error state) — keep existing SSG file
+    // We used to skip *every* page with noindex on the assumption that it
+    // was a 404 / error page leaking through. But legitimate copyright-grey
+    // editions (e.g. Camus's The Plague) intentionally render with noindex
+    // so direct visitors get the page while Google stays out. Distinguish
+    // by the React render state we already detected above:
+    //   renderState === 'error'  — actual 404/API error → skip, keep last good SSG
+    //   renderState === 'content' — real page, noindex is intentional → save
     const hasNoindex = html.includes('content="noindex');
-    if (hasNoindex) {
+    if (hasNoindex && renderState === 'error') {
       const renderTimeMs = Date.now() - startTime;
-      return { route, routeType, success: false, error: 'Page has noindex meta tag', renderTimeMs };
+      return { route, routeType, success: false, error: 'noindex on error page — kept existing SSG', renderTimeMs };
     }
 
     // Strip JS module scripts to prevent hydration overwriting SSG content
