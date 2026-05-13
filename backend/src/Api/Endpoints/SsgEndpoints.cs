@@ -41,11 +41,16 @@ public static class SsgEndpoints
             routes.Add($"/{lang}/about");
         }
 
-        // Books (each book has a language)
+        // Books (each book has a language). Indexable is NOT a precondition:
+        // copyright-grey editions (e.g. Camus's The Plague) still need a
+        // rendered HTML for direct visitors. BookDetailPage reads the same
+        // `indexable` flag from the API and emits <meta name="robots"
+        // content="noindex,follow"> at render time. Filtering Indexable here
+        // would leave nginx serving a hard 404 — see the matching change
+        // in SsgRouteProvider.AddBookRoutesAsync.
         var books = await db.Editions
             .Where(e => e.SiteId == site.SiteId &&
                         e.Status == EditionStatus.Published &&
-                        e.Indexable &&
                         e.Chapters.Any())
             .Select(e => new { e.Slug, e.Language })
             .ToListAsync(ct);
