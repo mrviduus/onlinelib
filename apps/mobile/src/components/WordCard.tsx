@@ -46,7 +46,8 @@ interface WordCardProps {
    * timer running, often causing the card to vanish mid-interaction.
    */
   selectionId?: number
-  onSave: () => void
+  /** Optional manual save — currently unused (auto-save is the only path). */
+  onSave?: () => void
   onSpeak: () => void
   /**
    * Optional: called when the user taps "Ignore" on an already-saved word —
@@ -356,21 +357,9 @@ export function WordCard({
             </TouchableOpacity>
           )}
 
-          {/* Save CTA (when unsaved + no stage). Suppressed while the
-              RareWordNotice is showing — user uses "Add anyway" instead. */}
-          {isAuthenticated && !wordSaved && !stage && !lookupState && (
-            <Animated.View style={{ transform: [{ scale: saveAnim }] }}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                onPress={() => { cancelAutoDismiss(); onSave() }}
-                accessibilityRole="button"
-                accessibilityLabel="Save word to vocabulary"
-              >
-                <Ionicons name="add" size={16} color="#fff" />
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
+          {/* No manual "+ Save" CTA — PWA-parity. Single-word taps are
+              auto-saved via `vocabActions.autoSaveWord` in the reader screen;
+              the popup just reflects the resulting `wordSaved` state. */}
 
           {/* Mark-known (when already in SRS pool but not mastered) */}
           {isAuthenticated && !wordSaved && stage && stage.label !== '✓' && onMarkKnown && (

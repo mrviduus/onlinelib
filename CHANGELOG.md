@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Mobile reader — autosave restore (2026-05-13)
+
+- **WordCard parity with web WordPopup** — single-word tap on mobile
+  showed a manual "+ Save" CTA even though `autoSaveWord` already fires
+  on selection. Confusing: identical action surfaced as both implicit
+  (auto-save) and explicit (button). Web's `WordPopup` has no Save
+  button — `isSaved` is derived from `vocabMap`. Removed the "+ Save"
+  CTA from `apps/mobile/src/components/WordCard.tsx`; auto-save remains
+  the only path. Also patched `useReaderVocabActions.autoSaveWord` to
+  flip `wordSaved=true` on `already_saved` outcome so the popup shows
+  "✓ Saved to vocabulary" instead of an empty actions row when the
+  server reports the word was already in vocab but `vocabMapRef` was
+  stale.
+- **In-chapter scroll restore on chapter load** — mobile reader was
+  saving `{chapterSlug, percent}` to AsyncStorage and to the server, but
+  never reading the percent back: every chapter mount put the user at
+  scrollY=0 even when "Continue Reading" routed to the correct chapter.
+  PWA-parity fix in `apps/mobile/app/reader/[bookSlug]/[chapterSlug].tsx`:
+  on `(editionId, chapterSlug)` change, fetch `getLocalProgress` (local
+  AsyncStorage, instant + offline-safe); fall back to
+  `readingProgressApi.getProgress` for the cross-device case (read on web
+  → open on phone). On WebView `onLoadEnd`, one-shot
+  `requestAnimationFrame` → `window.scrollTo(0, scrollHeight * percent)`.
+  One-shot guard prevents re-scrolling after settings tweaks rebuild the
+  HTML and re-fire `onLoadEnd`. Caught in audit ahead of Play Store
+  launch.
+
 ### Headline — Gemma 4 swap + the bugs it surfaced
 
 Switching the local LLM from `qwen3:8b` to `gemma4:e4b` looked like a

@@ -180,6 +180,10 @@ export function useReaderVocabActions({
       if (resp.outcome === 'already_saved') {
         // vocabMapRef may not have this key (stale fetch) — let a re-tap retry.
         autoSavedRef.current.delete(keyLc)
+        // PWA-parity: web derives isSaved from vocabMap which is updated
+        // server-side. Mobile uses a separate flag — flip it so the popup
+        // shows "✓ Saved to vocabulary" instead of nothing.
+        setWordSaved(true)
         return
       }
       const saved = resp.word

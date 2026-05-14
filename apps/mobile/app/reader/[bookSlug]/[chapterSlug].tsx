@@ -2,8 +2,9 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { t } from '@textstack/shared'
+import { t, readingProgressApi } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
+import { getLocalProgress } from '../../../src/lib/progressStorage'
 import { useAuth } from '../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
 import { useReaderBars } from '../../../src/hooks/useReaderBars'
@@ -73,6 +74,11 @@ export default function ReaderScreen() {
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
   const totalWordCountRef = useRef(0)
+  // Saved in-chapter position for restore on WebView load. Loaded async
+  // from local AsyncStorage (server fallback for authed users) once the
+  // editionId resolves. PWA-parity: web does the same in useReaderScrollSync.
+  const savedPercentRef = useRef<number | null>(null)
+  const restoreScrolledRef = useRef(false)
 
   const { colors } = useTheme()
   const { language } = useLanguage()
@@ -314,6 +320,41 @@ export default function ReaderScreen() {
     injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
   }, [settings.showInlineTranslations])
 
+  // Load saved in-chapter position. Local-first (instant, offline-safe);
+  // fall back to server for the cross-device case (read on web → open on
+  // phone). One-shot per (editionId, chapterSlug) — guard with ref so we
+  // don't re-scroll after settings tweaks rebuild the HTML.
+  useEffect(() => {
+    restoreScrolledRef.current = false
+    savedPercentRef.current = null
+    if (!editionId || !chapterSlug) return
+    let cancelled = false
+    ;(async () => {
+      let percent: number | null = null
+      try {
+        const local = await getLocalProgress(editionId)
+        if (local && local.chapterSlug === chapterSlug && typeof local.percent === 'number') {
+          percent = local.percent
+        }
+      } catch {}
+      if (percent == null && isAuthenticated) {
+        try {
+          const server = await readingProgressApi.getProgress(editionId)
+          if (server && server.chapterSlug === chapterSlug && typeof server.percent === 'number') {
+            percent = server.percent
+          }
+        } catch {}
+      }
+      if (cancelled) return
+      // Ignore near-zero (top) and near-one (chapter end) — these add jitter
+      // without any UX win.
+      if (percent != null && percent > 0.005 && percent < 0.999) {
+        savedPercentRef.current = percent
+      }
+    })()
+    return () => { cancelled = true }
+  }, [editionId, chapterSlug, isAuthenticated])
+
   const isMultiWord = !!(selection && selection.text.includes(' '))
 
   // Chapter counter for footer — track the visible chapter, not the URL's.
@@ -429,6 +470,16 @@ export default function ReaderScreen() {
               injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
             }
             injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
+            // Restore in-chapter position. One-shot — settings tweaks rebuild
+            // the HTML and re-fire onLoadEnd, but the user's already mid-read
+            // by then, so we must not yank them back.
+            if (!restoreScrolledRef.current && savedPercentRef.current != null) {
+              const pct = savedPercentRef.current
+              restoreScrolledRef.current = true
+              // rAF defers until the document has laid out — without it
+              // scrollHeight on Android can still read 0 at this point.
+              injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
+            }
           }}
           originWhitelist={['*']}
           scrollEnabled
