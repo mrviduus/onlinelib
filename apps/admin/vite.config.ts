@@ -15,4 +15,13 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` is what the container runs in prod (Dockerfile switched
+  // from `vite dev` to `vite build` + `vite preview`). preview is a separate
+  // server config block — `server.*` above does not apply to it. /api proxy
+  // isn't needed here because nginx handles it upstream in production.
+  preview: {
+    port: 81,
+    host: true,
+    allowedHosts: ['textstack.dev', 'localhost', 'admin.localhost'],
+  },
 })
