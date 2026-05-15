@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { adminApi, AuthorDetail } from '../api/client'
 import { SeoContentFieldset } from '../components/SeoContentFieldset'
+import { parseSeoThemes } from '../utils/seoThemes'
 
 interface FAQItem {
   question: string
@@ -49,7 +50,7 @@ export function EditAuthorPage() {
         setSeoDescription(data.seoDescription || '')
         setCanonicalOverride(data.canonicalOverride || '')
         setSeoRelevanceText(data.seoRelevanceText || '')
-        setSeoThemes(data.seoThemesJson ? JSON.parse(data.seoThemesJson) : [])
+        setSeoThemes(parseSeoThemes(data.seoThemesJson))
         setSeoFaqs(data.seoFaqsJson ? JSON.parse(data.seoFaqsJson) : [])
         if (data.externalLinksJson) {
           try {

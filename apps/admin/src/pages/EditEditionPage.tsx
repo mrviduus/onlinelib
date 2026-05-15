@@ -7,6 +7,7 @@ import { CreateAuthorModal } from '../components/CreateAuthorModal'
 import { GenreSelect } from '../components/GenreSelect'
 import { SeoFieldset } from '../components/SeoFieldset'
 import { SeoContentFieldset } from '../components/SeoContentFieldset'
+import { parseSeoThemes } from '../utils/seoThemes'
 
 interface SelectedGenre {
   id: string
@@ -62,9 +63,7 @@ export function EditEditionPage() {
         setCanonicalOverride(data.canonicalOverride || '')
         // SEO content blocks
         setSeoRelevanceText(data.seoRelevanceText || '')
-        try {
-          setSeoThemes(data.seoThemesJson ? JSON.parse(data.seoThemesJson) : [])
-        } catch { setSeoThemes([]) }
+        setSeoThemes(parseSeoThemes(data.seoThemesJson))
         try {
           const faqs = data.seoFaqsJson ? JSON.parse(data.seoFaqsJson) : []
           setSeoFaqs(faqs.map((f: { q?: string; question?: string; a?: string; answer?: string }) => ({
