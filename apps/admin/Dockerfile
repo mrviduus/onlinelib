@@ -16,6 +16,13 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install
 COPY . .
+# VITE_API_URL must be set at BUILD time — `vite build` bakes import.meta.env.*
+# into the JS bundle. Setting it at container runtime via docker-compose
+# `environment:` is too late; build already used the fallback default and
+# burned `http://localhost:8080` into the bundle, which the browser then
+# tried to call directly (ERR_CONNECTION_REFUSED). `/api` is a relative
+# path → nginx handles the proxy upstream in production.
+ENV VITE_API_URL=/api
 RUN pnpm build
 EXPOSE 81
 CMD ["pnpm", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "81"]
