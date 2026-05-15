@@ -1,4 +1,5 @@
 import type { AuthorDetail } from '../types/api'
+import { parseSeoThemes } from './seoThemes'
 
 export interface FAQItem {
   question: string
@@ -73,12 +74,8 @@ export function generateRelevanceText(author: AuthorDetail): string {
  */
 export function getThemes(author: AuthorDetail, count = 4): string[] {
   if (author.seoThemesJson) {
-    try {
-      const themes = JSON.parse(author.seoThemesJson)
-      if (Array.isArray(themes)) return themes.slice(0, count)
-    } catch {
-      // Fall through to auto-generate
-    }
+    const themes = parseSeoThemes(author.seoThemesJson)
+    if (themes.length > 0) return themes.slice(0, count)
   }
   return extractThemes(author.bio, count)
 }

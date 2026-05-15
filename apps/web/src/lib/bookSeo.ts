@@ -1,4 +1,5 @@
 import type { BookDetail, ChapterSummary } from '../types/api'
+import { parseSeoThemes } from './seoThemes'
 
 export interface FAQItem {
   question: string
@@ -152,14 +153,9 @@ export function generateRelevanceText(book: BookDetail, t: (key: string) => stri
  * Get themes from custom JSON or auto-extract from description
  */
 export function getThemes(book: BookDetail, count = 4): string[] {
-  // Use custom if set
   if (book.seoThemesJson) {
-    try {
-      const themes = JSON.parse(book.seoThemesJson)
-      if (Array.isArray(themes)) return themes.slice(0, count)
-    } catch {
-      // Fall through to auto-generate
-    }
+    const themes = parseSeoThemes(book.seoThemesJson)
+    if (themes.length > 0) return themes.slice(0, count)
   }
   return extractThemes(book.description, count)
 }
