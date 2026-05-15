@@ -177,7 +177,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 - Frontend: StatsPage with heatmap calendar, weekly chart, goals, achievements grid
 - Session tracking: 30s heartbeat, 3min idle threshold, 5min auto-end, localStorage queue, sendBeacon submit
 
-**Dictionary**: `GET /dictionary/{lang}/{word}` — proxies Free Dictionary API.
+**Dictionary**: `GET /dictionary/{lang}/{word}` — proxies Free Dictionary API. Used by web reader (phonetic + first-meaning definition) and by mobile vocabulary review (SRS card feedback only). Mobile **reader** no longer calls it as of 2026-05-15 — phonetic + inline definition removed from `WordCard`/`DictionarySheet` (sheet deleted) in favor of OpenAI Explain for the technical-reader audience, and to shrink Play Store Data Safety third-party processor list to OpenAI + Edge TTS only.
 
 **Translation**: `POST /api/translate` via OpenAI (`gpt-5-mini`). Config: `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:Translate:MaxTextLength`. LibreTranslate dropped 2026-04-22.
 

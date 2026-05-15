@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { translationApi, dictionaryApi } from '@textstack/shared'
+import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
@@ -27,8 +27,8 @@ const AUTO_DISMISS_MS_PER_WORD = 350
 const LOOKUP_AUTO_DISMISS_MS = 20000
 const CJK_RE = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/g
 
-function computeDismissMs(translation: string, definition: string | null): number {
-  const text = `${translation} ${definition ?? ''}`.trim()
+function computeDismissMs(translation: string): number {
+  const text = translation.trim()
   if (!text) return AUTO_DISMISS_MS_MIN
   const cjkChars = (text.match(CJK_RE) || []).length
   const nonCjk = text.replace(CJK_RE, ' ')
@@ -94,9 +94,6 @@ export function WordCard({
   const { fromLang, toLang } = useTargetLanguage(language)
   const [translation, setTranslation] = useState('')
   const [translating, setTranslating] = useState(true)
-  const [phonetic, setPhonetic] = useState<string | null>(null)
-  const [definition, setDefinition] = useState<string | null>(null)
-  const [definitionLoading, setDefinitionLoading] = useState(true)
   const [showLangPicker, setShowLangPicker] = useState(false)
   const [showSavedText, setShowSavedText] = useState(false)
   const slideAnim = useRef(new Animated.Value(0)).current
@@ -114,16 +111,15 @@ export function WordCard({
   //
   // When the lang picker is open we cancel this so the user isn't chased
   // off the card while choosing a language.
-  // Deps intentionally omit `translation` / `definition` — their values are
-  // read inside the effect body when the timer arms. Streaming updates would
-  // otherwise thrash the timer. Instead we re-trigger on loading → done
-  // transition via `translating` + `definitionLoading`, and on object-identity
-  // toggles (`!!lookupState`) rather than the whole object so busy-flips don't
-  // re-arm the 20s timer.
+  // Deps intentionally omit `translation` — its value is read inside the
+  // effect body when the timer arms. Streaming updates would otherwise
+  // thrash the timer. Instead we re-trigger on loading → done transition
+  // via `translating`, and on object-identity toggles (`!!lookupState`)
+  // rather than the whole object so busy-flips don't re-arm the 20s timer.
   useEffect(() => {
     if (showLangPicker) return
-    if (translating || definitionLoading) return
-    const ms = lookupState ? LOOKUP_AUTO_DISMISS_MS : computeDismissMs(translation, definition)
+    if (translating) return
+    const ms = lookupState ? LOOKUP_AUTO_DISMISS_MS : computeDismissMs(translation)
     if (__DEV__) console.log('[diag] WordCard timer arm', word, selectionId, ms + 'ms')
     dismissTimerRef.current = setTimeout(() => {
       if (__DEV__) console.log('[diag] WordCard auto-dismiss fired', word)
@@ -133,7 +129,7 @@ export function WordCard({
       if (__DEV__) console.log('[diag] WordCard effect cleanup', word, selectionId)
       if (dismissTimerRef.current != null) clearTimeout(dismissTimerRef.current as number)
     }
-  }, [word, selectionId, showLangPicker, !!lookupState, translating, definitionLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [word, selectionId, showLangPicker, !!lookupState, translating]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (__DEV__) console.log('[diag] WordCard MOUNT', word)
@@ -168,34 +164,6 @@ export function WordCard({
     return () => { cancelled = true }
   }, [word, fromLang, toLang])
 
-  // Dictionary lookup for phonetic + inline definition (B-79). Previously
-  // both lived in `DictionarySheet` behind an extra tap — web parity needs
-  // them inline. Cancellation flag guards against rapid re-taps landing a
-  // stale entry on the new word. Errors are swallowed quietly (many words
-  // just aren't in the dictionary — 404 is expected, not a real failure).
-  useEffect(() => {
-    let cancelled = false
-    setPhonetic(null)
-    setDefinition(null)
-    setDefinitionLoading(true)
-    dictionaryApi.lookupWord(fromLang, word)
-      .then(entry => {
-        if (cancelled) return
-        setPhonetic(entry.phonetic?.trim() || null)
-        const first = entry.meanings?.[0]
-        const def = first?.definitions?.[0]?.definition || null
-        const pos = first?.partOfSpeech
-        setDefinition(def ? (pos ? `(${pos}) ${def}` : def) : null)
-      })
-      .catch(() => {
-        // Silent — 404 (word not in dict) is the normal case.
-      })
-      .finally(() => {
-        if (!cancelled) setDefinitionLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [word, fromLang])
-
   // Entry animation
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start()
@@ -221,8 +189,11 @@ export function WordCard({
   const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] })
   const isSameLang = fromLang === toLang
   const nativeLabel = getLanguage(toLang)?.nativeName || toLang
+  // Same-language case used to fall through to dictionary definition lookup
+  // (B-79). After dropping the Free Dictionary API from mobile, there's no
+  // local definition to show — leave the footer note neutral.
   const footerLabel = isSameLang
-    ? `Looking up definition`
+    ? `Same language`
     : `Translating to ${nativeLabel}`
 
   return (
@@ -237,21 +208,12 @@ export function WordCard({
           opacity: slideAnim,
         },
       ]}>
-        {/* Header: word + phonetic + close */}
+        {/* Header: word + close */}
         <View style={styles.header}>
           <View style={styles.headerWordRow}>
             <Text style={[styles.word, { color: colors.text }]} numberOfLines={1}>
               {word}
             </Text>
-            {phonetic && (
-              <Text
-                style={[styles.phonetic, { color: colors.textSecondary }]}
-                numberOfLines={1}
-                accessibilityLabel={`pronunciation ${phonetic}`}
-              >
-                {phonetic}
-              </Text>
-            )}
             {stage && (
               <View style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}>
                 <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.label}</Text>
@@ -283,24 +245,6 @@ export function WordCard({
                 {translation}
               </Text>
             )}
-          </View>
-        )}
-
-        {/* Definition — secondary content, fills the information role that
-            used to require opening DictionarySheet (B-79). */}
-        {(definitionLoading || definition) && (
-          <View style={styles.definitionRow}>
-            {definitionLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.textSecondary}
-                accessibilityLabel="Loading definition"
-              />
-            ) : definition ? (
-              <Text style={[styles.definition, { color: colors.text }]} numberOfLines={4}>
-                {definition}
-              </Text>
-            ) : null}
           </View>
         )}
 
@@ -453,10 +397,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansBold,
     fontSize: 18,
   },
-  phonetic: {
-    fontFamily: 'Courier',
-    fontSize: 13,
-  },
   stageBadge: {
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -481,16 +421,6 @@ const styles = StyleSheet.create({
   translation: {
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-  },
-  definitionRow: {
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 8,
-  },
-  definition: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
   },
   actionsRow: {
     flexDirection: 'row',

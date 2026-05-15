@@ -22,7 +22,6 @@ import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDraw
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
 import { WordCard } from '../../../src/components/WordCard'
-import { DictionarySheet } from '../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { ExplanationSheet } from '../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
@@ -57,7 +56,6 @@ export default function ReaderScreen() {
   const overlayV2 = useReaderOverlayV2Active()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
-  const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
@@ -545,7 +543,6 @@ export default function ReaderScreen() {
             <SelectionActionBar
               selectedText={selection.text}
               isMultiWord
-              onDictionary={() => setDictOpen(true)}
               onTranslate={() => setTranslateOpen(true)}
               onExplain={() => setExplainOpen(true)}
               onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
@@ -657,15 +654,6 @@ export default function ReaderScreen() {
           onDelete={removeBookmark}
           onToggleCurrent={toggleCurrentBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
-        />
-
-        {/* Dictionary sheet */}
-        <DictionarySheet
-          visible={dictOpen}
-          word={selection?.text || ''}
-          onClose={() => setDictOpen(false)}
-          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
-          fromLang={language}
         />
 
         {/* Translation sheet */}

@@ -22,7 +22,6 @@ const HIGHLIGHT_COLORS = [
 interface SelectionActionBarProps {
   selectedText: string
   isMultiWord: boolean
-  onDictionary: () => void
   onTranslate: () => void
   onExplain?: () => void
   onSpeak: () => void
@@ -38,7 +37,7 @@ interface SelectionActionBarProps {
 }
 
 export function SelectionActionBar({
-  selectedText, isMultiWord, onDictionary, onTranslate, onExplain, onSpeak, onSaveWord, onHighlight,
+  selectedText, isMultiWord, onTranslate, onExplain, onSpeak, onSaveWord, onHighlight,
   onMarkKnown, isSpeaking, wordSaved, vocabStage, isAuthenticated, bottomOffset = 0,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
@@ -82,16 +81,6 @@ export function SelectionActionBar({
       >
         <Ionicons name="copy-outline" size={18} color={colors.text} />
       </TouchableOpacity>
-      {!isMultiWord && (
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={onDictionary}
-          accessibilityRole="button"
-          accessibilityLabel="Look up in dictionary"
-        >
-          <Ionicons name="book-outline" size={18} color={colors.text} />
-        </TouchableOpacity>
-      )}
       <TouchableOpacity
         style={styles.btn}
         onPress={onTranslate}

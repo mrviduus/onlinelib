@@ -10,7 +10,6 @@ import { useAuth } from '../../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../../src/hooks/useReaderSettings'
 import { ReaderSettingsDrawer } from '../../../../src/components/ReaderSettingsDrawer'
 import { SelectionActionBar } from '../../../../src/components/SelectionActionBar'
-import { DictionarySheet } from '../../../../src/components/DictionarySheet'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
 import { ExplanationSheet } from '../../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../../src/components/HighlightNoteModal'
@@ -52,7 +51,6 @@ export default function UserBookReaderScreen() {
   >(null)
   const selectionIdRef = useRef(0)
   const [wordSaved, setWordSaved] = useState(false)
-  const [dictOpen, setDictOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -297,8 +295,10 @@ export default function UserBookReaderScreen() {
             }
           })
           setWordSaved(false)
+          // settings.autoLookup originally also opened the inline DictionarySheet.
+          // After dropping the Free Dictionary API from mobile, the flag still
+          // gates the auto-save behavior — keep that, drop the sheet open.
           if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
-            setDictOpen(true)
             if (isAuthenticated) {
               vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null })
                 .then(resp => {
@@ -586,7 +586,6 @@ export default function UserBookReaderScreen() {
           <SelectionActionBar
             selectedText={selection.text}
             isMultiWord={isMultiWord}
-            onDictionary={() => setDictOpen(true)}
             onTranslate={() => setTranslateOpen(true)}
             onExplain={() => setExplainOpen(true)}
             onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
@@ -662,14 +661,6 @@ export default function UserBookReaderScreen() {
           onClose={() => setSettingsOpen(false)}
           settings={settings}
           onUpdate={updateSettings}
-        />
-
-        <DictionarySheet
-          visible={dictOpen}
-          word={selection?.text || ''}
-          onClose={() => setDictOpen(false)}
-          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
-          fromLang={language}
         />
 
         <TranslationSheet
