@@ -72,16 +72,20 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 # Install puppeteer for SSG prerender (scripts mounted at /app/apps/web/scripts).
-# Drop --silent so the next failure surfaces the actual npm/postinstall error
-# instead of hiding it behind a bare exit code 1 — deploy CI started failing on
-# this line after working all week and the silent flag swallows the cause.
-# Retry loop covers Chromium-download flakiness (puppeteer's postinstall pulls
-# ~150 MB from googleapis.com).
+# Pinned to the same major as apps/web/package.json (puppeteer ^24.36.0).
+# Bare `npm install puppeteer` resolves to puppeteer 25.x today — 25 requires
+# Node >=22.12, but Ubuntu noble's apt nodejs package is still Node 18, so the
+# postinstall (chrome-headless-shell download) crashes mid-extract and the
+# whole install exits 1. Pinning to 24.x matches the version the web prerender
+# scripts were authored against.
+#
+# Retry loop covers transient Chromium-download flakiness (~150 MB from
+# googleapis.com). --silent dropped so the next break surfaces the real cause.
 RUN mkdir -p /app/apps/web && \
     cd /app/apps/web && \
     npm init -y && \
     for i in 1 2 3; do \
-        npm install puppeteer && break || \
+        npm install puppeteer@^24.36.0 && break || \
         { echo "puppeteer install attempt $i failed, retrying..." >&2; sleep 5; }; \
     done && \
     test -d node_modules/puppeteer && \
