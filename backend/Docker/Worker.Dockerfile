@@ -71,11 +71,20 @@ RUN mkdir -p /storage/users && chown -R app:app /storage
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# Install puppeteer for SSG prerender (scripts mounted at /app/apps/web/scripts)
+# Install puppeteer for SSG prerender (scripts mounted at /app/apps/web/scripts).
+# Drop --silent so the next failure surfaces the actual npm/postinstall error
+# instead of hiding it behind a bare exit code 1 — deploy CI started failing on
+# this line after working all week and the silent flag swallows the cause.
+# Retry loop covers Chromium-download flakiness (puppeteer's postinstall pulls
+# ~150 MB from googleapis.com).
 RUN mkdir -p /app/apps/web && \
     cd /app/apps/web && \
-    npm init -y --silent && \
-    npm install --silent puppeteer && \
+    npm init -y && \
+    for i in 1 2 3; do \
+        npm install puppeteer && break || \
+        { echo "puppeteer install attempt $i failed, retrying..." >&2; sleep 5; }; \
+    done && \
+    test -d node_modules/puppeteer && \
     chown -R app:app /app
 
 USER app
