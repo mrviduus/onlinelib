@@ -14,7 +14,11 @@ FROM node:22-alpine
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install
+# --frozen-lockfile: fail the build if package.json drifted from the lockfile
+# instead of silently updating. Catches dep changes that weren't reviewed
+# locally, and removes the class of "different rebuild → different versions"
+# bugs that surfaced when this container ran `vite dev` in prod.
+RUN pnpm install --frozen-lockfile
 COPY . .
 # VITE_API_URL must be set at BUILD time — `vite build` bakes import.meta.env.*
 # into the JS bundle. Setting it at container runtime via docker-compose
