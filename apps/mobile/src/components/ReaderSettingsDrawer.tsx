@@ -175,10 +175,13 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               ))}
             </View>
 
-            {/* Instant Dictionary */}
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INSTANT DICTIONARY</Text>
+            {/* Auto-save vocabulary (was "Instant Dictionary" — dictionary
+                lookup removed from mobile 2026-05-15, only auto-save behavior
+                remains. `autoLookup` field name kept for persisted-settings
+                back-compat). */}
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>VOCABULARY</Text>
             <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: colors.text }]}>Auto-lookup & save words on select</Text>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Auto-save words on tap</Text>
               <Switch
                 value={settings.autoLookup}
                 onValueChange={v => onUpdate({ autoLookup: v })}

@@ -8,6 +8,12 @@ export interface ReaderSettings {
   textAlign: 'left' | 'center' | 'justify'
   theme: 'light' | 'sepia' | 'dark'
   ttsSpeed: number
+  /**
+   * "Auto-save words on tap" toggle. Historical name — was "auto-open
+   * dictionary on tap" before the Free Dictionary API was dropped from
+   * mobile (2026-05-15). Field name kept for persisted-settings
+   * back-compat; UI label updated.
+   */
   autoLookup: boolean
   showReaderStats: boolean
   showInlineTranslations: boolean

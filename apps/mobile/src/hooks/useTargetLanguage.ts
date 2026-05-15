@@ -3,7 +3,8 @@ import { useNativeLanguage } from '../context/NativeLanguageContext'
 
 /**
  * Resolves the canonical "book language → user native language" pair for
- * translation and dictionary lookups.
+ * translation lookups (and historically dictionary; mobile dropped the
+ * dictionary path 2026-05-15, ReviewFeedback in vocabulary still uses it).
  *
  *   fromLang  — the language of the text being consumed (current book / UI
  *               reading language).

@@ -490,7 +490,7 @@ export default function ReaderScreen() {
           bounces={false}
           // Suppress the native Copy/Share/Web-Search callout that
           // pops up on long-press. We already render our own
-          // SelectionToolbar above the selection (Translate / Define /
+          // SelectionToolbar above the selection (Translate / Explain /
           // TTS / Highlight / Save word); the native menu is just
           // visual duplication on both iOS and Android.
           menuItems={[]}
