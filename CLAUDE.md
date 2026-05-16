@@ -43,7 +43,7 @@ docker compose exec db psql -U app books   # DB shell
 docker compose down -v                      # Reset all (loses data)
 
 # Tests
-dotnet test                                 # All tests
+dotnet test --settings .runsettings         # All tests (skips Load category)
 dotnet test tests/TextStack.UnitTests
 dotnet test tests/TextStack.IntegrationTests
 dotnet test tests/TextStack.Extraction.Tests

@@ -46,7 +46,7 @@ public static class TocGenerator
         foreach (var heading in headings)
         {
             // Skip if already has id
-            if (!string.IsNullOrEmpty(heading.GetAttributeValue("id", null)))
+            if (!string.IsNullOrEmpty(heading.GetAttributeValue("id", "")))
                 continue;
 
             var text = heading.InnerText.Trim();
@@ -82,7 +82,7 @@ public static class TocGenerator
         {
             var level = int.Parse(heading.Name.Substring(1));
             var title = CleanTitle(heading.InnerText);
-            var id = heading.GetAttributeValue("id", null);
+            var id = heading.GetAttributeValue("id", "");
 
             if (string.IsNullOrWhiteSpace(title))
                 continue;
@@ -90,7 +90,7 @@ public static class TocGenerator
             entries.Add(new TocEntry(
                 Title: title,
                 ChapterNumber: chapterNumber,
-                Anchor: id != null ? $"#{id}" : null,
+                Anchor: !string.IsNullOrEmpty(id) ? $"#{id}" : null,
                 Level: level,
                 Children: null
             ));

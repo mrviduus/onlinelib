@@ -327,7 +327,7 @@ public sealed class PdfTextExtractor : ITextExtractor
                     }
 
                     var path = $"page-{pageNumber}-img-{i}";
-                    var yPosition = img.Bounds.Top;
+                    var yPosition = img.BoundingBox.Top;
 
                     extractedImages.Add(new ExtractedImage(
                         OriginalPath: path,

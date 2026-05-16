@@ -90,7 +90,7 @@ reindex-search:
 # ============================================================
 
 test:
-	dotnet test
+	dotnet test --settings .runsettings
 	pnpm -C apps/web test
 
 lint:
