@@ -1,4 +1,5 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+RUN apk add --no-cache krb5-libs
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
