@@ -429,7 +429,7 @@ cd apps/mobile
 eas build -p android --profile production --auto-submit
 ```
 
-That single command builds the AAB and pushes it to Internal Testing. Service account credentials live in EAS secret `GOOGLE_SERVICE_ACCOUNT_KEY` (mirror at `apps/mobile/google-service-account.json` locally, gitignored). Service account email: `eas-submit-textstack@orbital-heaven-496518-t5.iam.gserviceaccount.com`. Permission granted: "Release apps to testing tracks" for the TextStack app.
+That single command builds the AAB and pushes it to Internal Testing. Service account key is stored in EAS-managed credentials (uploaded via `eas credentials -p android` or the web dashboard), so `eas submit` works from any machine or CI without a local key file. Local mirror at `apps/mobile/google-service-account.json` (gitignored) is a convenience backup, not required. Service account email: `eas-submit-textstack@orbital-heaven-496518-t5.iam.gserviceaccount.com`. Permission granted: "Release apps to testing tracks" for the TextStack app.
 
 ## CI/CD
 
