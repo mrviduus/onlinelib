@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { SiteProvider, useSite } from './context/SiteContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -5,8 +6,8 @@ import { LanguageProvider, isValidLanguage } from './context/LanguageContext'
 import { DownloadProvider } from './context/DownloadContext'
 import { GuestLimitsProvider } from './context/GuestLimitsContext'
 import { NativeLanguageProvider } from './context/NativeLanguageContext'
+// SEO-critical / SSG-prerendered pages — keep eager so SSG renders without Suspense fallback.
 import { HomePage } from './pages/HomePage'
-import { ReaderPage } from './pages/ReaderPage'
 import { BooksPage } from './pages/BooksPage'
 import { BookDetailPage } from './pages/BookDetailPage'
 import { SearchPage } from './pages/SearchPage'
@@ -19,17 +20,19 @@ import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
 import { DmcaPage } from './pages/DmcaPage'
 import { ContactPage } from './pages/ContactPage'
-import { LibraryPage } from './pages/LibraryPage'
-import { LibraryShelfPage } from './pages/LibraryShelfPage'
-import { UserBookDetailPage } from './pages/UserBookDetailPage'
-import { StatsPage } from './pages/StatsPage'
-import { VocabularyReviewPage } from './pages/VocabularyReviewPage'
-import { HighlightReviewPage } from './pages/HighlightReviewPage'
-import { VocabularyPage } from './pages/VocabularyPage'
-import { HighlightsPage } from './pages/HighlightsPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SitemapPage } from './pages/SitemapPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+// User-only / heavy routes — lazy so they ship in separate chunks.
+const ReaderPage = lazy(() => import('./pages/ReaderPage').then(m => ({ default: m.ReaderPage })))
+const LibraryPage = lazy(() => import('./pages/LibraryPage').then(m => ({ default: m.LibraryPage })))
+const LibraryShelfPage = lazy(() => import('./pages/LibraryShelfPage').then(m => ({ default: m.LibraryShelfPage })))
+const UserBookDetailPage = lazy(() => import('./pages/UserBookDetailPage').then(m => ({ default: m.UserBookDetailPage })))
+const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
+const VocabularyPage = lazy(() => import('./pages/VocabularyPage').then(m => ({ default: m.VocabularyPage })))
+const VocabularyReviewPage = lazy(() => import('./pages/VocabularyReviewPage').then(m => ({ default: m.VocabularyReviewPage })))
+const HighlightsPage = lazy(() => import('./pages/HighlightsPage').then(m => ({ default: m.HighlightsPage })))
+const HighlightReviewPage = lazy(() => import('./pages/HighlightReviewPage').then(m => ({ default: m.HighlightReviewPage })))
 import { Header } from './components/Header'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 import { AuthModal } from './components/auth/AuthModal'
@@ -74,38 +77,40 @@ function LanguageRoutes() {
       <AuthSuccessToast />
       {!isReaderPage && !isUserBookReaderPage && <GlobalDropZone />}
       <CommandPaletteProvider />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/books" element={<BooksPage />} />
-        <Route path="/books/:bookSlug" element={<BookDetailPage />} />
-        <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
-        <Route path="/authors" element={<AuthorsPage />} />
-        <Route path="/authors/:slug" element={<AuthorDetailPage />} />
-        <Route path="/genres" element={<GenresPage />} />
-        <Route path="/genres/:slug" element={<GenreDetailPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/dmca" element={<DmcaPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/library" element={<LibraryPage />} />
-        <Route path="/library/shelf/:shelfId" element={<LibraryShelfPage />} />
-        <Route path="/stats" element={<StatsPage />} />
-        <Route path="/vocabulary" element={<VocabularyPage />} />
-        <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
-        <Route path="/highlights" element={<HighlightsPage />} />
-        <Route path="/highlights/review" element={<HighlightReviewPage />} />
-        {/* Legacy redirects */}
-        <Route path="/words" element={<Navigate to="../vocabulary" replace />} />
-        <Route path="/words/review" element={<Navigate to="../vocabulary/review" replace />} />
-        <Route path="/practice" element={<Navigate to="../vocabulary" replace />} />
-        <Route path="/library/my/:id" element={<UserBookDetailPage />} />
-        <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/sitemap" element={<SitemapPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/books" element={<BooksPage />} />
+          <Route path="/books/:bookSlug" element={<BookDetailPage />} />
+          <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
+          <Route path="/authors" element={<AuthorsPage />} />
+          <Route path="/authors/:slug" element={<AuthorDetailPage />} />
+          <Route path="/genres" element={<GenresPage />} />
+          <Route path="/genres/:slug" element={<GenreDetailPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/dmca" element={<DmcaPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library/shelf/:shelfId" element={<LibraryShelfPage />} />
+          <Route path="/stats" element={<StatsPage />} />
+          <Route path="/vocabulary" element={<VocabularyPage />} />
+          <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
+          <Route path="/highlights" element={<HighlightsPage />} />
+          <Route path="/highlights/review" element={<HighlightReviewPage />} />
+          {/* Legacy redirects */}
+          <Route path="/words" element={<Navigate to="../vocabulary" replace />} />
+          <Route path="/words/review" element={<Navigate to="../vocabulary/review" replace />} />
+          <Route path="/practice" element={<Navigate to="../vocabulary" replace />} />
+          <Route path="/library/my/:id" element={<UserBookDetailPage />} />
+          <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/sitemap" element={<SitemapPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </LanguageProvider>
   )
 }
