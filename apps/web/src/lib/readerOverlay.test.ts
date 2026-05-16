@@ -305,7 +305,7 @@ describe('Overlayer draw palette', () => {
   it('highlight yields <g> with one <rect> per input', () => {
     const g = Overlayer.highlight(rects(), { color: '#ff0' })
     expect(g.tagName.toLowerCase()).toBe('g')
-    expect(g.style.fill).toBe('#ff0')
+    expect(g.style.fill).toMatch(/^(#ff0|rgb\(255,\s*255,\s*0\))$/)
     expect(g.querySelectorAll('rect')).toHaveLength(1)
   })
 
@@ -326,7 +326,7 @@ describe('Overlayer draw palette', () => {
   it('squiggly produces one path per rect', () => {
     const g = Overlayer.squiggly(rects(), { color: '#0f0' })
     expect(g.querySelectorAll('path')).toHaveLength(1)
-    expect(g.style.stroke).toBe('#0f0')
+    expect(g.style.stroke).toMatch(/^(#0f0|rgb\(0,\s*255,\s*0\))$/)
   })
 
   it('strikethrough line is mid-rect', () => {
