@@ -14,9 +14,6 @@ importers:
       dompurify:
         specifier: ^3.4.3
         version: 3.4.3
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
       react:
         specifier: ^19.2.6
         version: 19.2.6
@@ -60,6 +57,9 @@ importers:
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
       puppeteer:
         specifier: ^24.43.1
         version: 24.43.1(typescript@5.6.3)
