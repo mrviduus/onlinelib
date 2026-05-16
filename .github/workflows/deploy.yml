@@ -9,16 +9,14 @@ on:
         description: 'Commit SHA to rollback to (optional)'
         required: false
 
-# Opt JS actions into Node 24 ahead of June 2026 forced cutover.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 env:
   PROJECT_DIR: /home/vasyl/projects/onlinelib/textstack
+  # Opt JS actions into Node 24 ahead of June 2026 forced cutover.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   ci:
