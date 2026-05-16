@@ -88,7 +88,7 @@
       "googleAuth": {
         "_comment": "iosClientId: OAuth 2.0 Client ID of type 'iOS' from Google Cloud Console. webClientId: OAuth 2.0 Client ID of type 'Web application' — required for Android sign-in and the audience the backend verifies against. Using an iOS client ID here will break Android auth (B-03). Both fields are optional at config time; falls back to hardcoded dev default if absent.",
         "iosClientId": "301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com",
-        "webClientId": "301013894506-7ouh9ops30ubjg6s6govpeep19h26r6q.apps.googleusercontent.com"
+        "webClientId": "726577729877-0lc197ngqf9qb297tvgh22q2k7g72l4l.apps.googleusercontent.com"
       }
     },
     "owner": "textstack"

@@ -114,8 +114,16 @@ export default function LoginScreen() {
       else trackLogin('google')
       router.back()
     } catch (e: any) {
-      if (e.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Error', 'Google sign-in failed')
+      if (e?.code !== 'SIGN_IN_CANCELLED') {
+        // Surface the underlying GoogleSignin error (DEVELOPER_ERROR,
+        // SIGN_IN_REQUIRED, PLAY_SERVICES_NOT_AVAILABLE, …) so users
+        // and bug reports can pinpoint the actual cause instead of a
+        // generic "failed".
+        const code = e?.code ? String(e.code) : ''
+        const msg = e?.message ? String(e.message) : ''
+        const detail = [code, msg].filter(Boolean).join(': ') || 'unknown error'
+        if (__DEV__) console.warn('[google-signin]', { code, message: msg, raw: e })
+        Alert.alert('Google sign-in failed', detail)
       }
     } finally {
       setLoading(false)
