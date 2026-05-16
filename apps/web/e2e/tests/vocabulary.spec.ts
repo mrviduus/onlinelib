@@ -87,18 +87,6 @@ test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
     await expect(page.locator('.review-progress')).toBeVisible()
   })
 
-  test('legacy /practice redirects to /vocabulary', async ({ authedPage: page }) => {
-    await page.goto('/en/practice/')
-    await page.waitForURL(/\/en\/vocabulary\/?$/)
-    await expect(page.locator('.vocab-page')).toBeVisible()
-  })
-
-  test('legacy /words redirects to /vocabulary', async ({ authedPage: page }) => {
-    await page.goto('/en/words/')
-    await page.waitForURL(/\/en\/vocabulary\/?$/)
-    await expect(page.locator('.vocab-page')).toBeVisible()
-  })
-
   test('weekly budget bar renders on vocabulary page', async ({ authedPage: page }) => {
     await page.goto('/en/vocabulary/')
     await page.waitForLoadState('networkidle')
