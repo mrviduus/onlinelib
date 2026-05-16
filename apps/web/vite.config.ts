@@ -13,6 +13,17 @@ export default defineConfig({
       '@textstack/reader-overlay': path.resolve(__dirname, '../../packages/reader-overlay/src/index.ts'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'charts': ['recharts'],
+          'sanitize': ['dompurify'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     host: true,

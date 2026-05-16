@@ -3,5 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Auto-pick .runsettings (excludes Category=Load) for any `dotnet test`
+         without needing the explicit settings flag. Override per-invocation
+         by passing a different .runsettings via the CLI. -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
   </PropertyGroup>
 </Project>
