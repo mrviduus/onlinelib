@@ -100,10 +100,6 @@ function LanguageRoutes() {
           <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
           <Route path="/highlights" element={<HighlightsPage />} />
           <Route path="/highlights/review" element={<HighlightReviewPage />} />
-          {/* Legacy redirects */}
-          <Route path="/words" element={<Navigate to="../vocabulary" replace />} />
-          <Route path="/words/review" element={<Navigate to="../vocabulary/review" replace />} />
-          <Route path="/practice" element={<Navigate to="../vocabulary" replace />} />
           <Route path="/library/my/:id" element={<UserBookDetailPage />} />
           <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
