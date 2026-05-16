@@ -422,6 +422,15 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 
 **Build**: EAS Build (cloud) for dev/prod. OTA updates via `expo-updates`.
 
+### Releasing to Play Internal Testing
+
+```bash
+cd apps/mobile
+eas build -p android --profile production --auto-submit
+```
+
+That single command builds the AAB and pushes it to Internal Testing. Service account credentials live in EAS secret `GOOGLE_SERVICE_ACCOUNT_KEY` (mirror at `apps/mobile/google-service-account.json` locally, gitignored). Service account email: `eas-submit-textstack@orbital-heaven-496518-t5.iam.gserviceaccount.com`. Permission granted: "Release apps to testing tracks" for the TextStack app.
+
 ## CI/CD
 
 **GitHub Actions workflows** (`.github/workflows/`):

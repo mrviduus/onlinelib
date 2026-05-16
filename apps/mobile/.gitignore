@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# EAS Submit service account key — never commit
+google-service-account.json
