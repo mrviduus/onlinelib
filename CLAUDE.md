@@ -31,6 +31,10 @@ make clean-ssg                # remove dist/ssg*
 make fix-permissions          # Fix volume permissions
 make reindex-search           # Rebuild search indexes
 
+# After editing .env, `docker compose restart <svc>` does NOT re-read env vars
+# (they are baked in at container creation). Use force-recreate:
+#   docker compose up -d --force-recreate --no-deps <service>
+
 # Deploy
 make deploy                   # Full deploy (pull, build, restart, SSG)
 make rebuild-ssg              # Rebuild SSG pages only
