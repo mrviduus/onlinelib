@@ -75,7 +75,8 @@
         }
       ],
       "expo-font",
-      "./plugins/with-adi-registration"
+      "./plugins/with-adi-registration",
+      "expo-audio"
     ],
     "developmentClient": {
       "silentLaunch": true
