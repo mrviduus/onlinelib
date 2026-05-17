@@ -69,13 +69,19 @@ export default function ReaderScreen() {
     webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
   }, [])
   const progressRef = useRef(0)
+  // Pixel-accurate scrollY, refreshed on every 'progress' message. Drives
+  // the 'scroll:slug:offset' locator so resume lands on the exact line,
+  // not just the nearest 1%-of-chapter band (apps/web/src/hooks/useReaderScrollSync.ts).
+  const scrollOffsetRef = useRef(0)
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
   const totalWordCountRef = useRef(0)
   // Saved in-chapter position for restore on WebView load. Loaded async
   // from local AsyncStorage (server fallback for authed users) once the
-  // editionId resolves. PWA-parity: web does the same in useReaderScrollSync.
+  // editionId resolves. Locator (pixel offset) wins; percent is fallback
+  // for legacy entries written before P0.2.
   const savedPercentRef = useRef<number | null>(null)
+  const savedScrollOffsetRef = useRef<number | null>(null)
   const restoreScrolledRef = useRef(false)
 
   const { colors } = useTheme()
@@ -196,12 +202,13 @@ export default function ReaderScreen() {
     isAuthenticated,
   })
 
-  const { saveProgress } = useReaderProgress({
+  const { saveProgress, bumpProgress } = useReaderProgress({
     editionIdRef,
     chapter,
     chapterSlug,
     currentChapterSlugRef,
     progressRef,
+    scrollOffsetRef,
     isAuthenticated,
   })
 
@@ -251,12 +258,17 @@ export default function ReaderScreen() {
         else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
         progressRef.current = data.progress
+        if (typeof data.scrollY === 'number') scrollOffsetRef.current = data.scrollY
         setProgress(data.progress)
         updateSessionProgress(data.progress)
         if (data.chapterSlug) {
           currentChapterSlugRef.current = data.chapterSlug
           setVisibleChapterSlug(data.chapterSlug)
         }
+        // 2s-debounced save (apps/mobile/src/hooks/useReaderProgress.ts).
+        // Prevents losing scroll position inside long chapters on
+        // unexpected app death.
+        bumpProgress()
       } else if (data.type === 'loaded') {
         enableInfiniteScrollFor(chapter)
       } else if (data.type === 'requestNextChapter') {
@@ -284,7 +296,7 @@ export default function ReaderScreen() {
     // Refs (highlightsRef, autoSavedRef) are read inside but intentionally
     // omitted from deps — refs don't trigger re-creation and listing them
     // here only adds noise.
-  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection])
+  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, bumpProgress])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -328,17 +340,29 @@ export default function ReaderScreen() {
   useEffect(() => {
     restoreScrolledRef.current = false
     savedPercentRef.current = null
+    savedScrollOffsetRef.current = null
     if (!editionId || !chapterSlug) return
     let cancelled = false
     ;(async () => {
       let percent: number | null = null
+      let scrollOffset: number | null = null
       try {
         const local = await getLocalProgress(editionId)
-        if (local && local.chapterSlug === chapterSlug && typeof local.percent === 'number') {
-          percent = local.percent
+        if (local && local.chapterSlug === chapterSlug) {
+          if (typeof local.percent === 'number') percent = local.percent
+          // Locator beats percent for in-chapter precision. Format is
+          // 'scroll:<slug>:<offsetY>' — anything else is unknown, skip.
+          if (typeof local.locator === 'string' && local.locator.startsWith('scroll:')) {
+            const parts = local.locator.split(':')
+            const lSlug = parts[1]
+            const off = parseInt(parts[2], 10)
+            if (lSlug === chapterSlug && Number.isFinite(off) && off > 0) {
+              scrollOffset = off
+            }
+          }
         }
       } catch {}
-      if (percent == null && isAuthenticated) {
+      if (percent == null && scrollOffset == null && isAuthenticated) {
         try {
           const server = await readingProgressApi.getProgress(editionId)
           if (server && server.chapterSlug === chapterSlug && typeof server.percent === 'number') {
@@ -351,6 +375,9 @@ export default function ReaderScreen() {
       // without any UX win.
       if (percent != null && percent > 0.005 && percent < 0.999) {
         savedPercentRef.current = percent
+      }
+      if (scrollOffset != null) {
+        savedScrollOffsetRef.current = scrollOffset
       }
     })()
     return () => { cancelled = true }
@@ -477,13 +504,19 @@ export default function ReaderScreen() {
             injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
             // Restore in-chapter position. One-shot — settings tweaks rebuild
             // the HTML and re-fire onLoadEnd, but the user's already mid-read
-            // by then, so we must not yank them back.
-            if (!restoreScrolledRef.current && savedPercentRef.current != null) {
+            // by then, so we must not yank them back. Prefer pixel-accurate
+            // locator (savedScrollOffsetRef); fall back to percent for legacy
+            // storage entries written before P0.2.
+            if (!restoreScrolledRef.current) {
+              const offset = savedScrollOffsetRef.current
               const pct = savedPercentRef.current
-              restoreScrolledRef.current = true
-              // rAF defers until the document has laid out — without it
-              // scrollHeight on Android can still read 0 at this point.
-              injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
+              if (offset != null) {
+                restoreScrolledRef.current = true
+                injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${offset})`)
+              } else if (pct != null) {
+                restoreScrolledRef.current = true
+                injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
+              }
             }
           }}
           originWhitelist={['*']}

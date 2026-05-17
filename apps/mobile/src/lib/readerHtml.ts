@@ -194,14 +194,33 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (Math.abs(progress - lastProgress) > 0.005) {
         lastProgress = progress;
         var currentSlug = getCurrentChapterSlug();
+        // scrollY lets RN build a 'scroll:slug:offset' locator the way PWA
+        // does (apps/web/src/hooks/useReaderScrollSync.ts). Locator wins
+        // over bare percent on resume because long chapters can have
+        // identical percent in many pixel positions.
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'progress',
           progress: progress,
-          chapterSlug: currentSlug
+          chapterSlug: currentSlug,
+          scrollY: Math.round(scrollTop)
         }));
       }
     }
     window.addEventListener('scroll', reportProgress, { passive: true });
+
+    // RN → WebView: jump to a saved scroll offset on chapter mount.
+    // Called from the reader screen after the chapter HTML has loaded
+    // (first 'progress' message confirms layout is ready).
+    window.__textstackRestoreScroll = function(offsetY) {
+      try {
+        var target = Math.max(0, Math.floor(offsetY) || 0);
+        // requestAnimationFrame to wait one paint so the reader's own
+        // mount-time scroll-to-top doesn't race ahead and clobber us.
+        requestAnimationFrame(function() {
+          window.scrollTo(0, target);
+        });
+      } catch (e) {}
+    };
 
     /**
      * Scroll direction detector — drives immersive chrome reveal.

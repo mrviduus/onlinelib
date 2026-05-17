@@ -88,6 +88,16 @@ export default function UserBookReaderScreen() {
   const footerHeight = 80 + insets.bottom
   const webViewRef = useRef<WebView>(null)
   const progressRef = useRef(0)
+  // Pixel-accurate scrollY (apps/mobile/src/lib/readerHtml.ts reports it
+  // in 'progress' messages). Used to build the locator + restore on mount.
+  const scrollOffsetRef = useRef(0)
+  // Saved offset from the previous session for one-shot restore on
+  // chapter mount. null means "no saved position" — start at top.
+  const savedScrollOffsetRef = useRef<number | null>(null)
+  const restoreScrolledRef = useRef(false)
+  // 2s debounce for in-chapter scroll saves; flushed eagerly on chapter
+  // change / unmount further down.
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
   const highlightsRef = useRef<PublicHighlight[]>([])
@@ -165,6 +175,49 @@ export default function UserBookReaderScreen() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
+  }, [bookId, chapterSlug])
+
+  // Load saved scroll offset for this chapter so onLoadEnd can scroll
+  // there. Public reader does the same via getLocalProgress; user-books
+  // route through the server API (single source of truth).
+  useEffect(() => {
+    restoreScrolledRef.current = false
+    savedScrollOffsetRef.current = null
+    if (!bookId || !chapterSlug) return
+    let cancelled = false
+    userBooksApi.getUserBookProgress(bookId)
+      .then(prog => {
+        if (cancelled) return
+        if (!prog || prog.chapterSlug !== chapterSlug) return
+        if (typeof prog.locator === 'string' && prog.locator.startsWith('scroll:')) {
+          const parts = prog.locator.split(':')
+          const off = parseInt(parts[2], 10)
+          if (parts[1] === chapterSlug && Number.isFinite(off) && off > 0) {
+            savedScrollOffsetRef.current = off
+          }
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [bookId, chapterSlug])
+
+  // Flush the pending debounced save before chapter switches or unmount —
+  // otherwise the tail end of the previous chapter's scroll is lost.
+  useEffect(() => {
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current)
+        saveDebounceRef.current = null
+        if (bookId && currentChapterSlugRef.current) {
+          const slug = currentChapterSlugRef.current
+          userBooksApi.updateUserBookProgress(bookId, {
+            percent: progressRef.current,
+            chapterSlug: slug,
+            locator: `scroll:${slug}:${scrollOffsetRef.current}`,
+          }).catch(() => {})
+        }
+      }
+    }
   }, [bookId, chapterSlug])
 
   // Load bookmarks + chapter list for TOC
@@ -255,6 +308,7 @@ export default function UserBookReaderScreen() {
         else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
         progressRef.current = data.progress
+        if (typeof data.scrollY === 'number') scrollOffsetRef.current = data.scrollY
         setProgress(data.progress)
         updateSessionProgress(data.progress)
         if (data.chapterSlug) {
@@ -262,13 +316,21 @@ export default function UserBookReaderScreen() {
           setVisibleChapterSlug(data.chapterSlug)
         }
         if (bookId) {
-          // Progress save is fire-and-forget; a 4xx/5xx shouldn't
-          // interrupt reading, but silent loss made it hard to notice
-          // when the backend fell over for a whole session.
-          userBooksApi.updateUserBookProgress(bookId, {
-            percent: data.progress,
-            chapterSlug: data.chapterSlug || chapterSlug,
-          }).catch(e => { console.warn('Failed to save user-book progress:', e) })
+          // 2s debounce so fast scrubbing doesn't spam the backend.
+          // Earlier this fired on every 'progress' message — multiple
+          // PUTs per second for long chapters.
+          if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+          const slugForSave = data.chapterSlug || chapterSlug || ''
+          const offsetForSave = scrollOffsetRef.current
+          const percentForSave = data.progress
+          saveDebounceRef.current = setTimeout(() => {
+            saveDebounceRef.current = null
+            userBooksApi.updateUserBookProgress(bookId, {
+              percent: percentForSave,
+              chapterSlug: slugForSave,
+              locator: `scroll:${slugForSave}:${offsetForSave}`,
+            }).catch(e => { console.warn('Failed to save user-book progress:', e) })
+          }, 2000)
         }
       } else if (data.type === 'loaded') {
         if (chapter?.next) {
@@ -540,6 +602,14 @@ export default function UserBookReaderScreen() {
             }
             if (Object.keys(vocabMapRef.current).length > 0) {
               injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+            }
+            // One-shot restore of saved scroll position. Settings changes
+            // re-fire onLoadEnd; the ref guard keeps us from yanking the
+            // user back to the original offset mid-read.
+            if (!restoreScrolledRef.current && savedScrollOffsetRef.current != null) {
+              const off = savedScrollOffsetRef.current
+              restoreScrolledRef.current = true
+              injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${off})`)
             }
           }}
           originWhitelist={['*']}
