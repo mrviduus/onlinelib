@@ -376,8 +376,12 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       if (_hlOverlayer && _hlOverlayer.markJustAnchored) _hlOverlayer.markJustAnchored();
       _lastDispatchedText = text;
       _lastDispatchWasTap = true;
+      // mode:'tap' tells RN to always route to WordCard regardless of whitespace —
+      // sentence captures the surrounding paragraph but the popup is always
+      // single-word for the tapped word.
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
+        mode: 'tap',
         text: text,
         sentence: sentence,
         anchor: anchor
@@ -1233,13 +1237,17 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
 
     console.log('[diag] attaching selectionchange listener');
-    document.addEventListener('selectionchange', function() {
-      // Inside suppression window — swallow the event entirely. Covers the
-      // transient "empty selection" that fires between removeAllRanges and
-      // addRange during a programmatic tap-to-select.
+    // 220ms debounce — iOS WebKit fires selectionchange repeatedly during
+    // magnifier drag and snap-back, sending intermediate single-word states
+    // before the user releases on a phrase. Without debounce the UI flickers
+    // between WordCard and SelectionActionBar mid-drag. Matches PWA's
+    // STABILIZE_MS in useTextSelection.
+    var _selChangeTimer = null;
+    function _runSelectionDispatch() {
+      _selChangeTimer = null;
+      // Re-check suppression at fire time — a tap dispatched DURING the debounce
+      // window must still get the full suppression treatment.
       if (Date.now() < _suppressSelectionChangeUntil) return;
-      // If we just anchored an overlay annotation tap, suppress the
-      // selectionchange race that iOS fires on the same touch.
       if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -1271,12 +1279,19 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       var anchor = null;
       try { anchor = getSelectionAnchor(); } catch(e) {}
       _lastDispatchedText = text;
+      // mode:'drag' = native drag / long-press. RN routes by content: single
+      // word → WordCard, multi-word → SelectionActionBar (palette).
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'selection',
+        mode: 'drag',
         text: text,
         sentence: sentence,
         anchor: anchor
       }));
+    }
+    document.addEventListener('selectionchange', function() {
+      if (_selChangeTimer) clearTimeout(_selChangeTimer);
+      _selChangeTimer = setTimeout(_runSelectionDispatch, 220);
     });
 
     // --- Image lightbox: tap chapter <img> → fullscreen viewer ---

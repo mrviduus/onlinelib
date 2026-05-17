@@ -265,7 +265,10 @@ export default function ReaderScreen() {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
         if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
-        const nextId = openSelection(data.text ? data : null)
+        // mode is set by readerHtml: 'tap' = selectWordAtPoint, 'drag' = selectionchange.
+        // Default to 'drag' for any legacy payload that doesn't include mode.
+        const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
+        const nextId = openSelection(data.text ? { ...data, mode } : null)
         // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
         if (nextId !== null && !data.text.includes(' ')) {
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
@@ -353,7 +356,11 @@ export default function ReaderScreen() {
     return () => { cancelled = true }
   }, [editionId, chapterSlug, isAuthenticated])
 
-  const isMultiWord = !!(selection && selection.text.includes(' '))
+  // A tap always opens WordCard (mode='tap'); drag/long-press routes by content
+  // (single word → WordCard, multi → SelectionActionBar). Matches PWA behavior
+  // where word-tap goes to WordPopup regardless of surrounding-text length, and
+  // a drag-narrow-to-1-word still gets WordPopup not the palette toolbar.
+  const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
 
   // Chapter counter for footer — track the visible chapter, not the URL's.
   const currentChapterIndex = chapters.findIndex(c => c.slug === activeSlug)

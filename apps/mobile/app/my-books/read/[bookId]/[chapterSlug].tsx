@@ -47,7 +47,7 @@ export default function UserBookReaderScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // See main reader screen: re-tap on the same word toggles dismiss (B-12).
   const [selection, setSelection] = useState<
-    { text: string; sentence: string; anchor?: any; selectionId: number } | null
+    { text: string; sentence: string; anchor?: any; selectionId: number; mode: 'tap' | 'drag' } | null
   >(null)
   const selectionIdRef = useRef(0)
   const [wordSaved, setWordSaved] = useState(false)
@@ -282,6 +282,7 @@ export default function UserBookReaderScreen() {
         if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
         if (data.text) {
+          const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
           setSelection(prev => {
             if (prev && prev.text === data.text && !data.text.includes(' ')) {
               return null
@@ -292,6 +293,7 @@ export default function UserBookReaderScreen() {
               sentence: data.sentence || '',
               anchor: data.anchor || null,
               selectionId: nextId,
+              mode,
             }
           })
           setWordSaved(false)
@@ -459,7 +461,8 @@ export default function UserBookReaderScreen() {
     return () => { cancelled = true }
   }, [isAuthenticated, chapter?.id, user?.id])
 
-  const isMultiWord = !!(selection && selection.text.includes(' '))
+  // Mirror the public reader: tap → WordCard always; drag → routed by content.
+  const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
 
   const navigateChapter = (slug: string) => {
     router.replace(`/my-books/read/${bookId}/${slug}`)

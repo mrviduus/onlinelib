@@ -5,6 +5,9 @@ export type Selection = {
   sentence: string
   anchor?: any
   selectionId: number
+  /** 'tap' = single-finger tap that always shows WordCard. 'drag' = native long-press / drag
+   * selection; routed by content (single word → WordCard, multi → SelectionActionBar). */
+  mode: 'tap' | 'drag'
 }
 
 export type LookupState = {
@@ -61,19 +64,20 @@ export function useReaderSelection({ flushVocabMap }: Options) {
    * concerns to avoid coupling to vocab/TTS internals).
    */
   const openSelection = useCallback(
-    (payload: { text: string; sentence?: string; anchor?: any } | null): number | null => {
+    (payload: { text: string; sentence?: string; anchor?: any; mode?: 'tap' | 'drag' } | null): number | null => {
       if (!payload || !payload.text) {
         if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
         setSelection(null)
         return null
       }
-      if (__DEV__) console.log('[diag] setSelection OPEN', payload.text)
+      if (__DEV__) console.log('[diag] setSelection OPEN', payload.text, 'mode=', payload.mode || 'drag')
       const nextId = ++selectionIdRef.current
       setSelection({
         text: payload.text,
         sentence: payload.sentence || '',
         anchor: payload.anchor || null,
         selectionId: nextId,
+        mode: payload.mode || 'drag',
       })
       setWordSaved(false)
       setLookupState(null)
