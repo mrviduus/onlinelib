@@ -137,7 +137,7 @@ export default function ReaderScreen() {
     showToast,
   })
 
-  const { vocabMapRef, flushToCache: flushVocabMap } = useReaderVocabMap({
+  const { vocabMapRef, flushToCache: flushVocabMap, bumpVocab } = useReaderVocabMap({
     user,
     isAuthenticated,
     chapterId: chapter?.id,
@@ -230,6 +230,7 @@ export default function ReaderScreen() {
     nativeLanguage,
     isAuthenticated,
     injectJs,
+    bumpVocab,
     notifyWordSaved,
     setSessionWordCount,
     setWordSaved,

@@ -17,6 +17,11 @@ type Options = {
   nativeLanguage: string
   isAuthenticated: boolean
   injectJs: (js: string) => void
+  /** Trigger reactive re-paint of vocab underlines after a mutation.
+   *  Inline injectJs calls below still fire for instant feedback; bumpVocab
+   *  is a defense-in-depth re-injection in case any path falls through.
+   *  Lives in useReaderVocabMap. */
+  bumpVocab: () => void
   notifyWordSaved: () => void
   setSessionWordCount: React.Dispatch<React.SetStateAction<number>>
   setWordSaved: (saved: boolean) => void
@@ -42,6 +47,7 @@ export function useReaderVocabActions({
   nativeLanguage,
   isAuthenticated,
   injectJs,
+  bumpVocab,
   notifyWordSaved,
   setSessionWordCount,
   setWordSaved,
@@ -54,6 +60,7 @@ export function useReaderVocabActions({
     const key = saved.word.toLowerCase()
     vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
     injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
+    bumpVocab()
     setWordSaved(true)
     setSessionWordCount(c => c + 1)
     notifyWordSaved()
@@ -72,7 +79,7 @@ export function useReaderVocabActions({
         }
       })
       .catch(() => {})
-  }, [vocabMapRef, injectJs, setWordSaved, setSessionWordCount, notifyWordSaved, language, nativeLanguage])
+  }, [vocabMapRef, injectJs, bumpVocab, setWordSaved, setSessionWordCount, notifyWordSaved, language, nativeLanguage])
 
   const saveWord = useCallback(async (selection: Selection) => {
     if (!isAuthenticated) return
@@ -133,12 +140,13 @@ export function useReaderVocabActions({
       await vocabularyApi.markAsKnown(entry.id)
       vocabMapRef.current[key] = { ...entry, stage: 4 }
       injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
+      bumpVocab()
       setSelection(null)
     } catch (e) {
       console.warn('Mark as known failed:', e)
       showToast({ message: 'Could not mark as known. Try again.', variant: 'error' })
     }
-  }, [isAuthenticated, vocabMapRef, injectJs, setSelection, showToast])
+  }, [isAuthenticated, vocabMapRef, injectJs, bumpVocab, setSelection, showToast])
 
   /**
    * Auto-save on single-word tap. Mirrors the manual saveWord flow but:
@@ -207,6 +215,7 @@ export function useReaderVocabActions({
     const snapshot = { ...entry }
     delete vocabMapRef.current[key]
     injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+    bumpVocab()
     setWordSaved(false)
     try {
       await vocabularyApi.deleteWord(entry.id)
@@ -215,10 +224,11 @@ export function useReaderVocabActions({
       console.warn('Remove word failed:', e)
       vocabMapRef.current[key] = snapshot
       injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
+      bumpVocab()
       setWordSaved(true)
       showToast({ message: 'Could not remove word. Try again.', variant: 'error' })
     }
-  }, [isAuthenticated, vocabMapRef, injectJs, setWordSaved, setSelection, showToast])
+  }, [isAuthenticated, vocabMapRef, injectJs, bumpVocab, setWordSaved, setSelection, showToast])
 
   return { saveWord, autoSaveWord, promoteLookup, markKnown, removeWord }
 }
