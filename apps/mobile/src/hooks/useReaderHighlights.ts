@@ -30,6 +30,25 @@ export function useReaderHighlights({
 }: Options) {
   const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
   const highlightsRef = useRef<PublicHighlight[]>([])
+  // Bump on every ref mutation (create/remove). A useEffect below re-injects
+  // the full set of renderHighlight calls so the WebView mirrors highlightsRef
+  // even if an inline injectJs missed (e.g. WebView still loading at the time).
+  const [highlightsVersion, setHighlightsVersion] = useState(0)
+  const bumpHighlights = useCallback(() => setHighlightsVersion(v => v + 1), [])
+  const skipFirstHighlightsRef = useRef(true)
+  useEffect(() => {
+    if (skipFirstHighlightsRef.current) {
+      skipFirstHighlightsRef.current = false
+      return
+    }
+    const t = setTimeout(() => {
+      for (const h of highlightsRef.current) {
+        if (chapterId && h.chapterId !== chapterId) continue
+        injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
+      }
+    }, 120)
+    return () => clearTimeout(t)
+  }, [highlightsVersion, chapterId, injectJs])
 
   // Load + paint existing highlights when chapter changes. Cache-first paint
   // for offline survival; API refresh overwrites. Cache keyed per-user so
@@ -82,6 +101,7 @@ export function useReaderHighlights({
         })
         injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
         highlightsRef.current = [...highlightsRef.current, hl]
+        bumpHighlights()
         const uid = user?.id
         if (uid) {
           highlightCache.get(uid, editionId).then(prev => {
@@ -93,7 +113,7 @@ export function useReaderHighlights({
         showToast({ message: 'Could not add highlight. Try again.', variant: 'error' })
       }
     },
-    [editionIdRef, injectJs, showToast, user?.id]
+    [editionIdRef, injectJs, showToast, user?.id, bumpHighlights]
   )
 
   const saveNote = useCallback(
@@ -123,6 +143,7 @@ export function useReaderHighlights({
         await highlightsApi.deleteHighlight(id)
         injectJs(`removeHighlight(${JSON.stringify(id)})`)
         highlightsRef.current = highlightsRef.current.filter(h => h.id !== id)
+        bumpHighlights()
         const uid = user?.id
         const edId = editionIdRef.current
         if (uid && edId) {
@@ -136,7 +157,7 @@ export function useReaderHighlights({
         showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
       }
     },
-    [editionIdRef, injectJs, showToast, user?.id]
+    [editionIdRef, injectJs, showToast, user?.id, bumpHighlights]
   )
 
   return {
