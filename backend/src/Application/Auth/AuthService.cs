@@ -61,9 +61,15 @@ public class AuthService
         GoogleJsonWebSignature.Payload payload;
         try
         {
+            var audiences = new List<string> { _googleSettings.ClientId };
+            if (!string.IsNullOrWhiteSpace(_googleSettings.LegacyClientIds))
+            {
+                audiences.AddRange(_googleSettings.LegacyClientIds.Split(
+                    ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
             payload = await GoogleJsonWebSignature.ValidateAsync(googleIdToken, new GoogleJsonWebSignature.ValidationSettings
             {
-                Audience = [_googleSettings.ClientId]
+                Audience = audiences
             });
         }
         catch (InvalidJwtException)

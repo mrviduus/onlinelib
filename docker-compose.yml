@@ -61,6 +61,7 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Google__ClientId: ${GOOGLE_CLIENT_ID}
+      Google__LegacyClientIds: ${GOOGLE_LEGACY_CLIENT_IDS:-}
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
       Tts__CachePath: /data/tts-cache
       Explain__CachePath: /data/explain-cache
