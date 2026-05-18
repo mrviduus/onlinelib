@@ -1,7 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { useEffect, useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
+import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { fonts } from '../theme/typography'
 
 const STAGE_LABELS: Record<number, { label: string; color: string }> = {
@@ -12,21 +15,29 @@ const STAGE_LABELS: Record<number, { label: string; color: string }> = {
   4: { label: '✓', color: '#22c55e' },
 }
 
-const HIGHLIGHT_COLORS = [
-  { key: 'yellow', color: '#fef08a' },
-  { key: 'green', color: '#bbf7d0' },
-  { key: 'pink', color: '#fbcfe8' },
-  { key: 'blue', color: '#bfdbfe' },
-] as const
+const HIGHLIGHT_FILLS: Record<string, string> = {
+  yellow: '#fef08a',
+  green: '#bbf7d0',
+  pink: '#fbcfe8',
+  blue: '#bfdbfe',
+}
+
+export type HighlightColorKey = 'yellow' | 'green' | 'pink' | 'blue'
 
 interface SelectionActionBarProps {
   selectedText: string
   isMultiWord: boolean
+  /** Source language code — used for fetching the inline translation
+   *  when a single word is tapped. Same value the reader passes to TTS. */
+  language?: string
   onTranslate: () => void
   onExplain?: () => void
   onSpeak: () => void
   onSaveWord: () => void
-  onHighlight?: (color: string) => void
+  onHighlight?: (color: HighlightColorKey) => void
+  /** Last color the user picked — used as the single highlight button's
+   *  fill. Tapping commits this color; change via HighlightNoteModal after. */
+  highlightColor?: HighlightColorKey
   onMarkKnown?: () => void
   isSpeaking?: boolean
   wordSaved?: boolean
@@ -36,15 +47,74 @@ interface SelectionActionBarProps {
   bottomOffset?: number
 }
 
+/**
+ * Single bottom toolbar for any selection. Mode is derived from
+ * `isMultiWord`:
+ *
+ *   - single word  → shows the inline translation above the row,
+ *                    plus per-word actions (save / mark-known)
+ *   - multi-word   → just the action row; translation lives in
+ *                    the TranslationSheet behind the Translate button
+ *
+ * The highlight palette collapsed into one button (matches Apple Books /
+ * Kindle). Color change happens in HighlightNoteModal after the
+ * highlight is created.
+ */
 export function SelectionActionBar({
-  selectedText, isMultiWord, onTranslate, onExplain, onSpeak, onSaveWord, onHighlight,
-  onMarkKnown, isSpeaking, wordSaved, vocabStage, isAuthenticated, bottomOffset = 0,
+  selectedText,
+  isMultiWord,
+  language,
+  onTranslate,
+  onExplain,
+  onSpeak,
+  onSaveWord,
+  onHighlight,
+  highlightColor = 'yellow',
+  onMarkKnown,
+  isSpeaking,
+  wordSaved,
+  vocabStage,
+  isAuthenticated,
+  bottomOffset = 0,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
+  const { fromLang, toLang } = useTargetLanguage(language)
+  const isSameLang = fromLang === toLang
+
+  // Inline translation for single-word taps. Fetched here (was in the
+  // deleted WordCard). Cancellation guard avoids stale results when the
+  // user re-taps mid-fetch.
+  const [translation, setTranslation] = useState('')
+  const [translating, setTranslating] = useState(false)
+  useEffect(() => {
+    if (isMultiWord || !selectedText || isSameLang) {
+      setTranslation('')
+      setTranslating(false)
+      return
+    }
+    let cancelled = false
+    setTranslation('')
+    setTranslating(true)
+    translationApi.translate(selectedText, fromLang, toLang)
+      .then((res: { translatedText?: string; translation?: string }) => {
+        if (cancelled) return
+        setTranslation(res.translatedText || res.translation || '')
+      })
+      .catch(() => {
+        if (!cancelled) setTranslation('')
+      })
+      .finally(() => {
+        if (!cancelled) setTranslating(false)
+      })
+    return () => { cancelled = true }
+  }, [selectedText, isMultiWord, fromLang, toLang, isSameLang])
 
   const handleCopy = () => {
     if (selectedText) Clipboard.setStringAsync(selectedText)
   }
+
+  const stage = !isMultiWord && vocabStage != null ? STAGE_LABELS[vocabStage] : null
+  const highlightFill = HIGHLIGHT_FILLS[highlightColor] || HIGHLIGHT_FILLS.yellow
 
   return (
     <View
@@ -57,60 +127,76 @@ export function SelectionActionBar({
         },
       ]}
     >
-      {/* Highlight color buttons */}
-      {isAuthenticated && onHighlight && (
-        <>
-          {HIGHLIGHT_COLORS.map(h => (
-            <TouchableOpacity
-              key={h.key}
-              style={[styles.colorBtn, { backgroundColor: h.color }]}
-              onPress={() => onHighlight(h.key)}
-              accessibilityRole="button"
-              accessibilityLabel={`Highlight in ${h.key}`}
-            />
-          ))}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        </>
+      {/* Translation row — only for single-word taps. Keeps the killer
+          feature from the old WordCard (zero-tap to see translation). */}
+      {!isMultiWord && !isSameLang && (
+        <View style={styles.translationRow}>
+          <Text style={[styles.word, { color: colors.textSecondary }]} numberOfLines={1}>
+            {selectedText}
+          </Text>
+          <Ionicons name="arrow-forward" size={12} color={colors.textSecondary} />
+          {translating ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <Text style={[styles.translation, { color: colors.text }]} numberOfLines={1}>
+              {translation || '—'}
+            </Text>
+          )}
+        </View>
       )}
 
-      <TouchableOpacity
-        style={styles.btn}
-        onPress={handleCopy}
-        accessibilityRole="button"
-        accessibilityLabel="Copy selection"
-      >
-        <Ionicons name="copy-outline" size={18} color={colors.text} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.btn}
-        onPress={onTranslate}
-        accessibilityRole="button"
-        accessibilityLabel="Translate selection"
-      >
-        <Ionicons name="language-outline" size={18} color={colors.text} />
-      </TouchableOpacity>
-      {onExplain && (
+      <View style={styles.actionsRow}>
+        {isAuthenticated && onHighlight && (
+          <>
+            <TouchableOpacity
+              style={[styles.highlightBtn, { backgroundColor: highlightFill }]}
+              onPress={() => onHighlight(highlightColor)}
+              accessibilityRole="button"
+              accessibilityLabel={`Highlight in ${highlightColor} (tap to change color in the note editor)`}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
         <TouchableOpacity
           style={styles.btn}
-          onPress={onExplain}
+          onPress={handleCopy}
           accessibilityRole="button"
-          accessibilityLabel="Explain selection in context"
+          accessibilityLabel="Copy selection"
         >
-          <Ionicons name="bulb-outline" size={18} color={colors.text} />
+          <Ionicons name="copy-outline" size={20} color={colors.text} />
         </TouchableOpacity>
-      )}
-      <TouchableOpacity
-        style={styles.btn}
-        onPress={onSpeak}
-        accessibilityRole="button"
-        accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
-        accessibilityState={{ selected: !!isSpeaking }}
-      >
-        <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={18} color={colors.text} />
-      </TouchableOpacity>
-      {isAuthenticated && !isMultiWord && (() => {
-        const stage = vocabStage != null ? STAGE_LABELS[vocabStage] : null
-        return (
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={onTranslate}
+          accessibilityRole="button"
+          accessibilityLabel="Translate selection in full sheet"
+        >
+          <Ionicons name="language-outline" size={20} color={colors.text} />
+        </TouchableOpacity>
+        {onExplain && (
+          <TouchableOpacity
+            style={styles.btn}
+            onPress={onExplain}
+            accessibilityRole="button"
+            accessibilityLabel="Explain selection in context"
+          >
+            <Ionicons name="bulb-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={onSpeak}
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
+          accessibilityState={{ selected: !!isSpeaking }}
+        >
+          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.text} />
+        </TouchableOpacity>
+
+        {/* Per-word vocab affordances (save / mark known / stage badge) */}
+        {isAuthenticated && !isMultiWord && (
           <>
             {stage && (
               <View
@@ -127,7 +213,7 @@ export function SelectionActionBar({
                 accessibilityRole="button"
                 accessibilityLabel="Mark word as known"
               >
-                <Ionicons name="checkmark-done" size={18} color="#22c55e" />
+                <Ionicons name="checkmark-done" size={20} color="#22c55e" />
               </TouchableOpacity>
             )}
             {!stage && (
@@ -141,14 +227,14 @@ export function SelectionActionBar({
               >
                 <Ionicons
                   name={wordSaved ? 'checkmark-circle' : 'add-circle-outline'}
-                  size={18}
+                  size={20}
                   color={wordSaved ? colors.success : colors.text}
                 />
               </TouchableOpacity>
             )}
           </>
-        )
-      })()}
+        )}
+      </View>
     </View>
   )
 }
@@ -161,42 +247,64 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 3,
   },
+  translationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingBottom: 6,
+    marginBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(127,127,127,0.18)',
+  },
+  word: {
+    fontFamily: fonts.serifItalic,
+    fontSize: 14,
+    maxWidth: '40%',
+  },
+  translation: {
+    fontFamily: fonts.serif,
+    fontSize: 15,
+    maxWidth: '55%',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   btn: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  colorBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  highlightBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.15)',
   },
   divider: {
     width: 1,
-    height: 20,
-    marginHorizontal: 4,
+    height: 22,
+    marginHorizontal: 6,
   },
   stageBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
     borderWidth: 1,
   },
   stageBadgeText: {
