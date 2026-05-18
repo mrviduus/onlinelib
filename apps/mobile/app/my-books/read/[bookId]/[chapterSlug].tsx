@@ -449,6 +449,9 @@ export default function UserBookReaderScreen() {
           userBookHighlightCache.set(uid, bookId, [...(prev || []), hl])
         })
       }
+      if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
+        updateSettings({ lastHighlightColor: color })
+      }
       setSelection(null)
     } catch (e) {
       console.warn('Failed to create highlight:', e)
@@ -523,7 +526,8 @@ export default function UserBookReaderScreen() {
     return () => { cancelled = true }
   }, [isAuthenticated, chapter?.id, user?.id])
 
-  // Mirror the public reader: tap → WordCard always; drag → routed by content.
+  // Mirror the public reader: tap = single-word layout of SelectionActionBar
+  // (translation row + per-word actions); drag = layout chosen by content.
   const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
 
   const navigateChapter = (slug: string) => {
@@ -659,11 +663,13 @@ export default function UserBookReaderScreen() {
           <SelectionActionBar
             selectedText={selection.text}
             isMultiWord={isMultiWord}
+            language={language}
             onTranslate={() => setTranslateOpen(true)}
             onExplain={() => setExplainOpen(true)}
             onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
             onSaveWord={handleSaveWord}
             onHighlight={handleHighlight}
+            highlightColor={settings.lastHighlightColor}
             onMarkKnown={handleMarkKnown}
             isSpeaking={isSpeaking}
             wordSaved={wordSaved}
@@ -782,7 +788,31 @@ export default function UserBookReaderScreen() {
             ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
             : ''}
           initialNote={editingHighlight?.noteText || ''}
+          initialColor={(editingHighlight?.color ?? settings.lastHighlightColor) as 'yellow' | 'green' | 'pink' | 'blue'}
           onCancel={() => setEditingHighlight(null)}
+          onColorChange={async (color) => {
+            const hl = editingHighlight
+            if (!hl) return
+            updateSettings({ lastHighlightColor: color })
+            // Optimistic local repaint, then PATCH; rollback on failure.
+            injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
+            injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(hl.anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(hl.selectedText)})`)
+            try {
+              const updated = await highlightsApi.updateHighlight(hl.id, { color })
+              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
+              const uid = user?.id
+              if (uid && bookId) {
+                userBookHighlightCache.get(uid, bookId).then(prev => {
+                  if (!prev) return
+                  userBookHighlightCache.set(uid, bookId, prev.map(h => h.id === hl.id ? updated : h))
+                })
+              }
+            } catch {
+              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
+              injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(hl.anchorJson)}, ${JSON.stringify(hl.color)}, ${JSON.stringify(hl.selectedText)})`)
+              showToast({ message: 'Could not change color. Try again.', variant: 'error' })
+            }
+          }}
           onSave={async (note) => {
             const hl = editingHighlight
             setEditingHighlight(null)

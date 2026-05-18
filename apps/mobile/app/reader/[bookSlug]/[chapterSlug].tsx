@@ -21,7 +21,6 @@ import { useReaderInfiniteScroll } from '../../../src/hooks/useReaderInfiniteScr
 import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
 import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
 import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
-import { WordCard } from '../../../src/components/WordCard'
 import { TranslationSheet } from '../../../src/components/TranslationSheet'
 import { ExplanationSheet } from '../../../src/components/ExplanationSheet'
 import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
@@ -126,6 +125,7 @@ export default function ReaderScreen() {
     setEditingHighlight,
     create: createHighlight,
     saveNote: saveHighlightNote,
+    updateColor: updateHighlightColor,
     remove: removeHighlight,
   } = useReaderHighlights({
     editionId,
@@ -326,9 +326,14 @@ export default function ReaderScreen() {
   const handleHighlight = useCallback(async (color: string) => {
     if (!selection || !chapter) return
     await createHighlight({ color, selection, chapter })
+    // Remember this color so the next quick-tap on the highlight button
+    // uses it without opening the editor.
+    if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
+      updateSettings({ lastHighlightColor: color })
+    }
     if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
     setSelection(null)
-  }, [selection, chapter, createHighlight])
+  }, [selection, chapter, createHighlight, updateSettings])
 
 
   // Sync inline translations setting to WebView
@@ -386,10 +391,11 @@ export default function ReaderScreen() {
     return () => { cancelled = true }
   }, [editionId, chapterSlug, isAuthenticated])
 
-  // A tap always opens WordCard (mode='tap'); drag/long-press routes by content
-  // (single word → WordCard, multi → SelectionActionBar). Matches PWA behavior
-  // where word-tap goes to WordPopup regardless of surrounding-text length, and
-  // a drag-narrow-to-1-word still gets WordPopup not the palette toolbar.
+  // A tap always opens the single-word layout of SelectionActionBar
+  // (translation row + per-word actions); drag/long-press routes by
+  // content (single word → same layout, multi → multi-word layout).
+  // PWA's WordPopup is collapsed into the same bar — one overlay
+  // component instead of two on mobile.
   const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
 
   // Chapter counter for footer — track the visible chapter, not the URL's.
@@ -578,49 +584,27 @@ export default function ReaderScreen() {
           onSettingsPress={() => setSettingsOpen(true)}
         />
 
-        {/* Selection: WordCard for single words, ActionBar for multi-word.
-            Both are absolutely positioned above the footer via `bottomOffset`
-            so they're not occluded by the progress chrome. */}
+        {/* Unified selection toolbar: WordCard removed in favor of a single
+            SelectionActionBar that toggles its layout via isMultiWord
+            (single-word adds a translation row + per-word save/known). */}
         {selection && (
-          isMultiWord ? (
-            <SelectionActionBar
-              selectedText={selection.text}
-              isMultiWord
-              onTranslate={() => setTranslateOpen(true)}
-              onExplain={() => setExplainOpen(true)}
-              onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
-              onSaveWord={handleSaveWord}
-              onHighlight={handleHighlight}
-              onMarkKnown={handleMarkKnown}
-              isSpeaking={isSpeaking}
-              wordSaved={wordSaved}
-              vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
-              isAuthenticated={isAuthenticated}
-              bottomOffset={footerHeight}
-            />
-          ) : (
-            <WordCard
-              word={selection.text}
-              selectionId={selection.selectionId}
-              onSave={handleSaveWord}
-              onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
-              onRemove={handleRemoveWord}
-              onMarkKnown={handleMarkKnown}
-              onDismiss={() => {
-                if (__DEV__) console.log('[diag] WordCard onDismiss fired')
-                setSelection(null); setWordSaved(false); setLookupState(null)
-              }}
-              isSpeaking={isSpeaking}
-              wordSaved={wordSaved}
-              vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
-              isAuthenticated={isAuthenticated}
-              language={language}
-              sessionWordCount={sessionWordCount}
-              bottomOffset={footerHeight}
-              lookupState={lookupState}
-              onAddAnyway={handlePromoteLookup}
-            />
-          )
+          <SelectionActionBar
+            selectedText={selection.text}
+            isMultiWord={isMultiWord}
+            language={language}
+            onTranslate={() => setTranslateOpen(true)}
+            onExplain={() => setExplainOpen(true)}
+            onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
+            onSaveWord={handleSaveWord}
+            onHighlight={handleHighlight}
+            highlightColor={settings.lastHighlightColor}
+            onMarkKnown={handleMarkKnown}
+            isSpeaking={isSpeaking}
+            wordSaved={wordSaved}
+            vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
+            isAuthenticated={isAuthenticated}
+            bottomOffset={footerHeight}
+          />
         )}
 
         {/* Footer — progress bar + chevrons + chapter title + counter (PWA parity) */}
@@ -735,11 +719,19 @@ export default function ReaderScreen() {
             ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
             : ''}
           initialNote={editingHighlight?.noteText || ''}
+          initialColor={(editingHighlight?.color ?? settings.lastHighlightColor) as 'yellow' | 'green' | 'pink' | 'blue'}
           onCancel={() => setEditingHighlight(null)}
           onSave={async (note) => {
             const hl = editingHighlight
             setEditingHighlight(null)
             if (hl) await saveHighlightNote(hl.id, note)
+          }}
+          onColorChange={async (color) => {
+            const hl = editingHighlight
+            if (!hl) return
+            // Persist as the user's default for the next quick-highlight.
+            updateSettings({ lastHighlightColor: color })
+            await updateHighlightColor(hl.id, color)
           }}
           onDelete={async () => {
             const hl = editingHighlight
