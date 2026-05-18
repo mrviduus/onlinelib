@@ -11,7 +11,11 @@ type LookupState = { kind: 'lookup' | 'lookup_pending'; id: string; tapsRemainin
 type Options = {
   vocabMapRef: MutableRefObject<VocabMap>
   bookTitleRef: MutableRefObject<string | null>
-  editionIdRef: MutableRefObject<string | null>
+  /** Either editionIdRef (public reader) or userBookIdRef (user-book reader)
+   *  must be supplied. Both pass-through to vocabularyApi.saveWord — the
+   *  backend stores either FK depending on which is provided. */
+  editionIdRef?: MutableRefObject<string | null>
+  userBookIdRef?: MutableRefObject<string | null>
   chapter: Chapter | null
   language: Language
   nativeLanguage: string
@@ -42,6 +46,7 @@ export function useReaderVocabActions({
   vocabMapRef,
   bookTitleRef,
   editionIdRef,
+  userBookIdRef,
   chapter,
   language,
   nativeLanguage,
@@ -55,6 +60,20 @@ export function useReaderVocabActions({
   setLookupState,
   showToast,
 }: Options) {
+  /** Build the per-book identification fields for vocabularyApi.saveWord.
+   *  Edition mode → editionId + chapterId, user-book → userBookId + userChapterId. */
+  const bookFields = () => {
+    if (userBookIdRef?.current) {
+      return {
+        userBookId: userBookIdRef.current,
+        userChapterId: chapter?.id || null,
+      } as const
+    }
+    return {
+      editionId: editionIdRef?.current || null,
+      chapterId: chapter?.id || null,
+    } as const
+  }
   /** Shared post-save sequence: mark + count + notify + persist translation. */
   const onWordSaved = useCallback((saved: VocabularyWordDto, sourceText: string) => {
     const key = saved.word.toLowerCase()
@@ -89,8 +108,7 @@ export function useReaderVocabActions({
         language,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
-        editionId: editionIdRef.current || null,
-        chapterId: chapter?.id || null,
+        ...bookFields(),
       })
       if (resp.outcome === 'pending') {
         showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
@@ -110,7 +128,7 @@ export function useReaderVocabActions({
       console.warn('Save word failed:', e)
       showToast({ message: 'Could not save word. Try again.', variant: 'error' })
     }
-  }, [isAuthenticated, language, bookTitleRef, editionIdRef, chapter, showToast, setLookupState, onWordSaved])
+  }, [isAuthenticated, language, bookTitleRef, editionIdRef, userBookIdRef, chapter, showToast, setLookupState, onWordSaved])
 
   /**
    * F1 anti-spiral: "Add to SRS anyway" on a rare-word notice.
@@ -170,8 +188,7 @@ export function useReaderVocabActions({
         language,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
-        editionId: editionIdRef.current || null,
-        chapterId: chapter?.id || null,
+        ...bookFields(),
       })
       if (resp.outcome === 'pending') {
         showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
@@ -200,7 +217,7 @@ export function useReaderVocabActions({
     } catch {
       autoSavedRef.current.delete(keyLc)
     }
-  }, [isAuthenticated, vocabMapRef, language, bookTitleRef, editionIdRef, chapter, showToast, setLookupState, onWordSaved])
+  }, [isAuthenticated, vocabMapRef, language, bookTitleRef, editionIdRef, userBookIdRef, chapter, showToast, setLookupState, onWordSaved])
 
   /**
    * B-79 web-parity: optimistic remove. We drop the word locally and re-mark
