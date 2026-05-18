@@ -31,6 +31,8 @@ import {
   RefreshControl,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Image } from 'expo-image'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import {
   createBooksApi,
@@ -69,6 +71,7 @@ function firstName(name: string | null | undefined): string {
 
 export default function HomeScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { colors } = useTheme()
   const { language, switchLanguage, t } = useLanguage()
   const { isAuthenticated, user } = useAuth()
@@ -178,7 +181,7 @@ export default function HomeScreen() {
       }
     >
       {/* Greeting header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerTop}>
           <View style={styles.greetingCol}>
             <Text
@@ -234,13 +237,37 @@ export default function HomeScreen() {
               ]}
               onPress={() => router.push('/(tabs)/profile')}
               activeOpacity={0.7}
-              accessibilityLabel="Profile"
+              accessibilityLabel={isAuthenticated ? 'Profile (signed in)' : 'Sign in'}
+              // hitSlop bumps the effective tap area to the 44pt iOS HIG min
+              // without pushing the visual circle bigger and crowding the
+              // status bar.
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={colors.textSecondary}
-              />
+              {user?.picture ? (
+                <>
+                  <Image
+                    source={{ uri: user.picture }}
+                    style={styles.avatarImg}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                  {/* Online dot — visual confirmation of signed-in state.
+                      PWA mirrors with an avatar-shaped border ring; the
+                      dot reads better at this size. */}
+                  <View
+                    style={[
+                      styles.onlineDot,
+                      { backgroundColor: '#22c55e', borderColor: colors.surface },
+                    ]}
+                  />
+                </>
+              ) : (
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -321,8 +348,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 8,
+    // paddingTop set inline from safe-area inset below.
   },
   headerTop: {
     flexDirection: 'row',
@@ -350,12 +377,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  avatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
   },
   langPillText: {
     fontFamily: fonts.sansMedium,
