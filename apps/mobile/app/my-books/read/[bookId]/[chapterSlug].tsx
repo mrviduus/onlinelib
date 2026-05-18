@@ -2,12 +2,15 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { userBooksApi, vocabularyApi, highlightsApi, t } from '@textstack/shared'
-import type { UserBookChapterDto, BookmarkDto, PublicHighlight } from '@textstack/shared'
+import { userBooksApi, t } from '@textstack/shared'
+import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
-import { userBookHighlightCache, vocabMapCache } from '../../../../src/lib/readerOfflineCache'
 import { useAuth } from '../../../../src/context/AuthContext'
 import { useReaderSettings } from '../../../../src/hooks/useReaderSettings'
+import { useReaderSelection } from '../../../../src/hooks/useReaderSelection'
+import { useReaderHighlights } from '../../../../src/hooks/useReaderHighlights'
+import { useReaderVocabMap } from '../../../../src/hooks/useReaderVocabMap'
+import { useReaderVocabActions } from '../../../../src/hooks/useReaderVocabActions'
 import { ReaderSettingsDrawer } from '../../../../src/components/ReaderSettingsDrawer'
 import { SelectionActionBar } from '../../../../src/components/SelectionActionBar'
 import { TranslationSheet } from '../../../../src/components/TranslationSheet'
@@ -22,6 +25,7 @@ import { useQuickStats } from '../../../../src/hooks/useQuickStats'
 import { useHaptics } from '../../../../src/hooks/useHaptics'
 import { useToast } from '../../../../src/context/ToastContext'
 import { useLanguage } from '../../../../src/context/LanguageContext'
+import { useNativeLanguage } from '../../../../src/context/NativeLanguageContext'
 import { ReaderStatsWidget } from '../../../../src/components/ReaderStatsWidget'
 import { ReaderTapCoachmark } from '../../../../src/components/reader/ReaderTapCoachmark'
 import { Ionicons } from '@expo/vector-icons'
@@ -29,7 +33,7 @@ import { useTheme } from '../../../../src/context/ThemeContext'
 import { fonts } from '../../../../src/theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
-import { trackBookOpened, trackVocabSaved } from '../../../../src/lib/analytics'
+import { trackBookOpened } from '../../../../src/lib/analytics'
 
 /** Lightweight {key} interpolation — shared `t()` returns raw keys. */
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -45,12 +49,6 @@ export default function UserBookReaderScreen() {
   const [chapter, setChapter] = useState<UserBookChapterDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  // See main reader screen: re-tap on the same word toggles dismiss (B-12).
-  const [selection, setSelection] = useState<
-    { text: string; sentence: string; anchor?: any; selectionId: number; mode: 'tap' | 'drag' } | null
-  >(null)
-  const selectionIdRef = useRef(0)
-  const [wordSaved, setWordSaved] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -58,14 +56,13 @@ export default function UserBookReaderScreen() {
   const [tocOpen, setTocOpen] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
   const [chapters, setChapters] = useState<{ slug: string; title: string; chapterNumber?: number }[]>([])
-  // See main reader: cross-platform replacement for Alert.prompt (B-02).
-  const [editingHighlight, setEditingHighlight] = useState<PublicHighlight | null>(null)
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const quickStats = useQuickStats(isAuthenticated)
   const haptics = useHaptics()
   const { show: showToast } = useToast()
   const { language } = useLanguage()
+  const { nativeLanguage } = useNativeLanguage()
   const sessionWordCountRef = useRef(0)
 
   const notifyWordSaved = useCallback(() => {
@@ -100,9 +97,81 @@ export default function UserBookReaderScreen() {
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
-  const highlightsRef = useRef<PublicHighlight[]>([])
   const currentChapterSlugRef = useRef<string | null>(null)
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
+
+  // Sync ref so callbacks fired after a setState see the current bookId
+  // (mirrors editionIdRef in the public reader). Used by shared hooks
+  // below to build the per-book payload for the API.
+  const userBookIdRef = useRef<string | null>(null)
+  useEffect(() => { userBookIdRef.current = bookId || null }, [bookId])
+  const bookTitleRef = useRef<string | null>(null)
+
+  // Hoisted ahead of the shared hooks so they can request WebView script
+  // injection (markVocabWords, renderHighlight, scroll restore).
+  const injectJs = useCallback((js: string) => {
+    webViewRef.current?.injectJavaScript(js + ';true;')
+  }, [])
+
+  const {
+    vocabMapRef,
+    flushToCache: flushVocabMap,
+    bumpVocab,
+  } = useReaderVocabMap({
+    user,
+    isAuthenticated,
+    chapterId: chapter?.id,
+    injectJs,
+    bookLanguage: language,
+    nativeLanguage,
+  })
+
+  const {
+    selection,
+    setSelection,
+    wordSaved,
+    setWordSaved,
+    lookupState,
+    setLookupState,
+    autoSavedRef,
+    openSelection,
+  } = useReaderSelection({ flushVocabMap })
+
+  const {
+    highlightsRef,
+    editingHighlight,
+    setEditingHighlight,
+    create: createHighlight,
+    saveNote: saveHighlightNote,
+    updateColor: updateHighlightColor,
+    remove: removeHighlight,
+  } = useReaderHighlights({
+    userBookId: bookId || null,
+    userBookIdRef,
+    user,
+    isAuthenticated,
+    chapterId: chapter?.id,
+    injectJs,
+    showToast,
+  })
+
+  const vocabActions = useReaderVocabActions({
+    vocabMapRef,
+    bookTitleRef,
+    userBookIdRef,
+    chapter: chapter ? { id: chapter.id } as unknown as Parameters<typeof useReaderVocabActions>[0]['chapter'] : null,
+    language,
+    nativeLanguage,
+    isAuthenticated,
+    injectJs,
+    bumpVocab,
+    notifyWordSaved: () => notifyWordSaved(),
+    setSessionWordCount: () => { /* user-book uses sessionWordCountRef inline */ },
+    setWordSaved,
+    setSelection,
+    setLookupState,
+    showToast,
+  })
 
   // Immersive mode — bars hide on scroll down, reveal on scroll up.
   // See `readerHtml.ts` for the scroll-direction detector that drives
@@ -343,188 +412,40 @@ export default function UserBookReaderScreen() {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
         if (hl) setEditingHighlight(hl)
       } else if (data.type === 'selection') {
-        if (data.text) {
-          const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
-          setSelection(prev => {
-            if (prev && prev.text === data.text && !data.text.includes(' ')) {
-              return null
-            }
-            const nextId = ++selectionIdRef.current
-            return {
-              text: data.text,
-              sentence: data.sentence || '',
-              anchor: data.anchor || null,
-              selectionId: nextId,
-              mode,
-            }
-          })
-          setWordSaved(false)
-          // settings.autoLookup originally also opened the inline DictionarySheet.
-          // After dropping the Free Dictionary API from mobile, the flag still
-          // gates the auto-save behavior — keep that, drop the sheet open.
-          if (settings.autoLookup && !data.text.includes(' ') && data.text.length <= 50) {
-            if (isAuthenticated) {
-              vocabularyApi.saveWord({ word: data.text, language: 'en', sentence: data.sentence || null, bookTitle: null, userBookId: bookId || null })
-                .then(resp => {
-                  if (resp.outcome === 'pending') {
-                    showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
-                    return
-                  }
-                  notifyWordSaved()
-                  trackVocabSaved({ language: 'en', source: 'reader' })
-                })
-                .catch(e => { console.warn('Auto-save vocab word failed:', e) })
-            }
-          }
-        } else {
-          setSelection(null)
+        const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
+        const nextId = openSelection(data.text ? { ...data, mode } : null)
+        if (nextId !== null && !data.text.includes(' ')) {
+          // Auto-TTS + auto-save on single-word tap, mirrors public reader.
+          toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
+          void vocabActions.autoSaveWord(
+            { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
+            autoSavedRef,
+          )
         }
       }
     } catch (err) {
       if (__DEV__) console.warn('[user-book-reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, bookId, chapterSlug, settings.autoLookup, isAuthenticated, language, toggleBars, showBars, hideBars, notifyWordSaved, showToast])
+  }, [chapter, bookId, chapterSlug, settings.ttsSpeed, isAuthenticated, language, toggleBars, showBars, hideBars, toggleTts, vocabActions, autoSavedRef, openSelection, setEditingHighlight, highlightsRef, updateSessionProgress])
 
-  const handleSaveWord = async () => {
-    if (!selection || !isAuthenticated) return
-    try {
-      const resp = await vocabularyApi.saveWord({
-        word: selection.text,
-        language: 'en',
-        sentence: selection.sentence || null,
-        bookTitle: null,
-        userBookId: bookId || null,
-      })
-      if (resp.outcome === 'pending') {
-        showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
-        return
-      }
-      const saved = resp.word
-      if (!saved) return
-      const key = saved.word.toLowerCase()
-      vocabMapRef.current[key] = { stage: saved.stage, id: saved.id }
-      injectJs(`addVocabWord(${JSON.stringify(key)}, ${saved.stage})`)
-      setWordSaved(true)
-      notifyWordSaved()
-      trackVocabSaved({ language: 'en', source: 'reader' })
-      setTimeout(() => { setSelection(null); setWordSaved(false) }, 1500)
-    } catch (e) {
-      console.warn('Save vocab word failed:', e)
-      showToast({ message: 'Could not save word. Try again.', variant: 'error' })
-    }
+  const handleSaveWord = () => {
+    if (!selection) return
+    void vocabActions.saveWord(selection)
   }
 
-  const handleMarkKnown = async () => {
-    if (!selection || !isAuthenticated) return
-    const key = selection.text.toLowerCase()
-    const entry = vocabMapRef.current[key]
-    if (!entry) return
-    try {
-      await vocabularyApi.markAsKnown(entry.id)
-      vocabMapRef.current[key] = { ...entry, stage: 4 }
-      injectJs(`addVocabWord(${JSON.stringify(key)}, 4)`)
-      setSelection(null)
-    } catch (e) {
-      console.warn('Mark word as known failed:', e)
-      showToast({ message: 'Could not mark word as known. Try again.', variant: 'error' })
-    }
+  const handleMarkKnown = () => {
+    if (!selection) return
+    void vocabActions.markKnown(selection)
   }
 
   const handleHighlight = async (color: string) => {
-    if (!selection || !isAuthenticated || !bookId || !chapter) return
-    try {
-      const anchorJson = selection.anchor ? JSON.stringify(selection.anchor) : JSON.stringify({ exact: selection.text })
-      const hl = await highlightsApi.createHighlight({
-        userBookId: bookId,
-        userChapterId: chapter.id,
-        anchorJson,
-        color,
-        selectedText: selection.text,
-      })
-      injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(selection.text)})`)
-      highlightsRef.current = [...highlightsRef.current, hl]
-      const uid = user?.id
-      if (uid && bookId) {
-        userBookHighlightCache.get(uid, bookId).then(prev => {
-          userBookHighlightCache.set(uid, bookId, [...(prev || []), hl])
-        })
-      }
-      if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
-        updateSettings({ lastHighlightColor: color })
-      }
-      setSelection(null)
-    } catch (e) {
-      console.warn('Failed to create highlight:', e)
-      showToast({ message: 'Could not highlight. Try again.', variant: 'error' })
+    if (!selection || !chapter) return
+    await createHighlight({ color, selection, chapter: { id: chapter.id } })
+    if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
+      updateSettings({ lastHighlightColor: color })
     }
+    setSelection(null)
   }
-
-  // Load existing highlights for user book. Keyed on `chapter?.id` (not
-  // the full object) so a refetch that resolves to the same chapter
-  // doesn't re-run the load, matches the public-reader pattern (B-41).
-  useEffect(() => {
-    const chapterId = chapter?.id
-    if (!isAuthenticated || !bookId || !chapterId) return
-    let cancelled = false
-
-    const paint = (list: PublicHighlight[]) => {
-      const chapterHighlights = list.filter(h => h.userChapterId === chapterId)
-      highlightsRef.current = chapterHighlights
-      for (const h of chapterHighlights) {
-        injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
-      }
-    }
-
-    const uid = user?.id
-    if (uid) {
-      userBookHighlightCache.get(uid, bookId).then(cached => {
-        if (!cancelled && cached) paint(cached)
-      })
-    }
-
-    highlightsApi.getUserBookHighlights(bookId)
-      .then(highlights => {
-        if (cancelled) return
-        paint(highlights)
-        if (uid) userBookHighlightCache.set(uid, bookId, highlights)
-      })
-      .catch(e => { if (!cancelled) console.warn('Failed to load user-book highlights:', e) })
-    return () => { cancelled = true }
-  }, [isAuthenticated, bookId, chapter?.id, user?.id])
-
-  // Vocab map ref for selection lookups
-  const vocabMapRef = useRef<Record<string, { stage: number; id: string }>>({})
-
-  // Load and render vocab word underlines. Keyed on chapter.id with
-  // cancellation so fast chapter nav doesn't render stale word map.
-  // Cache-first so offline nav keeps underlines visible.
-  useEffect(() => {
-    const chapterId = chapter?.id
-    if (!isAuthenticated || !chapterId) return
-    let cancelled = false
-
-    const uid = user?.id
-    if (uid) {
-      vocabMapCache.get(uid).then(cached => {
-        if (!cancelled && cached && Object.keys(cached).length > 0) {
-          vocabMapRef.current = cached as Record<string, { stage: number; id: string }>
-          injectJs(`markVocabWords(${JSON.stringify(cached)})`)
-        }
-      })
-    }
-
-    vocabularyApi.getReaderVocab()
-      .then(words => {
-        if (cancelled || words.length === 0) return
-        const map: Record<string, { stage: number; id: string }> = {}
-        for (const w of words) map[w.word.toLowerCase()] = { stage: w.stage, id: w.id }
-        vocabMapRef.current = map
-        injectJs(`markVocabWords(${JSON.stringify(map)})`)
-        if (uid) vocabMapCache.set(uid, map)
-      })
-      .catch(e => { if (!cancelled) console.warn('Failed to load reader vocab:', e) })
-    return () => { cancelled = true }
-  }, [isAuthenticated, chapter?.id, user?.id])
 
   // Mirror the public reader: tap = single-word layout of SelectionActionBar
   // (translation row + per-word actions); drag = layout chosen by content.
@@ -534,7 +455,6 @@ export default function UserBookReaderScreen() {
     router.replace(`/my-books/read/${bookId}/${slug}`)
   }
 
-  const injectJs = (js: string) => webViewRef.current?.injectJavaScript(js + ';true;')
 
   const loadNextChapter = async () => {
     const next = nextChapterRef.current
@@ -794,63 +714,17 @@ export default function UserBookReaderScreen() {
             const hl = editingHighlight
             if (!hl) return
             updateSettings({ lastHighlightColor: color })
-            // Optimistic local repaint, then PATCH; rollback on failure.
-            injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-            injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(hl.anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(hl.selectedText)})`)
-            try {
-              const updated = await highlightsApi.updateHighlight(hl.id, { color })
-              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-              const uid = user?.id
-              if (uid && bookId) {
-                userBookHighlightCache.get(uid, bookId).then(prev => {
-                  if (!prev) return
-                  userBookHighlightCache.set(uid, bookId, prev.map(h => h.id === hl.id ? updated : h))
-                })
-              }
-            } catch {
-              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-              injectJs(`renderHighlight(${JSON.stringify(hl.id)}, ${JSON.stringify(hl.anchorJson)}, ${JSON.stringify(hl.color)}, ${JSON.stringify(hl.selectedText)})`)
-              showToast({ message: 'Could not change color. Try again.', variant: 'error' })
-            }
+            await updateHighlightColor(hl.id, color)
           }}
           onSave={async (note) => {
             const hl = editingHighlight
             setEditingHighlight(null)
-            if (!hl) return
-            try {
-              const updated = await highlightsApi.updateHighlight(hl.id, { noteText: note || null })
-              highlightsRef.current = highlightsRef.current.map(h => h.id === hl.id ? updated : h)
-              const uid = user?.id
-              if (uid && bookId) {
-                userBookHighlightCache.get(uid, bookId).then(prev => {
-                  if (!prev) return
-                  userBookHighlightCache.set(uid, bookId, prev.map(h => h.id === hl.id ? updated : h))
-                })
-              }
-            } catch (e) {
-              console.warn('Update highlight note failed:', e)
-              showToast({ message: 'Could not save note. Try again.', variant: 'error' })
-            }
+            if (hl) await saveHighlightNote(hl.id, note)
           }}
           onDelete={async () => {
             const hl = editingHighlight
             setEditingHighlight(null)
-            if (!hl) return
-            try {
-              await highlightsApi.deleteHighlight(hl.id)
-              injectJs(`removeHighlight(${JSON.stringify(hl.id)})`)
-              highlightsRef.current = highlightsRef.current.filter(h => h.id !== hl.id)
-              const uid = user?.id
-              if (uid && bookId) {
-                userBookHighlightCache.get(uid, bookId).then(prev => {
-                  if (!prev) return
-                  userBookHighlightCache.set(uid, bookId, prev.filter(h => h.id !== hl.id))
-                })
-              }
-            } catch (e) {
-              console.warn('Delete highlight failed:', e)
-              showToast({ message: 'Could not delete highlight. Try again.', variant: 'error' })
-            }
+            if (hl) await removeHighlight(hl.id)
           }}
         />
       </View>
