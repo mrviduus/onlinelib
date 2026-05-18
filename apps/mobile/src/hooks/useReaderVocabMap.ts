@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { vocabularyApi } from '@textstack/shared'
+import { vocabularyApi, translationApi } from '@textstack/shared'
 import { vocabMapCache } from '../lib/readerOfflineCache'
 
 export type VocabMapEntry = { stage: number; id: string; translation?: string }
@@ -12,6 +12,10 @@ type Options = {
   isAuthenticated: boolean
   chapterId: string | null | undefined
   injectJs: (js: string) => void
+  /** Source language of the current book — first arg to translationApi.translate. */
+  bookLanguage?: string | null
+  /** User's native language (target). When null/equal-to-book, backfill is skipped. */
+  nativeLanguage?: string | null
 }
 
 /**
@@ -21,7 +25,14 @@ type Options = {
  * defends against drift between the ref and the WebView when an inline
  * injectJs call gets skipped (e.g. translation failure path).
  */
-export function useReaderVocabMap({ user, isAuthenticated, chapterId, injectJs }: Options) {
+export function useReaderVocabMap({
+  user,
+  isAuthenticated,
+  chapterId,
+  injectJs,
+  bookLanguage,
+  nativeLanguage,
+}: Options) {
   const vocabMapRef = useRef<VocabMap>({})
   const [vocabVersion, setVocabVersion] = useState(0)
   const bumpVocab = useCallback(() => setVocabVersion(v => v + 1), [])
@@ -55,6 +66,8 @@ export function useReaderVocabMap({ user, isAuthenticated, chapterId, injectJs }
         if (!cancelled && cached && Object.keys(cached).length > 0) {
           vocabMapRef.current = cached
           injectJs(`markVocabWords(${JSON.stringify(cached)})`)
+          // Bump so the backfill effect sees the populated map.
+          bumpVocab()
         }
       })
     }
@@ -67,10 +80,55 @@ export function useReaderVocabMap({ user, isAuthenticated, chapterId, injectJs }
         vocabMapRef.current = map
         injectJs(`markVocabWords(${JSON.stringify(map)})`)
         if (uid) vocabMapCache.set(uid, map)
+        // Re-evaluate backfill against the fresh map (API may have
+        // returned translations the cache didn't have).
+        backfillDoneRef.current = false
+        bumpVocab()
       })
       .catch(() => { /* offline — cache paint already rendered */ })
     return () => { cancelled = true }
-  }, [isAuthenticated, chapterId, user?.id, injectJs])
+  }, [isAuthenticated, chapterId, user?.id, injectJs, bumpVocab])
+
+  // Backfill translations for vocab entries that were saved without one
+  // (early-save race, network error mid-translate, or older app version
+  // that never set it). Mirrors apps/web/src/hooks/useReaderVocabulary.ts
+  // backfill loop — without it, those words underline forever but the
+  // gloss above them never appears.
+  const backfillDoneRef = useRef(false)
+  useEffect(() => {
+    if (!isAuthenticated || !chapterId) return
+    if (!bookLanguage || !nativeLanguage || nativeLanguage === bookLanguage) return
+    if (backfillDoneRef.current) return
+    const map = vocabMapRef.current
+    if (!map || Object.keys(map).length === 0) return
+    const missing: { key: string; id: string }[] = []
+    for (const k of Object.keys(map)) {
+      if (!map[k].translation) missing.push({ key: k, id: map[k].id })
+    }
+    if (missing.length === 0) return
+    backfillDoneRef.current = true
+    let cancelled = false
+    ;(async () => {
+      for (const { key, id } of missing) {
+        if (cancelled) return
+        try {
+          const res = await translationApi.translate(key, bookLanguage, nativeLanguage)
+          const translation = res.translatedText
+          if (!translation) continue
+          vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation }
+          // Persist server-side so re-opens skip the round-trip.
+          vocabularyApi.updateWord(id, { translation }).catch(() => {})
+        } catch {
+          // Skip a single word's failure — keep going.
+        }
+      }
+      if (cancelled) return
+      // Single re-paint at the end coalesces N translation results into
+      // one markVocabWords injection (vs flickering per-word).
+      bumpVocab()
+    })()
+    return () => { cancelled = true }
+  }, [isAuthenticated, chapterId, bookLanguage, nativeLanguage, vocabVersion, bumpVocab])
 
   /** Persist current map to per-user cache. Caller invokes when a selection closes. */
   const flushToCache = () => {

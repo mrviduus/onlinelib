@@ -142,6 +142,8 @@ export default function ReaderScreen() {
     isAuthenticated,
     chapterId: chapter?.id,
     injectJs,
+    bookLanguage: language,
+    nativeLanguage,
   })
 
   const {
