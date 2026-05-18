@@ -1,8 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
-import * as FileSystem from 'expo-file-system/legacy'
 import { API_URL } from '../lib/api'
 import { trackTtsPlayed } from '../lib/analytics'
+
+// Lazy + safe loads — these native modules ship with the dev build only
+// after their respective `expo install`. An older dev build (before the
+// TTS migration) doesn't have ExpoAudio bundled, and a bare `import`
+// throws at module evaluation time → entire reader screen crashes.
+// Wrapping in try/catch lets the rest of the app render and TTS just
+// no-ops until the user updates to a build that includes the modules.
+type AudioPlayerLike = {
+  play: () => void
+  pause: () => void
+  setPlaybackRate?: (rate: number) => void
+  addListener: (event: string, fn: (status: { didJustFinish?: boolean }) => void) => void
+  remove?: () => void
+}
+type ExpoAudioModule = {
+  createAudioPlayer: (src: unknown) => AudioPlayerLike
+  setAudioModeAsync: (mode: { playsInSilentMode?: boolean; allowsRecording?: boolean }) => Promise<void>
+}
+type FileSystemModule = {
+  cacheDirectory: string | null
+  getInfoAsync: (uri: string) => Promise<{ exists?: boolean; size?: number }>
+  makeDirectoryAsync: (uri: string, options?: { intermediates?: boolean }) => Promise<void>
+  downloadAsync: (url: string, uri: string) => Promise<{ status: number }>
+  deleteAsync: (uri: string, options?: { idempotent?: boolean }) => Promise<void>
+}
+
+let expoAudio: ExpoAudioModule | null = null
+let fileSystem: FileSystemModule | null = null
+let nativeLoadAttempted = false
+function loadNativeOnce(): { audio: ExpoAudioModule | null; fs: FileSystemModule | null } {
+  if (nativeLoadAttempted) return { audio: expoAudio, fs: fileSystem }
+  nativeLoadAttempted = true
+  try { expoAudio = require('expo-audio') as ExpoAudioModule }
+  catch (e) { if (__DEV__) console.warn('[tts] expo-audio not available:', (e as Error)?.message) }
+  try { fileSystem = require('expo-file-system/legacy') as FileSystemModule }
+  catch (e) { if (__DEV__) console.warn('[tts] expo-file-system not available:', (e as Error)?.message) }
+  return { audio: expoAudio, fs: fileSystem }
+}
 
 /**
  * Maps our app language codes to BCP-47 identifiers passed through to
@@ -26,14 +62,17 @@ function hashKey(s: string): string {
   return (h >>> 0).toString(16) + '-' + s.length.toString(16)
 }
 
-const CACHE_DIR = `${FileSystem.cacheDirectory ?? ''}tts/`
 let cacheDirReady: Promise<void> | null = null
-async function ensureCacheDir() {
+function cacheDir(fs: FileSystemModule): string {
+  return `${fs.cacheDirectory ?? ''}tts/`
+}
+async function ensureCacheDir(fs: FileSystemModule) {
   if (cacheDirReady) return cacheDirReady
   cacheDirReady = (async () => {
     try {
-      const info = await FileSystem.getInfoAsync(CACHE_DIR)
-      if (!info.exists) await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true })
+      const dir = cacheDir(fs)
+      const info = await fs.getInfoAsync(dir)
+      if (!info.exists) await fs.makeDirectoryAsync(dir, { intermediates: true })
     } catch {
       // Best-effort — if FS is unavailable we still attempt downloads to the
       // app's cache root inline below.
@@ -42,11 +81,11 @@ async function ensureCacheDir() {
   return cacheDirReady
 }
 
-async function audioModeReady() {
+async function audioModeReady(audio: ExpoAudioModule) {
   // playsInSilentMode=true so iOS silent-switch doesn't kill word/sentence
   // playback during reading. Mirrors apps/web autoplay-unlock heuristic.
   try {
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false })
+    await audio.setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false })
   } catch {
     // No-op — module may not be available in test contexts.
   }
@@ -54,26 +93,27 @@ async function audioModeReady() {
 
 /** Resolve the on-disk path for a cached MP3, downloading if needed. Returns
  *  null on download failure so the caller can degrade gracefully. */
-async function getOrFetchAudio(text: string, lang: string, rate: number): Promise<string | null> {
-  await ensureCacheDir()
+async function getOrFetchAudio(fs: FileSystemModule, text: string, lang: string, rate: number): Promise<string | null> {
+  await ensureCacheDir(fs)
+  const dir = cacheDir(fs)
   const speed = rate.toFixed(2)
   const cacheKey = hashKey(`${lang}|${speed}|${text}`)
-  const file = `${CACHE_DIR}${cacheKey}.mp3`
+  const file = `${dir}${cacheKey}.mp3`
   try {
-    const info = await FileSystem.getInfoAsync(file)
+    const info = await fs.getInfoAsync(file)
     if (info.exists && info.size && info.size > 0) return file
   } catch {
     // Treat read errors as cache miss; we'll attempt to download below.
   }
   const url = `${API_URL}/tts?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}&speed=${encodeURIComponent(speed)}`
   try {
-    const res = await FileSystem.downloadAsync(url, file)
+    const res = await fs.downloadAsync(url, file)
     if (res.status >= 200 && res.status < 300) return file
     // Non-2xx: clean the bogus file so the next call retries fresh.
-    await FileSystem.deleteAsync(file, { idempotent: true }).catch(() => {})
+    await fs.deleteAsync(file, { idempotent: true }).catch(() => {})
     return null
   } catch {
-    await FileSystem.deleteAsync(file, { idempotent: true }).catch(() => {})
+    await fs.deleteAsync(file, { idempotent: true }).catch(() => {})
     return null
   }
 }
@@ -87,7 +127,7 @@ export function useTts() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   // One player instance per hook usage. createAudioPlayer (vs useAudioPlayer)
   // gives us direct control over replace/release without a re-render cycle.
-  const playerRef = useRef<AudioPlayer | null>(null)
+  const playerRef = useRef<AudioPlayerLike | null>(null)
   // Monotonic counter — every new speak() call invalidates any pending
   // download from a previous call, so the user's latest word wins races.
   const reqRef = useRef(0)
@@ -115,6 +155,11 @@ export function useTts() {
     async (text: string, opts: TtsSpeakOptions | number = {}) => {
       const trimmed = text.trim()
       if (!trimmed) return
+      // If the dev/prod build was assembled before expo-audio /
+      // expo-file-system landed, just no-op cleanly — the rest of the
+      // reader keeps working.
+      const { audio, fs } = loadNativeOnce()
+      if (!audio || !fs) return
       const normalized: TtsSpeakOptions = typeof opts === 'number' ? { rate: opts } : opts
       const rate = normalized.rate ?? 1.0
       const bcp47 = toBcp47(normalized.lang)
@@ -130,8 +175,8 @@ export function useTts() {
         spaceCount === 1 ? 'word' : spaceCount <= 20 ? 'sentence' : 'selection'
       trackTtsPlayed({ language: bcp47.split('-')[0], kind })
 
-      await audioModeReady()
-      const file = await getOrFetchAudio(trimmed, bcp47, rate)
+      await audioModeReady(audio)
+      const file = await getOrFetchAudio(fs, trimmed, bcp47, rate)
       // Another speak() ran while we were downloading — drop this one.
       if (req !== reqRef.current) return
       if (!file) {
@@ -140,11 +185,9 @@ export function useTts() {
       }
 
       try {
-        const player = createAudioPlayer(file)
+        const player = audio.createAudioPlayer(file)
         playerRef.current = player
-        try { player.setPlaybackRate(1.0) } catch { /* rate already baked in by server */ }
-        // playbackStatusUpdate is the SDK 55 spelling; older betas used
-        // statusChange. Either way we just flip isSpeaking on finish.
+        try { player.setPlaybackRate?.(1.0) } catch { /* rate already baked in by server */ }
         player.addListener('playbackStatusUpdate', status => {
           if (status.didJustFinish) {
             setIsSpeaking(false)
