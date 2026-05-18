@@ -7,6 +7,19 @@ import { clearVocabStatsCache } from '../lib/vocabStatsCache'
 import { clearAllLocalProgress } from '../lib/progressStorage'
 import { clearReaderCache } from '../lib/readerOfflineCache'
 
+// Lazy import so the Google module isn't pulled on platforms / contexts
+// that don't ship it (e.g. Expo Go web preview, where this package may
+// not be installed yet). Lives in a try/catch because the module's
+// presence is not guaranteed across all build flavors.
+let googleSigninModule: { GoogleSignin?: { signOut?: () => Promise<unknown> } } | null = null
+if (Platform.OS !== 'web') {
+  try {
+    googleSigninModule = require('@react-native-google-signin/google-signin')
+  } catch {
+    googleSigninModule = null
+  }
+}
+
 // Storage shim: native → expo-secure-store, web → localStorage.
 //
 // Previously each method called `require('expo-secure-store')` lazily on
@@ -137,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.deleteItemAsync('access_token')
     await SecureStore.deleteItemAsync('refresh_token')
     await SecureStore.deleteItemAsync('user')
+    // Without this the Google SDK keeps the previously-selected account
+    // cached and the next "Continue with Google" silently signs the
+    // same user back in — no account picker, no way to switch users.
+    // Wrap in try/catch because signOut() throws if the user wasn't
+    // signed in via Google in the first place (email-only / Apple paths).
+    try { await googleSigninModule?.GoogleSignin?.signOut?.() } catch {}
     // Per-user AsyncStorage caches must not leak into the next session —
     // otherwise a fresh sign-in briefly shows the previous user's
     // vocabulary stats on the home card while the network fetch races,
@@ -159,6 +178,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // manually, or this fired during a background refresh cycle).
       if (userRef.current !== null) {
         SecureStore.deleteItemAsync('user').catch(() => {})
+        // Same reasoning as in signOut: avoid Google SDK silently
+        // re-authing the same user on the next attempt.
+        Promise.resolve()
+          .then(() => googleSigninModule?.GoogleSignin?.signOut?.())
+          .catch(() => {})
         clearVocabStatsCache().catch(() => {})
         clearAllLocalProgress().catch(() => {})
         clearReaderCache().catch(() => {})
