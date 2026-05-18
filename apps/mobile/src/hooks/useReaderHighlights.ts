@@ -137,6 +137,37 @@ export function useReaderHighlights({
     [editionIdRef, showToast, user?.id]
   )
 
+  const updateColor = useCallback(
+    async (id: string, color: string) => {
+      // Optimistic — paint the new color in the WebView, push to server,
+      // roll back the cache state on failure.
+      const prevHl = highlightsRef.current.find(h => h.id === id)
+      if (!prevHl) return
+      injectJs(`removeHighlight(${JSON.stringify(id)})`)
+      injectJs(`renderHighlight(${JSON.stringify(id)}, ${JSON.stringify(prevHl.anchorJson)}, ${JSON.stringify(color)}, ${JSON.stringify(prevHl.selectedText)})`)
+      try {
+        const updated = await highlightsApi.updateHighlight(id, { color })
+        highlightsRef.current = highlightsRef.current.map(h => h.id === id ? updated : h)
+        bumpHighlights()
+        const uid = user?.id
+        const edId = editionIdRef.current
+        if (uid && edId) {
+          highlightCache.get(uid, edId).then(prev => {
+            if (!prev) return
+            highlightCache.set(uid, edId, prev.map(h => h.id === id ? updated : h))
+          })
+        }
+      } catch (e) {
+        console.warn('Highlight color update failed:', e)
+        // Rollback paint
+        injectJs(`removeHighlight(${JSON.stringify(id)})`)
+        injectJs(`renderHighlight(${JSON.stringify(id)}, ${JSON.stringify(prevHl.anchorJson)}, ${JSON.stringify(prevHl.color)}, ${JSON.stringify(prevHl.selectedText)})`)
+        showToast({ message: 'Could not change color. Try again.', variant: 'error' })
+      }
+    },
+    [editionIdRef, injectJs, showToast, user?.id, bumpHighlights]
+  )
+
   const remove = useCallback(
     async (id: string) => {
       try {
@@ -166,6 +197,7 @@ export function useReaderHighlights({
     setEditingHighlight,
     create,
     saveNote,
+    updateColor,
     remove,
   }
 }

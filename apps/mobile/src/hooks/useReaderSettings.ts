@@ -17,6 +17,10 @@ export interface ReaderSettings {
   autoLookup: boolean
   showReaderStats: boolean
   showInlineTranslations: boolean
+  /** Last color picked when creating a highlight. The SelectionActionBar
+   *  uses a single highlight button (no inline palette) — first tap commits
+   *  this color, and changing the color happens via HighlightNoteModal. */
+  lastHighlightColor: 'yellow' | 'green' | 'pink' | 'blue'
 }
 
 const STORAGE_KEY = 'reader.settings.v2'
@@ -32,6 +36,7 @@ const defaults: ReaderSettings = {
   autoLookup: false,
   showReaderStats: true,
   showInlineTranslations: true,
+  lastHighlightColor: 'yellow',
 }
 
 const fontFamilyMap: Record<string, string> = {

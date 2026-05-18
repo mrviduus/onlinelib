@@ -13,14 +13,29 @@ import {
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 
+export type HighlightColor = 'yellow' | 'green' | 'pink' | 'blue'
+
+const COLOR_SWATCHES: { key: HighlightColor; fill: string }[] = [
+  { key: 'yellow', fill: '#fef08a' },
+  { key: 'green', fill: '#bbf7d0' },
+  { key: 'pink', fill: '#fbcfe8' },
+  { key: 'blue', fill: '#bfdbfe' },
+]
+
 export interface HighlightNoteModalProps {
   visible: boolean
   /** Short snippet of the highlighted passage rendered above the input. */
   snippet: string
   /** Existing note, prefilled into the text field when present. */
   initialNote?: string | null
+  /** Current color of the highlight — render the matching swatch as selected. */
+  initialColor?: HighlightColor
   onCancel: () => void
   onSave: (note: string) => void
+  /** Called when the user picks a different color swatch. Fires immediately
+   *  (no Save click required) — color is a single-tap commit, the editor's
+   *  Save covers the note text only. */
+  onColorChange?: (color: HighlightColor) => void
   onDelete: () => void
 }
 
@@ -41,19 +56,28 @@ export function HighlightNoteModal({
   visible,
   snippet,
   initialNote,
+  initialColor,
   onCancel,
   onSave,
+  onColorChange,
   onDelete,
 }: HighlightNoteModalProps) {
   const { colors } = useTheme()
   const [note, setNote] = useState(initialNote || '')
+  const [color, setColor] = useState<HighlightColor | undefined>(initialColor)
   const inputRef = useRef<TextInput>(null)
 
   useEffect(() => {
     if (visible) {
       setNote(initialNote || '')
+      setColor(initialColor)
     }
-  }, [visible, initialNote])
+  }, [visible, initialNote, initialColor])
+
+  const handleColorPick = (c: HighlightColor) => {
+    setColor(c)
+    onColorChange?.(c)
+  }
 
   // Auto-focus the input shortly after mount so the keyboard comes up
   // without requiring a second tap. setTimeout avoids a race with the
@@ -88,6 +112,29 @@ export function HighlightNoteModal({
                 "{snippet}"
               </Text>
             ) : null}
+
+            {/* Color swatch row — single-tap commits the new color. */}
+            {onColorChange && (
+              <View style={styles.swatchRow}>
+                {COLOR_SWATCHES.map(sw => (
+                  <TouchableOpacity
+                    key={sw.key}
+                    onPress={() => handleColorPick(sw.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set highlight color ${sw.key}`}
+                    accessibilityState={{ selected: color === sw.key }}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: sw.fill },
+                      color === sw.key && {
+                        borderColor: colors.text,
+                        borderWidth: 2,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
 
             <TextInput
               ref={inputRef}
@@ -171,6 +218,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
     marginBottom: 14,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  swatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   input: {
     borderWidth: 1,
