@@ -127,10 +127,21 @@ jobs:
         # silently drifting between CI and deploy, which would produce
         # different chunk hashes per build and bloat the snapshot/restore
         # legacy-asset pool unnecessarily.
+        #
+        # VITE_GOOGLE_CLIENT_ID is set here (not via prod's
+        # apps/web/.env.production which is gitignored, stale from Jan 10
+        # with the OLD project ID 301013894506-...). Mismatch with backend
+        # Google__ClientId (726577729877-...) caused all /api/auth/google
+        # POST to return 401 — silently broke login for months. OAuth
+        # client_id is public-by-design (visible in bundle HTML), safe in
+        # repo.
         run: |
           cd $PROJECT_DIR/apps/web
           pnpm install --frozen-lockfile
-          VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
+          VITE_API_URL=/api \
+            VITE_STORAGE_URL=https://textstack.app \
+            VITE_CANONICAL_URL=https://textstack.app \
+            VITE_GOOGLE_CLIENT_ID=726577729877-0lc197ngqf9qb297tvgh22q2k7g72l4l.apps.googleusercontent.com \
             pnpm build
 
       - name: Restore preserved SSG + assets
