@@ -48,24 +48,19 @@ jobs:
           fi
 
       - name: Build frontend
-        # --emptyOutDir=false preserves OLD hashed assets in dist/assets/
-        # alongside new ones. SSG files written by the previous deploy reference
-        # OLD hashes; they keep working until SSG rebuild finishes regenerating
-        # them with new hashes. Without this, the 5-10 min gap between vite
-        # build and SSG rebuild served bots ~1.8k pages w/ 404'd JS bundles
-        # (Ahrefs flagged on 2026-05-19). Cleanup happens in `Prune stale
-        # bundle assets` step AFTER SSG rebuild completes.
-        #
-        # NB: do NOT write `pnpm build -- --emptyOutDir=false`. pnpm v10
-        # appends args literally after the compound script string, so vite
-        # would receive `-- --emptyOutDir=false` and treat `--` as end-of-
-        # options separator (flag dropped). Verified empirically against
-        # pnpm 10.32.1 + vite 6.4.2.
+        # Reverted to default emptyOutDir=true after b0e6e38. The
+        # --emptyOutDir=false attempt left a stale main bundle on disk
+        # (index-Dj8T4aeH.js) whose dynamic-import() targets pointed at
+        # lazy chunk hashes vite then regenerated — every visit to
+        # /en/library, /en/highlights, etc. hit React.lazy 404 →
+        # ErrorBoundary. Default (clean dist on each build) restores a
+        # consistent hash set. Deploy-race window for broken-JS-in-stale-SSG
+        # is back, but acceptable until a manifest-driven solution lands.
         run: |
           cd $PROJECT_DIR/apps/web
           pnpm install
           VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
-            pnpm build --emptyOutDir=false
+            pnpm build
 
       - name: Fix cache volume permissions
         # Container runs as uid 1000 but host-mounted cache dirs default to
