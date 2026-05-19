@@ -1,8 +1,7 @@
 /**
  * Analytics: thin typed wrapper around window.gtag (GA4).
  *
- * - gtag is loaded in apps/web/index.html with two measurement IDs
- *   (G-C6QM16WQGE + G-3ZNR40KDFP). Both stream through this one call.
+ * - gtag is loaded in apps/web/index.html with measurement ID G-3ZNR40KDFP.
  * - Safe to call during SSR/prerender — falls back to no-op when window
  *   or gtag is unavailable.
  * - In dev (import.meta.env.DEV) we mirror events to console so you can

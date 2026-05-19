@@ -60,7 +60,7 @@ Goal: stop flying blind. Get baseline conversion data before making strategic be
 
 ### 0.1 Key Event tracking — **DONE this session**
 
-Typed wrapper `apps/web/src/lib/analytics.ts`, wired to existing dual-ID gtag setup in `index.html`. Events fire into both measurement streams (`G-C6QM16WQGE` + `G-3ZNR40KDFP`).
+Typed wrapper `apps/web/src/lib/analytics.ts`, wired to gtag setup in `index.html`. Events fire into measurement stream `G-3ZNR40KDFP`.
 
 Events wired:
 - `sign_up` — `AuthContext.tsx` (Google via `createdAt < 60s` heuristic, email register)
