@@ -73,7 +73,10 @@ generate_edition_seo() {
   title=$(db_query "SELECT title FROM editions WHERE id='$id'")
   author=$(db_query "SELECT a.name FROM authors a JOIN edition_authors ea ON a.id = ea.author_id WHERE ea.edition_id='$id' LIMIT 1")
   lang=$(db_query "SELECT language FROM editions WHERE id='$id'")
-  excerpt=$(db_query "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY sort_order LIMIT 1")
+  # `sort_order` was renamed to `chapter_number` long ago (the live `chapters`
+  # table has no sort_order column); the silent psql ERROR here gave us an
+  # empty excerpt and a useless prompt → 1,153 failed jobs before this fix.
+  excerpt=$(db_query "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY chapter_number LIMIT 1")
 
   if [ -z "$title" ]; then
     log "ERROR: Edition $id not found"
