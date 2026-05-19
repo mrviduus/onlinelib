@@ -47,14 +47,42 @@ done
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
+# stderr NOT suppressed — psql ERRORs (bad column, connection drop) propagate
+# to the script's stderr → journalctl. Earlier 2>/dev/null silently dropped
+# them, which is how the `sort_order` typo killed 1,153 jobs over 3 weeks
+# without a single visible error message anywhere.
 db_query() {
   docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1" 2>/dev/null
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1"
 }
 
+# Strict variant for fields that MUST exist. Fails the script (returns
+# non-zero) on either a psql error OR an empty result. Caller writes:
+#
+#   local title; title=$(db_query_required "title" "SELECT ...") || return 1
+#
+# DO NOT collapse to `local title=$(...)` — `local` always returns 0 and
+# masks the inner exit code (classic bash gotcha), defeating set -e and
+# this helper's whole purpose.
+db_query_required() {
+  local label="$1" sql="$2" result
+  if ! result=$(db_query "$sql"); then
+    log "ERROR: query failed [$label]"
+    return 1
+  fi
+  if [ -z "$result" ]; then
+    log "ERROR: empty result [$label]: ${sql:0:120}…"
+    return 1
+  fi
+  printf '%s' "$result"
+}
+
+# Same shape as db_query but for INSERT/UPDATE/DELETE — surfaces psql errors
+# instead of swallowing them, so a column rename in an UPDATE doesn't make
+# the script claim success on a no-op.
 db_exec() {
   docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1" 2>/dev/null
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"
 }
 
 escape_sql() {
@@ -69,19 +97,14 @@ generate_edition_seo() {
   # that triggers SIGPIPE on psql, which `set -o pipefail` then propagates as
   # a non-zero pipeline exit, killing the script via `set -e`. The queries
   # already return one row each (LIMIT 1 / pk lookup), so just take the row.
+  #
+  # Required fields use db_query_required: failing-loud on either a psql
+  # error or an empty result. Optional fields (author) use db_query.
   local title author lang excerpt
-  title=$(db_query "SELECT title FROM editions WHERE id='$id'")
-  author=$(db_query "SELECT a.name FROM authors a JOIN edition_authors ea ON a.id = ea.author_id WHERE ea.edition_id='$id' LIMIT 1")
-  lang=$(db_query "SELECT language FROM editions WHERE id='$id'")
-  # `sort_order` was renamed to `chapter_number` long ago (the live `chapters`
-  # table has no sort_order column); the silent psql ERROR here gave us an
-  # empty excerpt and a useless prompt → 1,153 failed jobs before this fix.
-  excerpt=$(db_query "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY chapter_number LIMIT 1")
-
-  if [ -z "$title" ]; then
-    log "ERROR: Edition $id not found"
-    return 1
-  fi
+  title=$(db_query_required "title"   "SELECT title FROM editions WHERE id='$id'") || return 1
+  lang=$(db_query_required  "lang"    "SELECT language FROM editions WHERE id='$id'") || return 1
+  excerpt=$(db_query_required "excerpt" "SELECT LEFT(plain_text, 1000) FROM chapters WHERE edition_id='$id' ORDER BY chapter_number LIMIT 1") || return 1
+  author=$(db_query "SELECT a.name FROM authors a JOIN edition_authors ea ON a.id = ea.author_id WHERE ea.edition_id='$id' LIMIT 1") || true
 
   log "Generating SEO for edition: $title by $author ($lang)"
 
@@ -151,13 +174,16 @@ FAQS_JSON
   esc_themes=$(escape_sql "$themes")
   esc_faqs=$(escape_sql "$faqs")
 
-  db_exec "UPDATE editions SET
+  if ! db_exec "UPDATE editions SET
     description = '$esc_desc',
     seo_relevance_text = '$esc_rel',
     seo_themes_json = '$esc_themes',
     seo_faqs_json = '$esc_faqs',
     updated_at = NOW()
-    WHERE id = '$id';"
+    WHERE id = '$id';" >/dev/null; then
+    log "ERROR: UPDATE editions failed for $id"
+    return 1
+  fi
 
   log "Edition SEO updated: $title"
 }
@@ -166,14 +192,9 @@ generate_author_seo() {
   local id="$1"
 
   local name books lang
-  name=$(db_query "SELECT name FROM authors WHERE id='$id'")
-  books=$(db_query "SELECT string_agg(e.title, ', ' ORDER BY e.title) FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' AND e.status = 1")
-  lang=$(db_query "SELECT COALESCE(e.language, 'en') FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' LIMIT 1")
-
-  if [ -z "$name" ]; then
-    log "ERROR: Author $id not found"
-    return 1
-  fi
+  name=$(db_query_required "name" "SELECT name FROM authors WHERE id='$id'") || return 1
+  books=$(db_query "SELECT string_agg(e.title, ', ' ORDER BY e.title) FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' AND e.status = 1") || true
+  lang=$(db_query "SELECT COALESCE(e.language, 'en') FROM editions e JOIN edition_authors ea ON e.id = ea.edition_id WHERE ea.author_id='$id' LIMIT 1") || true
 
   log "Generating SEO for author: $name ($lang)"
 
@@ -242,13 +263,16 @@ FAQS_JSON
   esc_themes=$(escape_sql "$themes")
   esc_faqs=$(escape_sql "$faqs")
 
-  db_exec "UPDATE authors SET
+  if ! db_exec "UPDATE authors SET
     bio = '$esc_bio',
     seo_relevance_text = '$esc_rel',
     seo_themes_json = '$esc_themes',
     seo_faqs_json = '$esc_faqs',
     updated_at = NOW()
-    WHERE id = '$id';"
+    WHERE id = '$id';" >/dev/null; then
+    log "ERROR: UPDATE authors failed for $id"
+    return 1
+  fi
 
   log "Author SEO updated: $name"
 }

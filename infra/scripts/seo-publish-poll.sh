@@ -48,14 +48,17 @@ done
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
+# Don't swallow psql stderr — see infra/scripts/seo-generate.sh for the
+# same rewrite. A 3-week silent column-rename outage taught us the cost
+# of `2>/dev/null` on the data-layer helpers.
 db_query() {
   docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1" 2>/dev/null
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1"
 }
 
 db_exec() {
   docker compose -f "$REPO_DIR/docker-compose.yml" exec -T db \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1" 2>/dev/null
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"
 }
 
 # db_query already returns one row from psql -tAc; piping through `head -1`
