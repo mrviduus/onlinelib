@@ -60,7 +60,19 @@ public static class SsgEndpoints
             routes.Add($"/{book.Language}/books/{book.Slug}");
         }
 
-        // Authors (use default language)
+        // Authors (use default language).
+        //
+        // `a.Indexable` is a MANUAL HIDE OVERRIDE — admin can flip it to false
+        // to keep an author out of SSG + sitemap. Default for new authors is
+        // `true` (Domain.Entities.Author). Be aware: migration
+        // 20251225233053_AddAuthorsGenresSeoFields created the column WITHOUT
+        // `defaultValue: true`, so all pre-existing authors got `false` in DB.
+        // 656 rows had to be backfilled in 2026-05-19 (the day book→author 404s
+        // blew up GSC index). If you add a migration that raw-INSERTs authors,
+        // explicitly set `indexable = true` or you'll re-poison the pool.
+        //
+        // Primary signal is "has at least one Published+Indexable edition" —
+        // that's why orphan-author-from-non-indexable-book is impossible.
         var authors = await db.Authors
             .Where(a => a.SiteId == site.SiteId && a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>

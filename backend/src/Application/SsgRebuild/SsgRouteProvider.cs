@@ -88,6 +88,10 @@ public class SsgRouteProvider : ISsgRouteProvider
         string[]? slugs,
         CancellationToken ct)
     {
+        // `a.Indexable` is a manual hide override (admin UI). Default true.
+        // See SsgEndpoints.GetAllRoutes for the 656-row backfill story —
+        // same filter shape here on purpose: both route producers must agree
+        // or the periodic worker and the build-time prerender will drift.
         var query = _db.Authors
             .Where(a => a.SiteId == siteId && a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>
