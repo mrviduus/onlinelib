@@ -29,7 +29,7 @@ export async function translate(
   signal?: AbortSignal,
   ctx?: TranslateContext,
 ): Promise<TranslateResponse> {
-  const res = await fetch(`${API_BASE}/api/translate`, {
+  const res = await fetch(`${API_BASE}/translate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -64,7 +64,7 @@ export async function translate(
 }
 
 export async function getLanguages(): Promise<LanguageInfo[]> {
-  const res = await fetch(`${API_BASE}/api/translate/languages`)
+  const res = await fetch(`${API_BASE}/translate/languages`)
 
   if (!res.ok) {
     throw new Error('Failed to fetch languages')

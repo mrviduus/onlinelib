@@ -34,7 +34,11 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const controller = new AbortController()
 
-    fetch(`${API_BASE}/api/site/context`, { signal: controller.signal })
+    // API_BASE already ends in /api on prod (VITE_API_URL=/api) — adding
+    // another /api here produced a 503 from nginx and silently broke
+    // SiteProvider boot, which cascaded into "Page has broken JavaScript"
+    // for SEO crawlers running the SPA.
+    fetch(`${API_BASE}/site/context`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error('Site not found')
         return res.json()
