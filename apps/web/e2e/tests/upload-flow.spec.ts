@@ -15,6 +15,12 @@ test.describe('Header upload button (authenticated)', () => {
 
   test('Cmd+U opens modal globally', async ({ authedPage: page }) => {
     await page.goto('/en/books')
+    // Wait for the UploadButton to render — its `useEffect` registers
+    // the global keydown listener. Pressing Cmd+U before the effect
+    // runs (which happens after the first paint of the Suspense
+    // boundary tree introduced in 5468214) gets us no handler and
+    // a flaky "element not found" on the dialog assertion.
+    await expect(page.locator('header').getByRole('button', { name: /upload book/i })).toBeVisible()
     await page.keyboard.press('Meta+u')
     await expect(page.getByRole('dialog', { name: /upload a book/i })).toBeVisible()
   })
