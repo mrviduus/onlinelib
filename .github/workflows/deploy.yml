@@ -55,11 +55,17 @@ jobs:
         # build and SSG rebuild served bots ~1.8k pages w/ 404'd JS bundles
         # (Ahrefs flagged on 2026-05-19). Cleanup happens in `Prune stale
         # bundle assets` step AFTER SSG rebuild completes.
+        #
+        # NB: do NOT write `pnpm build -- --emptyOutDir=false`. pnpm v10
+        # appends args literally after the compound script string, so vite
+        # would receive `-- --emptyOutDir=false` and treat `--` as end-of-
+        # options separator (flag dropped). Verified empirically against
+        # pnpm 10.32.1 + vite 6.4.2.
         run: |
           cd $PROJECT_DIR/apps/web
           pnpm install
           VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
-            pnpm build -- --emptyOutDir=false
+            pnpm build --emptyOutDir=false
 
       - name: Fix cache volume permissions
         # Container runs as uid 1000 but host-mounted cache dirs default to
@@ -178,37 +184,14 @@ jobs:
 
           echo "All SEO checks passed"
 
-      - name: Prune stale bundle assets
-        # Now that SSG rebuild completed (new HTML references NEW asset
-        # hashes), it's safe to delete asset files that aren't referenced
-        # by any current SSG HTML or by dist/index.html (SPA shell).
-        # Without this prune, dist/assets/ grows unbounded across deploys.
-        run: |
-          DIST=$PROJECT_DIR/apps/web/dist
-          [ -d "$DIST/assets" ] || { echo "No assets dir — skip"; exit 0; }
-
-          # Build the set of asset filenames referenced anywhere live.
-          REFERENCED=$(mktemp)
-          {
-            grep -rohE 'assets/[A-Za-z0-9_.-]+\.(js|css|woff2?|ttf|otf|png|jpg|jpeg|svg|webp|ico|map)' \
-              "$DIST/index.html" "$DIST/ssg" 2>/dev/null || true
-          } | awk -F/ '{print $NF}' | sort -u > "$REFERENCED"
-
-          REFCOUNT=$(wc -l < "$REFERENCED")
-          # Guard: if nothing references anything (eg. SSG dir missing), do NOT delete
-          [ "$REFCOUNT" -eq 0 ] && { echo "No references found — skip prune (safety)"; rm "$REFERENCED"; exit 0; }
-
-          DELETED=0
-          while IFS= read -r f; do
-            base=$(basename "$f")
-            if ! grep -qxF "$base" "$REFERENCED"; then
-              rm -f "$f"
-              DELETED=$((DELETED + 1))
-            fi
-          done < <(find "$DIST/assets" -type f)
-
-          rm "$REFERENCED"
-          echo "Pruned $DELETED stale asset files ($REFCOUNT referenced)"
+      # NB: asset prune intentionally absent. A naive HTML+CSS reference
+      # scan misses React.lazy() dynamic imports (they're string-literals
+      # inside the main JS bundle, not <link rel=modulepreload>). The first
+      # version of this step in 5e4070a deleted every lazy chunk on prod
+      # (Highlights/Reader/Library/Stats/Vocabulary all 404'd until rollback
+      # rebuilt). Disk growth from --emptyOutDir=false is ~600 KB/deploy;
+      # add a manifest-driven cleanup as a Makefile target before re-adding
+      # to the deploy critical path.
 
       - name: Restart systemd pollers
         # GH Actions runner job doesn't inherit a user DBus session, so plain
