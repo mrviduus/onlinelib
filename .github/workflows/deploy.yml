@@ -110,12 +110,26 @@ jobs:
             fi
           done < "$ALL_REFS"
           rm "$ALL_REFS"
-          echo "Preserved $(find "$STAGING/ssg" -name index.html | wc -l) SSG files + $COPIED assets"
+
+          # Sanity: if SSG had files but we preserved 0 assets, grep/find
+          # broke silently (set -e + 2>/dev/null masks failures upstream).
+          # Restoring SSG without companion assets ships 404'd CSS to bots
+          # for the rebuild window. Fail loud — operator can re-run.
+          SSG_COUNT=$(find "$STAGING/ssg" -name index.html | wc -l | tr -d ' ')
+          if [ "$SSG_COUNT" -gt 0 ] && [ "$COPIED" -eq 0 ]; then
+            echo "FAIL: snapshot preserved $SSG_COUNT SSG files but 0 assets — graph extraction broken (check grep/find availability)"
+            exit 1
+          fi
+          echo "Preserved $SSG_COUNT SSG files + $COPIED assets"
 
       - name: Build frontend
+        # --frozen-lockfile to match ci.yml — prevents transitive deps from
+        # silently drifting between CI and deploy, which would produce
+        # different chunk hashes per build and bloat the snapshot/restore
+        # legacy-asset pool unnecessarily.
         run: |
           cd $PROJECT_DIR/apps/web
-          pnpm install
+          pnpm install --frozen-lockfile
           VITE_API_URL=/api VITE_STORAGE_URL=https://textstack.app VITE_CANONICAL_URL=https://textstack.app \
             pnpm build
 
