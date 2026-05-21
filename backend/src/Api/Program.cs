@@ -30,6 +30,17 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Match nginx client_max_body_size (500MB) + per-user storage quota.
+// Default Kestrel cap is 30MB → users hit 413 on real-world PDFs.
+const long MaxUploadBytes = 500L * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = MaxUploadBytes);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = MaxUploadBytes;
+    o.ValueLengthLimit = int.MaxValue;
+    o.MultipartHeadersLengthLimit = int.MaxValue;
+});
+
 // OpenTelemetry
 builder.Services.AddTextStackTelemetry(
     builder.Configuration,
