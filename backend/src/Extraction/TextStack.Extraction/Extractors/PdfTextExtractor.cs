@@ -181,8 +181,14 @@ public sealed class PdfTextExtractor : ITextExtractor
                 if (pageElements.Count == 0)
                     continue;
 
+                // Drop running headers/footers — short paragraphs that repeat
+                // across ≥3 pages (e.g. "Chapter 1: Introduction…" or book title
+                // running header). Done per-chapter so we don't accidentally drop
+                // genuine cross-chapter repetition like author bylines.
+                var filteredPageElements = FilterRunningHeaders(pageElements);
+
                 // Convert to HTML
-                var (html, plainText) = PdfToHtmlConverter.ConvertPages(pageElements);
+                var (html, plainText) = PdfToHtmlConverter.ConvertPages(filteredPageElements);
                 if (string.IsNullOrWhiteSpace(plainText))
                     continue;
 
@@ -283,6 +289,49 @@ public sealed class PdfTextExtractor : ITextExtractor
         var diagnostics = new ExtractionDiagnostics(TextSource.NativeText, null, warnings);
 
         return new ExtractionResult(SourceFormat.Pdf, metadata, units, allImages, diagnostics, toc);
+    }
+
+    private const int RunningHeaderMinPages = 3;
+    private const int RunningHeaderMaxTextLength = 200;
+
+    private static List<(int PageNumber, List<PdfTextElement> Elements)> FilterRunningHeaders(
+        List<(int PageNumber, List<PdfTextElement> Elements)> pageElements)
+    {
+        if (pageElements.Count < RunningHeaderMinPages)
+            return pageElements;
+
+        var occurrences = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+        foreach (var (pageNum, elements) in pageElements)
+        {
+            foreach (var e in elements)
+            {
+                if (e.Type != TextElementType.Paragraph) continue;
+                var text = e.Text.Trim();
+                if (text.Length == 0 || text.Length > RunningHeaderMaxTextLength) continue;
+                if (!occurrences.TryGetValue(text, out var pages))
+                {
+                    pages = [];
+                    occurrences[text] = pages;
+                }
+                pages.Add(pageNum);
+            }
+        }
+
+        var headers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (text, pages) in occurrences)
+        {
+            if (pages.Count >= RunningHeaderMinPages)
+                headers.Add(text);
+        }
+
+        if (headers.Count == 0)
+            return pageElements;
+
+        return pageElements
+            .Select(p => (p.PageNumber, p.Elements
+                .Where(e => e.Type != TextElementType.Paragraph || !headers.Contains(e.Text.Trim()))
+                .ToList()))
+            .ToList();
     }
 
     /// <summary>

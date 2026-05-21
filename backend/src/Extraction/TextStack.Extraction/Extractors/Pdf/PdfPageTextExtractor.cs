@@ -1,12 +1,15 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using UglyToad.PdfPig.Content;
-using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 
 namespace TextStack.Extraction.Extractors.Pdf;
 
 /// <summary>
 /// Extracts structured text (paragraphs, headings, bold/italic) from a single PDF page.
-/// Uses RecursiveXYCut for column detection and reading order.
+/// Groups all page words by Y → lines → paragraphs. Merges hyphenated line breaks.
+/// XYCut intentionally dropped: it fragments sparse layouts (chapter intro spreads,
+/// pull quotes) into one-word-per-block. Most books are single column.
 /// </summary>
 public static class PdfPageTextExtractor
 {
@@ -16,82 +19,135 @@ public static class PdfPageTextExtractor
     private const double MinHeadingFontDifference = 1.5;
     private const int MaxHeadingTextLength = 200;
 
+    // Single-char dividers / bullets that show up as artifacts when nginx/header
+    // glyphs leak into the body. "|" between page number and running title is common.
+    private static readonly HashSet<string> NoisePunctuation = new(StringComparer.Ordinal)
+    {
+        "|", "•", "·", "—", "-", "–", "*", "■", "□", "○", "●", "▪", "▫"
+    };
+
+    private static readonly Regex PageNumberPattern = new(@"^\d{1,4}$", RegexOptions.Compiled);
+
     public static List<PdfTextElement> ExtractPage(Page page)
     {
         var words = page.GetWords(NearestNeighbourWordExtractor.Instance).ToList();
         if (words.Count == 0)
             return [];
 
-        // Use RecursiveXYCut to segment page into reading-order blocks
-        var blocks = RecursiveXYCut.Instance.GetBlocks(words);
-
-        // Determine heading font size threshold: largest font on page
         var allFontSizes = words
             .SelectMany(w => w.Letters)
             .Select(l => l.FontSize)
             .ToList();
         var maxFontSize = allFontSizes.Count > 0 ? allFontSizes.Max() : 0;
         var avgFontSizeAll = allFontSizes.Count > 0 ? allFontSizes.Average() : 0;
-        // Only detect headings if the largest font is meaningfully bigger than average
         var hasDistinctHeadingFont = maxFontSize - avgFontSizeAll >= MinHeadingFontDifference;
         var headingThreshold = maxFontSize * HeadingFontRatio;
 
+        var lines = GroupWordsIntoLines(words);
+        var paragraphs = GroupLinesIntoParagraphs(lines);
+
         var elements = new List<PdfTextElement>();
 
-        foreach (var block in blocks)
+        foreach (var paragraph in paragraphs)
         {
-            var blockWords = block.TextLines
-                .SelectMany(l => l.Words)
-                .ToList();
-
-            if (blockWords.Count == 0)
+            var allWords = paragraph.SelectMany(l => l).ToList();
+            if (allWords.Count == 0)
                 continue;
 
-            // Group words into lines by Y-coord proximity
-            var lines = GroupWordsIntoLines(blockWords);
+            var text = BuildParagraphText(paragraph);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
 
-            // Group lines into paragraphs by vertical gap
-            var paragraphs = GroupLinesIntoParagraphs(lines);
+            if (IsArtifactNoise(text))
+                continue;
 
-            foreach (var paragraph in paragraphs)
-            {
-                var allWords = paragraph.SelectMany(l => l).ToList();
-                if (allWords.Count == 0)
-                    continue;
+            var fontName = GetDominantFontName(allWords);
+            var isBold = fontName.Contains("Bold", StringComparison.OrdinalIgnoreCase);
+            var isItalic = fontName.Contains("Italic", StringComparison.OrdinalIgnoreCase)
+                           || fontName.Contains("Oblique", StringComparison.OrdinalIgnoreCase);
 
-                var text = string.Join(" ", allWords.Select(w => w.Text)).Trim();
-                if (string.IsNullOrWhiteSpace(text))
-                    continue;
+            var avgFontSize = allWords
+                .SelectMany(w => w.Letters)
+                .Select(l => l.FontSize)
+                .DefaultIfEmpty(0)
+                .Average();
 
-                // Detect style from the first word's font name
-                var fontName = GetDominantFontName(allWords);
-                var isBold = fontName.Contains("Bold", StringComparison.OrdinalIgnoreCase);
-                var isItalic = fontName.Contains("Italic", StringComparison.OrdinalIgnoreCase)
-                               || fontName.Contains("Oblique", StringComparison.OrdinalIgnoreCase);
+            var isHeading = hasDistinctHeadingFont
+                            && avgFontSize >= headingThreshold
+                            && text.Length < MaxHeadingTextLength;
 
-                // Detect heading: first line of page with largest font size
-                var avgFontSize = allWords
-                    .SelectMany(w => w.Letters)
-                    .Select(l => l.FontSize)
-                    .DefaultIfEmpty(0)
-                    .Average();
+            var yPosition = allWords
+                .Select(w => w.BoundingBox.Bottom)
+                .Average();
 
-                var isHeading = hasDistinctHeadingFont && avgFontSize >= headingThreshold && text.Length < MaxHeadingTextLength;
-
-                var yPosition = allWords
-                    .Select(w => w.BoundingBox.Bottom)
-                    .Average();
-
-                elements.Add(new PdfTextElement(
-                    isHeading ? TextElementType.Heading : TextElementType.Paragraph,
-                    text,
-                    isBold,
-                    isItalic,
-                    yPosition));
-            }
+            elements.Add(new PdfTextElement(
+                isHeading ? TextElementType.Heading : TextElementType.Paragraph,
+                text,
+                isBold,
+                isItalic,
+                yPosition));
         }
 
         return elements;
+    }
+
+    /// <summary>
+    /// Joins words within a paragraph with spaces, but glues line-final hyphens
+    /// to the next line's first word ("chal-" + "lenges" → "challenges").
+    /// </summary>
+    private static string BuildParagraphText(List<List<Word>> paragraph)
+    {
+        var sb = new StringBuilder();
+        for (var i = 0; i < paragraph.Count; i++)
+        {
+            var lineWords = paragraph[i];
+            if (lineWords.Count == 0)
+                continue;
+
+            for (var j = 0; j < lineWords.Count; j++)
+            {
+                var w = lineWords[j];
+                var isLastWordOfLine = j == lineWords.Count - 1;
+                var isLastLine = i == paragraph.Count - 1;
+
+                if (isLastWordOfLine && !isLastLine && EndsWithSoftHyphen(w.Text))
+                {
+                    // Drop trailing hyphen; next line's first word joins without space.
+                    sb.Append(w.Text.AsSpan(0, w.Text.Length - 1));
+                    // No separator — let next iteration append immediately.
+                }
+                else
+                {
+                    sb.Append(w.Text);
+                    if (j < lineWords.Count - 1)
+                        sb.Append(' ');
+                    else if (!isLastLine)
+                        sb.Append(' ');
+                }
+            }
+        }
+        return sb.ToString().Trim();
+    }
+
+    private static bool EndsWithSoftHyphen(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        var last = text[^1];
+        // ASCII hyphen, Unicode hyphen U+2010, soft hyphen U+00AD, non-breaking hyphen U+2011.
+        return last == '-' || last == '‐' || last == '­' || last == '‑';
+    }
+
+    /// <summary>
+    /// True for short fragments that are page numbers, single dividers, or pure
+    /// punctuation noise that belong to header/footer chrome, not body.
+    /// </summary>
+    private static bool IsArtifactNoise(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0) return true;
+        if (trimmed.Length <= 2 && NoisePunctuation.Contains(trimmed)) return true;
+        if (PageNumberPattern.IsMatch(trimmed)) return true;
+        return false;
     }
 
     private static List<List<Word>> GroupWordsIntoLines(List<Word> words)
@@ -99,7 +155,6 @@ public static class PdfPageTextExtractor
         if (words.Count == 0)
             return [];
 
-        // Sort by Y descending (top of page first), then X ascending
         var sorted = words.OrderByDescending(w => w.BoundingBox.Bottom).ThenBy(w => w.BoundingBox.Left).ToList();
 
         var lines = new List<List<Word>>();
@@ -130,7 +185,6 @@ public static class PdfPageTextExtractor
         if (lines.Count == 0)
             return [];
 
-        // Estimate typical line height
         var lineHeights = new List<double>();
         for (var i = 1; i < lines.Count; i++)
         {
