@@ -46,17 +46,12 @@ public static class PdfChapterDetector
             if (!document.TryGetBookmarks(out var bookmarks))
                 return [];
 
+            // Use only top-level bookmarks (Roots). PdfPig.GetNodes() flattens
+            // the tree which conflates real chapters with their subsections —
+            // O'Reilly-style books would produce 30+ "chapters" instead of ~10.
             var chapters = new List<(string Title, int PageNumber)>();
-
-            foreach (var node in bookmarks.GetNodes())
-            {
-                if (node is DocumentBookmarkNode docNode && docNode.PageNumber > 0)
-                {
-                    var title = docNode.Title?.Trim();
-                    if (!string.IsNullOrWhiteSpace(title))
-                        chapters.Add((title, docNode.PageNumber));
-                }
-            }
+            foreach (var root in bookmarks.Roots)
+                CollectTopLevelChapter(root, chapters);
 
             if (chapters.Count < 2)
                 return [];
@@ -81,6 +76,37 @@ public static class PdfChapterDetector
         catch
         {
             return [];
+        }
+    }
+
+    /// <summary>
+    /// Most roots are DocumentBookmarkNode (leaf with a page target). A few PDFs
+    /// have a "section header" root with no page of its own — descend to its first
+    /// descendant with a page so we don't lose the entire branch.
+    /// </summary>
+    private static void CollectTopLevelChapter(
+        BookmarkNode node,
+        List<(string Title, int PageNumber)> chapters)
+    {
+        if (node is DocumentBookmarkNode docNode && docNode.PageNumber > 0)
+        {
+            var title = docNode.Title?.Trim();
+            if (!string.IsNullOrWhiteSpace(title))
+                chapters.Add((title, docNode.PageNumber));
+            return;
+        }
+
+        foreach (var child in node.Children)
+        {
+            if (child is DocumentBookmarkNode childDoc && childDoc.PageNumber > 0)
+            {
+                var title = (node.Title?.Trim() is { Length: > 0 } parentTitle)
+                    ? parentTitle
+                    : childDoc.Title?.Trim();
+                if (!string.IsNullOrWhiteSpace(title))
+                    chapters.Add((title, childDoc.PageNumber));
+                return;
+            }
         }
     }
 

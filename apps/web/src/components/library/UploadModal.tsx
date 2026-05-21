@@ -83,12 +83,13 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
   const pollStatus = useCallback((bookId: string) => {
     const tick = async () => {
       if (Date.now() - pollStartedAtRef.current > POLL_TIMEOUT_MS) {
-        // Timeout — book is still processing server-side. Don't error out:
-        // close the modal, the library polling at 5s intervals takes over.
+        // Timeout — book is still processing server-side. Close silently;
+        // forced navigation would yank the user (e.g. from reader to library)
+        // five minutes after they minimized the modal mentally. Library's own
+        // 5s poll picks up the book when they navigate there themselves.
         stopPoll()
         broadcastChange()
         onClose()
-        navigate(getLocalizedPath(`/library?tab=uploads&highlight=${encodeURIComponent(bookId)}`))
         return
       }
       try {
