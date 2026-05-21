@@ -19,9 +19,9 @@ vi.mock('../UploadForm', () => ({
 }))
 // getUserBook is polled after upload — keep it pending so the modal stays in
 // the Processing phase (no auto-transition during these tests).
-const getUserBookMock = vi.fn(() => new Promise(() => {}))
+const getUserBookMock = vi.fn((_id: string) => new Promise(() => {}) as Promise<unknown>)
 vi.mock('../../../api/userBooks', () => ({
-  getUserBook: (...args: unknown[]) => getUserBookMock(...args),
+  getUserBook: (id: string) => getUserBookMock(id),
 }))
 
 import { UploadModal } from '../UploadModal'
