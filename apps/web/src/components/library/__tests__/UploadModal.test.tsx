@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 
 const navigateMock = vi.fn()
 
@@ -19,14 +19,19 @@ vi.mock('../UploadForm', () => ({
 }))
 // getUserBook is polled after upload — keep it pending so the modal stays in
 // the Processing phase (no auto-transition during these tests).
+const getUserBookMock = vi.fn(() => new Promise(() => {}))
 vi.mock('../../../api/userBooks', () => ({
-  getUserBook: vi.fn(() => new Promise(() => {})),
+  getUserBook: (...args: unknown[]) => getUserBookMock(...args),
 }))
 
 import { UploadModal } from '../UploadModal'
 
 describe('UploadModal', () => {
-  beforeEach(() => navigateMock.mockReset())
+  beforeEach(() => {
+    navigateMock.mockReset()
+    getUserBookMock.mockReset()
+    getUserBookMock.mockImplementation(() => new Promise(() => {}))
+  })
   afterEach(() => cleanup())
 
   it('returns null when closed', () => {
@@ -64,6 +69,34 @@ describe('UploadModal', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(navigateMock).not.toHaveBeenCalled()
     expect(screen.getByText('upload.status.processing')).toBeInTheDocument()
+  })
+
+  it('failed phase shows server errorMessage when present', async () => {
+    getUserBookMock.mockResolvedValueOnce({
+      id: 'book-42', title: 't', slug: 't', language: 'en', status: 'Failed',
+      errorMessage: 'Could not read this file. It may be corrupted or password-protected.',
+      chapters: [], createdAt: '', updatedAt: '',
+    })
+    vi.useFakeTimers()
+    render(<UploadModal open={true} onClose={() => {}} />)
+    fireEvent.click(screen.getByTestId('fake-upload'))
+    await vi.advanceTimersByTimeAsync(2100)
+    vi.useRealTimers()
+    await waitFor(() => expect(screen.getByText('upload.status.failedTitle')).toBeInTheDocument())
+    expect(screen.getByText(/Could not read this file/)).toBeInTheDocument()
+  })
+
+  it('failed phase falls back to generic message when errorMessage is empty', async () => {
+    getUserBookMock.mockResolvedValueOnce({
+      id: 'book-42', title: 't', slug: 't', language: 'en', status: 'Failed',
+      errorMessage: '   ', chapters: [], createdAt: '', updatedAt: '',
+    })
+    vi.useFakeTimers()
+    render(<UploadModal open={true} onClose={() => {}} />)
+    fireEvent.click(screen.getByTestId('fake-upload'))
+    await vi.advanceTimersByTimeAsync(2100)
+    vi.useRealTimers()
+    await waitFor(() => expect(screen.getByText('upload.status.failed')).toBeInTheDocument())
   })
 
   it('after upload broadcasts user-books + shelves changes so consumers refetch', () => {

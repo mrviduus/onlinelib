@@ -107,7 +107,11 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
         if (detail.status === 'Failed') {
           stopPoll()
           broadcastChange()
-          setPhase({ kind: 'failed', bookId, message: t('upload.status.failed') })
+          setPhase({
+            kind: 'failed',
+            bookId,
+            message: detail.errorMessage?.trim() || t('upload.status.failed'),
+          })
           return
         }
       } catch {

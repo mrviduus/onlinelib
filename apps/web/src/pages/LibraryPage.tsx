@@ -9,7 +9,6 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { OfflineBadge } from '../components/OfflineBadge'
 import { BookActionMenu } from '../components/library/BookActionMenu'
-import { UploadSection } from '../components/library/UploadSection'
 import { UploadDropZone } from '../components/library/UploadDropZone'
 import { LibraryShelves } from '../components/library/LibraryShelves'
 import { LibrarySidebar } from '../components/library/LibrarySidebar'
@@ -69,7 +68,6 @@ export function LibraryPage() {
   } = useLibrarySearch()
   const [contentHits, setContentHits] = useState<UserBookSearchHit[] | null>(null)
   const [contentLoading, setContentLoading] = useState(false)
-  const [showUploadModal, setShowUploadModal] = useState(false)
   const collectionIdParam = searchParams.get('collection')
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(collectionIdParam)
   const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
@@ -446,10 +444,6 @@ export function LibraryPage() {
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
-        {showUploadModal && showUploadsBlock && (
-          <UploadSection onUploadComplete={() => { fetchUserBooks(); setShowUploadModal(false) }} />
-        )}
-
         {(() => {
           const totalRaw = (showSavedBlock ? items.length : 0) + (showUploadsBlock ? userBooks.length : 0)
           const totalVisible = renderList.length
@@ -796,7 +790,7 @@ export function LibraryPage() {
       {showUploadsBlock && !selection.active && (
         <button
           className="library-fab"
-          onClick={() => setShowUploadModal(true)}
+          onClick={() => window.dispatchEvent(new Event('textstack:open-upload'))}
           aria-label="Upload book"
         >
           <span className="material-icons-outlined">add</span>
