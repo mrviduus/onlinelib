@@ -435,6 +435,9 @@ public static class InternalEndpoints
             job.IssuesJson,
             job.IssuesFound,
             job.IssuesFixed,
+            job.ContentChaptersCleaned,
+            job.ContentChaptersRejected,
+            job.ContentChaptersSkipped,
             job.Error,
             job.LogOutput,
             job.CreatedAt,
@@ -458,6 +461,9 @@ public static class InternalEndpoints
         if (req.IssuesFixed.HasValue) job.IssuesFixed = req.IssuesFixed;
         if (req.Error is not null) job.Error = req.Error;
         if (req.LogOutput is not null) job.LogOutput = req.LogOutput;
+        if (req.ContentChaptersCleaned.HasValue) job.ContentChaptersCleaned = req.ContentChaptersCleaned;
+        if (req.ContentChaptersRejected.HasValue) job.ContentChaptersRejected = req.ContentChaptersRejected;
+        if (req.ContentChaptersSkipped.HasValue) job.ContentChaptersSkipped = req.ContentChaptersSkipped;
         if (req.SetStartedAt) job.StartedAt = DateTimeOffset.UtcNow;
         if (req.SetFinishedAt) job.FinishedAt = DateTimeOffset.UtcNow;
 
@@ -506,5 +512,8 @@ public record UpdateQualityJobRequest(
     int? IssuesFixed = null,
     string? Error = null,
     string? LogOutput = null,
+    int? ContentChaptersCleaned = null,
+    int? ContentChaptersRejected = null,
+    int? ContentChaptersSkipped = null,
     bool SetStartedAt = false,
     bool SetFinishedAt = false);
