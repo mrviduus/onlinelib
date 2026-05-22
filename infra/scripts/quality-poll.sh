@@ -16,6 +16,9 @@ API_BASE="http://localhost:8080"
 # get an LLM cleanup pass; output is verified by pdf-cleanup-gate.py.
 CONTENT_CLEANUP_ENABLED="${CONTENT_CLEANUP_ENABLED:-false}"
 CONTENT_QUALITY_THRESHOLD="${CONTENT_QUALITY_THRESHOLD:-60}"
+# Per-chapter Claude timeout. Large chapters (15-20k words) need well over the
+# old 300s — rewriting that much HTML takes 10-15 min. Env-tunable.
+CLEANUP_TIMEOUT="${CLEANUP_TIMEOUT:-900}"
 DATASET_DIR="$REPO_DIR/data/pdf-cleanup-dataset"
 GATE_SCRIPT="$REPO_DIR/infra/scripts/pdf-cleanup-gate.py"
 
@@ -178,7 +181,13 @@ run_content_cleanup() {
     return 0
   fi
 
-  mkdir -p "$DATASET_DIR"
+  # Dataset dir lives under data/ (root-owned) — created + chowned to the
+  # poller's uid by `make fix-permissions`. Degrade gracefully if missing:
+  # cleanup still runs, only the (messy→clean) pair log is skipped.
+  if ! mkdir -p "$DATASET_DIR" 2>/dev/null; then
+    log "Phase 3: warning — $DATASET_DIR not writable, pairs will not be logged"
+    DATASET_DIR=""
+  fi
   local cleaned=0 rejected=0 skipped=0
 
   for num in $flagged; do
@@ -227,9 +236,9 @@ CLEANED_HTML_END
 PROMPT_TAIL
     } > "$tmp_prompt"
 
-    if ! timeout 300 claude -p --model claude-sonnet-4-6 --permission-mode default \
+    if ! timeout "$CLEANUP_TIMEOUT" claude -p --model claude-sonnet-4-6 --permission-mode default \
          < "$tmp_prompt" > "$tmp_out" 2>/dev/null; then
-      log "Phase 3: chapter $num — Claude CLI failed, skipped"
+      log "Phase 3: chapter $num — Claude CLI failed/timed out (${CLEANUP_TIMEOUT}s), skipped"
       skipped=$((skipped + 1))
       rm -f "$tmp_orig" "$tmp_prompt" "$tmp_out" "$tmp_clean"; continue
     fi
@@ -247,18 +256,19 @@ PROMPT_TAIL
     local gate_verdict
     gate_verdict=$(python3 "$GATE_SCRIPT" "$tmp_orig" "$tmp_clean" 2>/dev/null || echo "REJECT: gate error")
 
-    local pair_file="$DATASET_DIR/${target_id}-ch${num}-$(date +%s).json"
+    local pair_file=""
+    [ -n "$DATASET_DIR" ] && pair_file="$DATASET_DIR/${target_id}-ch${num}-$(date +%s).json"
     if [[ "$gate_verdict" == ACCEPT* ]]; then
       local esc_html
       esc_html=$(python3 -c "import sys,json; print(json.dumps(open(sys.argv[1],encoding='utf-8').read()))" "$tmp_clean")
       apply_content "$target_type" "$target_id" "$num" "$esc_html"
       cleaned=$((cleaned + 1))
       log "Phase 3: chapter $num cleaned"
-      log_pair "$pair_file" "$target_id" "$num" true "$tmp_orig" "$tmp_clean" "$gate_verdict"
+      [ -n "$pair_file" ] && log_pair "$pair_file" "$target_id" "$num" true "$tmp_orig" "$tmp_clean" "$gate_verdict"
     else
       rejected=$((rejected + 1))
       log "Phase 3: chapter $num rejected — $gate_verdict"
-      log_pair "$pair_file" "$target_id" "$num" false "$tmp_orig" "$tmp_clean" "$gate_verdict"
+      [ -n "$pair_file" ] && log_pair "$pair_file" "$target_id" "$num" false "$tmp_orig" "$tmp_clean" "$gate_verdict"
     fi
 
     rm -f "$tmp_orig" "$tmp_prompt" "$tmp_out" "$tmp_clean"
