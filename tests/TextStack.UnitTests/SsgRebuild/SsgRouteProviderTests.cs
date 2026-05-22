@@ -72,9 +72,12 @@ public class SsgRouteProviderTests
     }
 
     [Fact]
-    public async Task GetRoutesAsync_ExcludesNonIndexableContent()
+    public async Task GetRoutesAsync_NonIndexableBook_StillRouted()
     {
-        // Arrange
+        // Book detail pages are rendered for every Published edition regardless
+        // of Indexable — the renderer emits <meta name="robots" content="noindex">
+        // instead. Filtering here would leave nginx serving a hard 404 for the
+        // slug, so AddBookRoutesAsync intentionally does NOT filter on Indexable.
         var site = CreateSite();
         var editions = CreateEditions([
             ("indexable-book", "Indexable Book", true, EditionStatus.Published),
@@ -83,14 +86,43 @@ public class SsgRouteProviderTests
 
         SetupMockDbSets(site, editions, new List<Author>().AsQueryable(), new List<Genre>().AsQueryable());
 
-        // Act
         var routes = await _provider.GetRoutesAsync(
             TestSiteId, SsgRebuildMode.Full, null, null, null, CancellationToken.None);
 
-        // Assert
         var bookRoutes = routes.Where(r => r.RouteType == "book").ToList();
-        Assert.Single(bookRoutes);
-        Assert.Contains(bookRoutes, r => r.Route.Contains("indexable-book"));
+        Assert.Equal(2, bookRoutes.Count);
+        Assert.Contains(bookRoutes, r => r.Route.Contains("non-indexable-book"));
+    }
+
+    [Fact]
+    public async Task GetRoutesAsync_ExcludesNonIndexableAuthorsAndGenres()
+    {
+        // Author/genre listing pages — unlike book detail pages — ARE filtered
+        // by Indexable (the admin "hide from listings" override).
+        var site = CreateSite();
+        var editions = CreateEditions([("book-1", "Book 1", true, EditionStatus.Published)]);
+        var edition = editions.First();
+        var authors = CreateAuthors([
+            ("shown-author", "Shown Author", true),
+            ("hidden-author", "Hidden Author", false)
+        ], edition);
+        var genres = CreateGenres([
+            ("shown-genre", "Shown Genre", true),
+            ("hidden-genre", "Hidden Genre", false)
+        ], edition);
+
+        SetupMockDbSets(site, editions, authors, genres);
+
+        var routes = await _provider.GetRoutesAsync(
+            TestSiteId, SsgRebuildMode.Full, null, null, null, CancellationToken.None);
+
+        var authorRoutes = routes.Where(r => r.RouteType == "author").ToList();
+        Assert.Single(authorRoutes);
+        Assert.Contains(authorRoutes, r => r.Route.Contains("shown-author"));
+
+        var genreRoutes = routes.Where(r => r.RouteType == "genre").ToList();
+        Assert.Single(genreRoutes);
+        Assert.Contains(genreRoutes, r => r.Route.Contains("shown-genre"));
     }
 
     [Fact]
