@@ -11,6 +11,14 @@ REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 POLL_INTERVAL=30
 API_BASE="http://localhost:8080"
 
+# Phase 3 (per-chapter content cleanup). Off unless CONTENT_CLEANUP_ENABLED=true
+# in .env. Chapters scoring below the threshold (ChapterContentQualityAnalyzer)
+# get an LLM cleanup pass; output is verified by pdf-cleanup-gate.py.
+CONTENT_CLEANUP_ENABLED="${CONTENT_CLEANUP_ENABLED:-false}"
+CONTENT_QUALITY_THRESHOLD="${CONTENT_QUALITY_THRESHOLD:-60}"
+DATASET_DIR="$REPO_DIR/data/pdf-cleanup-dataset"
+GATE_SCRIPT="$REPO_DIR/infra/scripts/pdf-cleanup-gate.py"
+
 # Status codes (match BookQualityJobStatus enum)
 STATUS_QUEUED=0
 STATUS_VALIDATING=1
@@ -127,6 +135,157 @@ apply_merge() {
       -H "Content-Type: application/json" \
       -d "{\"chapterNumbers\":$numbers_json}"
   fi
+}
+
+# Overwrite a chapter's HTML (PUT recomputes plainText server-side).
+# $4 is a JSON-encoded string (quotes included).
+apply_content() {
+  local type="$1" id="$2" chapter_num="$3" esc_html="$4"
+  if [ "$type" = "edition" ]; then
+    curl -s -X PUT "$API_BASE/internal/editions/$id/chapters/$chapter_num" \
+      -H "Content-Type: application/json" -d "{\"html\":$esc_html}" >/dev/null
+  else
+    curl -s -X PUT "$API_BASE/internal/user-books/$id/chapters/$chapter_num" \
+      -H "Content-Type: application/json" -d "{\"html\":$esc_html}" >/dev/null
+  fi
+}
+
+# Phase 3 — per-chapter content cleanup. For each chapter scoring below the
+# quality threshold, ask Claude to fix structure only, verify the output with
+# the preservation gate, then overwrite the chapter HTML. Every (messy→clean)
+# pair is logged to the dataset dir for the heuristic ratchet (feat-0007).
+run_content_cleanup() {
+  local job_id="$1" target_type="$2" target_id="$3" book_title="$4"
+
+  if [ "$CONTENT_CLEANUP_ENABLED" != "true" ]; then
+    return 0
+  fi
+
+  local chapter_table id_col
+  if [ "$target_type" = "edition" ]; then
+    chapter_table="chapters"; id_col="edition_id"
+  else
+    chapter_table="user_chapters"; id_col="user_book_id"
+  fi
+
+  local flagged
+  flagged=$(db_query "SELECT chapter_number FROM $chapter_table \
+    WHERE $id_col='$target_id' AND content_quality_score IS NOT NULL \
+    AND content_quality_score < $CONTENT_QUALITY_THRESHOLD ORDER BY chapter_number")
+
+  if [ -z "$flagged" ]; then
+    log "Phase 3: no chapters below quality threshold ($CONTENT_QUALITY_THRESHOLD)"
+    return 0
+  fi
+
+  mkdir -p "$DATASET_DIR"
+  local cleaned=0 rejected=0 skipped=0
+
+  for num in $flagged; do
+    local content_json html
+    content_json=$(fetch_chapter_sample "$target_type" "$target_id" "$num")
+    html=$(echo "$content_json" | python3 -c \
+      "import sys,json; print(json.load(sys.stdin).get('html','') or '')" 2>/dev/null)
+
+    if [ -z "$html" ]; then
+      log "Phase 3: chapter $num — no HTML, skipped"
+      skipped=$((skipped + 1)); continue
+    fi
+
+    local tmp_orig tmp_prompt tmp_out tmp_clean
+    tmp_orig=$(mktemp); tmp_prompt=$(mktemp); tmp_out=$(mktemp); tmp_clean=$(mktemp)
+    printf '%s' "$html" > "$tmp_orig"
+
+    {
+      cat <<'PROMPT_HEAD'
+You are a book content cleanup tool for TextStack, an online reader.
+Below is one chapter's HTML, extracted from a PDF. PDF extraction leaves
+structural defects. Fix ONLY structure:
+
+- Remove running headers/footers and stray page numbers that leaked into the
+  body (e.g. "<p>Chapter 1: Introduction | 4</p>", "<p>2</p>", "<p>|</p>").
+- Rejoin paragraphs fragmented into many one or two word <p> elements.
+- Merge words split by a line-wrap hyphen ("chal- lenges" -> "challenges").
+- Keep genuine headings as <h2>/<h3>, body text as <p>, lists as <ul>/<ol>.
+
+ABSOLUTE RULES:
+- Preserve every word of real content verbatim. Do not summarize, reword,
+  translate, correct spelling, or add anything.
+- Preserve all <img> tags exactly, src attribute unchanged.
+- Preserve code / monospace content character-for-character.
+- Output raw HTML only — no markdown, no code fences, no commentary.
+
+CHAPTER_HTML:
+PROMPT_HEAD
+      cat "$tmp_orig"
+      cat <<'PROMPT_TAIL'
+
+Output exactly, with nothing before or after:
+CLEANED_HTML_START
+<the cleaned HTML>
+CLEANED_HTML_END
+PROMPT_TAIL
+    } > "$tmp_prompt"
+
+    if ! timeout 300 claude -p --model claude-sonnet-4-6 --permission-mode default \
+         < "$tmp_prompt" > "$tmp_out" 2>/dev/null; then
+      log "Phase 3: chapter $num — Claude CLI failed, skipped"
+      skipped=$((skipped + 1))
+      rm -f "$tmp_orig" "$tmp_prompt" "$tmp_out" "$tmp_clean"; continue
+    fi
+
+    # Extract between markers, drop any stray code-fence lines.
+    sed -n '/^CLEANED_HTML_START$/,/^CLEANED_HTML_END$/p' "$tmp_out" \
+      | sed '1d;$d' | sed '/^```/d' > "$tmp_clean"
+
+    if [ ! -s "$tmp_clean" ]; then
+      log "Phase 3: chapter $num — no cleaned HTML parsed, skipped"
+      skipped=$((skipped + 1))
+      rm -f "$tmp_orig" "$tmp_prompt" "$tmp_out" "$tmp_clean"; continue
+    fi
+
+    local gate_verdict
+    gate_verdict=$(python3 "$GATE_SCRIPT" "$tmp_orig" "$tmp_clean" 2>/dev/null || echo "REJECT: gate error")
+
+    local pair_file="$DATASET_DIR/${target_id}-ch${num}-$(date +%s).json"
+    if [[ "$gate_verdict" == ACCEPT* ]]; then
+      local esc_html
+      esc_html=$(python3 -c "import sys,json; print(json.dumps(open(sys.argv[1],encoding='utf-8').read()))" "$tmp_clean")
+      apply_content "$target_type" "$target_id" "$num" "$esc_html"
+      cleaned=$((cleaned + 1))
+      log "Phase 3: chapter $num cleaned"
+      log_pair "$pair_file" "$target_id" "$num" true "$tmp_orig" "$tmp_clean" "$gate_verdict"
+    else
+      rejected=$((rejected + 1))
+      log "Phase 3: chapter $num rejected — $gate_verdict"
+      log_pair "$pair_file" "$target_id" "$num" false "$tmp_orig" "$tmp_clean" "$gate_verdict"
+    fi
+
+    rm -f "$tmp_orig" "$tmp_prompt" "$tmp_out" "$tmp_clean"
+  done
+
+  update_job_api "$job_id" \
+    "{\"contentChaptersCleaned\":$cleaned,\"contentChaptersRejected\":$rejected,\"contentChaptersSkipped\":$skipped}"
+  log "Phase 3 done for $book_title: $cleaned cleaned, $rejected rejected, $skipped skipped"
+}
+
+# Append a (messy → cleaned) pair to the dataset log — fuel for the heuristic
+# ratchet. Best-effort: a logging failure must not fail the cleanup.
+log_pair() {
+  local file="$1" book_id="$2" chapter="$3" accepted="$4" orig="$5" clean="$6" verdict="$7"
+  python3 - "$file" "$book_id" "$chapter" "$accepted" "$orig" "$clean" "$verdict" <<'PY' 2>/dev/null || true
+import json, sys, time
+file, book_id, chapter, accepted, orig, clean, verdict = sys.argv[1:8]
+json.dump({
+    "bookId": book_id,
+    "chapterNumber": int(chapter),
+    "accepted": accepted == "true",
+    "verdict": verdict,
+    "original": open(orig, encoding="utf-8").read(),
+    "cleaned": open(clean, encoding="utf-8").read(),
+    "timestamp": time.time(),
+}, open(file, "w", encoding="utf-8"), ensure_ascii=False)
+PY
 }
 
 process_job() {
@@ -264,8 +423,11 @@ ISSUES_END") || {
   esc_issues=$(echo "$issues_json" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
 
   if [ "$issues_count" = "0" ]; then
-    update_job_api "$job_id" "{\"status\":3,\"issuesJson\":$esc_issues,\"issuesFound\":0,\"issuesFixed\":0,\"setFinishedAt\":true}"
-    log "No issues found for: $book_title"
+    update_job_api "$job_id" "{\"status\":2,\"issuesJson\":$esc_issues,\"issuesFound\":0,\"issuesFixed\":0}"
+    # Structure is fine — but chapter content can still be poorly extracted.
+    run_content_cleanup "$job_id" "$target_type" "$target_id" "$book_title"
+    update_job_api "$job_id" "{\"status\":3,\"setFinishedAt\":true}"
+    log "No structure issues for: $book_title"
     return 0
   fi
 
@@ -343,13 +505,18 @@ for num, title in renames:
     fi
   done <<< "$rename_entries"
 
+  update_job_api "$job_id" "{\"issuesFixed\":$fixed_count}"
+
+  # Phase 3 — content cleanup, after structure fixes have renumbered chapters.
+  run_content_cleanup "$job_id" "$target_type" "$target_id" "$book_title"
+
   # Store log
   local log_text
   log_text="Validated $chapter_count chapters. Found $issues_count issues, fixed $fixed_count."
   local esc_log
   esc_log=$(echo "$log_text" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))")
 
-  update_job_api "$job_id" "{\"status\":3,\"issuesFixed\":$fixed_count,\"logOutput\":$esc_log,\"setFinishedAt\":true}"
+  update_job_api "$job_id" "{\"status\":3,\"logOutput\":$esc_log,\"setFinishedAt\":true}"
   log "Completed: $book_title — $issues_count issues found, $fixed_count fixed"
 }
 

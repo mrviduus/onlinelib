@@ -471,6 +471,9 @@ export interface BookQualityJobListItem {
 export interface BookQualityJobDetail extends BookQualityJobListItem {
   issuesJson: string | null
   logOutput: string | null
+  contentChaptersCleaned: number | null
+  contentChaptersRejected: number | null
+  contentChaptersSkipped: number | null
 }
 
 export interface BookQualitySettings {

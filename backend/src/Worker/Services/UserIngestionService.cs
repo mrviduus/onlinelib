@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TextStack.Extraction.Contracts;
 using TextStack.Extraction.Enums;
+using TextStack.Extraction.Quality;
 using TextStack.Extraction.Registry;
 
 namespace Worker.Services;
@@ -186,10 +187,14 @@ public class UserIngestionService
             db.UserChapters.RemoveRange(existingChapters);
 
             // Create chapters
+            var qualityScores = new List<int>();
             foreach (var unit in result.Units)
             {
-                var html = Application.Common.ImageProcessingHelper.RewriteImageSrcs(unit.Html ?? string.Empty, imageMap);
+                var html = SanitizeText(
+                    Application.Common.ImageProcessingHelper.RewriteImageSrcs(unit.Html ?? string.Empty, imageMap));
                 var chapterTitle = SanitizeText(unit.Title ?? $"Chapter {unit.OrderIndex + 1}");
+                var score = ChapterContentQualityAnalyzer.Analyze(html).Score;
+                qualityScores.Add(score);
                 var chapter = new UserChapter
                 {
                     Id = Guid.NewGuid(),
@@ -197,12 +202,21 @@ public class UserIngestionService
                     ChapterNumber = unit.OrderIndex + 1,
                     Slug = SlugGenerator.GenerateChapterSlug(chapterTitle, unit.OrderIndex),
                     Title = chapterTitle,
-                    Html = SanitizeText(html),
+                    Html = html,
                     PlainText = SanitizeText(unit.PlainText),
                     WordCount = unit.WordCount,
+                    ContentQualityScore = score,
                     CreatedAt = DateTimeOffset.UtcNow
                 };
                 db.UserChapters.Add(chapter);
+            }
+
+            if (qualityScores.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Content quality for user book {BookId}: {Count} chapters, avg score {Avg}, {Below} below 60",
+                    job.UserBookId, qualityScores.Count, (int)qualityScores.Average(),
+                    qualityScores.Count(s => s < 60));
             }
 
             // Update book metadata

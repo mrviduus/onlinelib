@@ -4,6 +4,8 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.Utilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using TextStack.Extraction.Quality;
 
 namespace Application.Ingestion;
 
@@ -29,7 +31,8 @@ public record ExtractionSummary(
 
 public record ExtractionWarningDto(int Code, string Message);
 
-public class IngestionService(IAppDbContext db, IFileStorageService storage)
+public class IngestionService(
+    IAppDbContext db, IFileStorageService storage, ILogger<IngestionService> logger)
 {
     private static readonly TimeSpan StuckJobTimeout = TimeSpan.FromMinutes(10);
 
@@ -86,9 +89,13 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
         db.Chapters.RemoveRange(existingChapters);
 
         // Create new chapters
+        var qualityScores = new List<int>();
         foreach (var ch in parsed.Chapters)
         {
             var chapterSlug = SlugGenerator.GenerateChapterSlug(ch.Title, ch.Order);
+            var chapterHtml = SanitizeText(ch.Html);
+            var score = ChapterContentQualityAnalyzer.Analyze(chapterHtml).Score;
+            qualityScores.Add(score);
             var chapter = new Chapter
             {
                 Id = Guid.NewGuid(),
@@ -96,9 +103,10 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
                 ChapterNumber = ch.Order,
                 Slug = chapterSlug,
                 Title = SanitizeText(ch.Title),
-                Html = SanitizeText(ch.Html),
+                Html = chapterHtml,
                 PlainText = SanitizeText(ch.PlainText),
                 WordCount = ch.WordCount,
+                ContentQualityScore = score,
                 OriginalChapterNumber = ch.OriginalChapterNumber,
                 PartNumber = ch.PartNumber,
                 TotalParts = ch.TotalParts,
@@ -106,6 +114,14 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             db.Chapters.Add(chapter);
+        }
+
+        if (qualityScores.Count > 0)
+        {
+            logger.LogInformation(
+                "Content quality for edition {EditionId}: {Count} chapters, avg score {Avg}, {Below} below 60",
+                job.EditionId, qualityScores.Count, (int)qualityScores.Average(),
+                qualityScores.Count(s => s < 60));
         }
 
         // Publish the edition

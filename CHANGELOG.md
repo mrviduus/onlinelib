@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### PDF content quality — Claude cleanup pipeline (2026-05-22)
+
+Slices 1-4 of feat-0007 (`docs/05-features/feat-0007-pdf-content-quality.md`).
+Makes PDF-extracted books readable: heuristics get ~70-75%, the gap to ~90% is
+semantic (running headers in body, fragmented paragraphs, hyphenation, inlined
+footnotes). Closes it with a gated Claude cleanup pass, and logs every fix so
+the deterministic heuristics can ratchet up over time. Marker (ML PDF pipeline)
+was evaluated and shelved — the prod GPU's 4 GB VRAM can't hold its model set.
+
+- **`ChapterContentQualityAnalyzer`** — deterministic 0-100 content-quality
+  score + issue codes (fragmented paragraphs, running headers in body,
+  unmerged hyphenation, orphan page numbers, inlined footnotes) for extracted
+  chapter HTML. Pure C#, 12 unit tests. The gate that decides which chapters
+  warrant an LLM pass.
+- **Score persisted at ingest** — `ContentQualityScore` column on `Chapter` +
+  `UserChapter`, set in both ingestion paths; `BookQualityJob` carries Phase 3
+  tracking counters. Worker logs a per-book score distribution.
+- **`quality-poll.sh` Phase 3** — for each chapter below the quality threshold,
+  Claude CLI fixes structure (preserving content verbatim); a stdlib-only
+  preservation gate (`pdf-cleanup-gate.py`) rejects hallucination or
+  over-deletion via word-multiset diff before the cleaned HTML is written back.
+  Every (messy → clean) pair is logged to `data/pdf-cleanup-dataset/` as fuel
+  for the future heuristic ratchet. Off by default — `CONTENT_CLEANUP_ENABLED`.
+- **Admin observability** — the Book Quality job detail panel shows Phase 3
+  results (chapters cleaned / rejected / skipped).
+
 ### Mobile reader — autosave restore (2026-05-13)
 
 - **WordCard parity with web WordPopup** — single-word tap on mobile

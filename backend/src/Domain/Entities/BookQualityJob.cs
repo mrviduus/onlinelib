@@ -16,6 +16,14 @@ public class BookQualityJob
     public int? IssuesFound { get; set; }
     public int? IssuesFixed { get; set; }
 
+    // ── Content-cleanup phase (Phase 3) — populated by quality-poll.sh ──
+    /// <summary>Chapters whose HTML the LLM cleanup pass rewrote and the gate accepted.</summary>
+    public int? ContentChaptersCleaned { get; set; }
+    /// <summary>Chapters where the LLM output was rejected by the preservation gate.</summary>
+    public int? ContentChaptersRejected { get; set; }
+    /// <summary>Flagged chapters skipped (non-PDF, or cleanup disabled).</summary>
+    public int? ContentChaptersSkipped { get; set; }
+
     public string? Error { get; set; }
     public string? LogOutput { get; set; }
 

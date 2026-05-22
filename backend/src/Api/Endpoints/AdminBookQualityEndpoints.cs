@@ -82,6 +82,7 @@ public static class AdminBookQualityEndpoints
         return Results.Ok(new QualityJobDetailDto(
             job.Id, job.EditionId, job.UserBookId,
             job.Status.ToString(), job.IssuesJson, job.IssuesFound, job.IssuesFixed,
+            job.ContentChaptersCleaned, job.ContentChaptersRejected, job.ContentChaptersSkipped,
             job.Error, job.LogOutput,
             job.CreatedAt, job.StartedAt, job.FinishedAt,
             job.Edition?.Title, job.UserBook?.Title
@@ -134,6 +135,9 @@ public static class AdminBookQualityEndpoints
         job.IssuesJson = null;
         job.IssuesFound = null;
         job.IssuesFixed = null;
+        job.ContentChaptersCleaned = null;
+        job.ContentChaptersRejected = null;
+        job.ContentChaptersSkipped = null;
         job.StartedAt = null;
         job.FinishedAt = null;
         await db.SaveChangesAsync(ct);
@@ -177,6 +181,7 @@ public record QualityJobListDto(
 public record QualityJobDetailDto(
     Guid Id, Guid? EditionId, Guid? UserBookId,
     string Status, string? IssuesJson, int? IssuesFound, int? IssuesFixed,
+    int? ContentChaptersCleaned, int? ContentChaptersRejected, int? ContentChaptersSkipped,
     string? Error, string? LogOutput,
     DateTimeOffset CreatedAt, DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt,
     string? EditionTitle, string? UserBookTitle);

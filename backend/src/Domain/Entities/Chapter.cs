@@ -22,6 +22,12 @@ public class Chapter
     /// <summary>Total parts the original chapter was split into (for "Part 2 of 5" display)</summary>
     public int? TotalParts { get; set; }
 
+    /// <summary>
+    /// Deterministic extraction-quality score 0-100 (see ChapterContentQualityAnalyzer).
+    /// Null = not yet analyzed. Below the flag threshold → candidate for LLM cleanup.
+    /// </summary>
+    public int? ContentQualityScore { get; set; }
+
     public NpgsqlTsVector SearchVector { get; set; } = null!;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
