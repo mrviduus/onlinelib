@@ -187,6 +187,16 @@ export function BookQualityPage() {
             <p>Issues found: <strong>{selectedJob.issuesFound}</strong> | Fixed: <strong>{selectedJob.issuesFixed ?? 0}</strong></p>
           )}
 
+          {(selectedJob.contentChaptersCleaned != null
+            || selectedJob.contentChaptersRejected != null
+            || selectedJob.contentChaptersSkipped != null) && (
+            <p>
+              Content cleanup — cleaned: <strong>{selectedJob.contentChaptersCleaned ?? 0}</strong>
+              {' | '}rejected: <strong>{selectedJob.contentChaptersRejected ?? 0}</strong>
+              {' | '}skipped: <strong>{selectedJob.contentChaptersSkipped ?? 0}</strong>
+            </p>
+          )}
+
           {selectedJob.issuesJson && (
             <div>
               <strong>Issues:</strong>
