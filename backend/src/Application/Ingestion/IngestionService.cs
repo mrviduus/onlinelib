@@ -4,6 +4,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.Utilities;
 using Microsoft.EntityFrameworkCore;
+using TextStack.Extraction.Quality;
 
 namespace Application.Ingestion;
 
@@ -89,6 +90,7 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
         foreach (var ch in parsed.Chapters)
         {
             var chapterSlug = SlugGenerator.GenerateChapterSlug(ch.Title, ch.Order);
+            var chapterHtml = SanitizeText(ch.Html);
             var chapter = new Chapter
             {
                 Id = Guid.NewGuid(),
@@ -96,9 +98,10 @@ public class IngestionService(IAppDbContext db, IFileStorageService storage)
                 ChapterNumber = ch.Order,
                 Slug = chapterSlug,
                 Title = SanitizeText(ch.Title),
-                Html = SanitizeText(ch.Html),
+                Html = chapterHtml,
                 PlainText = SanitizeText(ch.PlainText),
                 WordCount = ch.WordCount,
+                ContentQualityScore = ChapterContentQualityAnalyzer.Analyze(chapterHtml).Score,
                 OriginalChapterNumber = ch.OriginalChapterNumber,
                 PartNumber = ch.PartNumber,
                 TotalParts = ch.TotalParts,
