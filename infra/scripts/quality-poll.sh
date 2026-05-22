@@ -16,9 +16,11 @@ API_BASE="http://localhost:8080"
 # get an LLM cleanup pass; output is verified by pdf-cleanup-gate.py.
 CONTENT_CLEANUP_ENABLED="${CONTENT_CLEANUP_ENABLED:-false}"
 CONTENT_QUALITY_THRESHOLD="${CONTENT_QUALITY_THRESHOLD:-60}"
-# Per-chapter Claude timeout. Large chapters (15-20k words) need well over the
-# old 300s — rewriting that much HTML takes 10-15 min. Env-tunable.
-CLEANUP_TIMEOUT="${CLEANUP_TIMEOUT:-900}"
+# Per-chapter Claude timeout. 16k-word chapters take ~10 min; 20k+ chapters
+# (the longest tech books have) need ~15-20 min — 900s was tight, dropped one
+# in prod testing. Env-tunable for the rare outliers; 1500s default covers
+# the realistic upper bound.
+CLEANUP_TIMEOUT="${CLEANUP_TIMEOUT:-1500}"
 DATASET_DIR="$REPO_DIR/data/pdf-cleanup-dataset"
 GATE_SCRIPT="$REPO_DIR/infra/scripts/pdf-cleanup-gate.py"
 
