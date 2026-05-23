@@ -4662,29 +4662,51 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* Trash icon now lives in the primary action row next to Share/Add-to-collection.
-   Custom hover tooltip via aria-label ::after. */
+/* Trash icon in the primary action row. Idle styling matches the neighbour
+   icon buttons (Add-to-collection, Link, Share) — neutral border so the
+   destructive action doesn't shout. Two-stage confirm (see *--confirming
+   below) handles the danger emphasis only when actually arming the action. */
 .user-book-detail__delete-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  gap: 6px;
   height: 36px;
-  border-radius: 50%;
+  min-width: 36px;
+  padding: 0 10px;
+  border-radius: 18px;
   background: transparent;
-  border: 1px solid #dc2626;
-  color: #dc2626;
+  border: 1px solid var(--color-border, #E8E2D9);
+  color: var(--color-text-muted, #6b6b6b);
   cursor: pointer;
-  padding: 0;
   position: relative;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .user-book-detail__delete-icon:hover:not(:disabled) {
-  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.06);
 }
 .user-book-detail__delete-icon:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+/* Armed state — second click within 3s actually deletes. Red filled pill
+   with inline "Confirm?" label, mirrors VocabularyPage's delete pattern. */
+.user-book-detail__delete-icon--confirming,
+.user-book-detail__delete-icon--confirming:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+.user-book-detail__delete-icon__confirm-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+/* Tooltip is redundant once the confirm label is visible — hide it. */
+.user-book-detail__delete-icon--confirming[aria-label]::after {
+  display: none;
 }
 .user-book-detail__delete-icon[aria-label]::after {
   content: attr(aria-label);

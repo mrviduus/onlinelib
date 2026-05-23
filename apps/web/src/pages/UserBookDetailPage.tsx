@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -27,6 +27,12 @@ export function UserBookDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  // Inline two-stage confirm — mirrors VocabularyPage's delete pattern.
+  // First click flips the icon button into a red "Confirm?" pill; a second
+  // click within 3 s actually deletes. Avoids the browser-native confirm()
+  // popup and the prior loud red-circle visual.
+  const [pendingDelete, setPendingDelete] = useState(false)
+  const pendingTimeoutRef = useRef<number | null>(null)
 
   // Get saved progress from localStorage
   const savedProgress = useMemo((): SavedProgress | null => {
@@ -93,8 +99,16 @@ export function UserBookDetailPage() {
 
   const handleDelete = async () => {
     if (!id || deleting) return
-    if (!confirm('Are you sure you want to delete this book?')) return
 
+    // First click: arm the confirm. Second click within 3 s actually deletes.
+    if (!pendingDelete) {
+      setPendingDelete(true)
+      if (pendingTimeoutRef.current) window.clearTimeout(pendingTimeoutRef.current)
+      pendingTimeoutRef.current = window.setTimeout(() => setPendingDelete(false), 3000)
+      return
+    }
+
+    if (pendingTimeoutRef.current) window.clearTimeout(pendingTimeoutRef.current)
     setDeleting(true)
     try {
       await deleteUserBook(id)
@@ -104,8 +118,15 @@ export function UserBookDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete')
       setDeleting(false)
+      setPendingDelete(false)
     }
   }
+
+  // Clear the confirm timer on unmount so a stray state update can't fire
+  // after navigation away from this page.
+  useEffect(() => () => {
+    if (pendingTimeoutRef.current) window.clearTimeout(pendingTimeoutRef.current)
+  }, [])
 
   if (!isAuthenticated) {
     return (
@@ -281,8 +302,8 @@ export function UserBookDetailPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="user-book-detail__delete-icon"
-                aria-label={deleting ? 'Deleting…' : 'Delete this book'}
+                className={`user-book-detail__delete-icon${pendingDelete ? ' user-book-detail__delete-icon--confirming' : ''}`}
+                aria-label={deleting ? 'Deleting…' : pendingDelete ? 'Click again to confirm delete' : 'Delete this book'}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="3 6 5 6 21 6" />
@@ -291,6 +312,7 @@ export function UserBookDetailPage() {
                   <path d="M14 11v6" />
                   <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                 </svg>
+                {pendingDelete && <span className="user-book-detail__delete-icon__confirm-label">Confirm?</span>}
               </button>
             )}
           </div>
