@@ -142,6 +142,18 @@ public sealed class PdfTextExtractor : ITextExtractor
             var chapter = chapters[chapterIdx];
             var chapterNumber = chapterIdx + 1;
 
+            // Drop TOC chapters at extraction time. PDF TOCs come out as one
+            // dense run of leader-dotted entries (see fix/pdf-bullet-paragraph-split
+            // discussion) and we already build the reader-side TOC from the
+            // chapter list itself, so the chapter is pure noise.
+            if (FrontMatterFilter.IsTableOfContents(chapter.Title))
+            {
+                warnings.Add(new ExtractionWarning(
+                    ExtractionWarningCode.ContentFiltered,
+                    $"Skipped Table of Contents chapter: {chapter.Title}"));
+                continue;
+            }
+
             try
             {
                 // Extract pages for this chapter

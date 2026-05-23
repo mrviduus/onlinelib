@@ -4662,6 +4662,38 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   background: rgba(0, 0, 0, 0.04);
 }
 
+/* Re-extract icon: same neutral shape as delete-idle. Single click, no
+   confirm — the worst case is a few minutes of processing, fully reversible. */
+.user-book-detail__reextract-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 18px;
+  background: transparent;
+  border: 1px solid var(--color-border, #E8E2D9);
+  color: var(--color-text-muted, #6b6b6b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.user-book-detail__reextract-icon:hover:not(:disabled) {
+  color: var(--color-accent, #2563eb);
+  border-color: var(--color-accent, #2563eb);
+  background: rgba(37, 99, 235, 0.06);
+}
+.user-book-detail__reextract-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.user-book-detail__reextract-icon:disabled svg {
+  animation: user-book-detail__spin 1s linear infinite;
+}
+@keyframes user-book-detail__spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Trash icon in the primary action row. Idle styling matches the neighbour
    icon buttons (Add-to-collection, Link, Share) — neutral border so the
    destructive action doesn't shout. Two-stage confirm (see *--confirming

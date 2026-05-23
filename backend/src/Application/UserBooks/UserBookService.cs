@@ -327,8 +327,12 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         if (book is null)
             return (false, "Book not found");
 
-        if (book.Status != UserBookStatus.Failed)
-            return (false, "Only failed books can be retried");
+        // Allow retrying Failed (original behaviour) AND re-extracting Ready
+        // books — extractor improvements (e.g. bullet paragraph split, TOC
+        // drop) should be reachable without a delete+reupload roundtrip.
+        // Processing is excluded so we don't queue duplicate jobs.
+        if (book.Status != UserBookStatus.Failed && book.Status != UserBookStatus.Ready)
+            return (false, $"Cannot reprocess book in status {book.Status}");
 
         var bookFile = book.BookFiles.FirstOrDefault();
         if (bookFile is null)

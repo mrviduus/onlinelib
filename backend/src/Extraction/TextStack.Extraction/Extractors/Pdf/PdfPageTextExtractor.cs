@@ -26,6 +26,15 @@ public static class PdfPageTextExtractor
         "|", "•", "·", "—", "-", "–", "*", "■", "□", "○", "●", "▪", "▫"
     };
 
+    // Glyphs that, when they're the first word of a line, mean the line is a
+    // bullet-list item — force a new paragraph regardless of vertical gap.
+    // Without this, tightly-spaced lists in PDFs get glued into one giant
+    // paragraph (the "•" loses its line-break role when only y-gap is used).
+    private static readonly HashSet<string> BulletGlyphs = new(StringComparer.Ordinal)
+    {
+        "•", "●", "▪", "■", "◦", "○", "▫", "◆", "‣", "⁃", "►", "❖"
+    };
+
     private static readonly Regex PageNumberPattern = new(@"^\d{1,4}$", RegexOptions.Compiled);
 
     // Running headers from O'Reilly-style tech books take the shape
@@ -221,7 +230,7 @@ public static class PdfPageTextExtractor
             var currY = lines[i].Average(w => w.BoundingBox.Bottom);
             var gap = Math.Abs(prevY - currY);
 
-            if (gap > paragraphGapThreshold)
+            if (gap > paragraphGapThreshold || StartsWithBulletGlyph(lines[i]))
             {
                 paragraphs.Add(currentParagraph);
                 currentParagraph = [lines[i]];
@@ -234,6 +243,27 @@ public static class PdfPageTextExtractor
 
         paragraphs.Add(currentParagraph);
         return paragraphs;
+    }
+
+    /// <summary>
+    /// True if the first word of the line is (or begins with) a bullet glyph —
+    /// •, ●, ▪, ◦, etc. Lines like "• You're building..." should always start a
+    /// fresh paragraph, even if the y-gap from the previous line is normal.
+    /// </summary>
+    internal static bool StartsWithBulletGlyph(List<Word> line)
+    {
+        if (line.Count == 0) return false;
+        return IsBulletPrefix(line[0].Text);
+    }
+
+    /// <summary>Test-visible string form of <see cref="StartsWithBulletGlyph"/>.</summary>
+    internal static bool IsBulletPrefix(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        if (BulletGlyphs.Contains(text)) return true;
+        // Some PDFs glue the bullet to the first word ("•You're").
+        var firstChar = text[0].ToString();
+        return BulletGlyphs.Contains(firstChar);
     }
 
     private static string GetDominantFontName(List<Word> words)
