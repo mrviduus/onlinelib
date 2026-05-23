@@ -1,4 +1,4 @@
-.PHONY: up down restart logs status backup restore backup-list backup-verify rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search seo-publish-setup seo-publish-status seo-publish-logs seo-publish-restart seo-publish-stop
+.PHONY: up down restart logs status backup restore backup-list backup-verify rebuild-ssg clean-ssg deploy nginx-setup build rebuild fix-permissions test lint reindex-search seo-publish-setup seo-publish-status seo-publish-logs seo-publish-restart seo-publish-stop quality-poll-setup quality-poll-status quality-poll-logs quality-poll-restart quality-poll-stop
 
 # ============================================================
 # Docker Services
@@ -174,6 +174,31 @@ seo-publish-restart:
 
 seo-publish-stop:
 	@systemctl --user stop seo-publish-poller
+
+# ============================================================
+# Book Quality Poller (Phase 1-2 structure fixes + Phase 3 content cleanup)
+# ============================================================
+
+quality-poll-setup:
+	@mkdir -p ~/.config/systemd/user
+	@cp infra/systemd/quality-poller.service ~/.config/systemd/user/
+	@systemctl --user daemon-reload
+	@systemctl --user enable quality-poller
+	@systemctl --user start quality-poller
+	@loginctl enable-linger $$(whoami)
+	@echo "Book Quality poller installed and started."
+
+quality-poll-status:
+	@systemctl --user status quality-poller
+
+quality-poll-logs:
+	@journalctl --user -u quality-poller -f
+
+quality-poll-restart:
+	@systemctl --user restart quality-poller
+
+quality-poll-stop:
+	@systemctl --user stop quality-poller
 
 # ============================================================
 # SEO Backfill (template-driven SEO generation for Authors/Editions/Genres/Blog)
