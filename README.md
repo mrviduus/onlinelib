@@ -93,6 +93,12 @@ out; only technical vocabulary gets surfaced.
 **Library**
 - 1,500+ curated technical and classic books (starter corpus, self-hostable)
 - Your own uploads — EPUB / PDF / FB2, auto-parsed with metadata enrichment
+- **PDF content-quality pipeline** — heuristic extraction first (instant,
+  readable), then a gated Claude pass cleans flagged chapters in the
+  background (running headers, fragmented paragraphs, line-wrap hyphens).
+  Every fix is logged so deterministic rules can absorb recurring patterns
+  and Claude usage trends down. See
+  [architecture](docs/01-architecture/README.md#pdf-content-quality-pipeline).
 - Reading progress sync, bookmarks, highlights, reading stats
 
 **Mobile**
