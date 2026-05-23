@@ -4662,16 +4662,8 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* Danger zone — destructive actions live below the chapters list, not
-   in the primary action row. Apple HIG: distance + understatement
-   reduce accidental clicks. Trash icon + custom hover tooltip. */
-.user-book-detail__danger-zone {
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border, #E8E2D9);
-  display: flex;
-  justify-content: center;
-}
+/* Trash icon now lives in the primary action row next to Share/Add-to-collection.
+   Custom hover tooltip via aria-label ::after. */
 .user-book-detail__delete-icon {
   display: inline-flex;
   align-items: center;
