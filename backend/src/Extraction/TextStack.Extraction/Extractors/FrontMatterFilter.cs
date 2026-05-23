@@ -30,11 +30,26 @@ public static class FrontMatterFilter
     // numbers) but are legitimate reading content. Used to veto a positive
     // LooksLikeTableOfContentsBody result. Index and Glossary in particular
     // are the classic false-positive cases: "JavaScript ............ 47, 89".
+    // Top European languages covered explicitly; lookalike scripts (Russian /
+    // Ukrainian, German, French, Spanish, Italian, Portuguese).
     private static readonly Regex BackMatterTitle = new(
-        @"^\s*(index|glossary|bibliography|references|notes|" +
-        @"abbreviations|colophon|" +
-        @"индекс|глоссарий|библиография|примечания|" +
-        @"індекс|глосарій|бібліографія|примітки)\s*$",
+        @"^\s*(" +
+        @"index|glossary|bibliography|references|notes|" +
+        @"abbreviations|colophon|appendix|" +
+        // ru
+        @"индекс|глоссарий|библиография|примечания|приложение|" +
+        // uk
+        @"індекс|глосарій|бібліографія|примітки|додаток|" +
+        // de
+        @"glossar|literaturverzeichnis|anmerkungen|bibliographie|anhang|" +
+        // fr
+        @"glossaire|références|annexe|" +
+        // es / pt
+        @"índice|glosario|bibliografía|notas|referencias|apéndice|anexo|" +
+        @"glossário|bibliografia|referências|apêndice|" +
+        // it
+        @"indice|glossario|riferimenti|appendice" +
+        @")\s*$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static bool IsTableOfContents(string? title)
@@ -56,27 +71,24 @@ public static class FrontMatterFilter
         return BackMatterTitle.IsMatch(title.Trim());
     }
 
-    // Split chapter HTML by paragraph-ish block ends. The pipeline collapses
-    // \s+ → " " in plain text so newlines disappear; using </p> as the line
-    // boundary keeps each TOC entry intact as a separate item to match.
-    private static readonly Regex ParagraphSplit = new(
-        @"</p>|</h\d>|</li>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex TagStripRegex = new(@"<[^>]+>", RegexOptions.Compiled);
-
     /// <summary>
     /// Content-level TOC detection — used when the bookmark title doesn't
     /// match (e.g. page-split fallback labels the chapter "Pages 1–15").
-    /// Takes chapter HTML (NOT pipeline plainText — that's a single line by
-    /// the time it reaches us). Splits by block-end tags and counts
-    /// paragraphs ending in a leader-dot run plus a page number. ≥40% ⇒ TOC.
+    /// Takes the per-paragraph text BEFORE HTML conversion / typography
+    /// processing — that's where the structure we need still exists. (After
+    /// the pipeline, plainText is `\s+`-collapsed and there are no paragraph
+    /// boundaries left to count.) A chapter where ≥40% of substantive
+    /// paragraphs end in a leader-dot run plus a page number is
+    /// overwhelmingly likely to be a TOC. Threshold kept conservative; real
+    /// reading chapters almost never have 40% of paragraphs ending in "...47".
     /// </summary>
-    public static bool LooksLikeTableOfContentsBody(string? html)
+    public static bool LooksLikeTableOfContentsBody(IEnumerable<string>? paragraphTexts)
     {
-        if (string.IsNullOrWhiteSpace(html)) return false;
+        if (paragraphTexts is null) return false;
 
-        var blocks = ParagraphSplit.Split(html);
-        var significant = blocks
-            .Select(b => System.Net.WebUtility.HtmlDecode(TagStripRegex.Replace(b, "")).Trim())
+        var significant = paragraphTexts
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
             .Where(s => s.Length >= 4)
             .ToList();
         if (significant.Count < 5) return false;
