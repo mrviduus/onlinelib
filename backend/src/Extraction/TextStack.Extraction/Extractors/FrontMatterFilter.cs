@@ -26,6 +26,17 @@ public static class FrontMatterFilter
         @"(\.{3,}|(?:\.\s+){2,}\.|…(?:\s*…)*)\s*\d{1,4}\s*$",
         RegexOptions.Compiled);
 
+    // Back-matter titles that look like a TOC content-wise (leader dots + page
+    // numbers) but are legitimate reading content. Used to veto a positive
+    // LooksLikeTableOfContentsBody result. Index and Glossary in particular
+    // are the classic false-positive cases: "JavaScript ............ 47, 89".
+    private static readonly Regex BackMatterTitle = new(
+        @"^\s*(index|glossary|bibliography|references|notes|" +
+        @"abbreviations|colophon|" +
+        @"индекс|глоссарий|библиография|примечания|" +
+        @"індекс|глосарій|бібліографія|примітки)\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public static bool IsTableOfContents(string? title)
     {
         if (string.IsNullOrWhiteSpace(title)) return false;
@@ -35,24 +46,42 @@ public static class FrontMatterFilter
     }
 
     /// <summary>
-    /// Content-level TOC detection — used when the bookmark title doesn't
-    /// match (e.g. page-split fallback labels the chapter "Pages 1–15"). A
-    /// chapter where ≥40% of substantive lines end with a leader-dot run
-    /// plus a page number is overwhelmingly likely to be a TOC. Threshold
-    /// kept conservative on purpose; real reading chapters almost never have
-    /// 40% of their lines ending in "...47".
+    /// True when the title matches a known back-matter section that we must
+    /// NOT drop even if its content-shape looks like a TOC (Index, Glossary,
+    /// Bibliography, etc.).
     /// </summary>
-    public static bool LooksLikeTableOfContentsBody(string? plainText)
+    public static bool IsKnownBackMatter(string? title)
     {
-        if (string.IsNullOrWhiteSpace(plainText)) return false;
+        if (string.IsNullOrWhiteSpace(title)) return false;
+        return BackMatterTitle.IsMatch(title.Trim());
+    }
 
-        var lines = plainText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        // Filter out very short lines — running headers, page numbers, stray
-        // glyphs would skew the ratio either way on a short chapter.
-        var significant = lines.Where(l => l.Trim().Length >= 4).ToList();
+    // Split chapter HTML by paragraph-ish block ends. The pipeline collapses
+    // \s+ → " " in plain text so newlines disappear; using </p> as the line
+    // boundary keeps each TOC entry intact as a separate item to match.
+    private static readonly Regex ParagraphSplit = new(
+        @"</p>|</h\d>|</li>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex TagStripRegex = new(@"<[^>]+>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Content-level TOC detection — used when the bookmark title doesn't
+    /// match (e.g. page-split fallback labels the chapter "Pages 1–15").
+    /// Takes chapter HTML (NOT pipeline plainText — that's a single line by
+    /// the time it reaches us). Splits by block-end tags and counts
+    /// paragraphs ending in a leader-dot run plus a page number. ≥40% ⇒ TOC.
+    /// </summary>
+    public static bool LooksLikeTableOfContentsBody(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return false;
+
+        var blocks = ParagraphSplit.Split(html);
+        var significant = blocks
+            .Select(b => System.Net.WebUtility.HtmlDecode(TagStripRegex.Replace(b, "")).Trim())
+            .Where(s => s.Length >= 4)
+            .ToList();
         if (significant.Count < 5) return false;
 
-        var leaderLines = significant.Count(l => TocLeaderLine.IsMatch(l));
+        var leaderLines = significant.Count(s => TocLeaderLine.IsMatch(s));
         return leaderLines * 100 >= significant.Count * 40;
     }
 }

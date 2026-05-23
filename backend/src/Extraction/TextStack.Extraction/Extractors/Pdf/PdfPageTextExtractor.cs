@@ -242,11 +242,13 @@ public static class PdfPageTextExtractor
         var paragraphGapThreshold = baselineGap * ParagraphGapMultiplier;
 
         // Modal left margin: rounded so micro-jitter (sub-point alignment
-        // differences) doesn't disqualify a margin from being modal. Guarded:
-        // if the modal margin covers fewer than half of all lines the page is
-        // likely multi-column or a mixed layout (academic papers, magazines)
-        // where there is no single "body left" — indent detection is then
-        // dangerous (every column shift would look like a paragraph break).
+        // differences) doesn't disqualify a margin from being modal. The
+        // single-threshold "modal ≥50%" guard flips behaviour on borderline
+        // pages (45% vs 55%); use a *dominance ratio* instead — modal must
+        // be at least 2.5× more common than the second-most-common margin.
+        // For a real 2-column page the top two are ~40%/~40% (ratio ≈1),
+        // for a single-column body it's ~85%/~5% (ratio ≈17). The cutoff
+        // sits well away from typical values on either side.
         var leftEdges = lines
             .Where(l => l.Count > 0)
             .Select(l => Math.Round(l.Min(w => w.BoundingBox.Left)))
@@ -254,11 +256,15 @@ public static class PdfPageTextExtractor
         double? baseLeft = null;
         if (leftEdges.Count > 0)
         {
-            var modal = leftEdges
+            var grouped = leftEdges
                 .GroupBy(e => e)
                 .OrderByDescending(g => g.Count())
-                .First();
-            if (modal.Count() * 2 >= leftEdges.Count)
+                .ToList();
+            var modal = grouped[0];
+            var runnerUp = grouped.Count > 1 ? grouped[1].Count() : 0;
+            // Trust the modal margin when it dominates (single-column) OR is
+            // effectively the only margin (single-paragraph page).
+            if (runnerUp == 0 || modal.Count() >= runnerUp * 2.5)
                 baseLeft = modal.Key;
         }
 

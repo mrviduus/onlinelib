@@ -13,7 +13,10 @@ public static class PdfToHtmlConverter
         IReadOnlyList<(int PageNumber, List<PdfTextElement> Elements)> pages)
     {
         var htmlBuilder = new StringBuilder();
-        var plainBuilder = new StringBuilder();
+        // (The plainText return comes from HtmlCleaner.Clean's pipeline — we
+        // used to also build it locally here in parallel and discard the
+        // result; dropped to avoid the implication that the local copy was
+        // somehow authoritative.)
 
         foreach (var (_, elements) in pages)
         {
@@ -41,8 +44,6 @@ public static class PdfToHtmlConverter
                         htmlBuilder.Append($"<p>{inline}</p>");
                         break;
                 }
-
-                plainBuilder.AppendLine(element.Text);
             }
         }
 

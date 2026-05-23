@@ -208,9 +208,18 @@ public sealed class PdfTextExtractor : ITextExtractor
 
                 // Content-level TOC drop — covers TOCs that came in via the
                 // page-split fallback (no bookmark named "Contents") but
-                // contain leader-dotted entries. Same guard as title-based:
-                // only drop if other chapters survive.
-                if (chapters.Count > 1 && FrontMatterFilter.LooksLikeTableOfContentsBody(plainText))
+                // contain leader-dotted entries. Three guards (any one says
+                // "keep"):
+                //   • single-chapter book (don't disappear the only content);
+                //   • chapter is in the back half (Index/Glossary live there
+                //     and look exactly like TOC by content);
+                //   • bookmark title matches a known back-matter section
+                //     (Index, Glossary, Bibliography, …).
+                var isFrontHalf = chapterIdx * 2 < chapters.Count;
+                if (chapters.Count > 1
+                    && isFrontHalf
+                    && !FrontMatterFilter.IsKnownBackMatter(chapter.Title)
+                    && FrontMatterFilter.LooksLikeTableOfContentsBody(html))
                 {
                     warnings.Add(new ExtractionWarning(
                         ExtractionWarningCode.ContentFiltered,

@@ -103,6 +103,12 @@ public class LocalFileStorageService : IFileStorageService
         return Task.FromResult<Stream?>(stream);
     }
 
+    public Task<bool> ExistsAsync(string path, CancellationToken ct = default)
+    {
+        var fullPath = GetFullPath(path);
+        return Task.FromResult(File.Exists(fullPath));
+    }
+
     public Task DeleteFileAsync(string path, CancellationToken ct = default)
     {
         var fullPath = GetFullPath(path);
