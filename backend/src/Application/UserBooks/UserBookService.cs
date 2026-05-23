@@ -338,6 +338,12 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         if (bookFile is null)
             return (false, "No source file found");
 
+        // Verify the backing file is actually still on disk. Without this
+        // guard the worker would happily queue a job that's destined to
+        // fail at extraction time and leave the book stuck in Processing.
+        if (!await storage.ExistsAsync(bookFile.StoragePath, ct))
+            return (false, "Source file is missing from storage");
+
         // Create new ingestion job
         var job = new UserIngestionJob
         {

@@ -43,7 +43,12 @@ public static class PdfPageTextExtractor
     // paragraph (the "•" loses its line-break role when only y-gap is used).
     private static readonly HashSet<string> BulletGlyphs = new(StringComparer.Ordinal)
     {
-        "•", "●", "▪", "■", "◦", "○", "▫", "◆", "‣", "⁃", "►", "❖"
+        // Body bullets
+        "•", "●", "▪", "■", "◦", "○", "▫", "◆", "◇", "❖", "❍",
+        // Triangular / pointers
+        "‣", "⁃", "►", "▶", "▸", "▻", "➤", "➔", "➢",
+        // Checkmarks & stars used as list markers in modern books
+        "★", "☆", "✓", "✔", "✗", "✘",
     };
 
     private static readonly Regex PageNumberPattern = new(@"^\d{1,4}$", RegexOptions.Compiled);
@@ -237,14 +242,31 @@ public static class PdfPageTextExtractor
         var paragraphGapThreshold = baselineGap * ParagraphGapMultiplier;
 
         // Modal left margin: rounded so micro-jitter (sub-point alignment
-        // differences) doesn't disqualify a margin from being modal.
+        // differences) doesn't disqualify a margin from being modal. The
+        // single-threshold "modal ≥50%" guard flips behaviour on borderline
+        // pages (45% vs 55%); use a *dominance ratio* instead — modal must
+        // be at least 2.5× more common than the second-most-common margin.
+        // For a real 2-column page the top two are ~40%/~40% (ratio ≈1),
+        // for a single-column body it's ~85%/~5% (ratio ≈17). The cutoff
+        // sits well away from typical values on either side.
         var leftEdges = lines
             .Where(l => l.Count > 0)
             .Select(l => Math.Round(l.Min(w => w.BoundingBox.Left)))
             .ToList();
-        var baseLeft = leftEdges.Count > 0
-            ? leftEdges.GroupBy(e => e).OrderByDescending(g => g.Count()).First().Key
-            : 0.0;
+        double? baseLeft = null;
+        if (leftEdges.Count > 0)
+        {
+            var grouped = leftEdges
+                .GroupBy(e => e)
+                .OrderByDescending(g => g.Count())
+                .ToList();
+            var modal = grouped[0];
+            var runnerUp = grouped.Count > 1 ? grouped[1].Count() : 0;
+            // Trust the modal margin when it dominates (single-column) OR is
+            // effectively the only margin (single-paragraph page).
+            if (runnerUp == 0 || modal.Count() >= runnerUp * 2.5)
+                baseLeft = modal.Key;
+        }
 
         var paragraphs = new List<List<List<Word>>>();
         var currentParagraph = new List<List<Word>> { lines[0] };
@@ -257,7 +279,8 @@ public static class PdfPageTextExtractor
 
             var isYGapBreak = gap > paragraphGapThreshold;
             var isBulletBreak = StartsWithBulletGlyph(lines[i]);
-            var isIndentBreak = StartsWithIndent(lines[i], baseLeft);
+            var isIndentBreak = baseLeft.HasValue
+                && StartsWithIndent(lines[i], baseLeft.Value);
 
             if (isYGapBreak || isBulletBreak || isIndentBreak)
             {
@@ -311,10 +334,19 @@ public static class PdfPageTextExtractor
     internal static bool IsBulletPrefix(string? text)
     {
         if (string.IsNullOrEmpty(text)) return false;
-        if (BulletGlyphs.Contains(text)) return true;
-        // Some PDFs glue the bullet to the first word ("•You're").
-        var firstChar = text[0].ToString();
-        return BulletGlyphs.Contains(firstChar);
+        // Both checks operate on the FIRST CHARACTER so glued forms like
+        // "•You're" or "☑Item" are handled the same as standalone "•" / "☑".
+        var firstChar = text[0];
+        var firstStr = firstChar.ToString();
+        if (BulletGlyphs.Contains(firstStr)) return true;
+        // Generalization: first char in Unicode category "Symbol, Other"
+        // (So) — covers geometric shapes and dingbats from custom textbook
+        // fonts that aren't in our hardcoded set. Po (Punctuation Other) is
+        // deliberately excluded — it contains † ‡ § ¶ ※ which are footnote-
+        // reference markers, not paragraph starts.
+        return System.Globalization.CharUnicodeInfo.GetUnicodeCategory(firstChar)
+                == System.Globalization.UnicodeCategory.OtherSymbol
+            && !NoisePunctuation.Contains(firstStr);
     }
 
     private static string GetDominantFontName(List<Word> words)

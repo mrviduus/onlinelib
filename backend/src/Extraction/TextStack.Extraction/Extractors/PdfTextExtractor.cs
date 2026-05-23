@@ -141,14 +141,18 @@ public sealed class PdfTextExtractor : ITextExtractor
 
             var chapter = chapters[chapterIdx];
             var chapterNumber = chapterIdx + 1;
+            // TOC almost always sits in the front half of the book; Index /
+            // Glossary in the back. The guard prevents an Italian/Spanish
+            // "Indice/Índice" — same word means "Index" at the back and
+            // "TOC" at the front — from being mis-dropped when it's the Index.
+            var isFrontHalf = chapterIdx * 2 < chapters.Count;
 
             // Drop TOC chapters at extraction time. PDF TOCs come out as one
             // dense run of leader-dotted entries and we already build the
-            // reader-side TOC from the chapter list itself. Guard: never drop
-            // the only chapter — a single-chapter book literally titled
-            // "Contents" would otherwise vanish entirely (paranoid edge case
-            // raised in PR #244 bug report).
-            if (chapters.Count > 1 && FrontMatterFilter.IsTableOfContents(chapter.Title))
+            // reader-side TOC from the chapter list itself. Two guards:
+            //   • single-chapter book (don't disappear the only content);
+            //   • chapter is in the front half (see ambiguous-word note above).
+            if (chapters.Count > 1 && isFrontHalf && FrontMatterFilter.IsTableOfContents(chapter.Title))
             {
                 warnings.Add(new ExtractionWarning(
                     ExtractionWarningCode.ContentFiltered,
@@ -200,6 +204,33 @@ public sealed class PdfTextExtractor : ITextExtractor
                 // running header). Done per-chapter so we don't accidentally drop
                 // genuine cross-chapter repetition like author bylines.
                 var filteredPageElements = FilterRunningHeaders(pageElements);
+
+                // Content-level TOC drop happens BEFORE HTML conversion so:
+                //  (a) we don't waste the HtmlCleaner pipeline on a chapter
+                //      we're about to throw away, and
+                //  (b) the detector works on raw paragraph texts — decoupled
+                //      from PdfToHtmlConverter's markup choices. Three guards:
+                //   • single-chapter book (don't disappear the only content);
+                //   • chapter is in the back half (Index/Glossary live there
+                //     and look exactly like TOC by content);
+                //   • bookmark title matches a known back-matter section
+                //     (Index, Glossary, Bibliography, …).
+                if (chapters.Count > 1
+                    && isFrontHalf
+                    && !FrontMatterFilter.IsKnownBackMatter(chapter.Title))
+                {
+                    var paragraphTexts = filteredPageElements
+                        .SelectMany(pe => pe.Elements)
+                        .Where(e => e.Type == TextElementType.Paragraph)
+                        .Select(e => e.Text);
+                    if (FrontMatterFilter.LooksLikeTableOfContentsBody(paragraphTexts))
+                    {
+                        warnings.Add(new ExtractionWarning(
+                            ExtractionWarningCode.ContentFiltered,
+                            $"Skipped Table of Contents chapter (content-detected): {chapter.Title}"));
+                        continue;
+                    }
+                }
 
                 // Convert to HTML
                 var (html, plainText) = PdfToHtmlConverter.ConvertPages(filteredPageElements);
