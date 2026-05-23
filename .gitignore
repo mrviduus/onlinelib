@@ -79,3 +79,50 @@ run-helper.*
 runsvc.sh
 safe_sleep.sh
 svc.sh
+
+# Personal / out-of-repo working files (resumes, LibreOffice locks, scratch
+# .tmp blobs). These end up in the repo root and got accidentally committed
+# in 3e90b5c — gitignore them so `git add -A` won't re-add.
+Vasyl-*.pdf
+Vasyl-*.docx
+.~lock.*#
+*.tmp
+*.apk
+
+# Python caches anywhere under infra/scripts
+infra/scripts/__pycache__/
+*.pyc
+
+# Marketing/blog drafts kept locally but not shipped
+/tweet-drafts.md
+/social-media-pack.md
+/hackernews-launch-post.md
+/blog-draft-*.md
+/blog-final-*.md
+/blog-post-*.md
+/claude-code-*.md
+/comment-response-templates.md
+/devto-*.md
+/publish-day-cheatsheet.md
+/release-notes-*.md
+/alternativeto-submission.md
+/awesome-selfhosted-pr.md
+/AI-ENGINEER-ROADMAP.md
+/PLAN-*.md
+/SEO_FIX_TASK.md
+/SEO_INDEX_DROP_REPORT.md
+/celpip_*.tsv
+/_linkedin-migration/
+
+# Working-only marketing docs / SEO planning
+docs/marketing/campaign-tracker.md
+docs/marketing/ih-launch-draft.md
+docs/marketing/ih-warmup-comments.md
+docs/marketing/linkedin-routine/
+docs/marketing/x-routine/
+docs/seo/
+docs/fixes/
+
+# Build / release artifact packages
+textstack-*-submission-package.*
+textstack-v*-build*.apk
