@@ -28,6 +28,18 @@ public static class PdfPageTextExtractor
 
     private static readonly Regex PageNumberPattern = new(@"^\d{1,4}$", RegexOptions.Compiled);
 
+    // Running headers from O'Reilly-style tech books take the shape
+    //   "4 | Chapter 1: Introduction to Building AI Applications…"
+    //   "The Rise of AI Engineering | 3"
+    // The page number varies per page, so the cross-page (identical-text)
+    // filter in PdfTextExtractor can't catch them — but the structural
+    // signature (small int + " | " + text, on a short paragraph) is
+    // distinctive. Encoded here from a Claude cleanup pair (slice 5 r1).
+    private const int RunningHeaderMaxLength = 200;
+    private static readonly Regex RunningHeaderLike = new(
+        @"^(?:\d{1,4}\s*\|\s*\S.+|\S.+\s*\|\s*\d{1,4})$",
+        RegexOptions.Compiled);
+
     public static List<PdfTextElement> ExtractPage(Page page)
     {
         var words = page.GetWords(NearestNeighbourWordExtractor.Instance).ToList();
@@ -138,15 +150,17 @@ public static class PdfPageTextExtractor
     }
 
     /// <summary>
-    /// True for short fragments that are page numbers, single dividers, or pure
-    /// punctuation noise that belong to header/footer chrome, not body.
+    /// True for short fragments that are page numbers, single dividers, pure
+    /// punctuation noise, or O'Reilly-style running headers — all chrome that
+    /// belongs at the page margin, not in the body.
     /// </summary>
-    private static bool IsArtifactNoise(string text)
+    internal static bool IsArtifactNoise(string text)
     {
         var trimmed = text.Trim();
         if (trimmed.Length == 0) return true;
         if (trimmed.Length <= 2 && NoisePunctuation.Contains(trimmed)) return true;
         if (PageNumberPattern.IsMatch(trimmed)) return true;
+        if (trimmed.Length <= RunningHeaderMaxLength && RunningHeaderLike.IsMatch(trimmed)) return true;
         return false;
     }
 
