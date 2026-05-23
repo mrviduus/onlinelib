@@ -14,7 +14,18 @@ namespace TextStack.Extraction.Extractors.Pdf;
 public static class PdfPageTextExtractor
 {
     private const double LineYTolerance = 3.0;
-    private const double ParagraphGapMultiplier = 1.5;
+    // Paragraph break = median line gap × multiplier. Median (not mean) so
+    // the actual paragraph gaps in the data don't pull the threshold above
+    // themselves. 1.2 covers O'Reilly-style 1.25× para-spacing and similar;
+    // 1.5 (the old value) missed almost every paragraph break because the
+    // modal spacing is line-spacing and the mean got dragged up by the rare
+    // gaps the algorithm was supposed to find.
+    private const double ParagraphGapMultiplier = 1.2;
+    // First-line indent: a line whose left edge is at least this many points
+    // greater than the page's modal left margin counts as a new paragraph,
+    // independent of y-gap. Most book typography uses an indent rather than
+    // vertical space — y-gap-only detection misses every one of those.
+    private const double IndentMinPoints = 6.0;
     private const double HeadingFontRatio = 0.9;
     private const double MinHeadingFontDifference = 1.5;
     private const int MaxHeadingTextLength = 200;
@@ -208,18 +219,32 @@ public static class PdfPageTextExtractor
         if (lines.Count == 0)
             return [];
 
-        var lineHeights = new List<double>();
+        var lineGaps = new List<double>();
         for (var i = 1; i < lines.Count; i++)
         {
             var prevY = lines[i - 1].Average(w => w.BoundingBox.Bottom);
             var currY = lines[i].Average(w => w.BoundingBox.Bottom);
             var gap = Math.Abs(prevY - currY);
             if (gap > 0)
-                lineHeights.Add(gap);
+                lineGaps.Add(gap);
         }
 
-        var avgLineHeight = lineHeights.Count > 0 ? lineHeights.Average() : 12.0;
-        var paragraphGapThreshold = avgLineHeight * ParagraphGapMultiplier;
+        // Median, not mean — paragraph gaps in the data must NOT pull the
+        // threshold up to (or above) themselves. The modal gap on a typical
+        // body page is one line-height; that's exactly what we want as the
+        // baseline.
+        var baselineGap = Median(lineGaps, fallback: 12.0);
+        var paragraphGapThreshold = baselineGap * ParagraphGapMultiplier;
+
+        // Modal left margin: rounded so micro-jitter (sub-point alignment
+        // differences) doesn't disqualify a margin from being modal.
+        var leftEdges = lines
+            .Where(l => l.Count > 0)
+            .Select(l => Math.Round(l.Min(w => w.BoundingBox.Left)))
+            .ToList();
+        var baseLeft = leftEdges.Count > 0
+            ? leftEdges.GroupBy(e => e).OrderByDescending(g => g.Count()).First().Key
+            : 0.0;
 
         var paragraphs = new List<List<List<Word>>>();
         var currentParagraph = new List<List<Word>> { lines[0] };
@@ -230,7 +255,11 @@ public static class PdfPageTextExtractor
             var currY = lines[i].Average(w => w.BoundingBox.Bottom);
             var gap = Math.Abs(prevY - currY);
 
-            if (gap > paragraphGapThreshold || StartsWithBulletGlyph(lines[i]))
+            var isYGapBreak = gap > paragraphGapThreshold;
+            var isBulletBreak = StartsWithBulletGlyph(lines[i]);
+            var isIndentBreak = StartsWithIndent(lines[i], baseLeft);
+
+            if (isYGapBreak || isBulletBreak || isIndentBreak)
             {
                 paragraphs.Add(currentParagraph);
                 currentParagraph = [lines[i]];
@@ -243,6 +272,28 @@ public static class PdfPageTextExtractor
 
         paragraphs.Add(currentParagraph);
         return paragraphs;
+    }
+
+    /// <summary>
+    /// True if the line's left edge sits at least <see cref="IndentMinPoints"/>
+    /// further right than the modal left margin — the textbook signature of a
+    /// first-line indent and therefore a paragraph break.
+    /// </summary>
+    internal static bool StartsWithIndent(List<Word> line, double baseLeft)
+    {
+        if (line.Count == 0) return false;
+        var left = line.Min(w => w.BoundingBox.Left);
+        return left - baseLeft >= IndentMinPoints;
+    }
+
+    private static double Median(List<double> values, double fallback)
+    {
+        if (values.Count == 0) return fallback;
+        var sorted = values.OrderBy(v => v).ToList();
+        var mid = sorted.Count / 2;
+        return sorted.Count % 2 == 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2.0
+            : sorted[mid];
     }
 
     /// <summary>

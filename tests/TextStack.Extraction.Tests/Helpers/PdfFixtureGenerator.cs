@@ -169,4 +169,73 @@ public static class PdfFixtureGenerator
         builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
         return builder.Build();
     }
+
+    /// <summary>
+    /// Builds a one-page PDF whose lines are arranged like book typography:
+    /// paragraph A (3 lines at line-spacing), wider gap, paragraph B (3 lines
+    /// at line-spacing). Used to verify paragraph-gap detection.
+    /// </summary>
+    public static byte[] GeneratePdfWithTwoParagraphs(double lineSpacing = 14, double paragraphSpacing = 20)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        var page = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+
+        double y = 750;
+        // Paragraph A — three lines.
+        page.AddText("Paragraph A line one with several words to fill the line.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph A line two continues with more content here.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph A line three closing the first thought.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+        // Paragraph gap.
+        y -= paragraphSpacing;
+        page.AddText("Paragraph B starts here with a fresh idea entirely.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph B line two continues the second thought.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph B line three closes the page nicely.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(72, y), font);
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// One page, all lines at line-spacing (no vertical paragraph gap), but
+    /// paragraph B's first line is indented. Verifies indent-based detection.
+    /// </summary>
+    public static byte[] GeneratePdfWithIndentedParagraph(double lineSpacing = 14, double indent = 12)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        var page = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+
+        double y = 750;
+        const double baseLeft = 72;
+        page.AddText("Paragraph A line one filling the typical content area.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph A line two flush left as the body continues.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph A line three still aligned to the same margin.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft, y), font);
+        y -= lineSpacing;
+        // Indented first line of paragraph B.
+        page.AddText("Paragraph B indented start opening the new idea here.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft + indent, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph B line two flush left again as expected.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft, y), font);
+        y -= lineSpacing;
+        page.AddText("Paragraph B line three closing the page.", 10,
+            new UglyToad.PdfPig.Core.PdfPoint(baseLeft, y), font);
+
+        return builder.Build();
+    }
 }

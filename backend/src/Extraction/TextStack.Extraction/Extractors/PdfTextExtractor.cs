@@ -143,10 +143,12 @@ public sealed class PdfTextExtractor : ITextExtractor
             var chapterNumber = chapterIdx + 1;
 
             // Drop TOC chapters at extraction time. PDF TOCs come out as one
-            // dense run of leader-dotted entries (see fix/pdf-bullet-paragraph-split
-            // discussion) and we already build the reader-side TOC from the
-            // chapter list itself, so the chapter is pure noise.
-            if (FrontMatterFilter.IsTableOfContents(chapter.Title))
+            // dense run of leader-dotted entries and we already build the
+            // reader-side TOC from the chapter list itself. Guard: never drop
+            // the only chapter — a single-chapter book literally titled
+            // "Contents" would otherwise vanish entirely (paranoid edge case
+            // raised in PR #244 bug report).
+            if (chapters.Count > 1 && FrontMatterFilter.IsTableOfContents(chapter.Title))
             {
                 warnings.Add(new ExtractionWarning(
                     ExtractionWarningCode.ContentFiltered,
