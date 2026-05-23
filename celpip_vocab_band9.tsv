@@ -1,0 +1,155 @@
+english	russian	example	category
+From my perspective	С моей точки зрения	From my perspective, remote work has reshaped how teams collaborate.	W2-intro
+What strikes me most is	Что меня больше всего поражает	What strikes me most is how quickly attitudes shift once people try the alternative.	W2-intro
+It is widely held that	Принято считать, что	It is widely held that early language exposure improves cognitive flexibility.	W2-intro
+There is a compelling case for	Есть веские основания в пользу	There is a compelling case for prioritizing public transit over highway expansion.	W2-intro
+Few would dispute that	Мало кто станет спорить, что	Few would dispute that screen time affects sleep quality.	W2-intro
+A case in point is	Показательный пример —	A case in point is Toronto's bike-lane expansion, which cut commute times.	W2-body
+To illustrate	Для наглядности	To illustrate, consider a parent juggling two part-time jobs.	W2-body
+This stems from	Это происходит из-за	This stems from a fundamental shift in how we measure productivity.	W2-body
+The underlying issue is	Корневая проблема в том, что	The underlying issue is not the cost but the access.	W2-body
+What is often overlooked is	Что часто упускается из виду	What is often overlooked is the long-term maintenance burden.	W2-body
+Conversely	Напротив	Conversely, smaller firms benefit from this flexibility the most.	W2-contrast
+That said	При этом / тем не менее	That said, the policy has clear blind spots.	W2-contrast
+While it is true that ... it does not follow that	Хотя верно, что..., отсюда не следует, что	While it is true that automation displaces jobs, it does not follow that the net effect is negative.	W2-contrast
+On the other hand	С другой стороны	On the other hand, mandatory training adds friction for senior staff.	W2-contrast
+Critics might counter that	Оппоненты могут возразить	Critics might counter that this approach favours larger institutions.	W2-contrast
+All things considered	С учётом всего сказанного	All things considered, the benefits outweigh the trade-offs.	W2-conclusion
+On balance	В итоге, по совокупности	On balance, hybrid schedules offer the most pragmatic compromise.	W2-conclusion
+The takeaway is	Главный вывод	The takeaway is that policy must follow practice, not the other way around.	W2-conclusion
+Ultimately	В конечном счёте	Ultimately, this is a question of priorities, not resources.	W2-conclusion
+It comes down to	Всё сводится к	It comes down to whether we trust people to manage their own time.	W2-conclusion
+To a large extent	В значительной мере	To a large extent, this is a generational divide.	W2-emphasis
+It is worth noting that	Стоит отметить, что	It is worth noting that the data covers only urban centres.	W2-emphasis
+Far from being X, it is Y	Это вовсе не X, а скорее Y	Far from being a luxury, mental-health support is a basic workplace need.	W2-emphasis
+By no means	Отнюдь не / никоим образом	This is by no means a settled debate.	W2-emphasis
+More often than not	Чаще всего	More often than not, the simpler tool wins.	W2-emphasis
+I am writing to enquire about	Я пишу с вопросом о	I am writing to enquire about the warranty terms on order #4521.	W1-formal
+I would like to bring to your attention	Хотел бы обратить ваше внимание	I would like to bring to your attention a recurring issue with the elevator.	W1-formal
+With reference to your email of	В ответ на ваше письмо от	With reference to your email of April 18, please find my responses below.	W1-formal
+I hope this finds you well	Надеюсь, у вас всё хорошо	Hi Marta, I hope this finds you well.	W1-semiformal
+Just a quick note to	Коротко по теме	Just a quick note to confirm Friday's meeting time.	W1-semiformal
+I would appreciate it if you could	Был бы признателен, если бы вы	I would appreciate it if you could resend the invoice.	W1-request
+Could you possibly	Не могли бы вы	Could you possibly extend the deadline by two days?	W1-request
+Would it be possible to	Возможно ли	Would it be possible to schedule a follow-up next week?	W1-request
+I sincerely apologize for	Искренне приношу извинения за	I sincerely apologize for the delay in responding.	W1-apology
+Thank you for bringing this to my attention	Спасибо, что обратили моё внимание	Thank you for bringing this to my attention; I will look into it today.	W1-apology
+I look forward to your reply	Жду вашего ответа	I look forward to your reply at your earliest convenience.	W1-closer
+Please do not hesitate to reach out	Не стесняйтесь обращаться	Please do not hesitate to reach out if you need clarification.	W1-closer
+Should you have any questions	Если возникнут вопросы	Should you have any questions, I am happy to elaborate.	W1-closer
+I trust this clarifies the matter	Надеюсь, это проясняет вопрос	I trust this clarifies the matter; please confirm receipt.	W1-closer
+Looking forward to hearing back	Жду обратной связи	Looking forward to hearing back from you.	W1-closer
+If I were in your shoes	На вашем месте	If I were in your shoes, I would tackle the smaller tasks first.	S-advice
+The way I see it	Как я это вижу	The way I see it, the second option fits your timeline better.	S-advice
+What I would suggest is	Я бы предложил	What I would suggest is splitting the deposit across two accounts.	S-advice
+Compared with the alternative	В сравнении с альтернативой	Compared with the alternative, this design is far more accessible.	S-compare
+The key difference is	Главное отличие	The key difference is who bears the upfront cost.	S-compare
+By far the more practical option	Несомненно более практичный вариант	By far the more practical option is the second venue.	S-compare
+In the foreground	На переднем плане	In the foreground, a man is unloading boxes from a van.	S-describe
+To the right of the frame	Справа в кадре	To the right of the frame, two children are playing on a swing.	S-describe
+What stands out is	Что обращает на себя внимание	What stands out is the empty seating area, which suggests the event hasn't started.	S-describe
+Hypothetically speaking	Гипотетически	Hypothetically speaking, if the budget doubled, I would invest in training.	S-hypo
+Should that be the case	Если так	Should that be the case, we would need to revisit the schedule.	S-hypo
+There is no easy answer, but	Простого ответа нет, но	There is no easy answer, but I lean toward the cautious approach.	S-hypo
+I would lean toward	Я склоняюсь к	I would lean toward the in-person option for the first session.	S-hedge
+It really depends on	Всё зависит от	It really depends on whether the deadline is firm.	S-hedge
+Broadly speaking	В общем и целом	Broadly speaking, both approaches achieve the same goal.	S-hedge
+exceptionally	исключительно	The team performed exceptionally well under pressure.	LEX-very
+remarkably	на удивление	The data is remarkably consistent across regions.	LEX-very
+profoundly	глубоко	This decision has profoundly shaped my career.	LEX-very
+substantially	существенно	Costs have risen substantially since last quarter.	LEX-very
+markedly	заметно	Attendance has improved markedly since the schedule change.	LEX-very
+compelling	убедительный	She made a compelling case for the new approach.	LEX-good
+exemplary	образцовый	His conduct on the project was exemplary.	LEX-good
+invaluable	бесценный	Her feedback proved invaluable during the redesign.	LEX-good
+sound	дельный, обоснованный	The proposal rests on sound financial assumptions.	LEX-good
+solid	надёжный	We have a solid foundation to build on.	LEX-good
+detrimental	пагубный	Skipping reviews can be detrimental to code quality.	LEX-bad
+flawed	с изъяном, ошибочный	The methodology was flawed from the start.	LEX-bad
+counterproductive	контрпродуктивный	Pressuring staff is often counterproductive.	LEX-bad
+unsustainable	нежизнеспособный	The current pace is unsustainable.	LEX-bad
+problematic	проблематичный	The wording of the policy is problematic.	LEX-bad
+pivotal	ключевой, поворотный	Mentorship played a pivotal role in my early career.	LEX-important
+crucial	решающий	Timing is crucial when launching a product.	LEX-important
+paramount	первостепенный	Safety is paramount on this site.	LEX-important
+instrumental	сыгравший важную роль	She was instrumental in turning the project around.	LEX-important
+contend	утверждать	I would contend that the data supports this conclusion.	LEX-think
+maintain	настаивать	He maintains that the original schedule is realistic.	LEX-think
+argue	доказывать, утверждать	I would argue this is the wrong question to ask.	LEX-think
+hold the view that	придерживаться мнения, что	I hold the view that consistency beats intensity.	LEX-think
+address	затрагивать (тему)	The report fails to address the root cause.	LEX-say
+emphasize	подчёркивать	He emphasized the need for transparency.	LEX-say
+acknowledge	признавать	I acknowledge that the trade-off is real.	LEX-say
+point out	обращать внимание	She pointed out a flaw in the assumption.	LEX-say
+carry out	проводить (работу)	We carry out audits twice a year.	LEX-make
+implement	внедрять	The team implemented the changes within a week.	LEX-make
+undertake	предпринимать	The city undertook a major review of zoning rules.	LEX-make
+facilitate	содействовать	The new tool facilitates faster onboarding.	LEX-help
+enable	давать возможность	This setup enables remote teams to collaborate seamlessly.	LEX-help
+support	поддерживать	The data supports the original hypothesis.	LEX-help
+demonstrate	демонстрировать	The study demonstrates a clear correlation.	LEX-show
+highlight	подчёркивать	The incident highlights deeper systemic issues.	LEX-show
+reveal	выявлять	The audit revealed several gaps in compliance.	LEX-show
+leverage	использовать (с выгодой)	We leverage existing data to predict demand.	LEX-use
+utilize	применять	The platform utilizes machine learning to rank results.	LEX-use
+draw on	опираться на	The proposal draws on three years of research.	LEX-use
+moreover	более того	Moreover, the cost has dropped significantly.	LEX-link
+furthermore	кроме того	Furthermore, the policy has bipartisan support.	LEX-link
+on top of that	вдобавок	On top of that, they offer free shipping.	LEX-link
+consequently	следовательно	Consequently, hiring has slowed.	LEX-link
+in light of	в свете, учитывая	In light of recent findings, the plan was revised.	LEX-link
+given that	учитывая, что	Given that resources are limited, prioritization is essential.	LEX-link
+work-life balance	баланс работы и жизни	Hybrid schedules have improved work-life balance for most staff.	T-work
+burnout	выгорание	Chronic overtime is a clear path to burnout.	T-work
+upskill	повышать квалификацию	Employees are encouraged to upskill quarterly.	T-work
+workplace flexibility	гибкость на работе	Workplace flexibility has become a core expectation.	T-work
+staff retention	удержание персонала	Strong onboarding boosts staff retention.	T-work
+compensation package	компенсационный пакет	The compensation package includes stock options.	T-work
+take on responsibility	брать на себя ответственность	She is ready to take on more responsibility.	T-work
+set boundaries	устанавливать границы	It is healthy to set boundaries with clients.	T-work
+meet a deadline	укладываться в срок	The team consistently meets tight deadlines.	T-work
+career trajectory	карьерная траектория	This role offers a strong career trajectory.	T-work
+lifelong learning	обучение в течение всей жизни	Lifelong learning is essential in a fast-changing economy.	T-edu
+critical thinking	критическое мышление	Schools should prioritize critical thinking over rote memorization.	T-edu
+tuition fees	плата за обучение	Tuition fees have outpaced inflation for two decades.	T-edu
+hands-on experience	практический опыт	Internships provide hands-on experience that classrooms cannot.	T-edu
+academic curriculum	учебная программа	The curriculum was overhauled to include digital literacy.	T-edu
+broaden one's horizons	расширять кругозор	Studying abroad broadens one's horizons.	T-edu
+retain information	удерживать информацию	Active recall helps retain information long-term.	T-edu
+peer-to-peer learning	взаимное обучение	Peer-to-peer learning fosters deeper engagement.	T-edu
+drop-out rate	отсев	The drop-out rate fell after support services were expanded.	T-edu
+extracurricular activity	внеклассная активность	Extracurricular activities build soft skills.	T-edu
+screen time	время за экраном	Excessive screen time affects sleep quality.	T-tech
+digital divide	цифровое неравенство	The digital divide persists in rural areas.	T-tech
+data privacy	конфиденциальность данных	Data privacy concerns are reshaping consumer behaviour.	T-tech
+cutting-edge	передовой	The lab uses cutting-edge imaging technology.	T-tech
+user-friendly	удобный для пользователя	The new interface is far more user-friendly.	T-tech
+obsolete	устаревший	That standard became obsolete years ago.	T-tech
+streamline	оптимизировать	The tool streamlines invoice processing.	T-tech
+end-user	конечный пользователь	End-user feedback drives the roadmap.	T-tech
+cybersecurity threat	угроза кибербезопасности	Phishing remains the top cybersecurity threat.	T-tech
+seamless integration	бесшовная интеграция	The plugin offers seamless integration with Outlook.	T-tech
+carbon footprint	углеродный след	Cutting flights significantly reduces our carbon footprint.	T-env
+renewable energy	возобновляемая энергия	Renewable energy now powers most public buildings.	T-env
+sustainable practices	устойчивые практики	The company adopted sustainable packaging practices.	T-env
+greenhouse gas emissions	выбросы парниковых газов	The plan aims to halve greenhouse gas emissions by 2030.	T-env
+single-use plastics	одноразовый пластик	Single-use plastics have been banned in cafeterias.	T-env
+waste reduction	сокращение отходов	Composting is a low-effort waste reduction step.	T-env
+environmental impact	экологическое воздействие	The project's environmental impact was assessed thoroughly.	T-env
+eco-conscious	экологически сознательный	Eco-conscious consumers drive demand for transparent supply chains.	T-env
+mental health	психическое здоровье	Workplaces are taking mental health more seriously.	T-health
+preventive care	профилактика	Preventive care saves the system money long-term.	T-health
+balanced diet	сбалансированное питание	A balanced diet beats any single supplement.	T-health
+physical activity	физическая активность	Even moderate physical activity reduces long-term risks.	T-health
+stress management	управление стрессом	Stress management techniques should be taught early.	T-health
+accessible healthcare	доступное здравоохранение	Accessible healthcare is a defining Canadian value.	T-health
+screen-related fatigue	усталость от экранов	Screen-related fatigue is a real workplace concern.	T-health
+holistic approach	комплексный подход	The clinic takes a holistic approach to recovery.	T-health
+sense of belonging	чувство принадлежности	Local events foster a sense of belonging.	T-comm
+civic engagement	гражданская активность	Civic engagement has risen among younger voters.	T-comm
+volunteer work	волонтёрство	Volunteer work strengthens community ties.	T-comm
+public transit	общественный транспорт	Reliable public transit reduces dependence on cars.	T-comm
+affordable housing	доступное жильё	Affordable housing remains the most pressing local issue.	T-comm
+social cohesion	социальная сплочённость	Cultural events contribute to social cohesion.	T-comm
+neighbourhood watch	соседский дозор	Neighbourhood watch programs deter petty crime.	T-comm
+inclusive community	инклюзивное сообщество	The library aims to be an inclusive community space.	T-comm

@@ -44,6 +44,36 @@ public class PdfPageTextExtractorTests
         Assert.False(PdfPageTextExtractor.IsBulletPrefix(firstWord));
     }
 
+    [Theory]
+    // Unicode "Symbol, Other" glyphs that AREN'T in our hardcoded BulletGlyphs
+    // set but should still be treated as list markers when they're the sole
+    // first "word" of a line. This covers custom dingbat-font bullets in
+    // modern textbooks without us having to hardcode every shape.
+    [InlineData("☑")]   // U+2611 BALLOT BOX WITH CHECK
+    [InlineData("☐")]   // U+2610 BALLOT BOX
+    [InlineData("✦")]   // U+2726 BLACK FOUR POINTED STAR
+    [InlineData("✺")]   // U+273A SIXTEEN POINTED ASTERISK
+    [InlineData("♦")]   // U+2666 BLACK DIAMOND SUIT
+    [InlineData("☑Item")]   // glued — symmetric with the "•You're" whitelist case
+    public void IsBulletPrefix_RecognizesUnicodeSymbolOther(string firstWord)
+    {
+        Assert.True(PdfPageTextExtractor.IsBulletPrefix(firstWord));
+    }
+
+    [Theory]
+    // Punctuation, Other (Po) — NOT bullets. Daggers / section signs / pilcrows
+    // are footnote markers, not paragraph starts. Verifies the deliberate
+    // narrower category check.
+    [InlineData("†")]   // U+2020 DAGGER
+    [InlineData("‡")]   // U+2021 DOUBLE DAGGER
+    [InlineData("§")]   // U+00A7 SECTION SIGN
+    [InlineData("¶")]   // U+00B6 PILCROW SIGN
+    [InlineData("※")]   // U+203B REFERENCE MARK
+    public void IsBulletPrefix_RejectsFootnoteMarkers(string firstWord)
+    {
+        Assert.False(PdfPageTextExtractor.IsBulletPrefix(firstWord));
+    }
+
     [Fact]
     public void StartsWithIndent_EmptyLine_ReturnsFalse()
     {

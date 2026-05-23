@@ -334,10 +334,19 @@ public static class PdfPageTextExtractor
     internal static bool IsBulletPrefix(string? text)
     {
         if (string.IsNullOrEmpty(text)) return false;
-        if (BulletGlyphs.Contains(text)) return true;
-        // Some PDFs glue the bullet to the first word ("•You're").
-        var firstChar = text[0].ToString();
-        return BulletGlyphs.Contains(firstChar);
+        // Both checks operate on the FIRST CHARACTER so glued forms like
+        // "•You're" or "☑Item" are handled the same as standalone "•" / "☑".
+        var firstChar = text[0];
+        var firstStr = firstChar.ToString();
+        if (BulletGlyphs.Contains(firstStr)) return true;
+        // Generalization: first char in Unicode category "Symbol, Other"
+        // (So) — covers geometric shapes and dingbats from custom textbook
+        // fonts that aren't in our hardcoded set. Po (Punctuation Other) is
+        // deliberately excluded — it contains † ‡ § ¶ ※ which are footnote-
+        // reference markers, not paragraph starts.
+        return System.Globalization.CharUnicodeInfo.GetUnicodeCategory(firstChar)
+                == System.Globalization.UnicodeCategory.OtherSymbol
+            && !NoisePunctuation.Contains(firstStr);
     }
 
     private static string GetDominantFontName(List<Word> words)
