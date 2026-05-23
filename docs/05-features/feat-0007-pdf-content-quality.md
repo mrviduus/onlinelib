@@ -219,6 +219,56 @@ Slice 3 is the only one touching the host poller + Claude. Slice 5 is recurring.
 - Heavily-flagged book: ~30-45 min async. Still far below Marker's ~1.5 h, and
   it trends down as the ratchet absorbs recurring fixes.
 
+## Ratchet log
+
+Each round documents what was learned from the accumulated `(messy → cleaned)`
+pairs, which fixes were encoded as deterministic processors, and what stays
+with the LLM and why.
+
+### Round 1 — 2026-05-23 (2 pairs: AI Engineering ch5 + ch1 Cover)
+
+**Encoded as code:**
+- **O'Reilly-style running headers** with a varying page number —
+  `<p><strong>N | Chapter X: Title</strong></p>` and
+  `<p><strong>Title | N</strong></p>`. The cross-page identical-text filter
+  couldn't catch them (page number changes per page), but the structural
+  signature is distinctive. Added a regex to `PdfPageTextExtractor.IsArtifactNoise`.
+  Immediate measurable effect: AI Engineering content chapters went from
+  scoring ~65 to ~90 on re-upload.
+
+**Prompt adjustment (not a deterministic rule, but tightened guidance):**
+- **Preserve typography verbatim** — Claude was normalizing smart quotes,
+  typographic apostrophes, em/en-dashes to ASCII. Added an explicit rule
+  to the Phase 3 prompt covering smart quotes, apostrophes, dashes,
+  ellipses. The preservation gate doesn't catch these (it compares word
+  tokens), so prompt is the only enforcement.
+
+**Left to Claude — too hard to do deterministically:**
+- **2-column de-interleaving.** The ch1 Cover pair had a bullet list (left
+  column) interleaved line-by-line with the author bio (right column) —
+  PdfPig grouped them into one Y-sorted run. Claude separated them
+  correctly. We intentionally dropped `RecursiveXYCut` in Option A because
+  it fragmented sparse layouts; bringing back selective column detection is
+  significant work for a corner case. Stays in the LLM column.
+- **Inline section heading extraction.** Body text occasionally absorbs a
+  section heading because the heading sits on the same Y-band as the next
+  line — needs semantic judgement to lift it out as `<h3>`. Defer.
+
+### How to run the next round
+
+1. Wait until `data/pdf-cleanup-dataset/` has ~5+ pairs from real uploads
+   covering ≥2 distinct books.
+2. Run the inspection script (Python, stdlib) on each pair: block-level
+   diff after smart-quote normalization → list of `truly removed` and
+   `truly modified` blocks. Look for shapes that repeat across pairs.
+3. For each recurring shape: encode as a regex/heuristic in the appropriate
+   processor (`PdfPageTextExtractor.IsArtifactNoise` for per-paragraph
+   noise, `PdfTextExtractor.FilterRunningHeaders` for cross-page, new
+   Semantic/Linter processors for structural transforms).
+4. Add unit tests with positive (matches the pattern) and negative (prose
+   that superficially looks similar) cases.
+5. Note in this log: what was encoded, why; what stays with the LLM, why.
+
 ## Open questions
 
 - Threshold score for flagging a chapter — start ~60, tune on real books?

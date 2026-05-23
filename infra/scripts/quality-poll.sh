@@ -222,6 +222,10 @@ structural defects. Fix ONLY structure:
 ABSOLUTE RULES:
 - Preserve every word of real content verbatim. Do not summarize, reword,
   translate, correct spelling, or add anything.
+- Preserve typography verbatim: smart/curly quotes (“ ” ‘ ’), typographic
+  apostrophes (’), em- and en-dashes (— –), and ellipses (…) must NOT be
+  normalized to ASCII equivalents. The original characters carry the
+  author's intent.
 - Preserve all <img> tags exactly, src attribute unchanged.
 - Preserve code / monospace content character-for-character.
 - Output raw HTML only — no markdown, no code fences, no commentary.
