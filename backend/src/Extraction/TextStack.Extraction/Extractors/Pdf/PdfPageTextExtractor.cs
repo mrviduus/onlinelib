@@ -43,7 +43,12 @@ public static class PdfPageTextExtractor
     // paragraph (the "•" loses its line-break role when only y-gap is used).
     private static readonly HashSet<string> BulletGlyphs = new(StringComparer.Ordinal)
     {
-        "•", "●", "▪", "■", "◦", "○", "▫", "◆", "‣", "⁃", "►", "❖"
+        // Body bullets
+        "•", "●", "▪", "■", "◦", "○", "▫", "◆", "◇", "❖", "❍",
+        // Triangular / pointers
+        "‣", "⁃", "►", "▶", "▸", "▻", "➤", "➔", "➢",
+        // Checkmarks & stars used as list markers in modern books
+        "★", "☆", "✓", "✔", "✗", "✘",
     };
 
     private static readonly Regex PageNumberPattern = new(@"^\d{1,4}$", RegexOptions.Compiled);
@@ -237,14 +242,25 @@ public static class PdfPageTextExtractor
         var paragraphGapThreshold = baselineGap * ParagraphGapMultiplier;
 
         // Modal left margin: rounded so micro-jitter (sub-point alignment
-        // differences) doesn't disqualify a margin from being modal.
+        // differences) doesn't disqualify a margin from being modal. Guarded:
+        // if the modal margin covers fewer than half of all lines the page is
+        // likely multi-column or a mixed layout (academic papers, magazines)
+        // where there is no single "body left" — indent detection is then
+        // dangerous (every column shift would look like a paragraph break).
         var leftEdges = lines
             .Where(l => l.Count > 0)
             .Select(l => Math.Round(l.Min(w => w.BoundingBox.Left)))
             .ToList();
-        var baseLeft = leftEdges.Count > 0
-            ? leftEdges.GroupBy(e => e).OrderByDescending(g => g.Count()).First().Key
-            : 0.0;
+        double? baseLeft = null;
+        if (leftEdges.Count > 0)
+        {
+            var modal = leftEdges
+                .GroupBy(e => e)
+                .OrderByDescending(g => g.Count())
+                .First();
+            if (modal.Count() * 2 >= leftEdges.Count)
+                baseLeft = modal.Key;
+        }
 
         var paragraphs = new List<List<List<Word>>>();
         var currentParagraph = new List<List<Word>> { lines[0] };
@@ -257,7 +273,8 @@ public static class PdfPageTextExtractor
 
             var isYGapBreak = gap > paragraphGapThreshold;
             var isBulletBreak = StartsWithBulletGlyph(lines[i]);
-            var isIndentBreak = StartsWithIndent(lines[i], baseLeft);
+            var isIndentBreak = baseLeft.HasValue
+                && StartsWithIndent(lines[i], baseLeft.Value);
 
             if (isYGapBreak || isBulletBreak || isIndentBreak)
             {

@@ -7,13 +7,25 @@ namespace TextStack.Extraction.Tests;
 public class PdfPageTextExtractorTests
 {
     [Theory]
+    // Body bullets
     [InlineData("•")]
     [InlineData("●")]
     [InlineData("▪")]
     [InlineData("◦")]
     [InlineData("○")]
+    [InlineData("◆")]
+    [InlineData("◇")]
+    [InlineData("❖")]
+    // Triangles / pointers
     [InlineData("‣")]
     [InlineData("⁃")]
+    [InlineData("►")]
+    [InlineData("▶")]
+    [InlineData("➤")]
+    // Checkmarks & stars (modern textbook list markers)
+    [InlineData("★")]
+    [InlineData("✓")]
+    [InlineData("✗")]
     [InlineData("•You're")]   // bullet glued to first word — still a list item
     public void IsBulletPrefix_RecognizesBulletGlyphs(string firstWord)
     {

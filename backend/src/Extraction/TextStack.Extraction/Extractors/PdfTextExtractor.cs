@@ -206,6 +206,18 @@ public sealed class PdfTextExtractor : ITextExtractor
                 if (string.IsNullOrWhiteSpace(plainText))
                     continue;
 
+                // Content-level TOC drop — covers TOCs that came in via the
+                // page-split fallback (no bookmark named "Contents") but
+                // contain leader-dotted entries. Same guard as title-based:
+                // only drop if other chapters survive.
+                if (chapters.Count > 1 && FrontMatterFilter.LooksLikeTableOfContentsBody(plainText))
+                {
+                    warnings.Add(new ExtractionWarning(
+                        ExtractionWarningCode.ContentFiltered,
+                        $"Skipped Table of Contents chapter (content-detected): {chapter.Title}"));
+                    continue;
+                }
+
                 // Skip piracy watermarks
                 try
                 {
