@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Safe refactor — backend partial-class splits + util tests (2026-05-24)
+
+Cosmetic refactor pass: three god-class backend files split across C# partial
+files (compile-identical to original IL — zero behaviour change, integration
+tests verify), plus net-new unit-test coverage on critical web + mobile pure
+utilities. Largest non-migration backend file dropped from 1559 → 875 LOC.
+All splits use single-domain-per-file boundaries so future review can scope
+to one concern without scrolling past nine others.
+
+- **`AppDbContext.cs` split** ([`1932b21`](https://github.com/mrviduus/textstack/commit/1932b21)) — EF Core model configuration extracted from one 655-LOC `OnModelCreating` to 7 domain-scoped partial files (`Catalog`, `User`, `Reading`, `UserBooks`, `Vocabulary`, `Ops`, `Seo`, `Collections`). Main file is now 104 LOC of DbSet declarations + dispatcher. Migrations unaffected — EF model snapshot is identical.
+- **`VocabularyEndpoints.cs` split** ([`1932b21`](https://github.com/mrviduus/textstack/commit/1932b21)) — 1559-LOC single endpoint file split: 6 sub-domain partials (`Stats`, `Settings`, `Pending`, `Lookups`, `Clusters`, `Admin`) for the 24 routes that were drowning each other out. Shared helpers (`TryGetAuth`, `ToDto`, `UpsertLookupAsync`, `QueueEnrichment`) stay in main alongside `MapVocabularyEndpoints` + DTOs. Reviewer can now diff one anti-spiral phase without seeing the others.
+- **`AdminService.cs` split** ([`1932b21`](https://github.com/mrviduus/textstack/commit/1932b21)) — 977-LOC god service split into 4 partial files by domain (`Upload`, `Editions`, `Chapters`, `UserUploads`). Primary constructor + DI + shared `EnqueueSsgSafe` helper stay in main (131 LOC). Each domain partial under 400 LOC.
+- **Web util tests** ([`1932b21`](https://github.com/mrviduus/textstack/commit/1932b21)) — 40 new Vitest cases covering `analytics.ts` (GA4 event shape contract, gtag fallback, PII boundaries), `dataEvents.ts` (CustomEvent bus + cross-component hook), `errorUtils.ts` (HttpError detection), `formatTime.ts` (hour/minute formatting). Web suite now 474 tests.
+- **Mobile Vitest infra + pure-util tests** ([`1932b21`](https://github.com/mrviduus/textstack/commit/1932b21)) — new `vitest.config.ts` with an in-process `AsyncStorage` mock alias so any `lib/` module can be unit-tested without RN runtime. 38 cases covering `searchUtils` (NFD diacritic stripping incl. surprising Cyrillic `й` → `и` behavior, documented), `features` (reader-overlay killswitch cascade), `vocabStatsCache` (TTL + corrupt-JSON defense). Mobile lib code can now be tested without bundling RN.
+
 ### Mobile reader — bug sweep + architecture refactor (2026-05-23)
 
 Five user-reported Android bugs blocking Play Store launch, plus a senior
