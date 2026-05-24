@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Web header — restore search icon on non-home pages (2026-05-24)
+
+- **Search icon back in the header** ([`4eb1986`](https://github.com/mrviduus/textstack/commit/4eb1986)) — was removed in [`3e53e3e`](https://github.com/mrviduus/textstack/commit/3e53e3e) on the assumption that the hero search on home was enough. It wasn't: on every other page (library, discover, vocabulary, reader, …) the hero is gone and users had nowhere to launch a search from. Icon now shows on all routes except home (where the hero input still owns the affordance), opens the existing `MobileSearchOverlay`, and ships with 10 new `Header.test.tsx` cases pinning visibility per route + open/close flow.
+
 ### Safe refactor — backend partial-class splits + util tests (2026-05-24)
 
 Cosmetic refactor pass: three god-class backend files split across C# partial
