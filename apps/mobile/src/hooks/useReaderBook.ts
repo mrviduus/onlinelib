@@ -43,11 +43,15 @@ export function useReaderBook({
   // depend on it in effect deps. The ref alone wouldn't re-trigger an effect
   // when its value lands after chapterId.
   const [editionId, setEditionId] = useState<string | null>(null)
+  // Drives TocSheet's loading vs empty state — without it an empty chapters
+  // array looks the same whether fetch is in-flight or actually returned 0.
+  const [chaptersLoading, setChaptersLoading] = useState(true)
   const bookOpenedFiredRef = useRef(false)
 
   useEffect(() => {
     if (!bookSlug) return
     let cancelled = false
+    setChaptersLoading(true)
     const api = createBooksApi(language)
     api.getBook(bookSlug)
       .then(b => {
@@ -62,7 +66,13 @@ export function useReaderBook({
         }
         if (b.chapters) {
           setChapters(b.chapters)
-          totalWordCountRef.current = b.chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0)
+          // Null-guard on wordCount so a chapter missing the field doesn't
+          // turn the sum into NaN (book-progress calc downstream divides
+          // by it; NaN propagates and breaks the footer percent).
+          totalWordCountRef.current = b.chapters.reduce(
+            (sum, c) => sum + (typeof c.wordCount === 'number' && c.wordCount > 0 ? c.wordCount : 0),
+            0,
+          )
         }
         if (isAuthenticated) {
           bookmarksApi.getBookmarks(b.id)
@@ -82,8 +92,9 @@ export function useReaderBook({
           }
         }).catch(() => {})
       })
+      .finally(() => { if (!cancelled) setChaptersLoading(false) })
     return () => { cancelled = true }
   }, [bookSlug, isAuthenticated, language, editionIdRef, bookTitleRef, totalWordCountRef, setBookmarks])
 
-  return { bookTitle, chapters, editionId }
+  return { bookTitle, chapters, editionId, chaptersLoading }
 }

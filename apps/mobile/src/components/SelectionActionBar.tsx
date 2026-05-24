@@ -45,6 +45,11 @@ interface SelectionActionBarProps {
   isAuthenticated?: boolean
   /** Distance from bottom — typically reader footer height. */
   bottomOffset?: number
+  /** Dismiss the toolbar. The reader passes `() => setSelection(null)` so an
+   *  accidental tap on the screen doesn't strand the toolbar (B-?? mobile
+   *  bug sweep). Optional for back-compat with screens that haven't wired
+   *  it yet — those just lose the close affordance. */
+  onClose?: () => void
 }
 
 /**
@@ -76,6 +81,7 @@ export function SelectionActionBar({
   vocabStage,
   isAuthenticated,
   bottomOffset = 0,
+  onClose,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
   const { fromLang, toLang } = useTargetLanguage(language)
@@ -232,6 +238,21 @@ export function SelectionActionBar({
                 />
               </TouchableOpacity>
             )}
+          </>
+        )}
+
+        {onClose && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close selection toolbar"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </>
         )}
       </View>

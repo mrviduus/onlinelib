@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, MutableRefObject } from 'react'
-import { AppState } from 'react-native'
 import { readingProgressApi } from '@textstack/shared'
 import type { Chapter } from '@textstack/shared'
 import { saveLocalProgress } from '../lib/progressStorage'
+import { useFlushOnBackground } from './useFlushOnBackground'
 
 type Options = {
   editionIdRef: MutableRefObject<string | null>
@@ -16,6 +16,10 @@ type Options = {
    *  `scroll:${slug}:${offset}` locator so resume is pixel-accurate, not
    *  just percent-accurate (which is too coarse for long chapters). */
   scrollOffsetRef: MutableRefObject<number>
+  /** Live book-wide percent (0..1). Persisted into LocalProgress so home
+   *  ContinueReadingCard can show book progress, not chapter progress.
+   *  Nullable while chapters/wordCount haven't resolved yet. */
+  bookPercentRef?: MutableRefObject<number | null>
   isAuthenticated: boolean
 }
 
@@ -35,6 +39,7 @@ export function useReaderProgress({
   currentChapterSlugRef,
   progressRef,
   scrollOffsetRef,
+  bookPercentRef,
   isAuthenticated,
 }: Options) {
   const saveProgress = useCallback(() => {
@@ -50,6 +55,10 @@ export function useReaderProgress({
       chapterSlug: slug,
       locator,
       percent,
+      // Only persist a numeric book percent — null leaves the prior value
+      // in place (the resume card would otherwise lose its book-progress
+      // hint between the WebView mounting and chapters arriving).
+      bookPercent: bookPercentRef?.current ?? undefined,
       updatedAt,
     }).catch(() => {})
 
@@ -59,7 +68,7 @@ export function useReaderProgress({
       chapterSlug: slug,
       progress: percent,
     }).catch(() => {})
-  }, [isAuthenticated, chapter, chapterSlug, editionIdRef, currentChapterSlugRef, progressRef, scrollOffsetRef])
+  }, [isAuthenticated, chapter, chapterSlug, editionIdRef, currentChapterSlugRef, progressRef, scrollOffsetRef, bookPercentRef])
 
   // 2s debounced save fired on every reportProgress() bump from the WebView.
   // PWA uses the same cadence (useReadingProgress.ts:84-101) — short enough
@@ -82,15 +91,9 @@ export function useReaderProgress({
     }
   }, [saveProgress])
 
-  // On Android, Home-button + OS-kill skips useEffect cleanup, so the final
-  // scroll position would be lost. AppState fires on home/background;
-  // flush now so the next launch resumes at the right place.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'background' || state === 'inactive') saveProgress()
-    })
-    return () => sub.remove()
-  }, [saveProgress])
+  // Android OS-kill skips useEffect cleanup; AppState background fires
+  // before the kill so we get one last sync write of scroll position.
+  useFlushOnBackground(saveProgress)
 
   return { saveProgress, bumpProgress }
 }

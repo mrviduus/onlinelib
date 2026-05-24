@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { userBooksApi, t } from '@textstack/shared'
+import { userBooksApi, t, parseScrollLocator } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { buildReaderHtml } from '../../../../src/lib/readerHtml'
 import { useAuth } from '../../../../src/context/AuthContext'
@@ -27,6 +27,8 @@ import { useToast } from '../../../../src/context/ToastContext'
 import { useLanguage } from '../../../../src/context/LanguageContext'
 import { useNativeLanguage } from '../../../../src/context/NativeLanguageContext'
 import { ReaderStatsWidget } from '../../../../src/components/ReaderStatsWidget'
+import { computeBookProgress } from '@textstack/shared'
+import { useUserBookProgress } from '../../../../src/hooks/useUserBookProgress'
 import { ReaderTapCoachmark } from '../../../../src/components/reader/ReaderTapCoachmark'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../../src/context/ThemeContext'
@@ -56,6 +58,17 @@ export default function UserBookReaderScreen() {
   const [tocOpen, setTocOpen] = useState(false)
   const [bookmarks, setBookmarks] = useState<BookmarkDto[]>([])
   const [chapters, setChapters] = useState<{ slug: string; title: string; chapterNumber?: number }[]>([])
+  // Distinguish "still fetching chapter list" from "extractor returned 0
+  // chapters" in TocSheet — without this both look like a blank sheet.
+  const [chaptersLoading, setChaptersLoading] = useState(true)
+  // Σ wordCount of all chapters in the book — used for book-wide progress %.
+  const totalWordCountRef = useRef(0)
+  // Book-wide percent (0..1) — chapter progress folded into the full book
+  // length. Footer + saved progress use this; without it the bar reset to
+  // 0% on every chapter boundary. null until chapters/wordCount land so
+  // the footer doesn't flash a fake 0% before metadata arrives.
+  const bookProgressRef = useRef<number | null>(null)
+  const [bookProgress, setBookProgress] = useState<number | null>(null)
   const { toggle: toggleTts, isSpeaking } = useTts()
   const { colors } = useTheme()
   const quickStats = useQuickStats(isAuthenticated)
@@ -92,9 +105,6 @@ export default function UserBookReaderScreen() {
   // chapter mount. null means "no saved position" — start at top.
   const savedScrollOffsetRef = useRef<number | null>(null)
   const restoreScrolledRef = useRef(false)
-  // 2s debounce for in-chapter scroll saves; flushed eagerly on chapter
-  // change / unmount further down.
-  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nextChapterRef = useRef<{ slug: string; title: string } | null>(null)
   const wordCountRef = useRef(0)
   const currentChapterSlugRef = useRef<string | null>(null)
@@ -229,6 +239,18 @@ export default function UserBookReaderScreen() {
     isAuthenticated,
   })
 
+  // Owns server PUT + local book-percent cache + AppState background
+  // flush. Was 30+ lines of inline logic — extracted to mirror the
+  // catalog reader's useReaderProgress contract (saveProgress / bumpProgress).
+  const { saveProgress: saveUserBookProgress, bumpProgress: bumpUserBookProgress } = useUserBookProgress({
+    bookId: bookId || null,
+    chapterSlug,
+    currentChapterSlugRef,
+    progressRef,
+    scrollOffsetRef,
+    bookProgressRef,
+  })
+
   useEffect(() => {
     if (!bookId || !chapterSlug) return
     let cancelled = false
@@ -258,36 +280,30 @@ export default function UserBookReaderScreen() {
       .then(prog => {
         if (cancelled) return
         if (!prog || prog.chapterSlug !== chapterSlug) return
-        if (typeof prog.locator === 'string' && prog.locator.startsWith('scroll:')) {
-          const parts = prog.locator.split(':')
-          const off = parseInt(parts[2], 10)
-          if (parts[1] === chapterSlug && Number.isFinite(off) && off > 0) {
-            savedScrollOffsetRef.current = off
-          }
+        // Shared parser handles slug-with-colons + malformed input,
+        // returns null for anything we can't trust. See P1 in ADR-011.
+        const parsed = parseScrollLocator(prog.locator)
+        if (parsed && parsed.slug === chapterSlug && parsed.offset > 0) {
+          savedScrollOffsetRef.current = parsed.offset
         }
       })
       .catch(() => {})
     return () => { cancelled = true }
   }, [bookId, chapterSlug])
 
-  // Flush the pending debounced save before chapter switches or unmount —
-  // otherwise the tail end of the previous chapter's scroll is lost.
+  // Recompute book-wide progress when chapters/totalWordCount finally
+  // resolves — early 'progress' messages fire before the chapter list
+  // arrives, so without this the footer sits at 0% until the user
+  // scrolls again.
   useEffect(() => {
-    return () => {
-      if (saveDebounceRef.current) {
-        clearTimeout(saveDebounceRef.current)
-        saveDebounceRef.current = null
-        if (bookId && currentChapterSlugRef.current) {
-          const slug = currentChapterSlugRef.current
-          userBooksApi.updateUserBookProgress(bookId, {
-            percent: progressRef.current,
-            chapterSlug: slug,
-            locator: `scroll:${slug}:${scrollOffsetRef.current}`,
-          }).catch(() => {})
-        }
-      }
-    }
-  }, [bookId, chapterSlug])
+    if (chapters.length === 0) return
+    const slug = currentChapterSlugRef.current || chapterSlug || null
+    const bp = computeBookProgress(chapters, slug, progressRef.current, totalWordCountRef.current)
+    bookProgressRef.current = bp
+    setBookProgress(bp)
+  }, [chapters, chapterSlug])
+
+  // Flush handled by useUserBookProgress (unmount effect + AppState listener).
 
   // Load bookmarks + chapter list for TOC
   const bookOpenedFiredRef = useRef(false)
@@ -303,14 +319,27 @@ export default function UserBookReaderScreen() {
     userBooksApi.getUserBookBookmarks(bookId).then(setBookmarks).catch(e => {
       console.warn('Failed to load user-book bookmarks:', e)
     })
+    setChaptersLoading(true)
     userBooksApi.getUserBook(bookId).then(b => {
-      setChapters(b.chapters.map(ch => ({
+      bookTitleRef.current = b.title || null
+      const mapped = b.chapters.map(ch => ({
         slug: ch.slug || `chapter-${ch.chapterNumber}`,
         title: ch.title,
         chapterNumber: ch.chapterNumber,
-      })))
+        wordCount: typeof ch.wordCount === 'number' && ch.wordCount > 0 ? ch.wordCount : 0,
+      }))
+      setChapters(mapped)
+      // Sum wordCount with null-guard (some chapters may lack the field).
+      // Prefer `b.totalWordCount` if API provided it — that's the canonical
+      // book length and includes any chapter the per-chapter loop missed.
+      const summed = mapped.reduce((s, c) => s + (c.wordCount || 0), 0)
+      totalWordCountRef.current = (typeof b.totalWordCount === 'number' && b.totalWordCount > 0)
+        ? b.totalWordCount
+        : summed
     }).catch(e => {
       console.warn('Failed to load user-book chapter list:', e)
+    }).finally(() => {
+      setChaptersLoading(false)
     })
   }, [bookId])
 
@@ -384,23 +413,16 @@ export default function UserBookReaderScreen() {
           currentChapterSlugRef.current = data.chapterSlug
           setVisibleChapterSlug(data.chapterSlug)
         }
-        if (bookId) {
-          // 2s debounce so fast scrubbing doesn't spam the backend.
-          // Earlier this fired on every 'progress' message — multiple
-          // PUTs per second for long chapters.
-          if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
-          const slugForSave = data.chapterSlug || chapterSlug || ''
-          const offsetForSave = scrollOffsetRef.current
-          const percentForSave = data.progress
-          saveDebounceRef.current = setTimeout(() => {
-            saveDebounceRef.current = null
-            userBooksApi.updateUserBookProgress(bookId, {
-              percent: percentForSave,
-              chapterSlug: slugForSave,
-              locator: `scroll:${slugForSave}:${offsetForSave}`,
-            }).catch(e => { console.warn('Failed to save user-book progress:', e) })
-          }, 2000)
-        }
+        // Book-wide progress for the footer — keeps the user oriented
+        // across chapter boundaries instead of resetting to 0%.
+        const activeSlugForCalc = data.chapterSlug || currentChapterSlugRef.current || chapterSlug || null
+        const bp = computeBookProgress(chapters, activeSlugForCalc, data.progress, totalWordCountRef.current)
+        bookProgressRef.current = bp
+        setBookProgress(bp)
+        // Debounced save (server PUT + local book-% cache) — owned by
+        // useUserBookProgress so the AppState background flush + unmount
+        // flush + book-% cache live in one place.
+        bumpUserBookProgress()
       } else if (data.type === 'loaded') {
         if (chapter?.next) {
           nextChapterRef.current = chapter.next
@@ -426,7 +448,7 @@ export default function UserBookReaderScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[user-book-reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapter, bookId, chapterSlug, settings.ttsSpeed, isAuthenticated, language, toggleBars, showBars, hideBars, toggleTts, vocabActions, autoSavedRef, openSelection, setEditingHighlight, highlightsRef, updateSessionProgress])
+  }, [chapter, chapters, bookId, chapterSlug, settings.ttsSpeed, isAuthenticated, language, toggleBars, showBars, hideBars, toggleTts, vocabActions, autoSavedRef, openSelection, setEditingHighlight, highlightsRef, updateSessionProgress, bumpUserBookProgress])
 
   const handleSaveWord = () => {
     if (!selection) return
@@ -452,6 +474,20 @@ export default function UserBookReaderScreen() {
   const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
 
   const navigateChapter = (slug: string) => {
+    // Flush current chapter's tail before leaving — matches catalog
+    // reader, prevents losing the last few seconds of scroll on nav.
+    saveUserBookProgress()
+    // Eagerly seed book-progress for the new chapter (progress=0 at top).
+    // Without this the footer keeps the OLD chapter's % until the first
+    // scroll message lands.
+    progressRef.current = 0
+    scrollOffsetRef.current = 0
+    setProgress(0)
+    if (chapters.length > 0) {
+      const bp = computeBookProgress(chapters, slug, 0, totalWordCountRef.current)
+      bookProgressRef.current = bp
+      setBookProgress(bp)
+    }
     router.replace(`/my-books/read/${bookId}/${slug}`)
   }
 
@@ -595,6 +631,14 @@ export default function UserBookReaderScreen() {
             wordSaved={wordSaved}
             vocabStage={selection ? (vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null) : null}
             isAuthenticated={isAuthenticated}
+            bottomOffset={footerHeight}
+            onClose={() => {
+              // Mirror catalog reader: drop the native WebView selection
+              // rectangle so the user doesn't see leftover highlighting
+              // after closing our overlay.
+              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
+              setSelection(null)
+            }}
           />
         )}
 
@@ -613,7 +657,11 @@ export default function UserBookReaderScreen() {
         <Animated.View style={[styles.footerOverlay, { backgroundColor: barBg, paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressContainer, { borderTopColor: colors.border }]}>
             <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
+              {/* Book-wide percent — was chapter-only, which reset to ~0%
+                  on every new chapter and felt like no progress was being
+                  made through the book. Empty bar while loading instead of
+                  fake 0%. */}
+              <View style={[styles.progressFill, { width: `${bookProgress != null ? Math.round(bookProgress * 100) : 0}%`, backgroundColor: colors.primary }]} />
             </View>
             <View style={styles.footerRow}>
               <TouchableOpacity
@@ -637,7 +685,7 @@ export default function UserBookReaderScreen() {
                     </Text>
                   )}
                   <Text style={[styles.footerPercent, { color: colors.textSecondary }]}>
-                    {Math.round(progress * 100)}%
+                    {bookProgress != null ? `${Math.round(bookProgress * 100)}%` : '—'}
                   </Text>
                 </View>
               </View>
@@ -699,6 +747,7 @@ export default function UserBookReaderScreen() {
           }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
+          loading={chaptersLoading}
         />
 
         {/* Highlight note editor — Android-safe replacement for Alert.prompt */}

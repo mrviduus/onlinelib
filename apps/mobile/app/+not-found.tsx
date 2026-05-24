@@ -16,7 +16,14 @@ export default function NotFoundScreen() {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Try to redirect web URLs to mobile routes
+    if (__DEV__) console.log('[+not-found] hit with pathname:', pathname)
+    // Only run the web-URL → mobile-route remap when the incoming path
+    // actually starts with a language prefix (`/en/...` or `/uk/...`).
+    // Without this guard, a cold-start landing on a transient state path
+    // could match the looser patterns below and yank the user out of home
+    // into the reader (the "app opens on random screens" symptom).
+    if (!/^\/(en|uk)\//.test(pathname)) return
+
     const match = pathname.match(/^\/(en|uk)\/books\/([^/]+)(?:\/([^/]+))?/)
     if (match) {
       const [, , slug, chapter] = match
