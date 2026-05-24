@@ -17,6 +17,8 @@
     "submit:ios": "eas submit --platform ios --profile production",
     "submit:android": "eas submit --platform android --profile production",
     "update": "eas update",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "npx playwright test --config=e2e/playwright.config.ts --project=android",
     "test:e2e:ios": "npx playwright test --config=e2e/playwright.config.ts --project=ios",
     "test:e2e:ui": "npx playwright test --config=e2e/playwright.config.ts --project=android --ui"
@@ -29,7 +31,6 @@
     "expo": "~55.0.9",
     "expo-apple-authentication": "~55.0.9",
     "expo-asset": "^55.0.10",
-    "expo-audio": "~55.0.14",
     "expo-clipboard": "~55.0.9",
     "expo-constants": "~55.0.7",
     "expo-dev-client": "~55.0.19",
@@ -60,9 +61,12 @@
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "@types/react": "~19.2.2",
+    "@vitest/coverage-v8": "2.1.9",
+    "expo-audio": "~55.0.14",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "2.1.9"
   },
   "private": true
 }
