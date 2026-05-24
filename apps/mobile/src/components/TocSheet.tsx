@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
@@ -17,9 +17,13 @@ interface TocSheetProps {
   bookmarks?: Array<{ chapterSlug: string; title?: string }>
   onNavigate: (slug: string) => void
   onClose: () => void
+  /** True while chapter list is still being fetched. When chapters is empty
+   * AND loading, we show a spinner; empty + not-loading means "no chapters
+   * available" (extractor produced none / API failed). */
+  loading?: boolean
 }
 
-export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onNavigate, onClose }: TocSheetProps) {
+export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onNavigate, onClose, loading }: TocSheetProps) {
   const { colors } = useTheme()
   const listRef = useRef<FlatList<TocChapter>>(null)
 
@@ -40,6 +44,23 @@ export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onN
             </TouchableOpacity>
           </View>
 
+          {chapters.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              {loading ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading chapters…</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="list-outline" size={32} color={colors.textSecondary} />
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No chapters available for this book.
+                  </Text>
+                </>
+              )}
+            </View>
+          ) : (
           <FlatList
             ref={listRef}
             data={chapters}
@@ -96,6 +117,7 @@ export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onN
               }, 100)
             }}
           />
+          )}
         </View>
       </View>
     </Modal>
@@ -112,7 +134,24 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '70%',
+    // Min height keeps the empty/loading state visible — without it the sheet
+    // collapses to just the header when chapters=[] and looks broken (B-?? from
+    // mobile bug sweep).
+    minHeight: 200,
     paddingBottom: 32,
+  },
+  emptyWrap: {
+    flex: 1,
+    minHeight: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: fonts.sans,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',

@@ -10,6 +10,8 @@
  * excluded.
  */
 
+import { pathnamePrefix } from '@textstack/shared'
+
 /** Allowed event names. Keep in sync with web + GA4 Key Events config. */
 export type AnalyticsEvent =
   | 'sign_up'
@@ -21,6 +23,11 @@ export type AnalyticsEvent =
   | 'translation_used'
   | 'tts_played'
   | 'search_performed'
+  /** AppState foreground/background transitions. Specifically wired so we
+   *  can debug post-launch "app opens on random screens" reports — the
+   *  event payload includes how long we were backgrounded and whether we
+   *  decided to reset navigation. */
+  | 'app_resumed_from_background'
 
 type Params = Record<string, string | number | boolean | null | undefined>
 
@@ -135,3 +142,43 @@ export function trackSearchPerformed(args: {
     results_count: args.resultsCount,
   })
 }
+
+/**
+ * AppState foreground transition observability.
+ *
+ * Wired into ColdResetOnResume so we can answer post-launch questions
+ * like:
+ *   - How often do users come back after >30 min? (cold-reset rate)
+ *   - Are protected-route skips actually firing? (`reset=false` + `was_in_reader=true`)
+ *   - Are any users getting reset while in reader? (would indicate a
+ *     pathname-detection bug we can't reproduce in dev)
+ *
+ * `bucket_minutes` is bucketed to avoid PII (exact session length leak)
+ * and to keep cardinality low for analytics dashboards.
+ */
+export function trackAppResumedFromBackground(args: {
+  backgroundedForMs: number
+  pathname: string
+  wasInProtectedRoute: boolean
+  resetToHome: boolean
+}): void {
+  // Buckets: 0-1m, 1-5m, 5-30m, 30m-2h, 2h+. Matches the cold-reset
+  // threshold (30m) so the boundary is observable in dashboards.
+  const m = args.backgroundedForMs / 60_000
+  const bucket =
+    m < 1 ? '<1m'
+    : m < 5 ? '1-5m'
+    : m < 30 ? '5-30m'
+    : m < 120 ? '30m-2h'
+    : '2h+'
+  track('app_resumed_from_background', {
+    bucket_minutes: bucket,
+    // Path prefix only (no slugs) — avoids leaking book identifiers.
+    path_prefix: pathnamePrefix(args.pathname),
+    was_in_protected_route: args.wasInProtectedRoute,
+    reset_to_home: args.resetToHome,
+  })
+}
+
+// pathnamePrefix lives in @textstack/shared (unit-tested) — used here for
+// PII-safe path compression in analytics events.

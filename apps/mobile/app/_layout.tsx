@@ -1,5 +1,7 @@
-import { useEffect } from 'react'
-import { Stack } from 'expo-router'
+import { useEffect, useRef } from 'react'
+import { AppState } from 'react-native'
+import { Stack, useRouter, usePathname } from 'expo-router'
+import { trackAppResumedFromBackground } from '../src/lib/analytics'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -17,11 +19,93 @@ SplashScreen.preventAutoHideAsync()
 
 setupApi()
 
+// 30 min — after this much time in background, treat the next foreground
+// as if the user re-opened the app cold and reset navigation to home.
+// Shorter (e.g. 5 min) would yank users out of the reader if they answered
+// a phone call; longer would let "yesterday's screen" feel like a cold
+// launch landing in the middle of a book.
+const COLD_RESET_THRESHOLD_MS = 30 * 60 * 1000
+
+// Routes the reset-on-resume skips. Reading is a long-running activity
+// users explicitly chose — Kindle / Apple Books resume the book even after
+// days. Resetting only transient navigation (library/discover/stats/etc.)
+// matches the "remember where I was reading, forget where I was browsing"
+// mental model that drove the original "random screens" complaint.
+const PROTECTED_ROUTE_PREFIXES = ['/reader/', '/my-books/read/']
+
+/**
+ * Background-on-resume navigation reset, isolated in its own component so
+ * the `usePathname()` re-render scope is just this one View (renders null).
+ * Putting it on `AppContent` would re-render the whole `<Stack>` tree on
+ * every navigation — measurable jank in the reader's WebView mounts.
+ *
+ * Lifecycle:
+ *   background → record timestamp in ref
+ *   active     → if (now - timestamp) > threshold AND not in protected
+ *                route → dismissAll() + replace('/')
+ */
+function ColdResetOnResume() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const backgroundedAtRef = useRef<number | null>(null)
+  const pathnameRef = useRef(pathname)
+  useEffect(() => { pathnameRef.current = pathname }, [pathname])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background' || state === 'inactive') {
+        backgroundedAtRef.current = Date.now()
+        return
+      }
+      if (state === 'active') {
+        const since = backgroundedAtRef.current
+        backgroundedAtRef.current = null
+        if (since == null) return
+        const backgroundedForMs = Date.now() - since
+        const path = pathnameRef.current || ''
+        // Only consider reset if past threshold. Short backgrounds
+        // (notifications, brief context switches) get NO telemetry —
+        // they're high-volume and uninteresting.
+        if (backgroundedForMs <= COLD_RESET_THRESHOLD_MS) return
+
+        const inProtectedRoute = PROTECTED_ROUTE_PREFIXES.some(p => path.startsWith(p))
+        // Telemetry fires regardless of the decision — that's the point.
+        // Dashboards need both reset and skip rows to compute "% of long
+        // backgrounds where we kept the user in the reader".
+        trackAppResumedFromBackground({
+          backgroundedForMs,
+          pathname: path,
+          wasInProtectedRoute: inProtectedRoute,
+          resetToHome: !inProtectedRoute,
+        })
+
+        if (inProtectedRoute) {
+          // Skip — book sessions are intentional and resumeable. Resetting
+          // here would feel like the app threw away the reader mid-chapter.
+          if (__DEV__) console.log('[appstate] skip cold-reset, in protected route:', path)
+          return
+        }
+        // Resetting to the home tab — users complained the app re-opened
+        // on "random screens" (Expo Router preserves nav state across
+        // warm starts, so a long background looked like a cold launch
+        // landing in library/stats/discover). dismissAll() drops the
+        // modal stack first; replace then lands on the tabs root.
+        try { router.dismissAll() } catch {}
+        router.replace('/')
+      }
+    })
+    return () => sub.remove()
+  }, [router])
+
+  return null
+}
+
 function AppContent() {
   const { isDark } = useTheme()
 
   return (
     <>
+      <ColdResetOnResume />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />

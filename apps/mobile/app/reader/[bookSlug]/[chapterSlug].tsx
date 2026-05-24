@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { t, readingProgressApi } from '@textstack/shared'
+import { t, readingProgressApi, parseScrollLocator } from '@textstack/shared'
 import { buildReaderHtml } from '../../../src/lib/readerHtml'
 import { getLocalProgress } from '../../../src/lib/progressStorage'
 import { useAuth } from '../../../src/context/AuthContext'
@@ -29,6 +29,7 @@ import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
 import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
 import { ReaderTopBar } from '../../../src/components/reader/ReaderTopBar'
 import { useReadingSession } from '../../../src/hooks/useReadingSession'
+import { computeBookProgress } from '@textstack/shared'
 import { useReaderOverlayV2Active } from '../../../src/hooks/useReaderOverlayV2Active'
 import { useTts } from '../../../src/hooks/useTts'
 import { useQuickStats } from '../../../src/hooks/useQuickStats'
@@ -59,6 +60,14 @@ export default function ReaderScreen() {
   const [explainOpen, setExplainOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
   const [progress, setProgress] = useState(0)
+  // Book-wide percent (0..1) — derived from chapter scroll + chapter list +
+  // total word count. The footer shows this, not the chapter-only `progress`,
+  // so users see how far they are through the BOOK (was: how far through
+  // the current chapter, which reset to ~0% on every chapter boundary).
+  // null before chapters/wordCount lands — footer hides the % to avoid the
+  // misleading "0%" flash on initial load.
+  const [bookProgress, setBookProgress] = useState<number | null>(null)
+  const bookProgressRef = useRef<number | null>(null)
   const { toggle: toggleTts, isSpeaking } = useTts()
   const webViewRef = useRef<WebView>(null)
   // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
@@ -109,7 +118,7 @@ export default function ReaderScreen() {
   // Hoisted above useReaderHighlights so its `editionId` state is available
   // — without it the highlights effect can race chapterId against editionId
   // and miss the load when chapter wins.
-  const { bookTitle, chapters, editionId } = useReaderBook({
+  const { bookTitle, chapters, editionId, chaptersLoading } = useReaderBook({
     bookSlug,
     language,
     isAuthenticated,
@@ -211,6 +220,7 @@ export default function ReaderScreen() {
     currentChapterSlugRef,
     progressRef,
     scrollOffsetRef,
+    bookPercentRef: bookProgressRef,
     isAuthenticated,
   })
 
@@ -268,6 +278,13 @@ export default function ReaderScreen() {
           currentChapterSlugRef.current = data.chapterSlug
           setVisibleChapterSlug(data.chapterSlug)
         }
+        // Book-wide percent for the footer + LocalProgress. Derived here
+        // (not memoized) because chapters/progress change frequently and
+        // the compute is O(currentIdx) which is cheap.
+        const activeSlugForCalc = data.chapterSlug || currentChapterSlugRef.current || chapterSlug || null
+        const bp = computeBookProgress(chapters, activeSlugForCalc, data.progress, totalWordCountRef.current)
+        bookProgressRef.current = bp
+        setBookProgress(bp)
         // 2s-debounced save (apps/mobile/src/hooks/useReaderProgress.ts).
         // Prevents losing scroll position inside long chapters on
         // unexpected app death.
@@ -299,10 +316,23 @@ export default function ReaderScreen() {
     // Refs (highlightsRef, autoSavedRef) are read inside but intentionally
     // omitted from deps — refs don't trigger re-creation and listing them
     // here only adds noise.
-  }, [chapter, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, bumpProgress])
+  }, [chapter, chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, bumpProgress])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
+    // Eagerly seed book-progress for the new chapter (progress=0 at the
+    // top). Without this the footer keeps the OLD chapter's % until the
+    // first scroll event arrives, which reads as "I jumped ahead but the
+    // % didn't change". Reset progress + scroll refs too so the next
+    // save() in the new chapter starts from a clean slate.
+    progressRef.current = 0
+    scrollOffsetRef.current = 0
+    setProgress(0)
+    if (chapters.length > 0) {
+      const bp = computeBookProgress(chapters, slug, 0, totalWordCountRef.current)
+      bookProgressRef.current = bp
+      setBookProgress(bp)
+    }
     router.replace(`/reader/${bookSlug}/${slug}`)
   }
 
@@ -341,6 +371,19 @@ export default function ReaderScreen() {
     injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
   }, [settings.showInlineTranslations])
 
+  // Recompute book-wide progress when chapters/wordCount finally lands —
+  // the first 'progress' messages from the WebView fire before useReaderBook
+  // resolves, so without this the footer shows 0% until the user scrolls
+  // again. Reads current progress refs to fold the existing scroll into
+  // the freshly-known book total.
+  useEffect(() => {
+    if (chapters.length === 0) return
+    const slug = currentChapterSlugRef.current || chapterSlug || null
+    const bp = computeBookProgress(chapters, slug, progressRef.current, totalWordCountRef.current)
+    bookProgressRef.current = bp
+    setBookProgress(bp)
+  }, [chapters, chapterSlug])
+
   // Load saved in-chapter position. Local-first (instant, offline-safe);
   // fall back to server for the cross-device case (read on web → open on
   // phone). One-shot per (editionId, chapterSlug) — guard with ref so we
@@ -358,15 +401,13 @@ export default function ReaderScreen() {
         const local = await getLocalProgress(editionId)
         if (local && local.chapterSlug === chapterSlug) {
           if (typeof local.percent === 'number') percent = local.percent
-          // Locator beats percent for in-chapter precision. Format is
-          // 'scroll:<slug>:<offsetY>' — anything else is unknown, skip.
-          if (typeof local.locator === 'string' && local.locator.startsWith('scroll:')) {
-            const parts = local.locator.split(':')
-            const lSlug = parts[1]
-            const off = parseInt(parts[2], 10)
-            if (lSlug === chapterSlug && Number.isFinite(off) && off > 0) {
-              scrollOffset = off
-            }
+          // Locator beats percent for in-chapter precision. Parser lives
+          // in @textstack/shared so it handles slug-contains-colon and
+          // malformed inputs the same way as user-book reader (P1 fix in
+          // ADR-011 bug sweep).
+          const parsed = parseScrollLocator(local.locator)
+          if (parsed && parsed.slug === chapterSlug && parsed.offset > 0) {
+            scrollOffset = parsed.offset
           }
         }
       } catch {}
@@ -604,13 +645,25 @@ export default function ReaderScreen() {
             vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
             isAuthenticated={isAuthenticated}
             bottomOffset={footerHeight}
+            onClose={() => {
+              // Also clear the WebView's native text-selection rectangle —
+              // otherwise the system-highlighted text stays painted under
+              // the reader after our overlay dismisses.
+              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
+              setSelection(null)
+            }}
           />
         )}
 
         {/* Footer — progress bar + chevrons + chapter title + counter (PWA parity) */}
         <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: barText + '40' }]} />
+            {/* Footer % bar reflects book-wide progress — was chapter-only,
+                which reset to ~0% on every chapter boundary and made the
+                book feel like it never advanced (B-?? mobile bug sweep).
+                Width=0 while bookProgress is null (chapters still loading)
+                so we don't flash a fake 0% bar before we know the answer. */}
+            <View style={[styles.progressFill, { width: `${bookProgress != null ? Math.round(bookProgress * 100) : 0}%`, backgroundColor: barText + '40' }]} />
           </View>
           <View style={styles.footerRow}>
             <TouchableOpacity
@@ -634,7 +687,7 @@ export default function ReaderScreen() {
                   </Text>
                 )}
                 <Text style={[styles.footerPercent, { color: barText + '99' }]}>
-                  {Math.round(progress * 100)}%
+                  {bookProgress != null ? `${Math.round(bookProgress * 100)}%` : '—'}
                 </Text>
               </View>
             </View>
@@ -710,6 +763,7 @@ export default function ReaderScreen() {
           bookmarks={bookmarks.map(b => ({ chapterSlug: getSlugFromLocator(b.locator) }))}
           onNavigate={navigateChapter}
           onClose={() => setTocOpen(false)}
+          loading={chaptersLoading}
         />
 
         {/* Highlight note editor — Android-safe replacement for Alert.prompt */}

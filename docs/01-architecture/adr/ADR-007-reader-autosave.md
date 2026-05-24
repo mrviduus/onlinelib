@@ -163,3 +163,15 @@ It is a foundational trust guarantee between the reader and the platform.
 
 This strategy mirrors the Readest UX approach
 while preserving the architectural flexibility required for TextStack.
+
+---
+
+## See also
+
+- **ADR-011** (Mobile Reader — Progress Tracking Architecture, 2026-05-23) —
+  builds on this ADR's per-chapter persistence to add book-wide progress
+  computation (client-side, no backend changes), Android background-flush
+  semantics (`useFlushOnBackground`), and dual-reader hook architecture
+  (catalog vs user-book sibling hooks). Apply ADR-011 patterns when
+  extending mobile readers; this ADR remains the source of truth for the
+  underlying auto-save cadence.

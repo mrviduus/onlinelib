@@ -1,0 +1,127 @@
+/**
+ * Pure builders for the reading-progress wire payloads.
+ *
+ * Why pure functions and not inline in the hooks: hooks combine refs +
+ * subscriptions + I/O, which is painful to unit-test. The decision of
+ * "what should this PUT body look like, given the current scroll state"
+ * is straightforward arithmetic + null-guard logic — extract it and you
+ * get a function that's a 5-line test instead of a fragile RN hook test.
+ *
+ * Each builder returns `null` when there's nothing meaningful to save
+ * (no bookId / no chapter slug). Callers should skip the I/O in that
+ * case rather than POSTing a half-empty payload.
+ *
+ * Used by:
+ *   - `useUserBookProgress` (mobile)
+ *   - Future: web-reader user-book save flow (when it exists)
+ */
+
+export interface UserBookProgressPayload {
+  percent: number
+  chapterSlug: string
+  locator: string
+}
+
+export interface UserBookProgressInputs {
+  /** Active chapter slug. May come from the WebView's progress message
+   *  (preferred — reflects infinite-scroll position) or the URL param. */
+  currentChapterSlug: string | null | undefined
+  /** Fallback when the WebView hasn't reported its slug yet. */
+  fallbackChapterSlug: string | null | undefined
+  /** Live chapter scroll progress (0..1). */
+  chapterProgress: number
+  /** Live pixel offset for the resume locator. Builder defends against
+   *  NaN/Infinity/negative/null at runtime — TypeScript doesn't see the
+   *  WebView's untyped postMessage JSON boundary. */
+  scrollOffset: number | null | undefined
+}
+
+// Reasonable upper bound for a scroll offset (pixels). Real long-form
+// content tops out a few hundred thousand px on the longest chapters
+// (~3M characters at 16px line-height). 10M is generous headroom; past
+// that we suspect a WebView bug and clamp to avoid emitting a 20+ char
+// integer in the locator (and the surprise it would cause downstream).
+const MAX_SCROLL_OFFSET = 10_000_000
+
+/**
+ * Build the wire payload for `PUT /me/books/{id}/progress`.
+ *
+ * Returns null when no usable chapter slug is available (e.g. the WebView
+ * has mounted but neither it nor the URL has produced a slug yet — rare
+ * but possible during the first few ms of a chapter mount).
+ */
+export function buildUserBookProgressPayload(input: UserBookProgressInputs): UserBookProgressPayload | null {
+  const slug = input.currentChapterSlug || input.fallbackChapterSlug
+  if (!slug) return null
+  const safePercent = clampUnit(input.chapterProgress)
+  const safeOffset = clampScrollOffset(input.scrollOffset)
+  return {
+    percent: safePercent,
+    chapterSlug: slug,
+    locator: `scroll:${slug}:${safeOffset}`,
+  }
+}
+
+/** Clamp scroll offset to [0, MAX_SCROLL_OFFSET]; coerces NaN/Infinity/
+ *  null/undefined/non-number to 0. Defense at the JSON boundary. */
+function clampScrollOffset(n: unknown): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 0
+  if (n <= 0) return 0
+  if (n > MAX_SCROLL_OFFSET) return MAX_SCROLL_OFFSET
+  return Math.round(n)
+}
+
+// --- Locator parser ---------------------------------------------------
+
+export interface ParsedScrollLocator {
+  slug: string
+  offset: number
+}
+
+/**
+ * Inverse of the `scroll:<slug>:<offset>` format produced by
+ * `buildUserBookProgressPayload` (and by the catalog reader's inline
+ * locator emission).
+ *
+ * Why this is non-trivial: chapter slugs are user-controllable on user-
+ * uploaded books (extractor derives them from chapter titles). If a slug
+ * ever contains `:` — even pathologically rare — the naive `split(':')`
+ * approach two callers had inline would split into too many pieces and
+ * lose part of the slug + corrupt the offset. We parse from the RIGHT:
+ * the last `:` separates offset from the slug, regardless of how many
+ * colons the slug itself contains.
+ *
+ * Returns `null` for any malformed input (wrong prefix, missing offset,
+ * negative offset, garbage). Callers should treat null as "start at top
+ * of chapter" — never crash, never restore to a bogus position.
+ *
+ * Lives in `@textstack/shared` so both readers + any future ones share
+ * one parser with one set of tests (was: two inline split-on-colon
+ * implementations that would have to be kept in sync forever).
+ */
+export function parseScrollLocator(locator: string | null | undefined): ParsedScrollLocator | null {
+  if (typeof locator !== 'string') return null
+  const PREFIX = 'scroll:'
+  if (!locator.startsWith(PREFIX)) return null
+  // lastIndexOf finds the offset separator regardless of colons in slug.
+  const lastColon = locator.lastIndexOf(':')
+  if (lastColon < PREFIX.length) return null // no offset segment after prefix
+  const offsetStr = locator.slice(lastColon + 1)
+  // Must be a non-empty integer string. parseInt is lenient ("123abc" →
+  // 123); reject anything that isn't strictly digits to avoid silent
+  // truncation of malformed data.
+  if (offsetStr.length === 0 || !/^\d+$/.test(offsetStr)) return null
+  const offset = parseInt(offsetStr, 10)
+  if (!Number.isFinite(offset) || offset < 0) return null
+  const slug = locator.slice(PREFIX.length, lastColon)
+  if (slug.length === 0) return null
+  return { slug, offset }
+}
+
+/** Clamp to [0, 1]; coerces NaN/Infinity to 0. */
+function clampUnit(n: number): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 0
+  if (n < 0) return 0
+  if (n > 1) return 1
+  return n
+}

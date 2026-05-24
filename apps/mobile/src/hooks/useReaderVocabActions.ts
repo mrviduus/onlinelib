@@ -1,4 +1,4 @@
-import { useCallback, MutableRefObject } from 'react'
+import { useCallback, useEffect, useRef, MutableRefObject } from 'react'
 import { vocabularyApi, translationApi, t } from '@textstack/shared'
 import type { Chapter, VocabularyWordDto, Language } from '@textstack/shared'
 import { trackVocabSaved, trackTranslationUsed } from '../lib/analytics'
@@ -100,8 +100,24 @@ export function useReaderVocabActions({
       .catch(() => {})
   }, [vocabMapRef, injectJs, bumpVocab, setWordSaved, setSessionWordCount, notifyWordSaved, language, nativeLanguage])
 
+  // In-flight guard for manual saves. Mirrors autoSavedRef but persists
+  // across calls within the hook so a rapid double-tap on the toolbar's
+  // Save button can't fire two POSTs. Each entry is removed in finally();
+  // the chapter-change effect below also clears the whole Set as a safety
+  // net so a stuck entry (e.g. abandoned tab on cellular drop) can't
+  // permanently block re-saving that word in a later chapter.
+  const savingRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    savingRef.current.clear()
+  }, [chapter?.id])
+
   const saveWord = useCallback(async (selection: Selection) => {
     if (!isAuthenticated) return
+    const keyLc = selection.text.toLowerCase()
+    // Race guard — wordSaved flag flips only after the response lands, so
+    // taps during the round-trip would otherwise re-POST.
+    if (savingRef.current.has(keyLc)) return
+    savingRef.current.add(keyLc)
     try {
       const resp = await vocabularyApi.saveWord({
         word: selection.text,
@@ -112,6 +128,9 @@ export function useReaderVocabActions({
       })
       if (resp.outcome === 'pending') {
         showToast({ message: t(language, 'reader.vocab.queuedForTomorrow'), variant: 'info' })
+        // Close the toolbar so the user knows the action landed even
+        // though nothing visible changed in the text.
+        setSelection(null)
         return
       }
       if (resp.outcome === 'lookup' || resp.outcome === 'lookup_pending') {
@@ -120,15 +139,27 @@ export function useReaderVocabActions({
         }
         return
       }
-      if (resp.outcome === 'already_saved') return
+      if (resp.outcome === 'already_saved') {
+        // Toolbar would otherwise stay open forever after a re-tap on an
+        // already-saved word — user perceives this as "save broken".
+        setSelection(null)
+        return
+      }
       const saved = resp.word
       if (!saved) return
       onWordSaved(saved, selection.text)
+      // Dismiss the selection toolbar after a successful save — matches
+      // markKnown / removeWord, and mirrors web's behavior (PWA closes the
+      // word popup after save). Previously left the toolbar visible with
+      // wordSaved=true, which read as "stuck".
+      setSelection(null)
     } catch (e) {
       console.warn('Save word failed:', e)
       showToast({ message: 'Could not save word. Try again.', variant: 'error' })
+    } finally {
+      savingRef.current.delete(keyLc)
     }
-  }, [isAuthenticated, language, bookTitleRef, editionIdRef, userBookIdRef, chapter, showToast, setLookupState, onWordSaved])
+  }, [isAuthenticated, language, bookTitleRef, editionIdRef, userBookIdRef, chapter, showToast, setLookupState, setSelection, onWordSaved])
 
   /**
    * F1 anti-spiral: "Add to SRS anyway" on a rare-word notice.
@@ -141,13 +172,16 @@ export function useReaderVocabActions({
       const saved = await vocabularyApi.promoteLookup(lookup.id)
       setLookupState(null)
       onWordSaved(saved, saved.word)
+      // Same fix as saveWord — without this the toolbar lingers after the
+      // rare-word "Add to SRS anyway" flow completes.
+      setSelection(null)
       showToast({ message: t(language, 'reader.vocab.addedToSrs'), variant: 'success' })
     } catch (e) {
       console.warn('Promote lookup failed:', e)
       setLookupState({ ...lookup, busy: false })
       showToast({ message: t(language, 'reader.vocab.addAnywayFailed'), variant: 'error' })
     }
-  }, [setLookupState, onWordSaved, showToast, language])
+  }, [setLookupState, setSelection, onWordSaved, showToast, language])
 
   const markKnown = useCallback(async (selection: Selection) => {
     if (!isAuthenticated) return

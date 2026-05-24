@@ -3,21 +3,17 @@ import { View, Text, StyleSheet } from 'react-native'
 import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { libraryApi, readingProgressApi, userBooksApi, getStorageUrl } from '@textstack/shared'
-import type { UserLibraryItem, ReadingProgressDto, UserBookDto } from '@textstack/shared'
+import { libraryApi, readingProgressApi, userBooksApi, getStorageUrl, pickContinueReadingBook } from '@textstack/shared'
+import type { UserLibraryItem, ReadingProgressDto, UserBookDto, ContinueReadingPick } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
 import { PressableScale } from './ui/PressableScale'
-import { getAllLocalProgress } from '../lib/progressStorage'
-
-type ContinueBook =
-  | { type: 'edition'; slug: string; title: string; coverPath: string | null; percent: number; chapterSlug: string | null }
-  | { type: 'userbook'; id: string; title: string; coverPath: string | null; percent: number; chapterSlug: string | null }
+import { getAllLocalProgress, getAllUserBookLocalProgress } from '../lib/progressStorage'
 
 export function ContinueReadingCard() {
   const { colors } = useTheme()
   const router = useRouter()
-  const [book, setBook] = useState<ContinueBook | null>(null)
+  const [book, setBook] = useState<ContinueReadingPick | null>(null)
 
   // Refetch on focus so the card reflects the latest progress after the user
   // returns from the reader. Plain useEffect would leave stale data on the home tab.
@@ -28,59 +24,26 @@ export function ContinueReadingCard() {
         try {
           // Server calls can 401 or fail when offline — tolerate each independently so a
           // single failure doesn't wipe out the card. Local progress is the offline fallback.
-          const [library, serverProgress, userBooks, localMap] = await Promise.all([
+          const [library, serverProgress, userBooks, localCatalogMap, localUserBookMap] = await Promise.all([
             libraryApi.getLibrary().catch(() => [] as UserLibraryItem[]),
             readingProgressApi.getAllProgress().catch(() => [] as ReadingProgressDto[]),
             userBooksApi.getUserBooks().catch(() => [] as UserBookDto[]),
             getAllLocalProgress(),
+            getAllUserBookLocalProgress(),
           ])
           if (cancelled) return
 
-          const progressMap = new Map<string, ReadingProgressDto>()
-          for (const p of serverProgress) progressMap.set(p.editionId, p)
-
-          let best: ContinueBook | null = null
-          // Normalized to epoch ms so local (Date.now) and server (ISO) comparisons are apples-to-apples.
-          let bestUpdatedAtMs = 0
-
-          // Check library editions. LWW merge: prefer whichever source (server | local) has a
-          // newer updatedAt. Covers the "read offline, server still on stale record" case.
-          for (const item of library) {
-            const server = progressMap.get(item.editionId)
-            const local = localMap.get(item.editionId)
-            const serverMs = server?.updatedAt ? Date.parse(server.updatedAt) : 0
-            const localMs = local?.updatedAt ?? 0
-
-            let percent: number | null = null
-            let chapterSlug: string | null = null
-            let updatedAtMs = 0
-            if (localMs > serverMs && local) {
-              percent = local.percent
-              chapterSlug = local.chapterSlug
-              updatedAtMs = localMs
-            } else if (server && server.percent != null) {
-              percent = server.percent
-              chapterSlug = server.chapterSlug
-              updatedAtMs = serverMs
-            }
-
-            if (percent == null || percent >= 1) continue
-            if (!best || updatedAtMs > bestUpdatedAtMs) {
-              best = { type: 'edition', slug: item.slug, title: item.title, coverPath: item.coverPath, percent, chapterSlug }
-              bestUpdatedAtMs = updatedAtMs
-            }
-          }
-
-          // Check user-uploaded books
-          for (const ub of userBooks) {
-            if (ub.status.toLowerCase() !== 'ready' || !ub.progressPercent || ub.progressPercent >= 1) continue
-            if (!ub.progressUpdatedAt) continue
-            const ubMs = Date.parse(ub.progressUpdatedAt)
-            if (!best || ubMs > bestUpdatedAtMs) {
-              best = { type: 'userbook', id: ub.id, title: ub.title || 'Untitled', coverPath: ub.coverPath, percent: ub.progressPercent, chapterSlug: ub.progressChapterSlug }
-              bestUpdatedAtMs = ubMs
-            }
-          }
+          // LWW merge + book-percent selection lives in @textstack/shared
+          // (`continueReading.ts`) — 23 unit tests cover catalog/user-book
+          // mixes, grace window, malformed timestamps, chapter mismatches.
+          // Component is now adaptor-only.
+          const best = pickContinueReadingBook({
+            library,
+            serverProgress,
+            userBooks,
+            localCatalogMap,
+            localUserBookMap,
+          })
 
           if (!cancelled) setBook(best)
         } catch (e) {
