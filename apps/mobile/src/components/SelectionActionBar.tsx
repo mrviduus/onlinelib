@@ -222,21 +222,13 @@ export function SelectionActionBar({
                 <Ionicons name="checkmark-done" size={20} color="#22c55e" />
               </TouchableOpacity>
             )}
-            {!stage && (
-              <TouchableOpacity
-                style={[styles.btn, wordSaved && { opacity: 0.5 }]}
-                onPress={onSaveWord}
-                disabled={wordSaved}
-                accessibilityRole="button"
-                accessibilityLabel={wordSaved ? 'Word saved' : 'Save word to vocabulary'}
-                accessibilityState={{ disabled: !!wordSaved }}
-              >
-                <Ionicons
-                  name={wordSaved ? 'checkmark-circle' : 'add-circle-outline'}
-                  size={20}
-                  color={wordSaved ? colors.success : colors.text}
-                />
-              </TouchableOpacity>
+            {/* No manual save button — single-word tap auto-saves to vocab
+                (PWA parity). Once the save lands we show a non-interactive
+                ✓ indicator; the stage badge above takes over on next open. */}
+            {!stage && wordSaved && (
+              <View style={styles.btn} accessibilityLabel="Saved to vocabulary">
+                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              </View>
             )}
           </>
         )}

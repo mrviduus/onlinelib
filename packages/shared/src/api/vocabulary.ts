@@ -19,6 +19,9 @@ export function saveWord(data: {
   editionId?: string | null
   chapterId?: string | null
   userBookId?: string | null
+  // Required by the backend (native_language_required → 400). Web's local
+  // client already sends it; shared/mobile must too or every save fails.
+  nativeLanguage?: string | null
 }) {
   return authFetch<SaveWordResponseDto>('/me/vocabulary/words', jsonBody('POST', data))
 }
