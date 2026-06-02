@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
   <RunConfiguration>
-    <!-- LoadTests are opt-in; run via `dotnet test tests/TextStack.LoadTests`. -->
+    <!-- Exclude any opt-in load/perf tests (Category=Load) from the default run. -->
     <TestCaseFilter>Category!=Load</TestCaseFilter>
   </RunConfiguration>
 </RunSettings>
