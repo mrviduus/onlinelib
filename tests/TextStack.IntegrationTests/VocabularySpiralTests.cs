@@ -93,6 +93,10 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
         if (!_auth.IsAuthenticated) return;
         var ct = TestContext.Current.CancellationToken;
 
+        // Frequency filter now defaults OFF (every tap → SRS), so this test must
+        // opt the filter back ON to exercise the LookupOnly classification path.
+        await SetSettingsAsync(dailyCap: 15, weeklyBudget: 70, ct);
+
         // Guid-suffixed word can't exist in the wordfreq dataset — must classify as
         // LookupOnly and land in WordLookup, never in the SRS queue.
         var word = UniqueWord("zzoov");

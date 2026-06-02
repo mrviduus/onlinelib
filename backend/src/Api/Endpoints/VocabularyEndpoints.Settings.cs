@@ -30,7 +30,7 @@ public static partial class VocabularyEndpoints
         return Results.Ok(new VocabSettingsDto(
             DailyNewCap: settings?.DailyNewCap ?? 15,
             WeeklyReviewBudget: settings?.WeeklyReviewBudget ?? 70,
-            FrequencyFilterEnabled: settings?.FrequencyFilterEnabled ?? true,
+            FrequencyFilterEnabled: settings?.FrequencyFilterEnabled ?? false,
             ClusteringEnabled: settings?.ClusteringEnabled ?? true,
             AutoRetireEnabled: settings?.AutoRetireEnabled ?? true));
     }

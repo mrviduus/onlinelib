@@ -135,10 +135,13 @@ public static partial class VocabularyEndpoints
         // Anti-spiral F1: frequency gate. Rare/OOV words go to WordLookup and
         // never touch SRS. Mid-tier words need 2 taps before joining SRS. The
         // user's FrequencyFilterEnabled setting lets them opt out entirely.
+        // Default OFF when the user has no settings row — matches the entity
+        // default. Every tapped word goes straight to SRS unless the user has
+        // explicitly turned the frequency filter back on.
         var filterEnabled = await db.UserVocabularySettings
             .Where(s => s.UserId == userId && s.SiteId == siteId)
             .Select(s => (bool?)s.FrequencyFilterEnabled)
-            .FirstOrDefaultAsync(ct) ?? true;
+            .FirstOrDefaultAsync(ct) ?? false;
 
         // Query unconditionally so a user who flips the filter off doesn't leave
         // orphan lookups behind when the same word is next saved to SRS.

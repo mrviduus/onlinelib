@@ -16,7 +16,11 @@ public record DailyCapStatus(int Used, int Cap, int Remaining);
 
 public class DailyCapService(IAppDbContext db)
 {
-    public const int DefaultDailyCap = 15;
+    // Default = the per-user vocabulary ceiling (5000), i.e. effectively no
+    // daily limit: every tapped word enters SRS immediately and you only ever
+    // hit the absolute MaxWordsPerUser gate. Users can still opt into a real
+    // daily cap (5–100) via vocab settings.
+    public const int DefaultDailyCap = 5000;
 
     public async Task<DailyCapStatus> GetStatusAsync(Guid userId, Guid siteId, CancellationToken ct)
     {

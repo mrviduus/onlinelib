@@ -8,7 +8,9 @@ public class UserVocabularySettings
     public int DailyNewCap { get; set; } = 15;
     public int WeeklyReviewBudget { get; set; } = 70;
 
-    public bool FrequencyFilterEnabled { get; set; } = true;
+    // Default OFF: every tapped word goes straight to SRS (+ underline), no
+    // frequency gating. Users can opt back in via vocab settings.
+    public bool FrequencyFilterEnabled { get; set; } = false;
     public bool ClusteringEnabled { get; set; } = true;
     public bool AutoRetireEnabled { get; set; } = true;
 
