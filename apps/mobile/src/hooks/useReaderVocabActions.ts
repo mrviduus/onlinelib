@@ -122,6 +122,7 @@ export function useReaderVocabActions({
       const resp = await vocabularyApi.saveWord({
         word: selection.text,
         language,
+        nativeLanguage,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
         ...bookFields(),
@@ -220,6 +221,7 @@ export function useReaderVocabActions({
       const resp = await vocabularyApi.saveWord({
         word: selection.text,
         language,
+        nativeLanguage,
         sentence: selection.sentence || null,
         bookTitle: bookTitleRef.current || null,
         ...bookFields(),
