@@ -42,10 +42,12 @@ public class DailyCapServiceTests
     }
 
     [Fact]
-    public void DefaultDailyCap_Is15()
+    public void DefaultDailyCap_EqualsVocabularyCeiling_NoEffectiveDailyLimit()
     {
-        // Anti-spiral plan default. If this changes, update shared TS constant
-        // and the UserVocabularySettings default too.
-        Assert.Equal(15, DailyCapService.DefaultDailyCap);
+        // Daily cap is now opt-in: with no settings row the enforcement default
+        // equals the per-user vocabulary ceiling (5000), so the daily gate never
+        // binds before MaxWordsPerUser. The settings modal still SUGGESTS 15
+        // (shared TS DEFAULT_DAILY_CAP) for users who choose to opt into a cap.
+        Assert.Equal(5000, DailyCapService.DefaultDailyCap);
     }
 }
