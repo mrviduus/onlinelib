@@ -30,9 +30,6 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     // without guessing which English words are in top-5k.
     private const string SrsLang = "de";
 
-    private static bool ShouldSkip(HttpResponseMessage r) =>
-        r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError;
-
     private string UniqueWord(string prefix) => $"{prefix}{Guid.NewGuid():N}"[..16];
 
     private async Task<HttpResponseMessage> SaveWordAsync(string word, string language, CancellationToken ct)
@@ -90,7 +87,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task SaveWord_OovEnglishWord_ReturnsLookupOutcome()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         // Frequency filter now defaults OFF (every tap → SRS), so this test must
@@ -101,7 +98,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
         // LookupOnly and land in WordLookup, never in the SRS queue.
         var word = UniqueWord("zzoov");
         var resp = await SaveWordAsync(word, "en", ct);
-        if (ShouldSkip(resp)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -116,7 +113,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task SaveWord_OverDailyCap_GoesToPending()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         // Cap floor is 5, so fill the cap with N unique SRS-eligible saves then expect
@@ -131,7 +128,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             for (var i = 0; i < MinDailyCap; i++)
             {
                 var r = await SaveWordAsync(UniqueWord($"zzfill{i}"), SrsLang, ct);
-                if (ShouldSkip(r)) return;
+                Assert.SkipWhen(IntegrationSkip.Unavailable(r), "endpoint unavailable (404/500)");
                 r.EnsureSuccessStatusCode();
                 var j = await r.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
                 if (j.GetProperty("outcome").GetString() == "srs")
@@ -139,7 +136,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             }
 
             var resp = await SaveWordAsync(UniqueWord("zzcap"), SrsLang, ct);
-            if (ShouldSkip(resp)) return;
+            Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -158,7 +155,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task GetReviewQueue_ReflectsWeeklyBudgetSetting_AndClampsCards()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         // Floor the budget so we can assert the queue is clamped. Can't set to 0
@@ -167,7 +164,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
         try
         {
             var resp = await _auth.Client.SendAsync(_auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/review"), ct);
-            if (ShouldSkip(resp)) return;
+            Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -191,7 +188,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task PromoteLookup_BypassesDailyCap_CreatesSrsWord()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         // Floor the cap; then fill it so the very next SrsEligible save would be
@@ -207,7 +204,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             for (var i = 0; i < MinDailyCap; i++)
             {
                 var r = await SaveWordAsync(UniqueWord($"zzfiller{i}"), SrsLang, ct);
-                if (ShouldSkip(r)) return;
+                Assert.SkipWhen(IntegrationSkip.Unavailable(r), "endpoint unavailable (404/500)");
                 r.EnsureSuccessStatusCode();
                 var j = await r.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
                 if (j.GetProperty("outcome").GetString() == "srs")
@@ -216,7 +213,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
 
             // Seed a rare word → WordLookup
             var saveResp = await SaveWordAsync(UniqueWord("zzrare"), "en", ct);
-            if (ShouldSkip(saveResp)) return;
+            Assert.SkipWhen(IntegrationSkip.Unavailable(saveResp), "endpoint unavailable (404/500)");
             saveResp.EnsureSuccessStatusCode();
             var saveBody = await saveResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
             Assert.Equal("lookup", saveBody.GetProperty("outcome").GetString());
@@ -242,7 +239,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task PromotePending_CreatesSrsWord()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         await SetSettingsAsync(dailyCap: MinDailyCap, weeklyBudget: 70, ct);
@@ -257,7 +254,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             for (var i = 0; i < MinDailyCap; i++)
             {
                 var r = await SaveWordAsync(UniqueWord($"zzpfill{i}"), SrsLang, ct);
-                if (ShouldSkip(r)) return;
+                Assert.SkipWhen(IntegrationSkip.Unavailable(r), "endpoint unavailable (404/500)");
                 r.EnsureSuccessStatusCode();
                 var j = await r.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
                 if (j.GetProperty("outcome").GetString() == "srs")
@@ -265,7 +262,7 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
             }
 
             var saveResp = await SaveWordAsync(UniqueWord("zzpend"), SrsLang, ct);
-            if (ShouldSkip(saveResp)) return;
+            Assert.SkipWhen(IntegrationSkip.Unavailable(saveResp), "endpoint unavailable (404/500)");
             saveResp.EnsureSuccessStatusCode();
             var saveBody = await saveResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
             Assert.Equal("pending", saveBody.GetProperty("outcome").GetString());
@@ -304,11 +301,11 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task GetLookups_ReturnsListShape()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         var resp = await _auth.Client.SendAsync(_auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/lookups"), ct);
-        if (ShouldSkip(resp)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -320,11 +317,11 @@ public class VocabularySpiralTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task GetStats_IncludesLookupCount()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         var resp = await _auth.Client.SendAsync(_auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/stats"), ct);
-        if (ShouldSkip(resp)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);

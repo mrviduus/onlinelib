@@ -39,7 +39,7 @@ public class UserBookEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtur
     [Fact]
     public async Task GetUserBooks_Authenticated_Returns200()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/books");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -49,12 +49,12 @@ public class UserBookEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtur
     [Fact]
     public async Task GetUserBooks_ResponseShape_HasNewMetadataFields()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/books");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (response.StatusCode != HttpStatusCode.OK) return;
+        Assert.SkipWhen(response.StatusCode != HttpStatusCode.OK, "list endpoint unavailable");
 
         var books = await response.Content.ReadFromJsonAsync<UserBookListItem[]>(
             cancellationToken: TestContext.Current.CancellationToken);
@@ -77,7 +77,7 @@ public class UserBookEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtur
     [Fact]
     public async Task GetUserBookQuota_Authenticated_Returns200()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/books/quota");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
@@ -96,7 +96,7 @@ public class UserBookEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtur
     [Fact]
     public async Task GetUserBook_NonExistent_Returns404()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         var request = _auth.CreateRequest(HttpMethod.Get, $"/me/books/{Guid.NewGuid()}");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
