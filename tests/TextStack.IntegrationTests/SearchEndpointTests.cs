@@ -17,9 +17,6 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
     }
 
     // Skip if site not configured (CI empty DB)
-    private static bool ShouldSkip(HttpResponseMessage r) =>
-        r.StatusCode == HttpStatusCode.NotFound || r.StatusCode == HttpStatusCode.InternalServerError;
-
     #region Search Endpoint
 
     [Fact]
@@ -28,7 +25,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -38,7 +35,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=author");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -48,7 +45,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=a");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -58,7 +55,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -68,7 +65,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test&highlight=true");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -78,7 +75,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=test&limit=10&offset=0");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -92,7 +89,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search/suggest?q=the");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -102,7 +99,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search/suggest?q=a");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Equal("[]", content);
@@ -118,7 +115,7 @@ public class SearchEndpointTests : IClassFixture<LiveApiFixture>
         var request = _fixture.CreateRequest(HttpMethod.Get, "/search?q=book");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
 
         var result = await response.Content.ReadFromJsonAsync<SearchResponse>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(result);

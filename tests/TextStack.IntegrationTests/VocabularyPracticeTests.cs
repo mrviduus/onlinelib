@@ -24,9 +24,6 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
 
     private const string SrsLang = "de";
 
-    private static bool ShouldSkip(HttpResponseMessage r) =>
-        r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError;
-
     private string UniqueWord(string prefix) => $"{prefix}{Guid.NewGuid():N}"[..16];
 
     private async Task<HttpResponseMessage> SaveWordAsync(string word, string language, CancellationToken ct)
@@ -58,12 +55,12 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task GetReviewQueue_PracticeFlag_ReturnsNullWeeklyProgress()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         var resp = await _auth.Client.SendAsync(
             _auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/review?practice=true"), ct);
-        if (ShouldSkip(resp)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(resp), "endpoint unavailable (404/500)");
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -76,15 +73,15 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task SubmitReview_PracticeMode_DoesNotMutateSrsState()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         // Need a real SRS-eligible word. "de" bypasses the EN frequency filter.
         var save = await SaveWordAsync(UniqueWord("zzpract"), SrsLang, ct);
-        if (ShouldSkip(save)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(save), "endpoint unavailable (404/500)");
         save.EnsureSuccessStatusCode();
         var saveBody = await save.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        if (saveBody.GetProperty("outcome").GetString() != "srs") return; // pending/lookup — skip
+        Assert.SkipWhen(saveBody.GetProperty("outcome").GetString() != "srs", "word not SRS-eligible (pending/lookup)");
         var wordId = saveBody.GetProperty("word").GetProperty("id").GetString()!;
 
         try
@@ -105,7 +102,7 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
                 isPractice = true,
             });
             var submitResp = await _auth.Client.SendAsync(submit, ct);
-            if (ShouldSkip(submitResp)) return;
+            Assert.SkipWhen(IntegrationSkip.Unavailable(submitResp), "endpoint unavailable (404/500)");
             submitResp.EnsureSuccessStatusCode();
 
             // Backend response echoes "no movement" — same stage in/out, same interval.
@@ -132,14 +129,14 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
     [Fact]
     public async Task SubmitReview_PracticeMode_DoesNotConsumeWeeklyBudget()
     {
-        if (!_auth.IsAuthenticated) return;
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
         var ct = TestContext.Current.CancellationToken;
 
         var save = await SaveWordAsync(UniqueWord("zzbud"), SrsLang, ct);
-        if (ShouldSkip(save)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(save), "endpoint unavailable (404/500)");
         save.EnsureSuccessStatusCode();
         var saveBody = await save.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        if (saveBody.GetProperty("outcome").GetString() != "srs") return;
+        Assert.SkipWhen(saveBody.GetProperty("outcome").GetString() != "srs", "word not SRS-eligible (pending/lookup)");
         var wordId = saveBody.GetProperty("word").GetProperty("id").GetString()!;
 
         try
@@ -162,7 +159,7 @@ public class VocabularyPracticeTests : IClassFixture<AuthenticatedApiFixture>
                     isPractice = true,
                 });
                 var submitResp = await _auth.Client.SendAsync(submit, ct);
-                if (ShouldSkip(submitResp)) return;
+                Assert.SkipWhen(IntegrationSkip.Unavailable(submitResp), "endpoint unavailable (404/500)");
                 submitResp.EnsureSuccessStatusCode();
             }
 

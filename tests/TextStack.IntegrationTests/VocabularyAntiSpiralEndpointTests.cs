@@ -22,9 +22,6 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
         _auth = auth;
     }
 
-    private static bool ShouldSkip(HttpResponseMessage r) =>
-        r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError;
-
     #region Unauthenticated → 401
 
     [Fact]
@@ -61,7 +58,8 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
     {
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/settings");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
-        if (ShouldSkip(response) || !_auth.IsAuthenticated) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -77,7 +75,8 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
     {
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/review");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
-        if (ShouldSkip(response) || !_auth.IsAuthenticated) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -93,7 +92,8 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
     {
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/vocabulary/stats");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
-        if (ShouldSkip(response) || !_auth.IsAuthenticated) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -109,7 +109,8 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
         var request = _auth.CreateRequest(HttpMethod.Put, "/me/vocabulary/settings");
         request.Content = JsonContent.Create(payload);
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
-        if (ShouldSkip(response) || !_auth.IsAuthenticated) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -129,7 +130,8 @@ public class VocabularyAntiSpiralEndpointTests : IClassFixture<LiveApiFixture>, 
     {
         var request = _auth.CreateRequest(HttpMethod.Post, $"/me/vocabulary/words/{Guid.NewGuid()}/unretire");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
-        if (ShouldSkip(response) || !_auth.IsAuthenticated) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

@@ -14,9 +14,6 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         _auth = auth;
     }
 
-    private static bool ShouldSkip(HttpResponseMessage r) =>
-        r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.InternalServerError;
-
     #region Unauthenticated
 
     [Fact]
@@ -37,7 +34,7 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/reading/book-stats");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var stats = await response.Content.ReadFromJsonAsync<BookStatsResponse>(cancellationToken: TestContext.Current.CancellationToken);
@@ -59,7 +56,7 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/reading/book-stats?year=2025");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -69,7 +66,7 @@ public class BookStatsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixtu
         var request = _auth.CreateRequest(HttpMethod.Get, "/me/reading/book-stats");
         var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        if (ShouldSkip(response)) return;
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
 
         var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         // Verify all expected fields are present in JSON
