@@ -35,15 +35,20 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        style={styles.overlay}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close reader settings"
-      >
-        <Pressable style={[styles.drawer, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        {/* Backdrop tap-to-close in its own absolute layer — must NOT wrap the
+            drawer/ScrollView. A Pressable ancestor steals the scroll gesture on
+            iOS, which made the settings list unscrollable (couldn't reach
+            Inline Translations / Reading Stats). */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close reader settings"
+        />
+        <View style={[styles.drawer, { backgroundColor: colors.background }]}>
           <View style={styles.handle} />
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Reading Settings</Text>
               <TouchableOpacity
@@ -217,8 +222,8 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               />
             </View>
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   )
 }
