@@ -1,5 +1,6 @@
 # TextStack
 
+[![Live — textstack.app](https://img.shields.io/badge/Live-textstack.app-2ea44f?logo=googlechrome&logoColor=white)](https://textstack.app)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
@@ -16,7 +17,11 @@
 </p>
 
 <p align="center">
-  <a href="https://textstack.app">textstack.app</a> ·
+  <a href="https://textstack.app"><img src="https://img.shields.io/badge/▶%20Open%20TextStack-textstack.app-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Open TextStack — read books in English with native-language translation"></a>
+</p>
+
+<p align="center">
+  <b><a href="https://textstack.app">TextStack — read books in English with translation</a></b> ·
   <a href="https://dev.to/mrviduus/i-quit-designing-data-intensive-applications-ddia-three-times-heres-what-i-build-on-the-fourth-5bom">Why I built it</a> ·
   <a href="https://twitter.com/Rexetdeus">@Rexetdeus</a>
 </p>
