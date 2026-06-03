@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { vocabularyApi, translationApi } from '@textstack/shared'
+import { vocabularyApi } from '@textstack/shared'
 import { vocabMapCache } from '../lib/readerOfflineCache'
+import { cachedTranslate } from '../lib/translateCache'
 
 export type VocabMapEntry = { stage: number; id: string; translation?: string }
 export type VocabMap = Record<string, VocabMapEntry>
@@ -112,20 +113,22 @@ export function useReaderVocabMap({
       for (const { key, id } of missing) {
         if (cancelled) return
         try {
-          const res = await translationApi.translate(key, bookLanguage, nativeLanguage)
-          const translation = res.translatedText
+          // cachedTranslate de-dupes against the toolbar/save path and
+          // memoizes, so re-opening the chapter is free.
+          const translation = await cachedTranslate(key, bookLanguage, nativeLanguage)
           if (!translation) continue
           vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation }
           // Persist server-side so re-opens skip the round-trip.
           vocabularyApi.updateWord(id, { translation }).catch(() => {})
+          // Progressive paint: each gloss appears the moment its word
+          // resolves, instead of all-at-once after the whole loop (which on
+          // a page of N missing words felt like "glosses never show"). The
+          // 100ms-debounced paint effect coalesces bursts.
+          if (!cancelled) bumpVocab()
         } catch {
           // Skip a single word's failure — keep going.
         }
       }
-      if (cancelled) return
-      // Single re-paint at the end coalesces N translation results into
-      // one markVocabWords injection (vs flickering per-word).
-      bumpVocab()
     })()
     return () => { cancelled = true }
   }, [isAuthenticated, chapterId, bookLanguage, nativeLanguage, vocabVersion, bumpVocab])

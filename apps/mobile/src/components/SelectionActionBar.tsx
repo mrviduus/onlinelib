@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
-import { translationApi } from '@textstack/shared'
+import { cachedTranslate, peekTranslation } from '../lib/translateCache'
 import { useTheme } from '../context/ThemeContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { fonts } from '../theme/typography'
@@ -98,20 +98,20 @@ export function SelectionActionBar({
       setTranslating(false)
       return
     }
+    // Instant render on a cache hit (re-tap of a seen word) — no spinner.
+    const cached = peekTranslation(selectedText, fromLang, toLang)
+    if (cached !== undefined) {
+      setTranslation(cached)
+      setTranslating(false)
+      return
+    }
     let cancelled = false
     setTranslation('')
     setTranslating(true)
-    translationApi.translate(selectedText, fromLang, toLang)
-      .then((res: { translatedText?: string; translation?: string }) => {
-        if (cancelled) return
-        setTranslation(res.translatedText || res.translation || '')
-      })
-      .catch(() => {
-        if (!cancelled) setTranslation('')
-      })
-      .finally(() => {
-        if (!cancelled) setTranslating(false)
-      })
+    cachedTranslate(selectedText, fromLang, toLang)
+      .then((t) => { if (!cancelled) setTranslation(t) })
+      .catch(() => { if (!cancelled) setTranslation('') })
+      .finally(() => { if (!cancelled) setTranslating(false) })
     return () => { cancelled = true }
   }, [selectedText, isMultiWord, fromLang, toLang, isSameLang])
 
