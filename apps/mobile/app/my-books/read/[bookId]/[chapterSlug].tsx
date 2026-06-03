@@ -437,12 +437,9 @@ export default function UserBookReaderScreen() {
         const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
         const nextId = openSelection(data.text ? { ...data, mode } : null)
         if (nextId !== null && !data.text.includes(' ')) {
-          // Auto-TTS + auto-save on single-word tap, mirrors public reader.
+          // Single-word tap = "peek": auto-TTS + translation only. Saving is an
+          // explicit tap now (no auto-save), mirrors public reader.
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-          void vocabActions.autoSaveWord(
-            { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
-            autoSavedRef,
-          )
         }
       }
     } catch (err) {
@@ -458,6 +455,11 @@ export default function UserBookReaderScreen() {
   const handleMarkKnown = () => {
     if (!selection) return
     void vocabActions.markKnown(selection)
+  }
+
+  const handleRemoveWord = () => {
+    if (!selection) return
+    void vocabActions.removeWord(selection)
   }
 
   const handleHighlight = async (color: string) => {
@@ -627,6 +629,7 @@ export default function UserBookReaderScreen() {
             onHighlight={handleHighlight}
             highlightColor={settings.lastHighlightColor}
             onMarkKnown={handleMarkKnown}
+            onRemove={handleRemoveWord}
             isSpeaking={isSpeaking}
             wordSaved={wordSaved}
             vocabStage={selection ? (vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null) : null}

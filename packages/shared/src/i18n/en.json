@@ -517,7 +517,7 @@
     "toastWordAddedCount": "Added · {count} this session",
     "toastTapToReview": "Tap to review",
     "coachmarkTitle": "Tap any word",
-    "coachmarkSubtitle": "Tap a word to save it to your vocabulary.",
+    "coachmarkSubtitle": "Tap a word to see its translation, then tap Save to add it to your vocabulary.",
     "coachmarkDismiss": "Got it",
     "vocab": {
       "queuedForTomorrow": "Daily cap reached — queued for tomorrow",

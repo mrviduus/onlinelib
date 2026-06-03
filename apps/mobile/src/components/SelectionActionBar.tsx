@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
-import { cachedTranslate, peekTranslation } from '../lib/translateCache'
+import { cachedTranslate, peekTranslation, type SaveCategory } from '../lib/translateCache'
 import { useTheme } from '../context/ThemeContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
 import { fonts } from '../theme/typography'
@@ -39,6 +39,8 @@ interface SelectionActionBarProps {
    *  fill. Tapping commits this color; change via HighlightNoteModal after. */
   highlightColor?: HighlightColorKey
   onMarkKnown?: () => void
+  /** Remove the word from vocabulary — lets the user undo an accidental save. */
+  onRemove?: () => void
   isSpeaking?: boolean
   wordSaved?: boolean
   vocabStage?: number | null
@@ -76,6 +78,7 @@ export function SelectionActionBar({
   onHighlight,
   highlightColor = 'yellow',
   onMarkKnown,
+  onRemove,
   isSpeaking,
   wordSaved,
   vocabStage,
@@ -92,24 +95,29 @@ export function SelectionActionBar({
   // user re-taps mid-fetch.
   const [translation, setTranslation] = useState('')
   const [translating, setTranslating] = useState(false)
+  // Backend frequency hint for the tapped word — drives Save-button emphasis.
+  const [category, setCategory] = useState<SaveCategory | undefined>(undefined)
   useEffect(() => {
     if (isMultiWord || !selectedText || isSameLang) {
       setTranslation('')
       setTranslating(false)
+      setCategory(undefined)
       return
     }
     // Instant render on a cache hit (re-tap of a seen word) — no spinner.
     const cached = peekTranslation(selectedText, fromLang, toLang)
     if (cached !== undefined) {
-      setTranslation(cached)
+      setTranslation(cached.translation)
+      setCategory(cached.category)
       setTranslating(false)
       return
     }
     let cancelled = false
     setTranslation('')
+    setCategory(undefined)
     setTranslating(true)
     cachedTranslate(selectedText, fromLang, toLang)
-      .then((t) => { if (!cancelled) setTranslation(t) })
+      .then((r) => { if (!cancelled) { setTranslation(r.translation); setCategory(r.category) } })
       .catch(() => { if (!cancelled) setTranslation('') })
       .finally(() => { if (!cancelled) setTranslating(false) })
     return () => { cancelled = true }
@@ -222,13 +230,40 @@ export function SelectionActionBar({
                 <Ionicons name="checkmark-done" size={20} color="#22c55e" />
               </TouchableOpacity>
             )}
-            {/* No manual save button — single-word tap auto-saves to vocab
-                (PWA parity). Once the save lands we show a non-interactive
-                ✓ indicator; the stage badge above takes over on next open. */}
+            {/* Transient ✓ right after a save lands (before the stage badge
+                takes over on next render). */}
             {!stage && wordSaved && (
               <View style={styles.btn} accessibilityLabel="Saved to vocabulary">
                 <Ionicons name="checkmark-circle" size={20} color={colors.success} />
               </View>
+            )}
+            {/* Manual save — tap = look, this commits. Tint is a frequency
+                RECOMMENDATION (learnable/rare = accent, common = muted), never
+                a gate: any word can still be saved. */}
+            {!stage && !wordSaved && onSaveWord && (
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={onSaveWord}
+                accessibilityRole="button"
+                accessibilityLabel={category === 'rare' ? 'Save word to vocabulary (rare word)' : 'Save word to vocabulary'}
+              >
+                <Ionicons
+                  name="add-circle"
+                  size={24}
+                  color={category === 'common' ? colors.textSecondary : (category ? colors.success : colors.text)}
+                />
+              </TouchableOpacity>
+            )}
+            {/* Remove — undo an accidental save. */}
+            {(stage || wordSaved) && onRemove && (
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={onRemove}
+                accessibilityRole="button"
+                accessibilityLabel="Remove word from vocabulary"
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             )}
           </>
         )}
