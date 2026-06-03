@@ -115,7 +115,7 @@ export function useReaderVocabMap({
         try {
           // cachedTranslate de-dupes against the toolbar/save path and
           // memoizes, so re-opening the chapter is free.
-          const translation = await cachedTranslate(key, bookLanguage, nativeLanguage)
+          const { translation } = await cachedTranslate(key, bookLanguage, nativeLanguage)
           if (!translation) continue
           vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation }
           // Persist server-side so re-opens skip the round-trip.

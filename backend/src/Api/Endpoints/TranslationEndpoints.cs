@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Application.Common.Interfaces;
+using Application.Vocabulary;
 using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,7 @@ public static class TranslationEndpoints
         IConfiguration config,
         ILlmServiceFactory llmFactory,
         IAppDbContext db,
+        IFrequencyFilter freqFilter,
         ILogger<Program> logger,
         CancellationToken ct)
     {
@@ -54,6 +56,31 @@ public static class TranslationEndpoints
 
         var srcLang = request.SourceLang.Split('-')[0];
         var tgtLang = request.TargetLang.Split('-')[0];
+
+        // Peek-time "save recommendation" hint for the reader toolbar: classify a
+        // single word by frequency so the client can emphasize Save for words worth
+        // learning and de-emphasize ones the reader already knows. Dataset is
+        // en-only, so only hint for English source; null = no recommendation.
+        // This does NOT gate saving — manual save always commits.
+        string? category = null;
+        var trimmedText = request.Text.Trim();
+        if (srcLang == "en" && trimmedText.Length > 0 && !trimmedText.Contains(' '))
+        {
+            try
+            {
+                var cls = await freqFilter.ClassifyAsync(trimmedText.ToLowerInvariant(), srcLang, 0, ct);
+                category = cls.Kind switch
+                {
+                    FrequencyClassKind.SrsEligible => "common",      // top ~5k — likely known
+                    FrequencyClassKind.RequiresRetap => "learnable", // mid-tier — worth learning
+                    _ => "rare",                                     // rare / OOV / proper noun
+                };
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Translate frequency-classify failed; no save hint");
+            }
+        }
 
         // Resolve genre from request → Editions (catalog book) → UserBooks (user
         // upload). Mirrors ExplainEndpoints. Fail-soft: a lookup error logs and
@@ -96,7 +123,9 @@ public static class TranslationEndpoints
                     var cached = await File.ReadAllTextAsync(cacheFile, ct);
                     var cachedResp = JsonSerializer.Deserialize<TranslateResponse>(cached);
                     if (cachedResp != null && !string.IsNullOrWhiteSpace(cachedResp.TranslatedText))
-                        return Results.Ok(cachedResp);
+                        // Re-attach a fresh category — it's word-only (cache key
+                        // also varies by sentence/genre, so don't trust the stored one).
+                        return Results.Ok(cachedResp with { Category = category });
                 }
             }
         }
@@ -119,7 +148,7 @@ public static class TranslationEndpoints
             if (string.IsNullOrWhiteSpace(translated))
                 return Results.Problem("Translation returned empty result", statusCode: 502);
 
-            var resp = new TranslateResponse(translated, request.SourceLang, request.TargetLang);
+            var resp = new TranslateResponse(translated, request.SourceLang, request.TargetLang, category);
 
             try
             {
@@ -240,7 +269,10 @@ public record TranslateRequest(
 public record TranslateResponse(
     string TranslatedText,
     string SourceLang,
-    string TargetLang
+    string TargetLang,
+    // Frequency "save recommendation" for a single word: "common" | "learnable" |
+    // "rare" | null (phrase / non-en / unknown). Informational only — never gates save.
+    string? Category = null
 );
 
 public record LanguageInfo(string Code, string Name);

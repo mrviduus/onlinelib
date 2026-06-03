@@ -301,13 +301,11 @@ export default function ReaderScreen() {
         // Default to 'drag' for any legacy payload that doesn't include mode.
         const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
         const nextId = openSelection(data.text ? { ...data, mode } : null)
-        // Single word: auto-TTS + auto-save to vocabulary (matches web behavior)
+        // Single-word tap = "peek": auto-TTS + show translation only. Saving is
+        // now an explicit tap on the Save button (no auto-save) so a word looked
+        // up by accident isn't added to vocabulary.
         if (nextId !== null && !data.text.includes(' ')) {
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-          vocabActions.autoSaveWord(
-            { text: data.text, sentence: data.sentence || '', anchor: data.anchor || null, selectionId: nextId },
-            autoSavedRef,
-          )
         }
       }
     } catch (err) {
@@ -640,6 +638,7 @@ export default function ReaderScreen() {
             onHighlight={handleHighlight}
             highlightColor={settings.lastHighlightColor}
             onMarkKnown={handleMarkKnown}
+            onRemove={handleRemoveWord}
             isSpeaking={isSpeaking}
             wordSaved={wordSaved}
             vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
