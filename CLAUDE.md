@@ -116,6 +116,14 @@ API → Application → Domain ← Infrastructure
 - **Infrastructure**: EF Core (snake_case naming), storage implementations
 - **API/Worker**: Orchestration, DI
 
+**Backend class libraries** (`backend/src/`, beyond the layers above): `Extraction` (EPUB/PDF/FB2 parsers), `Search` (FTS providers), `Tts` (Edge TTS), `Vocabulary` (DistractorGenerator), `Epub` (`TextStack.Epub` — EPUB *builder*: `EpubBuilder`, `HtmlToXhtmlConverter`, used by export).
+
+### Shared Frontend Packages (`packages/`)
+
+Cross-platform TS code shared by **both** web and mobile, consumed via source path-aliases (NOT published / built) — `apps/web` resolves them in `vite.config.ts` + `tsconfig.json`; mobile via its bundler config.
+- **`@textstack/shared`** (`packages/shared/src/`) — the canonical home for platform-agnostic logic: `api/` (client), `types/api`, `i18n/`, `text/sentences`, `anon/`, `reader/` (bookProgress, progressPayload, continueReading), `vocabLevel`, `vocabularyConstants`, `lib/pathPrefix`. Edit here, not in app copies, when changing logic both clients need.
+- **`@textstack/reader-overlay`** (`packages/reader-overlay/src/`) — DOM overlay engine for the reader (`readerOverlay`, `textWalker`, `mobileBootstrap`). Powers highlight/vocab/search overlay layers in `apps/web/src/components/reader/`.
+
 **Middleware pipeline** (order matters): `ForwardedHeaders` → `Cors` → `RateLimiter` → `ExceptionMiddleware` → `StaticFiles(/storage)` → `/health` → `SiteContext` → `LanguageContext` → `GuestActivity` (LastActiveAt debounce hourly) → `Routing` → `AdminAuth` (conditional on `/admin/*`)
 
 **Site resolution**: Single-site now (ADR-007). `SiteContextMiddleware` still resolves host → SiteId. Dev mode: `?site=` query param override.
@@ -384,6 +392,7 @@ tests/
 ├── TextStack.IntegrationTests/    # API tests against running server (LiveApiFixture → localhost:8080, override via API_URL env)
 ├── TextStack.Extraction.Tests/    # Book parsing (EPUB/PDF/FB2)
 ├── TextStack.Search.Tests/        # Search logic
+├── TextStack.LoadTests/           # Load tests — auto-skipped by .runsettings on `dotnet test`
 apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin projects) — 11 specs
 apps/mobile/e2e/                   # Mobile Playwright E2E — 16 specs
 ```
