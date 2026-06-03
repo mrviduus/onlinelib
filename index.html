@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TextStack — finish the dense books you keep quitting</title>
+  <meta name="description" content="TextStack is a reader for hard English books. Tap any term for a 2–3 sentence explanation that knows the book's domain, plus inline translation and a vocabulary trainer. Read on the web or the mobile app.">
+  <meta name="theme-color" content="#c2683f">
+  <!-- Canonical points to the real app: consolidates SEO signal, avoids duplicate-content competition. -->
+  <link rel="canonical" href="https://textstack.app/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TextStack">
+  <meta property="og:title" content="TextStack — finish the dense books you keep quitting">
+  <meta property="og:description" content="Tap any term for a 2–3 sentence explanation that knows the book's domain. A modern Word Wise for technical reading — web + mobile.">
+  <meta property="og:url" content="https://textstack.app/">
+  <meta property="og:image" content="https://textstack.app/og-image.png">
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TextStack — finish the dense books you keep quitting">
+  <meta name="twitter:description" content="A reader that explains any term in the book's own domain, in your language. Web + mobile.">
+  <meta name="twitter:image" content="https://textstack.app/og-image.png">
+  <meta name="twitter:creator" content="@Rexetdeus">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --paper:#f6efe4;
+      --paper-2:#efe6d6;
+      --ink:#2a231d;
+      --ink-soft:#6c5d4e;
+      --line:#e0d4c0;
+      --accent:#c2683f;
+      --accent-deep:#a8522c;
+      --accent-soft:#e8c7b2;
+      --shadow:24px 24px 0 rgba(42,35,29,.06);
+      --maxw:1080px;
+      --serif:"Fraunces",Georgia,serif;
+      --read:"Newsreader",Georgia,serif;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      background:var(--paper);
+      color:var(--ink);
+      font-family:var(--read);
+      font-size:19px;
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      /* subtle paper grain */
+      background-image:radial-gradient(rgba(42,35,29,.035) 1px,transparent 1px);
+      background-size:4px 4px;
+    }
+    a{color:var(--accent-deep);text-underline-offset:3px;text-decoration-thickness:1px}
+    a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:4px}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+    h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.02em;line-height:1.05;color:var(--ink)}
+
+    /* ---- top bar ---- */
+    header{padding:26px 0}
+    .bar{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{font-family:var(--serif);font-weight:800;font-size:22px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
+    .brand .mark{width:26px;height:26px;border-radius:6px;background:var(--accent);display:inline-block;position:relative;box-shadow:3px 3px 0 var(--accent-deep)}
+    .brand .mark::after{content:"";position:absolute;inset:6px 6px auto 6px;height:3px;background:var(--paper);box-shadow:0 5px 0 var(--paper),0 10px 0 var(--paper)}
+    .nav-cta{font-family:var(--serif);font-weight:600;font-size:15px;padding:9px 16px;border:1.5px solid var(--ink);border-radius:999px;text-decoration:none;color:var(--ink);transition:transform .15s,background .15s}
+    .nav-cta:hover{background:var(--ink);color:var(--paper);transform:translateY(-1px)}
+
+    /* ---- hero ---- */
+    .hero{padding:54px 0 30px;display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center}
+    .eyebrow{font-family:var(--serif);font-weight:600;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-deep);margin:0 0 18px}
+    h1.title{font-size:clamp(40px,6.4vw,76px);margin:0 0 20px}
+    h1.title em{font-style:italic;color:var(--accent-deep)}
+    .lede{font-size:21px;color:var(--ink-soft);max-width:34ch;margin:0 0 30px}
+    .actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+    .btn{font-family:var(--serif);font-weight:600;font-size:17px;text-decoration:none;border-radius:999px;padding:15px 28px;display:inline-flex;align-items:center;gap:10px;transition:transform .15s,box-shadow .15s}
+    .btn-primary{background:var(--accent);color:#fff;box-shadow:0 0 0 0 var(--accent-deep);border:1.5px solid var(--accent-deep)}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 0 -2px var(--accent-deep)}
+    .btn-primary .arr{transition:transform .18s}
+    .btn-primary:hover .arr{transform:translate(4px,-1px)}
+    .btn-ghost{color:var(--ink);text-decoration:none;font-family:var(--serif);font-weight:600;font-size:16px;padding:13px 6px;border-bottom:2px solid transparent}
+    .btn-ghost:hover{border-bottom-color:var(--accent)}
+
+    /* ---- reader demo card ---- */
+    .demo{background:#fffaf2;border:1.5px solid var(--line);border-radius:18px;padding:30px 30px 34px;box-shadow:var(--shadow);position:relative}
+    .demo .meta{font-family:var(--serif);font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 14px}
+    .demo p{font-size:20px;line-height:1.74;margin:0;color:var(--ink)}
+    .term{position:relative;border-bottom:2px solid var(--accent);color:var(--accent-deep);font-weight:500;cursor:help}
+    .pop{margin-top:16px;background:var(--paper-2);border:1.5px solid var(--line);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;padding:14px 16px}
+    .pop .w{font-family:var(--serif);font-weight:600;font-size:15px;color:var(--ink)}
+    .pop .tr{color:var(--accent-deep);font-style:italic}
+    .pop .ex{display:block;margin-top:6px;font-size:16px;color:var(--ink-soft);line-height:1.55}
+    .save{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-family:var(--serif);font-size:13px;font-weight:600;color:var(--accent-deep);background:var(--accent-soft);border-radius:999px;padding:5px 12px}
+
+    /* ---- reveal animation ---- */
+    .rise{opacity:0;transform:translateY(16px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+    @keyframes rise{to{opacity:1;transform:none}}
+    .d1{animation-delay:.05s}.d2{animation-delay:.16s}.d3{animation-delay:.27s}.d4{animation-delay:.38s}.d5{animation-delay:.5s}
+    @media (prefers-reduced-motion:reduce){.rise{animation:none;opacity:1;transform:none}}
+
+    /* ---- strip ---- */
+    .strip{border-top:1.5px solid var(--line);border-bottom:1.5px solid var(--line);margin-top:40px;background:var(--paper-2)}
+    .strip .wrap{padding:18px 28px;display:flex;flex-wrap:wrap;gap:10px 30px;align-items:center;justify-content:center;font-family:var(--serif);font-size:15px;color:var(--ink-soft)}
+    .strip b{color:var(--ink);font-weight:600}
+
+    /* ---- features ---- */
+    section.feat{padding:74px 0 30px}
+    .sec-head{max-width:30ch;margin:0 0 40px}
+    .sec-head h2{font-size:clamp(28px,4vw,42px);margin:0 0 12px}
+    .sec-head p{color:var(--ink-soft);margin:0;font-size:19px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+    .card{background:#fffaf2;border:1.5px solid var(--line);border-radius:16px;padding:28px;transition:transform .18s,box-shadow .18s}
+    .card:hover{transform:translateY(-3px);box-shadow:10px 10px 0 rgba(42,35,29,.05)}
+    .card .ic{width:42px;height:42px;border-radius:10px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px}
+    .card h3{font-size:22px;margin:0 0 8px}
+    .card p{margin:0;color:var(--ink-soft);font-size:17px;line-height:1.55}
+
+    /* ---- why ---- */
+    .why{padding:70px 0}
+    .why blockquote{margin:0;font-family:var(--serif);font-weight:500;font-size:clamp(24px,3.4vw,38px);line-height:1.25;letter-spacing:-.01em;max-width:20ch}
+    .why blockquote em{font-style:italic;color:var(--accent-deep)}
+    .why .by{margin-top:22px;color:var(--ink-soft);font-size:17px}
+
+    /* ---- final cta ---- */
+    .cta{background:var(--ink);color:var(--paper);border-radius:24px;margin:20px 0 70px;padding:56px 40px;text-align:center}
+    .cta h2{color:var(--paper);font-size:clamp(28px,4.4vw,46px);margin:0 0 14px}
+    .cta p{color:#d9cbb8;max-width:46ch;margin:0 auto 28px;font-size:19px}
+    .cta .btn-primary{box-shadow:0 0 0 0 var(--accent-deep)}
+    .cta .btn-primary:hover{box-shadow:0 8px 0 -2px #6e3318}
+
+    /* ---- footer ---- */
+    footer{border-top:1.5px solid var(--line);padding:36px 0 60px}
+    .foot{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:center;justify-content:space-between}
+    .foot nav{display:flex;flex-wrap:wrap;gap:8px 22px}
+    .foot a{color:var(--ink-soft);text-decoration:none;font-family:var(--serif);font-size:15px}
+    .foot a:hover{color:var(--accent-deep);text-decoration:underline}
+    .foot .small{color:var(--ink-soft);font-size:14px;font-family:var(--serif)}
+
+    @media (max-width:860px){
+      .hero{grid-template-columns:1fr;gap:34px;padding:34px 0 10px}
+      .grid{grid-template-columns:1fr}
+      .lede{max-width:none}
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" style="position:absolute;left:-9999px" onfocus="this.style.left='12px';this.style.top='12px';this.style.zIndex='10'">Skip to content</a>
+
+  <header>
+    <div class="wrap bar">
+      <a class="brand" href="https://textstack.app" aria-label="TextStack home"><span class="mark" aria-hidden="true"></span>TextStack</a>
+      <a class="nav-cta" href="https://textstack.app">Open app ↗</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <div class="wrap">
+      <div class="hero">
+        <div>
+          <p class="eyebrow rise d1">A reader for hard books</p>
+          <h1 class="title rise d2">Finish the book<br>you keep <em>quitting.</em></h1>
+          <p class="lede rise d3">Dense English books break your flow with terms you half-know. TextStack lets you tap any word for a 2–3 sentence explanation that knows the book's domain — then keeps reading.</p>
+          <div class="actions rise d4">
+            <a class="btn btn-primary" href="https://textstack.app">Start reading on TextStack <span class="arr" aria-hidden="true">→</span></a>
+            <a class="btn-ghost" href="https://textstack.app">Open the web reader</a>
+          </div>
+        </div>
+
+        <!-- reader demo -->
+        <div class="demo rise d5" role="img" aria-label="Reader demo: the term 'eventual consistency' is tapped and explained in context, then saved to vocabulary.">
+          <p class="meta">Designing Data-Intensive Applications · ch. 5</p>
+          <p>…replicas may be temporarily out of sync, but the system guarantees <span class="term">eventual&nbsp;consistency</span> once writes stop.</p>
+          <div class="pop">
+            <span class="w">eventual consistency <span class="tr">→ согласованность в конечном счёте</span></span>
+            <span class="ex">If you stop writing, all replicas converge to the same value — there's just a short window where reads may return stale data.</span>
+            <span class="save" aria-hidden="true">＋ Saved to vocabulary</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRUST STRIP -->
+    <div class="strip">
+      <div class="wrap">
+        <span>📖 <b>Web + mobile</b> reader</span>
+        <span>🌍 <b>Native-language</b> explanations</span>
+        <span>🧠 <b>Spaced-repetition</b> vocabulary</span>
+        <span>📥 EPUB · PDF · FB2</span>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
+    <section class="feat wrap" aria-labelledby="feat-h">
+      <div class="sec-head">
+        <h2 id="feat-h">Reading is the feature.<br>Everything else gets out of the way.</h2>
+        <p>No summaries, no shortcuts — just the friction removed so you actually finish.</p>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <div class="ic" aria-hidden="true">💡</div>
+          <h3>Word Wise, for tech</h3>
+          <p>Tap any term and get a 2–3 sentence explanation written for <em>this</em> book's domain — "attention" means the neural-net mechanism in an ML book, not focus.</p>
+        </article>
+        <article class="card">
+          <div class="ic" aria-hidden="true">🌍</div>
+          <h3>Translation in your language</h3>
+          <p>Instant, context-aware translation of any word or phrase — inline, without leaving the page or losing your place.</p>
+        </article>
+        <article class="card">
+          <div class="ic" aria-hidden="true">🧠</div>
+          <h3>Vocabulary that sticks</h3>
+          <p>Save a word and it enters a spaced-repetition trainer with the sentence you found it in, so review is grounded in real reading.</p>
+        </article>
+        <article class="card">
+          <div class="ic" aria-hidden="true">📚</div>
+          <h3>Your library, anywhere</h3>
+          <p>Upload EPUB, PDF or FB2, read on the web or the mobile app, and pick up exactly where you left off across devices.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- WHY -->
+    <section class="why wrap">
+      <blockquote class="rise d1">"I quit <em>Designing Data-Intensive Applications</em> three times — not because it was hard, but because the small unknowns kept breaking my flow."</blockquote>
+      <p class="by">That's the problem TextStack removes. <a href="https://dev.to/mrviduus/i-quit-designing-data-intensive-applications-ddia-three-times-heres-what-i-build-on-the-fourth-5bom">Read the story →</a></p>
+    </section>
+
+    <!-- FINAL CTA -->
+    <div class="wrap">
+      <section class="cta" aria-labelledby="cta-h">
+        <h2 id="cta-h">Open the book again.</h2>
+        <p>Free to start in your browser. Bring your own EPUBs or read from the library — and finally finish the one you keep quitting.</p>
+        <a class="btn btn-primary" href="https://textstack.app">Read on TextStack <span class="arr" aria-hidden="true">→</span></a>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <a class="brand" href="https://textstack.app" aria-label="TextStack home" style="font-size:19px"><span class="mark" aria-hidden="true"></span>TextStack</a>
+      <nav aria-label="Links">
+        <a href="https://textstack.app">textstack.app</a>
+        <a href="https://github.com/mrviduus/textstack">GitHub</a>
+        <a href="https://dev.to/mrviduus/i-quit-designing-data-intensive-applications-ddia-three-times-heres-what-i-build-on-the-fourth-5bom">Why I built it</a>
+        <a href="https://twitter.com/Rexetdeus">@Rexetdeus</a>
+      </nav>
+      <span class="small">The app lives at <a href="https://textstack.app">textstack.app</a></span>
+    </div>
+  </footer>
+</body>
+</html>
