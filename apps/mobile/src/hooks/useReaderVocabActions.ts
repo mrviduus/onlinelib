@@ -170,11 +170,10 @@ export function useReaderVocabActions({
       const saved = resp.word
       if (!saved) return
       onWordSaved(saved, selection.text)
-      // Dismiss the selection toolbar after a successful save — matches
-      // markKnown / removeWord, and mirrors web's behavior (PWA closes the
-      // word popup after save). Previously left the toolbar visible with
-      // wordSaved=true, which read as "stuck".
-      setSelection(null)
+      // Keep the toolbar OPEN after a manual save: in the peek-on-tap model the
+      // save is explicit, so the user should see the saved state (stage badge)
+      // and be able to immediately undo an accidental save via Remove. The ✕
+      // closes it. (Auto-close made the new Remove affordance unreachable.)
     } catch (e) {
       console.warn('Save word failed:', e)
       showToast({ message: 'Could not save word. Try again.', variant: 'error' })
