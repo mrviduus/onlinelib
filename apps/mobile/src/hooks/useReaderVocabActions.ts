@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, MutableRefObject } from 'react'
-import { vocabularyApi, translationApi, t } from '@textstack/shared'
+import { vocabularyApi, t } from '@textstack/shared'
+import { cachedTranslate } from '../lib/translateCache'
 import type { Chapter, VocabularyWordDto, Language } from '@textstack/shared'
 import { trackVocabSaved, trackTranslationUsed } from '../lib/analytics'
 import type { VocabMap } from './useReaderVocabMap'
@@ -42,6 +43,24 @@ type Options = {
  * screen — it shares state plumbing with selection lifecycle that's hard
  * to lift cleanly. This hook covers the four user-initiated handlers.
  */
+const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+/** Save with up to 3 attempts + backoff. Absorbs transient network/5xx blips
+ *  that previously dropped a tapped word silently (no underline, no retry).
+ *  Deterministic 4xx just exhausts the 3 attempts quickly, then rethrows. */
+async function saveWordWithRetry(body: Parameters<typeof vocabularyApi.saveWord>[0]) {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await vocabularyApi.saveWord(body)
+    } catch (e) {
+      lastErr = e
+      if (attempt < 2) await delay(350 * (attempt + 1))
+    }
+  }
+  throw lastErr
+}
+
 export function useReaderVocabActions({
   vocabMapRef,
   bookTitleRef,
@@ -87,11 +106,13 @@ export function useReaderVocabActions({
 
     const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
     trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
-    translationApi.translate(sourceText, language, targetLang)
-      .then(res => {
-        if (res.translatedText && saved.id) {
-          vocabularyApi.updateWord(saved.id, { translation: res.translatedText }).catch(() => {})
-          vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation: res.translatedText }
+    // cachedTranslate (not translationApi) so this reuses the gloss the
+    // selection toolbar just fetched for the same word — no 2nd round-trip.
+    cachedTranslate(sourceText, language, targetLang)
+      .then(translation => {
+        if (translation && saved.id) {
+          vocabularyApi.updateWord(saved.id, { translation }).catch(() => {})
+          vocabMapRef.current[key] = { ...vocabMapRef.current[key], translation }
           // Push full map so the inline-translation span renders above the underline.
           // addVocabWord alone only carries {stage}, wiping any prior translation.
           injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
@@ -119,7 +140,7 @@ export function useReaderVocabActions({
     if (savingRef.current.has(keyLc)) return
     savingRef.current.add(keyLc)
     try {
-      const resp = await vocabularyApi.saveWord({
+      const resp = await saveWordWithRetry({
         word: selection.text,
         language,
         nativeLanguage,
@@ -218,7 +239,7 @@ export function useReaderVocabActions({
     if (autoSavedRef.current.has(keyLc)) return
     autoSavedRef.current.add(keyLc)
     try {
-      const resp = await vocabularyApi.saveWord({
+      const resp = await saveWordWithRetry({
         word: selection.text,
         language,
         nativeLanguage,
