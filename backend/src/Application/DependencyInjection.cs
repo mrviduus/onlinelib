@@ -12,6 +12,7 @@ using Application.Export;
 using Application.SsgRebuild;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Application;
 
@@ -48,10 +49,38 @@ public static class DependencyInjection
         services.AddKeyedSingleton<Domain.LLM.ILlmService, OllamaLlmService>("ollama");
         services.AddSingleton<Domain.LLM.ILlmServiceFactory, LlmServiceFactory>();
 
-        // AI platform (Ai.* libs). Leaf only — the singleton TracingDecorator
-        // resolves this per-write via a fresh scope. Full Gateway→Tracing→Provider
-        // composition is wired in AI-005.
+        // AI platform (Ai.* libs) — new ILlmService stack. The legacy keyed
+        // Domain.LLM providers above stay until callers migrate (AI-005).
+        // Trace writer: scoped (per-request DbContext); the singleton
+        // TracingDecorator resolves it per-write via a fresh scope.
         services.AddScoped<global::TextStack.Ai.Core.ILlmTraceWriter, Ai.DbLlmTraceWriter>();
+
+        // Sampling policy (Ai:Tracing:Sampling). Errors always sampled regardless.
+        services.AddSingleton(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+            return new global::TextStack.Ai.Llm.TracingOptions(
+                c.GetValue("Ai:Tracing:Sampling:Default", 1.0),
+                c.GetSection("Ai:Tracing:Sampling:PerFeature").Get<Dictionary<string, double>>());
+        });
+
+        // Raw providers (keyed) on Core.ILlmService.
+        services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OpenAiLlmClient>("openai-raw");
+        services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OllamaLlmClient>("ollama-raw");
+
+        // Decorated providers (keyed): TracingDecorator wraps each raw provider.
+        foreach (var providerKey in new[] { "openai", "ollama" })
+        {
+            services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>(providerKey, (sp, key) =>
+                new global::TextStack.Ai.Llm.TracingDecorator(
+                    sp.GetRequiredKeyedService<global::TextStack.Ai.Core.ILlmService>($"{key}-raw"),
+                    sp.GetRequiredService<IServiceScopeFactory>(),
+                    sp.GetRequiredService<global::TextStack.Ai.Llm.TracingOptions>(),
+                    sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>()));
+        }
+
+        // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider).
+        services.AddSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.ModelGateway>();
 
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### AI platform — observable LLM layer (foundation) (2026-06-04)
+
+Building a unified, observable LLM layer so every AI call (Explain, Translate,
+Distractor, BookMetadata, TagSuggestion, …) routes through one seam and is
+logged for cost/latency/quality. Shipped as small, self-contained PRs; the new
+stack runs in parallel with the legacy `ILlmServiceFactory` path — callers
+migrate later (AI-005), so behavior is unchanged so far.
+
+- **AI-001 — `TextStack.Ai.Core`** ([`dc7b28e`](https://github.com/mrviduus/textstack/commit/dc7b28e)) — new class library with the AI contracts: `ILlmService` (LlmRequest/LlmResponse/LlmUsage/LlmMessage/LlmDelta), `ITool`, `IEmbeddingService`, `IAgent`, `ILlmTraceWriter` + supporting records. Pure interfaces, zero implementations.
+- **AI-002 — `TextStack.Ai.Llm` providers** ([`bff1523`](https://github.com/mrviduus/textstack/commit/bff1523)) — `OpenAiLlmClient` + `OllamaLlmClient` ported 1:1 from the legacy services onto the new `ILlmService` (production quirks preserved verbatim: OpenAI reasoning-budget `+512` padding, Ollama `think=false`). `ModelPricing` is the single source of per-model USD cost, surfaced on `LlmResponse.Usage`.
+- **AI-003 — TracingDecorator + `llm_traces`** ([`54d2598`](https://github.com/mrviduus/textstack/commit/54d2598)) — singleton decorator wraps any provider and records a **sampled** trace (cost/tokens/latency/error) **fire-and-forget** on a fresh DI scope, so persistence adds no latency. New Postgres table `llm_traces` (jsonb messages, `numeric(10,6)` cost, FK user ON DELETE SET NULL) + `DbLlmTraceWriter`. Email/phone redacted before persist; errors always sampled, high-volume features sampled at 10% (ADR-AI-011).
+- **AI-004 — `ModelGateway` v0 + DI composition** (this PR) — `ModelGateway` (a composite `ILlmService`) routes each call to a provider by `FeatureTag` via `Ai:Routes` config, then the full stack is wired in DI: keyed providers → `TracingDecorator` → gateway as the default `ILlmService`. Routing mirrors the existing per-feature mapping (explain/translate → OpenAI, distractor/bookmeta/tagsuggestion → Ollama) so nothing changes until callers migrate. Cost-cap / shadow / escalate are deferred to a later phase.
+
 ### Web header — restore search icon on non-home pages (2026-05-24)
 
 - **Search icon back in the header** ([`4eb1986`](https://github.com/mrviduus/textstack/commit/4eb1986)) — was removed in [`3e53e3e`](https://github.com/mrviduus/textstack/commit/3e53e3e) on the assumption that the hero search on home was enough. It wasn't: on every other page (library, discover, vocabulary, reader, …) the hero is gone and users had nowhere to launch a search from. Icon now shows on all routes except home (where the hero input still owns the affordance), opens the existing `MobileSearchOverlay`, and ships with 10 new `Header.test.tsx` cases pinning visibility per route + open/close flow.
