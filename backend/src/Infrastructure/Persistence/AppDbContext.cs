@@ -78,6 +78,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<SeoBackfillSettings> SeoBackfillSettings => Set<SeoBackfillSettings>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<BookCollection> BookCollections => Set<BookCollection>();
+    public DbSet<LlmTrace> LlmTraces => Set<LlmTrace>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -94,6 +95,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
         ConfigureOps(modelBuilder);
         ConfigureSeo(modelBuilder);
         ConfigureCollections(modelBuilder);
+        ConfigureAi(modelBuilder);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

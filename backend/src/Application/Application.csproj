@@ -20,5 +20,6 @@
     <ProjectReference Include="..\Search\TextStack.Search\TextStack.Search.csproj" />
     <ProjectReference Include="..\Epub\TextStack.Epub\TextStack.Epub.csproj" />
     <ProjectReference Include="..\Vocabulary\TextStack.Vocabulary\TextStack.Vocabulary.csproj" />
+    <ProjectReference Include="..\Ai\TextStack.Ai.Core\TextStack.Ai.Core.csproj" />
   </ItemGroup>
 </Project>
