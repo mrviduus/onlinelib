@@ -1,32 +1,28 @@
 using Domain.LLM;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.LLM;
 
 /// <summary>
-/// Resolves an <see cref="ILlmService"/> per job. Provider selection is
-/// config-driven — <c>LLM:Providers:{JobName}</c> picks the key under
-/// which the service was registered. Falls back to
-/// <c>LLM:DefaultProvider</c>, then to <c>"openai"</c>.
+/// Resolves an <see cref="ILlmService"/> per job. As of AI-005 every job is
+/// served by a <see cref="LegacyLlmAdapter"/> over the new
+/// <c>TextStack.Ai.Core.ILlmService</c> (ModelGateway) — provider selection now
+/// lives in <c>Ai:Routes</c> (keyed by FeatureTag), not <c>LLM:Providers</c>.
 /// </summary>
-public class LlmServiceFactory : ILlmServiceFactory
+public class LlmServiceFactory(global::TextStack.Ai.Core.ILlmService gateway) : ILlmServiceFactory
 {
-    private readonly IServiceProvider _sp;
-    private readonly IConfiguration _config;
-
-    public LlmServiceFactory(IServiceProvider sp, IConfiguration config)
+    // Legacy job name → new FeatureTag (matches appsettings Ai:Routes keys).
+    private static readonly Dictionary<string, string> FeatureTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        _sp = sp;
-        _config = config;
-    }
+        ["Explain"] = "explain",
+        ["Translate"] = "translate",
+        ["Distractor"] = "distractor",
+        ["BookMetadata"] = "bookmeta",
+        ["TagSuggestion"] = "tagsuggestion",
+    };
 
     public ILlmService Get(string jobName)
     {
-        var key = _config[$"LLM:Providers:{jobName}"]
-            ?? _config["LLM:DefaultProvider"]
-            ?? "openai";
-
-        return _sp.GetRequiredKeyedService<ILlmService>(key);
+        var featureTag = FeatureTags.TryGetValue(jobName, out var tag) ? tag : jobName.ToLowerInvariant();
+        return new LegacyLlmAdapter(gateway, featureTag);
     }
 }
