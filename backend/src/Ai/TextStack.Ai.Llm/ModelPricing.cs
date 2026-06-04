@@ -16,7 +16,6 @@ public static class ModelPricing
         new Dictionary<string, (decimal, decimal)>(StringComparer.OrdinalIgnoreCase)
         {
             ["gpt-4.1-nano"] = (0.10m, 0.40m),
-            ["gpt-5-mini"] = (0.25m, 2.00m),
             ["gpt-4o-mini"] = (0.15m, 0.60m),
         };
 

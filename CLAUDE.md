@@ -191,9 +191,9 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 
 **Dictionary**: `GET /dictionary/{lang}/{word}` — proxies Free Dictionary API. Used by web reader (phonetic + first-meaning definition) and by mobile vocabulary review (SRS card feedback only). Mobile **reader** no longer calls it as of 2026-05-15 — phonetic + inline definition removed from `WordCard`/`DictionarySheet` (sheet deleted) in favor of OpenAI Explain for the technical-reader audience, and to shrink Play Store Data Safety third-party processor list to OpenAI + Edge TTS only.
 
-**Translation**: `POST /api/translate` via OpenAI (`gpt-5-mini`). Config: `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:Translate:MaxTextLength`. LibreTranslate dropped 2026-04-22.
+**Translation**: `POST /api/translate` via OpenAI (`gpt-4.1-nano`). Config: `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:Translate:MaxTextLength`. LibreTranslate dropped 2026-04-22.
 
-**Explain (contextual)**: `POST /api/explain` — LLM-powered 2-3 sentence explanation of a word in the sentence it appears in. Uses `ILlmService` (OpenAI `gpt-5-mini`). SHA256-keyed file cache at `data/explain-cache`, 30d TTL. Rate limited per-IP (20/min). Impl: `backend/src/Api/Endpoints/ExplainEndpoints.cs`.
+**Explain (contextual)**: `POST /api/explain` — LLM-powered 2-3 sentence explanation of a word in the sentence it appears in. Uses `ILlmService` (OpenAI `gpt-4.1-nano`). SHA256-keyed file cache at `data/explain-cache`, 30d TTL. Rate limited per-IP (20/min). Impl: `backend/src/Api/Endpoints/ExplainEndpoints.cs`.
 
 **TTS (Text-to-Speech)**: Edge TTS via direct WebSocket to `speech.platform.bing.com`. No API key, no deps.
 - **`TextStack.Tts`** class library: `EdgeTtsClient` (WebSocket protocol), `EdgeTtsService` (disk cache + `IHostedService` startup cleanup)
