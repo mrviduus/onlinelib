@@ -44,13 +44,12 @@ public static class DependencyInjection
         services.AddScoped<ClusterCandidateService>();
         services.AddSingleton<IFrequencyFilter, FrequencyFilter>();
 
-        // LLM — keyed providers; consumers pick per job via ILlmServiceFactory.
-        services.AddKeyedSingleton<Domain.LLM.ILlmService, OpenAiLlmService>("openai");
-        services.AddKeyedSingleton<Domain.LLM.ILlmService, OllamaLlmService>("ollama");
+        // Legacy ILlmServiceFactory — now backed by LegacyLlmAdapter over the new
+        // stack (AI-005). The old keyed Domain.LLM providers are gone; callers
+        // keep this factory until they move to Core.ILlmService directly.
         services.AddSingleton<Domain.LLM.ILlmServiceFactory, LlmServiceFactory>();
 
-        // AI platform (Ai.* libs) — new ILlmService stack. The legacy keyed
-        // Domain.LLM providers above stay until callers migrate (AI-005).
+        // AI platform (Ai.* libs) — new ILlmService stack (the factory routes here).
         // Trace writer: scoped (per-request DbContext); the singleton
         // TracingDecorator resolves it per-write via a fresh scope.
         services.AddScoped<global::TextStack.Ai.Core.ILlmTraceWriter, Ai.DbLlmTraceWriter>();
