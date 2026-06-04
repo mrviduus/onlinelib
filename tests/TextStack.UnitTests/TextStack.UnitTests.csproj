@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\backend\src\Worker\Worker.csproj" />
     <ProjectReference Include="..\..\backend\src\Tts\TextStack.Tts\TextStack.Tts.csproj" />
     <ProjectReference Include="..\..\backend\src\Vocabulary\TextStack.Vocabulary\TextStack.Vocabulary.csproj" />
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Llm\TextStack.Ai.Llm.csproj" />
   </ItemGroup>
 
   <ItemGroup>

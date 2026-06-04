@@ -48,6 +48,11 @@ public static class DependencyInjection
         services.AddKeyedSingleton<Domain.LLM.ILlmService, OllamaLlmService>("ollama");
         services.AddSingleton<Domain.LLM.ILlmServiceFactory, LlmServiceFactory>();
 
+        // AI platform (Ai.* libs). Leaf only — the singleton TracingDecorator
+        // resolves this per-write via a fresh scope. Full Gateway→Tracing→Provider
+        // composition is wired in AI-005.
+        services.AddScoped<global::TextStack.Ai.Core.ILlmTraceWriter, Ai.DbLlmTraceWriter>();
+
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();
         services.AddScoped<ISsgJobService, SsgRebuildService>();

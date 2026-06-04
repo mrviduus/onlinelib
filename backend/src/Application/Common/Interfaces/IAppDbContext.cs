@@ -57,6 +57,7 @@ public interface IAppDbContext
     DbSet<SeoBackfillSettings> SeoBackfillSettings { get; }
     DbSet<Collection> Collections { get; }
     DbSet<BookCollection> BookCollections { get; }
+    DbSet<LlmTrace> LlmTraces { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
