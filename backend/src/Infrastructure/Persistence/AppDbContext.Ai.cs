@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Infrastructure.Persistence;
 
 /// <summary>
-/// AI observability entities. <see cref="LlmTrace"/> (table <c>llm_trace</c>) —
+/// AI observability entities. <see cref="LlmTrace"/> (table <c>llm_traces</c>) —
 /// sampled per-call traces written by the AI TracingDecorator for
-/// cost/latency/quality analysis. snake_case names come from the global
-/// convention (OnConfiguring).
+/// cost/latency/quality analysis. <see cref="EvalRun"/> (table <c>eval_runs</c>) —
+/// persisted eval scores per feature for the /ai-quality Evals tab. snake_case
+/// names come from the global convention (OnConfiguring).
 /// </summary>
 public partial class AppDbContext
 {
@@ -32,6 +33,18 @@ public partial class AppDbContext
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EvalRun>(e =>
+        {
+            // Hot query: recent runs for a feature (Evals tab history + regression).
+            e.HasIndex(x => new { x.Feature, x.CreatedAt });
+            e.Property(x => x.Feature).HasMaxLength(64);
+            e.Property(x => x.ModelId).HasMaxLength(128);
+            e.Property(x => x.JudgeModelId).HasMaxLength(128);
+            e.Property(x => x.GitSha).HasMaxLength(64);
+            e.Property(x => x.Score).HasColumnType("numeric(6,3)");
+            e.Property(x => x.BreakdownJson).HasColumnType("jsonb");
         });
     }
 }

@@ -23,7 +23,7 @@ public class BookMetaEvalTests(ITestOutputHelper output)
     public async Task BookMetadata_golden_set_meets_quality_bar()
     {
         var gen = EvalClients.Ollama();
-        var judgeClient = EvalClients.OpenAi();
+        var judgeClient = EvalClients.Judge(); // OpenAI by default; EVAL_JUDGE=ollama for fully-local
         var ct = TestContext.Current.CancellationToken;
 
         var goldens = GoldenData.Load<BookMetaGolden>("bookmeta.json");
@@ -49,6 +49,7 @@ public class BookMetaEvalTests(ITestOutputHelper output)
 
         var s = JudgeRunner.Aggregate(scores);
         output.WriteLine($"\nN={s.N} genre={s.Mean1:0.00} year={s.Mean2:0.00} desc={s.Mean3:0.00} OVERALL={s.MeanOverall:0.00}");
+        await EvalRunRecorder.RecordAsync("bookmeta", ollamaGen: true, Rubric, s, ct);
         Assert.True(s.MeanOverall >= BootstrapBar, $"BookMetadata mean {s.MeanOverall:0.00} below bootstrap bar {BootstrapBar:0.0}");
     }
 

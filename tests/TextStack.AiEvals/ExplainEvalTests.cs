@@ -22,13 +22,14 @@ public class ExplainEvalTests(ITestOutputHelper output)
     [Fact]
     public async Task Explain_golden_set_meets_quality_bar()
     {
-        var llm = EvalClients.OpenAi();
+        var gen = EvalClients.OpenAi();
+        var judge = new JudgeRunner(EvalClients.Judge());
         var ct = TestContext.Current.CancellationToken;
 
         var goldens = GoldenData.Load<ExplainGolden>("explain.json");
         Assert.True(goldens.Count >= 30, $"expected >=30 golden cases, got {goldens.Count}");
 
-        var results = await new GoldenRunner(llm).RunAsync(goldens, ToRequest, ct);
+        var results = await new GoldenRunner(gen).RunAsync(goldens, ToRequest, ct);
 
         var scores = new List<JudgeScore>();
         foreach (var r in results)
@@ -36,13 +37,14 @@ public class ExplainEvalTests(ITestOutputHelper output)
             var evidence =
                 $"Word: {r.Case.Word}\nSentence: {r.Case.Sentence}\n" +
                 $"Reference explanation: {r.Case.ExpectedExplanation}\nActual explanation: {r.Actual}";
-            var score = await new JudgeRunner(llm).JudgeAsync(Rubric, evidence, ct);
+            var score = await judge.JudgeAsync(Rubric, evidence, ct);
             scores.Add(score);
             output.WriteLine($"[{score.Mean:0.0}] {r.Case.Word}: {score.D1}/{score.D2}/{score.D3} — {Trunc(r.Actual)}");
         }
 
         var s = JudgeRunner.Aggregate(scores);
         output.WriteLine($"\nN={s.N} acc={s.Mean1:0.00} con={s.Mean2:0.00} use={s.Mean3:0.00} OVERALL={s.MeanOverall:0.00}");
+        await EvalRunRecorder.RecordAsync("explain", ollamaGen: false, Rubric, s, ct);
         Assert.True(s.MeanOverall >= BootstrapBar, $"Explain mean {s.MeanOverall:0.00} below bootstrap bar {BootstrapBar:0.0}");
     }
 
