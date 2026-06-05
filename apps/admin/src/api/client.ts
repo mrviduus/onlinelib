@@ -415,6 +415,31 @@ export interface SessionSettings {
   refreshTokenExpiryDays: number
 }
 
+// AI Quality
+export interface DailyCostPoint {
+  date: string
+  costUsd: number
+}
+export interface FeatureSummary {
+  featureTag: string
+  calls: number
+  costUsd: number
+  costPerDay: number
+  p50LatencyMs: number
+  p95LatencyMs: number
+  errorRate: number
+  tokensIn: number
+  tokensOut: number
+  dailyCost: DailyCostPoint[]
+}
+export interface AiQualitySummary {
+  from: string
+  to: string
+  totalCalls: number
+  totalCostUsd: number
+  features: FeatureSummary[]
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -985,6 +1010,16 @@ export const adminApi = {
 
   retryBookQualityJob: async (id: string): Promise<void> => {
     await fetchVoid(`/admin/quality/jobs/${id}/retry`, { method: 'POST' })
+  },
+
+  // AI Quality
+  getAiQualitySummary: async (params?: { from?: string; to?: string; feature?: string }): Promise<AiQualitySummary> => {
+    const query = new URLSearchParams()
+    if (params?.from) query.set('from', params.from)
+    if (params?.to) query.set('to', params.to)
+    if (params?.feature) query.set('feature', params.feature)
+    const qs = query.toString()
+    return fetchJson<AiQualitySummary>(`/admin/ai-quality/summary${qs ? `?${qs}` : ''}`)
   },
 
   // ── SEO Backfill ──

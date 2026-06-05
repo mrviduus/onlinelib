@@ -144,6 +144,14 @@ export function Layout() {
             Quality
           </Link>
 
+          <Link to="/ai-quality" className={`admin-nav__link ${location.pathname.startsWith('/ai-quality') ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 3v18h18" />
+              <path d="M7 14l4-4 3 3 5-5" />
+            </svg>
+            AI Quality
+          </Link>
+
           <Link to="/settings" className={`admin-nav__link ${location.pathname.startsWith('/settings') ? 'active' : ''}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />

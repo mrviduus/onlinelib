@@ -458,6 +458,7 @@ app.MapLibraryShelvesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapReadingTrackingEndpoints();
 app.MapAdminBookQualityEndpoints();
+app.MapAdminAiQualityEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();
