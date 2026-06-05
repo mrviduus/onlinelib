@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Application.Ai;
 using Application.Common.Interfaces;
 using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
@@ -87,8 +88,8 @@ public static class ExplainEndpoints
             logger.LogWarning(ex, "Explain cache read failed, falling through to LLM");
         }
 
-        var systemPrompt = BuildSystemPrompt(genre, targetLang);
-        var userPrompt = BuildUserPrompt(request.Word, request.Sentence);
+        var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre, targetLang);
+        var userPrompt = ExplainPrompt.BuildUserPrompt(request.Word, request.Sentence);
 
         try
         {
@@ -138,21 +139,6 @@ public static class ExplainEndpoints
                 statusCode: 503);
         }
     }
-
-    private static string BuildSystemPrompt(string? genre, string targetLang)
-    {
-        var domain = string.IsNullOrWhiteSpace(genre) ? "general" : genre.Trim();
-        return
-            $"You explain unfamiliar words or phrases to a reader in context. " +
-            $"Domain hint: {domain}. " +
-            $"Respond in {targetLang}. " +
-            "Write 2-3 sentences. Focus on how the word is used IN THIS SENTENCE, " +
-            "not a dictionary definition. If it is a technical term, give the meaning and " +
-            "one concrete analogy. No preface, no quotes around the answer, no markdown.";
-    }
-
-    private static string BuildUserPrompt(string word, string sentence) =>
-        $"Word: {word}\nSentence: {sentence}";
 
     private static string ComputeCacheKey(string word, string sentence, string? genre, string targetLang)
     {
