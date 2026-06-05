@@ -72,8 +72,7 @@ reference (tests, migrations, mobile, lint).
 - Scope creep that doesn't serve deep reading.
 - Adding new LLM providers just to have them — we have Ollama (local) and
   plans for Claude; keep that surface small.
-- Reintroducing features I deliberately removed (see
-  [PLAN-presale-8w.md](PLAN-presale-8w.md) for context).
+- Reintroducing features I deliberately removed.
 
 ## Architecture at a glance
 

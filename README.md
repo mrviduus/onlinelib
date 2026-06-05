@@ -198,8 +198,6 @@ Full command reference: [CLAUDE.md](CLAUDE.md).
   curated AI-engineering corpus (DDIA, ML papers, 15–20 titles)
 - **Goal** — one paying customer by October 2026
 
-Progress tracked in [PLAN-presale-8w.md](PLAN-presale-8w.md).
-
 ---
 
 ## Contributing
