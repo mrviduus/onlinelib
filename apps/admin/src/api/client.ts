@@ -439,6 +439,48 @@ export interface AiQualitySummary {
   totalCostUsd: number
   features: FeatureSummary[]
 }
+export interface TraceListItem {
+  id: string
+  featureTag: string
+  modelId: string
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  latencyMs: number
+  hasError: boolean
+  createdAt: string
+}
+export interface TracesPage {
+  total: number
+  items: TraceListItem[]
+}
+export interface TraceDetail {
+  id: string
+  featureTag: string
+  modelId: string
+  systemPrompt: string | null
+  messagesJson: string
+  responseText: string | null
+  toolCallsJson: string | null
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  latencyMs: number
+  error: string | null
+  userId: string | null
+  createdAt: string
+}
+export interface EvalRun {
+  id: string
+  feature: string
+  modelId: string
+  judgeModelId: string
+  score: number
+  n: number
+  breakdownJson: string | null
+  gitSha: string | null
+  createdAt: string
+}
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -1020,6 +1062,28 @@ export const adminApi = {
     if (params?.feature) query.set('feature', params.feature)
     const qs = query.toString()
     return fetchJson<AiQualitySummary>(`/admin/ai-quality/summary${qs ? `?${qs}` : ''}`)
+  },
+
+  getAiTraces: async (params?: { feature?: string; q?: string; limit?: number; offset?: number }): Promise<TracesPage> => {
+    const query = new URLSearchParams()
+    if (params?.feature) query.set('feature', params.feature)
+    if (params?.q) query.set('q', params.q)
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const qs = query.toString()
+    return fetchJson<TracesPage>(`/admin/ai-quality/traces${qs ? `?${qs}` : ''}`)
+  },
+
+  getAiTrace: async (id: string): Promise<TraceDetail> => {
+    return fetchJson<TraceDetail>(`/admin/ai-quality/traces/${id}`)
+  },
+
+  getAiEvals: async (params?: { feature?: string; limit?: number }): Promise<EvalRun[]> => {
+    const query = new URLSearchParams()
+    if (params?.feature) query.set('feature', params.feature)
+    if (params?.limit) query.set('limit', String(params.limit))
+    const qs = query.toString()
+    return fetchJson<EvalRun[]>(`/admin/ai-quality/evals${qs ? `?${qs}` : ''}`)
   },
 
   // ── SEO Backfill ──

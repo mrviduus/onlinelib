@@ -1,5 +1,51 @@
-import { useState, useEffect } from 'react'
-import { adminApi, AiQualitySummary, FeatureSummary, DailyCostPoint } from '../api/client'
+import { useState, useEffect, CSSProperties } from 'react'
+import {
+  adminApi,
+  AiQualitySummary,
+  FeatureSummary,
+  DailyCostPoint,
+  TraceListItem,
+  TraceDetail,
+  EvalRun,
+} from '../api/client'
+
+type Tab = 'summary' | 'traces' | 'evals'
+
+const KNOWN_FEATURES = ['explain', 'translate', 'distractor', 'bookmeta', 'tagsuggestion', 'eval.judge']
+
+export function AiQualityPage() {
+  const [tab, setTab] = useState<Tab>('summary')
+  return (
+    <div className="dashboard-page">
+      <h1>AI Quality</h1>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e5e7eb', margin: '12px 0 16px' }}>
+        {(['summary', 'traces', 'evals'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderBottom: tab === t ? '2px solid #2563eb' : '2px solid transparent',
+              background: 'none',
+              color: tab === t ? '#2563eb' : '#6b7280',
+              fontWeight: tab === t ? 600 : 400,
+              cursor: 'pointer',
+              textTransform: 'capitalize',
+            }}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      {tab === 'summary' && <SummaryTab />}
+      {tab === 'traces' && <TracesTab />}
+      {tab === 'evals' && <EvalsTab />}
+    </div>
+  )
+}
+
+// ─────────────────────────── Summary ───────────────────────────
 
 const RANGES = [
   { label: '7d', days: 7 },
@@ -7,7 +53,7 @@ const RANGES = [
   { label: '90d', days: 90 },
 ]
 
-export function AiQualityPage() {
+function SummaryTab() {
   const [data, setData] = useState<AiQualitySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,36 +73,21 @@ export function AiQualityPage() {
   }, [days])
 
   return (
-    <div className="dashboard-page">
+    <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <h1>AI Quality</h1>
+        <p className="dashboard-page__subtitle" style={{ margin: 0 }}>
+          Per-feature cost, latency and error rate from sampled LLM traces.
+        </p>
         <div style={{ display: 'flex', gap: 4 }}>
           {RANGES.map((r) => (
-            <button
-              key={r.days}
-              onClick={() => setDays(r.days)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                background: days === r.days ? '#2563eb' : '#fff',
-                color: days === r.days ? '#fff' : '#374151',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-            >
+            <button key={r.days} onClick={() => setDays(r.days)} style={rangeBtn(days === r.days)}>
               {r.label}
             </button>
           ))}
         </div>
       </div>
-      <p className="dashboard-page__subtitle">
-        Per-feature cost, latency and error rate from sampled LLM traces. Judge-score trends arrive once eval runs persist.
-      </p>
 
-      {error && (
-        <div style={{ background: '#fef2f2', color: '#b91c1c', padding: 12, borderRadius: 8, margin: '12px 0' }}>{error}</div>
-      )}
+      {error && <Banner text={error} />}
 
       {loading ? (
         <p className="dashboard-page__subtitle">Loading…</p>
@@ -77,7 +108,7 @@ export function AiQualityPage() {
           </div>
         </>
       )}
-    </div>
+    </>
   )
 }
 
@@ -94,7 +125,7 @@ function FeatureCard({ f }: { f: FeatureSummary }) {
   const errPct = (f.errorRate * 100).toFixed(1)
   const errColor = f.errorRate > 0.05 ? '#dc2626' : f.errorRate > 0 ? '#d97706' : '#059669'
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 16, background: '#fff' }}>
+    <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <span style={{ fontWeight: 600, fontSize: 15, color: '#111827' }}>{f.featureTag}</span>
         <span style={{ fontSize: 12, color: '#6b7280' }}>{f.calls.toLocaleString()} calls</span>
@@ -139,4 +170,299 @@ function Sparkline({ points }: { points: DailyCostPoint[] }) {
       <polyline points={coords} fill="none" stroke="#2563eb" strokeWidth="1.5" />
     </svg>
   )
+}
+
+// ─────────────────────────── Traces ───────────────────────────
+
+const PAGE = 50
+
+function TracesTab() {
+  const [items, setItems] = useState<TraceListItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [feature, setFeature] = useState('')
+  const [q, setQ] = useState('')
+  const [offset, setOffset] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<TraceDetail | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    adminApi
+      .getAiTraces({ feature: feature || undefined, q: q || undefined, limit: PAGE, offset })
+      .then((d) => {
+        setItems(d.items)
+        setTotal(d.total)
+        setError(null)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [feature, q, offset])
+
+  const openTrace = async (id: string) => {
+    try {
+      setSelected(await adminApi.getAiTrace(id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load trace')
+    }
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <select
+          value={feature}
+          onChange={(e) => {
+            setOffset(0)
+            setFeature(e.target.value)
+          }}
+          style={input}
+        >
+          <option value="">All features</option>
+          {KNOWN_FEATURES.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+        <input
+          placeholder="Search prompt / response…"
+          defaultValue={q}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setOffset(0)
+              setQ((e.target as HTMLInputElement).value)
+            }
+          }}
+          style={{ ...input, flex: 1, minWidth: 200 }}
+        />
+      </div>
+
+      {error && <Banner text={error} />}
+
+      {loading ? (
+        <p className="dashboard-page__subtitle">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="dashboard-empty">No traces match. (Traces are sampled and only appear after AI calls.)</p>
+      ) : (
+        <>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Feature</th>
+                <th style={th}>Model</th>
+                <th style={th}>Cost</th>
+                <th style={th}>Latency</th>
+                <th style={th}>Tokens</th>
+                <th style={th}>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((t) => (
+                <tr
+                  key={t.id}
+                  onClick={() => openTrace(t.id)}
+                  style={{ cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: t.hasError ? '#fef2f2' : undefined }}
+                >
+                  <td style={td}>{t.featureTag}{t.hasError && <span style={{ color: '#dc2626' }}> ⚠</span>}</td>
+                  <td style={td}>{t.modelId}</td>
+                  <td style={td}>${t.costUsd.toFixed(4)}</td>
+                  <td style={td}>{t.latencyMs} ms</td>
+                  <td style={td}>{t.tokensIn}/{t.tokensOut}</td>
+                  <td style={td}>{timeAgo(t.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pager offset={offset} total={total} onChange={setOffset} />
+        </>
+      )}
+
+      {selected && <TraceModal trace={selected} onClose={() => setSelected(null)} />}
+    </>
+  )
+}
+
+function TraceModal({ trace, onClose }: { trace: TraceDetail; onClose: () => void }) {
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={(e) => e.stopPropagation()} style={modal}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{trace.featureTag}</h2>
+          <button onClick={onClose} style={{ ...rangeBtn(false), border: 'none' }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
+          {trace.modelId} · ${trace.costUsd.toFixed(4)} · {trace.latencyMs} ms · {trace.tokensIn}/{trace.tokensOut} tok · {new Date(trace.createdAt).toLocaleString()}
+        </div>
+        {trace.error && <Banner text={trace.error} />}
+        <Section title="System prompt" body={trace.systemPrompt} />
+        <Section title="Messages" body={pretty(trace.messagesJson)} />
+        <Section title="Response" body={trace.responseText} />
+        {trace.toolCallsJson && <Section title="Tool calls" body={pretty(trace.toolCallsJson)} />}
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, body }: { title: string; body: string | null }) {
+  if (!body) return null
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>{title}</div>
+      <pre style={pre}>{body}</pre>
+    </div>
+  )
+}
+
+// ─────────────────────────── Evals ───────────────────────────
+
+function EvalsTab() {
+  const [runs, setRuns] = useState<EvalRun[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    adminApi
+      .getAiEvals({ limit: 500 })
+      .then((d) => {
+        setRuns(d)
+        setError(null)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p className="dashboard-page__subtitle">Loading…</p>
+  if (error) return <Banner text={error} />
+  if (runs.length === 0)
+    return (
+      <p className="dashboard-empty">
+        No eval runs yet. Run the eval suite with <code>EVAL_DB_CONNECTION</code> set to populate this tab.
+      </p>
+    )
+
+  // Group by feature (API returns newest-first), then flag regressions vs the next-older run.
+  const byFeature = new Map<string, EvalRun[]>()
+  for (const r of runs) {
+    const arr = byFeature.get(r.feature) ?? []
+    arr.push(r)
+    byFeature.set(r.feature, arr)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {[...byFeature.entries()].map(([feature, fRuns]) => (
+        <div key={feature}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>{feature}</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Score</th>
+                <th style={th}>Breakdown</th>
+                <th style={th}>Model</th>
+                <th style={th}>Judge</th>
+                <th style={th}>N</th>
+                <th style={th}>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fRuns.map((r, i) => {
+                const prev = fRuns[i + 1]
+                const regressed = prev && r.score < prev.score - 0.1
+                return (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ ...td, fontWeight: 600, color: regressed ? '#dc2626' : '#111827' }}>
+                      {r.score.toFixed(2)}
+                      {regressed && <span title={`down from ${prev!.score.toFixed(2)}`}> ▼</span>}
+                    </td>
+                    <td style={td}>{formatBreakdown(r.breakdownJson)}</td>
+                    <td style={td}>{r.modelId}</td>
+                    <td style={td}>{r.judgeModelId}</td>
+                    <td style={td}>{r.n}</td>
+                    <td style={td}>{timeAgo(r.createdAt)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─────────────────────────── shared ───────────────────────────
+
+function Pager({ offset, total, onChange }: { offset: number; total: number; onChange: (o: number) => void }) {
+  const page = Math.floor(offset / PAGE) + 1
+  const pages = Math.max(1, Math.ceil(total / PAGE))
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, fontSize: 13, color: '#6b7280' }}>
+      <button disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - PAGE))} style={rangeBtn(false)}>
+        ← Prev
+      </button>
+      <span>
+        Page {page} / {pages} · {total} traces
+      </span>
+      <button disabled={offset + PAGE >= total} onClick={() => onChange(offset + PAGE)} style={rangeBtn(false)}>
+        Next →
+      </button>
+    </div>
+  )
+}
+
+function Banner({ text }: { text: string }) {
+  return <div style={{ background: '#fef2f2', color: '#b91c1c', padding: 12, borderRadius: 8, margin: '12px 0' }}>{text}</div>
+}
+
+function formatBreakdown(json: string | null): string {
+  if (!json) return '—'
+  try {
+    const obj = JSON.parse(json) as Record<string, number>
+    return Object.entries(obj)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(' · ')
+  } catch {
+    return json
+  }
+}
+
+function pretty(json: string): string {
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2)
+  } catch {
+    return json
+  }
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
+const card: CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 10, padding: 16, background: '#fff' }
+const input: CSSProperties = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }
+const th: CSSProperties = { padding: '8px 10px', fontWeight: 600 }
+const td: CSSProperties = { padding: '8px 10px' }
+const overlay: CSSProperties = {
+  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex',
+  alignItems: 'flex-start', justifyContent: 'center', padding: 40, zIndex: 50, overflow: 'auto',
+}
+const modal: CSSProperties = { background: '#fff', borderRadius: 12, padding: 20, maxWidth: 760, width: '100%' }
+const pre: CSSProperties = {
+  background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: 10,
+  fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflow: 'auto', margin: 0,
+}
+
+function rangeBtn(active: boolean): CSSProperties {
+  return {
+    padding: '6px 12px', borderRadius: 6, border: '1px solid #d1d5db',
+    background: active ? '#2563eb' : '#fff', color: active ? '#fff' : '#374151',
+    cursor: 'pointer', fontSize: 13,
+  }
 }

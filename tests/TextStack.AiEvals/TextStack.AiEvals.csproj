@@ -9,6 +9,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- Npgsql comes transitively via Application (Npgsql.EntityFrameworkCore.PostgreSQL). -->
   </ItemGroup>
 
   <ItemGroup>

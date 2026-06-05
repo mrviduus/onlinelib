@@ -22,6 +22,17 @@ internal static class EvalClients
         return new OpenAiLlmClient(new ConfigurationBuilder().Build(), NullLogger<OpenAiLlmClient>.Instance);
     }
 
+    /// <summary>
+    /// The judge model. Defaults to OpenAI; set <c>EVAL_JUDGE=ollama</c> to judge
+    /// with local Ollama/gemma4 (free, no OpenAI key — handy when the key is the
+    /// blocker). A small local judge is noisier/looser, so scores are less reliable.
+    /// </summary>
+    public static ILlmService Judge()
+    {
+        var which = (Environment.GetEnvironmentVariable("EVAL_JUDGE") ?? "openai").Trim().ToLowerInvariant();
+        return which == "ollama" ? Ollama() : OpenAi();
+    }
+
     public static ILlmService Ollama()
     {
         var baseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL") ?? "http://localhost:11434";

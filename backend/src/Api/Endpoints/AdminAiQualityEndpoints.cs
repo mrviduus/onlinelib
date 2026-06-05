@@ -17,6 +17,73 @@ public static class AdminAiQualityEndpoints
     {
         var group = app.MapGroup("/admin/ai-quality").WithTags("AI Quality");
         group.MapGet("/summary", GetSummary);
+        group.MapGet("/traces", GetTraces);
+        group.MapGet("/traces/{id:guid}", GetTrace);
+        group.MapGet("/evals", GetEvals);
+    }
+
+    private static async Task<IResult> GetTraces(
+        AppDbContext db,
+        [FromQuery] string? feature,
+        [FromQuery] string? q,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken ct = default)
+    {
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
+
+        var query = db.LlmTraces.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(feature))
+            query = query.Where(t => t.FeatureTag == feature);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var pattern = $"%{q.Trim()}%";
+            query = query.Where(t =>
+                (t.SystemPrompt != null && EF.Functions.ILike(t.SystemPrompt, pattern)) ||
+                (t.ResponseText != null && EF.Functions.ILike(t.ResponseText, pattern)));
+        }
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip(offset).Take(limit)
+            .Select(t => new TraceListItemDto(
+                t.Id, t.FeatureTag, t.ModelId, t.TokensIn, t.TokensOut,
+                t.CostUsd, t.LatencyMs, t.Error != null, t.CreatedAt))
+            .ToListAsync(ct);
+
+        return Results.Ok(new TracesPageDto(total, items));
+    }
+
+    private static async Task<IResult> GetTrace(Guid id, AppDbContext db, CancellationToken ct)
+    {
+        var t = await db.LlmTraces.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (t is null) return Results.NotFound();
+        return Results.Ok(new TraceDetailDto(
+            t.Id, t.FeatureTag, t.ModelId, t.SystemPrompt, t.MessagesJson, t.ResponseText,
+            t.ToolCallsJson, t.TokensIn, t.TokensOut, t.CostUsd, t.LatencyMs, t.Error, t.UserId, t.CreatedAt));
+    }
+
+    private static async Task<IResult> GetEvals(
+        AppDbContext db,
+        [FromQuery] string? feature,
+        [FromQuery] int limit = 200,
+        CancellationToken ct = default)
+    {
+        limit = Math.Clamp(limit, 1, 1000);
+        var query = db.EvalRuns.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(feature))
+            query = query.Where(r => r.Feature == feature);
+
+        var runs = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(limit)
+            .Select(r => new EvalRunDto(
+                r.Id, r.Feature, r.ModelId, r.JudgeModelId, r.Score, r.N, r.BreakdownJson, r.GitSha, r.CreatedAt))
+            .ToListAsync(ct);
+
+        return Results.Ok(runs);
     }
 
     private static async Task<IResult> GetSummary(

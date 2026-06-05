@@ -34,8 +34,8 @@ public class VocabEvalTests(ITestOutputHelper output)
     [Fact]
     public async Task Vocab_golden_set_meets_quality_bar()
     {
-        var gen = EvalClients.Ollama();    // skips if Ollama not running
-        var judgeClient = EvalClients.OpenAi(); // skips if no OPENAI_API_KEY
+        var gen = EvalClients.Ollama();      // skips if Ollama not running
+        var judgeClient = EvalClients.Judge(); // OpenAI by default; EVAL_JUDGE=ollama for fully-local
         var ct = TestContext.Current.CancellationToken;
 
         var goldens = GoldenData.Load<VocabGolden>("vocab.json");
@@ -63,13 +63,20 @@ public class VocabEvalTests(ITestOutputHelper output)
             output.WriteLine($"{g.Word}: distractor={distractor[^1].Mean:0.0} hint={hint[^1].Mean:0.0} explanation={explanation[^1].Mean:0.0}");
         }
 
+        var dAgg = JudgeRunner.Aggregate(distractor);
+        var hAgg = JudgeRunner.Aggregate(hint);
+        var eAgg = JudgeRunner.Aggregate(explanation);
         Report("distractor", distractor);
         Report("hint", hint);
         Report("explanation", explanation);
 
-        Assert.True(JudgeRunner.Aggregate(distractor).MeanOverall >= BootstrapBar, "distractor below bootstrap bar");
-        Assert.True(JudgeRunner.Aggregate(hint).MeanOverall >= BootstrapBar, "hint below bootstrap bar");
-        Assert.True(JudgeRunner.Aggregate(explanation).MeanOverall >= BootstrapBar, "explanation below bootstrap bar");
+        await EvalRunRecorder.RecordAsync("vocab.distractor", ollamaGen: true, DistractorRubric, dAgg, ct);
+        await EvalRunRecorder.RecordAsync("vocab.hint", ollamaGen: true, HintRubric, hAgg, ct);
+        await EvalRunRecorder.RecordAsync("vocab.explanation", ollamaGen: true, ExplanationRubric, eAgg, ct);
+
+        Assert.True(dAgg.MeanOverall >= BootstrapBar, "distractor below bootstrap bar");
+        Assert.True(hAgg.MeanOverall >= BootstrapBar, "hint below bootstrap bar");
+        Assert.True(eAgg.MeanOverall >= BootstrapBar, "explanation below bootstrap bar");
     }
 
     private void Report(string facet, IReadOnlyCollection<JudgeScore> scores)

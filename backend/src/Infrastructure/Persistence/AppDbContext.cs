@@ -79,6 +79,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<BookCollection> BookCollections => Set<BookCollection>();
     public DbSet<LlmTrace> LlmTraces => Set<LlmTrace>();
+    public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
