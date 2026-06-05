@@ -23,6 +23,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AutoPublishPage } from './pages/AutoPublishPage'
 import { SeoBackfillPage } from './pages/SeoBackfillPage'
 import { BookQualityPage } from './pages/BookQualityPage'
+import { AiQualityPage } from './pages/AiQualityPage'
 import { UserUploadsPage } from './pages/UserUploadsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import './styles/admin.css'
@@ -61,6 +62,7 @@ function App() {
             <Route path="autopublish" element={<AutoPublishPage />} />
             <Route path="seo-backfill" element={<SeoBackfillPage />} />
             <Route path="quality" element={<BookQualityPage />} />
+            <Route path="ai-quality" element={<AiQualityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
