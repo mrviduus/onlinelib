@@ -15,7 +15,7 @@ public sealed class DistractorGenerator : IDistractorGenerator
         string word, string language, string? definition, string? sentence,
         string nativeLanguage, CancellationToken ct)
     {
-        var (systemPrompt, userPrompt) = BuildPrompt(word, language, definition, sentence, nativeLanguage);
+        var (systemPrompt, userPrompt) = DistractorPrompt.Build(word, language, definition, sentence, nativeLanguage);
 
         var llm = _llmFactory.Get("Distractor");
         var text = await llm.CompleteAsync(systemPrompt, userPrompt, maxOutputTokens: 600, ct);
@@ -24,46 +24,6 @@ public sealed class DistractorGenerator : IDistractorGenerator
             return (null, null, null);
 
         return ParseStructuredResponse(text, word);
-    }
-
-    private static (string System, string User) BuildPrompt(
-        string word, string language, string? definition, string? sentence, string nativeLanguage)
-    {
-        var system = "You generate vocabulary quiz data for language learners. " +
-                     "Always reply in the EXACT format requested. No preface, no markdown.";
-
-        var parts = new List<string>
-        {
-            $"Word: \"{word}\"",
-        };
-
-        if (!string.IsNullOrWhiteSpace(definition))
-            parts.Add($"Definition: \"{definition}\"");
-        if (!string.IsNullOrWhiteSpace(sentence))
-            parts.Add($"Context: \"{sentence}\"");
-
-        parts.Add($"Language: {language}");
-        parts.Add("");
-        parts.Add("Task 1 - Distractors: Generate 5 wrong-answer words that:");
-        parts.Add($"- Same part of speech as \"{word}\"");
-        parts.Add("- Similar difficulty level");
-        parts.Add("- NOT synonyms");
-        parts.Add("- Could plausibly confuse a learner");
-        parts.Add("- SINGLE WORD ONLY — no spaces, no multi-word phrases (use \"linearizability\" not \"strong consistency\"; \"sharding\" not \"data partitioning\"). Hyphens are fine.");
-        parts.Add("");
-        parts.Add("Task 2 - Hint: Write ONE short sentence (under 15 words) describing what this word means.");
-        parts.Add($"Do NOT use the word \"{word}\" or direct synonyms in the hint.");
-        parts.Add("");
-        parts.Add($"Task 3 - Explanation: Write 2-3 sentences in {nativeLanguage} explaining the meaning of \"{word}\".");
-        if (!string.IsNullOrWhiteSpace(sentence))
-            parts.Add($"Include how it is used in this context: \"{sentence}\"");
-        parts.Add("");
-        parts.Add("Reply in this EXACT format (no other text):");
-        parts.Add("DISTRACTORS: word1, word2, word3, word4, word5");
-        parts.Add("HINT: your hint sentence here");
-        parts.Add("EXPLANATION: your explanation here");
-
-        return (system, string.Join("\n", parts));
     }
 
     private static (List<string>? Distractors, string? Hint, string? Explanation) ParseStructuredResponse(string raw, string originalWord)

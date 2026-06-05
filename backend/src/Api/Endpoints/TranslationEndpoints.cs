@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Application.Ai;
 using Application.Common.Interfaces;
 using Application.Vocabulary;
 using Domain.LLM;
@@ -134,7 +135,7 @@ public static class TranslationEndpoints
             logger.LogWarning(ex, "Translate cache read failed, falling through to LLM");
         }
 
-        var systemPrompt = BuildSystemPrompt(srcLang, tgtLang, genre, sentence);
+        var systemPrompt = TranslatePrompt.BuildSystemPrompt(srcLang, tgtLang, genre, sentence);
 
         try
         {
@@ -172,49 +173,6 @@ public static class TranslationEndpoints
                 statusCode: 503
             );
         }
-    }
-
-    /// <summary>
-    /// Build the translation system prompt. Without genre/sentence we behave
-    /// like the legacy engine. With them we bias the model toward the
-    /// domain-specific reading and ask for a parenthetical clarifier when the
-    /// word is genuinely ambiguous (the README's "увага (механізм у нейромережах)"
-    /// pattern).
-    /// </summary>
-    private static string BuildSystemPrompt(string srcLang, string tgtLang, string? genre, string? sentence)
-    {
-        var sb = new StringBuilder();
-        sb.Append("You are a translation engine for readers of books and articles. ");
-        sb.Append($"Translate from {srcLang} to {tgtLang}. ");
-
-        if (!string.IsNullOrWhiteSpace(genre))
-        {
-            sb.Append($"Domain hint: {genre.Trim()}. ");
-            sb.Append("Prefer the domain-specific meaning over the everyday meaning when the word is ambiguous, ");
-            sb.Append("but never force a technical reading on a clearly non-technical context. ");
-        }
-
-        if (!string.IsNullOrWhiteSpace(sentence))
-        {
-            // Quote the sentence and escape any internal double-quotes so the
-            // prompt stays parseable for the model.
-            var escaped = sentence.Trim().Replace("\"", "\\\"");
-            sb.Append($"Sentence context: \"{escaped}\". ");
-        }
-
-        sb.Append("Output ONLY the translation. ");
-
-        if (!string.IsNullOrWhiteSpace(genre) || !string.IsNullOrWhiteSpace(sentence))
-        {
-            sb.Append("If the word has a domain-specific meaning that differs materially ");
-            sb.Append("from its everyday meaning, append a SHORT clarifier in ");
-            sb.Append($"{tgtLang} parentheses, e.g. \"увага (механізм у нейромережах)\" ");
-            sb.Append("or \"опитування (періодичний запит до сервера)\". ");
-            sb.Append("Otherwise output just the translation. ");
-        }
-
-        sb.Append("No preface, no quotes, no markdown.");
-        return sb.ToString();
     }
 
     /// <summary>

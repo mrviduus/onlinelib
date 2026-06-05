@@ -14,7 +14,7 @@ public class BookMetadataGenerator : IBookMetadataGenerator
     public async Task<BookMetadataResult?> GenerateAsync(
         string title, string? author, bool needsDescription, CancellationToken ct)
     {
-        var (systemPrompt, userPrompt) = BuildPrompt(title, author, needsDescription);
+        var (systemPrompt, userPrompt) = BookMetadataPrompt.Build(title, author, needsDescription);
 
         var llm = _llmFactory.Get("BookMetadata");
         var text = await llm.CompleteAsync(systemPrompt, userPrompt, maxOutputTokens: 400, ct);
@@ -23,27 +23,6 @@ public class BookMetadataGenerator : IBookMetadataGenerator
             return null;
 
         return ParseResponse(text, needsDescription);
-    }
-
-    private static (string System, string User) BuildPrompt(string title, string? author, bool needsDescription)
-    {
-        var system = "You are a librarian. Given a book's title and author, provide metadata " +
-                     "in the EXACT format requested. No preface, no markdown.";
-
-        var parts = new List<string> { $"Book title: \"{title}\"" };
-
-        if (!string.IsNullOrWhiteSpace(author))
-            parts.Add($"Author: \"{author}\"");
-
-        parts.Add("");
-        parts.Add("Reply in this EXACT format (no other text):");
-        parts.Add("GENRE: <one of: Fiction, Non-Fiction, Science Fiction, Fantasy, Mystery, Romance, Thriller, Horror, Biography, History, Science, Philosophy, Self-Help, Poetry, Drama, Children, Other>");
-        parts.Add("YEAR: <approximate first publication year as 4-digit number, or UNKNOWN>");
-
-        if (needsDescription)
-            parts.Add("DESCRIPTION: <2-3 sentence book description, no spoilers>");
-
-        return (system, string.Join("\n", parts));
     }
 
     private static readonly HashSet<string> ValidGenres = new(StringComparer.OrdinalIgnoreCase)

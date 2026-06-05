@@ -5,27 +5,32 @@ using TextStack.Ai.Core;
 namespace TextStack.Ai.Evals;
 
 /// <summary>
-/// LLM-as-judge. Sends a rubric + (expected, actual) to a judge model via the same
-/// <see cref="ILlmService"/> seam (so it routes/traces like any other call — judge
-/// runs carry FeatureTag <c>eval.judge</c>) and parses a strict-JSON verdict.
+/// LLM-as-judge. Given a per-feature <see cref="Rubric"/> and an evidence block
+/// (the inputs + reference + actual output), it scores 1–5 on each dimension via
+/// the same <see cref="ILlmService"/> seam (judge calls carry FeatureTag
+/// <c>eval.judge</c>, so they route/trace like any other call) and parses a
+/// strict-JSON verdict.
 ///
-/// Per AI-006 the judge is OpenAI through the gateway; swapping to Claude later is a
-/// config/provider change, not a code change here. The Explain rubric lives in
-/// <see cref="BuildExplainJudgePrompt"/>; AI-007 generalises this per feature.
+/// The runner is feature-agnostic: callers supply the rubric and build the
+/// evidence string (see the per-feature eval tests). Swapping the judge model to
+/// Claude later is a config/provider change, not a change here.
 /// </summary>
 public sealed class JudgeRunner(ILlmService judge, ILogger<JudgeRunner>? logger = null)
 {
-    private const string JudgeSystemPrompt =
-        "You are a strict, fair evaluator of an AI feature's output. " +
-        "Score each dimension on an integer scale 1-5 (5 = excellent, 1 = poor). " +
-        "Return ONLY strict JSON, no markdown, no preface: " +
-        "{\"accuracy\": int, \"conciseness\": int, \"usefulness\": int, \"rationale\": \"...\"}";
-
-    public async Task<JudgeScore> JudgeAsync(string judgePrompt, CancellationToken ct)
+    public async Task<JudgeScore> JudgeAsync(Rubric rubric, string evidence, CancellationToken ct)
     {
+        var system =
+            "You are a strict, fair evaluator of an AI feature's output. " +
+            "Score each of three dimensions on an integer scale 1-5 (5 = excellent, 1 = poor):\n" +
+            $"- d1 = {rubric.Dim1}\n" +
+            $"- d2 = {rubric.Dim2}\n" +
+            $"- d3 = {rubric.Dim3}\n" +
+            "Return ONLY strict JSON, no markdown, no preface: " +
+            "{\"d1\": int, \"d2\": int, \"d3\": int, \"rationale\": \"...\"}";
+
         var request = new LlmRequest(
-            SystemPrompt: JudgeSystemPrompt,
-            Messages: [new LlmMessage("user", judgePrompt)],
+            SystemPrompt: system,
+            Messages: [new LlmMessage("user", evidence)],
             MaxOutputTokens: 300,
             FeatureTag: "eval.judge");
 
@@ -33,30 +38,14 @@ public sealed class JudgeRunner(ILlmService judge, ILogger<JudgeRunner>? logger 
         return Parse(response.Text);
     }
 
-    /// <summary>
-    /// Explain rubric (playbook Phase 2). The judge sees the word, its sentence,
-    /// a reference explanation and the model's actual explanation.
-    /// </summary>
-    public static string BuildExplainJudgePrompt(string word, string sentence, string expected, string actual) =>
-        "Evaluate a contextual word-explanation feature for a deep-reading app aimed at " +
-        "developers reading dense technical books in a second language.\n" +
-        "Score 1-5 across:\n" +
-        "- accuracy: does it match the meaning the word carries IN THIS SENTENCE's domain?\n" +
-        "- conciseness: 2-3 sentences, no padding, no dictionary boilerplate?\n" +
-        "- usefulness: would a developer learning the topic find it genuinely helpful?\n\n" +
-        $"Word: {word}\n" +
-        $"Sentence: {sentence}\n" +
-        $"Reference explanation: {expected}\n" +
-        $"Actual explanation: {actual}";
-
     public static EvalSummary Aggregate(IReadOnlyCollection<JudgeScore> scores)
     {
         if (scores.Count == 0)
             return new EvalSummary(0, 0, 0, 0, 0);
-        var acc = scores.Average(s => s.Accuracy);
-        var con = scores.Average(s => s.Conciseness);
-        var use = scores.Average(s => s.Usefulness);
-        return new EvalSummary(scores.Count, acc, con, use, (acc + con + use) / 3.0);
+        var d1 = scores.Average(s => s.D1);
+        var d2 = scores.Average(s => s.D2);
+        var d3 = scores.Average(s => s.D3);
+        return new EvalSummary(scores.Count, d1, d2, d3, (d1 + d2 + d3) / 3.0);
     }
 
     private JudgeScore Parse(string raw)
@@ -75,9 +64,9 @@ public sealed class JudgeRunner(ILlmService judge, ILogger<JudgeRunner>? logger 
             using var doc = JsonDocument.Parse(raw[start..(end + 1)]);
             var root = doc.RootElement;
             return new JudgeScore(
-                ReadInt(root, "accuracy"),
-                ReadInt(root, "conciseness"),
-                ReadInt(root, "usefulness"),
+                ReadInt(root, "d1"),
+                ReadInt(root, "d2"),
+                ReadInt(root, "d3"),
                 root.TryGetProperty("rationale", out var r) ? r.GetString() ?? "" : "");
         }
         catch (JsonException ex)
