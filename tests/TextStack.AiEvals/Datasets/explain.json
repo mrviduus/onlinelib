@@ -1,0 +1,212 @@
+[
+  {
+    "word": "idempotent",
+    "sentence": "The payment API was designed to be idempotent, so retrying a failed request never charges the customer twice.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "Idempotent means an operation can be repeated many times with the same end result as doing it once. Here, sending the same payment request again has no extra effect, like pressing an elevator button that is already lit."
+  },
+  {
+    "word": "attention",
+    "sentence": "The transformer's attention mechanism lets each token weigh how relevant every other token is when building its representation.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "Attention is the part of a transformer that decides which other words a given word should focus on. It is like a reader highlighting the few earlier sentences that matter most for understanding the current one."
+  },
+  {
+    "word": "back-pressure",
+    "sentence": "When the consumer slowed down, back-pressure propagated upstream and told the producer to stop flooding the queue.",
+    "genre": "distributed systems",
+    "targetLang": "en",
+    "expectedExplanation": "Back-pressure is a signal from an overloaded consumer telling producers to slow down. It works like water pressure pushing back in a hose when the outlet is blocked, preventing the system from being overwhelmed."
+  },
+  {
+    "word": "eventual consistency",
+    "sentence": "The database favors eventual consistency, so a write on one node may take a moment to appear on the others.",
+    "genre": "databases",
+    "targetLang": "en",
+    "expectedExplanation": "Eventual consistency means all copies of the data will agree eventually, but not instantly after a change. It is like a rumor spreading through an office: everyone learns it soon, just not all at the same second."
+  },
+  {
+    "word": "embedding",
+    "sentence": "Each product description is converted into an embedding so similar items end up close together in vector space.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "An embedding is a list of numbers that captures the meaning of something so a computer can compare it. Here, similar product texts get similar number lists, like placing related books on nearby library shelves."
+  },
+  {
+    "word": "quantization",
+    "sentence": "After quantization the model ran on the phone because its weights were stored in 4 bits instead of 32.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "Quantization shrinks a model by storing its numbers with less precision. In this sentence it cut each weight from 32 bits to 4, like rounding prices to the nearest dollar to save space while keeping them roughly correct."
+  },
+  {
+    "word": "idempotency key",
+    "sentence": "The client attaches an idempotency key to each order so the server can detect and ignore duplicate submissions.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "An idempotency key is a unique label the client sends so the server recognizes a repeated request and does not act on it twice. It is like a ticket number that lets a clerk see you have already been served."
+  },
+  {
+    "word": "circuit breaker",
+    "sentence": "The circuit breaker tripped after ten straight timeouts and stopped sending calls to the failing service.",
+    "genre": "distributed systems",
+    "targetLang": "en",
+    "expectedExplanation": "A circuit breaker is a guard that stops calls to a service once it keeps failing, giving it time to recover. Like the electrical kind, it cuts the connection to prevent further damage rather than retrying endlessly."
+  },
+  {
+    "word": "hallucination",
+    "sentence": "The model's hallucination invented a citation that looked plausible but pointed to a paper that does not exist.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "A hallucination is when a language model confidently states something false as if it were fact. Here it fabricated a fake reference, much like a person filling a memory gap with a convincing but made-up detail."
+  },
+  {
+    "word": "token",
+    "sentence": "The prompt was too long because the document expanded into far more tokens than the context window allowed.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "A token is a chunk of text, often a word or part of a word, that a language model processes as one unit. The model counts these chunks, so a long document becomes many tokens, like counting syllables instead of whole sentences."
+  },
+  {
+    "word": "race condition",
+    "sentence": "A race condition let two threads update the balance at once, so one of the deposits silently vanished.",
+    "genre": "computer science",
+    "targetLang": "en",
+    "expectedExplanation": "A race condition is a bug where the outcome depends on the unpredictable timing of concurrent operations. Here two threads changed the balance simultaneously and overwrote each other, like two people editing the same cell of a shared form."
+  },
+  {
+    "word": "throughput",
+    "sentence": "Batching requests tripled throughput even though each individual response took slightly longer.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "Throughput is how much work a system completes per unit of time. Here grouping requests let more finish overall, like a bus carrying many passengers per trip even if each rider's journey is a bit slower."
+  },
+  {
+    "word": "latency",
+    "sentence": "Moving the cache closer to users cut latency so pages felt instant instead of sluggish.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "Latency is the delay between asking for something and getting a response. Reducing it made pages load faster, like shortening the wait between flipping a switch and the light turning on."
+  },
+  {
+    "word": "fine-tuning",
+    "sentence": "Instead of training from scratch, the team did fine-tuning on a few thousand support tickets.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "Fine-tuning is taking an already-trained model and training it a little more on your own data to specialize it. It is like hiring an experienced writer and giving them your style guide rather than teaching them to write from zero."
+  },
+  {
+    "word": "sharding",
+    "sentence": "Sharding split the users table across ten machines so no single server held the whole dataset.",
+    "genre": "databases",
+    "targetLang": "en",
+    "expectedExplanation": "Sharding divides a large dataset into pieces spread across several machines. Here the users were partitioned across ten servers, like splitting one giant phone book into separate volumes by last name."
+  },
+  {
+    "word": "deadlock",
+    "sentence": "The two transactions hit a deadlock, each holding the lock the other needed and neither willing to release.",
+    "genre": "databases",
+    "targetLang": "en",
+    "expectedExplanation": "A deadlock is when two operations each wait for a resource the other is holding, so neither can proceed. It is like two people in a narrow hallway each refusing to step aside, blocking each other forever."
+  },
+  {
+    "word": "vector database",
+    "sentence": "Retrieval pulled the five nearest documents from the vector database before passing them to the model.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "A vector database stores items as numeric embeddings and finds the ones most similar to a query. Here it returned the five closest documents, like a librarian who hands you books by topic similarity rather than exact title."
+  },
+  {
+    "word": "prompt injection",
+    "sentence": "A prompt injection hidden in the web page tricked the agent into ignoring its original instructions.",
+    "genre": "security",
+    "targetLang": "en",
+    "expectedExplanation": "Prompt injection is an attack where malicious text smuggled into the model's input overrides its real instructions. Here a hidden message on a page hijacked the agent, like a forged note slipped into someone's to-do list."
+  },
+  {
+    "word": "context window",
+    "sentence": "Earlier messages fell out of the context window, so the assistant forgot what the user had said at the start.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "The context window is the limited amount of text a model can consider at once. When the conversation grows past it, older parts are dropped, like a whiteboard that gets erased at one end to make room at the other."
+  },
+  {
+    "word": "rate limiting",
+    "sentence": "Rate limiting capped each client to a hundred requests a minute to keep one user from starving the rest.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "Rate limiting restricts how often a client may call a service in a given time. Here each user got at most a hundred requests per minute, like a toll booth letting only so many cars through to prevent a jam."
+  },
+  {
+    "word": "immutable",
+    "sentence": "Because the configuration object is immutable, any change produces a new copy rather than altering the original.",
+    "genre": "computer science",
+    "targetLang": "en",
+    "expectedExplanation": "Immutable means a value cannot be changed once created; updates make a fresh copy instead. This avoids surprise side effects, like writing a final draft in ink so edits become a new page rather than smudging the old one."
+  },
+  {
+    "word": "garbage collection",
+    "sentence": "A long garbage collection pause froze the server for half a second while unused memory was reclaimed.",
+    "genre": "computer science",
+    "targetLang": "en",
+    "expectedExplanation": "Garbage collection is the automatic cleanup of memory no longer in use. Here it briefly paused the program to free that memory, like a janitor clearing abandoned trays so the cafeteria has room again."
+  },
+  {
+    "word": "idempotence",
+    "sentence": "Setting a flag to true twice has idempotence: the second call leaves the state exactly as the first did.",
+    "genre": "computer science",
+    "targetLang": "en",
+    "expectedExplanation": "Idempotence is the property that repeating an action changes nothing after the first time. Setting a flag to true again does nothing new, like locking an already-locked door."
+  },
+  {
+    "word": "overfitting",
+    "sentence": "The model showed overfitting: near-perfect on training data but poor on anything it had not seen.",
+    "genre": "machine learning",
+    "targetLang": "en",
+    "expectedExplanation": "Overfitting is when a model memorizes its training data instead of learning general patterns, so it fails on new examples. It is like a student who memorizes past exam answers but cannot solve a slightly different question."
+  },
+  {
+    "word": "load balancer",
+    "sentence": "The load balancer spread incoming traffic across the three servers so none of them was overwhelmed.",
+    "genre": "distributed systems",
+    "targetLang": "en",
+    "expectedExplanation": "A load balancer distributes incoming requests across several servers to share the work. Here it kept any one server from overloading, like a host seating arriving diners evenly across open tables."
+  },
+  {
+    "word": "checksum",
+    "sentence": "The download was re-run after the checksum did not match, proving the file had arrived corrupted.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "A checksum is a short value computed from data to detect whether it changed. A mismatch meant the file was damaged in transit, like comparing a parcel's weight on arrival to catch missing contents."
+  },
+  {
+    "word": "rollback",
+    "sentence": "When the migration failed halfway, the database performed a rollback and restored the prior state.",
+    "genre": "databases",
+    "targetLang": "en",
+    "expectedExplanation": "A rollback undoes a set of changes and returns the system to how it was before they started. Here a failed migration was reversed entirely, like hitting undo to discard a half-finished edit."
+  },
+  {
+    "word": "inscrutable",
+    "sentence": "Her inscrutable expression gave away nothing as she read the verdict aloud to the silent courtroom.",
+    "genre": "fiction",
+    "targetLang": "en",
+    "expectedExplanation": "Inscrutable means impossible to read or interpret. Here her face revealed no emotion at all, leaving everyone unable to guess what she felt, like a blank mask."
+  },
+  {
+    "word": "ephemeral",
+    "sentence": "The container is ephemeral, so any files written inside it disappear the moment it shuts down.",
+    "genre": "technology",
+    "targetLang": "en",
+    "expectedExplanation": "Ephemeral means short-lived and not meant to persist. Here the container keeps nothing after it stops, so data must be stored elsewhere, like writing on a whiteboard that is wiped when you leave the room."
+  },
+  {
+    "word": "serendipity",
+    "sentence": "By pure serendipity the bug surfaced during the demo, exposing a flaw they would have shipped otherwise.",
+    "genre": "general",
+    "targetLang": "en",
+    "expectedExplanation": "Serendipity is a lucky, unplanned discovery. Here a fortunate accident revealed the bug just in time, turning a random coincidence into a useful outcome."
+  }
+]

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Evals\TextStack.Ai.Evals.csproj" />
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Llm\TextStack.Ai.Llm.csproj" />
+    <ProjectReference Include="..\..\backend\src\Application\Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Datasets\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>
