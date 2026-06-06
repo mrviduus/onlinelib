@@ -166,32 +166,34 @@ public static class AdminAiQualityEndpoints
         var days = Math.Max(1.0, (toUtc - fromUtc).TotalDays);
 
         // Percentiles need percentile_cont (no EF translation), so this is raw SQL.
-        // Columns are quoted-aliased to match the row property names exactly.
+        // Column aliases MUST be snake_case: EF's SqlQuery<T> maps result columns to
+        // row properties via the context's snake_case naming convention (e.g. property
+        // CostUsd → column cost_usd). Quoted PascalCase aliases break that lookup.
         var rows = await db.Database.SqlQuery<FeatureRow>($"""
-            SELECT feature_tag AS "FeatureTag",
-                   count(*) AS "Calls",
-                   coalesce(sum(cost_usd), 0) AS "CostUsd",
-                   count(*) FILTER (WHERE error IS NOT NULL) AS "Errors",
-                   coalesce(sum(tokens_in), 0) AS "TokensIn",
-                   coalesce(sum(tokens_out), 0) AS "TokensOut",
-                   coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms), 0) AS "P50",
-                   coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms), 0) AS "P95"
+            SELECT feature_tag AS feature_tag,
+                   count(*) AS calls,
+                   coalesce(sum(cost_usd), 0) AS cost_usd,
+                   count(*) FILTER (WHERE error IS NOT NULL) AS errors,
+                   coalesce(sum(tokens_in), 0) AS tokens_in,
+                   coalesce(sum(tokens_out), 0) AS tokens_out,
+                   coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms), 0) AS p50,
+                   coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms), 0) AS p95
             FROM llm_traces
             WHERE created_at >= {fromUtc} AND created_at < {toUtc}
               AND ({feat}::text IS NULL OR feature_tag = {feat})
             GROUP BY feature_tag
-            ORDER BY "CostUsd" DESC
+            ORDER BY cost_usd DESC
             """).ToListAsync(ct);
 
         var daily = await db.Database.SqlQuery<DailyRow>($"""
-            SELECT feature_tag AS "FeatureTag",
-                   (date_trunc('day', created_at))::date AS "Day",
-                   coalesce(sum(cost_usd), 0) AS "CostUsd"
+            SELECT feature_tag AS feature_tag,
+                   (date_trunc('day', created_at))::date AS day,
+                   coalesce(sum(cost_usd), 0) AS cost_usd
             FROM llm_traces
             WHERE created_at >= {fromUtc} AND created_at < {toUtc}
               AND ({feat}::text IS NULL OR feature_tag = {feat})
             GROUP BY feature_tag, (date_trunc('day', created_at))::date
-            ORDER BY "Day"
+            ORDER BY day
             """).ToListAsync(ct);
 
         var dailyByFeature = daily
