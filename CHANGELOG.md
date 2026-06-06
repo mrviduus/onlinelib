@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### AI platform — Phase 3: Podcast MVP (2026-06-06)
+
+Two-voice "podcast" (NotebookLM-style dialogue) generated per catalog edition: LLM builds a script, Edge TTS voices each line, ffmpeg stitches an mp3 the reader can play. Shipped in small PRs.
+
+- **AI-011 — `PodcastGenerationJob` entity + migration** (this PR) — foundation only (no behavior). New `PodcastGenerationJob` (edition-scoped: `EditionId` FK cascade, `Lang`, `Status`, `ScriptJson` jsonb, `AudioPath`, `DurationSeconds`, `CostUsd`, `Error`, timestamps) + `PodcastJobStatus` enum (Queued/Running/Succeeded/Failed), mirroring the `BookQualityJob` job pattern. DbSet on `IAppDbContext`/`AppDbContext`, EF config in `AppDbContext.Podcasts.cs` (indexes on status + edition), migration `AddPodcastGenerationJob` (table `podcast_generation_jobs`). Script builder will use the gateway (`gpt-4.1-nano`, FeatureTag `podcast.script`); TTS reuses the free Edge TTS. ScriptBuilder/AudioAssembler/Worker/endpoints/UI follow in AI-012→017.
+
 ### AI platform — observable LLM layer (foundation) (2026-06-04)
 
 Building a unified, observable LLM layer so every AI call (Explain, Translate,
