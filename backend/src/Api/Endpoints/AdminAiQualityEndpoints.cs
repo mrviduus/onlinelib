@@ -203,8 +203,17 @@ public static class AdminAiQualityEndpoints
                     .ToList());
 
         // Latest eval score per feature (small table → fetch recent + group in memory).
-        var evalRows = await db.EvalRuns.OrderByDescending(r => r.CreatedAt).Take(500).ToListAsync(ct);
-        var latestEval = evalRows.GroupBy(r => r.Feature).ToDictionary(g => g.Key, g => g.First().Score);
+        // Resilient: a missing/empty eval_runs must never break the trace summary.
+        Dictionary<string, decimal> latestEval;
+        try
+        {
+            var evalRows = await db.EvalRuns.OrderByDescending(r => r.CreatedAt).Take(500).ToListAsync(ct);
+            latestEval = evalRows.GroupBy(r => r.Feature).ToDictionary(g => g.Key, g => g.First().Score);
+        }
+        catch
+        {
+            latestEval = [];
+        }
 
         var features = rows.Select(r => new FeatureSummaryDto(
             FeatureTag: r.FeatureTag,
@@ -231,7 +240,9 @@ public static class AdminAiQualityEndpoints
     }
 
     // Raw-SQL row shapes (mutable props + parameterless ctor for EF SqlQuery materialization).
-    private sealed class FeatureRow
+    // MUST be public: EF's SqlQuery materializer can't construct private nested types
+    // (fails only once rows exist), which 500'd the Summary on prod.
+    public sealed class FeatureRow
     {
         public string FeatureTag { get; set; } = "";
         public long Calls { get; set; }
@@ -243,7 +254,7 @@ public static class AdminAiQualityEndpoints
         public double P95 { get; set; }
     }
 
-    private sealed class DailyRow
+    public sealed class DailyRow
     {
         public string FeatureTag { get; set; } = "";
         public DateTime Day { get; set; }
