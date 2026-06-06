@@ -10,6 +10,7 @@ using TextStack.Extraction.Extractors;
 using TextStack.Extraction.Registry;
 using TextStack.Search;
 using TextStack.Search.Meilisearch;
+using TextStack.Tts;
 using Worker.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -65,6 +66,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IBookMetadataGenerator, BookMetadataGenerator>();
 builder.Services.AddSingleton<ITagSuggestionGenerator, TagSuggestionGenerator>();
 builder.Services.AddScoped<IPodcastScriptBuilder, PodcastScriptBuilder>();
+// TTS + audio assembly for podcasts (Edge TTS is free; ffmpeg is in the Worker image).
+builder.Services.Configure<TtsConfiguration>(builder.Configuration.GetSection("Tts"));
+builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
+builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();
