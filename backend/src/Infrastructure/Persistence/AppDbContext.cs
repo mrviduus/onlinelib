@@ -80,6 +80,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<BookCollection> BookCollections => Set<BookCollection>();
     public DbSet<LlmTrace> LlmTraces => Set<LlmTrace>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
+    public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +98,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
         ConfigureSeo(modelBuilder);
         ConfigureCollections(modelBuilder);
         ConfigureAi(modelBuilder);
+        ConfigurePodcasts(modelBuilder);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
