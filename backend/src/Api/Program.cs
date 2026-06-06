@@ -441,6 +441,7 @@ app.MapAdminSeoBackfillEndpoints();
 app.MapAdminLintEndpoints();
 app.MapAdminSettingsEndpoints();
 app.MapBooksEndpoints();
+app.MapPodcastEndpoints();
 app.MapSearchEndpoints();
 app.MapAuthorsEndpoints();
 app.MapGenresEndpoints();
