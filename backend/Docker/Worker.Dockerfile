@@ -37,6 +37,7 @@ RUN set -eux; \
             libxrender1 \
             nodejs \
             npm \
+            ffmpeg \
             ca-certificates \
             libnss3 \
             libatk1.0-0 \
