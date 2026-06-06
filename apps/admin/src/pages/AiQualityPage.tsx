@@ -138,6 +138,9 @@ function FeatureCard({ f }: { f: FeatureSummary }) {
         <Metric label="p95 latency" value={`${f.p95LatencyMs} ms`} />
         <Metric label="Error rate" value={`${errPct}%`} color={errColor} />
         <Metric label="Tokens (in/out)" value={`${f.tokensIn.toLocaleString()} / ${f.tokensOut.toLocaleString()}`} />
+        {f.latestEvalScore != null && (
+          <Metric label="Eval score" value={`${f.latestEvalScore.toFixed(2)} / 5`} color="#7c3aed" />
+        )}
       </div>
     </div>
   )
@@ -320,8 +323,10 @@ function EvalsTab() {
   const [runs, setRuns] = useState<EvalRun[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [judge, setJudge] = useState<'ollama' | 'openai'>('ollama')
+  const [running, setRunning] = useState(false)
 
-  useEffect(() => {
+  const load = () =>
     adminApi
       .getAiEvals({ limit: 500 })
       .then((d) => {
@@ -329,17 +334,48 @@ function EvalsTab() {
         setError(null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false))
+
+  useEffect(() => {
+    load().finally(() => setLoading(false))
+    let prev = false
+    const poll = setInterval(async () => {
+      try {
+        const st = await adminApi.getAiEvalStatus()
+        setRunning(st.running)
+        if (st.lastError) setError(st.lastError)
+        if (prev && !st.running) load() // finished → refresh history
+        prev = st.running
+      } catch {
+        /* ignore poll errors */
+      }
+    }, 3000)
+    return () => clearInterval(poll)
   }, [])
 
-  if (loading) return <p className="dashboard-page__subtitle">Loading…</p>
-  if (error) return <Banner text={error} />
-  if (runs.length === 0)
-    return (
-      <p className="dashboard-empty">
-        No eval runs yet. Run the eval suite with <code>EVAL_DB_CONNECTION</code> set to populate this tab.
-      </p>
-    )
+  const run = async () => {
+    setError(null)
+    try {
+      await adminApi.runAiEvals({ judge })
+      setRunning(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start run')
+    }
+  }
+
+  const controls = (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+      <select value={judge} onChange={(e) => setJudge(e.target.value as 'ollama' | 'openai')} style={input} disabled={running}>
+        <option value="ollama">Judge: Ollama (free)</option>
+        <option value="openai">Judge: OpenAI</option>
+      </select>
+      <button onClick={run} disabled={running} style={rangeBtn(false)}>
+        {running ? 'Running…' : 'Run evals'}
+      </button>
+      <span style={{ fontSize: 12, color: '#6b7280' }}>
+        Runs all goldens through the real gateway and writes eval history.
+      </span>
+    </div>
+  )
 
   // Group by feature (API returns newest-first), then flag regressions vs the next-older run.
   const byFeature = new Map<string, EvalRun[]>()
@@ -350,8 +386,16 @@ function EvalsTab() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {[...byFeature.entries()].map(([feature, fRuns]) => (
+    <>
+      {controls}
+      {error && <Banner text={error} />}
+      {loading ? (
+        <p className="dashboard-page__subtitle">Loading…</p>
+      ) : runs.length === 0 ? (
+        <p className="dashboard-empty">No eval runs yet. Click “Run evals” to populate (judge defaults to free local Ollama).</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {[...byFeature.entries()].map(([feature, fRuns]) => (
         <div key={feature}>
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>{feature}</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -386,8 +430,10 @@ function EvalsTab() {
             </tbody>
           </table>
         </div>
-      ))}
-    </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 

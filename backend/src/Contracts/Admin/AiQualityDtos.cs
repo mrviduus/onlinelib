@@ -14,7 +14,8 @@ public record FeatureSummaryDto(
     double ErrorRate,
     long TokensIn,
     long TokensOut,
-    IReadOnlyList<DailyCostPoint> DailyCost);
+    IReadOnlyList<DailyCostPoint> DailyCost,
+    decimal? LatestEvalScore);
 
 /// <summary>The /ai-quality Summary tab payload: window + totals + per-feature cards.</summary>
 public record AiQualitySummaryDto(
@@ -55,6 +56,12 @@ public record TraceDetailDto(
     string? Error,
     Guid? UserId,
     DateTimeOffset CreatedAt);
+
+/// <summary>Request body for triggering an eval run from the admin panel.</summary>
+public record RunEvalsRequest(string[]? Features, string? Judge);
+
+/// <summary>State of the in-app eval runner (one run at a time).</summary>
+public record EvalStatusDto(bool Running, DateTimeOffset? StartedAt, string? LastError);
 
 /// <summary>One persisted eval run for the Evals tab history.</summary>
 public record EvalRunDto(

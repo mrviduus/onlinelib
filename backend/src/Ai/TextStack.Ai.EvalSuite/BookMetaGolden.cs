@@ -1,4 +1,4 @@
-namespace TextStack.AiEvals;
+namespace TextStack.Ai.EvalSuite;
 
 /// <summary>One BookMetadata golden: title/author the generator receives, plus
 /// reference genre/year/description the judge scores the model's GENRE/YEAR/

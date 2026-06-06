@@ -1,3 +1,4 @@
+using Application.Ai;
 using Domain.LLM;
 
 namespace Worker.Services;

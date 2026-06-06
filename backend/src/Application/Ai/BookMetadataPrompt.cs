@@ -1,4 +1,4 @@
-namespace Worker.Services;
+namespace Application.Ai;
 
 /// <summary>
 /// The book-metadata prompt extracted from <see cref="BookMetadataGenerator"/> so

@@ -1,7 +1,11 @@
+using Application.Common.Interfaces;
 using Contracts.Admin;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using TextStack.Ai.Core;
+using TextStack.Ai.EvalSuite;
 
 namespace Api.Endpoints;
 
@@ -20,7 +24,68 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/traces", GetTraces);
         group.MapGet("/traces/{id:guid}", GetTrace);
         group.MapGet("/evals", GetEvals);
+        group.MapPost("/evals/run", RunEvals);
+        group.MapGet("/evals/status", GetEvalStatus);
     }
+
+    // In-app eval runner state (one run at a time). Triggered from the admin Evals tab.
+    private static volatile bool _evalRunning;
+    private static DateTimeOffset? _evalStartedAt;
+    private static string? _evalLastError;
+    private static readonly object _evalLock = new();
+
+    private static IResult RunEvals(
+        [FromBody] RunEvalsRequest? body,
+        IServiceScopeFactory scopeFactory,
+        IConfiguration config,
+        ILogger<Program> logger)
+    {
+        lock (_evalLock)
+        {
+            if (_evalRunning)
+                return Results.Conflict(new { error = "An eval run is already in progress" });
+            _evalRunning = true;
+            _evalStartedAt = DateTimeOffset.UtcNow;
+            _evalLastError = null;
+        }
+
+        // Judge defaults to local Ollama (free); generation always goes through the
+        // gateway (routes by FeatureTag → OpenAI/Ollama exactly like prod).
+        var judgeKey = string.Equals(body?.Judge, "openai", StringComparison.OrdinalIgnoreCase) ? "openai" : "ollama";
+        var judgeModelId = judgeKey == "openai"
+            ? config["OpenAI:Model"] ?? "gpt-4.1-nano"
+            : config["Ollama:Model"] ?? "gemma4:e4b";
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+        var features = body?.Features;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var sp = scope.ServiceProvider;
+                var runner = sp.GetRequiredService<EvalSuiteRunner>();
+                var gateway = sp.GetRequiredService<ILlmService>();
+                var judge = sp.GetRequiredKeyedService<ILlmService>(judgeKey);
+                var db = sp.GetRequiredService<IAppDbContext>();
+                await runner.RunAsync(_ => gateway, judge, judgeModelId, features, persist: true, db, gitSha, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _evalLastError = ex.Message;
+                logger.LogError(ex, "Admin-triggered eval run failed");
+            }
+            finally
+            {
+                _evalRunning = false;
+            }
+        });
+
+        return Results.Accepted(value: new { started = true });
+    }
+
+    private static IResult GetEvalStatus() =>
+        Results.Ok(new EvalStatusDto(_evalRunning, _evalStartedAt, _evalLastError));
 
     private static async Task<IResult> GetTraces(
         AppDbContext db,
@@ -137,6 +202,10 @@ public static class AdminAiQualityEndpoints
                     .Select(d => new DailyCostPoint(DateOnly.FromDateTime(d.Day), d.CostUsd))
                     .ToList());
 
+        // Latest eval score per feature (small table → fetch recent + group in memory).
+        var evalRows = await db.EvalRuns.OrderByDescending(r => r.CreatedAt).Take(500).ToListAsync(ct);
+        var latestEval = evalRows.GroupBy(r => r.Feature).ToDictionary(g => g.Key, g => g.First().Score);
+
         var features = rows.Select(r => new FeatureSummaryDto(
             FeatureTag: r.FeatureTag,
             Calls: r.Calls,
@@ -147,7 +216,8 @@ public static class AdminAiQualityEndpoints
             ErrorRate: r.Calls > 0 ? (double)r.Errors / r.Calls : 0,
             TokensIn: r.TokensIn,
             TokensOut: r.TokensOut,
-            DailyCost: dailyByFeature.TryGetValue(r.FeatureTag, out var dc) ? dc : []))
+            DailyCost: dailyByFeature.TryGetValue(r.FeatureTag, out var dc) ? dc : [],
+            LatestEvalScore: latestEval.TryGetValue(r.FeatureTag, out var es) ? es : null))
             .ToList();
 
         var summary = new AiQualitySummaryDto(

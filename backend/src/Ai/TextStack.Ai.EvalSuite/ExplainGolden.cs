@@ -1,4 +1,4 @@
-namespace TextStack.AiEvals;
+namespace TextStack.Ai.EvalSuite;
 
 /// <summary>One Explain golden case: an input the endpoint would receive plus a
 /// reference explanation the judge scores the model's output against.</summary>
