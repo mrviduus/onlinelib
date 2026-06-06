@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TextStack.Ai.EvalSuite</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TextStack.Ai.Evals\TextStack.Ai.Evals.csproj" />
+    <ProjectReference Include="..\..\Application\Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Goldens ship inside the assembly so API + tests load them identically. -->
+    <EmbeddedResource Include="Datasets\*.json" />
+  </ItemGroup>
+</Project>

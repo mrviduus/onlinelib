@@ -1,4 +1,4 @@
-namespace TextStack.AiEvals;
+namespace TextStack.Ai.EvalSuite;
 
 /// <summary>One Translate golden: an input the endpoint would receive plus a
 /// reference translation the judge scores the model's output against.</summary>

@@ -78,6 +78,7 @@ builder.Services.AddOpenApi();
 
 // Application layer
 builder.Services.AddApplication();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EvalSuiteRunner>();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")

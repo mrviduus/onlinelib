@@ -431,6 +431,12 @@ export interface FeatureSummary {
   tokensIn: number
   tokensOut: number
   dailyCost: DailyCostPoint[]
+  latestEvalScore?: number | null
+}
+export interface EvalStatus {
+  running: boolean
+  startedAt: string | null
+  lastError: string | null
 }
 export interface AiQualitySummary {
   from: string
@@ -1084,6 +1090,18 @@ export const adminApi = {
     if (params?.limit) query.set('limit', String(params.limit))
     const qs = query.toString()
     return fetchJson<EvalRun[]>(`/admin/ai-quality/evals${qs ? `?${qs}` : ''}`)
+  },
+
+  runAiEvals: async (body: { features?: string[]; judge?: 'ollama' | 'openai' }): Promise<void> => {
+    await fetchJson('/admin/ai-quality/evals/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  },
+
+  getAiEvalStatus: async (): Promise<EvalStatus> => {
+    return fetchJson<EvalStatus>('/admin/ai-quality/evals/status')
   },
 
   // ── SEO Backfill ──

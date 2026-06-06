@@ -7,23 +7,15 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
-    <!-- Npgsql comes transitively via Application (Npgsql.EntityFrameworkCore.PostgreSQL). -->
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Evals\TextStack.Ai.Evals.csproj" />
+    <!-- Single source of goldens/definitions lives in the suite lib (embedded). -->
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.EvalSuite\TextStack.Ai.EvalSuite.csproj" />
     <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Llm\TextStack.Ai.Llm.csproj" />
-    <ProjectReference Include="..\..\backend\src\Application\Application.csproj" />
-    <ProjectReference Include="..\..\backend\src\Vocabulary\TextStack.Vocabulary\TextStack.Vocabulary.csproj" />
-    <ProjectReference Include="..\..\backend\src\Worker\Worker.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Datasets\**\*.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,4 @@
-namespace TextStack.AiEvals;
+namespace TextStack.Ai.EvalSuite;
 
 /// <summary>One vocabulary golden: the inputs DistractorGenerator receives, plus
 /// reference distractors/hint/explanation the judge scores the model's (single
