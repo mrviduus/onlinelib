@@ -73,6 +73,7 @@ builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();
+builder.Services.AddHostedService<PodcastWorker>();
 
 // SSG Rebuild handled by dedicated ssg_worker container (apps/web/scripts/ssg-worker.mjs)
 
