@@ -18,6 +18,7 @@ public class LlmServiceFactory(global::TextStack.Ai.Core.ILlmService gateway) : 
         ["Distractor"] = "distractor",
         ["BookMetadata"] = "bookmeta",
         ["TagSuggestion"] = "tagsuggestion",
+        ["PodcastScript"] = "podcast.script",
     };
 
     public ILlmService Get(string jobName)
