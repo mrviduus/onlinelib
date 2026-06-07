@@ -889,7 +889,13 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var VHL_MANAGED_NAMES = ['vocab-new','vocab-recognition','vocab-recall','vocab-context','vocab-mastered','vocab-active'];
     var VHL_WORD_RE = /[\\p{L}\\p{N}'-]+/gu;
 
-    var _showInlineTranslations = false;
+    // Default ON to match the React default (useReaderSettings.showInlineTranslations: true).
+    // Initialising false caused a race: markVocabWords (vocab paint) often ran before the
+    // setShowInlineTranslations(true) injection landed, so vhlRenderOverlay bailed and the
+    // gloss never drew on first load — only a settings toggle forced a re-paint. Starting
+    // true makes the gloss draw from the first paint; the off-injection still hides it for
+    // users who disabled it.
+    var _showInlineTranslations = true;
     var _currentVocabMap = {};
     var _vhlSupport = null;
 
