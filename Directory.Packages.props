@@ -27,6 +27,13 @@
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
     <!-- LLM -->
     <PackageVersion Include="OpenAI" Version="2.2.0" />
+    <!-- AI eval framework (MEAI.Evaluation). Stable 10.6.0 — IChatClient seam +
+         IEvaluator/EvaluationMetric + Reporting (response cache, HTML report).
+         Used by tests/TextStack.AiEvals; see docs/eval-migration.md. -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.6.0" />
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.72" />
     <PackageVersion Include="Meilisearch" Version="0.16.0" />

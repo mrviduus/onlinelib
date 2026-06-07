@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### AI platform — eval framework → Microsoft.Extensions.AI.Evaluation (2026-06-07)
+
+Migrated the hand-rolled eval runner/judge to the **stable** `Microsoft.Extensions.AI.Evaluation` framework (10.6.0), keeping our golden datasets the source of truth and scores comparable. Shipped as 7 small steps on one branch.
+
+- **AI-018 — eval suite on MEAI.Evaluation** (this PR) — replaces the bespoke `JudgeRunner.JudgeAsync` LLM-as-judge with MEAI's `IEvaluator` model, end to end:
+  - **`LlmServiceChatClient`** adapts our `ILlmService` seam to MEAI's `IChatClient`, so evaluators call the same Ollama/OpenAI gateway (no new service).
+  - **`RubricEvaluator : IEvaluator`** ports the judge 1:1 — the **same** system prompt + **same** strict-JSON parse (now shared statics on `JudgeRunner`) → identical scores given the same judge reply; emits the 3 rubric axes + overall as `NumericMetric`s, gated Pass/Fail on the same floors.
+  - **Goldens unchanged** (`GoldenLoader` + embedded `Datasets/*.json`) feed `ReportingConfiguration` scenarios; runs persist to a disk store with a **30-day response cache** (re-runs don't re-hit the judge) and an **HTML report** (`data/eval-meai/`).
+  - Opt-in **built-in quality evaluators** (Coherence + Relevance on explain/vocab) behind `EVAL_QUALITY=1`; default CI stays deterministic.
+  - The admin **`POST /admin/ai-quality/evals/run`** now scores via `RubricEvaluator` (signature + DI + `eval_runs` persistence unchanged); the legacy instance judge path is removed and `JudgeRunner` is now a static prompt/parse utility.
+  - **Parity proven** deterministically (`RubricEvaluatorTests`) and live (Ollama gemma3, N=30: legacy vs MEAI within ±0.05 on every feature). See `docs/eval-migration.md`.
+
 ### AI platform — Phase 3: Podcast MVP (2026-06-06)
 
 Two-voice "podcast" (NotebookLM-style dialogue) generated per catalog edition: LLM builds a script, Edge TTS voices each line, ffmpeg stitches an mp3 the reader can play. Shipped in small PRs.
