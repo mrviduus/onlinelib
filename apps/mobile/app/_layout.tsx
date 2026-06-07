@@ -159,15 +159,18 @@ export default function RootLayout() {
       <ErrorBoundary>
         <ThemeProvider>
           <LanguageProvider>
-            <NativeLanguageProvider>
-              <AuthProvider>
+            <AuthProvider>
+              {/* NativeLanguageProvider sits INSIDE AuthProvider so it can mirror
+                  the signed-in user's nativeLanguage from the server (parity with
+                  web). Outside it, mobile only ever saw the local default. */}
+              <NativeLanguageProvider>
                 <DownloadProvider>
                   <ToastProvider>
                     <AppContent />
                   </ToastProvider>
                 </DownloadProvider>
-              </AuthProvider>
-            </NativeLanguageProvider>
+              </NativeLanguageProvider>
+            </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
       </ErrorBoundary>

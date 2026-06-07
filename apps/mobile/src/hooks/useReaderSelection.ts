@@ -93,8 +93,6 @@ export function useReaderSelection({ flushVocabMap }: Options) {
     setWordSaved,
     lookupState,
     setLookupState,
-    selectionIdRef,
-    autoSavedRef,
     openSelection,
   }
 }

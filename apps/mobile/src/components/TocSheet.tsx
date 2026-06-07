@@ -30,7 +30,7 @@ export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onN
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.background }, chapters.length > 0 && styles.sheetTall]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 }} />
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Contents</Text>
@@ -140,6 +140,13 @@ const styles = StyleSheet.create({
     minHeight: 200,
     paddingBottom: 32,
   },
+  // When chapters exist, give the sheet a DEFINITE height so the FlatList
+  // (flex:1) has a bounded region to fill and scroll. With only maxHeight the
+  // list collapsed to ~2 rows and didn't scroll — long TOCs were unreachable.
+  sheetTall: {
+    height: '88%',
+    maxHeight: '88%',
+  },
   emptyWrap: {
     flex: 1,
     minHeight: 120,
@@ -168,7 +175,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    height: 52,
+    // minHeight (not fixed height) so a chapter title that wraps to 2 lines
+    // (numberOfLines={2}) isn't clipped — long titles were cut off mid-row.
+    minHeight: 52,
   },
   chapterNum: {
     width: 28,

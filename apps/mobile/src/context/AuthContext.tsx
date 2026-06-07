@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { Platform } from 'react-native'
 import type { UserDto } from '@textstack/shared'
+import { authApi } from '@textstack/shared'
 import { onAuthFailure } from '../lib/authEvents'
 import { resetAuthFailureLatch } from '../lib/api'
 import { clearVocabStatsCache } from '../lib/vocabStatsCache'
@@ -123,6 +124,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })()
   }, [])
+
+  // Refresh the cached user from the server once per session so a profile field
+  // changed on another device (notably nativeLanguage, set on the web) shows up
+  // without re-login — the reader's translation gloss depends on it. Read-only;
+  // transient/offline failures keep the cached user. Keyed on user id so it runs
+  // once per account, not on every user-object update.
+  useEffect(() => {
+    if (!user || user.isGuest) return
+    const cachedNative = user.nativeLanguage
+    const cachedName = user.name
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = await SecureStore.getItemAsync('access_token')
+        if (!token || cancelled) return
+        const res = await authApi.getProfile(token)
+        if (cancelled || !res?.user) return
+        if (res.user.nativeLanguage !== cachedNative || res.user.name !== cachedName) {
+          await updateUser(res.user)
+        }
+      } catch {
+        // offline / transient — keep the cached user
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   const signInWithTokens = useCallback(
     async (accessToken: string, refreshToken: string, userData: UserDto) => {
