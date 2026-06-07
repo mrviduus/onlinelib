@@ -168,8 +168,8 @@ export function ReaderShell(props: ReaderShellProps) {
 
   // Reading session — keyed by whichever catalog id the source carries.
   const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
-    editionId: source.kind === 'edition' ? source.idRef.current : null,
-    userBookId: source.kind === 'userbook' ? source.idRef.current : null,
+    editionId: source.kind === 'edition' ? source.id : null,
+    userBookId: source.kind === 'userbook' ? source.id : null,
     wordCount,
     isAuthenticated,
   })
