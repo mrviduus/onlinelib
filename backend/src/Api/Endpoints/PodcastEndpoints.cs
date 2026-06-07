@@ -19,7 +19,22 @@ public static class PodcastEndpoints
     public static void MapPodcastEndpoints(this WebApplication app)
     {
         app.MapPost("/admin/podcasts", EnqueuePodcast).WithTags("Podcast").WithName("EnqueuePodcast");
+        app.MapGet("/admin/podcasts/{editionId:guid}", GetAdminPodcastStatus).WithTags("Podcast").WithName("GetAdminPodcastStatus");
         app.MapGet("/books/{slug}/podcast", GetPodcastStatus).WithTags("Podcast").WithName("GetPodcastStatus");
+    }
+
+    // Admin-only (AdminAuthMiddleware): latest job for an edition, by id — for the
+    // admin "Generate podcast" section to poll after triggering.
+    private static async Task<IResult> GetAdminPodcastStatus(
+        Guid editionId,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var job = await db.PodcastGenerationJobs
+            .Where(j => j.EditionId == editionId)
+            .OrderByDescending(j => j.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        return job is null ? Results.NotFound() : Results.Ok(ToDto(job));
     }
 
     // Admin-only (AdminAuthMiddleware guards /admin/*). Idempotent: returns the existing

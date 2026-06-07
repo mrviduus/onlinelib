@@ -25,7 +25,7 @@ import { ShareButtons } from '../components/ShareButtons'
 import { BookDetailHero } from '../components/BookDetailHero'
 import { AddToCollectionButton } from '../components/library/AddToCollectionButton'
 import { isNotFoundError } from '../lib/errorUtils'
-import type { BookDetail } from '../types/api'
+import type { BookDetail, PodcastStatusDto } from '../types/api'
 
 // Strip HTML tags from description text
 function stripHtml(html: string): string {
@@ -73,6 +73,7 @@ export function BookDetailPage() {
   const [error, setError] = useState<Error | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [showAllChapters, setShowAllChapters] = useState(false)
+  const [podcast, setPodcast] = useState<PodcastStatusDto | null>(null)
 
   useEffect(() => {
     if (!bookSlug) return
@@ -82,6 +83,15 @@ export function BookDetailPage() {
       .then((data) => { if (!cancelled) setBook(data) })
       .catch((err) => { if (!cancelled) setError(err) })
       .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [bookSlug, api])
+
+  useEffect(() => {
+    if (!bookSlug) return
+    let cancelled = false
+    api.getPodcast(bookSlug)
+      .then((p) => { if (!cancelled) setPodcast(p) })
+      .catch(() => { if (!cancelled) setPodcast(null) }) // 404 = no podcast yet
     return () => { cancelled = true }
   }, [bookSlug, api])
 
@@ -281,6 +291,13 @@ export function BookDetailPage() {
               >
                 {continueSlug ? t('bookDetail.continueReading') : t('bookDetail.startReading')}
               </LocalizedLink>
+            )}
+
+            {podcast?.status === 'Succeeded' && podcast.audioUrl && (
+              <div className="book-hero__podcast">
+                <span className="book-hero__podcast-label">🎧 Listen as a podcast</span>
+                <audio controls preload="none" src={podcast.audioUrl} className="book-hero__podcast-audio" />
+              </div>
             )}
 
             {book.id && isDownloading(book.id) && (

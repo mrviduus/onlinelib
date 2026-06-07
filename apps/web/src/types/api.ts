@@ -54,6 +54,13 @@ export interface RelatedBook {
   coverPath: string | null
 }
 
+export interface PodcastStatusDto {
+  jobId: string
+  status: 'Queued' | 'Running' | 'Succeeded' | 'Failed'
+  audioUrl: string | null
+  durationSeconds: number | null
+}
+
 export interface BookDetail {
   id: string
   slug: string
