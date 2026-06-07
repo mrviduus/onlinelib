@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.AI.Evaluation;
+using Microsoft.Extensions.AI.Evaluation.Quality;
 using Microsoft.Extensions.AI.Evaluation.Reporting;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Formats.Html;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
@@ -33,7 +34,8 @@ internal sealed class MeaiEvalRunner
         string storageRoot,
         CancellationToken ct,
         string executionName = "local",
-        string? reportPath = null)
+        string? reportPath = null,
+        bool qualityEvaluators = false)
     {
         var defs = EvalDefinitions.Build(keys);
         var chatConfig = new ChatConfiguration(judge);
@@ -55,7 +57,7 @@ internal sealed class MeaiEvalRunner
                     if (!configs.TryGetValue(facet.Feature, out var config))
                         configs[facet.Feature] = config = DiskBasedReportingConfiguration.Create(
                             storageRootPath: storageRoot,
-                            evaluators: [new RubricEvaluator(facet.Feature, facet.Rubric, Floor(facet.Feature))],
+                            evaluators: BuildEvaluators(facet, qualityEvaluators),
                             chatConfiguration: chatConfig,
                             // Cache judge responses on disk (30d) so re-runs over the same
                             // goldens don't re-hit the (paid) judge. A shared executionName
@@ -106,6 +108,18 @@ internal sealed class MeaiEvalRunner
     /// explain/translate hold 3.5; the smaller local models hold 3.0.</summary>
     public static double Floor(string feature) =>
         feature is "explain" or "translate" ? 3.5 : 3.0;
+
+    /// <summary>The facet's parity rubric evaluator, plus — when
+    /// <paramref name="quality"/> is on (EVAL_QUALITY=1) and the facet is explain or
+    /// vocab — MEAI's built-in Coherence + Relevance evaluators for extra signal.
+    /// These are additive report metrics; only the rubric overall gates the floor.</summary>
+    private static IEvaluator[] BuildEvaluators(FacetEval facet, bool quality)
+    {
+        var rubric = new RubricEvaluator(facet.Feature, facet.Rubric, Floor(facet.Feature));
+        if (quality && (facet.Feature == "explain" || facet.Feature.StartsWith("vocab", StringComparison.Ordinal)))
+            return [rubric, new CoherenceEvaluator(), new RelevanceEvaluator()];
+        return [rubric];
+    }
 
     private static List<ChatMessage> ToMessages(LlmRequest request)
     {

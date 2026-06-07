@@ -45,4 +45,30 @@ public class MeaiReportingTests
         Assert.True(File.Exists(reportPath), $"expected HTML report at {reportPath}");
         Assert.True(new FileInfo(reportPath).Length > 0, "HTML report is empty");
     }
+
+    [Fact]
+    public async Task Quality_evaluators_opt_in_does_not_break_the_run()
+    {
+        // With qualityEvaluators on, explain scenarios also run MEAI's built-in
+        // Coherence + Relevance. Against a fake judge those produce diagnostics, not
+        // exceptions — the run must still complete, gate on the rubric floor, and report.
+        var ct = TestContext.Current.CancellationToken;
+        var generator = new FixedLlm("A clear, concise explanation of the word in context.");
+        var judge = new LlmServiceChatClient(new FixedLlm("{\"d1\":4,\"d2\":4,\"d3\":4}"), defaultFeatureTag: "eval.judge");
+        var reportPath = Path.Combine(EvalStorage.Root("test-report"), "unit-report-quality.html");
+
+        var scores = await new MeaiEvalRunner().RunAsync(
+            generatorFor: _ => generator,
+            judge: judge,
+            keys: ["explain"],
+            storageRoot: EvalStorage.Root("test-cache-quality"),
+            ct: ct,
+            executionName: "unittest-quality",
+            reportPath: reportPath,
+            qualityEvaluators: true);
+
+        Assert.NotEmpty(scores);
+        Assert.All(scores, s => Assert.True(s.MeanOverall >= 3.5));   // explain floor unaffected by quality
+        Assert.True(File.Exists(reportPath) && new FileInfo(reportPath).Length > 0);
+    }
 }

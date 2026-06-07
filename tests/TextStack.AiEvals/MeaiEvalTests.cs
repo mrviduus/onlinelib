@@ -33,7 +33,10 @@ public class MeaiEvalTests(ITestOutputHelper output)
             storageRoot: EvalStorage.Root("cache"),
             ct: ct,
             executionName: key,
-            reportPath: reportPath);
+            reportPath: reportPath,
+            // Opt-in (EVAL_QUALITY=1): add built-in Coherence/Relevance to explain+vocab.
+            // Default CI stays deterministic-rubric-only.
+            qualityEvaluators: Environment.GetEnvironmentVariable("EVAL_QUALITY") == "1");
         output.WriteLine($"MEAI HTML report → {reportPath}");
 
         Assert.NotEmpty(scores);
