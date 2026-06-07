@@ -1,34 +1,17 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using TextStack.Ai.Core;
 
 namespace TextStack.Ai.Evals;
 
 /// <summary>
-/// LLM-as-judge. Given a per-feature <see cref="Rubric"/> and an evidence block
-/// (the inputs + reference + actual output), it scores 1–5 on each dimension via
-/// the same <see cref="ILlmService"/> seam (judge calls carry FeatureTag
-/// <c>eval.judge</c>, so they route/trace like any other call) and parses a
-/// strict-JSON verdict.
-///
-/// The runner is feature-agnostic: callers supply the rubric and build the
-/// evidence string (see the per-feature eval tests). Swapping the judge model to
-/// Claude later is a config/provider change, not a change here.
+/// Shared LLM-as-judge helpers: the judge system prompt, the strict-JSON verdict
+/// parser, and score aggregation. The scoring itself now runs through the
+/// Microsoft.Extensions.AI.Evaluation <c>RubricEvaluator</c> (in both the app's
+/// <c>EvalSuiteRunner</c> and the eval test suite); these statics are the single
+/// source of the prompt + parse so the score is identical wherever it's computed.
 /// </summary>
-public sealed class JudgeRunner(ILlmService judge, ILogger<JudgeRunner>? logger = null)
+public static class JudgeRunner
 {
-    public async Task<JudgeScore> JudgeAsync(Rubric rubric, string evidence, CancellationToken ct)
-    {
-        var request = new LlmRequest(
-            SystemPrompt: BuildSystemPrompt(rubric),
-            Messages: [new LlmMessage("user", evidence)],
-            MaxOutputTokens: 300,
-            FeatureTag: "eval.judge");
-
-        var response = await judge.CompleteAsync(request, ct);
-        return ParseScore(response.Text, logger);
-    }
-
     /// <summary>The judge's system prompt for a rubric. Shared with the MEAI
     /// <c>RubricEvaluator</c> so both paths score on the identical instruction.</summary>
     public static string BuildSystemPrompt(Rubric rubric) =>
