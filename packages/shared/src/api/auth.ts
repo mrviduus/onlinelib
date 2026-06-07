@@ -94,13 +94,22 @@ export async function logout(accessToken: string): Promise<void> {
   })
 }
 
-// Profile
-export async function updateProfile(name: string | null, accessToken: string): Promise<AuthResponse> {
+// Profile. `nativeLanguage` is optional: omit it to leave the field untouched
+// (the backend treats a missing NativeLanguage as "don't change"), pass a code to
+// set it, or '' to clear it. Lets mobile persist the user's native language so it
+// follows them across devices (parity with the web reader).
+export async function updateProfile(
+  name: string | null,
+  accessToken: string,
+  nativeLanguage?: string | null,
+): Promise<AuthResponse> {
   const { baseUrl } = getApiConfig()
+  const body: { name: string | null; nativeLanguage?: string | null } = { name }
+  if (nativeLanguage !== undefined) body.nativeLanguage = nativeLanguage
   const res = await fetch(`${baseUrl}/me/profile`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error('Failed to update profile')
   return res.json()
