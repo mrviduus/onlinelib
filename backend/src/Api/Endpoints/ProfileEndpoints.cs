@@ -20,9 +20,27 @@ public static class ProfileEndpoints
     {
         var group = app.MapGroup("/me/profile").WithTags("Profile");
 
+        group.MapGet("/", GetProfile).WithName("GetProfile");
         group.MapPut("/", UpdateProfile).WithName("UpdateProfile");
         group.MapPost("/avatar", UploadAvatar).WithName("UploadAvatar").DisableAntiforgery();
         group.MapDelete("/avatar", DeleteAvatar).WithName("DeleteAvatar");
+    }
+
+    // Returns the current user (incl. NativeLanguage) so clients can refresh a
+    // stale cached user object — mobile uses this on launch to pick up a native
+    // language the user set on another device.
+    private static async Task<IResult> GetProfile(
+        AuthService authService,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var user = await authService.GetUserByIdAsync(userId.Value, ct);
+        if (user == null) return Results.Unauthorized();
+
+        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
     }
 
     private static async Task<IResult> UpdateProfile(

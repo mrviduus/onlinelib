@@ -115,6 +115,19 @@ export async function updateProfile(
   return res.json()
 }
 
+// Fetch the current user (incl. nativeLanguage). Lets a client refresh a stale
+// cached user — mobile calls this on launch so a native language set on another
+// device shows up without re-login.
+export async function getProfile(accessToken: string): Promise<AuthResponse> {
+  const { baseUrl } = getApiConfig()
+  const res = await fetch(`${baseUrl}/me/profile`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error('Failed to fetch profile')
+  return res.json()
+}
+
 export async function uploadAvatar(imageUri: string, accessToken: string): Promise<AuthResponse> {
   const { baseUrl } = getApiConfig()
   const formData = new FormData()
