@@ -196,6 +196,7 @@ export default function UserBookReaderScreen() {
       injectJs={injectJs}
       chapter={{ id: chapter.id, title: chapter.title, html: chapter.html, prev: chapter.prev, next: chapter.next }}
       chapterSlug={chapterSlug}
+      htmlChapterSlug={chapterSlug}
       bookTitle={bookTitleRef.current}
       chapters={chapters}
       chaptersLoading={chaptersLoading}

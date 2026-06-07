@@ -60,17 +60,25 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const [targetLanguage, setTargetState] = useState('en')
   const { user, getAccessToken, updateUser } = useAuth()
   const prevUserIdRef = useRef<string | undefined>(user?.id)
+  // Set once the server→local mirror has applied an authoritative value, so the
+  // (async) AsyncStorage load below can't clobber it back on a cold launch where
+  // the two resolve in an arbitrary order.
+  const serverLangAppliedRef = useRef(false)
 
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(NATIVE_KEY),
       AsyncStorage.getItem(TARGET_KEY),
     ]).then(([native, target]) => {
-      if (native && isSupported(native)) {
-        setNativeState(native)
-      } else {
-        const device = getDeviceLanguage()
-        if (isSupported(device)) setNativeState(device)
+      // The signed-in user's server language wins — don't overwrite it with the
+      // stale local value just because this async read happened to resolve last.
+      if (!serverLangAppliedRef.current) {
+        if (native && isSupported(native)) {
+          setNativeState(native)
+        } else {
+          const device = getDeviceLanguage()
+          if (isSupported(device)) setNativeState(device)
+        }
       }
       if (target && TARGET_LANGUAGES.some((l) => l.code === target)) {
         setTargetState(target)
@@ -102,6 +110,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     if (user.isGuest) return
     const serverLang = user.nativeLanguage
     if (!serverLang || !isSupported(serverLang)) return
+    serverLangAppliedRef.current = true
     setNativeState(serverLang)   // idempotent — React skips if unchanged
     AsyncStorage.setItem(NATIVE_KEY, serverLang).catch(() => {})
   }, [user?.id, user?.nativeLanguage, user?.isGuest])

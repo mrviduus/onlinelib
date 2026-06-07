@@ -112,9 +112,6 @@ export interface ReaderShellProps {
   wordCount: number
   /** Explain sheet "bookId" — editionId for public, undefined for user-book. */
   explainBookId?: string
-
-  /** Optional error fallback name for the top bar when chapters haven't loaded. */
-  chapterTitleFallback?: string
 }
 
 /**
