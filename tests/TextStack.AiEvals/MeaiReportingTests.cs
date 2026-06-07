@@ -1,0 +1,48 @@
+using TextStack.Ai.Core;
+using TextStack.Ai.Llm;
+
+namespace TextStack.AiEvals;
+
+/// <summary>
+/// Deterministic Step-5 coverage: drives <see cref="MeaiEvalRunner"/> with a fake
+/// generator + fake judge (no Ollama/OpenAI) so it always runs in CI, and asserts the
+/// MEAI reporting pipeline (disk result store + response cache + HtmlReportWriter)
+/// actually produces an HTML report.
+/// </summary>
+public class MeaiReportingTests
+{
+    private sealed class FixedLlm(string reply) : ILlmService
+    {
+        public Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct) =>
+            Task.FromResult(new LlmResponse(reply, [], new LlmUsage(0, 0, 0m), "fake", Guid.NewGuid()));
+
+        public IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task Run_writes_an_html_report_for_the_execution()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var generator = new FixedLlm("GENRE: Fiction\nYEAR: 1900\nDESCRIPTION: A canned description for the report test.");
+        var judge = new LlmServiceChatClient(new FixedLlm("{\"d1\":4,\"d2\":4,\"d3\":4}"), defaultFeatureTag: "eval.judge");
+        var reportPath = Path.Combine(EvalStorage.Root("test-report"), "unit-report.html");
+
+        var scores = await new MeaiEvalRunner().RunAsync(
+            generatorFor: _ => generator,
+            judge: judge,
+            keys: ["bookmeta"],
+            storageRoot: EvalStorage.Root("test-cache"),
+            ct: ct,
+            executionName: "unittest",
+            reportPath: reportPath);
+
+        // All facets scored 4/4/4 → overall 4.0, above the 3.0 floor.
+        Assert.NotEmpty(scores);
+        Assert.All(scores, s => Assert.True(s.MeanOverall >= 3.0));
+
+        // The reporting pipeline wrote a non-empty HTML report.
+        Assert.True(File.Exists(reportPath), $"expected HTML report at {reportPath}");
+        Assert.True(new FileInfo(reportPath).Length > 0, "HTML report is empty");
+    }
+}

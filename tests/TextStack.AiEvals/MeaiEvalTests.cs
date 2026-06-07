@@ -24,13 +24,17 @@ public class MeaiEvalTests(ITestOutputHelper output)
         var judge = new LlmServiceChatClient(EvalClients.Judge(), defaultFeatureTag: "eval.judge");
         var ct = TestContext.Current.CancellationToken;
 
+        var reportPath = Path.Combine(EvalStorage.Root("report"), $"eval-report-{key}.html");
         var runner = new MeaiEvalRunner();
         var scores = await runner.RunAsync(
             generatorFor: _ => generator,
             judge: judge,
             keys: [key],
-            storageRoot: EvalStorage.Root("report"),
-            ct: ct);
+            storageRoot: EvalStorage.Root("cache"),
+            ct: ct,
+            executionName: key,
+            reportPath: reportPath);
+        output.WriteLine($"MEAI HTML report → {reportPath}");
 
         Assert.NotEmpty(scores);
         foreach (var s in scores)

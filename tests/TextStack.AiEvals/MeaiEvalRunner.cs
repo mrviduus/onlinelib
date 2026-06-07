@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.AI.Evaluation;
 using Microsoft.Extensions.AI.Evaluation.Reporting;
+using Microsoft.Extensions.AI.Evaluation.Reporting.Formats.Html;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
@@ -30,7 +31,9 @@ internal sealed class MeaiEvalRunner
         IChatClient judge,
         IEnumerable<string>? keys,
         string storageRoot,
-        CancellationToken ct)
+        CancellationToken ct,
+        string executionName = "local",
+        string? reportPath = null)
     {
         var defs = EvalDefinitions.Build(keys);
         var chatConfig = new ChatConfiguration(judge);
@@ -53,7 +56,13 @@ internal sealed class MeaiEvalRunner
                         configs[facet.Feature] = config = DiskBasedReportingConfiguration.Create(
                             storageRootPath: storageRoot,
                             evaluators: [new RubricEvaluator(facet.Feature, facet.Rubric, Floor(facet.Feature))],
-                            chatConfiguration: chatConfig);
+                            chatConfiguration: chatConfig,
+                            // Cache judge responses on disk (30d) so re-runs over the same
+                            // goldens don't re-hit the (paid) judge. A shared executionName
+                            // groups every facet's scenarios into one report.
+                            enableResponseCaching: true,
+                            timeToLiveForCacheEntries: TimeSpan.FromDays(30),
+                            executionName: executionName);
 
                     await using var run = await config.CreateScenarioRunAsync(
                         $"{facet.Feature}.case{caseIdx}", cancellationToken: ct);
@@ -71,7 +80,26 @@ internal sealed class MeaiEvalRunner
             }
         }
 
+        if (reportPath is not null)
+            await WriteHtmlReportAsync(storageRoot, executionName, reportPath, ct);
+
         return scores.Select(kv => new MeaiFeatureScore(kv.Key, kv.Value.Average(), kv.Value.Count)).ToList();
+    }
+
+    /// <summary>Render every persisted scenario for <paramref name="executionName"/> into a
+    /// single HTML report (MEAI's built-in writer). Reads back from the disk result store.</summary>
+    private static async Task WriteHtmlReportAsync(string storageRoot, string executionName, string reportPath, CancellationToken ct)
+    {
+        var store = new DiskBasedResultStore(storageRoot);
+        var results = new List<ScenarioRunResult>();
+        await foreach (var scenario in store.GetScenarioNamesAsync(executionName, ct))
+            await foreach (var iteration in store.GetIterationNamesAsync(executionName, scenario, ct))
+                await foreach (var r in store.ReadResultsAsync(executionName, scenario, iteration, ct))
+                    results.Add(r);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+        var writer = new HtmlReportWriter(reportPath);
+        await writer.WriteReportAsync(results, ct);
     }
 
     /// <summary>Same floor the legacy <c>EvalSuiteTests</c> asserts: OpenAI-backed
