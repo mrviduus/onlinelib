@@ -1,20 +1,22 @@
 name: Mobile Release (EAS)
 
-# Manual mobile shipping via EAS. Two paths:
-#   • ota-update   — `eas update` to the production channel (JS-only changes, instant).
-#   • build-submit — `eas build --auto-submit` (native changes / store release; Play
-#                    Internal Testing). iOS submit needs a submit profile in eas.json.
+# Manual mobile shipping via EAS. Three SEPARATE, explicit actions — nothing reaches
+# the store automatically; each run is a deliberate human click:
+#   • ota-update — `eas update` to the production channel (JS-only changes, instant).
+#   • build      — `eas build` only. Produces an artifact; does NOT touch the store.
+#   • submit     — `eas submit --latest` — pushes the latest build to the store.
+#                  Run this yourself, on purpose, when you've decided to release.
 #
 # Requires repo secret EXPO_TOKEN (expo.dev → Account → Access tokens).
-# Manual-only on purpose — EAS build minutes + store submissions shouldn't fire on
-# every push. (A tag trigger like `mobile-v*` can be added later if wanted.)
+# workflow_dispatch ONLY — no push/tag/schedule triggers, so the store is never
+# deployed to automatically.
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: What to ship
+        description: What to do (store submit is its own explicit action)
         type: choice
-        options: [ota-update, build-submit]
+        options: [ota-update, build, submit]
         default: ota-update
       platform:
         description: Target platform
@@ -22,7 +24,7 @@ on:
         options: [all, android, ios]
         default: all
       profile:
-        description: Build profile (build-submit only)
+        description: Build/submit profile
         type: choice
         options: [production, preview]
         default: production
@@ -70,12 +72,23 @@ jobs:
             --message "${{ inputs.message }}" \
             --non-interactive
 
-      - name: Build + submit
-        if: ${{ inputs.action == 'build-submit' }}
+      # Build only — never auto-submits. The artifact sits in EAS until you
+      # explicitly run the 'submit' action below.
+      - name: Build
+        if: ${{ inputs.action == 'build' }}
         run: |
           eas build \
             --platform "${{ inputs.platform }}" \
             --profile "${{ inputs.profile }}" \
-            --auto-submit \
             --non-interactive \
             --no-wait
+
+      # Explicit, separate store push — submits the latest build to the store.
+      - name: Submit to store
+        if: ${{ inputs.action == 'submit' }}
+        run: |
+          eas submit \
+            --platform "${{ inputs.platform }}" \
+            --profile "${{ inputs.profile }}" \
+            --latest \
+            --non-interactive
