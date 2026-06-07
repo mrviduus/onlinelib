@@ -1,106 +1,53 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Linking } from 'react-native'
+import { useEffect, useRef, useCallback } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { t, readingProgressApi, parseScrollLocator } from '@textstack/shared'
-import { buildReaderHtml } from '../../../src/lib/readerHtml'
+import { readingProgressApi, parseScrollLocator } from '@textstack/shared'
 import { getLocalProgress } from '../../../src/lib/progressStorage'
 import { useAuth } from '../../../src/context/AuthContext'
-import { useReaderSettings } from '../../../src/hooks/useReaderSettings'
-import { useReaderBars } from '../../../src/hooks/useReaderBars'
 import { useReaderBookmarks, getSlugFromLocator } from '../../../src/hooks/useReaderBookmarks'
-import { useReaderExitSummary } from '../../../src/hooks/useReaderExitSummary'
-import { useReaderHighlights } from '../../../src/hooks/useReaderHighlights'
-import { useReaderVocabMap } from '../../../src/hooks/useReaderVocabMap'
 import { useReaderProgress } from '../../../src/hooks/useReaderProgress'
-import { useReaderVocabActions } from '../../../src/hooks/useReaderVocabActions'
-import { useReaderSelection } from '../../../src/hooks/useReaderSelection'
 import { useReaderChapter } from '../../../src/hooks/useReaderChapter'
 import { useReaderBook } from '../../../src/hooks/useReaderBook'
 import { useReaderInfiniteScroll } from '../../../src/hooks/useReaderInfiniteScroll'
-import { ReaderSettingsDrawer } from '../../../src/components/ReaderSettingsDrawer'
-import { BookmarksSheet } from '../../../src/components/BookmarksSheet'
-import { SelectionActionBar } from '../../../src/components/SelectionActionBar'
-import { TranslationSheet } from '../../../src/components/TranslationSheet'
-import { ExplanationSheet } from '../../../src/components/ExplanationSheet'
-import { HighlightNoteModal } from '../../../src/components/HighlightNoteModal'
-import { TocSheet } from '../../../src/components/TocSheet'
-import { ReaderStatsWidget } from '../../../src/components/ReaderStatsWidget'
-import { ReaderTapCoachmark } from '../../../src/components/reader/ReaderTapCoachmark'
-import { ReaderTopBar } from '../../../src/components/reader/ReaderTopBar'
-import { useReadingSession } from '../../../src/hooks/useReadingSession'
-import { computeBookProgress } from '@textstack/shared'
-import { useReaderOverlayV2Active } from '../../../src/hooks/useReaderOverlayV2Active'
-import { useTts } from '../../../src/hooks/useTts'
-import { useQuickStats } from '../../../src/hooks/useQuickStats'
-import { useHaptics } from '../../../src/hooks/useHaptics'
+import { ReaderShell } from '../../../src/components/reader/ReaderShell'
 import { useToast } from '../../../src/context/ToastContext'
-import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
-import { useNativeLanguage } from '../../../src/context/NativeLanguageContext'
 import { fonts } from '../../../src/theme/typography'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { StatusBar } from 'expo-status-bar'
+import { Ionicons } from '@expo/vector-icons'
 
-/** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
-function interpolate(template: string, vars: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
-}
-
+/**
+ * Public-library reader route. Thin wrapper around <ReaderShell>: owns the
+ * catalog data hooks (chapter, book, bookmarks, progress, infinite scroll),
+ * handles loading/error, and hands the loaded chapter + a `kind: 'edition'`
+ * source down to the shared shell.
+ */
 export default function ReaderScreen() {
   const { bookSlug, chapterSlug } = useLocalSearchParams<{ bookSlug: string; chapterSlug: string }>()
   const router = useRouter()
-  const { isAuthenticated, user } = useAuth()
-  const { settings, update: updateSettings, resolvedFontFamily, resolvedTheme } = useReaderSettings()
-  const overlayV2 = useReaderOverlayV2Active()
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [bookmarksOpen, setBookmarksOpen] = useState(false)
-  const [translateOpen, setTranslateOpen] = useState(false)
-  const [explainOpen, setExplainOpen] = useState(false)
-  const [tocOpen, setTocOpen] = useState(false)
-  const [progress, setProgress] = useState(0)
-  // Book-wide percent (0..1) — derived from chapter scroll + chapter list +
-  // total word count. The footer shows this, not the chapter-only `progress`,
-  // so users see how far they are through the BOOK (was: how far through
-  // the current chapter, which reset to ~0% on every chapter boundary).
-  // null before chapters/wordCount lands — footer hides the % to avoid the
-  // misleading "0%" flash on initial load.
-  const [bookProgress, setBookProgress] = useState<number | null>(null)
-  const bookProgressRef = useRef<number | null>(null)
-  const { toggle: toggleTts, isSpeaking } = useTts()
+  const { isAuthenticated } = useAuth()
+  const { colors } = useTheme()
+  const { language } = useLanguage()
+  const { show: showToast } = useToast()
+
   const webViewRef = useRef<WebView>(null)
-  // Wrap in try/catch so runtime errors in injected JS are forwarded to RN
-  // via the console bridge, instead of being silently swallowed by the
-  // `;true;` sentinel (diagnostics Phase 1).
   const injectJs = useCallback((js: string) => {
     webViewRef.current?.injectJavaScript(`try{${js}}catch(e){console.error('[diag] injectJs failed:', e && e.message, ${JSON.stringify(js.slice(0, 80))});};true;`)
   }, [])
+
   const progressRef = useRef(0)
-  // Pixel-accurate scrollY, refreshed on every 'progress' message. Drives
-  // the 'scroll:slug:offset' locator so resume lands on the exact line,
-  // not just the nearest 1%-of-chapter band (apps/web/src/hooks/useReaderScrollSync.ts).
   const scrollOffsetRef = useRef(0)
+  const currentChapterSlugRef = useRef<string | null>(null)
+  const bookProgressRef = useRef<number | null>(null)
+  const totalWordCountRef = useRef(0)
   const editionIdRef = useRef<string | null>(null)
   const bookTitleRef = useRef<string | null>(null)
-  const totalWordCountRef = useRef(0)
-  // Saved in-chapter position for restore on WebView load. Loaded async
-  // from local AsyncStorage (server fallback for authed users) once the
-  // editionId resolves. Locator (pixel offset) wins; percent is fallback
-  // for legacy entries written before P0.2.
   const savedPercentRef = useRef<number | null>(null)
   const savedScrollOffsetRef = useRef<number | null>(null)
   const restoreScrolledRef = useRef(false)
 
-  const { colors } = useTheme()
-  const { language } = useLanguage()
-  const { nativeLanguage } = useNativeLanguage()
-  const quickStats = useQuickStats(isAuthenticated)
-  const haptics = useHaptics()
-  const { show: showToast } = useToast()
-  const sessionWordCountRef = useRef(0)
-
-  const { chapter, setChapter, loading, chapterError, wordCountRef } = useReaderChapter({
+  const { chapter, loading, chapterError, wordCountRef } = useReaderChapter({
     bookSlug,
     chapterSlug,
     language,
@@ -110,14 +57,10 @@ export default function ReaderScreen() {
   const {
     bookmarks,
     setBookmarks,
-    isBookmarked,
     toggle: toggleBookmark,
     remove: removeBookmark,
   } = useReaderBookmarks({ editionIdRef, isAuthenticated, showToast })
 
-  // Hoisted above useReaderHighlights so its `editionId` state is available
-  // — without it the highlights effect can race chapterId against editionId
-  // and miss the load when chapter wins.
   const { bookTitle, chapters, editionId, chaptersLoading } = useReaderBook({
     bookSlug,
     language,
@@ -126,91 +69,6 @@ export default function ReaderScreen() {
     bookTitleRef,
     totalWordCountRef,
     setBookmarks,
-  })
-
-  const {
-    highlightsRef,
-    editingHighlight,
-    setEditingHighlight,
-    create: createHighlight,
-    saveNote: saveHighlightNote,
-    updateColor: updateHighlightColor,
-    remove: removeHighlight,
-  } = useReaderHighlights({
-    editionId,
-    editionIdRef,
-    user,
-    isAuthenticated,
-    chapterId: chapter?.id,
-    injectJs,
-    showToast,
-  })
-
-  const { vocabMapRef, flushToCache: flushVocabMap, bumpVocab } = useReaderVocabMap({
-    user,
-    isAuthenticated,
-    chapterId: chapter?.id,
-    injectJs,
-    bookLanguage: language,
-    nativeLanguage,
-  })
-
-  const {
-    selection,
-    setSelection,
-    wordSaved,
-    setWordSaved,
-    lookupState,
-    setLookupState,
-    autoSavedRef,
-    openSelection,
-  } = useReaderSelection({ flushVocabMap })
-
-  // Single source of truth for "word added" feedback — keeps toast copy + haptic
-  // cue + session counter consistent across the two save paths (auto-save on
-  // single-word tap, and the manual "Save" button in SelectionActionBar).
-  const notifyWordSaved = useCallback(() => {
-    sessionWordCountRef.current += 1
-    const count = sessionWordCountRef.current
-    haptics.play('complete')
-    showToast({
-      variant: 'success',
-      message:
-        count > 1
-          ? interpolate(t(language, 'reader.toastWordAddedCount'), { count })
-          : t(language, 'reader.toastWordAdded'),
-      actionLabel: t(language, 'reader.toastTapToReview'),
-      onPress: () => router.push('/vocabulary'),
-      duration: 2400,
-    })
-  }, [haptics, showToast, language, router])
-
-  const { enableForChapter: enableInfiniteScrollFor, loadNext: loadNextChapter } = useReaderInfiniteScroll({
-    bookSlug,
-    language,
-    injectJs,
-    wordCountRef,
-  })
-  const insets = useSafeAreaInsets()
-  const topBarHeight = 56 + insets.top
-  const footerHeight = 60 + insets.bottom
-
-  // Immersive mode — auto-hide bars. Auto-hide on first chapter load gives
-  // the reader chrome to orient with; after that visibility is driven by
-  // scroll direction (see handleMessage 'scrollDir').
-  const { barsVisible, barsAnim, topBarTranslateY, footerTranslateY, showBars, hideBars, toggleBars } = useReaderBars({
-    topBarHeight,
-    footerHeight,
-    autoHideTrigger: !loading && !!chapter,
-  })
-  const currentChapterSlugRef = useRef<string | null>(null)
-  const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
-
-  // Reading session tracking
-  const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
-    editionId: editionIdRef.current,
-    wordCount: wordCountRef.current,
-    isAuthenticated,
   })
 
   const { saveProgress, bumpProgress } = useReaderProgress({
@@ -224,168 +82,17 @@ export default function ReaderScreen() {
     isAuthenticated,
   })
 
-  const {
-    sessionWordCount,
-    setSessionWordCount,
-    exitSummary,
-    exit: handleExit,
-    exitToReview: handleExitReview,
-    exitLater: handleExitLater,
-  } = useReaderExitSummary({ router, saveProgress })
-
-  const vocabActions = useReaderVocabActions({
-    vocabMapRef,
-    bookTitleRef,
-    editionIdRef,
-    chapter,
+  const { enableForChapter: enableInfiniteScrollFor, loadNext: loadNextChapter } = useReaderInfiniteScroll({
+    bookSlug,
     language,
-    nativeLanguage,
-    isAuthenticated,
     injectJs,
-    bumpVocab,
-    notifyWordSaved,
-    setSessionWordCount,
-    setWordSaved,
-    setSelection,
-    setLookupState,
-    showToast,
+    wordCountRef,
   })
 
-  const handleMessage = useCallback((event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data)
-      if (data.type === 'log') {
-        if (__DEV__) {
-          const fn = data.level === 'error' ? console.error : data.level === 'warn' ? console.warn : console.log
-          fn('[WV]', data.msg)
-        }
-        return
-      }
-      if (data.type === 'tap') {
-        toggleBars()
-      } else if (data.type === 'scrollDir') {
-        // ElevenReader-style reveal: scrolling back up (re-reading)
-        // brings chrome back; scrolling forward hides it. Tap remains
-        // as a manual toggle for discoverability.
-        if (data.dir === 'up') showBars()
-        else if (data.dir === 'down') hideBars()
-      } else if (data.type === 'progress') {
-        progressRef.current = data.progress
-        if (typeof data.scrollY === 'number') scrollOffsetRef.current = data.scrollY
-        setProgress(data.progress)
-        updateSessionProgress(data.progress)
-        if (data.chapterSlug) {
-          currentChapterSlugRef.current = data.chapterSlug
-          setVisibleChapterSlug(data.chapterSlug)
-        }
-        // Book-wide percent for the footer + LocalProgress. Derived here
-        // (not memoized) because chapters/progress change frequently and
-        // the compute is O(currentIdx) which is cheap.
-        const activeSlugForCalc = data.chapterSlug || currentChapterSlugRef.current || chapterSlug || null
-        const bp = computeBookProgress(chapters, activeSlugForCalc, data.progress, totalWordCountRef.current)
-        bookProgressRef.current = bp
-        setBookProgress(bp)
-        // 2s-debounced save (apps/mobile/src/hooks/useReaderProgress.ts).
-        // Prevents losing scroll position inside long chapters on
-        // unexpected app death.
-        bumpProgress()
-      } else if (data.type === 'loaded') {
-        enableInfiniteScrollFor(chapter)
-      } else if (data.type === 'requestNextChapter') {
-        loadNextChapter()
-      } else if (data.type === 'highlightTap') {
-        const hl = highlightsRef.current.find(h => h.id === data.highlightId)
-        if (hl) setEditingHighlight(hl)
-      } else if (data.type === 'selection') {
-        // mode is set by readerHtml: 'tap' = selectWordAtPoint, 'drag' = selectionchange.
-        // Default to 'drag' for any legacy payload that doesn't include mode.
-        const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
-        const nextId = openSelection(data.text ? { ...data, mode } : null)
-        // Single-word tap = "peek": auto-TTS + show translation only. Saving is
-        // now an explicit tap on the Save button (no auto-save) so a word looked
-        // up by accident isn't added to vocabulary.
-        if (nextId !== null && !data.text.includes(' ')) {
-          toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-        }
-      }
-    } catch (err) {
-      if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
-    }
-    // Refs (highlightsRef, autoSavedRef) are read inside but intentionally
-    // omitted from deps — refs don't trigger re-creation and listing them
-    // here only adds noise.
-  }, [chapter, chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars, vocabActions, setEditingHighlight, updateSessionProgress, enableInfiniteScrollFor, loadNextChapter, openSelection, bumpProgress])
-
-  const navigateChapter = (slug: string) => {
-    saveProgress()
-    // Eagerly seed book-progress for the new chapter (progress=0 at the
-    // top). Without this the footer keeps the OLD chapter's % until the
-    // first scroll event arrives, which reads as "I jumped ahead but the
-    // % didn't change". Reset progress + scroll refs too so the next
-    // save() in the new chapter starts from a clean slate.
-    progressRef.current = 0
-    scrollOffsetRef.current = 0
-    setProgress(0)
-    if (chapters.length > 0) {
-      const bp = computeBookProgress(chapters, slug, 0, totalWordCountRef.current)
-      bookProgressRef.current = bp
-      setBookProgress(bp)
-    }
-    router.replace(`/reader/${bookSlug}/${slug}`)
-  }
-
-  const activeSlug = visibleChapterSlug ?? chapterSlug
-  // Footer/topbar reflect the chapter that's actually visible — during
-  // infinite scroll the URL chapterSlug stays put while visibleChapterSlug
-  // advances, so reading `chapter.title` (URL-keyed via useReaderChapter)
-  // would show the wrong title and counter.
-  const activeChapter = chapters.find(c => c.slug === activeSlug)
-  const isCurrentBookmarked = isBookmarked(activeSlug)
-  const toggleCurrentBookmark = () => {
-    if (!chapter || !activeSlug) return
-    return toggleBookmark({ chapter, slug: activeSlug })
-  }
-
-  const handleSaveWord = () => selection ? vocabActions.saveWord(selection) : undefined
-  const handlePromoteLookup = () => lookupState ? vocabActions.promoteLookup(lookupState) : undefined
-  const handleMarkKnown = () => selection ? vocabActions.markKnown(selection) : undefined
-  const handleRemoveWord = () => selection ? vocabActions.removeWord(selection) : undefined
-
-  const handleHighlight = useCallback(async (color: string) => {
-    if (!selection || !chapter) return
-    await createHighlight({ color, selection, chapter })
-    // Remember this color so the next quick-tap on the highlight button
-    // uses it without opening the editor.
-    if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
-      updateSettings({ lastHighlightColor: color })
-    }
-    if (__DEV__) console.log('[diag] setSelection NULL (highlight created)')
-    setSelection(null)
-  }, [selection, chapter, createHighlight, updateSettings])
-
-
-  // Sync inline translations setting to WebView
-  useEffect(() => {
-    injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
-  }, [settings.showInlineTranslations])
-
-  // Recompute book-wide progress when chapters/wordCount finally lands —
-  // the first 'progress' messages from the WebView fire before useReaderBook
-  // resolves, so without this the footer shows 0% until the user scrolls
-  // again. Reads current progress refs to fold the existing scroll into
-  // the freshly-known book total.
-  useEffect(() => {
-    if (chapters.length === 0) return
-    const slug = currentChapterSlugRef.current || chapterSlug || null
-    const bp = computeBookProgress(chapters, slug, progressRef.current, totalWordCountRef.current)
-    bookProgressRef.current = bp
-    setBookProgress(bp)
-  }, [chapters, chapterSlug])
-
   // Load saved in-chapter position. Local-first (instant, offline-safe);
-  // fall back to server for the cross-device case (read on web → open on
-  // phone). One-shot per (editionId, chapterSlug) — guard with ref so we
-  // don't re-scroll after settings tweaks rebuild the HTML.
+  // fall back to server for the cross-device case. One-shot per
+  // (editionId, chapterSlug) — guard with ref so we don't re-scroll after
+  // settings tweaks rebuild the HTML.
   useEffect(() => {
     restoreScrolledRef.current = false
     savedPercentRef.current = null
@@ -399,10 +106,6 @@ export default function ReaderScreen() {
         const local = await getLocalProgress(editionId)
         if (local && local.chapterSlug === chapterSlug) {
           if (typeof local.percent === 'number') percent = local.percent
-          // Locator beats percent for in-chapter precision. Parser lives
-          // in @textstack/shared so it handles slug-contains-colon and
-          // malformed inputs the same way as user-book reader (P1 fix in
-          // ADR-011 bug sweep).
           const parsed = parseScrollLocator(local.locator)
           if (parsed && parsed.slug === chapterSlug && parsed.offset > 0) {
             scrollOffset = parsed.offset
@@ -418,8 +121,6 @@ export default function ReaderScreen() {
         } catch {}
       }
       if (cancelled) return
-      // Ignore near-zero (top) and near-one (chapter end) — these add jitter
-      // without any UX win.
       if (percent != null && percent > 0.005 && percent < 0.999) {
         savedPercentRef.current = percent
       }
@@ -430,59 +131,6 @@ export default function ReaderScreen() {
     return () => { cancelled = true }
   }, [editionId, chapterSlug, isAuthenticated])
 
-  // A tap always opens the single-word layout of SelectionActionBar
-  // (translation row + per-word actions); drag/long-press routes by
-  // content (single word → same layout, multi → multi-word layout).
-  // PWA's WordPopup is collapsed into the same bar — one overlay
-  // component instead of two on mobile.
-  const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
-
-  // Chapter counter for footer — track the visible chapter, not the URL's.
-  const currentChapterIndex = chapters.findIndex(c => c.slug === activeSlug)
-  const totalChapters = chapters.length
-
-  // Large HTML string. Rebuilding every render burns CPU and — if the
-  // source prop object is recreated — triggers WebView work. Memoize on
-  // only the primitives the template actually reads (R-3).
-  //
-  // CRITICAL (B-77): these useMemo calls MUST run on every render — not
-  // behind the `loading` / `!chapter` early returns below. Placing hooks
-  // after early returns made React count fewer hooks on the loading frame
-  // than on the loaded frame, tripping "Rendered more hooks than during
-  // the previous render" and ErrorBoundary-unmounting the whole reader.
-  // That cascade explained the symptoms the user reported: system Android
-  // selection menu (no WebView overlay left to catch the tap), no
-  // WordCard popup, and no translation.
-  const html = useMemo(
-    () => chapter
-      ? buildReaderHtml(chapter.html, {
-          fontSize: settings.fontSize,
-          lineHeight: settings.lineHeight,
-          fontFamily: resolvedFontFamily,
-          textAlign: settings.textAlign,
-          backgroundColor: resolvedTheme.backgroundColor,
-          textColor: resolvedTheme.textColor,
-        }, chapterSlug, { top: insets.top, bottom: insets.bottom }, { overlayV2 })
-      : '',
-    [
-      chapter?.html,
-      settings.fontSize,
-      settings.lineHeight,
-      resolvedFontFamily,
-      settings.textAlign,
-      resolvedTheme.backgroundColor,
-      resolvedTheme.textColor,
-      chapterSlug,
-      insets.top,
-      insets.bottom,
-      overlayV2,
-    ],
-  )
-  // WebView source prop is compared shallowly; keeping the object
-  // stable across renders avoids any accidental reloads on platforms
-  // that key off reference.
-  const webViewSource = useMemo(() => ({ html }), [html])
-
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -492,8 +140,6 @@ export default function ReaderScreen() {
   }
 
   if (!chapter) {
-    // `chapterError` is 'offline' when we couldn't reach the server and
-    // had no cached copy, 'notfound' on a confirmed 404 (R-4).
     const isNotFound = chapterError === 'notfound'
     return (
       <>
@@ -526,382 +172,44 @@ export default function ReaderScreen() {
     )
   }
 
-  const barBg = resolvedTheme.backgroundColor
-  const barText = resolvedTheme.textColor
-
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden={!barsVisible} style={settings.theme === 'dark' ? 'light' : 'dark'} />
-      <View style={[styles.container, { backgroundColor: barBg }]}>
-        {/* Reader WebView — rendered first so overlay bars sit on top */}
-        <WebView
-          ref={webViewRef}
-          source={webViewSource}
-          style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
-          onMessage={handleMessage}
-          onLoadEnd={() => {
-            // `html` memo rebuilds on settings change → WebView reloads → JS state wiped.
-            // Re-apply highlights + vocab from refs so they survive font/theme tweaks.
-            for (const h of highlightsRef.current) {
-              injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
-            }
-            if (Object.keys(vocabMapRef.current).length > 0) {
-              injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
-            }
-            injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
-            // Restore in-chapter position. One-shot — settings tweaks rebuild
-            // the HTML and re-fire onLoadEnd, but the user's already mid-read
-            // by then, so we must not yank them back. Prefer pixel-accurate
-            // locator (savedScrollOffsetRef); fall back to percent for legacy
-            // storage entries written before P0.2.
-            if (!restoreScrolledRef.current) {
-              const offset = savedScrollOffsetRef.current
-              const pct = savedPercentRef.current
-              if (offset != null) {
-                restoreScrolledRef.current = true
-                injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${offset})`)
-              } else if (pct != null) {
-                restoreScrolledRef.current = true
-                injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
-              }
-            }
-          }}
-          originWhitelist={['*']}
-          scrollEnabled
-          showsVerticalScrollIndicator={false}
-          // Android WebView defaults to a software-rendered view layer —
-          // visible jank on the reader's long scrolling content. Force a
-          // hardware layer so Chromium composites the page on the GPU.
-          androidLayerType="hardware"
-          overScrollMode="never"
-          bounces={false}
-          // Suppress the native Copy/Share/Web-Search callout that
-          // pops up on long-press. We already render our own
-          // SelectionToolbar above the selection (Translate / Explain /
-          // TTS / Highlight / Save word); the native menu is just
-          // visual duplication on both iOS and Android.
-          menuItems={[]}
-          // We build a fresh inline HTML string each chapter mount
-          // and bake the overlay script into it — there is no shared
-          // cached document to reuse across mounts. Skip the WebView
-          // cache to sidestep Android's stale-injection risk.
-          cacheEnabled={false}
-          // Block navigation. The WebView loads an inline HTML string;
-          // tapping a link inside the book (footnote anchor, external
-          // URL, img src) would navigate the WebView, wiping our
-          // injected overlay script + rendered chapter. Allow only the
-          // initial document load + in-page anchors (#id).
-          onShouldStartLoadWithRequest={(req) => {
-            const { url, navigationType } = req
-            if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
-            if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
-              Linking.openURL(url).catch(() => {})
-              return false
-            }
-            return false
-          }}
-        />
-
-        {/* Top bar — rendered after WebView so it's on top of native layer */}
-        <ReaderTopBar
-          barBg={barBg}
-          barText={barText}
-          barsAnim={barsAnim}
-          topBarTranslateY={topBarTranslateY}
-          barsVisible={barsVisible}
-          topInset={insets.top}
-          bookTitle={bookTitle}
-          chapterTitle={activeChapter?.title ?? chapter.title}
-          sessionWordCount={sessionWordCount}
-          isAuthenticated={isAuthenticated}
-          hasChapters={chapters.length > 0}
-          isCurrentBookmarked={isCurrentBookmarked}
-          onExit={handleExit}
-          onBookmarksPress={() => setBookmarksOpen(true)}
-          onTocPress={() => setTocOpen(true)}
-          onSettingsPress={() => setSettingsOpen(true)}
-        />
-
-        {/* Unified selection toolbar: WordCard removed in favor of a single
-            SelectionActionBar that toggles its layout via isMultiWord
-            (single-word adds a translation row + per-word save/known). */}
-        {selection && (
-          <SelectionActionBar
-            selectedText={selection.text}
-            isMultiWord={isMultiWord}
-            language={language}
-            onTranslate={() => setTranslateOpen(true)}
-            onExplain={() => setExplainOpen(true)}
-            onSpeak={() => toggleTts(selection.text, { rate: settings.ttsSpeed, lang: language })}
-            onSaveWord={handleSaveWord}
-            onHighlight={handleHighlight}
-            highlightColor={settings.lastHighlightColor}
-            onMarkKnown={handleMarkKnown}
-            onRemove={handleRemoveWord}
-            isSpeaking={isSpeaking}
-            wordSaved={wordSaved}
-            vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
-            isAuthenticated={isAuthenticated}
-            bottomOffset={footerHeight}
-            onClose={() => {
-              // Also clear the WebView's native text-selection rectangle —
-              // otherwise the system-highlighted text stays painted under
-              // the reader after our overlay dismisses.
-              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
-              setSelection(null)
-            }}
-          />
-        )}
-
-        {/* Footer — progress bar + chevrons + chapter title + counter (PWA parity) */}
-        <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
-          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-            {/* Footer % bar reflects book-wide progress — was chapter-only,
-                which reset to ~0% on every chapter boundary and made the
-                book feel like it never advanced (B-?? mobile bug sweep).
-                Width=0 while bookProgress is null (chapters still loading)
-                so we don't flash a fake 0% bar before we know the answer. */}
-            <View style={[styles.progressFill, { width: `${bookProgress != null ? Math.round(bookProgress * 100) : 0}%`, backgroundColor: barText + '40' }]} />
-          </View>
-          <View style={styles.footerRow}>
-            <TouchableOpacity
-              onPress={() => chapter?.prev && navigateChapter(chapter.prev.slug)}
-              disabled={!chapter?.prev}
-              style={styles.chevronBtn}
-              accessibilityLabel="Previous chapter"
-              accessibilityRole="button"
-            >
-              <Text style={[styles.chevron, { color: barText + (chapter?.prev ? 'CC' : '40') }]}>‹</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footerInfo}>
-              <Text style={[styles.footerChapter, { color: barText }]} numberOfLines={1}>
-                {activeChapter?.title ?? chapter?.title ?? ''}
-              </Text>
-              <View style={styles.footerMeta}>
-                {totalChapters > 1 && currentChapterIndex >= 0 && (
-                  <Text style={[styles.footerCounter, { color: barText + '99' }]}>
-                    {currentChapterIndex + 1} / {totalChapters}
-                  </Text>
-                )}
-                <Text style={[styles.footerPercent, { color: barText + '99' }]}>
-                  {bookProgress != null ? `${Math.round(bookProgress * 100)}%` : '—'}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => chapter?.next && navigateChapter(chapter.next.slug)}
-              disabled={!chapter?.next}
-              style={styles.chevronBtn}
-              accessibilityLabel="Next chapter"
-              accessibilityRole="button"
-            >
-              <Text style={[styles.chevron, { color: barText + (chapter?.next ? 'CC' : '40') }]}>›</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* First-run tap-to-save hint — self-gated by AsyncStorage flag */}
-        <ReaderTapCoachmark />
-
-        {/* Reading stats widget */}
-        {settings.showReaderStats && isAuthenticated && quickStats && barsVisible && (
-          <ReaderStatsWidget
-            sessionStartedAt={sessionStartedAt}
-            todaySeconds={quickStats.todaySeconds}
-            dailyGoalMinutes={quickStats.dailyGoalMinutes}
-          />
-        )}
-
-        {/* Settings drawer */}
-        <ReaderSettingsDrawer
-          visible={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          settings={settings}
-          onUpdate={updateSettings}
-        />
-
-        {/* Bookmarks sheet */}
-        <BookmarksSheet
-          visible={bookmarksOpen}
-          onClose={() => setBookmarksOpen(false)}
-          bookmarks={bookmarks}
-          currentChapterSlug={activeSlug || ''}
-          onNavigate={navigateChapter}
-          onDelete={removeBookmark}
-          onToggleCurrent={toggleCurrentBookmark}
-          isCurrentBookmarked={isCurrentBookmarked}
-        />
-
-        {/* Translation sheet */}
-        <TranslationSheet
-          visible={translateOpen}
-          text={selection?.text || ''}
-          onClose={() => setTranslateOpen(false)}
-          onSpeak={(t) => toggleTts(t, { rate: settings.ttsSpeed, lang: language })}
-          fromLang={language}
-        />
-
-        {/* Explanation sheet */}
-        <ExplanationSheet
-          visible={explainOpen}
-          word={selection?.text || ''}
-          sentence={selection?.sentence || selection?.text || ''}
-          bookId={editionIdRef.current || undefined}
-          fromLang={language}
-          onClose={() => setExplainOpen(false)}
-        />
-
-        {/* TOC sheet */}
-        <TocSheet
-          visible={tocOpen}
-          chapters={chapters.map(c => ({ slug: c.slug, title: c.title, chapterNumber: c.chapterNumber }))}
-          currentChapterSlug={activeSlug || ''}
-          bookmarks={bookmarks.map(b => ({ chapterSlug: getSlugFromLocator(b.locator) }))}
-          onNavigate={navigateChapter}
-          onClose={() => setTocOpen(false)}
-          loading={chaptersLoading}
-        />
-
-        {/* Highlight note editor — Android-safe replacement for Alert.prompt */}
-        <HighlightNoteModal
-          visible={!!editingHighlight}
-          snippet={editingHighlight
-            ? editingHighlight.selectedText.substring(0, 120) + (editingHighlight.selectedText.length > 120 ? '…' : '')
-            : ''}
-          initialNote={editingHighlight?.noteText || ''}
-          initialColor={(editingHighlight?.color ?? settings.lastHighlightColor) as 'yellow' | 'green' | 'pink' | 'blue'}
-          onCancel={() => setEditingHighlight(null)}
-          onSave={async (note) => {
-            const hl = editingHighlight
-            setEditingHighlight(null)
-            if (hl) await saveHighlightNote(hl.id, note)
-          }}
-          onColorChange={async (color) => {
-            const hl = editingHighlight
-            if (!hl) return
-            // Persist as the user's default for the next quick-highlight.
-            updateSettings({ lastHighlightColor: color })
-            await updateHighlightColor(hl.id, color)
-          }}
-          onDelete={async () => {
-            const hl = editingHighlight
-            setEditingHighlight(null)
-            if (hl) await removeHighlight(hl.id)
-          }}
-        />
-
-        {/* Exit summary — words saved + review prompt */}
-        {exitSummary && (
-          <View style={styles.exitSummaryOverlay}>
-            <View style={styles.exitSummaryCard}>
-              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={styles.exitSummaryText}>
-                {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
-              </Text>
-              <View style={styles.exitSummaryButtons}>
-                <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: '#C4704B' }]}
-                  onPress={handleExitReview}
-                >
-                  <Text style={styles.exitSummaryBtnText}>Review Now</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
-                  onPress={handleExitLater}
-                >
-                  <Text style={styles.exitSummaryBtnText}>Later</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-    </>
+    <ReaderShell
+      source={{ kind: 'edition', id: editionId, idRef: editionIdRef }}
+      webViewRef={webViewRef}
+      injectJs={injectJs}
+      chapter={{ id: chapter.id, title: chapter.title, html: chapter.html, prev: chapter.prev, next: chapter.next }}
+      chapterSlug={chapterSlug}
+      htmlChapterSlug={chapterSlug}
+      bookTitle={bookTitle}
+      chapters={chapters}
+      chaptersLoading={chaptersLoading}
+      progressRef={progressRef}
+      scrollOffsetRef={scrollOffsetRef}
+      currentChapterSlugRef={currentChapterSlugRef}
+      bookProgressRef={bookProgressRef}
+      totalWordCountRef={totalWordCountRef}
+      bumpProgress={bumpProgress}
+      saveProgress={saveProgress}
+      restoreScrolledRef={restoreScrolledRef}
+      savedScrollOffsetRef={savedScrollOffsetRef}
+      savedPercentRef={savedPercentRef}
+      onChapterLoaded={() => enableInfiniteScrollFor(chapter)}
+      onRequestNextChapter={loadNextChapter}
+      onNavigateChapter={(slug) => router.replace(`/reader/${bookSlug}/${slug}`)}
+      bookmarks={bookmarks}
+      onToggleCurrentBookmark={(slug) => { if (chapter) toggleBookmark({ chapter, slug }) }}
+      onDeleteBookmark={removeBookmark}
+      bookmarkChapterSlug={(b) => getSlugFromLocator(b.locator)}
+      bookTitleRef={bookTitleRef}
+      wordCount={wordCountRef.current}
+      explainBookId={editionIdRef.current || undefined}
+    />
   )
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorWrap: {
-    paddingHorizontal: 32,
-    gap: 6,
-  },
-  errorTitle: {
-    fontFamily: fonts.serifBold,
-    fontSize: 20,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  errorBody: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 4,
-    maxWidth: 320,
-  },
-  container: { flex: 1 },
-  webview: { flex: 1 },
-  // Footer — absolute overlay, slides up on tap
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  footerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, minHeight: 48 },
-  chevronBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  chevron: { fontSize: 28, fontFamily: fonts.sans, lineHeight: 28 },
-  footerInfo: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
-  footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' },
-  footerMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
-  footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
-  footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
-  progressBar: { height: 4, borderRadius: 0 },
-  progressFill: { height: 4, borderRadius: 0 },
-  // Exit summary
-  exitSummaryOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  exitSummaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 32,
-    paddingVertical: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  exitSummaryText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 18,
-    color: '#111827',
-  },
-  exitSummaryButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  exitSummaryBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  exitSummaryBtnText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-    color: '#fff',
-  },
+  errorWrap: { paddingHorizontal: 32, gap: 6 },
+  errorTitle: { fontFamily: fonts.serifBold, fontSize: 20, marginTop: 16, textAlign: 'center' },
+  errorBody: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', marginTop: 4, maxWidth: 320 },
 })
