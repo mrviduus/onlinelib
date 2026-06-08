@@ -46,9 +46,9 @@ public static class EvalDefinitions
         "description-quality: is the DESCRIPTION accurate, 2-3 sentences, no spoilers?");
 
     private static readonly Rubric PodcastRubric = new(
-        "grounding: does the dialogue stay strictly to the source excerpt, with no invented facts?",
+        "faithfulness: is the intro consistent with the overview/excerpt, with NO invented plot points, quotes, or characters (and spoiler-light)?",
         "naturalness: does it sound like a real spoken 2-host conversation (not a written summary)?",
-        "structure: do Aria and Guy alternate in short 1-3 sentence turns with a hook and a wrap-up?");
+        "intro-shape: does it introduce the book and entice the listener — Aria/Guy alternating in short 1-3 sentence turns, a hook, and a brief 'give it a read' wrap-up?");
 
     /// <summary>Build all eval definitions (optionally filtered to <paramref name="keys"/>).</summary>
     public static IReadOnlyList<EvalDefinition> Build(IEnumerable<string>? keys = null)
@@ -123,11 +123,12 @@ public static class EvalDefinitions
         {
             var units = GoldenLoader.Load<PodcastGolden>("podcast.json").Select(g =>
             {
-                var (sys, user) = PodcastPrompt.Build(g.Title, g.Author, "en", g.Excerpt);
+                var (sys, user) = PodcastPrompt.Build(g.Title, g.Author, "en", g.Description, g.Excerpt);
                 return new EvalUnit(
                     new LlmRequest(sys, [new LlmMessage("user", user)], MaxOutputTokens: 4000, FeatureTag: "podcast.script"),
                     [new FacetEval("podcast", PodcastRubric, actual =>
-                        $"Source excerpt:\n{g.Excerpt}\n\nGenerated dialogue (JSON array of speaker/line):\n{actual}")]);
+                        $"Book: {g.Title}{(g.Author is null ? "" : $" by {g.Author}")}\nOverview: {g.Description}\n" +
+                        $"Opening excerpt:\n{g.Excerpt}\n\nGenerated intro dialogue (JSON array of speaker/line):\n{actual}")]);
             }).ToList();
             defs.Add(new EvalDefinition("podcast", units));
         }
