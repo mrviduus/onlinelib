@@ -20,7 +20,7 @@ public sealed class OpenAiLlmClient : ILlmService
     private readonly int _reasoningBudget;
     private readonly ILogger<OpenAiLlmClient> _logger;
 
-    public OpenAiLlmClient(IConfiguration config, ILogger<OpenAiLlmClient> logger)
+    public OpenAiLlmClient(IConfiguration config, ILogger<OpenAiLlmClient> logger, string? modelOverride = null)
     {
         _logger = logger;
 
@@ -28,7 +28,11 @@ public sealed class OpenAiLlmClient : ILlmService
             ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
             ?? throw new InvalidOperationException("OPENAI_API_KEY not configured");
 
-        _model = config["OpenAI:Model"]
+        // modelOverride lets a second instance (e.g. the eval judge) run a different,
+        // stronger model than the default generation model — without it every OpenAI
+        // caller is pinned to OpenAI:Model.
+        _model = modelOverride
+            ?? config["OpenAI:Model"]
             ?? Environment.GetEnvironmentVariable("OPENAI_MODEL")
             ?? "gpt-4.1-nano";
 

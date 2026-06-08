@@ -51,9 +51,12 @@ public static class AdminAiQualityEndpoints
 
         // Judge defaults to local Ollama (free); generation always goes through the
         // gateway (routes by FeatureTag → OpenAI/Ollama exactly like prod).
-        var judgeKey = string.Equals(body?.Judge, "openai", StringComparison.OrdinalIgnoreCase) ? "openai" : "ollama";
-        var judgeModelId = judgeKey == "openai"
-            ? config["OpenAI:Model"] ?? "gpt-4.1-nano"
+        // The OpenAI judge runs the dedicated 'openai-judge' provider (Eval:JudgeModel,
+        // default gpt-4.1) — stronger + independent of the nano generation model.
+        var useOpenAiJudge = string.Equals(body?.Judge, "openai", StringComparison.OrdinalIgnoreCase);
+        var judgeKey = useOpenAiJudge ? "openai-judge" : "ollama";
+        var judgeModelId = useOpenAiJudge
+            ? config["Eval:JudgeModel"] ?? "gpt-4.1"
             : config["Ollama:Model"] ?? "gemma4:e4b";
         var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
         var features = body?.Features;

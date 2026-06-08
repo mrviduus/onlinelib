@@ -366,7 +366,7 @@ function EvalsTab() {
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
       <select value={judge} onChange={(e) => setJudge(e.target.value as 'ollama' | 'openai')} style={input} disabled={running}>
         <option value="ollama">Judge: Ollama (free)</option>
-        <option value="openai">Judge: OpenAI</option>
+        <option value="openai">Judge: OpenAI (gpt-4.1)</option>
       </select>
       <button onClick={run} disabled={running} style={rangeBtn(false)}>
         {running ? 'Running…' : 'Run evals'}
