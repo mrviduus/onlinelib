@@ -139,11 +139,11 @@ export function EditEditionPage() {
     return () => clearInterval(timer)
   }, [id, podcast?.status])
 
-  const handleGeneratePodcast = async () => {
+  const handleGeneratePodcast = async (force = false) => {
     if (!id) return
     setPodcastBusy(true)
     try {
-      setPodcast(await adminApi.generatePodcast(id))
+      setPodcast(await adminApi.generatePodcast(id, undefined, force))
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to start podcast')
     } finally {
@@ -461,12 +461,22 @@ export function EditEditionPage() {
         <h2>Podcast</h2>
         <div className="action-buttons">
           <button
-            onClick={handleGeneratePodcast}
+            onClick={() => handleGeneratePodcast(false)}
             disabled={podcastBusy || podcast?.status === 'Queued' || podcast?.status === 'Running'}
             className="btn btn--secondary"
           >
             {podcast?.status === 'Queued' || podcast?.status === 'Running' ? 'Generating…' : 'Generate podcast'}
           </button>
+          {(podcast?.status === 'Succeeded' || podcast?.status === 'Failed') && (
+            <button
+              onClick={() => handleGeneratePodcast(true)}
+              disabled={podcastBusy}
+              className="btn btn--secondary"
+              title="Re-run generation with the current prompt"
+            >
+              Regenerate
+            </button>
+          )}
         </div>
         {podcast && (
           <p style={{ marginTop: 8 }}>
