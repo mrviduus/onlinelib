@@ -26,7 +26,9 @@ public record PodcastScript(IReadOnlyList<DialogueLine> Lines);
 /// </summary>
 public class PodcastScriptBuilder(IAppDbContext db, ILlmServiceFactory llmFactory) : IPodcastScriptBuilder
 {
-    private const int MaxSourceWords = 6000; // ~8k input tokens budget
+    // Intro is anchored on the Description; the excerpt is just a short secondary
+    // anchor (and a safety net for titles the model doesn't know), not the whole book.
+    private const int MaxExcerptWords = 800;
 
     private static readonly HashSet<string> Hosts = new(StringComparer.OrdinalIgnoreCase) { "Aria", "Guy" };
 
@@ -38,6 +40,7 @@ public class PodcastScriptBuilder(IAppDbContext db, ILlmServiceFactory llmFactor
             {
                 e.Title,
                 e.Language,
+                e.Description,
                 Author = e.EditionAuthors.OrderBy(a => a.Order).Select(a => a.Author.Name).FirstOrDefault(),
                 Chapters = e.Chapters.OrderBy(c => c.ChapterNumber).Select(c => c.PlainText).ToList(),
             })
@@ -45,12 +48,13 @@ public class PodcastScriptBuilder(IAppDbContext db, ILlmServiceFactory llmFactor
         if (edition is null)
             return null;
 
-        var bookText = TruncateToWords(string.Join("\n\n", edition.Chapters), MaxSourceWords);
-        if (string.IsNullOrWhiteSpace(bookText))
+        var excerpt = TruncateToWords(string.Join("\n\n", edition.Chapters), MaxExcerptWords);
+        // Need at least one anchor — the curated overview or some opening text.
+        if (string.IsNullOrWhiteSpace(edition.Description) && string.IsNullOrWhiteSpace(excerpt))
             return null;
 
         var language = string.IsNullOrWhiteSpace(lang) ? edition.Language : lang;
-        var (system, user) = PodcastPrompt.Build(edition.Title, edition.Author, language, bookText);
+        var (system, user) = PodcastPrompt.Build(edition.Title, edition.Author, language, edition.Description, excerpt);
 
         var llm = llmFactory.Get("PodcastScript");
         var raw = await llm.CompleteAsync(system, user, maxOutputTokens: 4000, ct);

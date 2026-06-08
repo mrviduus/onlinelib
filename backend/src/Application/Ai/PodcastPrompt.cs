@@ -1,32 +1,38 @@
+using System.Text;
+
 namespace Application.Ai;
 
 /// <summary>
-/// Prompt for the 2-voice podcast script (Phase 3). Two hosts — Aria (curious, asks)
-/// and Guy (explains) — discuss a book grounded ONLY in its text. Output is a strict
-/// JSON dialogue array consumed by ScriptBuilder. Pure string building, no deps.
+/// Prompt for the 2-voice book INTRO (Phase 3). Two hosts — Aria (curious, asks) and
+/// Guy (explains) — introduce a book to a new listener and make them want to read it.
+/// Anchored on the book's human-curated Description (+ a short opening excerpt) rather
+/// than thousands of words of chapter text: cheaper, and it leans on what the model
+/// already knows about well-known titles without licensing it to invent specifics.
+/// Output is a strict JSON dialogue array consumed by ScriptBuilder.
 /// </summary>
 public static class PodcastPrompt
 {
-    public static (string System, string User) Build(string title, string? author, string language, string bookText)
+    public static (string System, string User) Build(string title, string? author, string language, string? description, string? excerpt)
     {
         var system =
-            "You write a two-host audio podcast script discussing a book, in the style of NotebookLM. " +
+            "You write a short two-host audio INTRO that introduces a book to a new listener, in the style of NotebookLM. " +
             "The hosts are Aria (curious, asks questions and reacts) and Guy (knowledgeable, explains). " +
-            "Ground EVERYTHING strictly in the provided book text — never invent facts, quotes, or details. " +
-            $"Write natural, engaging spoken dialogue in {language}; 1-3 sentences per turn; alternate speakers; " +
-            "open with a short hook and close with a brief wrap-up. " +
+            "Goal: make the listener want to read the book — cover what it's about, its core themes, and why it matters; keep it spoiler-light (do not give away the ending). " +
+            "Anchor on the provided overview and excerpt. You may draw on well-established facts about a widely-known book, but NEVER invent plot points, quotes, characters, or specifics — if the book is unfamiliar, stay strictly with what's provided. " +
+            $"Write natural, engaging spoken dialogue in {language}; 1-3 sentences per turn; alternate speakers; open with a hook and close with a brief, warm 'give it a read' wrap-up. " +
             "Return ONLY a strict JSON array, no markdown and no preface: " +
             "[{\"speaker\":\"Aria\"|\"Guy\",\"line\":\"...\"}].";
 
-        var header = $"Book: \"{title}\"";
+        var user = new StringBuilder();
+        user.Append($"Book: \"{title}\"");
         if (!string.IsNullOrWhiteSpace(author))
-            header += $"\nAuthor: {author}";
+            user.Append($"\nAuthor: {author}");
+        if (!string.IsNullOrWhiteSpace(description))
+            user.Append($"\n\nOverview:\n{description.Trim()}");
+        if (!string.IsNullOrWhiteSpace(excerpt))
+            user.Append($"\n\nOpening excerpt:\n{excerpt.Trim()}");
+        user.Append("\n\nWrite the intro dialogue.");
 
-        var user =
-            $"{header}\n\n" +
-            "Write the podcast dialogue covering the book's key ideas and themes.\n\n" +
-            $"Book text:\n{bookText}";
-
-        return (system, user);
+        return (system, user.ToString());
     }
 }
