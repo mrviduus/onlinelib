@@ -1,0 +1,94 @@
+name: Mobile Release (EAS)
+
+# Manual mobile shipping via EAS. Three SEPARATE, explicit actions — nothing reaches
+# the store automatically; each run is a deliberate human click:
+#   • ota-update — `eas update` to the production channel (JS-only changes, instant).
+#   • build      — `eas build` only. Produces an artifact; does NOT touch the store.
+#   • submit     — `eas submit --latest` — pushes the latest build to the store.
+#                  Run this yourself, on purpose, when you've decided to release.
+#
+# Requires repo secret EXPO_TOKEN (expo.dev → Account → Access tokens).
+# workflow_dispatch ONLY — no push/tag/schedule triggers, so the store is never
+# deployed to automatically.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do (store submit is its own explicit action)
+        type: choice
+        options: [ota-update, build, submit]
+        default: ota-update
+      platform:
+        description: Target platform
+        type: choice
+        options: [all, android, ios]
+        default: all
+      profile:
+        description: Build/submit profile
+        type: choice
+        options: [production, preview]
+        default: production
+      message:
+        description: OTA message (ota-update only)
+        type: string
+        default: CI OTA update
+
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # @textstack/shared is consumed from source (Metro watchFolders), so the repo
+      # checkout already carries it; only the app's own deps need installing.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: OTA update
+        if: ${{ inputs.action == 'ota-update' }}
+        run: |
+          eas update \
+            --branch production \
+            --platform "${{ inputs.platform }}" \
+            --environment production \
+            --message "${{ inputs.message }}" \
+            --non-interactive
+
+      # Build only — never auto-submits. The artifact sits in EAS until you
+      # explicitly run the 'submit' action below.
+      - name: Build
+        if: ${{ inputs.action == 'build' }}
+        run: |
+          eas build \
+            --platform "${{ inputs.platform }}" \
+            --profile "${{ inputs.profile }}" \
+            --non-interactive \
+            --no-wait
+
+      # Explicit, separate store push — submits the latest build to the store.
+      - name: Submit to store
+        if: ${{ inputs.action == 'submit' }}
+        run: |
+          eas submit \
+            --platform "${{ inputs.platform }}" \
+            --profile "${{ inputs.profile }}" \
+            --latest \
+            --non-interactive
