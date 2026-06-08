@@ -50,6 +50,7 @@ import './styles/highlights.css'
 import './styles/auth.css'
 import './styles/profile.css'
 import './styles/dropzone.css'
+import './styles/podcast-player.css'
 
 function AuthSuccessToast() {
   const { authSuccessToast, dismissAuthSuccessToast } = useAuth()

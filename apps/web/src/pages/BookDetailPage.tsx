@@ -8,6 +8,7 @@ import { useDownload } from '../context/DownloadContext'
 import { useLibrary } from '../hooks/useLibrary'
 import { useSite } from '../context/SiteContext'
 import { LocalizedLink } from '../components/LocalizedLink'
+import { BookPodcastPlayer } from '../components/BookPodcastPlayer'
 import { SeoHead } from '../components/SeoHead'
 import { JsonLd } from '../components/JsonLd'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -294,10 +295,12 @@ export function BookDetailPage() {
             )}
 
             {podcast?.status === 'Succeeded' && podcast.audioUrl && (
-              <div className="book-hero__podcast">
-                <span className="book-hero__podcast-label">🎧 Listen as a podcast</span>
-                <audio controls preload="none" src={podcast.audioUrl} className="book-hero__podcast-audio" />
-              </div>
+              <BookPodcastPlayer
+                src={podcast.audioUrl}
+                title={book.title}
+                coverUrl={book.coverPath ? getStorageUrl(book.coverPath) : null}
+                durationSeconds={podcast.durationSeconds}
+              />
             )}
 
             {book.id && isDownloading(book.id) && (
