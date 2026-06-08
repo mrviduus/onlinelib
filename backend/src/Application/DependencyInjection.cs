@@ -67,8 +67,17 @@ public static class DependencyInjection
         services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OpenAiLlmClient>("openai-raw");
         services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OllamaLlmClient>("ollama-raw");
 
+        // A dedicated OpenAI judge provider on a STRONGER model (Eval:JudgeModel,
+        // default gpt-4.1) — separate from the nano generation model so the eval
+        // judge is both more reliable and not the same model it's grading.
+        services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>("openai-judge-raw", (sp, key) =>
+            new global::TextStack.Ai.Llm.OpenAiLlmClient(
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.OpenAiLlmClient>>(),
+                sp.GetRequiredService<IConfiguration>()["Eval:JudgeModel"] ?? "gpt-4.1"));
+
         // Decorated providers (keyed): TracingDecorator wraps each raw provider.
-        foreach (var providerKey in new[] { "openai", "ollama" })
+        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge" })
         {
             services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>(providerKey, (sp, key) =>
                 new global::TextStack.Ai.Llm.TracingDecorator(
