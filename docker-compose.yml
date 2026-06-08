@@ -111,6 +111,10 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Storage__RootPath: /storage
       Search__Provider: ${SEARCH_PROVIDER:-postgres}
+      # The worker routes podcast.script generation to OpenAI (Ai:Routes), so it
+      # needs the key too — without it OpenAiLlmClient throws on an empty key and
+      # podcast jobs fail. The 'api' service already has this; the worker was missed.
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
       # Worker reaches Ollama via the Docker service name, not localhost
       # (without this override it falls back to appsettings.json's
       # "http://localhost:11434" and silently fails every vocab-enrichment

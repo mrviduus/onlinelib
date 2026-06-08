@@ -24,9 +24,15 @@ public sealed class OpenAiLlmClient : ILlmService
     {
         _logger = logger;
 
-        var apiKey = config["OpenAI:ApiKey"]
-            ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? throw new InvalidOperationException("OPENAI_API_KEY not configured");
+        // Treat an empty/whitespace value as "not configured" — otherwise an empty
+        // string flows into the OpenAI SDK and surfaces as a cryptic
+        // "Value cannot be an empty string. (Parameter 'key')" deep in the call stack
+        // (this exact trap cost a debugging session when the worker lacked the key).
+        var apiKey = config["OpenAI:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OPENAI_API_KEY not configured (OpenAI:ApiKey / OPENAI_API_KEY is empty)");
 
         // modelOverride lets a second instance (e.g. the eval judge) run a different,
         // stronger model than the default generation model — without it every OpenAI
