@@ -147,6 +147,31 @@ public sealed class EpubTextExtractor : ITextExtractor
                     continue;
                 }
 
+                // Heading-stub recombination: the previous unit is a bare
+                // chapter-number file (e.g. "<h1>10</h1>" → a 1-word chapter)
+                // and THIS file is its body, split into a separate spine file.
+                // Merge the body into the stub, keeping the stub's nav-derived
+                // title — otherwise the book shows a 1-word "10" chapter followed
+                // by a mis-titled body (Charisma Myth ch.10-13 in production).
+                if (previousUnit != null && IsHeadingNumberStub(previousUnit))
+                {
+                    var mergedHtml = previousUnit.Html + cleanHtml;
+                    var mergedPlainText = previousUnit.PlainText + " " + plainText;
+                    var mergedWordCount = previousUnit.WordCount + wordCount;
+
+                    var updatedUnit = previousUnit with
+                    {
+                        Html = mergedHtml,
+                        PlainText = mergedPlainText,
+                        WordCount = mergedWordCount
+                    };
+
+                    units[previousUnitIndex] = updatedUnit;
+                    tocChapters[previousUnitIndex] = (previousUnit.OrderIndex + 1, mergedHtml);
+                    previousUnit = updatedUnit;
+                    continue;
+                }
+
                 // Regular chapter - create new unit
                 var chapterNumber = order + 1;
                 var chapterTitle = GetChapterTitle(filePath, navTitleMap, html, chapterNumber);
@@ -364,8 +389,10 @@ public sealed class EpubTextExtractor : ITextExtractor
                 return navTitle;
         }
 
-        // 2. Try extracting from HTML (h1, h2, title tag)
-        var htmlTitle = HtmlCleaner.ExtractTitle(html);
+        // 2. Try extracting from a VISIBLE heading (h1/h2/h3) — never the
+        // <head><title>, which is the book title on every page in many EPUBs
+        // and would mislabel every untitled spine file with the book name.
+        var htmlTitle = HtmlCleaner.ExtractHeadingTitle(html);
         if (!string.IsNullOrWhiteSpace(htmlTitle) && !LooksLikeFileName(htmlTitle))
         {
             return htmlTitle;
@@ -430,8 +457,8 @@ public sealed class EpubTextExtractor : ITextExtractor
             !LooksLikeFileName(navTitle))
             return true;
 
-        // Has heading in HTML?
-        var htmlTitle = HtmlCleaner.ExtractTitle(html);
+        // Has a visible heading in HTML? (NOT <head><title> — see GetChapterTitle.)
+        var htmlTitle = HtmlCleaner.ExtractHeadingTitle(html);
         if (!string.IsNullOrWhiteSpace(htmlTitle) && !LooksLikeFileName(htmlTitle))
             return true;
 
@@ -573,6 +600,25 @@ public sealed class EpubTextExtractor : ITextExtractor
         }
 
         return sections.Count >= 2 ? sections : [];
+    }
+
+    // A bare chapter number like "10" — matched against a unit's collapsed plain
+    // text to detect heading-only spine files. Runtime Regex (not [GeneratedRegex])
+    // per the ARM64 SIGILL caveat in RULES.md.
+    private static readonly System.Text.RegularExpressions.Regex NumberStubRegex = new(@"^\d{1,3}$");
+
+    /// <summary>
+    /// True when a unit is just a chapter-number heading (e.g. a "&lt;h1&gt;10&lt;/h1&gt;"
+    /// spine file): a handful of words whose text is only digits. Such files are
+    /// the heading half of a chapter split across two spine files.
+    /// </summary>
+    private static bool IsHeadingNumberStub(ContentUnit unit)
+    {
+        if (unit.WordCount > 3) return false;
+        var text = unit.PlainText?.Trim();
+        if (string.IsNullOrEmpty(text)) return false;
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        return NumberStubRegex.IsMatch(text);
     }
 
     private static readonly System.Text.RegularExpressions.Regex ChapterPartRegex = new(

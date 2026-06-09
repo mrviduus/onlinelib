@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### EPUB chapter parsing fix + correct book progress on book detail (2026-06-09)
+
+- **Fix: book detail page showed chapter % as book %** (e.g. "85%" on `my-books/[id]` while on chapter 2). The page rendered `savedProgress.percent` (chapter-scroll) directly; it now computes book-wide percent via `computeBookProgress`, matching the reader footer and library cards.
+- **Fix: EPUB chapters mis-titled / content not matching titles.** On EPUBs that split one logical chapter across two spine files — a heading-only file (`<h1>10</h1>`) plus a separate body file — the extractor produced doubled, mis-titled chapters (a 1-word "10" chapter, then a body titled with the book name, with titles drifting against content). Root causes:
+  - `HtmlCleaner.ExtractTitle` fell back to the `<head><title>` element, which in professionally-produced EPUBs is the **book** title on every page. That mislabeled untitled spine files and, via `HasProperTitle`, blocked the merge of a heading file with its body. New `HtmlCleaner.ExtractHeadingTitle` (visible `h1/h2/h3` only) is now used for per-chapter titling; book-level `ExtractTitle` is unchanged.
+  - Added heading-stub recombination in `EpubTextExtractor`: a bare chapter-number file (`IsHeadingNumberStub` — ≤3 words, digits only) is merged into the following body file, keeping the stub's nav-derived title.
+  - Not an AI-model issue — chapter splitting/titling is deterministic extraction; the LLM only fills genre/year/description metadata.
+  - Already-uploaded books re-parse via `POST /me/books/{id}/retry`.
+
 ### Mobile — unified reader + correct book progress (2026-06-09)
 
 Reading-progress fixes + a structural refactor that collapses the two readers (catalog + user-uploaded) into one code path, killing the "two readers drift" bug class.
