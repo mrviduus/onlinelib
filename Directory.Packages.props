@@ -34,6 +34,11 @@
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.6.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.6.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.6.0" />
+    <!-- pgvector (Phase 4 RAG). EF maps the `vector` column type + DDL; retrieval
+         stays raw Npgsql so the spoiler gate lives in SQL. Pgvector.EF 0.3.0 needs
+         Npgsql.EFCore.PostgreSQL >=9.0.1 — satisfied by our 10.0.1. -->
+    <PackageVersion Include="Pgvector" Version="0.3.2" />
+    <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.72" />
     <PackageVersion Include="Meilisearch" Version="0.16.0" />

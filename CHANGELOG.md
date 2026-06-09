@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — pgvector + chapter_chunk storage (2026-06-09)
+
+First PR of Phase 4 "Ask this book" (playbook PR **AI-018**). Lays the vector-storage foundation only — no chunker/embeddings/retrieval yet.
+
+- **pgvector enabled.** DB image `postgres:16` → `pgvector/pgvector:pg16` (docker-compose + CI service); existing data volume is compatible (stock pg16 + extension binary, no re-init). Migration `AddPgVectorAndChunks` emits `CREATE EXTENSION IF NOT EXISTS vector` ahead of the table.
+- **`chapter_chunk` table** (singular name to match the playbook DDL and the future raw-Npgsql retrieval SQL). Columns: uuid PK, `edition_id`/`chapter_id` (cascade FKs), `ord`, `text`, `embedding vector(1536)`, `token_count`, `created_at`. Two columns beyond the playbook schema, per `bootcamp-rag-analysis.md`: `chapter_ord` (denormalized so the spoiler gate filters in SQL without a join) and `char_start`/`char_end` (parent-context expansion + citation deep-links).
+- **Embedding nullable** — the chunker (AI-019) inserts text first; the batch embedder (AI-020/021) fills vectors later. Retrieval SQL adds `embedding IS NOT NULL`.
+- **Indexes:** HNSW `(embedding vector_cosine_ops)` for cosine ANN; btree `(edition_id, chapter_id, ord)`.
+- **Domain stays framework-free** — `ChapterChunk.Embedding` is `float[]`, converted to `Pgvector.Vector` only in EF mapping (`AppDbContext.Rag.cs`). `Pgvector` + `Pgvector.EntityFrameworkCore` added centrally; `.UseVector()` wired in all 3 DbContext registrations (Api/Worker/Factory). Not exposed on `IAppDbContext` — retrieval uses raw Npgsql.
+- **Microsoft-libs boundary:** generation layer (chunker/embeddings, AI-019/020) will use `Microsoft.Extensions.AI` + SK `TextChunker`; the pgvector storage/access layer stays raw Npgsql so the spoiler gate lives in SQL.
+
 ### EPUB chapter parsing fix + correct book progress on book detail (2026-06-09)
 
 - **Fix: book detail page showed chapter % as book %** (e.g. "85%" on `my-books/[id]` while on chapter 2). The page rendered `savedProgress.percent` (chapter-scroll) directly; it now computes book-wide percent via `computeBookProgress`, matching the reader footer and library cards.
@@ -24,7 +35,7 @@ Reading-progress fixes + a structural refactor that collapses the two readers (c
 
 Migrated the hand-rolled eval runner/judge to the **stable** `Microsoft.Extensions.AI.Evaluation` framework (10.6.0), keeping our golden datasets the source of truth and scores comparable. Shipped as 7 small steps on one branch.
 
-- **AI-018 — eval suite on MEAI.Evaluation** (this PR) — replaces the bespoke `JudgeRunner.JudgeAsync` LLM-as-judge with MEAI's `IEvaluator` model, end to end:
+- **AI-010a — eval suite on MEAI.Evaluation** (this PR) — a follow-on refinement of the Phase 2 eval epic (AI-006/009/010), not a roadmap PR — AI-018 is reserved for Phase 4 (pgvector). Replaces the bespoke `JudgeRunner.JudgeAsync` LLM-as-judge with MEAI's `IEvaluator` model, end to end:
   - **`LlmServiceChatClient`** adapts our `ILlmService` seam to MEAI's `IChatClient`, so evaluators call the same Ollama/OpenAI gateway (no new service).
   - **`RubricEvaluator : IEvaluator`** ports the judge 1:1 — the **same** system prompt + **same** strict-JSON parse (now shared statics on `JudgeRunner`) → identical scores given the same judge reply; emits the 3 rubric axes + overall as `NumericMetric`s, gated Pass/Fail on the same floors.
   - **Goldens unchanged** (`GoldenLoader` + embedded `Datasets/*.json`) feed `ReportingConfiguration` scenarios; runs persist to a disk store with a **30-day response cache** (re-runs don't re-hit the judge) and an **HTML report** (`data/eval-meai/`).
