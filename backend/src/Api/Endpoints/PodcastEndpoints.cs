@@ -54,6 +54,22 @@ public static class PodcastEndpoints
             .Where(j => j.EditionId == edition.Id && j.Lang == lang)
             .OrderByDescending(j => j.CreatedAt)
             .FirstOrDefaultAsync(ct);
+
+        // Force re-generate (e.g. after a prompt change): reset the existing row to
+        // Queued in place and clear its outputs so the worker rebuilds it.
+        if (existing is not null && req.Force)
+        {
+            existing.Status = PodcastJobStatus.Queued;
+            existing.ScriptJson = null;
+            existing.AudioPath = null;
+            existing.DurationSeconds = null;
+            existing.Error = null;
+            existing.StartedAt = null;
+            existing.CreatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToDto(existing));
+        }
+
         if (existing is not null &&
             existing.Status is PodcastJobStatus.Queued or PodcastJobStatus.Running or PodcastJobStatus.Succeeded)
             return Results.Ok(ToDto(existing));
@@ -105,6 +121,6 @@ public static class PodcastEndpoints
         job.DurationSeconds);
 }
 
-public record EnqueuePodcastRequest(Guid EditionId, string? Lang);
+public record EnqueuePodcastRequest(Guid EditionId, string? Lang, bool Force = false);
 
 public record PodcastStatusDto(Guid JobId, string Status, string? AudioUrl, int? DurationSeconds);

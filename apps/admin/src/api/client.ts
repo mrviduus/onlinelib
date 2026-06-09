@@ -1114,11 +1114,11 @@ export const adminApi = {
   },
 
   // Podcasts
-  generatePodcast: async (editionId: string, lang?: string): Promise<PodcastStatusDto> => {
+  generatePodcast: async (editionId: string, lang?: string, force?: boolean): Promise<PodcastStatusDto> => {
     return fetchJson<PodcastStatusDto>('/admin/podcasts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ editionId, lang }),
+      body: JSON.stringify({ editionId, lang, force }),
     })
   },
 

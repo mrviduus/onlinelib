@@ -46,9 +46,9 @@ public static class EvalDefinitions
         "description-quality: is the DESCRIPTION accurate, 2-3 sentences, no spoilers?");
 
     private static readonly Rubric PodcastRubric = new(
-        "faithfulness: is the intro consistent with the overview/excerpt, with NO invented plot points, quotes, or characters (and spoiler-light)?",
-        "naturalness: does it sound like a real spoken 2-host conversation (not a written summary)?",
-        "intro-shape: does it introduce the book and entice the listener — Aria/Guy alternating in short 1-3 sentence turns, a hook, and a brief 'give it a read' wrap-up?");
+        "faithfulness: is the trailer consistent with the overview/excerpt, with NO invented plot points, quotes, or characters (and spoiler-light)?",
+        "liveliness: does it sound like a lively, cinematic film-trailer voiceover — vivid, atmospheric, real energy — and NOT a fake/over-eager AI podcast (no 'wow/fascinating/amazing/exactly/great point', no host-to-host validation or small talk)?",
+        "trailer-shape: short punchy image-rich lines, Aria/Guy alternating (1-2 sentences/turn) — sets a mood, raises the book's central question, builds to a hook, ends on a brief confident invitation to read?");
 
     /// <summary>Build all eval definitions (optionally filtered to <paramref name="keys"/>).</summary>
     public static IReadOnlyList<EvalDefinition> Build(IEnumerable<string>? keys = null)
@@ -128,7 +128,7 @@ public static class EvalDefinitions
                     new LlmRequest(sys, [new LlmMessage("user", user)], MaxOutputTokens: 4000, FeatureTag: "podcast.script"),
                     [new FacetEval("podcast", PodcastRubric, actual =>
                         $"Book: {g.Title}{(g.Author is null ? "" : $" by {g.Author}")}\nOverview: {g.Description}\n" +
-                        $"Opening excerpt:\n{g.Excerpt}\n\nGenerated intro dialogue (JSON array of speaker/line):\n{actual}")]);
+                        $"Opening excerpt:\n{g.Excerpt}\n\nGenerated trailer dialogue (JSON array of speaker/line):\n{actual}")]);
             }).ToList();
             defs.Add(new EvalDefinition("podcast", units));
         }

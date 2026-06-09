@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Mobile — unified reader + correct book progress (2026-06-09)
+
+Reading-progress fixes + a structural refactor that collapses the two readers (catalog + user-uploaded) into one code path, killing the "two readers drift" bug class.
+
+- **Unified reader** — catalog and user-book readers now share ONE path: `ReaderRuntime` contract (`readerSource.ts`), `useEditionReaderSource` / `useUserBookReaderSource` (the only place the catalogs differ — data fetch + progress I/O), shared `Reader.tsx` → `ReaderShell.tsx`. The two route files are thin wrappers. The divergent progress hooks (`useReaderProgress` / `useUserBookProgress`) are deleted in favor of one `useReaderPersistence`.
+- **Fix: reopening a book returned to the top of the chapter** — saved scroll position was fetched asynchronously but `onLoadEnd` often fired first, so restore ran once (guarded) before the position arrived and was skipped forever. Restore is now a state machine gated on `webViewLoaded && positionLoaded`, whichever lands last — no race, both readers, offset **or** percent. The user-book reader also regains the percent-restore fallback it had lost to copy-paste drift.
+- **Fix: Library cards showed chapter % as book %** ("85%" on chapter 2 of 10). `LibraryShelvesService` (Continue reading / Recently added / Quick reads) now converts chapter-percent → book-percent via `BookProgressCalculator` (C# mirror of the client's `computeBookProgress`), weighting by chapter word counts. Current chapter is located by the progress locator's slug (accurate after infinite-scroll), falling back to `ChapterId`; user-books by `ProgressChapterSlug`. `EstimateRemaining` ("X min left") now uses book-percent too.
+- **Fix: changing a reader setting mid-chapter jumped to the top** — a font/theme/spacing change rebuilds the WebView HTML; the reader now re-applies the live position by percent (layout-relative) on that reload instead of dropping to the top.
+
 ### AI platform — eval framework → Microsoft.Extensions.AI.Evaluation (2026-06-07)
 
 Migrated the hand-rolled eval runner/judge to the **stable** `Microsoft.Extensions.AI.Evaluation` framework (10.6.0), keeping our golden datasets the source of truth and scores comparable. Shipped as 7 small steps on one branch.
