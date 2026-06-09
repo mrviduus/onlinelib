@@ -86,6 +86,36 @@ public partial class HtmlCleaner
         return decoded;
     }
 
+    /// <summary>
+    /// Like <see cref="ExtractTitle"/> but only considers VISIBLE headings
+    /// (h1/h2/h3) — never the <c>&lt;head&gt;&lt;title&gt;</c> element. In many
+    /// professionally-produced EPUBs every spine file's &lt;title&gt; is the
+    /// BOOK title, so falling back to it mislabels chapters (and, via
+    /// HasProperTitle, blocks the merge of a heading-only file with its body).
+    /// Use this for per-chapter titling; use ExtractTitle for book-level title.
+    /// </summary>
+    public static string? ExtractHeadingTitle(string html)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        var headingNode = doc.DocumentNode.SelectSingleNode("//h1")
+            ?? doc.DocumentNode.SelectSingleNode("//h2")
+            ?? doc.DocumentNode.SelectSingleNode("//h3");
+
+        var title = headingNode?.InnerText?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        var decoded = HtmlEntity.DeEntitize(title).Trim();
+
+        if (string.Equals(decoded, "Unknown", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(decoded, "Untitled", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return decoded;
+    }
+
     public static int CountWords(string text)
     {
         if (string.IsNullOrWhiteSpace(text))

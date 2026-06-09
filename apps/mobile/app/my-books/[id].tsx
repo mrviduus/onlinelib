@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
@@ -221,7 +221,18 @@ export default function UserBookDetailScreen() {
   }
 
   const estPages = book.totalWordCount ? Math.round(book.totalWordCount / 250) : null
-  const progressPct = savedProgress?.percent ? Math.round(savedProgress.percent * 100) : 0
+  // Book-wide percent (not chapter-scroll percent) — mirror the reader/library
+  // so the detail page doesn't show "85%" while the user is on chapter 2. Slug
+  // fallback matches the reader's `slug || chapter-{n}` synthesis.
+  const bookPct = savedProgress?.chapterSlug
+    ? computeBookProgress(
+        (book.chapters ?? []).map(c => ({ slug: c.slug || `chapter-${c.chapterNumber}`, wordCount: c.wordCount })),
+        savedProgress.chapterSlug,
+        savedProgress.percent ?? 0,
+        book.totalWordCount ?? undefined,
+      )
+    : null
+  const progressPct = bookPct != null ? Math.round(bookPct * 100) : 0
 
   return (
     <>
