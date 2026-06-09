@@ -73,7 +73,7 @@ export interface ReaderShellProps {
    *  Public passes its chapterSlug; user-book historically passed undefined. */
   htmlChapterSlug?: string
   bookTitle: string | null
-  chapters: { slug: string; title: string; chapterNumber?: number }[]
+  chapters: { slug: string; title: string; chapterNumber?: number; wordCount?: number | null }[]
   chaptersLoading: boolean
 
   // Progress/session machinery — refs created by the route (its progress + session
@@ -86,10 +86,10 @@ export interface ReaderShellProps {
   bumpProgress: () => void
   saveProgress: () => void
 
-  // Saved in-chapter scroll restore (route loads the values; shell applies on load).
-  restoreScrolledRef: MutableRefObject<boolean>
-  savedScrollOffsetRef: MutableRefObject<number | null>
-  savedPercentRef?: MutableRefObject<number | null>
+  /** Signalled once the WebView finishes loading. The shared persistence
+   *  layer gates scroll-restore on this + the async saved-position fetch, so
+   *  restore can't race the load (the "always returns to top" bug). */
+  onWebViewLoaded: () => void
 
   // Infinite scroll — the per-source fetch lives in the route; these fire on the
   // WebView 'loaded' / 'requestNextChapter' messages.
@@ -130,7 +130,7 @@ export function ReaderShell(props: ReaderShellProps) {
     bookTitle, chapters, chaptersLoading,
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef, totalWordCountRef,
     bumpProgress, saveProgress,
-    restoreScrolledRef, savedScrollOffsetRef, savedPercentRef,
+    onWebViewLoaded,
     onChapterLoaded, onRequestNextChapter, onNavigateChapter,
     bookmarks, onToggleCurrentBookmark, onDeleteBookmark, bookmarkChapterSlug,
     bookTitleRef, wordCount, explainBookId,
@@ -391,17 +391,9 @@ export function ReaderShell(props: ReaderShellProps) {
               injectJs(`markVocabWords(${JSON.stringify(vocabMapRef.current)})`)
             }
             injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
-            if (!restoreScrolledRef.current) {
-              const offset = savedScrollOffsetRef.current
-              const pct = savedPercentRef?.current ?? null
-              if (offset != null) {
-                restoreScrolledRef.current = true
-                injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${offset})`)
-              } else if (pct != null) {
-                restoreScrolledRef.current = true
-                injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
-              }
-            }
+            // Scroll-restore is owned by useReaderPersistence — it coordinates
+            // this signal with the async saved-position fetch (no race).
+            onWebViewLoaded()
           }}
           originWhitelist={['*']}
           scrollEnabled
