@@ -117,7 +117,7 @@ public class LibraryShelvesService(IAppDbContext db)
         var bookPctUploads = await ComputeUserBookPercentsAsync(
             uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
-            saved.Select(s => (s.Id, s.CurrentChapterId, s.CurrentLocator, s.Progress)).ToList(), ct);
+            saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.Progress)).ToList(), ct);
 
         var merged = uploads
             .Select(u =>
@@ -203,7 +203,7 @@ public class LibraryShelvesService(IAppDbContext db)
         var bookPctUploads = await ComputeUserBookPercentsAsync(
             uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
-            saved.Select(s => (s.Id, s.CurrentChapterId, s.CurrentLocator, s.LatestProgress ?? 0)).ToList(), ct);
+            saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.LatestProgress ?? 0)).ToList(), ct);
 
         return uploads
             .Select(u =>
@@ -294,7 +294,7 @@ public class LibraryShelvesService(IAppDbContext db)
         var bookPctUploads = await ComputeUserBookPercentsAsync(
             uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
-            saved.Select(s => (s.Id, s.CurrentChapterId, s.CurrentLocator, s.Progress)).ToList(), ct);
+            saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.Progress)).ToList(), ct);
 
         bool IsQuick(int? words, double progress)
         {

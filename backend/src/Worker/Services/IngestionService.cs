@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using TextStack.Extraction.Contracts;
 using TextStack.Extraction.Enums;
 using TextStack.Extraction.Lint;
+using TextStack.Ai.Rag;
 using TextStack.Extraction.Registry;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Contracts;
@@ -25,6 +26,7 @@ public class IngestionWorkerService
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly ISearchIndexer _searchIndexer;
     private readonly IImageOptimizer _imageOptimizer;
+    private readonly IChunker _chunker;
     private readonly ILogger<IngestionWorkerService> _logger;
     private readonly ILogger<AppIngestion.IngestionService> _ingestionLogger;
 
@@ -34,6 +36,7 @@ public class IngestionWorkerService
         IExtractorRegistry extractorRegistry,
         ISearchIndexer searchIndexer,
         IImageOptimizer imageOptimizer,
+        IChunker chunker,
         ILogger<IngestionWorkerService> logger,
         ILogger<AppIngestion.IngestionService> ingestionLogger)
     {
@@ -42,6 +45,7 @@ public class IngestionWorkerService
         _extractorRegistry = extractorRegistry;
         _searchIndexer = searchIndexer;
         _imageOptimizer = imageOptimizer;
+        _chunker = chunker;
         _logger = logger;
         _ingestionLogger = ingestionLogger;
     }
@@ -290,6 +294,14 @@ public class IngestionWorkerService
                 indexActivity?.SetTag("chapters_indexed", parsed.Chapters.Count);
             }
 
+            // Emit RAG chunks (Phase 4). Best-effort: chunks are regenerable and not
+            // required for reading, so a failure here must not fail the ingestion job.
+            using (var chunkActivity = IngestionActivitySource.Source.StartActivity("rag.chunk"))
+            {
+                var chunkCount = await ChunkChaptersAsync(db, job.EditionId, ct);
+                chunkActivity?.SetTag("chunks_created", chunkCount);
+            }
+
             // Run linter and save results
             using (var lintActivity = IngestionActivitySource.Source.StartActivity("lint.run"))
             {
@@ -435,6 +447,61 @@ public class IngestionWorkerService
         {
             await _searchIndexer.IndexBatchAsync(documents, ct);
             _logger.LogInformation("Indexed {Count} chapters for edition {EditionId}", documents.Count, editionId);
+        }
+    }
+
+    /// <summary>
+    /// Splits each just-saved chapter's plain text into RAG chunks (Phase 4) and persists
+    /// <see cref="ChapterChunk"/> rows with a null embedding (filled later by AI-020/021).
+    /// Old chunks were cascade-deleted when chapters were replaced. Best-effort: logs and
+    /// returns 0 on failure rather than failing the ingestion job.
+    /// </summary>
+    private async Task<int> ChunkChaptersAsync(AppDbContext db, Guid editionId, CancellationToken ct)
+    {
+        try
+        {
+            var chapters = await db.Chapters
+                .Where(c => c.EditionId == editionId)
+                .OrderBy(c => c.ChapterNumber)
+                .Select(c => new { c.Id, c.ChapterNumber, c.PlainText })
+                .ToListAsync(ct);
+
+            var rows = new List<ChapterChunk>();
+            foreach (var chapter in chapters)
+            {
+                foreach (var chunk in _chunker.Chunk(chapter.PlainText ?? string.Empty))
+                {
+                    rows.Add(new ChapterChunk
+                    {
+                        Id = Guid.NewGuid(),
+                        EditionId = editionId,
+                        ChapterId = chapter.Id,
+                        ChapterOrd = chapter.ChapterNumber,
+                        Ord = chunk.Ord,
+                        Text = chunk.Text,
+                        TokenCount = chunk.TokenCount,
+                        CharStart = chunk.CharStart,
+                        CharEnd = chunk.CharEnd,
+                        Embedding = null
+                    });
+                }
+            }
+
+            if (rows.Count > 0)
+            {
+                db.ChapterChunks.AddRange(rows);
+                await db.SaveChangesAsync(ct);
+                _logger.LogInformation(
+                    "Created {Count} RAG chunks for edition {EditionId}", rows.Count, editionId);
+            }
+
+            return rows.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "RAG chunking failed for edition {EditionId}; chunks can be regenerated on reprocess", editionId);
+            return 0;
         }
     }
 

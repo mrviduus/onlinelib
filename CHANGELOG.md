@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — sentence-aware chunker (2026-06-09)
+
+Second PR of Phase 4 (playbook **AI-019**). Fills the `chapter_chunk` table created in AI-018: catalog ingestion now emits retrieval-sized chunks (embeddings come in AI-020/021).
+
+- **New `TextStack.Ai.Rag` library** with a hand-rolled, sentence-aware `Chunker`: splits chapter plain text into ~512-token windows with 64-token overlap, recording exact `char_start`/`char_end` offsets back into the source text (parent-context expansion + citation deep-links). Hand-rolled rather than SemanticKernel `TextChunker` because the latter returns strings without offsets.
+- **Exact token counts** via `Microsoft.ML.Tokenizers` (cl100k tiktoken, matching `text-embedding-3-small`) for both chunk boundaries and the stored `token_count`. The `Data.Cl100kBase` package ships the vocab so it works offline. Transitive `Microsoft.Bcl.Memory` pinned to 10.0.9 to clear advisory GHSA-73j8-2gch-69rq (NU1903).
+- **Wired into catalog ingestion** (Worker `IngestionService`, right after search indexing): loads the just-saved chapters, chunks each, bulk-inserts `chapter_chunk` rows with `embedding = null` and `chapter_ord` copied from the chapter. Best-effort — a chunking failure logs a warning and never fails the ingestion job; old chunks cascade-delete on reprocess.
+- **Scope:** catalog editions only (the AI-018 schema FKs to `chapters`/`editions`). User-uploaded books deferred to a future PR. Existing already-ingested editions get chunks on next reprocess until the AI-021 backfill lands.
+- Unit tests (`ChunkerTests`, 13 cases): sentence-split offset round-trip, token-budget bound, overlap, 0-based contiguous `Ord`, empty input, oversized-single-sentence.
+
 ### Phase 4 RAG — pgvector + chapter_chunk storage (2026-06-09)
 
 First PR of Phase 4 "Ask this book" (playbook PR **AI-018**). Lays the vector-storage foundation only — no chunker/embeddings/retrieval yet.
