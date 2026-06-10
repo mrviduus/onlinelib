@@ -31,6 +31,9 @@ public sealed class RagService : IRagService
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
+        // Gate ≤ 0 means "no chapters read" → guaranteed empty; skip the embedding API call.
+        if (maxChapterOrd is <= 0)
+            return [];
         if (k <= 0)
             k = IRagService.DefaultK;
 

@@ -11,6 +11,13 @@ Fifth PR of Phase 4 (playbook **AI-024**). Makes retrieval spoiler-safe and adds
 - **Admin debug endpoints** — `/admin/rag/{ed}/search` gains `&maxChapterOrd=` (test the gate with a synthetic ceiling); new `/admin/rag/{ed}/context?userId=&q=` runs the full spoiler-safe path for a user (admin impersonation) → `{ lastReadOrd, chunks[], notes[] }`, so AI-024 is verifiable before AI-025.
 - Tests: `HighlightToText` unit tests + an integration test asserting `maxChapterOrd=0` → `[]` (gate works).
 
+**Review follow-ups folded in:**
+- **High-water mark** — the gate now uses the *furthest* chapter the user has reached, not their current position, so flipping back to an earlier chapter no longer hides already-read later chapters. New nullable `reading_progress.max_chapter_number` (migration `AddMaxChapterToReadingProgress`), maintained monotonically on each progress save; legacy rows fall back to the current chapter (no backfill, self-heals).
+- **Private-corpus cap** — `RagContextService` caps included highlights/notes at 30 (most recent chapters first) so a heavy annotator can't blow the prompt budget.
+- **Note dedup** — notes attached to a highlight are skipped (the highlight's inline `NoteText` already carries them) to avoid double-counting.
+- **Skip wasted embedding** — `RagService` short-circuits to empty when the gate is ≤ 0 (no chapters read), avoiding an embedding API call.
+- Deferred (by design): min-score relevance threshold → AI-023; within-chapter spoiler precision → future.
+
 ### Phase 4 RAG — vector retrieval (RagService) (2026-06-10)
 
 Fourth PR of Phase 4 (playbook **AI-022**). First retrieval step: embed a query, find the nearest chunks in an edition by cosine similarity over pgvector.

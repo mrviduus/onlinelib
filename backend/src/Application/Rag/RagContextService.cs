@@ -26,6 +26,9 @@ public record RagContext(
 /// </summary>
 public sealed class RagContextService(IAppDbContext db, IRagService rag)
 {
+    /// <summary>Upper bound on private-corpus items, so a heavy annotator can't blow the prompt budget.</summary>
+    public const int PrivateNoteCap = 30;
+
     /// <summary>
     /// Builds the spoiler-safe context. When the user has no progress (lastRead = 0) both lists
     /// are empty — nothing is retrievable until they've read.
@@ -42,14 +45,21 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
         return new RagContext(chunks, notes, lastRead);
     }
 
-    /// <summary>The 1-based ordinal of the user's current chapter; 0 if no progress.</summary>
+    /// <summary>
+    /// The furthest chapter ordinal the user has reached in this edition (high-water mark), so
+    /// flipping back doesn't hide already-read chapters; falls back to the current chapter when the
+    /// mark is null (legacy rows). 0 when there's no progress at all.
+    /// </summary>
     public async Task<int> ResolveLastReadOrdAsync(
         Guid userId, Guid siteId, Guid editionId, CancellationToken ct)
     {
-        return await db.ReadingProgresses
+        var row = await db.ReadingProgresses
             .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == editionId)
-            .Join(db.Chapters, p => p.ChapterId, c => c.Id, (p, c) => c.ChapterNumber)
-            .FirstOrDefaultAsync(ct); // 0 when no progress row exists
+            .Join(db.Chapters, p => p.ChapterId, c => c.Id,
+                (p, c) => new { p.MaxChapterNumber, c.ChapterNumber })
+            .FirstOrDefaultAsync(ct);
+
+        return row is null ? 0 : row.MaxChapterNumber ?? row.ChapterNumber;
     }
 
     /// <summary>Highlights + notes from chapters with ChapterNumber ≤ maxOrd (read chapters).</summary>
@@ -66,15 +76,20 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
             .Select(h => new { h.ChapterId, Ord = h.Chapter!.ChapterNumber, h.SelectedText, h.NoteText })
             .ToListAsync(ct);
 
+        // Only free-standing notes — a note attached to a highlight (HighlightId set) is already
+        // represented via that highlight's inline NoteText, so including it again would double-count.
         var noteRows = await db.Notes
             .Where(n => n.UserId == userId && n.SiteId == siteId && n.EditionId == editionId
-                        && n.Chapter.ChapterNumber <= maxOrd)
+                        && n.HighlightId == null && n.Chapter.ChapterNumber <= maxOrd)
             .Select(n => new { ChapterId = (Guid?)n.ChapterId, Ord = n.Chapter.ChapterNumber, n.Text })
             .ToListAsync(ct);
 
         return highlightRows
             .Select(h => new PrivateNote(h.ChapterId, h.Ord, "highlight", HighlightToText(h.SelectedText, h.NoteText)))
             .Concat(noteRows.Select(n => new PrivateNote(n.ChapterId, n.Ord, "note", n.Text)))
+            // Cap to the most recent chapters (closest to where the user is reading), then present in order.
+            .OrderByDescending(n => n.ChapterOrd)
+            .Take(PrivateNoteCap)
             .OrderBy(n => n.ChapterOrd)
             .ToList();
     }
