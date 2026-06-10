@@ -187,6 +187,16 @@
     "reject": "Reject analytics"
   },
   "reader": {
+    "ask": {
+      "title": "Ask this book",
+      "placeholder": "Ask a question about what you've read…",
+      "send": "Ask",
+      "thinking": "Thinking…",
+      "empty": "Ask a question about the book — answers come only from chapters you've read.",
+      "signIn": "Sign in to ask questions about this book.",
+      "signInCta": "Sign in",
+      "citation": "ch.{{ch}}"
+    },
     "wordPopup": {
       "known": "Known",
       "ignore": "Ignore",

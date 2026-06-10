@@ -9,6 +9,8 @@ interface Props {
   isBookmarked: boolean
   backUrl: string
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
+  showAsk?: boolean // catalog editions only — user uploads aren't chunked for RAG
+  onAskClick?: () => void
   onSearchClick: () => void
   onTocClick: () => void
   onSettingsClick: () => void
@@ -23,6 +25,8 @@ export function ReaderTopBar({
   isBookmarked,
   backUrl,
   useLocalizedLink = true,
+  showAsk = false,
+  onAskClick,
   onSearchClick,
   onTocClick,
   onSettingsClick,
@@ -52,6 +56,15 @@ export function ReaderTopBar({
 
       <div className="reader-top-bar__right">
         <span className="reader-top-bar__progress">{Math.round(progress * 100)}%</span>
+        {showAsk && (
+          <button onClick={onAskClick} className="reader-top-bar__btn" title="Ask this book">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <path d="M9.5 9.5a2.5 2.5 0 1 1 3 2.45V13" strokeWidth="1.6" />
+              <circle cx="12" cy="15.5" r="0.6" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        )}
         <button onClick={onSearchClick} className="reader-top-bar__btn" title="Search in chapter">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />

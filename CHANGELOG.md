@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — web AskPanel (2026-06-10)
+
+Seventh PR of Phase 4 (playbook **AI-026**, slice 1 of 4 — web panel, chapter-level citations). Surfaces the AI-025 "Ask this book" endpoint in the web reader.
+
+- **`AskPanel`** — a right slide-in panel (mirrors `ReaderSettingsDrawer`) with a session Q&A history (chat-style, not persisted) and a composer. Reached via a new "Ask" button in `ReaderTopBar`, shown only for catalog editions (user uploads aren't chunked). Auth-gated: signed-out readers get a sign-in CTA.
+- **Citations** render as `[ch.N]` chips (hover → the backend text preview); clicking navigates the reader to that chapter (exact char-offset scroll is slice 026b).
+- **`useAsk` hook** + `api/ask.ts` (cookie `authFetch` POST `/books/{editionId}/ask`); shared `AskCitation`/`AskResponse` types in `@textstack/shared` (mobile reuses them in 026c).
+- Tests: `useAsk` (append / error / insufficient / no-edition) + `AskPanel` render (auth branching, citation-chip click). The render test caught a real bug — the auto-scroll used `Element.scrollTo` (absent in jsdom / fragile); switched to the robust `scrollTop` setter.
+
 ### Phase 4 RAG — "Ask this book" endpoint (2026-06-10)
 
 Sixth PR of Phase 4 (playbook **AI-025**). The feature itself: ask a question about a book you're reading, get a grounded 2–4 sentence answer with citations.

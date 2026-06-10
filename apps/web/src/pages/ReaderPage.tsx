@@ -19,6 +19,8 @@ import { ReaderSection } from '../components/reader/ReaderSection'
 import { ReaderNav } from '../components/reader/ReaderNav'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
+import { AskPanel } from '../components/reader/AskPanel'
+import type { AskCitation } from '../api/ask'
 import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
@@ -65,6 +67,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
@@ -366,6 +369,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return `/${language}/library/my/${id}/read/${identifier}`
   }, [mode, bookSlug, id, language, getLocalizedPath])
 
+  // RAG "Ask this book" — catalog editions only (user uploads aren't chunked).
+  const askEditionId = mode === 'public' ? publicBook?.id : undefined
+  const handleNavigateToCitation = useCallback((c: AskCitation) => {
+    // Chapter-level navigation (slice 026a); exact char-offset scroll lands in 026b.
+    const target = chapterList?.find(ch => ch.chapterNumber === c.chapterOrd)
+    if (target) navigate(getChapterUrl(target.identifier))
+    setAskOpen(false)
+  }, [chapterList, getChapterUrl, navigate])
+
   // Back URL
   const backUrl = mode === 'public'
     ? `/books/${bookSlug}`
@@ -445,6 +457,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         isBookmarked={isBookmarked(activeChapterIdentifier)}
         backUrl={backUrl}
         useLocalizedLink={mode === 'public'}
+        showAsk={!!askEditionId}
+        onAskClick={() => setAskOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -534,6 +548,17 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         onUpdate={update}
         onClose={() => setSettingsOpen(false)}
       />
+
+      {askEditionId && (
+        <AskPanel
+          open={askOpen}
+          editionId={askEditionId}
+          isAuthenticated={isAuthenticated}
+          onSignIn={openAuthModal}
+          onNavigateToCitation={handleNavigateToCitation}
+          onClose={() => setAskOpen(false)}
+        />
+      )}
 
       <ReaderSearchDrawer
         open={searchOpen}

@@ -423,3 +423,21 @@ export interface UserBookChapterDto {
   prev: ChapterNav | null
   next: ChapterNav | null
 }
+
+// "Ask this book" (Phase 4 RAG, AI-025/026). Mirrors backend Contracts.Books.Ask*.
+export interface AskCitation {
+  marker: number
+  chunkId: string
+  chapterId: string
+  chapterOrd: number
+  charStart: number
+  charEnd: number
+  preview: string
+}
+
+export interface AskResponse {
+  answer: string
+  citations: AskCitation[]
+  lastReadOrd: number
+  insufficient: boolean
+}
