@@ -28,6 +28,7 @@ import { BookmarksSheet } from '../BookmarksSheet'
 import { SelectionActionBar } from '../SelectionActionBar'
 import { TranslationSheet } from '../TranslationSheet'
 import { ExplanationSheet } from '../ExplanationSheet'
+import { AskSheet } from '../AskSheet'
 import { HighlightNoteModal } from '../HighlightNoteModal'
 import { TocSheet } from '../TocSheet'
 import { ReaderStatsWidget } from '../ReaderStatsWidget'
@@ -153,6 +154,7 @@ export function ReaderShell(props: ReaderShellProps) {
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
   const [progress, setProgress] = useState(0)
   const [bookProgress, setBookProgress] = useState<number | null>(null)
@@ -426,8 +428,10 @@ export function ReaderShell(props: ReaderShellProps) {
           sessionWordCount={sessionWordCount}
           isAuthenticated={isAuthenticated}
           hasChapters={chapters.length > 0}
+          showAsk={!!explainBookId}
           isCurrentBookmarked={isCurrentBookmarked}
           onExit={handleExit}
+          onAskPress={() => setAskOpen(true)}
           onBookmarksPress={() => setBookmarksOpen(true)}
           onTocPress={() => setTocOpen(true)}
           onSettingsPress={() => setSettingsOpen(true)}
@@ -545,6 +549,18 @@ export function ReaderShell(props: ReaderShellProps) {
           fromLang={language}
           onClose={() => setExplainOpen(false)}
         />
+
+        {explainBookId && (
+          <AskSheet
+            visible={askOpen}
+            editionId={explainBookId}
+            chapters={chapters}
+            isAuthenticated={isAuthenticated}
+            onNavigateChapter={navigateChapter}
+            onSignIn={() => { setAskOpen(false); router.push('/(auth)/login') }}
+            onClose={() => setAskOpen(false)}
+          />
+        )}
 
         <TocSheet
           visible={tocOpen}
