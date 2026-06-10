@@ -148,6 +148,8 @@ public static class UserDataEndpoints
             existing.ChapterId = request.ChapterId;
             existing.Locator = request.Locator;
             existing.Percent = request.Percent;
+            // High-water mark for the RAG spoiler gate — monotonic, never decreases.
+            existing.MaxChapterNumber = Math.Max(existing.MaxChapterNumber ?? 0, chapter.ChapterNumber);
             existing.UpdatedAt = DateTimeOffset.UtcNow;
         }
         else
@@ -161,6 +163,7 @@ public static class UserDataEndpoints
                 ChapterId = request.ChapterId,
                 Locator = request.Locator,
                 Percent = request.Percent,
+                MaxChapterNumber = chapter.ChapterNumber,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             db.ReadingProgresses.Add(progress);

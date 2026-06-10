@@ -9,6 +9,15 @@ public class ReadingProgress
     public Guid ChapterId { get; set; }
     public required string Locator { get; set; }
     public double? Percent { get; set; }
+
+    /// <summary>
+    /// High-water mark: the furthest chapter ordinal (<see cref="Chapter.ChapterNumber"/>) the user
+    /// has ever reached in this edition. Used by the RAG spoiler gate so flipping back to an earlier
+    /// chapter doesn't hide already-read later chapters. Null on legacy rows → callers fall back to
+    /// the current chapter (self-heals on the next progress save).
+    /// </summary>
+    public int? MaxChapterNumber { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
 
     public User User { get; set; } = null!;

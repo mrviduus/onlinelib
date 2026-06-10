@@ -45,4 +45,20 @@ public class RagEndpointTests : IClassFixture<AuthenticatedApiFixture>
         Assert.SkipWhen(NotReachable(response), "admin endpoint not reachable (no admin session / key / corpus)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task RagSearch_SpoilerGateZero_ReturnsEmpty()
+    {
+        Assert.SkipUnless(_fixture.IsAuthenticated, "auth unavailable");
+
+        // maxChapterOrd=0 means "no chapters read" → the gate must return nothing.
+        var request = _fixture.CreateAdminRequest(
+            HttpMethod.Get, $"/admin/rag/{SomeEdition}/search?q=test&maxChapterOrd=0");
+        var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.SkipWhen(NotReachable(response), "admin endpoint not reachable (no admin session / key)");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("[]", body.Trim());
+    }
 }

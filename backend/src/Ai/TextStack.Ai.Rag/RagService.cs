@@ -27,9 +27,12 @@ public sealed class RagService : IRagService
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-        Guid editionId, string query, int k, CancellationToken ct)
+        Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
+            return [];
+        // Gate ≤ 0 means "no chapters read" → guaranteed empty; skip the embedding API call.
+        if (maxChapterOrd is <= 0)
             return [];
         if (k <= 0)
             k = IRagService.DefaultK;
@@ -37,6 +40,8 @@ public sealed class RagService : IRagService
         var queryVector = await _embedder.EmbedAsync(query, ct);
         var vectorLiteral = FormatVector(queryVector);
 
+        // Spoiler gate (AI-024): when maxChapterOrd is set, only chunks from chapters the user
+        // has read are visible. Hard SQL filter (never a prompt instruction). Null = no gate.
         const string sql = """
             SELECT id            AS ChunkId,
                    chapter_id    AS ChapterId,
@@ -47,7 +52,9 @@ public sealed class RagService : IRagService
                    char_end      AS CharEnd,
                    1 - (embedding <=> CAST(@q AS vector)) AS Score
             FROM chapter_chunk
-            WHERE edition_id = @editionId AND embedding IS NOT NULL
+            WHERE edition_id = @editionId
+              AND embedding IS NOT NULL
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
             ORDER BY embedding <=> CAST(@q AS vector)
             LIMIT @k
             """;
@@ -56,7 +63,7 @@ public sealed class RagService : IRagService
         var rows = await connection.QueryAsync<Row>(
             new CommandDefinition(
                 sql,
-                new { q = vectorLiteral, editionId, k },
+                new { q = vectorLiteral, editionId, k, maxChapterOrd },
                 cancellationToken: ct,
                 commandTimeout: QueryTimeoutSeconds));
 
