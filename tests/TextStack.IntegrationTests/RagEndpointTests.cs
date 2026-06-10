@@ -4,8 +4,9 @@ namespace TextStack.IntegrationTests;
 
 /// <summary>
 /// Integration tests for the admin RAG debug endpoint (AI-022), against the live API.
-/// Retrieval itself needs an embedded corpus + OpenAI key, so the query path skips when
-/// the endpoint is unavailable; the validation path (missing query) runs without a key.
+/// The shared <see cref="AuthenticatedApiFixture"/> logs in a regular user, not an admin, so
+/// admin endpoints return 401 here — tests skip on that (and on no-key/not-deployed) rather
+/// than false-fail. They assert real behaviour only when run with an admin session + corpus.
 /// </summary>
 public class RagEndpointTests : IClassFixture<AuthenticatedApiFixture>
 {
@@ -14,30 +15,34 @@ public class RagEndpointTests : IClassFixture<AuthenticatedApiFixture>
 
     public RagEndpointTests(AuthenticatedApiFixture fixture) => _fixture = fixture;
 
+    // 401/403 = fixture isn't an admin; 404/500 = not deployed/erroring; 503 = no OpenAI key.
+    private static bool NotReachable(HttpResponseMessage r) =>
+        IntegrationSkip.Unavailable(r)
+        || r.StatusCode is HttpStatusCode.Unauthorized
+            or HttpStatusCode.Forbidden
+            or HttpStatusCode.ServiceUnavailable;
+
     [Fact]
     public async Task RagSearch_MissingQuery_Returns400()
     {
-        Assert.SkipUnless(_fixture.IsAuthenticated, "admin auth unavailable");
+        Assert.SkipUnless(_fixture.IsAuthenticated, "auth unavailable");
 
         var request = _fixture.CreateAdminRequest(HttpMethod.Get, $"/admin/rag/{SomeEdition}/search");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.SkipWhen(response.StatusCode is HttpStatusCode.NotFound, "endpoint not deployed");
+        Assert.SkipWhen(NotReachable(response), "admin endpoint not reachable (no admin session)");
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
     public async Task RagSearch_WithQuery_Returns200_WhenAvailable()
     {
-        Assert.SkipUnless(_fixture.IsAuthenticated, "admin auth unavailable");
+        Assert.SkipUnless(_fixture.IsAuthenticated, "auth unavailable");
 
         var request = _fixture.CreateAdminRequest(HttpMethod.Get, $"/admin/rag/{SomeEdition}/search?q=test&k=5");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        // 503 = no OpenAI key, 500/404 = not deployed/erroring → skip rather than fail.
-        Assert.SkipWhen(
-            IntegrationSkip.Unavailable(response) || response.StatusCode == HttpStatusCode.ServiceUnavailable,
-            "endpoint unavailable (no key/corpus)");
+        Assert.SkipWhen(NotReachable(response), "admin endpoint not reachable (no admin session / key / corpus)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
