@@ -112,6 +112,8 @@ else
 builder.Services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionString));
 // Spoiler-safe context builder (AI-024): resolves lastRead + gates chunks + private corpus.
 builder.Services.AddScoped<Application.Rag.RagContextService>();
+// "Ask this book" orchestration (AI-025): context + LLM gateway → grounded answer with citations.
+builder.Services.AddScoped<Application.Rag.RagAskService>();
 
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();
@@ -276,6 +278,18 @@ builder.Services.AddRateLimiter(options =>
         {
             Window = TimeSpan.FromMinutes(1),
             PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
+    // "Ask this book" (RAG) — one LLM call per request, per-user reading. 30/min per IP is
+    // generous for genuine use and caps scripted abuse.
+    options.AddPolicy("rag.ask", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 30,
             QueueLimit = 0,
         });
     });
@@ -469,6 +483,7 @@ app.MapReadingTrackingEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapAdminAiQualityEndpoints();
 app.MapAdminRagEndpoints();
+app.MapAskEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();

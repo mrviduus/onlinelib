@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — "Ask this book" endpoint (2026-06-10)
+
+Sixth PR of Phase 4 (playbook **AI-025**). The feature itself: ask a question about a book you're reading, get a grounded 2–4 sentence answer with citations.
+
+- **`POST /books/{editionId}/ask`** (authenticated) — retrieves spoiler-safe context (AI-024 `RagContextService`), generates an answer via the LLM gateway (FeatureTag `rag.ask` → OpenAI, traced into `llm_traces`), returns `{ answer, citations[], lastReadOrd, insufficient }`. Rate-limited 30/min per IP.
+- **`RagAskService`** (`Application/Rag`) + **`RagAskPrompt`** (pure static, eval-reusable): numbered excerpts `[1] (ch.N) …` + the reader's private notes → an answer that cites every claim with `[n]`; `ParseCitations` maps markers back to the cited chunks (with chapter ord + char offsets for the reader deep-link).
+- **No-context short-circuit** — a reader with no progress gets a plain "read more first" answer with **no LLM call** (zero cost).
+- **JSON for now** — `ILlmService.StreamAsync` is still one-shot, so SSE/token streaming is deferred to AI-028 (Phase 5) where it's real; the answer arrives whole today (identical UX). The reader UI + clickable citations are AI-026.
+- Tests: `RagAskPrompt`/`ParseCitations` unit tests + an integration test (no-auth → 401; answer path skips without a key/corpus).
+
 ### Phase 4 RAG — spoiler gate + private corpus (2026-06-10)
 
 Fifth PR of Phase 4 (playbook **AI-024**). Makes retrieval spoiler-safe and adds the user's own annotations as guaranteed context — the capability the public Ask endpoint (AI-025) consumes.
