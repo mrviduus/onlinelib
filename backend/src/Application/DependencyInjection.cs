@@ -90,6 +90,10 @@ public static class DependencyInjection
         // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider).
         services.AddSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.ModelGateway>();
 
+        // Embeddings (Phase 4 RAG). Single OpenAI provider; resolved lazily so a keyless
+        // host still starts (the client throws on construction without a key).
+        services.AddSingleton<global::TextStack.Ai.Core.IEmbeddingService, global::TextStack.Ai.Llm.OpenAiEmbeddingClient>();
+
         // SSG Rebuild - interfaces for SOLID compliance
         services.AddScoped<ISsgRouteProvider, SsgRouteProvider>();
         services.AddScoped<ISsgJobService, SsgRebuildService>();

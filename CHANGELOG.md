@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — OpenAI embeddings + batch worker (2026-06-10)
+
+Third PR of Phase 4 (playbook **AI-020**). Fills `chapter_chunk.embedding` so retrieval (AI-022+) has vectors to search.
+
+- **`OpenAiEmbeddingClient`** (`TextStack.Ai.Llm`, next to `OpenAiLlmClient`) — first implementation of `IEmbeddingService`, wrapping the OpenAI SDK `EmbeddingClient` for `text-embedding-3-small` (1536-d). Same config/empty-key guard as the LLM client; cost logged per batch via `ModelPricing` (added `text-embedding-3-small` = $0.02/1M input).
+- **`ChapterEmbeddingWorker`** — perpetual `BackgroundService` that polls `chapter_chunk WHERE embedding IS NULL`, embeds in batches of 100, and writes the vectors back. Covers freshly-ingested books **and** drains the existing backlog, so AI-021 backfill becomes a roll-out concern rather than new code. **Self-disables** with no OpenAI key (keyless dev host still starts); survives errors (outer retry); on a batch failure falls back to per-item so one bad chunk can't stall the backlog (parked in-memory to avoid re-fetch).
+- **Scope:** catalog chunks only. Embedding observability is cost-log only for now (full `llm_traces` for embeddings deferred).
+- Unit tests: `ModelPricing` embedding cost (input-only, ignores output tokens) + `AssignEmbeddings` order-preserving assignment / count-mismatch guard.
+
 ### Phase 4 RAG — sentence-aware chunker (2026-06-09)
 
 Second PR of Phase 4 (playbook **AI-019**). Fills the `chapter_chunk` table created in AI-018: catalog ingestion now emits retrieval-sized chunks (embeddings come in AI-020/021).

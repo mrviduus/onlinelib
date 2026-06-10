@@ -77,6 +77,8 @@ builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddHostedService<PodcastWorker>();
+// Phase 4 RAG: fills chapter_chunk.embedding for chunks the chunker left null.
+builder.Services.AddHostedService<ChapterEmbeddingWorker>();
 
 // SSG Rebuild handled by dedicated ssg_worker container (apps/web/scripts/ssg-worker.mjs)
 
