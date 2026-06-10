@@ -3,7 +3,10 @@
 
 services:
   db:
-    image: postgres:16
+    # pgvector image = stock postgres:16 + the `vector` extension binary.
+    # Existing ./data/postgres-prod volume is compatible (no re-init); the
+    # extension is activated by the AddPgVectorAndChunks migration.
+    image: pgvector/pgvector:pg16
     container_name: textstack_db_prod
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

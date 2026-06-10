@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using TextStack.Extraction.Extractors;
 using TextStack.Extraction.Registry;
+using TextStack.Ai.Rag;
 using TextStack.Search;
 using TextStack.Search.Meilisearch;
 using TextStack.Tts;
@@ -24,7 +25,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)
+    options.UseNpgsql(connectionString, o => o.UseVector())
         .UseSnakeCaseNamingConvention()
         .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
@@ -70,6 +71,8 @@ builder.Services.AddScoped<IPodcastScriptBuilder, PodcastScriptBuilder>();
 builder.Services.Configure<TtsConfiguration>(builder.Configuration.GetSection("Tts"));
 builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
 builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
+// Phase 4 RAG: sentence-aware chunker emits chapter_chunk rows during ingestion.
+builder.Services.AddAiRag();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();

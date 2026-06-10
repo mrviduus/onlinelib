@@ -2,11 +2,50 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — sentence-aware chunker (2026-06-09)
+
+Second PR of Phase 4 (playbook **AI-019**). Fills the `chapter_chunk` table created in AI-018: catalog ingestion now emits retrieval-sized chunks (embeddings come in AI-020/021).
+
+- **New `TextStack.Ai.Rag` library** with a hand-rolled, sentence-aware `Chunker`: splits chapter plain text into ~512-token windows with 64-token overlap, recording exact `char_start`/`char_end` offsets back into the source text (parent-context expansion + citation deep-links). Hand-rolled rather than SemanticKernel `TextChunker` because the latter returns strings without offsets.
+- **Exact token counts** via `Microsoft.ML.Tokenizers` (cl100k tiktoken, matching `text-embedding-3-small`) for both chunk boundaries and the stored `token_count`. The `Data.Cl100kBase` package ships the vocab so it works offline. Transitive `Microsoft.Bcl.Memory` pinned to 10.0.9 to clear advisory GHSA-73j8-2gch-69rq (NU1903).
+- **Wired into catalog ingestion** (Worker `IngestionService`, right after search indexing): loads the just-saved chapters, chunks each, bulk-inserts `chapter_chunk` rows with `embedding = null` and `chapter_ord` copied from the chapter. Best-effort — a chunking failure logs a warning and never fails the ingestion job; old chunks cascade-delete on reprocess.
+- **Scope:** catalog editions only (the AI-018 schema FKs to `chapters`/`editions`). User-uploaded books deferred to a future PR. Existing already-ingested editions get chunks on next reprocess until the AI-021 backfill lands.
+- Unit tests (`ChunkerTests`, 13 cases): sentence-split offset round-trip, token-budget bound, overlap, 0-based contiguous `Ord`, empty input, oversized-single-sentence.
+
+### Phase 4 RAG — pgvector + chapter_chunk storage (2026-06-09)
+
+First PR of Phase 4 "Ask this book" (playbook PR **AI-018**). Lays the vector-storage foundation only — no chunker/embeddings/retrieval yet.
+
+- **pgvector enabled.** DB image `postgres:16` → `pgvector/pgvector:pg16` (docker-compose + CI service); existing data volume is compatible (stock pg16 + extension binary, no re-init). Migration `AddPgVectorAndChunks` emits `CREATE EXTENSION IF NOT EXISTS vector` ahead of the table.
+- **`chapter_chunk` table** (singular name to match the playbook DDL and the future raw-Npgsql retrieval SQL). Columns: uuid PK, `edition_id`/`chapter_id` (cascade FKs), `ord`, `text`, `embedding vector(1536)`, `token_count`, `created_at`. Two columns beyond the playbook schema, per `bootcamp-rag-analysis.md`: `chapter_ord` (denormalized so the spoiler gate filters in SQL without a join) and `char_start`/`char_end` (parent-context expansion + citation deep-links).
+- **Embedding nullable** — the chunker (AI-019) inserts text first; the batch embedder (AI-020/021) fills vectors later. Retrieval SQL adds `embedding IS NOT NULL`.
+- **Indexes:** HNSW `(embedding vector_cosine_ops)` for cosine ANN; btree `(edition_id, chapter_id, ord)`.
+- **Domain stays framework-free** — `ChapterChunk.Embedding` is `float[]`, converted to `Pgvector.Vector` only in EF mapping (`AppDbContext.Rag.cs`). `Pgvector` + `Pgvector.EntityFrameworkCore` added centrally; `.UseVector()` wired in all 3 DbContext registrations (Api/Worker/Factory). Not exposed on `IAppDbContext` — retrieval uses raw Npgsql.
+- **Microsoft-libs boundary:** generation layer (chunker/embeddings, AI-019/020) will use `Microsoft.Extensions.AI` + SK `TextChunker`; the pgvector storage/access layer stays raw Npgsql so the spoiler gate lives in SQL.
+
+### EPUB chapter parsing fix + correct book progress on book detail (2026-06-09)
+
+- **Fix: book detail page showed chapter % as book %** (e.g. "85%" on `my-books/[id]` while on chapter 2). The page rendered `savedProgress.percent` (chapter-scroll) directly; it now computes book-wide percent via `computeBookProgress`, matching the reader footer and library cards.
+- **Fix: EPUB chapters mis-titled / content not matching titles.** On EPUBs that split one logical chapter across two spine files — a heading-only file (`<h1>10</h1>`) plus a separate body file — the extractor produced doubled, mis-titled chapters (a 1-word "10" chapter, then a body titled with the book name, with titles drifting against content). Root causes:
+  - `HtmlCleaner.ExtractTitle` fell back to the `<head><title>` element, which in professionally-produced EPUBs is the **book** title on every page. That mislabeled untitled spine files and, via `HasProperTitle`, blocked the merge of a heading file with its body. New `HtmlCleaner.ExtractHeadingTitle` (visible `h1/h2/h3` only) is now used for per-chapter titling; book-level `ExtractTitle` is unchanged.
+  - Added heading-stub recombination in `EpubTextExtractor`: a bare chapter-number file (`IsHeadingNumberStub` — ≤3 words, digits only) is merged into the following body file, keeping the stub's nav-derived title.
+  - Not an AI-model issue — chapter splitting/titling is deterministic extraction; the LLM only fills genre/year/description metadata.
+  - Already-uploaded books re-parse via `POST /me/books/{id}/retry`.
+
+### Mobile — unified reader + correct book progress (2026-06-09)
+
+Reading-progress fixes + a structural refactor that collapses the two readers (catalog + user-uploaded) into one code path, killing the "two readers drift" bug class.
+
+- **Unified reader** — catalog and user-book readers now share ONE path: `ReaderRuntime` contract (`readerSource.ts`), `useEditionReaderSource` / `useUserBookReaderSource` (the only place the catalogs differ — data fetch + progress I/O), shared `Reader.tsx` → `ReaderShell.tsx`. The two route files are thin wrappers. The divergent progress hooks (`useReaderProgress` / `useUserBookProgress`) are deleted in favor of one `useReaderPersistence`.
+- **Fix: reopening a book returned to the top of the chapter** — saved scroll position was fetched asynchronously but `onLoadEnd` often fired first, so restore ran once (guarded) before the position arrived and was skipped forever. Restore is now a state machine gated on `webViewLoaded && positionLoaded`, whichever lands last — no race, both readers, offset **or** percent. The user-book reader also regains the percent-restore fallback it had lost to copy-paste drift.
+- **Fix: Library cards showed chapter % as book %** ("85%" on chapter 2 of 10). `LibraryShelvesService` (Continue reading / Recently added / Quick reads) now converts chapter-percent → book-percent via `BookProgressCalculator` (C# mirror of the client's `computeBookProgress`), weighting by chapter word counts. Current chapter is located by the progress locator's slug (accurate after infinite-scroll), falling back to `ChapterId`; user-books by `ProgressChapterSlug`. `EstimateRemaining` ("X min left") now uses book-percent too.
+- **Fix: changing a reader setting mid-chapter jumped to the top** — a font/theme/spacing change rebuilds the WebView HTML; the reader now re-applies the live position by percent (layout-relative) on that reload instead of dropping to the top.
+
 ### AI platform — eval framework → Microsoft.Extensions.AI.Evaluation (2026-06-07)
 
 Migrated the hand-rolled eval runner/judge to the **stable** `Microsoft.Extensions.AI.Evaluation` framework (10.6.0), keeping our golden datasets the source of truth and scores comparable. Shipped as 7 small steps on one branch.
 
-- **AI-018 — eval suite on MEAI.Evaluation** (this PR) — replaces the bespoke `JudgeRunner.JudgeAsync` LLM-as-judge with MEAI's `IEvaluator` model, end to end:
+- **AI-010a — eval suite on MEAI.Evaluation** (this PR) — a follow-on refinement of the Phase 2 eval epic (AI-006/009/010), not a roadmap PR — AI-018 is reserved for Phase 4 (pgvector). Replaces the bespoke `JudgeRunner.JudgeAsync` LLM-as-judge with MEAI's `IEvaluator` model, end to end:
   - **`LlmServiceChatClient`** adapts our `ILlmService` seam to MEAI's `IChatClient`, so evaluators call the same Ollama/OpenAI gateway (no new service).
   - **`RubricEvaluator : IEvaluator`** ports the judge 1:1 — the **same** system prompt + **same** strict-JSON parse (now shared statics on `JudgeRunner`) → identical scores given the same judge reply; emits the 3 rubric axes + overall as `NumericMetric`s, gated Pass/Fail on the same floors.
   - **Goldens unchanged** (`GoldenLoader` + embedded `Datasets/*.json`) feed `ReportingConfiguration` scenarios; runs persist to a disk store with a **30-day response cache** (re-runs don't re-hit the judge) and an **HTML report** (`data/eval-meai/`).
