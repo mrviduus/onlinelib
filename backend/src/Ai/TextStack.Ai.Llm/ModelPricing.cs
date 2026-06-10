@@ -17,6 +17,8 @@ public static class ModelPricing
         {
             ["gpt-4.1-nano"] = (0.10m, 0.40m),
             ["gpt-4o-mini"] = (0.15m, 0.60m),
+            // Embedding model (Phase 4 RAG): input-only, no output tokens.
+            ["text-embedding-3-small"] = (0.02m, 0m),
         };
 
     /// <summary>True if we have an explicit price for this model id.</summary>
