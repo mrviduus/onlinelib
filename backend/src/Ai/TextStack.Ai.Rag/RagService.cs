@@ -53,14 +53,31 @@ public sealed class RagService : IRagService
             """;
 
         using var connection = _connectionFactory();
-        var rows = await connection.QueryAsync<RetrievedChunk>(
+        var rows = await connection.QueryAsync<Row>(
             new CommandDefinition(
                 sql,
                 new { q = vectorLiteral, editionId, k },
                 cancellationToken: ct,
                 commandTimeout: QueryTimeoutSeconds));
 
-        return rows.ToList();
+        return rows
+            .Select(r => new RetrievedChunk(
+                r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, r.Score))
+            .ToList();
+    }
+
+    /// <summary>Dapper row — a sealed class with init props (the repo's proven mapping shape;
+    /// avoids relying on constructor mapping into a record struct).</summary>
+    private sealed class Row
+    {
+        public Guid ChunkId { get; init; }
+        public Guid ChapterId { get; init; }
+        public int ChapterOrd { get; init; }
+        public int Ord { get; init; }
+        public string Text { get; init; } = string.Empty;
+        public int CharStart { get; init; }
+        public int CharEnd { get; init; }
+        public double Score { get; init; }
     }
 
     /// <summary>
@@ -74,7 +91,8 @@ public sealed class RagService : IRagService
         for (var i = 0; i < vector.Count; i++)
         {
             if (i > 0) sb.Append(',');
-            sb.Append(vector[i].ToString("R", CultureInfo.InvariantCulture));
+            // "G9" is the shortest round-trippable form for float (preferred over "R").
+            sb.Append(vector[i].ToString("G9", CultureInfo.InvariantCulture));
         }
         sb.Append(']');
         return sb.ToString();

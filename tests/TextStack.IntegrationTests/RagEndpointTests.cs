@@ -34,8 +34,10 @@ public class RagEndpointTests : IClassFixture<AuthenticatedApiFixture>
         var request = _fixture.CreateAdminRequest(HttpMethod.Get, $"/admin/rag/{SomeEdition}/search?q=test&k=5");
         var response = await _fixture.Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        // 500 = no OpenAI key / no embedded corpus in this environment → skip rather than fail.
-        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (no key/corpus)");
+        // 503 = no OpenAI key, 500/404 = not deployed/erroring → skip rather than fail.
+        Assert.SkipWhen(
+            IntegrationSkip.Unavailable(response) || response.StatusCode == HttpStatusCode.ServiceUnavailable,
+            "endpoint unavailable (no key/corpus)");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
