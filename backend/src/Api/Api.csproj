@@ -24,5 +24,6 @@
     <ProjectReference Include="..\Tts\TextStack.Tts\TextStack.Tts.csproj" />
     <ProjectReference Include="..\Vocabulary\TextStack.Vocabulary\TextStack.Vocabulary.csproj" />
     <ProjectReference Include="..\Ai\TextStack.Ai.EvalSuite\TextStack.Ai.EvalSuite.csproj" />
+    <ProjectReference Include="..\Ai\TextStack.Ai.Rag\TextStack.Ai.Rag.csproj" />
   </ItemGroup>
 </Project>

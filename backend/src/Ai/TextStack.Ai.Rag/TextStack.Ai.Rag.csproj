@@ -13,5 +13,8 @@
     <!-- Force the transitive Microsoft.Bcl.Memory up to a non-vulnerable version (NU1903). -->
     <PackageReference Include="Microsoft.Bcl.Memory" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- Vector retrieval (AI-022): raw Npgsql + Dapper, query vector cast server-side. -->
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
   </ItemGroup>
 </Project>

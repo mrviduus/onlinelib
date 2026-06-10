@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — vector retrieval (RagService) (2026-06-10)
+
+Fourth PR of Phase 4 (playbook **AI-022**). First retrieval step: embed a query, find the nearest chunks in an edition by cosine similarity over pgvector.
+
+- **`RagService`** (`TextStack.Ai.Rag`) — embeds the query via `IEmbeddingService`, then runs **raw Npgsql + Dapper** (not EF, so the spoiler gate can later live in the SQL `WHERE`): `ORDER BY embedding <=> CAST(@q AS vector) LIMIT @k` over `chapter_chunk`, using the HNSW `vector_cosine_ops` index. Per-edition, `embedding IS NOT NULL`, top-K (default 8 = recall@8 target), score = 1 − cosine distance.
+- **Query-vector binding:** the embedding is formatted as a `[…]` text literal (`FormatVector`, invariant-culture) and cast server-side — a raw connection doesn't have the pgvector type registered (`UseVector()` is EF-only), so this avoids `NpgsqlDataSource`/type-handlers.
+- **Admin debug endpoint** `GET /admin/rag/{editionId}/search?q=&k=` — returns top-K chunks (score + citation offsets + text preview) so retrieval is inspectable now. Admin-only; vector-only (no spoiler gate yet — that's AI-024, before the public Ask endpoint). The public Ask + SSE + citations stay AI-025.
+- Tests: `FormatVector` unit tests (bracket/comma shape, invariant culture under a comma-decimal locale, empty/single) + an admin-endpoint integration test (missing-query → 400; query path skips without a key/corpus).
+
 ### Phase 4 RAG — OpenAI embeddings + batch worker (2026-06-10)
 
 Third PR of Phase 4 (playbook **AI-020**). Fills `chapter_chunk.embedding` so retrieval (AI-022+) has vectors to search.

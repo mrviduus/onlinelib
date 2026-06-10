@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.FileProviders;
 using Npgsql;
+using TextStack.Ai.Rag;
 using TextStack.Search;
 using TextStack.Search.Abstractions;
 using TextStack.Search.Meilisearch;
@@ -105,6 +106,10 @@ else
     builder.Services.AddPostgresFtsProvider(
         _ => () => new NpgsqlConnection(connectionString),
         options => options.ConnectionString = connectionString);
+
+// RAG vector retrieval (Phase 4). Raw Npgsql like the search provider; query embedded via
+// IEmbeddingService (registered in AddApplication). Used by the admin debug endpoint (AI-022).
+builder.Services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionString));
 
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();
@@ -461,6 +466,7 @@ app.MapCollectionsEndpoints();
 app.MapReadingTrackingEndpoints();
 app.MapAdminBookQualityEndpoints();
 app.MapAdminAiQualityEndpoints();
+app.MapAdminRagEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();
