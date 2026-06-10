@@ -2231,3 +2231,9 @@ html[data-theme="dark"] .vocab-translation-overlay__item {
   opacity: 0.5;
   cursor: default;
 }
+
+/* Cited-passage flash (AI-026b) — CSS Custom Highlight API, fades via the timer in citationScroll. */
+::highlight(rag-citation) {
+  background-color: rgba(37, 99, 235, 0.25);
+  border-radius: 2px;
+}

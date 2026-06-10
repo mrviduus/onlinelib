@@ -396,8 +396,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const container = scrollContainerRef.current
     if (!target || target.identifier !== activeChapterIdentifier || !container) return
     pendingCitationRef.current = null
-    const timer = setTimeout(() => scrollToCitation(container, pending), 100)
-    return () => clearTimeout(timer)
+    // Double rAF: runs a frame after scroll-restore's single rAF, so the explicit citation jump
+    // wins without racing on a magic timeout.
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => scrollToCitation(container, pending))
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
   }, [activeChapterIdentifier, loading, chapterList])
 
   // Back URL

@@ -54,4 +54,23 @@ describe('findCitationRange', () => {
     expect(findCitationRange(container, 'replication strategy')).toBeNull()
     expect(findCitationRange(container, '')).toBeNull()
   })
+
+  it('skips matches inside reader decorations (vocab glosses)', () => {
+    container = document.createElement('div')
+    container.innerHTML =
+      '<p>Intro. <span class="vocab-inline-translation">replication strategy</span> ' +
+      'and then the real replication strategy in the prose.</p>'
+    document.body.appendChild(container)
+
+    const range = findCitationRange(container, 'replication strategy')
+    expect(range).not.toBeNull()
+    // The returned match must NOT be the one inside the gloss span.
+    let el: Element | null = range!.startContainer.parentElement
+    let insideGloss = false
+    while (el) {
+      if (el.classList?.contains('vocab-inline-translation')) insideGloss = true
+      el = el.parentElement
+    }
+    expect(insideGloss).toBe(false)
+  })
 })
