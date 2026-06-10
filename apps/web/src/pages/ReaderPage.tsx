@@ -21,6 +21,7 @@ import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { AskPanel } from '../components/reader/AskPanel'
 import type { AskCitation } from '../api/ask'
+import { scrollToCitation } from '../lib/citationScroll'
 import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
 import { ReaderHighlights } from '../components/reader/ReaderHighlights'
@@ -371,12 +372,33 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   // RAG "Ask this book" — catalog editions only (user uploads aren't chunked).
   const askEditionId = mode === 'public' ? publicBook?.id : undefined
+  const pendingCitationRef = useRef<AskCitation | null>(null)
   const handleNavigateToCitation = useCallback((c: AskCitation) => {
-    // Chapter-level navigation (slice 026a); exact char-offset scroll lands in 026b.
     const target = chapterList?.find(ch => ch.chapterNumber === c.chapterOrd)
-    if (target) navigate(getChapterUrl(target.identifier))
     setAskOpen(false)
-  }, [chapterList, getChapterUrl, navigate])
+    if (!target) return
+    if (target.identifier === activeChapterIdentifier && scrollContainerRef.current) {
+      // Already on the cited chapter — scroll to the passage now (026b).
+      scrollToCitation(scrollContainerRef.current, c)
+    } else {
+      // Different chapter: navigate, then the effect below scrolls once it renders.
+      pendingCitationRef.current = c
+      navigate(getChapterUrl(target.identifier))
+    }
+  }, [chapterList, activeChapterIdentifier, getChapterUrl, navigate])
+
+  // Consume a pending citation once its chapter has navigated in and rendered. Runs after
+  // scroll-restore (slight delay) so an explicit citation jump wins over position restore.
+  useEffect(() => {
+    const pending = pendingCitationRef.current
+    if (!pending || loading) return
+    const target = chapterList?.find(ch => ch.chapterNumber === pending.chapterOrd)
+    const container = scrollContainerRef.current
+    if (!target || target.identifier !== activeChapterIdentifier || !container) return
+    pendingCitationRef.current = null
+    const timer = setTimeout(() => scrollToCitation(container, pending), 100)
+    return () => clearTimeout(timer)
+  }, [activeChapterIdentifier, loading, chapterList])
 
   // Back URL
   const backUrl = mode === 'public'

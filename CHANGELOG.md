@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — web citation scroll (2026-06-10)
+
+Phase 4 **AI-026, slice 2 of 4**. Citation chips now land the reader on the cited **passage**, not just the chapter.
+
+- **`citationScroll`** (`lib/citationScroll.ts`) — clicking a citation scrolls to the cited text. The chunk offsets are into `PlainText` (which differs from the rendered HTML's DOM text), so instead of an unreliable offset→DOM mapping it **searches the DOM for a short prefix of the chunk** (`findTextMatches`, like in-book search) and centers that range; if the snippet doesn't match (spans inline markup), it **falls back to a proportional scroll** by `charStart / textLength` — exact in the common case, robust always.
+- Wired in `ReaderPage`: same-chapter citations scroll immediately; cross-chapter ones navigate and a `loading`-gated effect scrolls once the new chapter renders (after scroll-restore, so the explicit jump wins).
+- Tests: `makeSnippet` (word-boundary cut / too-short), `proportionalTop` (clamp + center), `findCitationRange` (jsdom DOM search hit / miss).
+
 ### Phase 4 RAG — web AskPanel (2026-06-10)
 
 Seventh PR of Phase 4 (playbook **AI-026**, slice 1 of 4 — web panel, chapter-level citations). Surfaces the AI-025 "Ask this book" endpoint in the web reader.
