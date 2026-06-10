@@ -110,6 +110,8 @@ else
 // RAG vector retrieval (Phase 4). Raw Npgsql like the search provider; query embedded via
 // IEmbeddingService (registered in AddApplication). Used by the admin debug endpoint (AI-022).
 builder.Services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionString));
+// Spoiler-safe context builder (AI-024): resolves lastRead + gates chunks + private corpus.
+builder.Services.AddScoped<Application.Rag.RagContextService>();
 
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();

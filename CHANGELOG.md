@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — spoiler gate + private corpus (2026-06-10)
+
+Fifth PR of Phase 4 (playbook **AI-024**). Makes retrieval spoiler-safe and adds the user's own annotations as guaranteed context — the capability the public Ask endpoint (AI-025) consumes.
+
+- **Spoiler gate** — `RagService.RetrieveAsync` gains an optional `maxChapterOrd`; the SQL adds `AND (@maxChapterOrd IS NULL OR chapter_ord <= @maxChapterOrd)`. A **hard SQL filter**, never a prompt instruction — only chunks from chapters the user has read are returned.
+- **`RagContextService`** (`Application/Rag`) — resolves the user's last-read chapter ordinal from `ReadingProgress` (join `Chapter.ChapterNumber`; **0 = no progress → empty context, strict**), runs gated retrieval, and gathers the user's **highlights + notes** from read chapters as guaranteed private-corpus context. The gate is inclusive of the current chapter (within-chapter leakage is an accepted v1 limit — chunking is chapter-granular).
+- **Admin debug endpoints** — `/admin/rag/{ed}/search` gains `&maxChapterOrd=` (test the gate with a synthetic ceiling); new `/admin/rag/{ed}/context?userId=&q=` runs the full spoiler-safe path for a user (admin impersonation) → `{ lastReadOrd, chunks[], notes[] }`, so AI-024 is verifiable before AI-025.
+- Tests: `HighlightToText` unit tests + an integration test asserting `maxChapterOrd=0` → `[]` (gate works).
+
 ### Phase 4 RAG — vector retrieval (RagService) (2026-06-10)
 
 Fourth PR of Phase 4 (playbook **AI-022**). First retrieval step: embed a query, find the nearest chunks in an edition by cosine similarity over pgvector.

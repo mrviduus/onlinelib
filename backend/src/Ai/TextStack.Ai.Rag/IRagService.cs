@@ -15,6 +15,10 @@ public interface IRagService
     /// <paramref name="query"/>, ranked by descending cosine similarity. Skips chunks without an
     /// embedding. Returns empty for a blank query.
     /// </summary>
+    /// <param name="maxChapterOrd">
+    /// Spoiler gate (AI-024): if set, only chunks with <c>chapter_ord ≤ maxChapterOrd</c> are
+    /// returned (chapters the user has read). Null disables the gate.
+    /// </param>
     Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-        Guid editionId, string query, int k, CancellationToken ct);
+        Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct);
 }
