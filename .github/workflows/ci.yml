@@ -14,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # pgvector image (stock pg16 + vector ext) so `dotnet ef database update`
+        # can run the AddPgVectorAndChunks migration's CREATE EXTENSION vector.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: app
           POSTGRES_PASSWORD: changeme

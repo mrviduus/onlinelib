@@ -85,7 +85,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("ConnectionStrings:Default is required");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)
+    options.UseNpgsql(connectionString, o => o.UseVector())
         .UseSnakeCaseNamingConvention()
         .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 

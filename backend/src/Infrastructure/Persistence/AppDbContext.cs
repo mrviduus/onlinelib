@@ -82,6 +82,9 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();
 
+    // Phase 4 RAG. Intentionally not on IAppDbContext — retrieval uses raw Npgsql.
+    public DbSet<ChapterChunk> ChapterChunks => Set<ChapterChunk>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -99,6 +102,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
         ConfigureCollections(modelBuilder);
         ConfigureAi(modelBuilder);
         ConfigurePodcasts(modelBuilder);
+        ConfigureRag(modelBuilder);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

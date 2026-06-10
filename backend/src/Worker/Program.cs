@@ -24,7 +24,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)
+    options.UseNpgsql(connectionString, o => o.UseVector())
         .UseSnakeCaseNamingConvention()
         .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
