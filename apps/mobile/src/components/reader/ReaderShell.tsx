@@ -3,8 +3,8 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress } from '@textstack/shared'
-import type { Chapter, BookmarkDto } from '@textstack/shared'
+import { t, computeBookProgress, citationChapterSlug, makeSnippet } from '@textstack/shared'
+import type { Chapter, BookmarkDto, AskCitation } from '@textstack/shared'
 import { buildReaderHtml } from '../../lib/readerHtml'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
@@ -322,7 +322,24 @@ export function ReaderShell(props: ReaderShellProps) {
     onNavigateChapter(slug)
   }
 
+  // RAG citation (AI-026d): scroll the WebView to the cited passage.
+  const pendingCitationRef = useRef<{ slug: string; snippet: string; charStart: number } | null>(null)
+  const scrollToCitation = (snippet: string, charStart: number) =>
+    injectJs(`window.__textstackScrollToCitation && window.__textstackScrollToCitation(${JSON.stringify(snippet)}, ${charStart})`)
+
   const activeSlug = visibleChapterSlug ?? chapterSlug
+  // Same chapter → scroll now; other chapter → navigate, then onLoadEnd injects once it renders.
+  const handleCitation = (c: AskCitation) => {
+    const slug = citationChapterSlug(chapters, c.chapterOrd)
+    if (!slug) return
+    const snippet = makeSnippet(c.preview)
+    if (slug === activeSlug) {
+      scrollToCitation(snippet, c.charStart)
+    } else {
+      pendingCitationRef.current = { slug, snippet, charStart: c.charStart }
+      navigateChapter(slug)
+    }
+  }
   const activeChapter = chapters.find(c => c.slug === activeSlug)
   const isCurrentBookmarked = bookmarks.some(b => bookmarkChapterSlug(b) === activeSlug)
   const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
@@ -396,6 +413,13 @@ export function ReaderShell(props: ReaderShellProps) {
             // Scroll-restore is owned by useReaderPersistence — it coordinates
             // this signal with the async saved-position fetch (no race).
             onWebViewLoaded()
+            // A cross-chapter citation jump (AI-026d): once the cited chapter has rendered, scroll
+            // to the passage — after restore (delay) so the explicit jump wins.
+            const pc = pendingCitationRef.current
+            if (pc && pc.slug === activeSlug) {
+              pendingCitationRef.current = null
+              setTimeout(() => scrollToCitation(pc.snippet, pc.charStart), 120)
+            }
           }}
           originWhitelist={['*']}
           scrollEnabled
@@ -554,9 +578,8 @@ export function ReaderShell(props: ReaderShellProps) {
           <AskSheet
             visible={askOpen}
             editionId={explainBookId}
-            chapters={chapters}
             isAuthenticated={isAuthenticated}
-            onNavigateChapter={navigateChapter}
+            onCitation={handleCitation}
             onSignIn={() => { setAskOpen(false); router.push('/(auth)/login') }}
             onClose={() => setAskOpen(false)}
           />

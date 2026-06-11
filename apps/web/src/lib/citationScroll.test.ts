@@ -1,23 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { makeSnippet, proportionalTop, findCitationRange } from './citationScroll'
-
-describe('makeSnippet', () => {
-  it('returns the whole string when short enough (and collapses whitespace)', () => {
-    expect(makeSnippet('  the   quick brown  ')).toBe('the quick brown')
-  })
-
-  it('cuts a long preview at a word boundary', () => {
-    const s = makeSnippet('Replication keeps a copy of the same data on multiple machines for fault tolerance')
-    expect(s.length).toBeLessThanOrEqual(40)
-    expect(s).not.toMatch(/\s$/)
-    expect('Replication keeps a copy of the same data on multiple machines for fault tolerance').toContain(s)
-  })
-
-  it('returns empty for too-short input', () => {
-    expect(makeSnippet('short')).toBe('')
-    expect(makeSnippet('   ')).toBe('')
-  })
-})
+import { proportionalTop, findCitationRange } from './citationScroll'
+// makeSnippet now lives in @textstack/shared (used by web + mobile); tested there.
 
 describe('proportionalTop', () => {
   it('clamps the fraction to [0,1] and centers in the viewport', () => {

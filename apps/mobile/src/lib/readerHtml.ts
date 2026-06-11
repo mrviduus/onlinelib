@@ -142,6 +142,7 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     ::highlight(vocab-context) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(34,197,94,0.4); }
     ::highlight(vocab-mastered) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(34,197,94,0.25); }
     ::highlight(vocab-active) { text-decoration: underline; text-decoration-thickness: 2px; text-decoration-skip-ink: all; text-underline-offset: 0.18em; text-decoration-color: rgba(59,130,246,0.7); }
+    ::highlight(rag-citation) { background-color: rgba(37,99,235,0.25); border-radius: 2px; }
 
     .vocab-translation-overlay { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; z-index: 1; }
     .vocab-translation-overlay__item { position: absolute; top: 0; left: 0; transform: translate3d(0,0,0); white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 0.42em; font-style: italic; font-weight: 400; letter-spacing: 0.015em; color: #6b6b6b; opacity: 0.85; line-height: 1; pointer-events: none; user-select: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; will-change: transform; }
@@ -219,6 +220,45 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         requestAnimationFrame(function() {
           window.scrollTo(0, target);
         });
+      } catch (e) {}
+    };
+
+    // Scroll to a RAG citation (AI-026d): find a short snippet of the chunk in the rendered text
+    // (offsets are into PlainText, not this DOM, so we locate by text) and center it; else scroll
+    // proportionally by the char offset. Mirror of the web citationScroll strategy, in-WebView.
+    window.__textstackScrollToCitation = function(snippet, charStart) {
+      try {
+        var range = null;
+        if (snippet) {
+          var needle = String(snippet).toLowerCase();
+          var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+          var node;
+          while ((node = walker.nextNode())) {
+            var p = node.parentElement, skip = false;
+            while (p) {
+              if (p.classList && (p.classList.contains('vocab-inline-translation') || p.hasAttribute('data-vocab-overlay'))) { skip = true; break; }
+              p = p.parentElement;
+            }
+            if (skip) continue;
+            var idx = (node.nodeValue || '').toLowerCase().indexOf(needle);
+            if (idx >= 0) { range = document.createRange(); range.setStart(node, idx); range.setEnd(node, idx + needle.length); break; }
+          }
+        }
+        if (range) {
+          var rect = range.getBoundingClientRect();
+          var top = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
+          window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+          if (window.Highlight && window.CSS && CSS.highlights) {
+            try {
+              CSS.highlights.set('rag-citation', new Highlight(range));
+              setTimeout(function() { CSS.highlights.delete('rag-citation'); }, 2400);
+            } catch (e) {}
+          }
+          return;
+        }
+        var len = (document.body.textContent || '').length || 1;
+        var frac = Math.min(1, Math.max(0, (Number(charStart) || 0) / len));
+        window.scrollTo({ top: Math.round(document.documentElement.scrollHeight * frac), behavior: 'smooth' });
       } catch (e) {}
     };
 

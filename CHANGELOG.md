@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — mobile citation scroll (2026-06-11)
+
+Phase 4 **AI-026, slice 4 of 4** — completes "Ask this book" (web + mobile, panel + exact scroll). Mobile citation chips now land on the cited **passage**, not just the chapter.
+
+- **In-WebView `window.__textstackScrollToCitation(snippet, charStart)`** (`apps/mobile/src/lib/readerHtml.ts`) — same strategy as web (the chunk offsets are into PlainText, not the rendered DOM): a self-contained `TreeWalker` search for a short snippet of the chunk (skipping vocab/overlay decorations) → `scrollTo` centered + a brief flash via the CSS Custom Highlight API; else a proportional scroll by `charStart / textLength`.
+- **`ReaderShell`** orchestrates: same-chapter citations inject the scroll immediately; cross-chapter ones navigate, then `onLoadEnd` injects the scroll once the new chapter renders (after scroll-restore). `AskSheet` now hands the citation up (`onCitation`) and `ReaderShell` owns the slug/snippet resolution.
+- **`makeSnippet` moved to `@textstack/shared`** (used by web + mobile; web's `citationScroll` imports it). Tests moved with it.
+- Verified: shared unit tests (incl. `makeSnippet`), mobile `tsc`, web `tsc`/build/tests.
+
 ### Phase 4 RAG — mobile AskSheet (2026-06-10)
 
 Phase 4 **AI-026, slice 3 of 4**. "Ask this book" comes to the **mobile** reader (React Native).
