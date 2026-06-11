@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Phase 5 — fix: caller-cancellation isn't a model error (AI-028 follow-up, 2026-06-11)
+
+Audit follow-up to AI-028. `TracingDecorator` caught a broad `Exception` and recorded an **error trace on cancellation** — so an SSE client disconnecting (which cancels the token, a *normal* end to a stream, and the common case once AI-031 lands) would count against the /ai-quality error rate. Both `CompleteAsync` and `StreamAsync` now rethrow a caller-initiated `OperationCanceledException` **untraced** (`when (ct.IsCancellationRequested)`); genuine model errors still persist an error trace. Tests: caller-cancel rethrows without tracing (one-shot + stream); a real model error still persists `error="boom"`.
+
 ### Phase 5 — real token streaming on the LLM seam (2026-06-11)
 
 Phase 5 **AI-028**, slice 1 — the LLM providers actually stream now (the `StreamAsync` placeholder yielded one full delta). Provider + decorator only; the SSE endpoint (AI-031) and incremental UI (AI-032) build on this.
