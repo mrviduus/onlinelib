@@ -33,8 +33,14 @@ public record RagRecallCaseDto(string Question, int ExpectedChapterOrd, bool Hit
 public record RagSpoilerCaseDto(string Question, int GateChapterOrd, int LeakCount);
 
 /// <summary>
-/// Result of the admin RAG retrieval eval (AI-027a): recall@k over the retrieval goldens and the
-/// spoiler-leak rate over the adversarial set (DoD: recall ≥0.85, leak rate = 0), plus per-case detail.
+/// Citation-correctness summary (AI-027b): the 1–5 judge mean over cited excerpts and the support rate
+/// (fraction the judge scored ≥4 on "support" — the DoD ≥0.9 metric). Null on a retrieval-only run.
+/// </summary>
+public record RagCitationDto(double Score, double SupportRate, int CitationsJudged, int AnswersGenerated);
+
+/// <summary>
+/// Result of the admin RAG eval (AI-027): recall@k + spoiler-leak rate (DoD: recall ≥0.85, leak = 0)
+/// and, when judged (027b), citation correctness — plus per-case detail.
 /// </summary>
 public record RagEvalDto(
     int K,
@@ -42,5 +48,6 @@ public record RagEvalDto(
     int RecallN,
     double SpoilerLeakRate,
     int SpoilerN,
+    RagCitationDto? Citation,
     IReadOnlyList<RagRecallCaseDto> RecallCases,
     IReadOnlyList<RagSpoilerCaseDto> SpoilerCases);

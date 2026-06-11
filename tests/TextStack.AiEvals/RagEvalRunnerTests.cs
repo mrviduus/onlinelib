@@ -1,4 +1,6 @@
+using Application.Rag;
 using Microsoft.Extensions.Logging.Abstractions;
+using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
 using TextStack.Ai.Rag;
 
@@ -51,13 +53,41 @@ public class RagEvalRunnerTests
         }
     }
 
+    /// <summary>Echoes back a one-citation answer pointing at the first supplied chunk.</summary>
+    private sealed class FakeAsk : IRagAskService
+    {
+        public Task<AskAnswer> AskAsync(Guid u, Guid s, Guid e, string q, int k, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<AskAnswer> AskFromChunksAsync(
+            string question, IReadOnlyList<RetrievedChunk> chunks, IReadOnlyList<string> notes, int lastReadOrd, CancellationToken ct)
+        {
+            var citations = chunks.Count == 0
+                ? Array.Empty<AskCitationSource>()
+                : [new AskCitationSource(1, chunks[0])];
+            return Task.FromResult(new AskAnswer($"Grounded answer [1]. ({question})", citations, lastReadOrd, Insufficient: chunks.Count == 0));
+        }
+    }
+
+    /// <summary>A judge that always returns the same rubric verdict (support/relevance/faithfulness).</summary>
+    private sealed class FixedJudge(int d1, int d2, int d3) : ILlmService
+    {
+        public Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct) =>
+            Task.FromResult(new LlmResponse(
+                $"{{\"d1\": {d1}, \"d2\": {d2}, \"d3\": {d3}, \"rationale\": \"ok\"}}",
+                [], new LlmUsage(0, 0, 0m), "judge-fake", Guid.NewGuid()));
+
+        public IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
     [Fact]
     public async Task RunAsync_PerfectRetriever_FullRecallNoLeak()
     {
         var runner = new RagEvalRunner(NullLogger<RagEvalRunner>.Instance);
         var result = await runner.RunAsync(
-            new PerfectRag(), Guid.NewGuid(), k: 8, persist: false, db: null, gitSha: null,
-            TestContext.Current.CancellationToken);
+            new PerfectRag(), ask: null, judge: null, judgeModelId: null, Guid.NewGuid(), k: 8,
+            persist: false, db: null, gitSha: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(1.0, result.Recall, 12);
         Assert.Equal(0.0, result.SpoilerLeakRate, 12);
@@ -65,6 +95,7 @@ public class RagEvalRunnerTests
         Assert.Equal(SpoilerN, result.SpoilerN);
         Assert.All(result.RecallCases, c => Assert.True(c.Hit));
         Assert.All(result.SpoilerCases, c => Assert.Equal(0, c.LeakCount));
+        Assert.Null(result.Citation); // no judge supplied → retrieval-only
     }
 
     [Fact]
@@ -72,11 +103,38 @@ public class RagEvalRunnerTests
     {
         var runner = new RagEvalRunner(NullLogger<RagEvalRunner>.Instance);
         var result = await runner.RunAsync(
-            new LeakyRag(), Guid.NewGuid(), k: 8, persist: false, db: null, gitSha: null,
-            TestContext.Current.CancellationToken);
+            new LeakyRag(), ask: null, judge: null, judgeModelId: null, Guid.NewGuid(), k: 8,
+            persist: false, db: null, gitSha: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(0.0, result.Recall, 12);
         Assert.Equal(1.0, result.SpoilerLeakRate, 12);
         Assert.All(result.SpoilerCases, c => Assert.True(c.LeakCount > 0));
+    }
+
+    [Fact]
+    public async Task RunAsync_WithJudge_ScoresCitations()
+    {
+        var runner = new RagEvalRunner(NullLogger<RagEvalRunner>.Instance);
+        var result = await runner.RunAsync(
+            new PerfectRag(), new FakeAsk(), new FixedJudge(5, 4, 5), judgeModelId: "judge-fake",
+            Guid.NewGuid(), k: 8, persist: false, db: null, gitSha: null, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(result.Citation);
+        Assert.Equal((5 + 4 + 5) / 3.0, result.Citation!.Score, 3); // rubric mean
+        Assert.Equal(1.0, result.Citation.SupportRate, 12);          // D1=5 ≥4 for every citation
+        Assert.Equal(RetrievalN, result.Citation.CitationsJudged);   // one citation per golden answer
+        Assert.Equal(RetrievalN, result.Citation.AnswersGenerated);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithJudge_LowSupportAxis_ZeroSupportRate()
+    {
+        var runner = new RagEvalRunner(NullLogger<RagEvalRunner>.Instance);
+        var result = await runner.RunAsync(
+            new PerfectRag(), new FakeAsk(), new FixedJudge(2, 5, 5), judgeModelId: "judge-fake",
+            Guid.NewGuid(), k: 8, persist: false, db: null, gitSha: null, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(result.Citation);
+        Assert.Equal(0.0, result.Citation!.SupportRate, 12); // D1=2 < 4 → no citation counts as supported
     }
 }
