@@ -7,15 +7,20 @@ using TextStack.Ai.Core;
 namespace TextStack.Ai.Rag;
 
 /// <summary>
-/// Raw-Npgsql vector retrieval (Phase 4 RAG). Embeds the query via <see cref="IEmbeddingService"/>
-/// and runs a cosine-distance nearest-neighbour search over <c>chapter_chunk</c> using the HNSW
-/// <c>vector_cosine_ops</c> index. SQL (not EF) so the spoiler gate (AI-024) can live in the WHERE.
-/// The query vector is passed as a string and cast server-side (<c>CAST(@q AS vector)</c>) — a raw
-/// connection doesn't have the pgvector type registered (<c>UseVector()</c> is EF-only).
+/// Raw-Npgsql hybrid retrieval (Phase 4 RAG). Runs two independent retrievers over
+/// <c>chapter_chunk</c> in one round-trip — semantic (cosine NN over the HNSW <c>vector_cosine_ops</c>
+/// index) and lexical (<c>ts_rank_cd</c> over the generated <c>search_vector</c> + GIN index) — then
+/// fuses their rankings with <see cref="RrfFusion"/> (AI-023). SQL (not EF) so the spoiler gate
+/// (AI-024) lives in both WHEREs. The query vector is passed as a string and cast server-side
+/// (<c>CAST(@q AS vector)</c>) — a raw connection doesn't register the pgvector type
+/// (<c>UseVector()</c> is EF-only).
 /// </summary>
 public sealed class RagService : IRagService
 {
     private const int QueryTimeoutSeconds = 5;
+
+    /// <summary>Candidates pulled from each retriever before fusion — wider than k so RRF has overlap to reward.</summary>
+    private const int MinCandidatePool = 30;
 
     private readonly Func<IDbConnection> _connectionFactory;
     private readonly IEmbeddingService _embedder;
@@ -39,9 +44,15 @@ public sealed class RagService : IRagService
 
         var queryVector = await _embedder.EmbedAsync(query, ct);
         var vectorLiteral = FormatVector(queryVector);
+        var pool = Math.Max(k, MinCandidatePool);
 
-        // Spoiler gate (AI-024): when maxChapterOrd is set, only chunks from chapters the user
-        // has read are visible. Hard SQL filter (never a prompt instruction). Null = no gate.
+        // Two retrievers in one round-trip, each spoiler-gated in its own WHERE (AI-024 — hard SQL
+        // filter, never a prompt instruction; null @maxChapterOrd = no gate):
+        //  1. Semantic — cosine NN over the embedding (skips not-yet-embedded chunks).
+        //  2. Lexical  — ts_rank_cd over the generated search_vector. websearch_to_tsquery parses the
+        //     raw question; a stopword-only query yields an empty tsquery → zero lexical rows → the
+        //     fusion degrades to vector-only. Lexical does NOT require an embedding, so it still
+        //     retrieves before the batch embedder has filled vectors in.
         const string sql = """
             SELECT id            AS ChunkId,
                    chapter_id    AS ChapterId,
@@ -56,20 +67,55 @@ public sealed class RagService : IRagService
               AND embedding IS NOT NULL
               AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
             ORDER BY embedding <=> CAST(@q AS vector)
-            LIMIT @k
+            LIMIT @pool;
+
+            SELECT id            AS ChunkId,
+                   chapter_id    AS ChapterId,
+                   chapter_ord   AS ChapterOrd,
+                   ord           AS Ord,
+                   text          AS Text,
+                   char_start    AS CharStart,
+                   char_end      AS CharEnd,
+                   ts_rank_cd(search_vector, tsq) AS Score
+            FROM chapter_chunk, websearch_to_tsquery('english', @query) AS tsq
+            WHERE edition_id = @editionId
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+              AND search_vector @@ tsq
+            ORDER BY Score DESC
+            LIMIT @pool;
             """;
 
         using var connection = _connectionFactory();
-        var rows = await connection.QueryAsync<Row>(
+        using var multi = await connection.QueryMultipleAsync(
             new CommandDefinition(
                 sql,
-                new { q = vectorLiteral, editionId, k, maxChapterOrd },
+                new { q = vectorLiteral, query, editionId, pool, maxChapterOrd },
                 cancellationToken: ct,
                 commandTimeout: QueryTimeoutSeconds));
 
-        return rows
-            .Select(r => new RetrievedChunk(
-                r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, r.Score))
+        var vectorRows = (await multi.ReadAsync<Row>()).ToList();
+        var lexicalRows = (await multi.ReadAsync<Row>()).ToList();
+
+        // Fuse the two rankings by chunk id (RRF), then materialize the top-k from either row set.
+        var byId = new Dictionary<Guid, Row>();
+        foreach (var r in vectorRows) byId[r.ChunkId] = r;
+        foreach (var r in lexicalRows) byId.TryAdd(r.ChunkId, r);
+
+        var fused = RrfFusion.Fuse(new[]
+        {
+            vectorRows.Select(r => r.ChunkId).ToList(),
+            lexicalRows.Select(r => r.ChunkId).ToList(),
+        });
+
+        return fused
+            .Take(k)
+            .Select(f =>
+            {
+                var r = byId[f.Item];
+                // Score is now the RRF fusion score (not cosine) — see RetrievedChunk.Score.
+                return new RetrievedChunk(
+                    r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, f.Score);
+            })
             .ToList();
     }
 

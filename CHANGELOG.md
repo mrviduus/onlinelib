@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — hybrid retrieval + RRF (2026-06-11)
+
+Phase 4 **AI-023**. Retrieval is now **hybrid**: a lexical retriever runs alongside the vector one and the two rankings are fused, improving recall on rare terms, names, and code identifiers that embeddings alone miss.
+
+- **Lexical branch** — generated `search_vector tsvector` column on `chapter_chunk` (`to_tsvector('english', …)`, STORED) + GIN index (migration `AddChapterChunkSearchVector`, raw SQL / out-of-model like chapters' `search_vector`). Ranked by `ts_rank_cd` over `websearch_to_tsquery`.
+- **`RrfFusion`** (`TextStack.Ai.Rag`) — pure Reciprocal Rank Fusion (`Σ 1/(k+rank)`, `k=60`); order-stable, generic, unit-tested. Fuses the two rankings by chunk id.
+- **`RagService`** runs both retrievers in one round-trip (`QueryMultiple`, pool `max(k,30)`), both spoiler-gated (AI-024) in their own WHERE. The lexical branch does **not** require an embedding, so it retrieves even before the batch embedder has filled vectors in. A stopword-only question yields an empty tsquery → the fusion degrades to vector-only. `RetrievedChunk.Score` is now the RRF score (not raw cosine).
+- Verified: `RrfFusion` unit tests; migration applied + hybrid SQL (generated column, `ts_rank_cd`/`websearch_to_tsquery` AND-semantics, stopword degradation) validated on Postgres.
+
 ### Phase 4 RAG — mobile citation scroll (2026-06-11)
 
 Phase 4 **AI-026, slice 4 of 4** — completes "Ask this book" (web + mobile, panel + exact scroll). Mobile citation chips now land on the cited **passage**, not just the chapter.
