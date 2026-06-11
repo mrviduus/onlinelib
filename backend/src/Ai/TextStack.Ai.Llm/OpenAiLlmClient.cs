@@ -51,7 +51,7 @@ public sealed class OpenAiLlmClient : ILlmService
         _client = new OpenAIClient(apiKey).GetChatClient(_model);
     }
 
-    public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
+    private static List<ChatMessage> BuildMessages(LlmRequest request)
     {
         var messages = new List<ChatMessage> { new SystemChatMessage(request.SystemPrompt) };
         foreach (var m in request.Messages)
@@ -63,6 +63,12 @@ public sealed class OpenAiLlmClient : ILlmService
                 _ => new UserChatMessage(m.Content),
             });
         }
+        return messages;
+    }
+
+    public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
+    {
+        var messages = BuildMessages(request);
 
         var maxTokens = request.MaxOutputTokens + _reasoningBudget; // +512 padding quirk
         var options = new ChatCompletionOptions { MaxOutputTokenCount = maxTokens };
@@ -93,9 +99,32 @@ public sealed class OpenAiLlmClient : ILlmService
 
     public async IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
     {
-        // TODO(AI-028): real token streaming over SSE. For now we yield the
-        // full response as a single delta after CompleteAsync.
-        var resp = await CompleteAsync(request, ct);
-        yield return new LlmDelta(TextDelta: resp.Text, FinalUsage: resp.Usage);
+        var messages = BuildMessages(request);
+        var maxTokens = request.MaxOutputTokens + _reasoningBudget; // +512 padding quirk (same as CompleteAsync)
+        var options = new ChatCompletionOptions { MaxOutputTokenCount = maxTokens };
+
+        // Real token streaming: yield each content fragment as it arrives, then a terminal usage delta.
+        // The SDK surfaces token usage on the final update (it requests stream_options.include_usage);
+        // if absent (older endpoints), usage falls back to 0 — text + latency are still traced.
+        ChatTokenUsage? usage = null;
+        await foreach (var update in _client.CompleteChatStreamingAsync(messages, options, ct))
+        {
+            foreach (var part in update.ContentUpdate)
+            {
+                if (!string.IsNullOrEmpty(part.Text))
+                    yield return new LlmDelta(TextDelta: part.Text);
+            }
+            if (update.Usage is not null)
+                usage = update.Usage;
+        }
+
+        var inputTokens = usage?.InputTokenCount ?? 0;
+        var outputTokens = usage?.OutputTokenCount ?? 0;
+        if (!ModelPricing.IsPriced(_model))
+            _logger.LogWarning("No pricing entry for OpenAI model {Model}; cost recorded as 0", _model);
+
+        yield return new LlmDelta(
+            FinalUsage: new LlmUsage(inputTokens, outputTokens, ModelPricing.CostUsd(_model, inputTokens, outputTokens)),
+            ModelId: _model);
     }
 }

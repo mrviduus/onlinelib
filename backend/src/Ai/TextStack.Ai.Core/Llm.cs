@@ -25,11 +25,14 @@ public record LlmUsage(int InputTokens, int OutputTokens, decimal CostUsd);
 public record LlmMessage(string Role, string Content, IReadOnlyList<ToolCall>? ToolCalls = null);
 
 /// <summary>
-/// One streaming chunk from <see cref="ILlmService.StreamAsync"/>. Either <see cref="TextDelta"/> carries a
-/// partial text fragment, <see cref="ToolCallDelta"/> carries a partial tool-call, or <see cref="FinalUsage"/>
-/// signals the stream's terminal usage row. Exactly one field is non-null per delta.
+/// One streaming chunk from <see cref="ILlmService.StreamAsync"/>. A <see cref="TextDelta"/> carries a
+/// partial text fragment, a <see cref="ToolCallDelta"/> a partial tool-call, or the terminal delta carries
+/// <see cref="FinalUsage"/> + <see cref="ModelId"/> (the usage row that closes the stream). Text and tool
+/// deltas are mutually exclusive; the terminal usage delta sets <see cref="FinalUsage"/> and
+/// <see cref="ModelId"/> together so <c>TracingDecorator</c> can attribute the streamed call (AI-028).
 /// </summary>
 public record LlmDelta(
     string? TextDelta = null,
     ToolCall? ToolCallDelta = null,
-    LlmUsage? FinalUsage = null);
+    LlmUsage? FinalUsage = null,
+    string? ModelId = null);

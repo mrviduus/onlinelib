@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 5 — real token streaming on the LLM seam (2026-06-11)
+
+Phase 5 **AI-028**, slice 1 — the LLM providers actually stream now (the `StreamAsync` placeholder yielded one full delta). Provider + decorator only; the SSE endpoint (AI-031) and incremental UI (AI-032) build on this.
+
+- **`OpenAiLlmClient.StreamAsync`** — real token streaming via `CompleteChatStreamingAsync`: each content fragment yields a `TextDelta` as it arrives, then a terminal usage delta (tokens + `ModelPricing` cost; falls back to 0 if the endpoint omits usage). Message-building shared with `CompleteAsync`; the reasoning-budget padding is preserved.
+- **`LlmDelta` += `ModelId`** — the terminal usage delta carries the model id so the decorator can attribute a streamed call (deltas have no `TraceId`).
+- **`TracingDecorator.StreamAsync`** — streamed calls are now observed like one-shot ones: it accumulates the text + terminal usage/model, then persists one sampled `LlmTrace` when the stream ends (or errors mid-flight), re-yielding every delta unchanged so real-time streaming is untouched.
+- **`OllamaLlmClient`** — intentionally **not** streamed (it only serves one-shot SRS-distractor + eval-judge features, never a user stream): completes once and emits a text delta + terminal usage delta, satisfying the contract. Relabelled from a TODO to an intentional decision.
+- Tests: `BuildStreamedResponse` (assembly + null-usage/model defaults); `StreamAsync` re-yields all deltas in order and persists a trace with the accumulated text + tokens + cost + model. Provider streaming itself (needs a key) is verified in staging before AI-031.
+
 ### Phase 4 RAG — citation-correctness judge — Phase 4 complete (2026-06-11)
 
 Phase 4 **AI-027, slice 2 of 2** — the last DoD metric: cited excerpts actually support the claim (LLM-as-judge ≥0.9). **This closes Phase 4** ("Ask this book" is complete end to end: hybrid retrieval → spoiler-safe answer with citations → reader scroll → eval gate).

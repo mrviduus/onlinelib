@@ -124,6 +124,84 @@ public class TracingDecoratorTests
         Assert.Equal(resp.Usage.InputTokens, result.Usage.InputTokens);
     }
 
+    // ---- BuildStreamedResponse (stream → traceable response) ----
+
+    [Fact]
+    public void BuildStreamedResponse_AssemblesAccumulatedStream()
+    {
+        var id = Guid.NewGuid();
+        var resp = TracingDecorator.BuildStreamedResponse("Hello world", new LlmUsage(7, 3, 0.002m), "gpt-4.1-nano", id);
+
+        Assert.Equal("Hello world", resp.Text);
+        Assert.Equal(7, resp.Usage.InputTokens);
+        Assert.Equal("gpt-4.1-nano", resp.ModelId);
+        Assert.Equal(id, resp.TraceId);
+        Assert.Empty(resp.ToolCalls);
+    }
+
+    [Fact]
+    public void BuildStreamedResponse_NullUsageAndModel_DefaultsLikeFailedCall()
+    {
+        var resp = TracingDecorator.BuildStreamedResponse("", usage: null, modelId: null, Guid.NewGuid());
+        Assert.Equal("unknown", resp.ModelId);
+        Assert.Equal(0, resp.Usage.OutputTokens);
+        Assert.Equal(0m, resp.Usage.CostUsd);
+    }
+
+    // ---- StreamAsync (re-yields every delta; persists one trace on completion) ----
+
+    [Fact]
+    public async Task StreamAsync_ReYieldsAllDeltasInOrder()
+    {
+        var deltas = new[]
+        {
+            new LlmDelta(TextDelta: "Hel"),
+            new LlmDelta(TextDelta: "lo"),
+            new LlmDelta(FinalUsage: new LlmUsage(5, 2, 0.001m), ModelId: "gpt-4.1-nano"),
+        };
+        var decorator = Decorator(new StreamingStub(deltas), new NoOpWriter());
+
+        var seen = new List<LlmDelta>();
+        await foreach (var d in decorator.StreamAsync(Req(), TestContext.Current.CancellationToken))
+            seen.Add(d);
+
+        Assert.Equal(deltas, seen);
+    }
+
+    [Fact]
+    public async Task StreamAsync_PersistsTraceWithAccumulatedTextAndUsage()
+    {
+        var deltas = new[]
+        {
+            new LlmDelta(TextDelta: "Hel"),
+            new LlmDelta(TextDelta: "lo world"),
+            new LlmDelta(FinalUsage: new LlmUsage(5, 2, 0.001m), ModelId: "gpt-4.1-nano"),
+        };
+        var writer = new CapturingWriter();
+        var decorator = Decorator(new StreamingStub(deltas), writer);
+
+        var ct = TestContext.Current.CancellationToken;
+        await foreach (var _ in decorator.StreamAsync(Req(), ct)) { }
+
+        var trace = await writer.Captured.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        Assert.Equal("Hello world", trace.ResponseText);
+        Assert.Equal("gpt-4.1-nano", trace.ModelId);
+        Assert.Equal(5, trace.TokensIn);
+        Assert.Equal(2, trace.TokensOut);
+        Assert.Equal(0.001m, trace.CostUsd);
+        Assert.Null(trace.Error);
+    }
+
+    private static TracingDecorator Decorator(ILlmService inner, ILlmTraceWriter writer)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => writer);
+        var sp = services.BuildServiceProvider();
+        return new TracingDecorator(
+            inner, sp.GetRequiredService<IServiceScopeFactory>(),
+            new TracingOptions(), NullLogger<TracingDecorator>.Instance);
+    }
+
     private sealed class StubLlm(LlmResponse resp) : ILlmService
     {
         public Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct) => Task.FromResult(resp);
@@ -135,8 +213,35 @@ public class TracingDecoratorTests
         }
     }
 
+    private sealed class StreamingStub(IReadOnlyList<LlmDelta> deltas) : ILlmService
+    {
+        public Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public async IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
+        {
+            foreach (var d in deltas)
+            {
+                await Task.Yield();
+                yield return d;
+            }
+        }
+    }
+
     private sealed class NoOpWriter : ILlmTraceWriter
     {
         public Task WriteAsync(LlmTrace trace, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class CapturingWriter : ILlmTraceWriter
+    {
+        public TaskCompletionSource<LlmTrace> Captured { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task WriteAsync(LlmTrace trace, CancellationToken ct)
+        {
+            Captured.TrySetResult(trace);
+            return Task.CompletedTask;
+        }
     }
 }
