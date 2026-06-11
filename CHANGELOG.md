@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Phase 5 — tool registry (2026-06-11)
+
+Phase 5 **AI-029** — the shared tool catalogue (ADR-AI-005) that function-calling (AI-030/031), agents (Phase 6) and MCP all dispatch through. No tools yet (those are AI-030); this is the registry + DI wiring.
+
+- **New project `TextStack.Ai.Tools`** — `IToolRegistry` / `ToolRegistry`: indexes the DI-registered `ITool`s by name once at construction. `Get(name)` (null when unknown), `SchemasFor(names)` (request order, de-duped, unknown skipped — feeds `LlmRequest.Tools`), `AllSchemas()`, `Names`. A blank or duplicate tool name is a wiring bug and fails fast at construction, not as a confusing "unknown tool" at dispatch.
+- **`AddAiTools(params Assembly[])`** — scans assemblies for concrete `ITool` implementations and registers each as a singleton, plus the registry. Tools are singletons (stateless; per-request user/edition/scoped-services arrive via `ToolContext` at invoke time, so no captive dependency). Idempotent via `TryAddEnumerable` (de-dups by impl type).
+- Tests: `Get` by name / null / case-sensitive; duplicate + blank name throw; `SchemasFor` filter/dedup/order; `AllSchemas`/`Names`; assembly scan discovers + DI-constructs concrete tools; calling `AddAiTools` twice is idempotent.
+
 ### Phase 5 — fix: caller-cancellation isn't a model error (AI-028 follow-up, 2026-06-11)
 
 Audit follow-up to AI-028. `TracingDecorator` caught a broad `Exception` and recorded an **error trace on cancellation** — so an SSE client disconnecting (which cancels the token, a *normal* end to a stream, and the common case once AI-031 lands) would count against the /ai-quality error rate. Both `CompleteAsync` and `StreamAsync` now rethrow a caller-initiated `OperationCanceledException` **untraced** (`when (ct.IsCancellationRequested)`); genuine model errors still persist an error trace. Tests: caller-cancel rethrows without tracing (one-shot + stream); a real model error still persists `error="boom"`.
