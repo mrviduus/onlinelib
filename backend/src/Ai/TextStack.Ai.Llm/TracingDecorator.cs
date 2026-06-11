@@ -35,6 +35,12 @@ public sealed class TracingDecorator(
             TryPersist(BuildTrace(request, response, sw.ElapsedMilliseconds, error: null), isError: false);
             return response;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Caller abandoned the call (e.g. the HTTP client disconnected) — not a model error.
+            // Recording it would pollute the dashboard's error rate, so rethrow untraced.
+            throw;
+        }
         catch (Exception ex)
         {
             sw.Stop();
@@ -64,6 +70,12 @@ public sealed class TracingDecorator(
                 if (!await e.MoveNextAsync())
                     break;
                 delta = e.Current;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // SSE client disconnected (a normal end to a stream) — not a model error. Rethrow
+                // untraced so a cancelled stream doesn't count against the dashboard's error rate.
+                throw;
             }
             catch (Exception ex)
             {

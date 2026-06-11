@@ -192,6 +192,48 @@ public class TracingDecoratorTests
         Assert.Null(trace.Error);
     }
 
+    // ---- cancellation is not an error (SSE disconnects must not pollute the error rate) ----
+
+    [Fact]
+    public async Task CompleteAsync_CallerCancels_RethrowsWithoutTracing()
+    {
+        var writer = new CapturingWriter();
+        var decorator = Decorator(new ThrowingLlm(ct => throw new OperationCanceledException(ct)), writer);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => decorator.CompleteAsync(Req(), cts.Token));
+        Assert.False(writer.Captured.Task.IsCompleted); // no trace scheduled for a caller cancel
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ModelError_PersistsErrorTrace()
+    {
+        var writer = new CapturingWriter();
+        var decorator = Decorator(new ThrowingLlm(_ => throw new InvalidOperationException("boom")), writer);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => decorator.CompleteAsync(Req(), TestContext.Current.CancellationToken));
+
+        var trace = await writer.Captured.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal("boom", trace.Error);
+    }
+
+    [Fact]
+    public async Task StreamAsync_CallerCancels_RethrowsWithoutTracing()
+    {
+        var writer = new CapturingWriter();
+        var decorator = Decorator(new ThrowingLlm(ct => throw new OperationCanceledException(ct)), writer);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in decorator.StreamAsync(Req(), cts.Token)) { }
+        });
+        Assert.False(writer.Captured.Task.IsCompleted); // no error trace for a stream the client abandoned
+    }
+
     private static TracingDecorator Decorator(ILlmService inner, ILlmTraceWriter writer)
     {
         var services = new ServiceCollection();
@@ -231,6 +273,22 @@ public class TracingDecoratorTests
     private sealed class NoOpWriter : ILlmTraceWriter
     {
         public Task WriteAsync(LlmTrace trace, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    /// <summary>Throws whatever <paramref name="throw"/> produces, from both the one-shot and the stream path.</summary>
+    private sealed class ThrowingLlm(Func<CancellationToken, Exception> @throw) : ILlmService
+    {
+        public Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct) => throw @throw(ct);
+
+        public async IAsyncEnumerable<LlmDelta> StreamAsync(
+            LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.Yield();
+            throw @throw(ct);
+#pragma warning disable CS0162 // unreachable — needed so the method is an iterator
+            yield break;
+#pragma warning restore CS0162
+        }
     }
 
     private sealed class CapturingWriter : ILlmTraceWriter
