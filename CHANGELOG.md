@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — mobile AskSheet (2026-06-10)
+
+Phase 4 **AI-026, slice 3 of 4**. "Ask this book" comes to the **mobile** reader (React Native).
+
+- **`AskSheet`** (`apps/mobile`) — a bottom-sheet (mirrors `ExplanationSheet`) with a session Q&A history + composer; reached via a new top-bar button (catalog editions only). Citation chips `ch.N` navigate to the cited chapter (exact in-WebView scroll is slice 026d). Auth-gated: signed-out readers get a sign-in CTA.
+- **Shared `ragApi.ask`** (`@textstack/shared/api/rag.ts`) — Bearer-auth `POST /books/{editionId}/ask`; mobile imports it directly. (Web keeps its own cookie-based `ask()`; the `AskCitation`/`AskResponse` types are already shared.) Shared `citationChapterSlug` helper (unit-tested) resolves a citation's chapter ordinal → slug.
+- Shared i18n `reader.ask.*` strings.
+- Verified: shared unit tests (incl. `citationChapterSlug`), mobile `tsc`, web `tsc`/build/tests unaffected.
+
 ### Phase 4 RAG — web citation scroll (2026-06-10)
 
 Phase 4 **AI-026, slice 2 of 4**. Citation chips now land the reader on the cited **passage**, not just the chapter.

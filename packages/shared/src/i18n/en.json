@@ -510,6 +510,15 @@
     "contactBody": "Questions about these terms? Reach out at"
   },
   "reader": {
+    "ask": {
+      "title": "Ask this book",
+      "placeholder": "Ask a question about what you've read…",
+      "send": "Ask",
+      "thinking": "Thinking…",
+      "empty": "Ask a question about the book — answers come only from chapters you've read.",
+      "signIn": "Sign in to ask questions about this book.",
+      "signInCta": "Sign in"
+    },
     "reviewNow": "Review Now",
     "later": "Later",
     "wordsSaved": "{count} word(s) saved",
