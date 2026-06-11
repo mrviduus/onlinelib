@@ -3,7 +3,7 @@ import {
   View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { ragApi, citationChapterSlug, type AskCitation } from '@textstack/shared'
+import { ragApi, type AskCitation } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
 import { fonts } from '../theme/typography'
@@ -18,15 +18,14 @@ interface AskTurn {
 interface AskSheetProps {
   visible: boolean
   editionId?: string
-  chapters: { slug: string; chapterNumber?: number }[]
   isAuthenticated: boolean
-  onNavigateChapter: (slug: string) => void
+  onCitation: (citation: AskCitation) => void
   onSignIn: () => void
   onClose: () => void
 }
 
 export function AskSheet({
-  visible, editionId, chapters, isAuthenticated, onNavigateChapter, onSignIn, onClose,
+  visible, editionId, isAuthenticated, onCitation, onSignIn, onClose,
 }: AskSheetProps) {
   const { colors } = useTheme()
   const { t } = useLanguage()
@@ -62,12 +61,9 @@ export function AskSheet({
     }
   }, [input, editionId, loading])
 
-  const onCitation = (c: AskCitation) => {
-    const slug = citationChapterSlug(chapters, c.chapterOrd)
-    if (slug) {
-      onNavigateChapter(slug)
-      onClose()
-    }
+  const onCitationTap = (c: AskCitation) => {
+    onCitation(c)
+    onClose()
   }
 
   return (
@@ -97,7 +93,7 @@ export function AskSheet({
                     {turn.citations.map(c => (
                       <TouchableOpacity
                         key={c.chunkId}
-                        onPress={() => onCitation(c)}
+                        onPress={() => onCitationTap(c)}
                         style={[styles.chip, { borderColor: colors.border }]}
                         accessibilityRole="button"
                       >
