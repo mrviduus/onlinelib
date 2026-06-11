@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -42,10 +43,55 @@ public sealed class TracingDecorator(
         }
     }
 
-    // TODO(AI-028): trace streamed calls once real token streaming exists. The
-    // current StreamAsync is a single-delta placeholder, so pass through untraced.
-    public IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, CancellationToken ct)
-        => inner.StreamAsync(request, ct);
+    // Streamed calls are traced like one-shot ones (AI-028): accumulate the text deltas + terminal
+    // usage/model, then persist one trace when the stream ends (or errors mid-flight). Re-yields every
+    // delta unchanged so the caller still streams in real time.
+    public async IAsyncEnumerable<LlmDelta> StreamAsync(
+        LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var sw = Stopwatch.StartNew();
+        var text = new StringBuilder();
+        LlmUsage? usage = null;
+        string? modelId = null;
+        var traceId = Guid.NewGuid();
+
+        await using var e = inner.StreamAsync(request, ct).GetAsyncEnumerator(ct);
+        while (true)
+        {
+            LlmDelta delta;
+            try
+            {
+                if (!await e.MoveNextAsync())
+                    break;
+                delta = e.Current;
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                TryPersist(
+                    BuildTrace(request, BuildStreamedResponse(text.ToString(), usage, modelId, traceId),
+                        sw.ElapsedMilliseconds, error: ex.Message),
+                    isError: true);
+                throw;
+            }
+
+            if (delta.TextDelta is not null) text.Append(delta.TextDelta);
+            if (delta.FinalUsage is not null) usage = delta.FinalUsage;
+            if (delta.ModelId is not null) modelId = delta.ModelId;
+            yield return delta;
+        }
+
+        sw.Stop();
+        TryPersist(
+            BuildTrace(request, BuildStreamedResponse(text.ToString(), usage, modelId, traceId),
+                sw.ElapsedMilliseconds, error: null),
+            isError: false);
+    }
+
+    /// <summary>Assembles the accumulated stream into an <see cref="LlmResponse"/> for tracing
+    /// (usage/model default to the same "unknown"/zeros a failed one-shot call records).</summary>
+    public static LlmResponse BuildStreamedResponse(string text, LlmUsage? usage, string? modelId, Guid traceId) =>
+        new(text, [], usage ?? new LlmUsage(0, 0, 0m), modelId ?? "unknown", traceId);
 
     private void TryPersist(LlmTrace trace, bool isError)
     {

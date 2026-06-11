@@ -90,10 +90,13 @@ public sealed class OllamaLlmClient : ILlmService
 
     public async IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
     {
-        // TODO(AI-028): real token streaming. For now yield the full response
-        // as a single delta after CompleteAsync.
+        // Intentional non-streaming (AI-028): Ollama is never streamed to a user — it serves only the
+        // one-shot SRS distractor + eval-judge features. We complete once and emit the result as a text
+        // delta followed by the terminal usage delta, so the contract (and TracingDecorator) still holds.
         var resp = await CompleteAsync(request, ct);
-        yield return new LlmDelta(TextDelta: resp.Text, FinalUsage: resp.Usage);
+        if (!string.IsNullOrEmpty(resp.Text))
+            yield return new LlmDelta(TextDelta: resp.Text);
+        yield return new LlmDelta(FinalUsage: resp.Usage, ModelId: resp.ModelId);
     }
 
     private sealed class OllamaResponse
