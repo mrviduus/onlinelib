@@ -1,8 +1,10 @@
 using Api.Sites;
+using Application.Common.Interfaces;
 using Application.Rag;
 using Contracts.Admin;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using TextStack.Ai.EvalSuite;
 using TextStack.Ai.Rag;
 
 namespace Api.Endpoints;
@@ -23,6 +25,35 @@ public static class AdminRagEndpoints
         var group = app.MapGroup("/admin/rag").WithTags("RAG");
         group.MapGet("/{editionId:guid}/search", Search);
         group.MapGet("/{editionId:guid}/context", Context);
+        group.MapPost("/{editionId:guid}/eval", RunEval);
+    }
+
+    // Phase 4 DoD gate (AI-027a): runs the retrieval eval (recall@k + spoiler-leak) against a real,
+    // embedded edition. Deterministic (no LLM) — citation-correctness judging is AI-027b. Persists
+    // rag.retrieval / rag.spoiler EvalRun rows. DDIA is the intended target.
+    private static async Task<IResult> RunEval(
+        Guid editionId,
+        [FromQuery] int? k,
+        IServiceProvider services,
+        RagEvalRunner runner,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        if (!TryResolve<IRagService>(services, out var rag, out var unavailable))
+            return unavailable;
+
+        var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+        var result = await runner.RunAsync(rag, editionId, limit, persist: true, db, gitSha, ct);
+
+        return Results.Ok(new RagEvalDto(
+            limit,
+            Math.Round(result.Recall, 4),
+            result.RecallN,
+            Math.Round(result.SpoilerLeakRate, 4),
+            result.SpoilerN,
+            result.RecallCases.Select(c => new RagRecallCaseDto(c.Question, c.ExpectedChapterOrd, c.Hit)).ToList(),
+            result.SpoilerCases.Select(c => new RagSpoilerCaseDto(c.Question, c.GateChapterOrd, c.LeakCount)).ToList()));
     }
 
     private static async Task<IResult> Search(
