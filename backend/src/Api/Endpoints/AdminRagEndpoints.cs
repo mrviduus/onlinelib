@@ -4,6 +4,7 @@ using Application.Rag;
 using Contracts.Admin;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
 using TextStack.Ai.Rag;
 
@@ -28,13 +29,17 @@ public static class AdminRagEndpoints
         group.MapPost("/{editionId:guid}/eval", RunEval);
     }
 
-    // Phase 4 DoD gate (AI-027a): runs the retrieval eval (recall@k + spoiler-leak) against a real,
-    // embedded edition. Deterministic (no LLM) — citation-correctness judging is AI-027b. Persists
-    // rag.retrieval / rag.spoiler EvalRun rows. DDIA is the intended target.
+    // Phase 4 DoD gate (AI-027): runs the RAG eval against a real, embedded edition. Retrieval
+    // (recall@k + spoiler-leak) is deterministic (no LLM); citation-correctness (AI-027b) generates a
+    // grounded answer per question and judges each citation. `judge` selects the LLM judge —
+    // openai (default, stronger + independent of the nano generator) | ollama (free) | none
+    // (retrieval-only). Persists rag.retrieval / rag.spoiler / rag.citation EvalRun rows.
     private static async Task<IResult> RunEval(
         Guid editionId,
         [FromQuery] int? k,
+        [FromQuery] string? judge,
         IServiceProvider services,
+        IConfiguration config,
         RagEvalRunner runner,
         IAppDbContext db,
         CancellationToken ct)
@@ -44,7 +49,33 @@ public static class AdminRagEndpoints
 
         var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
         var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
-        var result = await runner.RunAsync(rag, editionId, limit, persist: true, db, gitSha, ct);
+
+        // Resolve the judge unless explicitly disabled. openai-judge runs the stronger Eval:JudgeModel.
+        IRagAskService? ask = null;
+        ILlmService? judgeClient = null;
+        string? judgeModelId = null;
+        var judgeChoice = (judge ?? "openai").Trim().ToLowerInvariant();
+        if (judgeChoice != "none")
+        {
+            var useOllama = judgeChoice == "ollama";
+            var judgeKey = useOllama ? "ollama" : "openai-judge";
+            judgeModelId = useOllama
+                ? config["Ollama:Model"] ?? "gemma4:e4b"
+                : config["Eval:JudgeModel"] ?? "gpt-4.1";
+            ask = services.GetRequiredService<IRagAskService>();
+            judgeClient = services.GetRequiredKeyedService<ILlmService>(judgeKey);
+        }
+
+        var result = await runner.RunAsync(
+            rag, ask, judgeClient, judgeModelId, editionId, limit, persist: true, db, gitSha, ct);
+
+        var citation = result.Citation is null
+            ? null
+            : new RagCitationDto(
+                Math.Round(result.Citation.Score, 3),
+                Math.Round(result.Citation.SupportRate, 4),
+                result.Citation.CitationsJudged,
+                result.Citation.AnswersGenerated);
 
         return Results.Ok(new RagEvalDto(
             limit,
@@ -52,6 +83,7 @@ public static class AdminRagEndpoints
             result.RecallN,
             Math.Round(result.SpoilerLeakRate, 4),
             result.SpoilerN,
+            citation,
             result.RecallCases.Select(c => new RagRecallCaseDto(c.Question, c.ExpectedChapterOrd, c.Hit)).ToList(),
             result.SpoilerCases.Select(c => new RagSpoilerCaseDto(c.Question, c.GateChapterOrd, c.LeakCount)).ToList()));
     }

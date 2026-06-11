@@ -115,6 +115,7 @@ builder.Services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionStrin
 builder.Services.AddScoped<Application.Rag.RagContextService>();
 // "Ask this book" orchestration (AI-025): context + LLM gateway → grounded answer with citations.
 builder.Services.AddScoped<Application.Rag.RagAskService>();
+builder.Services.AddScoped<Application.Rag.IRagAskService>(sp => sp.GetRequiredService<Application.Rag.RagAskService>());
 
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();

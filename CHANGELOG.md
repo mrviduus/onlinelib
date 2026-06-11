@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — citation-correctness judge — Phase 4 complete (2026-06-11)
+
+Phase 4 **AI-027, slice 2 of 2** — the last DoD metric: cited excerpts actually support the claim (LLM-as-judge ≥0.9). **This closes Phase 4** ("Ask this book" is complete end to end: hybrid retrieval → spoiler-safe answer with citations → reader scroll → eval gate).
+
+- **`RagAskService` → `IRagAskService`** + extracted `AskFromChunksAsync` — generates the grounded, cited answer from an already-retrieved chunk set (no reading user), so the eval drives the **real production prompt + citation parsing** rather than a reimplementation. `AskAsync` now delegates to it.
+- **`RagEvalRunner` citation phase** — per retrieval golden: generate an answer over its chunks, then judge **each citation against the full text of its cited excerpt** (answer + excerpt as evidence) with the same MEAI `RubricEvaluator` the rest of the suite uses. Rubric axes: support / relevance / faithfulness. Reports the 1–5 mean and the **support rate** (citations scored ≥4 on support = the DoD ≥0.9 metric); persists a `rag.citation` `EvalRun`.
+- **Judge selection** — `POST /admin/rag/{id}/eval?judge=openai|ollama|none`. Default **openai** (the stronger `Eval:JudgeModel`, independent of the nano generator → no self-judging bias); `ollama` free; `none` keeps the run retrieval-only.
+- Tests: `RagEvalRunner` with a fake `IRagAskService` + fixed judge — full support (D1=5 → support rate 1.0) and a failing support axis (D1=2 → support rate 0.0); retrieval-only path still returns a null citation summary. Retrieval/spoiler tests updated for the new signature.
+
 ### Phase 4 RAG — retrieval eval + golden set (2026-06-11)
 
 Phase 4 **AI-027, slice 1 of 2** — the deterministic half of the DoD gate: retrieval quality (recall@8) and spoiler-safety (leak rate), scored with no LLM so the math is CI-tested. Citation-correctness (LLM judge) is 027b, which closes the phase.
