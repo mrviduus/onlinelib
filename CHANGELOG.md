@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 4 RAG — retrieval eval + golden set (2026-06-11)
+
+Phase 4 **AI-027, slice 1 of 2** — the deterministic half of the DoD gate: retrieval quality (recall@8) and spoiler-safety (leak rate), scored with no LLM so the math is CI-tested. Citation-correctness (LLM judge) is 027b, which closes the phase.
+
+- **`RetrievalMetrics`** (`TextStack.Ai.Rag`) — pure: `IsHit` (a top-k chunk from the expected chapter **and** containing an expected phrase), `Recall` (fraction of goldens hit), `LeakCount`/`LeakRate` (chunks past the spoiler gate). Unit-tested.
+- **Golden sets** (embedded in `Ai.EvalSuite/Datasets/`) — `rag.json` (12 starter DDIA retrieval questions: question + expected chapter + key phrases) and `rag_spoiler.json` (6 adversarial questions about later chapters, each with a gate). The retrieval set is a **starter to be curated to the DoD's 50** against the target edition (chapter ordinals align to that edition's numbering).
+- **`RagEvalRunner`** (`Ai.EvalSuite`) — drives the production `IRagService` (hybrid retrieval, AI-023) over the goldens: recall ungated, spoiler gated at the reader's supposed position. Persists `rag.retrieval` / `rag.spoiler` `EvalRun` rows (score 0–1; the feature key disambiguates from the 1–5 judged features). Per-case hit/leak detail surfaced for the admin UI.
+- **`POST /admin/rag/{editionId}/eval?k=`** — admin-triggered run against a real embedded edition (503 when embeddings aren't configured, like the other RAG debug endpoints). The real run happens on prod where DDIA is embedded.
+- Tests: `RetrievalMetrics` (hit chapter/phrase/case, recall + leak math); `RagEvalRunner` with a fake `IRagService` (perfect → recall 1 / leak 0; leaky → recall 0 / leak 1; gate forwarding). Golden counts read from the dataset so they survive the set growing to 50.
+
 ### Phase 4 RAG — hybrid retrieval + RRF (2026-06-11)
 
 Phase 4 **AI-023**. Retrieval is now **hybrid**: a lexical retriever runs alongside the vector one and the two rankings are fused, improving recall on rare terms, names, and code identifiers that embeddings alone miss.

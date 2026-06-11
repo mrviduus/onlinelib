@@ -25,3 +25,22 @@ public record RagContextDto(
     int LastReadOrd,
     IReadOnlyList<RagChunkDto> Chunks,
     IReadOnlyList<PrivateNoteDto> Notes);
+
+/// <summary>One retrieval golden's outcome in the admin RAG eval (AI-027a): did top-k surface it?</summary>
+public record RagRecallCaseDto(string Question, int ExpectedChapterOrd, bool Hit);
+
+/// <summary>One adversarial golden's outcome: chunks that leaked past the spoiler gate (0 = clean).</summary>
+public record RagSpoilerCaseDto(string Question, int GateChapterOrd, int LeakCount);
+
+/// <summary>
+/// Result of the admin RAG retrieval eval (AI-027a): recall@k over the retrieval goldens and the
+/// spoiler-leak rate over the adversarial set (DoD: recall ≥0.85, leak rate = 0), plus per-case detail.
+/// </summary>
+public record RagEvalDto(
+    int K,
+    double Recall,
+    int RecallN,
+    double SpoilerLeakRate,
+    int SpoilerN,
+    IReadOnlyList<RagRecallCaseDto> RecallCases,
+    IReadOnlyList<RagSpoilerCaseDto> SpoilerCases);
