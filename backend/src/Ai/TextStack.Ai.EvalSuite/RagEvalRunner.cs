@@ -196,15 +196,15 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
 
     private static EvalRun MakeRun(
         string feature, string modelId, string judgeModelId, decimal score, int n, string? gitSha, string breakdown) => new()
-    {
-        Id = Guid.NewGuid(),
-        Feature = feature,
-        ModelId = modelId,
-        JudgeModelId = judgeModelId,
-        Score = Math.Round(score, 3),
-        N = n,
-        BreakdownJson = breakdown,
-        GitSha = gitSha,
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            Feature = feature,
+            ModelId = modelId,
+            JudgeModelId = judgeModelId,
+            Score = Math.Round(score, 3),
+            N = n,
+            BreakdownJson = breakdown,
+            GitSha = gitSha,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
 }
