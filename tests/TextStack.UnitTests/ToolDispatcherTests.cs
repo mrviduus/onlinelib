@@ -102,6 +102,45 @@ public class ToolDispatcherTests
         Assert.False(results[2].Ok);
     }
 
+    // ---- per-invocation DI scope (parallel tools must not share scoped services, e.g. DbContext) ----
+
+    private sealed class ScopedMarker
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+    }
+
+    private sealed class ScopeProbeTool : ITool
+    {
+        public string Name => "scope-probe";
+        public string Description => "returns the scoped marker's id";
+        public JsonElement ArgsSchema => JsonDocument.Parse("""{"type":"object"}""").RootElement;
+
+        public Task<JsonElement> InvokeAsync(JsonElement args, ToolContext ctx, CancellationToken ct)
+        {
+            var marker = ctx.Services.GetRequiredService<ScopedMarker>();
+            return Task.FromResult(JsonDocument.Parse($"\"{marker.Id}\"").RootElement);
+        }
+    }
+
+    [Fact]
+    public async Task DispatchAll_ParallelCalls_GetIsolatedScopes()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<ScopedMarker>();
+        using var root = services.BuildServiceProvider();
+        using var requestScope = root.CreateScope(); // simulates the HTTP request scope tools run in
+        var ctx = new ToolContext(null, null, Guid.NewGuid(), requestScope.ServiceProvider);
+
+        var dispatcher = Dispatcher(new ScopeProbeTool());
+        var results = await dispatcher.DispatchAllAsync(
+            [Call("scope-probe", "{}"), new ToolCall("call-2", "scope-probe", JsonDocument.Parse("{}").RootElement)],
+            ctx, TestContext.Current.CancellationToken);
+
+        Assert.All(results, r => Assert.True(r.Ok));
+        // Different scope per invocation → different scoped instances (no shared DbContext hazard).
+        Assert.NotEqual(results[0].Result!.Value.GetString(), results[1].Result!.Value.GetString());
+    }
+
     [Fact]
     public void ValidateArgs_Valid_ReturnsNull()
         => Assert.Null(ToolDispatcher.ValidateArgs(EchoSchema, JsonDocument.Parse("""{"text":"x"}""").RootElement));
