@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 5 — function-calling: Explain can use tools (2026-06-12)
+
+Phase 5 **AI-031, slice b** — the model can now call the AI-030 tools. Explain grounds its answers in the book (chapter fetch, in-book search, the user's highlights, dictionary) via one validated tool round.
+
+- **`OpenAiLlmClient` function-calling** — `LlmRequest.Tools` → `ChatTool.CreateFunctionTool` (schema as-is); `CompleteAsync` parses `tool_calls` into `LlmResponse.ToolCalls`; `StreamAsync` accumulates streamed tool-call fragments per index and emits each **complete** call as a `ToolCallDelta` after the provider stream ends (partial tool-call streaming is out of Phase 5 scope). Message mapping grew the round-2 shapes: assistant turn carrying its tool calls, and `tool` role results keyed by call id. Empty content on a tool-call turn no longer warns.
+- **`ToolCallingSession`** (`Ai.Tools`) — ONE round of function-calling over any `ILlmService`: stream round 1 re-yielding text (the no-tool case stays fully streaming, tool deltas are not client-visible); if tools were requested → validated parallel dispatch (`ToolDispatcher`, failures fed back as data) → round 2 **without** tool schemas streams the final answer. Multi-step loops are Phase 6's `AgentLoop`.
+- **Explain wiring** — both SSE and JSON paths run through the session. Tool set per request: `lookup_dictionary` always; + `get_chapter`/`search_book` with a book in context; + `get_user_highlights` when signed in. System prompt gains the playbook tool-guidance block only when tools ride along. Kill switch: `Explain:ToolsEnabled` (default on).
+- **Cache safety (QA find)** — tool-grounded answers can be user-specific (highlights; progress-gated search), so they are **never written to the shared explain cache** (`onToolRound`/`UsedTools` signal); direct answers cache as before.
+- Tests: `ToolCallingSession` (6) over a scripted LLM — single-round passthrough; tool round dispatches and streams the follow-up (assistant+tool messages, no schemas in round 2, plumbing invisible to the client); unknown tool error fed back as data; complete-variant flags `UsedTools`; result serialization. Caught in-suite: duplicate fake-tool name across test classes broke the assembly-scan test — renamed (the scan's fail-fast working as intended).
+
 ### Phase 5 — Explain streams over SSE (2026-06-12)
 
 Phase 5 **AI-031, slice a** — the Explain endpoint streams token-by-token. Function-calling wiring (tools handed to the model) is slice b.

@@ -3,11 +3,14 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Api.Extensions;
 using Application.Ai;
+using Application.Auth;
 using Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TextStack.Ai.Core;
+using TextStack.Ai.Tools;
 
 namespace Api.Endpoints;
 
@@ -36,6 +39,9 @@ public static class ExplainEndpoints
         IConfiguration config,
         ILlmService llm,
         IAppDbContext db,
+        AuthService authService,
+        IToolRegistry toolRegistry,
+        ToolCallingSession toolSession,
         ILogger<Program> logger,
         CancellationToken ct)
     {
@@ -56,32 +62,64 @@ public static class ExplainEndpoints
         var cache = new ExplainCache(config, logger);
         var cacheKey = ComputeCacheKey(request.Word, request.Sentence, genre, targetLang);
 
-        var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre, targetLang);
+        // Function-calling (AI-031b): which tools this request may use. Book tools need an edition in
+        // context; the highlights tool additionally needs a signed-in user. Kill switch:
+        // Explain:ToolsEnabled.
+        var userId = httpContext.GetUserId(authService);
+        Guid? editionId = !string.IsNullOrWhiteSpace(request.BookId) && Guid.TryParse(request.BookId, out var parsed)
+            ? parsed
+            : null;
+        var tools = ResolveTools(toolRegistry, config, editionId, userId);
+        var toolCtx = new ToolContext(userId, editionId, AgentRunId: Guid.NewGuid(), httpContext.RequestServices);
+
+        var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre, targetLang, withTools: tools.Count > 0);
         var userPrompt = ExplainPrompt.BuildUserPrompt(request.Word, request.Sentence);
 
         var wantsSse = httpContext.Request.Headers.Accept.Any(v =>
             v is not null && v.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase));
 
         return wantsSse
-            ? ExplainSse(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, httpContext)
-            : await ExplainJson(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, logger, ct);
+            ? ExplainSse(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, toolSession, tools, toolCtx, httpContext)
+            : await ExplainJson(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, toolSession, tools, toolCtx, logger, ct);
+    }
+
+    /// <summary>The tool schemas this request is allowed to call (empty = plain completion).</summary>
+    private static IReadOnlyList<ToolSchema> ResolveTools(
+        IToolRegistry registry, IConfiguration config, Guid? editionId, Guid? userId)
+    {
+        if (!config.GetValue("Explain:ToolsEnabled", true))
+            return [];
+
+        var names = new List<string> { "lookup_dictionary" };
+        if (editionId is not null)
+        {
+            names.Add("get_chapter");
+            names.Add("search_book");
+            if (userId is not null)
+                names.Add("get_user_highlights");
+        }
+        return registry.SchemasFor(names);
     }
 
     // ---- JSON path (original contract; mobile + non-streaming clients) ----
 
     private static async Task<IResult> ExplainJson(
         string word, string systemPrompt, string userPrompt,
-        ExplainCache cache, string cacheKey, ILlmService llm, ILogger logger, CancellationToken ct)
+        ExplainCache cache, string cacheKey, ILlmService llm,
+        ToolCallingSession toolSession, IReadOnlyList<ToolSchema> tools, ToolContext toolCtx,
+        ILogger logger, CancellationToken ct)
     {
         if (await cache.TryReadAsync(cacheKey, ct) is { } cachedText)
             return Results.Ok(new ExplainResponse(cachedText, word, Cached: true));
 
         try
         {
-            var text = (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, MaxOutputTokens), ct)).Text;
+            var (response, usedTools) = await toolSession.CompleteAsync(
+                llm, BuildRequest(systemPrompt, userPrompt, MaxOutputTokens, tools), toolCtx, ct);
+            var text = response.Text;
 
             // Reasoning models can exhaust the visible budget on internal reasoning
-            // and return empty. Retry once with doubled budget before giving up.
+            // and return empty. Retry once with doubled budget (no tools) before giving up.
             if (string.IsNullOrWhiteSpace(text))
             {
                 logger.LogWarning("Explain got empty result at {Max} tokens, retrying with {Retry}",
@@ -92,7 +130,10 @@ public static class ExplainEndpoints
             if (string.IsNullOrWhiteSpace(text))
                 return Results.Problem("LLM returned empty explanation", statusCode: 502);
 
-            await cache.WriteAsync(cacheKey, text, ct);
+            // Tool-grounded answers can be user-specific (highlights, progress-gated search) —
+            // never write them to the shared cache.
+            if (!usedTools)
+                await cache.WriteAsync(cacheKey, text, ct);
             return Results.Ok(new ExplainResponse(text, word, Cached: false));
         }
         catch (TaskCanceledException)
@@ -110,19 +151,27 @@ public static class ExplainEndpoints
 
     private static IResult ExplainSse(
         string word, string systemPrompt, string userPrompt,
-        ExplainCache cache, string cacheKey, ILlmService llm, HttpContext httpContext)
+        ExplainCache cache, string cacheKey, ILlmService llm,
+        ToolCallingSession toolSession, IReadOnlyList<ToolSchema> tools, ToolContext toolCtx,
+        HttpContext httpContext)
     {
         // Cloudflare/nginx must not buffer the stream (playbook Phase 5 risk).
         httpContext.Response.Headers["X-Accel-Buffering"] = "no";
         httpContext.Response.Headers.CacheControl = "no-cache";
 
+        // Tool-grounded answers can be user-specific — skip the shared-cache write for them.
+        // The flag is set before round 2 streams, so it's final by the time persist runs.
+        var usedTools = false;
+
         return TypedResults.ServerSentEvents(StreamEventsAsync(
             word,
-            primary: ct => llm.StreamAsync(BuildRequest(systemPrompt, userPrompt, MaxOutputTokens), ct),
+            primary: ct => toolSession.StreamAsync(
+                llm, BuildRequest(systemPrompt, userPrompt, MaxOutputTokens, tools), toolCtx,
+                onToolRound: () => usedTools = true, ct),
             fallback: async ct =>
                 (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, RetryOutputTokens), ct)).Text,
             readCache: ct => cache.TryReadAsync(cacheKey, ct),
-            persist: (text, ct) => cache.WriteAsync(cacheKey, text, ct),
+            persist: (text, ct) => usedTools ? Task.CompletedTask : cache.WriteAsync(cacheKey, text, ct),
             httpContext.RequestAborted));
     }
 
@@ -236,8 +285,10 @@ public static class ExplainEndpoints
 
     // ---- shared pieces ----
 
-    private static LlmRequest BuildRequest(string systemPrompt, string userPrompt, int maxTokens) =>
-        new(systemPrompt, [new LlmMessage("user", userPrompt)], maxTokens, FeatureTag: FeatureTag);
+    private static LlmRequest BuildRequest(
+        string systemPrompt, string userPrompt, int maxTokens, IReadOnlyList<ToolSchema>? tools = null) =>
+        new(systemPrompt, [new LlmMessage("user", userPrompt)], maxTokens,
+            Tools: tools is { Count: > 0 } ? tools : null, FeatureTag: FeatureTag);
 
     private static async Task<string?> ResolveGenreAsync(
         ExplainRequest request, IAppDbContext db, ILogger logger, CancellationToken ct)

@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;
@@ -58,7 +60,17 @@ public sealed class OpenAiLlmClient : ILlmService
         {
             messages.Add(m.Role.ToLowerInvariant() switch
             {
+                // An assistant turn that requested tool calls (function-calling round 2 sends the
+                // model its own calls back, then the tool results below).
+                "assistant" when m.ToolCalls is { Count: > 0 } =>
+                    new AssistantChatMessage(m.ToolCalls.Select(ToChatToolCall)),
                 "assistant" => new AssistantChatMessage(m.Content),
+                // A tool result: Content is the tool's JSON output; ToolCalls[0] carries the call id.
+                "tool" => new ToolChatMessage(
+                    m.ToolCalls is { Count: > 0 }
+                        ? m.ToolCalls[0].Id
+                        : throw new InvalidOperationException("A 'tool' message must carry its ToolCall (for the call id)."),
+                    m.Content),
                 "system" => new SystemChatMessage(m.Content),
                 _ => new UserChatMessage(m.Content),
             });
@@ -66,22 +78,52 @@ public sealed class OpenAiLlmClient : ILlmService
         return messages;
     }
 
+    private ChatCompletionOptions BuildOptions(LlmRequest request)
+    {
+        var options = new ChatCompletionOptions
+        {
+            MaxOutputTokenCount = request.MaxOutputTokens + _reasoningBudget, // +512 padding quirk
+        };
+        if (request.Tools is { Count: > 0 })
+        {
+            foreach (var tool in request.Tools)
+            {
+                options.Tools.Add(ChatTool.CreateFunctionTool(
+                    tool.Name, tool.Description, BinaryData.FromString(tool.ArgsSchema.GetRawText())));
+            }
+        }
+        return options;
+    }
+
+    private static ChatToolCall ToChatToolCall(ToolCall call) =>
+        ChatToolCall.CreateFunctionToolCall(call.Id, call.ToolName, BinaryData.FromString(call.Arguments.GetRawText()));
+
+    /// <summary>Parses a function-call's arguments JSON ("" → empty object) into a detached element.</summary>
+    private static JsonElement ParseArgs(string argumentsJson)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
+        return doc.RootElement.Clone();
+    }
+
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
     {
         var messages = BuildMessages(request);
-
-        var maxTokens = request.MaxOutputTokens + _reasoningBudget; // +512 padding quirk
-        var options = new ChatCompletionOptions { MaxOutputTokenCount = maxTokens };
+        var options = BuildOptions(request);
 
         var result = await _client.CompleteChatAsync(messages, options, ct);
         var completion = result.Value;
 
+        var toolCalls = completion.ToolCalls
+            .Select(tc => new ToolCall(tc.Id, tc.FunctionName, ParseArgs(tc.FunctionArguments.ToString())))
+            .ToList();
+
         var text = completion.Content.FirstOrDefault()?.Text ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(text))
+        // Empty content is normal on a tool-call turn — only warn when the model produced nothing at all.
+        if (string.IsNullOrWhiteSpace(text) && toolCalls.Count == 0)
         {
             _logger.LogWarning(
                 "OpenAI returned empty content (finish={Finish}, maxOutputTokens={Max})",
-                completion.FinishReason, maxTokens);
+                completion.FinishReason, options.MaxOutputTokenCount);
         }
 
         var inputTokens = completion.Usage?.InputTokenCount ?? 0;
@@ -91,22 +133,22 @@ public sealed class OpenAiLlmClient : ILlmService
 
         var usage = new LlmUsage(inputTokens, outputTokens, ModelPricing.CostUsd(_model, inputTokens, outputTokens));
 
-        // ToolCalls left empty: function-calling is not ported in AI-002 (legacy
-        // was text-only). request.Tools is ignored for now.
-        // TODO(AI-0xx): map tool definitions + tool_calls when agents land.
-        return new LlmResponse(text.Trim(), [], usage, _model, Guid.NewGuid());
+        return new LlmResponse(text.Trim(), toolCalls, usage, _model, Guid.NewGuid());
     }
 
     public async IAsyncEnumerable<LlmDelta> StreamAsync(LlmRequest request, [EnumeratorCancellation] CancellationToken ct)
     {
         var messages = BuildMessages(request);
-        var maxTokens = request.MaxOutputTokens + _reasoningBudget; // +512 padding quirk (same as CompleteAsync)
-        var options = new ChatCompletionOptions { MaxOutputTokenCount = maxTokens };
+        var options = BuildOptions(request);
 
-        // Real token streaming: yield each content fragment as it arrives, then a terminal usage delta.
-        // The SDK surfaces token usage on the final update (it requests stream_options.include_usage);
-        // if absent (older endpoints), usage falls back to 0 — text + latency are still traced.
+        // Real token streaming: yield each content fragment as it arrives. Tool calls stream as
+        // fragments (id/name on the first update for an index, then argument chunks) — accumulate per
+        // index and emit each COMPLETE call as a ToolCallDelta after the provider stream ends (partial
+        // tool-call streaming is out of Phase 5 scope). The SDK surfaces token usage on the final
+        // update; if absent, usage falls back to 0 — text + latency are still traced.
         ChatTokenUsage? usage = null;
+        var pendingCalls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();
+
         await foreach (var update in _client.CompleteChatStreamingAsync(messages, options, ct))
         {
             foreach (var part in update.ContentUpdate)
@@ -114,9 +156,23 @@ public sealed class OpenAiLlmClient : ILlmService
                 if (!string.IsNullOrEmpty(part.Text))
                     yield return new LlmDelta(TextDelta: part.Text);
             }
+            foreach (var tc in update.ToolCallUpdates)
+            {
+                if (!pendingCalls.TryGetValue(tc.Index, out var entry))
+                    pendingCalls[tc.Index] = entry = (tc.ToolCallId ?? string.Empty, tc.FunctionName ?? string.Empty, new StringBuilder());
+                if (!string.IsNullOrEmpty(tc.ToolCallId) && entry.Id.Length == 0)
+                    pendingCalls[tc.Index] = entry = (tc.ToolCallId, entry.Name, entry.Args);
+                if (!string.IsNullOrEmpty(tc.FunctionName) && entry.Name.Length == 0)
+                    pendingCalls[tc.Index] = entry = (entry.Id, tc.FunctionName, entry.Args);
+                if (tc.FunctionArgumentsUpdate is not null)
+                    entry.Args.Append(tc.FunctionArgumentsUpdate.ToString());
+            }
             if (update.Usage is not null)
                 usage = update.Usage;
         }
+
+        foreach (var (_, call) in pendingCalls)
+            yield return new LlmDelta(ToolCallDelta: new ToolCall(call.Id, call.Name, ParseArgs(call.Args.ToString())));
 
         var inputTokens = usage?.InputTokenCount ?? 0;
         var outputTokens = usage?.OutputTokenCount ?? 0;
