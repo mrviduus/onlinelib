@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 5 — web Explain streams visibly (2026-06-12)
+
+Phase 5 **AI-032** — the web reader renders explanations token-by-token (perceived latency drops to first-token time).
+
+- **`lib/sse.ts`** — SSE over POST (EventSource can't send a body): a minimal, spec-subset SSE parser (`event`/`data`, multi-line data, CRLF-tolerant, comment/keep-alive lines ignored, arbitrary chunk boundaries) + `postSse()` fetch-stream consumer. Non-OK statuses (429/503/504 are JSON, not SSE) map to readable errors **before** streaming; `SseUnsupportedError` signals environments without a readable body so callers can fall back.
+- **`useExplain` streams** — same external shape (consumers unchanged): `explanation` grows per delta while `isLoading` stays true until `done`; `cached` read from the done payload; a server `error` event keeps any partial text visible alongside the error. Device offline-cache still serves first; no-stream environments fall back to the one-shot JSON request. Local cache written only on a completed stream.
+- **`ExplanationPopup`** — spinner only until the first token; then the text renders and grows in place with a blinking stream caret (CSS) while open.
+- Tests: SSE parser (6 — dispatch, arbitrary split points, multi-line+CRLF, comments/unknown fields, trailing flush, colons in data) + `postSse` (3 — streams events, non-OK mapping, unsupported-body signal) + streaming `useExplain` (6 — delta accumulation, cached flag, server-error with partial text, JSON fallback, offline cache short-circuit, request failure). Full web suite green (511); `tsc` + build clean.
+
 ### Phase 5 — fix: per-tool DI scope + streamed tool calls traced (AI-031b follow-up, 2026-06-12)
 
 Audit follow-up to AI-031b — one real bug, one observability gap.
