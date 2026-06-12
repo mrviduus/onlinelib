@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Phase 5 — Explain streams over SSE (2026-06-12)
+
+Phase 5 **AI-031, slice a** — the Explain endpoint streams token-by-token. Function-calling wiring (tools handed to the model) is slice b.
+
+- **Content negotiation, mobile-safe**: `Accept: text/event-stream` → SSE (`delta`* → `done` | `error`, via .NET 10 `TypedResults.ServerSentEvents`); any other request keeps the **original JSON contract** — the shared mobile client works unchanged. Web switches to the stream in AI-032.
+- **Migrated off the legacy seam**: Explain now calls the `ILlmService` gateway directly (FeatureTag `explain` — routed + traced, streamed calls included per AI-028) instead of `ILlmServiceFactory`.
+- **Cache preserved**: SHA256 file cache hit → one `delta` with the full text + `done(cached:true)` immediately; miss → stream, then persist the accumulated text. Empty-stream (reasoning-budget) retry preserved as a `CompleteAsync` fallback at doubled budget.
+- **Robust SSE termination**: mid-stream provider failure and keyless-host provider-resolution failure both emit a terminal `error` event (never an aborted stream); client disconnect propagates untraced (AI-028 follow-up behaviour).
+- **Cloudflare/nginx**: `X-Accel-Buffering: no` + `Cache-Control: no-cache` on the SSE response (playbook Phase 5 risk).
+- Tests: `StreamEventsAsync` unit-tested over fake delegates (cache hit; per-fragment deltas + persist; empty→fallback delta; fallback empty/throws → error; mid-stream failure → partial deltas + terminal error, nothing persisted). Live-API integration: 400 regardless of Accept; JSON contract intact without the header; SSE content-type + guaranteed terminal event with it (skip when provider unavailable).
+
 ### Phase 5 — 4 starter tools + schema-validated dispatch (2026-06-11)
 
 Phase 5 **AI-030** — the first concrete tools and the validated dispatch they run through. The Explain SSE refactor (AI-031) will hand these to the model.

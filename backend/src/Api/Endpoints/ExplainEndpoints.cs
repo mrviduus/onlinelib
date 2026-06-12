@@ -1,16 +1,29 @@
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Application.Ai;
 using Application.Common.Interfaces;
-using Domain.LLM;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TextStack.Ai.Core;
 
 namespace Api.Endpoints;
 
+/// <summary>
+/// Contextual word explanation (Phase 5: streams). Content-negotiated (AI-031a): an
+/// <c>Accept: text/event-stream</c> request gets token-by-token SSE (<c>delta</c> events, then
+/// <c>done</c>); anything else gets the original JSON shape — the mobile client keeps working
+/// unchanged. Both paths share validation, genre resolution, the SHA256 file cache, and the
+/// <see cref="ILlmService"/> gateway seam (FeatureTag <c>explain</c> — traced, routed).
+/// </summary>
 public static class ExplainEndpoints
 {
+    private const string FeatureTag = "explain";
+    private const int MaxOutputTokens = 500;
+    private const int RetryOutputTokens = 1000;
+
     public static void MapExplainEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/explain").WithTags("Explain");
@@ -19,16 +32,15 @@ public static class ExplainEndpoints
 
     private static async Task<IResult> Explain(
         [FromBody] ExplainRequest request,
+        HttpContext httpContext,
         IConfiguration config,
-        ILlmServiceFactory llmFactory,
+        ILlmService llm,
         IAppDbContext db,
         ILogger<Program> logger,
         CancellationToken ct)
     {
         var maxWordLength = config.GetValue("Explain:MaxWordLength", 100);
         var maxSentenceLength = config.GetValue("Explain:MaxSentenceLength", 800);
-        var cachePath = config.GetValue<string>("Explain:CachePath") ?? "/tmp/explain-cache";
-        var cacheTtlDays = config.GetValue("Explain:CacheTtlDays", 30);
 
         if (string.IsNullOrWhiteSpace(request.Word))
             return Results.BadRequest("Word is required");
@@ -40,92 +52,48 @@ public static class ExplainEndpoints
             return Results.BadRequest($"Sentence exceeds {maxSentenceLength} chars");
 
         var targetLang = string.IsNullOrWhiteSpace(request.TargetLang) ? "en" : request.TargetLang.Split('-')[0];
-
-        var genre = request.Genre;
-        if (string.IsNullOrWhiteSpace(genre) && !string.IsNullOrWhiteSpace(request.BookId)
-            && Guid.TryParse(request.BookId, out var bookId))
-        {
-            try
-            {
-                genre = await db.Editions
-                    .Where(e => e.Id == bookId)
-                    .SelectMany(e => e.Genres.Select(g => g.Name))
-                    .FirstOrDefaultAsync(ct);
-                if (string.IsNullOrWhiteSpace(genre))
-                {
-                    genre = await db.UserBooks
-                        .Where(ub => ub.Id == bookId)
-                        .Select(ub => ub.Genre)
-                        .FirstOrDefaultAsync(ct);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Explain genre lookup failed, using 'general' domain");
-            }
-        }
-
+        var genre = await ResolveGenreAsync(request, db, logger, ct);
+        var cache = new ExplainCache(config, logger);
         var cacheKey = ComputeCacheKey(request.Word, request.Sentence, genre, targetLang);
-        var cacheFile = Path.Combine(cachePath, cacheKey + ".json");
-
-        try
-        {
-            Directory.CreateDirectory(cachePath);
-            if (File.Exists(cacheFile))
-            {
-                var info = new FileInfo(cacheFile);
-                if (info.LastWriteTimeUtc > DateTime.UtcNow.AddDays(-cacheTtlDays))
-                {
-                    var cached = await File.ReadAllTextAsync(cacheFile, ct);
-                    var cachedResp = JsonSerializer.Deserialize<ExplainResponse>(cached);
-                    if (cachedResp != null && !string.IsNullOrWhiteSpace(cachedResp.Explanation))
-                        return Results.Ok(cachedResp with { Cached = true });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Explain cache read failed, falling through to LLM");
-        }
 
         var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre, targetLang);
         var userPrompt = ExplainPrompt.BuildUserPrompt(request.Word, request.Sentence);
 
+        var wantsSse = httpContext.Request.Headers.Accept.Any(v =>
+            v is not null && v.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase));
+
+        return wantsSse
+            ? ExplainSse(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, httpContext)
+            : await ExplainJson(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, logger, ct);
+    }
+
+    // ---- JSON path (original contract; mobile + non-streaming clients) ----
+
+    private static async Task<IResult> ExplainJson(
+        string word, string systemPrompt, string userPrompt,
+        ExplainCache cache, string cacheKey, ILlmService llm, ILogger logger, CancellationToken ct)
+    {
+        if (await cache.TryReadAsync(cacheKey, ct) is { } cachedText)
+            return Results.Ok(new ExplainResponse(cachedText, word, Cached: true));
+
         try
         {
-            var llm = llmFactory.Get("Explain");
-            var text = await llm.CompleteAsync(
-                systemPrompt,
-                userPrompt,
-                maxOutputTokens: 500,
-                ct);
+            var text = (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, MaxOutputTokens), ct)).Text;
 
             // Reasoning models can exhaust the visible budget on internal reasoning
             // and return empty. Retry once with doubled budget before giving up.
             if (string.IsNullOrWhiteSpace(text))
             {
-                logger.LogWarning("Explain got empty result at 500 tokens, retrying with 1000");
-                text = await llm.CompleteAsync(systemPrompt, userPrompt, maxOutputTokens: 1000, ct);
+                logger.LogWarning("Explain got empty result at {Max} tokens, retrying with {Retry}",
+                    MaxOutputTokens, RetryOutputTokens);
+                text = (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, RetryOutputTokens), ct)).Text;
             }
 
             if (string.IsNullOrWhiteSpace(text))
                 return Results.Problem("LLM returned empty explanation", statusCode: 502);
 
-            var resp = new ExplainResponse(text, request.Word, false);
-
-            try
-            {
-                await File.WriteAllTextAsync(
-                    cacheFile,
-                    JsonSerializer.Serialize(resp),
-                    ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Explain cache write failed");
-            }
-
-            return Results.Ok(resp);
+            await cache.WriteAsync(cacheKey, text, ct);
+            return Results.Ok(new ExplainResponse(text, word, Cached: false));
         }
         catch (TaskCanceledException)
         {
@@ -134,9 +102,170 @@ public static class ExplainEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Explain LLM call failed");
-            return Results.Problem(
-                detail: "Explain service unavailable",
-                statusCode: 503);
+            return Results.Problem(detail: "Explain service unavailable", statusCode: 503);
+        }
+    }
+
+    // ---- SSE path (AI-031a): delta* -> done | error ----
+
+    private static IResult ExplainSse(
+        string word, string systemPrompt, string userPrompt,
+        ExplainCache cache, string cacheKey, ILlmService llm, HttpContext httpContext)
+    {
+        // Cloudflare/nginx must not buffer the stream (playbook Phase 5 risk).
+        httpContext.Response.Headers["X-Accel-Buffering"] = "no";
+        httpContext.Response.Headers.CacheControl = "no-cache";
+
+        return TypedResults.ServerSentEvents(StreamEventsAsync(
+            word,
+            primary: ct => llm.StreamAsync(BuildRequest(systemPrompt, userPrompt, MaxOutputTokens), ct),
+            fallback: async ct =>
+                (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, RetryOutputTokens), ct)).Text,
+            readCache: ct => cache.TryReadAsync(cacheKey, ct),
+            persist: (text, ct) => cache.WriteAsync(cacheKey, text, ct),
+            httpContext.RequestAborted));
+    }
+
+    /// <summary>
+    /// The Explain SSE event stream: cache hit → one <c>delta</c> + <c>done(cached)</c>; miss → a
+    /// <c>delta</c> per token from <paramref name="primary"/>, then persist + <c>done</c>. An empty
+    /// stream falls back to <paramref name="fallback"/> (the empty-reasoning retry); a mid-stream
+    /// failure emits <c>error</c> as the terminal event. Pure over its delegates — unit-tested directly.
+    /// </summary>
+    public static async IAsyncEnumerable<SseItem<string>> StreamEventsAsync(
+        string word,
+        Func<CancellationToken, IAsyncEnumerable<LlmDelta>> primary,
+        Func<CancellationToken, Task<string>> fallback,
+        Func<CancellationToken, Task<string?>> readCache,
+        Func<string, CancellationToken, Task> persist,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (await readCache(ct) is { } cachedText)
+        {
+            yield return new SseItem<string>(cachedText, "delta");
+            yield return Done(word, cached: true);
+            yield break;
+        }
+
+        var text = new StringBuilder();
+        string? error = null;
+
+        // Provider resolution happens inside primary() (gateway → keyed provider ctor) and can throw
+        // on a keyless host — that must surface as an SSE error event, not a broken stream.
+        IAsyncEnumerable<LlmDelta>? stream = null;
+        try
+        {
+            stream = primary(ct);
+        }
+        catch (Exception)
+        {
+            error = "Explain service unavailable";
+        }
+
+        if (error is null)
+        {
+            await using var e = stream!.GetAsyncEnumerator(ct);
+            while (true)
+            {
+                LlmDelta delta;
+                try
+                {
+                    if (!await e.MoveNextAsync())
+                        break;
+                    delta = e.Current;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw; // client disconnected — nothing to emit
+                }
+                catch (Exception)
+                {
+                    error = "Explain service unavailable";
+                    break;
+                }
+
+                if (delta.TextDelta is { Length: > 0 } fragment)
+                {
+                    text.Append(fragment);
+                    yield return new SseItem<string>(fragment, "delta");
+                }
+            }
+        }
+
+        if (error is not null)
+        {
+            yield return new SseItem<string>(error, "error");
+            yield break;
+        }
+
+        // Empty stream (reasoning budget exhausted) → one-shot retry with a doubled budget.
+        if (text.Length == 0)
+        {
+            string? retried = null;
+            try
+            {
+                retried = await fallback(ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                error = "Explain service unavailable";
+            }
+
+            if (error is null && string.IsNullOrWhiteSpace(retried))
+                error = "LLM returned empty explanation";
+            if (error is not null)
+            {
+                yield return new SseItem<string>(error, "error");
+                yield break;
+            }
+
+            text.Append(retried);
+            yield return new SseItem<string>(retried!, "delta");
+        }
+
+        await persist(text.ToString(), ct);
+        yield return Done(word, cached: false);
+    }
+
+    private static SseItem<string> Done(string word, bool cached) =>
+        new(JsonSerializer.Serialize(new { word, cached }), "done");
+
+    // ---- shared pieces ----
+
+    private static LlmRequest BuildRequest(string systemPrompt, string userPrompt, int maxTokens) =>
+        new(systemPrompt, [new LlmMessage("user", userPrompt)], maxTokens, FeatureTag: FeatureTag);
+
+    private static async Task<string?> ResolveGenreAsync(
+        ExplainRequest request, IAppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Genre))
+            return request.Genre;
+        if (string.IsNullOrWhiteSpace(request.BookId) || !Guid.TryParse(request.BookId, out var bookId))
+            return null;
+
+        try
+        {
+            var genre = await db.Editions
+                .Where(e => e.Id == bookId)
+                .SelectMany(e => e.Genres.Select(g => g.Name))
+                .FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(genre))
+            {
+                genre = await db.UserBooks
+                    .Where(ub => ub.Id == bookId)
+                    .Select(ub => ub.Genre)
+                    .FirstOrDefaultAsync(ct);
+            }
+            return genre;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Explain genre lookup failed, using 'general' domain");
+            return null;
         }
     }
 
@@ -146,6 +275,48 @@ public static class ExplainEndpoints
         var bytes = Encoding.UTF8.GetBytes(payload);
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>The SHA256-keyed file cache (unchanged semantics: TTL days, best-effort IO).</summary>
+    private sealed class ExplainCache(IConfiguration config, ILogger logger)
+    {
+        private readonly string _path = config.GetValue<string>("Explain:CachePath") ?? "/tmp/explain-cache";
+        private readonly int _ttlDays = config.GetValue("Explain:CacheTtlDays", 30);
+
+        public async Task<string?> TryReadAsync(string key, CancellationToken ct)
+        {
+            try
+            {
+                var file = Path.Combine(_path, key + ".json");
+                if (!File.Exists(file))
+                    return null;
+                if (new FileInfo(file).LastWriteTimeUtc <= DateTime.UtcNow.AddDays(-_ttlDays))
+                    return null;
+                var cached = JsonSerializer.Deserialize<ExplainResponse>(await File.ReadAllTextAsync(file, ct));
+                return string.IsNullOrWhiteSpace(cached?.Explanation) ? null : cached.Explanation;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Explain cache read failed, falling through to LLM");
+                return null;
+            }
+        }
+
+        public async Task WriteAsync(string key, string explanation, CancellationToken ct)
+        {
+            try
+            {
+                Directory.CreateDirectory(_path);
+                var file = Path.Combine(_path, key + ".json");
+                // Word/Cached mirror what the JSON path historically persisted; readers flip Cached on hit.
+                await File.WriteAllTextAsync(
+                    file, JsonSerializer.Serialize(new ExplainResponse(explanation, "", false)), ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Explain cache write failed");
+            }
+        }
     }
 }
 
