@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 5 — tool-call golden set + eval — Phase 5 complete (2026-06-12)
+
+Phase 5 **AI-033** — the last DoD metric: tool-call accuracy ≥0.9 on a 30-example set (right tool, right args). **This closes Phase 5** (streaming + function-calling: token streams end-to-end, 4 validated tools, visible web streaming, eval gate).
+
+- **`ToolCallMetrics`** (`Ai.Tools`, pure) — `IsHit`: expected tool must be among the round-1 calls with every expected argument fragment present (case-insensitive substring — args are model-phrased); a **no-tool golden passes only when nothing was called** (over-calling is as much a failure as under-calling); extra parallel calls don't fail a case. `Accuracy` over the set. CI-tested.
+- **Golden set** `toolcalls.json` (embedded, 30 cases): 12 no-tool (plain technical words), 8 `get_chapter` ("see Chapter N"), 5 `search_book` ("as we discussed earlier"), 3 `lookup_dictionary` (precise-meaning words), 2 `get_user_highlights` (user references own notes).
+- **`ToolCallEvalRunner`** (`Ai.EvalSuite`) — per golden: the REAL Explain round-1 (production `ExplainPrompt` with tool guidance + the registry's schemas) → score the model's tool choice. Round-1 only: tools are never executed → no edition/user needed, one nano call per case. Persists `explain.toolcall` `EvalRun` (score 0–1).
+- **`POST /admin/ai-quality/evals/toolcalls/run`** — sync admin trigger (~30 nano calls), 503 when keyless; per-case expected/actual detail in the response.
+- Tests: `ToolCallMetrics` (11 — no-tool both ways, right/wrong/missing tool, extra parallel call, string + number fragments, missing arg, accuracy math); `ToolCallEvalRunner` with an oracle LLM (accuracy 1.0; every request carries the 4 schemas + tool-guidance prompt) and an over-eager dictionary-happy LLM (only dictionary goldens hit; no-tool goldens all miss); dataset shape guard (≥30, all tools represented).
+
 ### Phase 5 — fix: prod streaming failure with tools (2026-06-12)
 
 Prod verification of the Explain SSE path caught a real failure: with tools attached, the **streamed** OpenAI call died before the first token — the trace (admin /ai-quality, error always sampled) showed `Value cannot be null. (Parameter 'bytes')` from inside the SDK streaming path, while the one-shot JSON path worked. Three-part fix:
