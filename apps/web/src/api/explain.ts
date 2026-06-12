@@ -1,7 +1,7 @@
 // API_BASE is the host (dev: http://localhost:8080) or `/api` (prod, nginx
 // strips the prefix and proxies the rest to backend). Backend route is
 // `/explain` (no prefix). Don't add `/api/` here or prod gets `/api/api/...`.
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+export const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export interface ExplainRequest {
   word: string

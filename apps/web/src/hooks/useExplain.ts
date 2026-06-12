@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
-import { explain as explainApi, type ExplainRequest } from '../api/explain'
+import { explain as explainApi, API_BASE, type ExplainRequest } from '../api/explain'
+import { postSse, SseUnsupportedError } from '../lib/sse'
 import { getCachedExplain, cacheExplain } from '../lib/offlineDb'
 
 interface ExplainState {
@@ -16,6 +17,12 @@ const INITIAL: ExplainState = {
   cached: false,
 }
 
+/**
+ * Contextual word explanation, streamed (AI-032): `explanation` grows token-by-token while
+ * `isLoading` stays true until the server's `done` event. Local offline cache is checked first;
+ * environments that can't stream fall back to the JSON request. External shape is unchanged from
+ * the pre-streaming hook, so consumers render incrementally for free.
+ */
 export function useExplain() {
   const [state, setState] = useState<ExplainState>(INITIAL)
   const abortRef = useRef<AbortController | null>(null)
@@ -49,20 +56,66 @@ export function useExplain() {
       return null
     }
 
+    let text = ''
+    let cached = false
+    let serverError: string | null = null
+
     try {
-      const result = await explainApi(req, ctrl.signal)
-      setState({
-        explanation: result.explanation,
-        isLoading: false,
-        error: null,
-        cached: result.cached,
-      })
-      cacheExplain(req.word, req.sentence, req.genre, targetLang, result.explanation).catch(() => {})
-      return result.explanation
+      await postSse(
+        `${API_BASE}/explain`,
+        req,
+        e => {
+          if (ctrl.signal.aborted) return
+          if (e.event === 'delta') {
+            text += e.data
+            setState({ explanation: text, isLoading: true, error: null, cached: false })
+          } else if (e.event === 'done') {
+            try {
+              cached = Boolean((JSON.parse(e.data) as { cached?: boolean }).cached)
+            } catch {
+              // malformed done payload — text already accumulated, treat as uncached
+            }
+          } else if (e.event === 'error') {
+            serverError = e.data || 'Explain failed'
+          }
+        },
+        ctrl.signal,
+      )
+
+      if (serverError || !text) {
+        // Keep any partial text visible alongside the error.
+        setState({
+          explanation: text || null,
+          isLoading: false,
+          error: serverError ?? 'Explain failed',
+          cached: false,
+        })
+        return null
+      }
+
+      setState({ explanation: text, isLoading: false, error: null, cached })
+      cacheExplain(req.word, req.sentence, req.genre, targetLang, text).catch(() => {})
+      return text
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return null
+
+      // No streaming support (old browser / degraded env) → one-shot JSON request.
+      if (err instanceof SseUnsupportedError) {
+        try {
+          const result = await explainApi(req, ctrl.signal)
+          setState({ explanation: result.explanation, isLoading: false, error: null, cached: result.cached })
+          cacheExplain(req.word, req.sentence, req.genre, targetLang, result.explanation).catch(() => {})
+          return result.explanation
+        } catch (fallbackErr) {
+          if ((fallbackErr as { name?: string })?.name === 'AbortError') return null
+          const error = fallbackErr instanceof Error ? fallbackErr.message : 'Explain failed'
+          setState({ explanation: null, isLoading: false, error, cached: false })
+          return null
+        }
+      }
+
       const error = err instanceof Error ? err.message : 'Explain failed'
-      setState({ explanation: null, isLoading: false, error, cached: false })
+      setState({ explanation: text || null, isLoading: false, error, cached: false })
       return null
     }
   }, [])

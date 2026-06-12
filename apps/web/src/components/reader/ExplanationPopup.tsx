@@ -107,15 +107,20 @@ export function ExplanationPopup({
       </div>
 
       <div className="translation-popup__result">
-        {isLoading && (
+        {/* Streaming (AI-032): spinner only until the first token; then the text renders and grows
+            in place, with a cursor while the stream is still open. */}
+        {isLoading && !explanation && (
           <div className="translation-popup__loading">
             <span className="translation-popup__spinner" />
             {t('reader.explanationPopup.loading')}
           </div>
         )}
         {error && <div className="translation-popup__error">{error}</div>}
-        {explanation && !isLoading && !error && (
-          <div className="translation-popup__translated">{explanation}</div>
+        {explanation && !error && (
+          <div className="translation-popup__translated">
+            {explanation}
+            {isLoading && <span className="translation-popup__stream-cursor">▍</span>}
+          </div>
         )}
       </div>
     </div>

@@ -1243,6 +1243,20 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   gap: 6px;
 }
 
+/* Streaming caret while an explanation is still arriving (AI-032) */
+.translation-popup__stream-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--reader-accent, #2563eb);
+  animation: stream-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes stream-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
 
 /* Word popup (tap-to-translate) */
 @keyframes word-popup-in {
