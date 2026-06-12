@@ -164,7 +164,10 @@ public sealed class OpenAiLlmClient : ILlmService
                     pendingCalls[tc.Index] = entry = (tc.ToolCallId, entry.Name, entry.Args);
                 if (!string.IsNullOrEmpty(tc.FunctionName) && entry.Name.Length == 0)
                     pendingCalls[tc.Index] = entry = (entry.Id, tc.FunctionName, entry.Args);
-                if (tc.FunctionArgumentsUpdate is not null)
+                // Guard ToMemory().IsEmpty like the SDK's own streaming example: a fragment's
+                // arguments BinaryData can be empty/degenerate on the first (id+name) chunk, and
+                // ToString() on such instances has thrown ("Parameter 'bytes'") on prod.
+                if (tc.FunctionArgumentsUpdate is not null && !tc.FunctionArgumentsUpdate.ToMemory().IsEmpty)
                     entry.Args.Append(tc.FunctionArgumentsUpdate.ToString());
             }
             if (update.Usage is not null)

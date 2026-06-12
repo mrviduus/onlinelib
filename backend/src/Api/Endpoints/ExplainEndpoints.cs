@@ -79,7 +79,7 @@ public static class ExplainEndpoints
             v is not null && v.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase));
 
         return wantsSse
-            ? ExplainSse(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, toolSession, tools, toolCtx, httpContext)
+            ? ExplainSse(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, toolSession, tools, toolCtx, httpContext, logger)
             : await ExplainJson(request.Word, systemPrompt, userPrompt, cache, cacheKey, llm, toolSession, tools, toolCtx, logger, ct);
     }
 
@@ -153,7 +153,7 @@ public static class ExplainEndpoints
         string word, string systemPrompt, string userPrompt,
         ExplainCache cache, string cacheKey, ILlmService llm,
         ToolCallingSession toolSession, IReadOnlyList<ToolSchema> tools, ToolContext toolCtx,
-        HttpContext httpContext)
+        HttpContext httpContext, ILogger logger)
     {
         // Cloudflare/nginx must not buffer the stream (playbook Phase 5 risk).
         httpContext.Response.Headers["X-Accel-Buffering"] = "no";
@@ -172,7 +172,8 @@ public static class ExplainEndpoints
                 (await llm.CompleteAsync(BuildRequest(systemPrompt, userPrompt, RetryOutputTokens), ct)).Text,
             readCache: ct => cache.TryReadAsync(cacheKey, ct),
             persist: (text, ct) => usedTools ? Task.CompletedTask : cache.WriteAsync(cacheKey, text, ct),
-            httpContext.RequestAborted));
+            onException: ex => logger.LogError(ex, "Explain stream failed"),
+            ct: httpContext.RequestAborted));
     }
 
     /// <summary>
@@ -187,7 +188,8 @@ public static class ExplainEndpoints
         Func<CancellationToken, Task<string>> fallback,
         Func<CancellationToken, Task<string?>> readCache,
         Func<string, CancellationToken, Task> persist,
-        [EnumeratorCancellation] CancellationToken ct)
+        Action<Exception>? onException = null,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (await readCache(ct) is { } cachedText)
         {
@@ -206,8 +208,9 @@ public static class ExplainEndpoints
         {
             stream = primary(ct);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            onException?.Invoke(ex);
             error = "Explain service unavailable";
         }
 
@@ -227,8 +230,9 @@ public static class ExplainEndpoints
                 {
                     throw; // client disconnected — nothing to emit
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    onException?.Invoke(ex);
                     error = "Explain service unavailable";
                     break;
                 }
@@ -259,8 +263,9 @@ public static class ExplainEndpoints
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                onException?.Invoke(ex);
                 error = "Explain service unavailable";
             }
 

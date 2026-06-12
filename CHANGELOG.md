@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 5 — fix: prod streaming failure with tools (2026-06-12)
+
+Prod verification of the Explain SSE path caught a real failure: with tools attached, the **streamed** OpenAI call died before the first token — the trace (admin /ai-quality, error always sampled) showed `Value cannot be null. (Parameter 'bytes')` from inside the SDK streaming path, while the one-shot JSON path worked. Three-part fix:
+
+- **OpenAI SDK 2.2.0 → 2.10.0** — picks up the upstream streaming/tool-call fixes between 2.2 and 2.10 (likely root cause). Full solution + suites green on the new SDK.
+- **Defensive fragment accumulation** — guard `FunctionArgumentsUpdate.ToMemory().IsEmpty` before `ToString()` (same check the SDK's own streaming example uses): the first id+name chunk can carry an empty/degenerate arguments payload.
+- **The swallowed stream exception is now logged** — `StreamEventsAsync` gains an `onException` hook wired to `logger.LogError`, so the next mid-stream failure leaves a stack trace, not just the trace row's message (this gap is what made diagnosis indirect).
+- Verified during the same pass: SSE through Cloudflare works (correct `text/event-stream`, terminal `error` event, no aborted stream — the AI-031a hardening did its job); JSON path + cache behave on prod.
+
 ### Phase 5 — web Explain streams visibly (2026-06-12)
 
 Phase 5 **AI-032** — the web reader renders explanations token-by-token (perceived latency drops to first-token time).
