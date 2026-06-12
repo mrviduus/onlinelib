@@ -28,6 +28,7 @@ using Application.Auth;
 using Application.Search;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
+using TextStack.Ai.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,6 +82,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EvalSuiteRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
+// Tool catalogue (AI-029/030): scans Application for ITool impls; dispatch is schema-validated.
+builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")

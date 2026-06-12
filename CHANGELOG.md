@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Phase 5 — 4 starter tools + schema-validated dispatch (2026-06-11)
+
+Phase 5 **AI-030** — the first concrete tools and the validated dispatch they run through. The Explain SSE refactor (AI-031) will hand these to the model.
+
+- **`ToolDispatcher`** (`Ai.Tools`) — resolve from the registry → evaluate args against the tool's JSON Schema (**draft 2020-12 via JsonSchema.Net** — a real evaluator, not hand-rolled checks) → invoke. Unknown tool / invalid args / tool exceptions come back as failed `ToolResult`s (**errors are data** — fed back to the LLM so it can fix its args and retry, per playbook risk note). Caller-cancellation propagates untraced. `DispatchAllAsync` runs a batch concurrently (parallel tool calls, Phase 5 scope).
+- **4 starter tools** (`Application/Tools/`, stateless singletons; scoped deps via `ToolContext.Services` at invoke):
+  - `get_chapter(chapter_number)` — chapter title + text (4k char cap) of the context edition.
+  - `search_book(query)` — top-5 passages via the production **hybrid retrieval** (AI-023); spoiler-gated to the user's furthest-read chapter when progress exists (same high-water mark as RAG), ungated otherwise (Explain targets text the user is looking at).
+  - `lookup_dictionary(word, lang?)` — Free Dictionary API (same upstream as /dictionary), compacted to phonetic + top meanings; not-found is data, not an error.
+  - `get_user_highlights(query?, limit?)` — the user's own highlights+notes for the book, ILIKE-filtered, capped at 20.
+- All schemas declare `additionalProperties: false` — hallucinated args are caught before dispatch.
+- Wired: `AddAiTools(Application assembly)` in `Program` (registry + dispatcher + scanned tools). `Microsoft.Extensions.Http` added to Application (IHttpClientFactory for the dictionary tool).
+- Tests (21): dispatcher (valid → invoke; unknown tool lists available; missing-required / wrong-type / below-minimum / extra-prop all rejected pre-invoke; tool exception → failure result; batch order), every tool's schema accepts its happy path + rejects malformed & unknown props, assembly scan finds exactly the 4, `ParseEntry` compaction.
+
 ### Phase 5 — tool registry (2026-06-11)
 
 Phase 5 **AI-029** — the shared tool catalogue (ADR-AI-005) that function-calling (AI-030/031), agents (Phase 6) and MCP all dispatch through. No tools yet (those are AI-030); this is the registry + DI wiring.
