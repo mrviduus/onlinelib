@@ -40,7 +40,8 @@ public class ExplainSseTests
             fallback ?? (_ => Task.FromResult(string.Empty)),
             _ => Task.FromResult(cached),
             (text, _) => { onPersist?.Invoke(text); return Task.CompletedTask; },
-            TestContext.Current.CancellationToken))
+            onException: null,
+            ct: TestContext.Current.CancellationToken))
         {
             items.Add(item);
         }
