@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
         }
 
         services.TryAddSingleton<IToolRegistry, ToolRegistry>();
+        services.TryAddSingleton<ToolDispatcher>();
         return services;
     }
 
