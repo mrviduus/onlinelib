@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Phase 5 — lexical tool triggers in Explain prompt (AI-033 follow-up 3, 2026-06-12)
+
+Third eval iteration (0.33 → 0.50 → **0.73**). Dropping the dictionary fixed over-calling completely (no-tool 15/15), but the "RARELY needed" framing over-corrected into **under-calling**: `search_book` 1/5, `get_chapter` 5/8 — nano now answered directly even when the sentence said "as we discussed earlier" or named a chapter.
+
+- **Prompt v3**: each tool keyed to an explicit **lexical trigger in the sentence** with imperative ALWAYS — chapter number → `get_chapter`; "earlier/before/previously" without a number → `search_book`; user mentions own highlights/notes → `get_user_highlights` — plus the rule that tool choice depends only on the sentence's wording, never on the word itself, and the no-signal → no-tool default.
+- Re-run on prod after deploy: need 27/30 (≥0.9); have 22.
+
 ### Phase 5 — drop lookup_dictionary from Explain (AI-033 follow-up 2, 2026-06-12)
 
 Second eval iteration. Prompt tightening moved accuracy 0.33 → **0.50**, but per-case output showed the same single attractor: nano still reached for `lookup_dictionary` on technical words (10 of 15 misses). Rather than keep fighting the model's prior, the tool is **removed from the Explain set** (product call, not just an eval dodge: a dictionary inside an explainer is circular for the technical-reader audience — the same reasoning mobile used when it dropped the dictionary from its reader; the tool stays in the registry for agents/MCP).
