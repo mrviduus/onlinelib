@@ -57,6 +57,7 @@ public sealed class TracingDecorator(
     {
         var sw = Stopwatch.StartNew();
         var text = new StringBuilder();
+        var toolCalls = new List<ToolCall>();
         LlmUsage? usage = null;
         string? modelId = null;
         var traceId = Guid.NewGuid();
@@ -81,13 +82,14 @@ public sealed class TracingDecorator(
             {
                 sw.Stop();
                 TryPersist(
-                    BuildTrace(request, BuildStreamedResponse(text.ToString(), usage, modelId, traceId),
+                    BuildTrace(request, BuildStreamedResponse(text.ToString(), toolCalls, usage, modelId, traceId),
                         sw.ElapsedMilliseconds, error: ex.Message),
                     isError: true);
                 throw;
             }
 
             if (delta.TextDelta is not null) text.Append(delta.TextDelta);
+            if (delta.ToolCallDelta is not null) toolCalls.Add(delta.ToolCallDelta);
             if (delta.FinalUsage is not null) usage = delta.FinalUsage;
             if (delta.ModelId is not null) modelId = delta.ModelId;
             yield return delta;
@@ -95,15 +97,18 @@ public sealed class TracingDecorator(
 
         sw.Stop();
         TryPersist(
-            BuildTrace(request, BuildStreamedResponse(text.ToString(), usage, modelId, traceId),
+            BuildTrace(request, BuildStreamedResponse(text.ToString(), toolCalls, usage, modelId, traceId),
                 sw.ElapsedMilliseconds, error: null),
             isError: false);
     }
 
-    /// <summary>Assembles the accumulated stream into an <see cref="LlmResponse"/> for tracing
-    /// (usage/model default to the same "unknown"/zeros a failed one-shot call records).</summary>
-    public static LlmResponse BuildStreamedResponse(string text, LlmUsage? usage, string? modelId, Guid traceId) =>
-        new(text, [], usage ?? new LlmUsage(0, 0, 0m), modelId ?? "unknown", traceId);
+    /// <summary>Assembles the accumulated stream into an <see cref="LlmResponse"/> for tracing —
+    /// including any tool calls the model streamed, so <c>tool_calls_json</c> is populated for
+    /// streamed function-calling rounds exactly like one-shot ones (AI-031b). Usage/model default
+    /// to the same "unknown"/zeros a failed one-shot call records.</summary>
+    public static LlmResponse BuildStreamedResponse(
+        string text, IReadOnlyList<ToolCall> toolCalls, LlmUsage? usage, string? modelId, Guid traceId) =>
+        new(text, toolCalls, usage ?? new LlmUsage(0, 0, 0m), modelId ?? "unknown", traceId);
 
     private void TryPersist(LlmTrace trace, bool isError)
     {

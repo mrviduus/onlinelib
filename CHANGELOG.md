@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Phase 5 — fix: per-tool DI scope + streamed tool calls traced (AI-031b follow-up, 2026-06-12)
+
+Audit follow-up to AI-031b — one real bug, one observability gap.
+
+- **Bug (P1): parallel dispatch shared one scoped DbContext.** `DispatchAllAsync` runs tools concurrently, but every tool resolved its scoped services (EF `DbContext`) from the same request scope — `get_chapter` + `get_user_highlights` in one tool round would throw EF's "second operation on this context". The dispatcher now creates a **fresh DI scope per invocation** (`ctx with { Services = scope.ServiceProvider }`). Test: two parallel calls observe different scoped instances.
+- **Observability: streamed tool calls now land in `llm_traces.tool_calls_json`.** `TracingDecorator.StreamAsync` accumulates `ToolCallDelta`s into the trace (one-shot calls already had this), so a streamed function-calling round is inspectable on /ai-quality. Test: streamed tool call appears in the persisted trace JSON.
+- Known limitation (documented, not fixed): a model that emits both round-1 text AND tool calls produces concatenated round1+round2 output for the client. Rare for nano; the shared cache is unaffected (tool-grounded answers aren't written).
+
 ### Phase 5 — function-calling: Explain can use tools (2026-06-12)
 
 Phase 5 **AI-031, slice b** — the model can now call the AI-030 tools. Explain grounds its answers in the book (chapter fetch, in-book search, the user's highlights, dictionary) via one validated tool round.

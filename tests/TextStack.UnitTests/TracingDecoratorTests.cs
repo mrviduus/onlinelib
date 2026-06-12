@@ -130,7 +130,8 @@ public class TracingDecoratorTests
     public void BuildStreamedResponse_AssemblesAccumulatedStream()
     {
         var id = Guid.NewGuid();
-        var resp = TracingDecorator.BuildStreamedResponse("Hello world", new LlmUsage(7, 3, 0.002m), "gpt-4.1-nano", id);
+        var resp = TracingDecorator.BuildStreamedResponse(
+            "Hello world", [], new LlmUsage(7, 3, 0.002m), "gpt-4.1-nano", id);
 
         Assert.Equal("Hello world", resp.Text);
         Assert.Equal(7, resp.Usage.InputTokens);
@@ -142,7 +143,7 @@ public class TracingDecoratorTests
     [Fact]
     public void BuildStreamedResponse_NullUsageAndModel_DefaultsLikeFailedCall()
     {
-        var resp = TracingDecorator.BuildStreamedResponse("", usage: null, modelId: null, Guid.NewGuid());
+        var resp = TracingDecorator.BuildStreamedResponse("", [], usage: null, modelId: null, Guid.NewGuid());
         Assert.Equal("unknown", resp.ModelId);
         Assert.Equal(0, resp.Usage.OutputTokens);
         Assert.Equal(0m, resp.Usage.CostUsd);
@@ -190,6 +191,25 @@ public class TracingDecoratorTests
         Assert.Equal(2, trace.TokensOut);
         Assert.Equal(0.001m, trace.CostUsd);
         Assert.Null(trace.Error);
+    }
+
+    [Fact]
+    public async Task StreamAsync_ToolCallDeltas_LandInTraceToolCallsJson()
+    {
+        var deltas = new[]
+        {
+            new LlmDelta(ToolCallDelta: new ToolCall(
+                "call-1", "search_book", System.Text.Json.JsonDocument.Parse("""{"query":"lsm"}""").RootElement)),
+            new LlmDelta(FinalUsage: new LlmUsage(5, 2, 0.001m), ModelId: "gpt-4.1-nano"),
+        };
+        var writer = new CapturingWriter();
+        var decorator = Decorator(new StreamingStub(deltas), writer);
+
+        await foreach (var _ in decorator.StreamAsync(Req(), TestContext.Current.CancellationToken)) { }
+
+        var trace = await writer.Captured.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.NotNull(trace.ToolCallsJson);
+        Assert.Contains("search_book", trace.ToolCallsJson);
     }
 
     // ---- cancellation is not an error (SSE disconnects must not pollute the error rate) ----
