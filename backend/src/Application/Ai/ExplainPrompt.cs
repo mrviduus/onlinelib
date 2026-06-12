@@ -19,14 +19,21 @@ public static class ExplainPrompt
             "one concrete analogy. No preface, no quotes around the answer, no markdown.";
 
         // Phase 5 function-calling (AI-031b): appended only when the request actually carries tools.
+        // Tightened after the AI-033 eval: the original "precise dictionary meaning" guidance made
+        // gpt-4.1-nano call lookup_dictionary on EVERY word (accuracy 0.33). Tools are now framed as
+        // the exception with an explicit default-to-no-tools rule.
         if (withTools)
         {
             prompt +=
-                "\n\nYou have access to tools. Use them when:\n" +
-                "- The sentence references \"see chapter X\" or \"earlier we discussed\" -> call get_chapter or search_book\n" +
-                "- The word may be defined elsewhere in the user's saved highlights -> call get_user_highlights\n" +
-                "- The word has a precise dictionary meaning relevant to the explanation -> call lookup_dictionary\n" +
-                "Most words need NO tools - answer directly. " +
+                "\n\nYou have access to tools, but they are RARELY needed. " +
+                "Default: answer directly from the sentence with NO tool call. " +
+                "Technical terms (e.g. replication, cache, latency) never need a tool - explain them from context.\n" +
+                "Call a tool ONLY in these specific situations:\n" +
+                "- The sentence explicitly references a numbered chapter (\"see Chapter 5\", \"Chapter 9 examines\") -> get_chapter with that number\n" +
+                "- The sentence explicitly says the topic was discussed earlier/before in the book, without a chapter number -> search_book\n" +
+                "- The user explicitly mentions their own saved highlights or notes -> get_user_highlights\n" +
+                "- The word is rare, archaic or non-technical (e.g. ephemeral, byzantine) and its general meaning is genuinely unclear -> lookup_dictionary\n" +
+                "If none of these apply, do NOT call any tool. " +
                 "After using tools, give the same 2-3 sentence explanation, citing tool results when used.";
         }
 

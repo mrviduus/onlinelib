@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Phase 5 — prompt tuning: stop over-eager tool calls (AI-033 follow-up, 2026-06-12)
+
+First prod run of the AI-033 tool-call eval scored **0.33** (10/30): gpt-4.1-nano called `lookup_dictionary` on **every** word — all 12 no-tool goldens failed, and half the chapter goldens were swallowed by the dictionary too. The original playbook guidance ("the word has a precise dictionary meaning relevant to the explanation") reads as "always" to nano.
+
+- **`ExplainPrompt` tool-guidance rewritten**: tools framed as the exception ("RARELY needed"), an explicit default ("answer directly with NO tool call"), technical terms named as never needing a tool, each tool gated on an *explicit* textual trigger (numbered chapter / "discussed earlier" / user mentions own highlights / rare-archaic word), and a closing "if none apply, do NOT call any tool".
+- The eval gate did exactly its job: deterministic per-case output made the failure mode obvious in one read. Re-run on prod after deploy targets ≥0.9.
+
 ### Phase 5 — tool-call golden set + eval — Phase 5 complete (2026-06-12)
 
 Phase 5 **AI-033** — the last DoD metric: tool-call accuracy ≥0.9 on a 30-example set (right tool, right args). **This closes Phase 5** (streaming + function-calling: token streams end-to-end, 4 validated tools, visible web streaming, eval gate).
