@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
+using TextStack.Ai.Tools;
 
 namespace Api.Endpoints;
 
@@ -26,6 +27,43 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/evals", GetEvals);
         group.MapPost("/evals/run", RunEvals);
         group.MapGet("/evals/status", GetEvalStatus);
+        group.MapPost("/evals/toolcalls/run", RunToolCallEval);
+    }
+
+    // Phase 5 DoD gate (AI-033): deterministic tool-call accuracy over the embedded golden set.
+    // Round-1 only (tools are never executed) → no edition/user needed; ~30 nano calls, run sync.
+    private static async Task<IResult> RunToolCallEval(
+        IServiceProvider services,
+        ToolCallEvalRunner runner,
+        IToolRegistry registry,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        ILlmService llm;
+        try
+        {
+            llm = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("LLM gateway is not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+        var result = await runner.RunAsync(llm, registry, persist: true, db, gitSha, ct);
+
+        return Results.Ok(new
+        {
+            accuracy = Math.Round(result.Accuracy, 4),
+            n = result.N,
+            cases = result.Cases.Select(c => new
+            {
+                c.Word,
+                expected = c.ExpectedTool ?? "(no tool)",
+                actual = c.ActualTools,
+                c.Hit,
+            }),
+        });
     }
 
     // In-app eval runner state (one run at a time). Triggered from the admin Evals tab.
