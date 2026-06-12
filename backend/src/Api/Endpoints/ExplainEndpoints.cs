@@ -90,14 +90,16 @@ public static class ExplainEndpoints
         if (!config.GetValue("Explain:ToolsEnabled", true))
             return [];
 
-        var names = new List<string> { "lookup_dictionary" };
-        if (editionId is not null)
-        {
-            names.Add("get_chapter");
-            names.Add("search_book");
-            if (userId is not null)
-                names.Add("get_user_highlights");
-        }
+        // No lookup_dictionary here (AI-033): the eval showed nano reaching for it on every word
+        // (0.33 → 0.50 even after prompt tightening), and a dictionary inside an explainer is
+        // circular for the technical-reader audience — same call mobile made when it dropped the
+        // dictionary from its reader. The tool stays in the registry for agents/MCP.
+        if (editionId is null)
+            return []; // no book in context → nothing tool-worthy; plain streaming explain
+
+        var names = new List<string> { "get_chapter", "search_book" };
+        if (userId is not null)
+            names.Add("get_user_highlights");
         return registry.SchemasFor(names);
     }
 

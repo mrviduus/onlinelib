@@ -27,9 +27,9 @@
   { "word": "leader election", "sentence": "Leader election, covered earlier in this book, decides which replica accepts writes.", "expectedTool": "search_book", "expectedArgFragments": { "query": "leader election" } },
   { "word": "skew", "sentence": "We touched on skew earlier — some partitions receive far more load than others.", "expectedTool": "search_book", "expectedArgFragments": { "query": "skew" } },
 
-  { "word": "ephemeral", "sentence": "ZooKeeper stores membership in ephemeral nodes that vanish when a session ends.", "expectedTool": "lookup_dictionary", "expectedArgFragments": { "word": "ephemeral" } },
-  { "word": "monotonic", "sentence": "A monotonic clock always moves forward, unlike a time-of-day clock.", "expectedTool": "lookup_dictionary", "expectedArgFragments": { "word": "monotonic" } },
-  { "word": "byzantine", "sentence": "A byzantine fault means a node may behave arbitrarily, even maliciously.", "expectedTool": "lookup_dictionary", "expectedArgFragments": { "word": "byzantine" } },
+  { "word": "ephemeral", "sentence": "ZooKeeper stores membership in ephemeral nodes that vanish when a session ends.", "expectedTool": null },
+  { "word": "monotonic", "sentence": "A monotonic clock always moves forward, unlike a time-of-day clock.", "expectedTool": null },
+  { "word": "byzantine", "sentence": "A byzantine fault means a node may behave arbitrarily, even maliciously.", "expectedTool": null },
 
   { "word": "vector clock", "sentence": "I highlighted the definition of vector clock somewhere in my notes earlier in this book.", "expectedTool": "get_user_highlights" },
   { "word": "gossip protocol", "sentence": "Check my saved highlights — I marked an explanation of the gossip protocol a few chapters back.", "expectedTool": "get_user_highlights" }

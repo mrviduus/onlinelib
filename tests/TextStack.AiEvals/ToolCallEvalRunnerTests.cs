@@ -29,8 +29,7 @@ public class ToolCallEvalRunnerTests
 
     private static IToolRegistry Registry() => new ToolRegistry(
     [
-        new SchemaTool("lookup_dictionary"), new SchemaTool("get_chapter"),
-        new SchemaTool("search_book"), new SchemaTool("get_user_highlights"),
+        new SchemaTool("get_chapter"), new SchemaTool("search_book"), new SchemaTool("get_user_highlights"),
     ]);
 
     /// <summary>Answers each golden EXACTLY as expected (right tool + expected fragments, or no tool).</summary>
@@ -93,7 +92,7 @@ public class ToolCallEvalRunnerTests
         Assert.All(llm.Requests, r =>
         {
             Assert.NotNull(r.Tools);
-            Assert.Equal(4, r.Tools!.Count);
+            Assert.Equal(3, r.Tools!.Count);
             Assert.Contains("You have access to tools", r.SystemPrompt);
         });
     }
@@ -119,7 +118,6 @@ public class ToolCallEvalRunnerTests
         Assert.Contains(Goldens, g => g.ExpectedTool is null);                    // no-tool cases present
         Assert.Contains(Goldens, g => g.ExpectedTool == "get_chapter");
         Assert.Contains(Goldens, g => g.ExpectedTool == "search_book");
-        Assert.Contains(Goldens, g => g.ExpectedTool == "lookup_dictionary");
         Assert.Contains(Goldens, g => g.ExpectedTool == "get_user_highlights");
         Assert.All(Goldens, g => Assert.False(string.IsNullOrWhiteSpace(g.Sentence)));
     }

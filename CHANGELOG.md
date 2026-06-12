@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 5 — drop lookup_dictionary from Explain (AI-033 follow-up 2, 2026-06-12)
+
+Second eval iteration. Prompt tightening moved accuracy 0.33 → **0.50**, but per-case output showed the same single attractor: nano still reached for `lookup_dictionary` on technical words (10 of 15 misses). Rather than keep fighting the model's prior, the tool is **removed from the Explain set** (product call, not just an eval dodge: a dictionary inside an explainer is circular for the technical-reader audience — the same reasoning mobile used when it dropped the dictionary from its reader; the tool stays in the registry for agents/MCP).
+
+- `ExplainEndpoints.ResolveTools`: book in context → `get_chapter`/`search_book` (+`get_user_highlights` signed-in); **no book → no tools at all** (plain streaming explain).
+- `ExplainPrompt`: dictionary bullet removed; "words never need a tool by themselves" added.
+- Eval updated: runner offers the 3 Explain tools; the 3 dictionary goldens re-labelled no-tool (now 15 no-tool / 8 chapter / 5 search / 2 highlights).
+- Re-run on prod after deploy targets ≥0.9.
+
 ### Phase 5 — prompt tuning: stop over-eager tool calls (AI-033 follow-up, 2026-06-12)
 
 First prod run of the AI-033 tool-call eval scored **0.33** (10/30): gpt-4.1-nano called `lookup_dictionary` on **every** word — all 12 no-tool goldens failed, and half the chapter goldens were swallowed by the dictionary too. The original playbook guidance ("the word has a precise dictionary meaning relevant to the explanation") reads as "always" to nano.
