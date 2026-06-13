@@ -163,6 +163,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextStack.Ai.Rag", "backend
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextStack.Ai.Tools", "backend\src\Ai\TextStack.Ai.Tools\TextStack.Ai.Tools.csproj", "{1AF63AF3-8BF0-462A-869D-5B898B03D976}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextStack.Ai.Agents", "backend\src\Ai\TextStack.Ai.Agents\TextStack.Ai.Agents.csproj", "{AE675856-0D0A-4672-A820-8FEEE39AB55F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -437,6 +439,18 @@ Global
 		{1AF63AF3-8BF0-462A-869D-5B898B03D976}.Release|x64.Build.0 = Release|Any CPU
 		{1AF63AF3-8BF0-462A-869D-5B898B03D976}.Release|x86.ActiveCfg = Release|Any CPU
 		{1AF63AF3-8BF0-462A-869D-5B898B03D976}.Release|x86.Build.0 = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|x64.Build.0 = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Debug|x86.Build.0 = Debug|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|x64.ActiveCfg = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|x64.Build.0 = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|x86.ActiveCfg = Release|Any CPU
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -478,5 +492,6 @@ Global
 		{FBBD7C9B-97DA-46EB-BDB8-54ED5C0A0B92} = {1D9F3A7C-AABB-CCDD-EEFF-A10001000001}
 		{2EA08B22-EAB6-48E8-B201-CDF5E7D245BE} = {1D9F3A7C-AABB-CCDD-EEFF-A10001000001}
 		{1AF63AF3-8BF0-462A-869D-5B898B03D976} = {1D9F3A7C-AABB-CCDD-EEFF-A10001000001}
+		{AE675856-0D0A-4672-A820-8FEEE39AB55F} = {1D9F3A7C-AABB-CCDD-EEFF-A10001000001}
 	EndGlobalSection
 EndGlobal
