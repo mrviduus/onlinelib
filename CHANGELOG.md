@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 6 — agent loop engine (2026-06-13)
+
+Phase 6 **AI-034** — the hand-rolled plan→act→observe loop every agent runs on. Engine only; the concrete Study Buddy agent + its tools are AI-035.
+
+- **New project `TextStack.Ai.Agents`** + **`AgentLoop`**: each iteration asks the model with the agent's allowed tool schemas; no tool call → that's the final answer; otherwise dispatch the requested tools (via the Phase 5 `ToolDispatcher` — validated, parallel, failures returned as data so the agent recovers instead of throwing) and feed results back. The assistant tool-call turn is threaded before the tool results (OpenAI ordering). Every turn is recorded as an `AgentStep` for a transparent, persistable transcript; `AgentResult` carries the output + steps + accumulated `AgentUsage`.
+- **Bounded two ways**: a hard `MaxSteps` cap and an optional cumulative `CostCapUsd` — exhausting either throws `AgentBudgetExhaustedException` (can't loop forever / burn budget). `AgentLoopOptions` passed per-run, so one engine serves agents with different caps.
+- Reuses the `Ai.Core` agent contracts that shipped in Phase 2 (`AgentStep`/`AgentResult`/`AgentContext`/`AgentUsage`/`AgentInput`/`AgentLoopOptions`). Registered via `AddAiAgents()` (singleton; per-run state on the stack, scoped tool services via `AgentContext.Services`).
+- Tests (6, scripted LLM): direct answer (1 iteration); tool round → answer (message threading + step kinds `llm_response`/`tool_result`/`llm_response`); usage accumulates across iterations; MaxSteps without a final answer throws; cost cap trips mid-run; unknown tool fed back as data and the loop recovers.
+
 ### Phase 5 — deterministic tool pre-router (AI-033 follow-up 4, 2026-06-12)
 
 Eval history: 0.33 → 0.50 → 0.73 → **0.53**. The v3 ALWAYS-trigger prompt made the trigger goldens near-perfect (chapter 8/8, search 4/5, highlights 2/2) but re-infected the no-tool side (2/15) — nano demonstrably can't hold both directions of the decision in-prompt; every iteration sacrificed one side.
