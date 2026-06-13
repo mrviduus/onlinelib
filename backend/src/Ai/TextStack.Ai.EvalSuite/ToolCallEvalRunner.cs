@@ -26,11 +26,6 @@ public sealed class ToolCallEvalRunner(ILogger<ToolCallEvalRunner> logger)
     private const string Feature = "explain.toolcall";
     private const int MaxOutputTokens = 500; // matches the Explain endpoint's round-1 budget
 
-    /// <summary>The Explain tools, as a signed-in reader with a book in context gets them
-    /// (lookup_dictionary was dropped from Explain after the first eval run — see AI-033).</summary>
-    private static readonly string[] ExplainToolNames =
-        ["get_chapter", "search_book", "get_user_highlights"];
-
     public async Task<ToolCallEvalResult> RunAsync(
         ILlmService llm,
         IToolRegistry registry,
@@ -40,14 +35,21 @@ public sealed class ToolCallEvalRunner(ILogger<ToolCallEvalRunner> logger)
         CancellationToken ct)
     {
         var goldens = ToolCallGoldenSet.Load();
-        var tools = registry.SchemasFor(ExplainToolNames);
-        var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre: null, targetLang: "en", withTools: true);
 
         var cases = new List<ToolCallCase>();
         string? modelId = null;
         foreach (var g in goldens)
         {
             ct.ThrowIfCancellationRequested();
+
+            // Mirror production exactly (the gate measures the PIPELINE, not the bare model): the
+            // deterministic pre-router decides which tools — if any — ride along for this sentence;
+            // a no-signal sentence carries no schemas, so the model cannot over-call (AI-033).
+            var names = ExplainToolTriggers.TriggeredTools(g.Sentence, hasUser: true);
+            var tools = names.Count == 0 ? null : registry.SchemasFor(names);
+            var systemPrompt = ExplainPrompt.BuildSystemPrompt(
+                genre: null, targetLang: "en", withTools: tools is { Count: > 0 });
+
             var request = new LlmRequest(
                 systemPrompt,
                 [new LlmMessage("user", ExplainPrompt.BuildUserPrompt(g.Word, g.Sentence))],

@@ -69,7 +69,7 @@ public static class ExplainEndpoints
         Guid? editionId = !string.IsNullOrWhiteSpace(request.BookId) && Guid.TryParse(request.BookId, out var parsed)
             ? parsed
             : null;
-        var tools = ResolveTools(toolRegistry, config, editionId, userId);
+        var tools = ResolveTools(toolRegistry, config, request.Sentence, editionId, userId);
         var toolCtx = new ToolContext(userId, editionId, AgentRunId: Guid.NewGuid(), httpContext.RequestServices);
 
         var systemPrompt = ExplainPrompt.BuildSystemPrompt(genre, targetLang, withTools: tools.Count > 0);
@@ -85,22 +85,21 @@ public static class ExplainEndpoints
 
     /// <summary>The tool schemas this request is allowed to call (empty = plain completion).</summary>
     private static IReadOnlyList<ToolSchema> ResolveTools(
-        IToolRegistry registry, IConfiguration config, Guid? editionId, Guid? userId)
+        IToolRegistry registry, IConfiguration config, string sentence, Guid? editionId, Guid? userId)
     {
         if (!config.GetValue("Explain:ToolsEnabled", true))
             return [];
 
-        // No lookup_dictionary here (AI-033): the eval showed nano reaching for it on every word
-        // (0.33 → 0.50 even after prompt tightening), and a dictionary inside an explainer is
-        // circular for the technical-reader audience — same call mobile made when it dropped the
-        // dictionary from its reader. The tool stays in the registry for agents/MCP.
+        // Deterministic pre-routing (AI-033): tools are offered ONLY when the sentence's wording
+        // contains a matching lexical signal (chapter number / "discussed earlier" / "my highlights").
+        // The eval showed nano can't hold both sides of this decision in-prompt — code decides IF,
+        // the prompt steers WHICH. No book in context → no book to fetch from → no tools at all.
+        // (lookup_dictionary was dropped from Explain entirely; it stays in the registry for agents/MCP.)
         if (editionId is null)
-            return []; // no book in context → nothing tool-worthy; plain streaming explain
+            return [];
 
-        var names = new List<string> { "get_chapter", "search_book" };
-        if (userId is not null)
-            names.Add("get_user_highlights");
-        return registry.SchemasFor(names);
+        var names = ExplainToolTriggers.TriggeredTools(sentence, hasUser: userId is not null);
+        return names.Count == 0 ? [] : registry.SchemasFor(names);
     }
 
     // ---- JSON path (original contract; mobile + non-streaming clients) ----

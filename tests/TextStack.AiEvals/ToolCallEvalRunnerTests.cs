@@ -88,12 +88,23 @@ public class ToolCallEvalRunnerTests
         Assert.Equal(1.0, result.Accuracy, 12);
         Assert.All(result.Cases, c => Assert.True(c.Hit));
 
-        // Every request carried the production tool schemas + the tool-guidance prompt.
+        // Pre-router semantics (mirrors production): no-signal sentences carry NO schemas and a
+        // plain prompt; triggered sentences carry their expected tool + the tool-guidance prompt.
+        var byWord = Goldens.ToDictionary(g => g.Word);
         Assert.All(llm.Requests, r =>
         {
-            Assert.NotNull(r.Tools);
-            Assert.Equal(3, r.Tools!.Count);
-            Assert.Contains("You have access to tools", r.SystemPrompt);
+            var word = r.Messages[0].Content.Split('\n')[0]["Word: ".Length..];
+            if (byWord[word].ExpectedTool is null)
+            {
+                Assert.Null(r.Tools);
+                Assert.DoesNotContain("You have access to tools", r.SystemPrompt);
+            }
+            else
+            {
+                Assert.NotNull(r.Tools);
+                Assert.Contains(r.Tools!, t => t.Name == byWord[word].ExpectedTool);
+                Assert.Contains("You have access to tools", r.SystemPrompt);
+            }
         });
     }
 

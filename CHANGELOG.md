@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 5 — deterministic tool pre-router (AI-033 follow-up 4, 2026-06-12)
+
+Eval history: 0.33 → 0.50 → 0.73 → **0.53**. The v3 ALWAYS-trigger prompt made the trigger goldens near-perfect (chapter 8/8, search 4/5, highlights 2/2) but re-infected the no-tool side (2/15) — nano demonstrably can't hold both directions of the decision in-prompt; every iteration sacrificed one side.
+
+- **The IF moves into code** (`ExplainToolTriggers`, Application/Ai, pure): compiled regexes detect the lexical signals — chapter number / "discussed-mentioned-covered … earlier-before-previously" / "my highlights-notes". **No signal → the request carries no tool schemas at all** (the model physically cannot over-call; the common case also skips the tool-guidance prompt and stays a plain streamed explain). Signal → only the matching tool(s) ride along, and the v3 prompt steers the now near-trivial choice.
+- `ExplainEndpoints.ResolveTools` and `ToolCallEvalRunner` both route through the same triggers — the eval gate measures the production **pipeline**, not the bare model.
+- **CI now guarantees the deterministic half of the gate**: `ExplainToolTriggersTests` runs the pre-router over the ENTIRE golden set — every no-tool golden triggers nothing (15/15 floor by construction), every tool golden triggers its expected tool; highlights requires a signed-in user; near-miss sentences ("a long chapter", "earlier adopters") trigger nothing.
+- Re-run on prod after deploy: expected ≥0.9 (model only decides the remaining offered-tool → right-args step, which it did at 14/15 in run 4).
+
 ### Phase 5 — lexical tool triggers in Explain prompt (AI-033 follow-up 3, 2026-06-12)
 
 Third eval iteration (0.33 → 0.50 → **0.73**). Dropping the dictionary fixed over-calling completely (no-tool 15/15), but the "RARELY needed" framing over-corrected into **under-calling**: `search_book` 1/5, `get_chapter` 5/8 — nano now answered directly even when the sentence said "as we discussed earlier" or named a chapter.
