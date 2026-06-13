@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Phase 6 — Study Buddy agent + 3 tools (2026-06-13)
+
+Phase 6 **AI-035** — the concrete agent on top of the AI-034 loop, plus the three tools it needs. The reader endpoint + SSE step events are AI-037; persistence is AI-036.
+
+- **`StudyBuddyAgent`** (`Application/Agents`, implements `IAgent<StudyBuddyInput, string>`) — a thin layer over `AgentLoop`: owns only the system prompt, the allowed tool set (the new trio + `get_chapter`/`get_chapter_summary`/`search_book`/`get_user_highlights`), and the run budget (≤6 steps, per-step token cap, **$0.05 cost cap**). Goal is built from the highlighted passage + chapter. System prompt: investigate with tools, write a grounded 3–5 sentence explanation, never invent facts.
+- **3 new tools** (`Application/Tools/`, stateless singletons, scoped deps via `ToolContext`):
+  - `find_earlier_definition(term)` — where a concept was first introduced earlier in the book (lowest-numbered chapter that matches, via the AI-023 hybrid retrieval; spoiler-gated to the reader's progress).
+  - `get_chapter_summary(chapter_number)` — a cheap deterministic orientation (title + word count + opening 800 chars), so the agent can scope a chapter without pulling it in full.
+  - `get_user_vocabulary(query?, limit?)` — the user's own saved words (+definition/translation) for the book, so explanations connect to terms they're already learning.
+- Tests: `StudyBuddyAgent` wiring over the real loop + fake LLM (prompt/feature-tag/goal threading, chapter in/out of goal); the three tools' schema validity (happy path / malformed / unknown-prop) and that the assembly scan now finds exactly the 7 Application tools. DB/RAG behaviour exercises in AI-037 + e2e.
+
 ### Phase 6 — agent loop engine (2026-06-13)
 
 Phase 6 **AI-034** — the hand-rolled plan→act→observe loop every agent runs on. Engine only; the concrete Study Buddy agent + its tools are AI-035.

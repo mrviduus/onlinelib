@@ -87,6 +87,7 @@ builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 // Agent loop engine (Phase 6, AI-034). Concrete agents (StudyBuddy, AI-035) build on it.
 TextStack.Ai.Agents.ServiceCollectionExtensions.AddAiAgents(builder.Services);
+builder.Services.AddScoped<Application.Agents.StudyBuddyAgent>();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
