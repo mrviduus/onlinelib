@@ -58,6 +58,26 @@ public class StudyBuddyAgentTests
     }
 
     [Fact]
+    public async Task Stream_FeedsSameConfig_EmitsStepThenDone()
+    {
+        var llm = new FixedLlm("Streamed explanation.");
+        var agent = new StudyBuddyAgent(Loop(llm));
+
+        var events = new List<AgentEvent>();
+        await foreach (var e in agent.StreamAsync(
+            new StudyBuddyInput("A confusing passage.", Guid.NewGuid(), ChapterNumber: 2),
+            Ctx(), TestContext.Current.CancellationToken))
+        {
+            events.Add(e);
+        }
+
+        var done = Assert.Single(events.Where(e => e.Result is not null));
+        Assert.Equal("Streamed explanation.", done.Result!.Output);
+        Assert.Equal(StudyBuddyAgent.SystemPrompt, llm.Requests[0].SystemPrompt);
+        Assert.Contains("Chapter 2", llm.Requests[0].Messages[0].Content);
+    }
+
+    [Fact]
     public async Task Run_NoChapter_GoalOmitsChapter()
     {
         var llm = new FixedLlm("Explanation.");

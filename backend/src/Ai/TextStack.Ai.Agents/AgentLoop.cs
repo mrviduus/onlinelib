@@ -1,9 +1,20 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using TextStack.Ai.Core;
 using TextStack.Ai.Tools;
 
 namespace TextStack.Ai.Agents;
+
+/// <summary>
+/// One event from a streamed agent run (AI-037a): either a recorded <see cref="Step"/> as it happens,
+/// or the terminal <see cref="Result"/>. Exactly one is non-null.
+/// </summary>
+public sealed record AgentEvent(AgentStep? Step, AgentResult<string>? Result)
+{
+    public static AgentEvent OfStep(AgentStep step) => new(step, null);
+    public static AgentEvent Done(AgentResult<string> result) => new(null, result);
+}
 
 /// <summary>
 /// The hand-rolled plan → act → observe loop (Phase 6, AI-034) every concrete agent runs on. Each
@@ -18,8 +29,32 @@ namespace TextStack.Ai.Agents;
 /// </summary>
 public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatcher dispatcher)
 {
+    /// <summary>
+    /// Runs the loop to completion and returns the final result. Built on <see cref="StreamAsync"/> —
+    /// for non-streaming callers (e.g. the eval, AI-039). Budget exhaustion still throws
+    /// <see cref="AgentBudgetExhaustedException"/> (with its transcript).
+    /// </summary>
     public async Task<AgentResult<string>> RunAsync(
         AgentInput input, AgentContext ctx, AgentLoopOptions options, CancellationToken ct)
+    {
+        await foreach (var e in StreamAsync(input, ctx, options, ct))
+        {
+            if (e.Result is { } result)
+                return result;
+        }
+        // Unreachable: the loop either yields a Done event or throws on budget exhaustion.
+        throw new InvalidOperationException("Agent stream ended without a result.");
+    }
+
+    /// <summary>
+    /// Streams the run step-by-step (AI-037a): an <see cref="AgentEvent"/> per recorded step as it
+    /// happens, then a terminal Done event carrying the final <see cref="AgentResult{T}"/>. The
+    /// endpoint (AI-037b) maps these to SSE so the reader sees the agent's progress. Budget exhaustion
+    /// throws after the partial steps have already streamed.
+    /// </summary>
+    public async IAsyncEnumerable<AgentEvent> StreamAsync(
+        AgentInput input, AgentContext ctx, AgentLoopOptions options,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
         var steps = new List<AgentStep>();
@@ -42,15 +77,19 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
             inputTokens += response.Usage.InputTokens;
             outputTokens += response.Usage.OutputTokens;
             cost += response.Usage.CostUsd;
-            steps.Add(Step(iteration, "llm_response", SerializeResponse(response)));
+
+            var llmStep = Step(iteration, "llm_response", SerializeResponse(response));
+            steps.Add(llmStep);
+            yield return AgentEvent.OfStep(llmStep);
 
             // No tool calls → the model has produced its final answer.
             if (response.ToolCalls.Count == 0)
             {
                 sw.Stop();
-                return new AgentResult<string>(
+                yield return AgentEvent.Done(new AgentResult<string>(
                     response.Text, steps,
-                    new AgentUsage(iteration + 1, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds));
+                    new AgentUsage(iteration + 1, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds)));
+                yield break;
             }
 
             // The assistant's tool-call turn must precede the tool results (OpenAI message ordering).
@@ -61,7 +100,9 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
             {
                 var call = response.ToolCalls[j];
                 var result = results[j];
-                steps.Add(Step(iteration, "tool_result", SerializeResult(call, result)));
+                var toolStep = Step(iteration, "tool_result", SerializeResult(call, result));
+                steps.Add(toolStep);
+                yield return AgentEvent.OfStep(toolStep);
                 // Errors come back as data (ToolCallingSession serialization) so the model can recover.
                 messages.Add(new LlmMessage("tool", ToolCallingSession.SerializeResult(result), [call]));
             }

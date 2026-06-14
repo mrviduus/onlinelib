@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 6 — streaming agent loop (2026-06-14)
+
+Phase 6 **AI-037, slice a** — the loop streams its steps so the reader can watch the agent work. The SSE endpoint + run persistence + `GET` are slice b.
+
+- **`AgentLoop.StreamAsync`** — yields an `AgentEvent` per step as it happens (`llm_response` / `tool_result`), then a terminal Done event carrying the final `AgentResult`. `RunAsync` is now built on top of it (collects to the Done result), so non-streaming callers (the AI-039 eval) are unchanged — behaviour identical, budget exhaustion still throws with its transcript after the partial steps have streamed.
+- **`AgentEvent`** (`Ai.Agents`) — a step-or-result union (`OfStep`/`Done`).
+- **`StudyBuddyAgent.StreamAsync`** — same prompt/tools/budget as `RunAsync`, streamed; both share one `BuildAgentInput`.
+- Tests: `AgentLoop.StreamAsync` (step events in order → terminal Done; budget exhaustion streams partial steps then throws, no Done); `StudyBuddyAgent.StreamAsync` (config threading → step + Done). Full suite green (270).
+
 ### Phase 6 — agent run persistence (2026-06-14)
 
 Phase 6 **AI-036** — agent runs are saved so the reader UI can replay an agent's steps (AI-038) and runs are observable. Persistence mechanics only; the endpoint that calls it is AI-037.

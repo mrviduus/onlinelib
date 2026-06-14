@@ -31,16 +31,15 @@ public sealed class StudyBuddyAgent(AgentLoop loop) : IAgent<StudyBuddyInput, st
         "get_user_highlights",
     ];
 
-    public Task<AgentResult<string>> RunAsync(StudyBuddyInput input, AgentContext ctx, CancellationToken ct)
-    {
-        var agentInput = new AgentInput(
-            UserGoal: BuildGoal(input),
-            SystemPrompt: SystemPrompt,
-            AllowedTools: AllowedTools,
-            FeatureTag: FeatureTag);
+    public Task<AgentResult<string>> RunAsync(StudyBuddyInput input, AgentContext ctx, CancellationToken ct) =>
+        loop.RunAsync(BuildAgentInput(input), ctx, Options, ct);
 
-        return loop.RunAsync(agentInput, ctx, Options, ct);
-    }
+    /// <summary>Streams the run step-by-step (AI-037a) for the SSE endpoint — same config as <see cref="RunAsync"/>.</summary>
+    public IAsyncEnumerable<AgentEvent> StreamAsync(StudyBuddyInput input, AgentContext ctx, CancellationToken ct) =>
+        loop.StreamAsync(BuildAgentInput(input), ctx, Options, ct);
+
+    private static AgentInput BuildAgentInput(StudyBuddyInput input) =>
+        new(UserGoal: BuildGoal(input), SystemPrompt: SystemPrompt, AllowedTools: AllowedTools, FeatureTag: FeatureTag);
 
     private static string BuildGoal(StudyBuddyInput input)
     {
