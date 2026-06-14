@@ -7,12 +7,18 @@ using TextStack.Ai.Tools;
 namespace TextStack.UnitTests;
 
 /// <summary>
-/// AI-035 — the three Study Buddy tools, at the level testable without a DB: discovery via the
-/// assembly scan (now seven Application tools), and schema validity through the same validator the
-/// dispatcher uses. DB behaviour (EF queries, RAG retrieval) is exercised in AI-037 + e2e.
+/// AI-035 — the three Study Buddy tools, at the level testable without a DB: schema validity through
+/// the same validator the dispatcher uses, and the single canonical assertion that the assembly scan
+/// registers EXACTLY the expected Application tool set. DB behaviour (EF queries, RAG retrieval) is
+/// exercised in AI-037 + e2e.
 /// </summary>
 public class StudyBuddyToolsTests
 {
+    /// <summary>
+    /// The one place that lists every tool the Application assembly is expected to register. Adding a
+    /// tool is a deliberate change to this allow-list; the set-equality assertion below then catches
+    /// both a missing tool AND a stray one, with a readable diff — no magic count to drift.
+    /// </summary>
     private static readonly string[] AllApplicationTools =
     [
         "get_chapter", "search_book", "lookup_dictionary", "get_user_highlights",
@@ -22,7 +28,7 @@ public class StudyBuddyToolsTests
     private static JsonElement Args(string json) => JsonDocument.Parse(json).RootElement;
 
     [Fact]
-    public void AddAiTools_ScanningApplication_DiscoversAllSevenTools()
+    public void AddAiTools_ScanningApplication_RegistersExactlyTheExpectedTools()
     {
         var services = new ServiceCollection();
         services.AddAiTools(typeof(GetChapterTool).Assembly);
@@ -30,9 +36,9 @@ public class StudyBuddyToolsTests
         using var sp = services.BuildServiceProvider();
         var registry = sp.GetRequiredService<IToolRegistry>();
 
-        foreach (var name in AllApplicationTools)
-            Assert.NotNull(registry.Get(name));
-        Assert.Equal(AllApplicationTools.Length, registry.Names.Count);
+        Assert.Equal(
+            AllApplicationTools.OrderBy(n => n),
+            registry.Names.OrderBy(n => n)); // missing or stray tool → readable diff
     }
 
     [Theory]

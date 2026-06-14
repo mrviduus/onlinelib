@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Phase 6 — cleanup: shared spoiler-gate resolver + robust tool-set test (AI-035 follow-up, 2026-06-14)
+
+Audit follow-up to AI-035 — clean-architecture tidy, no behaviour change.
+
+- **DRY:** the high-water-mark spoiler-gate resolver (`ResolveLastReadOrdAsync`) was copy-pasted verbatim in `SearchBookTool` and `FindEarlierDefinitionTool`. Extracted to a single `ReadingProgressGate` helper (Application/Tools); both tools call it. (`RagContextService` keeps its own variant — it additionally filters by SiteId for the authenticated RAG path; the difference is now documented in one place.) Orphaned `Microsoft.EntityFrameworkCore` usings removed with the local copies.
+- **Test robustness:** the tool-discovery assertion drifted on a magic count (broke at 4→7) and was split across files. Now one canonical allow-list in `StudyBuddyToolsTests` asserted by **set-equality** against the registry — a missing OR stray tool fails with a readable diff, and adding a tool is a deliberate one-line edit in one place. The duplicate count assertion was already removed from `StarterToolsTests`.
+
 ### Phase 6 — Study Buddy agent + 3 tools (2026-06-13)
 
 Phase 6 **AI-035** — the concrete agent on top of the AI-034 loop, plus the three tools it needs. The reader endpoint + SSE step events are AI-037; persistence is AI-036.

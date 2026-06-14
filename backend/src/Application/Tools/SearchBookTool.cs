@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Application.Common.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TextStack.Ai.Core;
 using TextStack.Ai.Rag;
@@ -54,7 +53,7 @@ public sealed class SearchBookTool : ITool
 
         var rag = ctx.Services.GetRequiredService<IRagService>();
         var gate = ctx.UserId is { } userId
-            ? await ResolveLastReadOrdAsync(ctx.Services.GetRequiredService<IAppDbContext>(), userId, editionId, ct)
+            ? await ReadingProgressGate.ResolveLastReadOrdAsync(ctx.Services.GetRequiredService<IAppDbContext>(), userId, editionId, ct)
             : null;
 
         var chunks = await rag.RetrieveAsync(editionId, query, TopK, maxChapterOrd: gate, ct);
@@ -66,22 +65,5 @@ public sealed class SearchBookTool : ITool
         }).ToList();
 
         return ToolJson.Result(new { query, passages });
-    }
-
-    /// <summary>
-    /// The user's furthest-read chapter in this edition (high-water mark, falling back to the current
-    /// chapter for legacy rows) — same semantics as RagContextService, minus the site filter
-    /// (single-site, ADR-007; ToolContext carries no SiteId). Null = no progress → ungated.
-    /// </summary>
-    private static async Task<int?> ResolveLastReadOrdAsync(
-        IAppDbContext db, Guid userId, Guid editionId, CancellationToken ct)
-    {
-        var row = await db.ReadingProgresses
-            .Where(p => p.UserId == userId && p.EditionId == editionId)
-            .Join(db.Chapters, p => p.ChapterId, c => c.Id,
-                (p, c) => new { p.MaxChapterNumber, c.ChapterNumber })
-            .FirstOrDefaultAsync(ct);
-
-        return row is null ? null : row.MaxChapterNumber ?? row.ChapterNumber;
     }
 }
