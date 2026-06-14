@@ -53,6 +53,7 @@ public static class DependencyInjection
         // Trace writer: scoped (per-request DbContext); the singleton
         // TracingDecorator resolves it per-write via a fresh scope.
         services.AddScoped<global::TextStack.Ai.Core.ILlmTraceWriter, Ai.DbLlmTraceWriter>();
+        services.AddScoped<global::TextStack.Ai.Core.IAgentRunWriter, Ai.DbAgentRunWriter>();
 
         // Sampling policy (Ai:Tracing:Sampling). Errors always sampled regardless.
         services.AddSingleton(sp =>

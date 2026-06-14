@@ -80,6 +80,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<BookCollection> BookCollections => Set<BookCollection>();
     public DbSet<LlmTrace> LlmTraces => Set<LlmTrace>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
+    public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();
 
     // Phase 4 RAG. Intentionally not on IAppDbContext — retrieval uses raw Npgsql.
@@ -101,6 +102,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
         ConfigureSeo(modelBuilder);
         ConfigureCollections(modelBuilder);
         ConfigureAi(modelBuilder);
+        ConfigureAgents(modelBuilder);
         ConfigurePodcasts(modelBuilder);
         ConfigureRag(modelBuilder);
     }

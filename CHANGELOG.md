@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 6 — agent run persistence (2026-06-14)
+
+Phase 6 **AI-036** — agent runs are saved so the reader UI can replay an agent's steps (AI-038) and runs are observable. Persistence mechanics only; the endpoint that calls it is AI-037.
+
+- **`agent_run` table** (`AddAgentRun` migration) + `AgentRun` entity + `DbSet` on `IAppDbContext`/`AppDbContext` (`AppDbContext.Agents.cs`). Columns: agent / user / edition / goal / status / output / **`steps_json` (jsonb)** / iterations / tokens / cost / latency / error / created_at. Optional FK→users `ON DELETE SET NULL` (a deleted user doesn't erase history); partial index on `(user_id, created_at)`.
+- **`IAgentRunWriter`** (`Ai.Core`) + **`DbAgentRunWriter`** (`Application/Ai`, scoped, mirrors `DbLlmTraceWriter`): flattens the framework-free `AgentRunRecord` into the entity, serializing the step transcript to jsonb. Awaited by the caller (the run is already finished — no latency to hide).
+- **`AgentRunRecord` + `AgentRunRecordFactory`** (`Ai.Core` / `Ai.Agents`): `Completed` / `BudgetExhausted` / `Failed` build a persistable record uniformly across outcomes.
+- **Budget-exhausted runs keep their transcript**: `AgentBudgetExhaustedException` now carries the partial `Steps` + `Usage` accumulated before the cap (the run you most want to inspect is the one that ran out of budget); `AgentLoop` throws with them at both the cost-cap and max-steps exits.
+- Tests: `AgentRunRecordFactory` (completed/budget-exhausted-keeps-transcript/failed); `AgentLoop` budget exhaustion now asserts the exception carries the partial transcript + usage. Migration applied locally + jsonb roundtrip/FK/index verified on Postgres.
+
 ### Phase 6 — cleanup: shared spoiler-gate resolver + robust tool-set test (AI-035 follow-up, 2026-06-14)
 
 Audit follow-up to AI-035 — clean-architecture tidy, no behaviour change.
