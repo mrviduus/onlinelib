@@ -43,10 +43,65 @@ public record AgentLoopOptions(
     int MaxTokensPerStep = 1024,
     decimal? CostCapUsd = null);
 
-/// <summary>Thrown when an agent reaches <see cref="AgentLoopOptions.MaxSteps"/> or its cost cap without terminating.</summary>
+/// <summary>
+/// Thrown when an agent reaches <see cref="AgentLoopOptions.MaxSteps"/> or its cost cap without
+/// terminating. Carries the partial <see cref="Steps"/> transcript and <see cref="Usage"/> accumulated
+/// before the budget ran out — a budget-exhausted run is exactly the one worth inspecting, so it can be
+/// persisted (AI-036) instead of lost. The legacy constructors default these to empty.
+/// </summary>
 public sealed class AgentBudgetExhaustedException : Exception
 {
-    public AgentBudgetExhaustedException() : base("Agent budget exhausted.") { }
-    public AgentBudgetExhaustedException(string message) : base(message) { }
-    public AgentBudgetExhaustedException(string message, Exception innerException) : base(message, innerException) { }
+    private static readonly AgentUsage EmptyUsage = new(0, 0, 0, 0m, 0);
+
+    public IReadOnlyList<AgentStep> Steps { get; }
+    public AgentUsage Usage { get; }
+
+    public AgentBudgetExhaustedException(string message, IReadOnlyList<AgentStep> steps, AgentUsage usage)
+        : base(message)
+    {
+        Steps = steps;
+        Usage = usage;
+    }
+
+    public AgentBudgetExhaustedException() : base("Agent budget exhausted.")
+    {
+        Steps = [];
+        Usage = EmptyUsage;
+    }
+
+    public AgentBudgetExhaustedException(string message) : base(message)
+    {
+        Steps = [];
+        Usage = EmptyUsage;
+    }
+
+    public AgentBudgetExhaustedException(string message, Exception innerException) : base(message, innerException)
+    {
+        Steps = [];
+        Usage = EmptyUsage;
+    }
+}
+
+/// <summary>
+/// A finished agent run ready to persist (AI-036): identity + who/what it ran for, the terminal
+/// <see cref="Status"/> ("completed" | "budget_exhausted" | "error"), the final answer (if any), the
+/// full step transcript and accumulated usage. Framework-free so the writer interface lives in Core.
+/// </summary>
+public record AgentRunRecord(
+    Guid Id,
+    string Agent,
+    Guid? UserId,
+    Guid? EditionId,
+    string Goal,
+    string Status,
+    string? Output,
+    IReadOnlyList<AgentStep> Steps,
+    AgentUsage Usage,
+    string? Error,
+    DateTimeOffset CreatedAt);
+
+/// <summary>Persists an <see cref="AgentRunRecord"/> (e.g. to Postgres) so the UI can replay the agent's steps.</summary>
+public interface IAgentRunWriter
+{
+    Task WriteAsync(AgentRunRecord run, CancellationToken ct);
 }

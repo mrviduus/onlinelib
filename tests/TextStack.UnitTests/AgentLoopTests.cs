@@ -108,13 +108,18 @@ public class AgentLoopTests
     }
 
     [Fact]
-    public async Task Run_MaxStepsWithoutFinal_ThrowsBudgetExhausted()
+    public async Task Run_MaxStepsWithoutFinal_ThrowsBudgetExhaustedWithTranscript()
     {
         // Every turn requests a tool → never terminates on its own.
         var llm = new ScriptedLlm([Call()], [Call()], [Call()]);
-        await Assert.ThrowsAsync<AgentBudgetExhaustedException>(() =>
+        var ex = await Assert.ThrowsAsync<AgentBudgetExhaustedException>(() =>
             Loop(llm, new EchoTool()).RunAsync(
                 Input(), Ctx(), new AgentLoopOptions(MaxSteps: 3), TestContext.Current.CancellationToken));
+
+        // The exception carries the partial transcript + usage so the run can still be persisted (AI-036).
+        Assert.Equal(3, ex.Usage.Iterations);
+        Assert.NotEmpty(ex.Steps);
+        Assert.Equal(0.003m, ex.Usage.CostUsdTotal); // 3 iterations * 0.001
     }
 
     [Fact]

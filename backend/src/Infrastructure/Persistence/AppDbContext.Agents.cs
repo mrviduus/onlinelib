@@ -1,0 +1,34 @@
+using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace Infrastructure.Persistence;
+
+/// <summary>
+/// Agent persistence (Phase 6 / AI-036). <see cref="AgentRun"/> (table <c>agent_run</c>) — one row per
+/// finished agent run (Study Buddy and future agents) so the reader UI can replay its steps and runs
+/// are observable. snake_case names come from the global convention (OnConfiguring).
+/// </summary>
+public partial class AppDbContext
+{
+    private static void ConfigureAgents(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AgentRun>(e =>
+        {
+            e.ToTable("agent_run");
+
+            // Hot query: a user's recent runs (the "my Study Buddy runs" lookup).
+            e.HasIndex(x => new { x.UserId, x.CreatedAt }).HasFilter("user_id IS NOT NULL");
+
+            e.Property(x => x.Agent).HasMaxLength(64);
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.StepsJson).HasColumnType("jsonb");
+            e.Property(x => x.CostUsd).HasColumnType("numeric(10,6)");
+
+            // Optional FK → users; a deleted user nulls the column but keeps the run.
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+}

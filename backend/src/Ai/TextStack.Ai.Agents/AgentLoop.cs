@@ -69,11 +69,15 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
             // Cost cap is checked AFTER the step completes, so a useful partial transcript is kept.
             if (options.CostCapUsd is { } cap && cost >= cap)
                 throw new AgentBudgetExhaustedException(
-                    $"Agent cost cap ${cap} exceeded after {iteration + 1} iteration(s) (${cost}).");
+                    $"Agent cost cap ${cap} exceeded after {iteration + 1} iteration(s) (${cost}).",
+                    steps,
+                    new AgentUsage(iteration + 1, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds));
         }
 
         throw new AgentBudgetExhaustedException(
-            $"Agent reached MaxSteps={options.MaxSteps} without a final answer.");
+            $"Agent reached MaxSteps={options.MaxSteps} without a final answer.",
+            steps,
+            new AgentUsage(options.MaxSteps, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds));
     }
 
     private static AgentStep Step(int iteration, string kind, JsonElement payload) =>

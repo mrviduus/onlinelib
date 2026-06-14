@@ -59,6 +59,7 @@ public interface IAppDbContext
     DbSet<BookCollection> BookCollections { get; }
     DbSet<LlmTrace> LlmTraces { get; }
     DbSet<EvalRun> EvalRuns { get; }
+    DbSet<AgentRun> AgentRuns { get; }
     DbSet<PodcastGenerationJob> PodcastGenerationJobs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
