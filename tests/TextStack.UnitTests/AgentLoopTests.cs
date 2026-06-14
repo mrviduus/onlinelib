@@ -134,6 +134,46 @@ public class AgentLoopTests
     }
 
     [Fact]
+    public async Task Stream_EmitsStepEventsThenTerminalDone()
+    {
+        var llm = new ScriptedLlm(
+            [Call(args: """{"x":1}""")], // turn 1: tool
+            ["Final."]);                  // turn 2: answer
+        var events = new List<AgentEvent>();
+        await foreach (var e in Loop(llm, new EchoTool()).StreamAsync(
+            Input(), Ctx(), new AgentLoopOptions(), TestContext.Current.CancellationToken))
+        {
+            events.Add(e);
+        }
+
+        // step (llm) → step (tool) → step (llm) → done; exactly one terminal result.
+        Assert.Equal(3, events.Count(e => e.Step is not null));
+        var done = Assert.Single(events.Where(e => e.Result is not null));
+        Assert.Equal("Final.", done.Result!.Output);
+        Assert.Equal(2, done.Result.Usage.Iterations);
+        Assert.Same(events[^1], done); // done is the last event
+    }
+
+    [Fact]
+    public async Task Stream_BudgetExhausted_StreamsPartialSteps_ThenThrows()
+    {
+        var llm = new ScriptedLlm([Call()], [Call()], [Call()]); // never answers
+        var streamed = new List<AgentEvent>();
+
+        await Assert.ThrowsAsync<AgentBudgetExhaustedException>(async () =>
+        {
+            await foreach (var e in Loop(llm, new EchoTool()).StreamAsync(
+                Input(), Ctx(), new AgentLoopOptions(MaxSteps: 3), TestContext.Current.CancellationToken))
+            {
+                streamed.Add(e);
+            }
+        });
+
+        Assert.NotEmpty(streamed);                          // partial steps reached the consumer
+        Assert.All(streamed, e => Assert.Null(e.Result));   // no Done event on exhaustion
+    }
+
+    [Fact]
     public async Task Run_UnknownTool_FedBackAsData_LoopRecovers()
     {
         var llm = new ScriptedLlm(
