@@ -14,6 +14,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiAgents(this IServiceCollection services)
     {
         services.TryAddSingleton<AgentLoop>();
+        // CrewOrchestrator (AI-040): stateless engine for multi-agent crews; per-run state lives on the
+        // stack, per-task DI scopes arrive via AgentContext.Services.
+        services.TryAddSingleton<CrewOrchestrator>();
         return services;
     }
 }
