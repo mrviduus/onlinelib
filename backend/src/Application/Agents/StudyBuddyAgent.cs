@@ -1,3 +1,4 @@
+using Application.Ai;
 using TextStack.Ai.Agents;
 using TextStack.Ai.Core;
 
@@ -20,26 +21,46 @@ public sealed class StudyBuddyAgent(AgentLoop loop) : IAgent<StudyBuddyInput, st
     /// <summary>Bounded per the playbook: ≤6 iterations, a per-step token budget, and a per-run cost cap.</summary>
     private static readonly AgentLoopOptions Options = new(MaxSteps: 6, MaxTokensPerStep: 1024, CostCapUsd: 0.05m);
 
-    /// <summary>The tools the agent may call — the AI-035 trio plus the relevant Phase 5 book tools.</summary>
-    private static readonly IReadOnlyList<string> AllowedTools =
-    [
-        "get_chapter",
-        "get_chapter_summary",
-        "search_book",
-        "find_earlier_definition",
-        "get_user_vocabulary",
-        "get_user_highlights",
-    ];
-
     public Task<AgentResult<string>> RunAsync(StudyBuddyInput input, AgentContext ctx, CancellationToken ct) =>
-        loop.RunAsync(BuildAgentInput(input), ctx, Options, ct);
+        loop.RunAsync(BuildAgentInput(input, ctx), ctx, Options, ct);
 
     /// <summary>Streams the run step-by-step (AI-037a) for the SSE endpoint — same config as <see cref="RunAsync"/>.</summary>
     public IAsyncEnumerable<AgentEvent> StreamAsync(StudyBuddyInput input, AgentContext ctx, CancellationToken ct) =>
-        loop.StreamAsync(BuildAgentInput(input), ctx, Options, ct);
+        loop.StreamAsync(BuildAgentInput(input, ctx), ctx, Options, ct);
 
-    private static AgentInput BuildAgentInput(StudyBuddyInput input) =>
-        new(UserGoal: BuildGoal(input), SystemPrompt: SystemPrompt, AllowedTools: AllowedTools, FeatureTag: FeatureTag);
+    /// <summary>
+    /// Deterministic per-run tool gate (AI-039): the same insight as the Explain pre-router (AI-033),
+    /// generalized to the agent. Which tools are OFFERED depends ONLY on the passage's lexical signals —
+    /// a self-contained passage gets no tools (so the model answers in one step and cannot over-call),
+    /// while a passage that genuinely references a numbered chapter, an earlier discussion, or the
+    /// reader's own highlights gets the matching tools and the loop runs normally. The highlights/vocab
+    /// pair additionally requires a signed-in user.
+    /// </summary>
+    private static IReadOnlyList<string> ResolveTools(StudyBuddyInput input, AgentContext ctx)
+    {
+        var signal = BookToolTriggers.Detect(input.Passage);
+        var tools = new List<string>();
+        if (signal.HasFlag(BookToolSignal.ChapterNumber))
+        {
+            tools.Add("get_chapter");
+            tools.Add("get_chapter_summary");
+        }
+        if (signal.HasFlag(BookToolSignal.EarlierReference))
+        {
+            tools.Add("search_book");
+            tools.Add("find_earlier_definition");
+        }
+        if (signal.HasFlag(BookToolSignal.UserHighlights) && ctx.UserId is not null)
+        {
+            tools.Add("get_user_highlights");
+            tools.Add("get_user_vocabulary");
+        }
+        return tools;
+    }
+
+    private static AgentInput BuildAgentInput(StudyBuddyInput input, AgentContext ctx) =>
+        new(UserGoal: BuildGoal(input), SystemPrompt: SystemPrompt,
+            AllowedTools: ResolveTools(input, ctx), FeatureTag: FeatureTag);
 
     private static string BuildGoal(StudyBuddyInput input)
     {
@@ -49,12 +70,15 @@ public sealed class StudyBuddyAgent(AgentLoop loop) : IAgent<StudyBuddyInput, st
 
     public const string SystemPrompt =
         "You are a study buddy for a developer reading a technical book. " +
-        "Goal: help them understand a confusing passage in at most a few tool-using steps.\n" +
-        "Use the tools to fetch context: the surrounding chapter, in-book search, where a term was first " +
-        "introduced earlier, and the reader's own saved vocabulary and highlights. " +
-        "Call a tool only when it would genuinely help; most passages need one or two lookups at most.\n" +
-        "Once you have enough context, write a clear 3-5 sentence explanation in plain language, " +
-        "connecting it to where concepts were defined earlier when relevant. " +
+        "Goal: help them understand a confusing passage.\n" +
+        "Whether to call a tool depends ONLY on the passage's wording: it explicitly names a chapter " +
+        "number, says something was \"discussed/mentioned earlier\", or refers to the reader's own " +
+        "\"highlights/notes\". When the wording points outside the passage like that, use the matching " +
+        "tool to fetch it. A term simply being technical, unfamiliar, or hard is NEVER by itself a reason " +
+        "to call a tool. If the passage has none of those references, answer directly from the passage " +
+        "itself in a single step — do not call any tool.\n" +
+        "Write a clear 3-5 sentence explanation in plain language, connecting it to where concepts were " +
+        "defined earlier when relevant. " +
         "Never invent facts that are not in the tool results or the passage itself. " +
         "No preface, no markdown headings.";
 }

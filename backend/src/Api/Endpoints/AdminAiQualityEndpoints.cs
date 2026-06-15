@@ -81,6 +81,7 @@ public static class AdminAiQualityEndpoints
                 c.CostUsd,
                 c.JudgeScore,
                 c.Completed,
+                c.OfferedTools,
             }),
         });
     }
