@@ -89,6 +89,12 @@ builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 // Agent loop engine (Phase 6, AI-034). Concrete agents (StudyBuddy, AI-035) build on it.
 TextStack.Ai.Agents.ServiceCollectionExtensions.AddAiAgents(builder.Services);
 builder.Services.AddScoped<Application.Agents.StudyBuddyAgent>();
+// Crew specialists (Phase 7, AI-041): single-call IAgent<TIn,TOut> sub-agents the content crews
+// (AI-042/043) compose via CrewTasks.Of. Stateless + ILlmService is a singleton, so singleton is fine.
+builder.Services.AddSingleton<Application.Agents.ResearcherAgent>();
+builder.Services.AddSingleton<Application.Agents.DrafterAgent>();
+builder.Services.AddSingleton<Application.Agents.CriticAgent>();
+builder.Services.AddSingleton<Application.Agents.EditorAgent>();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
