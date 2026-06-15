@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Phase 6 — Study Buddy golden set + eval — Phase 6 complete (2026-06-15)
+
+Phase 6 **AI-039** — the DoD gate for the Study Buddy agent (judge ≥4/5, avg steps ≤4, cost <$0.05). **This closes Phase 6** (agent loop → tools → persistence → SSE endpoint → reader UI → eval).
+
+- **`StudyBuddyEvalRunner`** (`Ai.EvalSuite`) — per golden: run the REAL agent against a real edition (its tools hit the live corpus), score the final answer against the reference with the same MEAI `RubricEvaluator` the suite uses (correctness / grounding / clarity), and record iterations + cost. A budget-exhausted run is a failed case (judge 0, capped steps). Persists a `studybuddy` `EvalRun` (judge mean 1–5; avg steps + cost in the breakdown).
+- **Golden set** `studybuddy.json` (embedded) — 10 starter DDIA "confusing passage → reference explanation" cases; a **starter to curate to the DoD's 25** against the live edition (align chapter numbers to it).
+- **`POST /admin/ai-quality/evals/studybuddy/run?editionId=&judge=`** — admin-triggered against a real embedded edition (503 when the judge isn't configured). The agent's tools resolve scoped services from the request scope.
+- Tests: `StudyBuddyEvalRunner` with a direct-answering fake agent + fixed judge — scores the whole golden set, aggregates the judge mean, and computes avg steps (1.0) + cost deterministically. Golden count read from the dataset so it survives growth to 25.
+
 ### Phase 6 — Study Buddy wired into the reader (2026-06-15)
 
 Phase 6 **AI-038, slice b** — the panel is now reachable: select a passage in the reader → "Help me understand this" → the agent investigates live.
