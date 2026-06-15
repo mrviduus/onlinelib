@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Phase 6 — Study Buddy endpoint (SSE + run history) (2026-06-15)
+
+Phase 6 **AI-037, slice b** — the reader can now run the agent and watch it work. The panel UI is AI-038.
+
+- **`POST /me/books/{editionId}/studybuddy`** — authenticated; runs `StudyBuddyAgent` on a highlighted passage and streams its progress over SSE: a **`step`** event per recorded step (index / kind / payload), a **`done`** event with the final answer (+ iterations + cost), or a terminal **`error`** event when the agent fails or exhausts its budget. The run is **persisted** (AI-036) on completion with the right status — a budget-exhausted run keeps its partial transcript. `X-Accel-Buffering: no` for the Cloudflare tunnel; client disconnect propagates untraced; rate-limited (`studybuddy`, 8/min/IP — runs are several LLM calls each).
+- **`GET /me/studybuddy/runs/{runId}`** — returns a persisted run (scoped to the user) with its step transcript parsed from jsonb, for the "show steps" view.
+- Tests: `StreamRunAsync` over the real agent + loop + scripted LLM — direct answer → `step`→`done` + a persisted `completed` run; never-terminating model → partial `step`s → terminal `error` + a persisted `budget_exhausted` run that keeps its transcript. Live-API integration (skip-friendly): no-auth → 401, empty passage → 400, unknown run → 404.
+
 ### Phase 6 — streaming agent loop (2026-06-14)
 
 Phase 6 **AI-037, slice a** — the loop streams its steps so the reader can watch the agent work. The SSE endpoint + run persistence + `GET` are slice b.

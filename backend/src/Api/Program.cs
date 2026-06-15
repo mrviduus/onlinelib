@@ -302,6 +302,17 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // Study Buddy agent (AI-037): each run is several LLM calls, so a tighter per-IP limit.
+    options.AddPolicy("studybuddy", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 8,
+            QueueLimit = 0,
+        });
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     // Emit Retry-After so clients can back off intelligently instead of
     // hammering in a tight retry loop. RateLimiter exposes the metadata
@@ -493,6 +504,7 @@ app.MapAdminBookQualityEndpoints();
 app.MapAdminAiQualityEndpoints();
 app.MapAdminRagEndpoints();
 app.MapAskEndpoints();
+app.MapStudyBuddyEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();
