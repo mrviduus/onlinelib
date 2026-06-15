@@ -20,6 +20,7 @@ import { ReaderNav } from '../components/reader/ReaderNav'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { AskPanel } from '../components/reader/AskPanel'
+import { StudyBuddyPanel } from '../components/reader/StudyBuddyPanel'
 import type { AskCitation } from '../api/ask'
 import { scrollToCitation } from '../lib/citationScroll'
 import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
@@ -69,6 +70,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
+  const [studyBuddyPassage, setStudyBuddyPassage] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
@@ -514,6 +516,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           ttsSpeed={settings.ttsSpeed}
           showInlineTranslations={settings.showInlineTranslations}
           scrollToHighlightId={scrollToHighlightId}
+          onStudyBuddy={askEditionId ? setStudyBuddyPassage : undefined}
         >
           <div ref={scrollContainerRef}>
             <ReaderSection
@@ -587,6 +590,18 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}
           onClose={() => setAskOpen(false)}
+        />
+      )}
+
+      {askEditionId && studyBuddyPassage && (
+        <StudyBuddyPanel
+          open
+          editionId={askEditionId}
+          passage={studyBuddyPassage}
+          chapterNumber={activeChapter?.chapterNumber ?? null}
+          isAuthenticated={isAuthenticated}
+          onSignIn={openAuthModal}
+          onClose={() => setStudyBuddyPassage(null)}
         />
       )}
 
