@@ -1,4 +1,5 @@
 using Application.Agents;
+using Application.Ai;
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Microsoft.Extensions.AI;
@@ -10,8 +11,13 @@ using TextStack.Ai.Llm;
 
 namespace TextStack.Ai.EvalSuite;
 
-/// <summary>One golden's outcome — for the admin UI.</summary>
-public sealed record StudyBuddyCase(string Passage, int Steps, decimal CostUsd, double JudgeScore, bool Completed);
+/// <summary>
+/// One golden's outcome — for the admin UI. <see cref="OfferedTools"/> is the count of tools the
+/// deterministic gate (AI-039) offered for this passage, so the discipline is visible per case before a
+/// prod re-run: a self-contained passage should show 0 (answers in one step, no tool noise).
+/// </summary>
+public sealed record StudyBuddyCase(
+    string Passage, int Steps, decimal CostUsd, double JudgeScore, bool Completed, int OfferedTools);
 
 /// <summary>
 /// Result of a Study Buddy eval run (AI-039) — the Phase 6 DoD numbers: the judge mean (≥4/5 target),
@@ -63,6 +69,15 @@ public sealed class StudyBuddyEvalRunner(ILogger<StudyBuddyEvalRunner> logger)
         {
             ct.ThrowIfCancellationRequested();
 
+            // Deterministic gate (AI-039): the same signal the agent uses to decide which tools to
+            // offer. Computed here from the passage so the discipline is visible per case — each signal
+            // offers a pair of tools; the user pair only when a user is present.
+            var signal = BookToolTriggers.Detect(g.Passage);
+            var offeredTools =
+                (signal.HasFlag(BookToolSignal.ChapterNumber) ? 2 : 0) +
+                (signal.HasFlag(BookToolSignal.EarlierReference) ? 2 : 0) +
+                (signal.HasFlag(BookToolSignal.UserHighlights) && userId is not null ? 2 : 0);
+
             // A fresh run id per golden; the agent's tools resolve scoped services from `services`.
             var agentCtx = new AgentContext(userId, editionId, Guid.NewGuid(), services);
             string answer;
@@ -78,7 +93,7 @@ public sealed class StudyBuddyEvalRunner(ILogger<StudyBuddyEvalRunner> logger)
             catch (AgentBudgetExhaustedException ex)
             {
                 // Hitting the cap is a real failure mode: score it 0 and count its (capped) steps/cost.
-                cases.Add(new StudyBuddyCase(g.Passage, ex.Usage.Iterations, ex.Usage.CostUsdTotal, 0, Completed: false));
+                cases.Add(new StudyBuddyCase(g.Passage, ex.Usage.Iterations, ex.Usage.CostUsdTotal, 0, Completed: false, offeredTools));
                 scores.Add(new JudgeScore(0, 0, 0, "budget exhausted"));
                 totalSteps += ex.Usage.Iterations;
                 totalCost += ex.Usage.CostUsdTotal;
@@ -95,7 +110,7 @@ public sealed class StudyBuddyEvalRunner(ILogger<StudyBuddyEvalRunner> logger)
             var score = new JudgeScore(
                 ReadAxis(result2, Rubric.Dim1), ReadAxis(result2, Rubric.Dim2), ReadAxis(result2, Rubric.Dim3), string.Empty);
             scores.Add(score);
-            cases.Add(new StudyBuddyCase(g.Passage, steps, cost, score.Mean, Completed: true));
+            cases.Add(new StudyBuddyCase(g.Passage, steps, cost, score.Mean, Completed: true, offeredTools));
             totalSteps += steps;
             totalCost += cost;
         }
