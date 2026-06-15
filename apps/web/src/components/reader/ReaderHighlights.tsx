@@ -37,6 +37,8 @@ interface ReaderHighlightsProps {
   ttsSpeed?: number
   scrollToHighlightId?: string | null
   showInlineTranslations?: boolean
+  /** Open the Study Buddy panel for a highlighted passage (AI-038b). Catalog editions only. */
+  onStudyBuddy?: (passage: string) => void
   children: React.ReactNode
 }
 
@@ -67,6 +69,7 @@ export function ReaderHighlights({
   ttsSpeed = 1.0,
   scrollToHighlightId,
   showInlineTranslations = false,
+  onStudyBuddy,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
@@ -401,6 +404,14 @@ export function ReaderHighlights({
     explainPopup.openFromSelection(selection.text, selection.range, selection.rect)
   }, [explainPopup, selection.text, selection.range, selection.rect])
 
+  // --- Study Buddy: hand the whole selected passage up to the reader's panel ---
+  const handleStudyBuddy = useCallback(() => {
+    const passage = selection.text?.trim()
+    if (!passage || !onStudyBuddy) return
+    onStudyBuddy(passage)
+    clearSelection()
+  }, [selection.text, onStudyBuddy, clearSelection])
+
   // --- Selection toolbar ---
   const handleHighlight = useCallback(
     async (color: HighlightColor) => {
@@ -462,6 +473,7 @@ export function ReaderHighlights({
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
           onExplain={handleExplain}
+          onStudyBuddy={onStudyBuddy ? handleStudyBuddy : undefined}
           onSpeak={() => handleSpeak(selection.text)}
           onCopy={handleCopy}
         />

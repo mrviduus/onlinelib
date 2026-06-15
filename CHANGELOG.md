@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 6 — Study Buddy wired into the reader (2026-06-15)
+
+Phase 6 **AI-038, slice b** — the panel is now reachable: select a passage in the reader → "Help me understand this" → the agent investigates live.
+
+- **`SelectionToolbar`** gains a **"Help me understand this"** action (sparkles icon) next to Explain, shown only when `onStudyBuddy` is wired (catalog editions).
+- **`ReaderHighlights`** passes the whole selected passage up via a new `onStudyBuddy(passage)` prop and clears the selection.
+- **`ReaderPage`** holds the passage state and renders `StudyBuddyPanel` (catalog editions only, like Ask), threading the **current chapter number** so the agent's chapter tools have context. Opening it for a new passage re-runs.
+- i18n: `reader.selectionToolbar.studyBuddy`.
+- Verified: `tsc` + `pnpm build` clean; full web suite green (517); no e2e clicks the selection toolbar positionally (no index drift). The live agent run is exercised on prod (key + corpus).
+
 ### Phase 6 — Study Buddy web panel (2026-06-15)
 
 Phase 6 **AI-038, slice a** — the web UI for the agent: an `api` client, a streaming hook, and the panel. Wiring it into the reader's selection toolbar is slice b.
