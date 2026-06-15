@@ -58,8 +58,13 @@ publish/
 # Backups
 backups/
 
-# Claude Code
-.claude/
+# Claude Code — ignore local state, but share the team config (agents/skills/commands)
+.claude/*
+!.claude/agents/
+!.claude/skills/
+!.claude/commands/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # GitHub Actions Runner (if installed in project dir)
 .credentials
