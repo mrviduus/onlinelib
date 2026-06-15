@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { createSseParser, postSse, SseUnsupportedError, type SseEvent } from './sse'
+import { createSseParser, postSse, SseUnsupportedError, SseUnauthorizedError, type SseEvent } from './sse'
 
 function collect() {
   const events: SseEvent[] = []
@@ -98,5 +98,13 @@ describe('postSse', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res))
 
     await expect(postSse('/explain', {}, () => {})).rejects.toBeInstanceOf(SseUnsupportedError)
+  })
+
+  it('throws SseUnauthorizedError on 401 and sends credentials', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(postSse('/me/books/x/studybuddy', {}, () => {})).rejects.toBeInstanceOf(SseUnauthorizedError)
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ credentials: 'include' }))
   })
 })
