@@ -67,13 +67,13 @@ public class AutoPublishCrewTests
     // ---- Helpers -----------------------------------------------------------------------------------
 
     private static AutoPublishCrew Build(ILlmService llm, IAgentRunWriter writer) =>
-        new(
+        new(new FieldCrew(
             new CrewOrchestrator(),
             new ResearcherAgent(llm),
             new DrafterAgent(llm),
             new CriticAgent(llm),
             new EditorAgent(llm),
-            writer);
+            writer));
 
     // No tools registered — keep this assembly free of ITool so the StudyBuddy set-equality test is unaffected.
     private static AgentContext Ctx(Guid? editionId = null, Guid? userId = null) =>

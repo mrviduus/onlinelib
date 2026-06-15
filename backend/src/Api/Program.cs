@@ -98,7 +98,13 @@ builder.Services.AddSingleton<Application.Agents.EditorAgent>();
 // AutoPublish crew (Phase 7, AI-042): in-process admin path that runs the specialists over ILlmService to
 // generate SEO prose for an Edition. Scoped because it persists via the scoped IAgentRunWriter (per-request
 // DbContext). The legacy bash + Claude-CLI poller stays the default; this is the observable, traced alternative.
+// Shared per-field crew runner (Phase 7, AI-043): the 4-stage plan + fail-closed gate + agent_run persistence,
+// extracted from AutoPublishCrew so both AutoPublish and SEO crews delegate to it. Scoped (scoped IAgentRunWriter).
+builder.Services.AddScoped<Application.Agents.FieldCrew>();
 builder.Services.AddScoped<Application.Agents.AutoPublishCrew>();
+// SEO crew (Phase 7, AI-043): in-process admin path that generates ONE SEO prose field over ILlmService and
+// routes it through the SeoBackfillJob apply path. The legacy seo-backfill poller stays the default + untouched.
+builder.Services.AddScoped<Application.Agents.SeoCrew>();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -327,6 +333,18 @@ builder.Services.AddRateLimiter(options =>
     // AutoPublish crew (AI-042): an admin generate is TWO 4-stage crews = 8 LLM calls, so a tight per-IP cap.
     // Mirrors the studybuddy policy shape; it sits behind admin auth too, this is just runaway protection.
     options.AddPolicy("autopublish.crew", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 4,
+            QueueLimit = 0,
+        });
+    });
+    // SEO crew (AI-043): one 4-stage crew = 4 LLM calls per admin generate. Same tight per-IP cap as
+    // autopublish.crew; sits behind admin auth too, this is just runaway protection.
+    options.AddPolicy("seo.crew", httpContext =>
     {
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions

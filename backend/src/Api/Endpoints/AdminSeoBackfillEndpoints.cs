@@ -1,10 +1,13 @@
 using System.Text.Json;
+using Api.Middleware;
+using Application.Agents;
 using Application.Common.Interfaces;
 using Application.Seo;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TextStack.Ai.Core;
 
 namespace Api.Endpoints;
 
@@ -48,6 +51,12 @@ public static class AdminSeoBackfillEndpoints
         // Settings
         group.MapGet("/settings", GetSettings);
         group.MapPut("/settings", UpdateSettings);
+
+        // AI-043: in-process crew path — runs the AI-041 specialists over ILlmService to generate ONE SEO prose
+        // field (edition→description, author→bio), routed through the SeoBackfillJob apply path so revert/trust/
+        // SSG keep working. Behind the same /admin/* auth group; rate-limited. Legacy poller stays the default.
+        group.MapPost("/{entityType}/{entityId:guid}/crew-generate", CrewGenerate)
+            .RequireRateLimiting("seo.crew");
     }
 
     // ── Templates ──
@@ -435,4 +444,148 @@ public static class AdminSeoBackfillEndpoints
         var sub = ctx.User?.FindFirst("sub")?.Value ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
     }
+
+    // ── Crew generate (AI-043) ──
+
+    /// <summary>
+    /// Runs the in-process SEO crew over one entity to generate its single in-scope prose field
+    /// (edition→Description, author→Bio). Loads the entity context (404 if missing), sanitizes EVERY value
+    /// against prompt-injection, flattens it to source material, runs the 4-stage crew (own runId, own cost cap,
+    /// own persisted <c>crew.seo</c> agent_run), then routes the result through the existing SeoBackfillJob apply
+    /// path — so revert / trust-gate / SSG behave identically to the legacy poller. The Edition/Author is only
+    /// written when the crew passes cleanly AND the job's effective trust is Auto.
+    /// </summary>
+    private static async Task<IResult> CrewGenerate(
+        string entityType,
+        Guid entityId,
+        HttpContext httpContext,
+        IAppDbContext db,
+        SeoContextBuilder contextBuilder,
+        SeoCrew crew,
+        SeoJobProcessor processor,
+        CancellationToken ct)
+    {
+        // v1: prose-only, edition/description + author/bio.
+        if (!Enum.TryParse<SeoEntityType>(entityType, true, out var et)
+            || et is not (SeoEntityType.Edition or SeoEntityType.Author))
+            return Results.BadRequest(new { error = "entityType must be 'edition' or 'author'" });
+
+        var (fieldType, fieldName) = et == SeoEntityType.Edition
+            ? (SeoFieldType.Description, "description")
+            : (SeoFieldType.Bio, "bio");
+
+        // Resolve entity context (BuildAsync throws InvalidOperationException if the entity is missing → 404).
+        Dictionary<string, string?> values;
+        try
+        {
+            values = await contextBuilder.BuildAsync(et, entityId, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.NotFound();
+        }
+
+        // Sanitize EVERY entity value before it reaches the prose specialists (prompt-injection defense), then
+        // flatten to a single source block. The lang comes from the (sanitized) context.
+        var lang = SeoPromptSanitizer.Sanitize(values.GetValueOrDefault("language") ?? "en");
+        if (string.IsNullOrWhiteSpace(lang)) lang = "en";
+        var sourceMaterial = string.Join("\n", values
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .Select(kv => $"{kv.Key}: {SeoPromptSanitizer.Sanitize(kv.Value)}"));
+
+        var brief = SeoBriefs.For(entityType.ToLowerInvariant(), fieldName, lang);
+
+        // P2 — source-material floor. An Edition with no usable chapters yields an almost-empty excerpt → the crew
+        // would hallucinate confidently. We still RUN the crew (transcript persists) but force NeedsReview on apply.
+        var sourceInsufficient = SeoJobProcessor.IsSourceMaterialInsufficient(sourceMaterial);
+
+        var adminId = httpContext.GetAdminUserId();
+        // P3 — AgentContext.EditionId is the EDITION slot only (persisted to agent_run.edition_id, which has no FK).
+        // For non-edition entities (author) pass null so we never store an author id in an edition-named column; the
+        // run is cross-linked to the entity via the SeoBackfillJob (entityType+entityId) and the runId on the job.
+        var slotEditionId = et == SeoEntityType.Edition ? entityId : (Guid?)null;
+        var crewCtx = new AgentContext(adminId, slotEditionId, Guid.NewGuid(), httpContext.RequestServices);
+
+        // Route through the SeoBackfillJob apply path so revert/trust/audit/SSG all keep working. EnqueueAsync
+        // resolves the active template ids/versions (→ TrustLevel) and freezes them on the job.
+        var triggeredBy = httpContext.User?.Identity?.Name ?? "admin:crew";
+        Guid jobId;
+        try
+        {
+            jobId = await processor.EnqueueAsync(
+                et, entityId, [fieldType], lang, requireReview: false, triggeredBy, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // No active template for this field/lang, or a dedup conflict (existing queued/running job).
+            return Results.BadRequest(new { error = ex.Message });
+        }
+
+        // P1#1 — transition THIS job Queued→Running before GetContextAsync (which asserts Running). ClaimNextAsync
+        // would claim an arbitrary job, so we use the targeted MarkRunningAsync. Wrap crew+apply so any mid-run
+        // failure marks the job Failed (not left Running/Queued) — otherwise it wedges the entity via the dedup guard.
+        FieldResult result;
+        string applyStatus;
+        try
+        {
+            if (!await processor.MarkRunningAsync(jobId, ct))
+                throw new InvalidOperationException($"Job {jobId} could not transition Queued→Running");
+
+            // GetContextAsync writes the Before snapshot, mirroring the legacy flow before apply (so revert has a
+            // baseline even though the crew, not Claude, produced text).
+            await processor.GetContextAsync(jobId, ct);
+
+            result = await crew.RunFieldAsync(brief, sourceMaterial, crewCtx, ct);
+
+            var editedText = new Dictionary<string, string>();
+            if (!result.NeedsReview && !string.IsNullOrWhiteSpace(result.EditedText))
+                editedText[fieldType.ToString()] = result.EditedText!;
+
+            applyStatus = await processor.ApplyCrewResultAsync(
+                jobId, editedText, result.NeedsReview, sourceInsufficient, ct);
+        }
+        catch (Exception ex)
+        {
+            // Crew threw or a step failed mid-way: mark the job Failed so the entity isn't wedged Running/Queued.
+            await processor.FailAsync(jobId, $"crew-generate failed: {ex.Message}", ct);
+            return Results.Problem($"crew-generate failed: {ex.Message}");
+        }
+
+        var critique = result.Critique is { } c
+            ? new SeoCrewCritiqueSummary(c.FactualAccuracy, c.Tone, c.Length, c.BannedPhrases, c.ParseFailed,
+                c.Issues.Count(i => i.Severity == "blocker"))
+            : null;
+
+        return Results.Ok(new SeoCrewGenerateResponse(
+            entityType.ToLowerInvariant(),
+            fieldName,
+            result.RunId,
+            jobId,
+            result.Status,
+            applyStatus,
+            result.NeedsReview,
+            Applied: applyStatus == "success",
+            result.EditedText?.Length ?? 0,
+            critique));
+    }
 }
+
+public record SeoCrewGenerateResponse(
+    string EntityType,
+    string Field,
+    Guid RunId,
+    Guid JobId,
+    string CrewStatus,
+    string ApplyStatus,
+    bool NeedsReview,
+    bool Applied,
+    int CharLength,
+    SeoCrewCritiqueSummary? Critique);
+
+public record SeoCrewCritiqueSummary(
+    int FactualAccuracy,
+    int Tone,
+    int Length,
+    int BannedPhrases,
+    bool ParseFailed,
+    int BlockerCount);
