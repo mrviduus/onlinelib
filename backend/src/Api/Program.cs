@@ -83,6 +83,7 @@ builder.Services.AddApplication();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EvalSuiteRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
 // Tool catalogue (AI-029/030): scans Application for ITool impls; dispatch is schema-validated.
 builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 // Agent loop engine (Phase 6, AI-034). Concrete agents (StudyBuddy, AI-035) build on it.
