@@ -95,6 +95,10 @@ builder.Services.AddSingleton<Application.Agents.ResearcherAgent>();
 builder.Services.AddSingleton<Application.Agents.DrafterAgent>();
 builder.Services.AddSingleton<Application.Agents.CriticAgent>();
 builder.Services.AddSingleton<Application.Agents.EditorAgent>();
+// AutoPublish crew (Phase 7, AI-042): in-process admin path that runs the specialists over ILlmService to
+// generate SEO prose for an Edition. Scoped because it persists via the scoped IAgentRunWriter (per-request
+// DbContext). The legacy bash + Claude-CLI poller stays the default; this is the observable, traced alternative.
+builder.Services.AddScoped<Application.Agents.AutoPublishCrew>();
 builder.Services.AddAuthSettings(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -317,6 +321,18 @@ builder.Services.AddRateLimiter(options =>
         {
             Window = TimeSpan.FromMinutes(1),
             PermitLimit = 8,
+            QueueLimit = 0,
+        });
+    });
+    // AutoPublish crew (AI-042): an admin generate is TWO 4-stage crews = 8 LLM calls, so a tight per-IP cap.
+    // Mirrors the studybuddy policy shape; it sits behind admin auth too, this is just runaway protection.
+    options.AddPolicy("autopublish.crew", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 4,
             QueueLimit = 0,
         });
     });
