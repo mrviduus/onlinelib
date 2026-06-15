@@ -197,6 +197,14 @@
       "signInCta": "Sign in",
       "citation": "ch.{{ch}}"
     },
+    "studyBuddy": {
+      "title": "Help me understand this",
+      "thinking": "Investigating…",
+      "calling": "Looking up",
+      "steps": "Steps",
+      "signIn": "Sign in to get help understanding passages.",
+      "signInCta": "Sign in"
+    },
     "wordPopup": {
       "known": "Known",
       "ignore": "Ignore",

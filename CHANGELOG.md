@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 6 — Study Buddy web panel (2026-06-15)
+
+Phase 6 **AI-038, slice a** — the web UI for the agent: an `api` client, a streaming hook, and the panel. Wiring it into the reader's selection toolbar is slice b.
+
+- **`api/studybuddy.ts`** — `runStudyBuddy(editionId, passage, chapter, callbacks)` consumes the AI-037 SSE (`step`/`done`/`error`) via `postSse`; `getStudyBuddyRun(runId)` fetches a persisted run for the "show steps" view.
+- **`useStudyBuddy` hook** — `steps` grow live as the agent works, `answer` lands on `done`, `status` (idle/running/done/error); a new run aborts the in-flight one; 401 surfaces as `error: 'auth'` for a sign-in prompt.
+- **`StudyBuddyPanel`** — right slide-in panel (mirrors `AskPanel`): the passage echoed at the top, the final answer, a spinner while running, and a **collapsible step transcript** (each step summarized: tool name + ok/✗, or the model's text/`Looking up: …`). Auth-gated.
+- **`lib/sse.ts`** — `postSse` now sends `credentials: 'include'` (needed for the authed Study Buddy stream; harmless for the public Explain one) and maps 401 → new `SseUnauthorizedError`.
+- Tests: `useStudyBuddy` (step accumulation → answer on done; terminal error keeps partial steps; 401 → auth; no-op on empty/missing; reset); `postSse` 401 → `SseUnauthorizedError` + credentials sent. Web suite green (517); `tsc` + build clean.
+
 ### Phase 6 — Study Buddy endpoint (SSE + run history) (2026-06-15)
 
 Phase 6 **AI-037, slice b** — the reader can now run the agent and watch it work. The panel UI is AI-038.

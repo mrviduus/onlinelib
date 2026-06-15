@@ -68,6 +68,13 @@ export class SseUnsupportedError extends Error {
   }
 }
 
+/** The SSE request was rejected with 401 — the caller should prompt sign-in. */
+export class SseUnauthorizedError extends Error {
+  constructor() {
+    super('Unauthorized')
+  }
+}
+
 export async function postSse(
   url: string,
   body: unknown,
@@ -78,10 +85,12 @@ export async function postSse(
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify(body),
+    credentials: 'include', // send the auth cookie (needed for authed SSE; harmless for public ones)
     signal,
   })
 
   if (!res.ok) {
+    if (res.status === 401) throw new SseUnauthorizedError()
     if (res.status === 503) throw new Error('Service unavailable')
     if (res.status === 504) throw new Error('Request timed out')
     if (res.status === 429) throw new Error('Too many requests, try again later')
