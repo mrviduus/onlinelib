@@ -22,18 +22,10 @@ public static class AutoPublishBriefs
     public const int RelevanceMax = 1000;
 
     /// <summary>
-    /// Subjective superlatives the SEO prose must avoid — encodes the legacy "no subjective superlatives" rule
-    /// as an explicit list the critic can score against. The critic blocks a draft that uses any of these.
+    /// Subjective superlatives the SEO prose must avoid — the shared <see cref="CrewBannedPhrases.List"/> (one
+    /// blocklist across every in-process crew). The critic blocks a draft that uses any of these.
     /// </summary>
-    public static readonly IReadOnlyList<string> BannedPhrases =
-    [
-        "masterpiece",
-        "must-read",
-        "timeless classic",
-        "page-turner",
-        "tour de force",
-        "magnum opus",
-    ];
+    public static readonly IReadOnlyList<string> BannedPhrases = CrewBannedPhrases.List;
 
     /// <summary>The shared tone contract — same string every specialist reads, so there is no style drift.</summary>
     public const string StyleGuide = "Factual, encyclopedic tone; no subjective superlatives; third person.";

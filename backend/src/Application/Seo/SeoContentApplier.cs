@@ -46,6 +46,43 @@ public class SeoContentApplier(IAppDbContext db)
     }
 
     /// <summary>
+    /// AI-043 — reads the entity's CURRENT SeoSource plus the current value of each requested field. Used by
+    /// the crew apply path to enforce manual-source protection (never overwrite a hand-written Manual field)
+    /// without re-implementing the per-entity field readers here.
+    /// </summary>
+    public async Task<(SeoSource Source, Dictionary<SeoFieldType, string?> Fields)> ReadCurrentAsync(
+        SeoEntityType entityType, Guid entityId, IReadOnlyCollection<SeoFieldType> fields, CancellationToken ct)
+    {
+        var map = new Dictionary<SeoFieldType, string?>();
+        switch (entityType)
+        {
+            case SeoEntityType.Author:
+                {
+                    var a = await db.Authors.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId, ct)
+                        ?? throw new InvalidOperationException($"Author {entityId} not found");
+                    foreach (var f in fields) map[f] = ReadAuthor(a, f);
+                    return (a.SeoSource, map);
+                }
+            case SeoEntityType.Edition:
+                {
+                    var e = await db.Editions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId, ct)
+                        ?? throw new InvalidOperationException($"Edition {entityId} not found");
+                    foreach (var f in fields) map[f] = ReadEdition(e, f);
+                    return (e.SeoSource, map);
+                }
+            case SeoEntityType.Genre:
+                {
+                    var g = await db.Genres.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId, ct)
+                        ?? throw new InvalidOperationException($"Genre {entityId} not found");
+                    foreach (var f in fields) map[f] = ReadGenre(g, f);
+                    return (g.SeoSource, map);
+                }
+            default:
+                throw new InvalidOperationException($"Unknown entity type {entityType}");
+        }
+    }
+
+    /// <summary>
     /// Applies {fieldType: value} pairs to the entity. Values come from parsed Claude output.
     /// For object/array fields (themes, faqs), stores as canonical JSON. Updates SeoSource=Auto.
     /// </summary>
