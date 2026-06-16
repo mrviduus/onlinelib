@@ -57,6 +57,45 @@ public record TraceDetailDto(
     Guid? UserId,
     DateTimeOffset CreatedAt);
 
+/// <summary>One row in the Agent Runs tab table (AI-045). Omits the heavy StepsJson + Output;
+/// Goal is truncated for the list. HasError = the run recorded an error.</summary>
+public record AgentRunListItemDto(
+    Guid Id,
+    string Agent,
+    Guid? UserId,
+    Guid? EditionId,
+    string Status,
+    string Goal,
+    int Iterations,
+    int TokensIn,
+    int TokensOut,
+    decimal CostUsd,
+    int LatencyMs,
+    bool HasError,
+    DateTimeOffset CreatedAt);
+
+/// <summary>Paged agent-run list for the Agent Runs tab.</summary>
+public record AgentRunsPageDto(long Total, IReadOnlyList<AgentRunListItemDto> Items);
+
+/// <summary>Full agent run for the transcript drill-in (AI-045). StepsJson is the RAW jsonb
+/// string (crew runs carry nested sub_agent steps); the frontend parses it.</summary>
+public record AgentRunDetailDto(
+    Guid Id,
+    string Agent,
+    Guid? UserId,
+    Guid? EditionId,
+    string Status,
+    string Goal,
+    string? Output,
+    string StepsJson,
+    int Iterations,
+    int TokensIn,
+    int TokensOut,
+    decimal CostUsd,
+    int LatencyMs,
+    string? Error,
+    DateTimeOffset CreatedAt);
+
 /// <summary>Request body for triggering an eval run from the admin panel.</summary>
 public record RunEvalsRequest(string[]? Features, string? Judge);
 

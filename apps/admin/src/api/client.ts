@@ -485,6 +485,42 @@ export interface TraceDetail {
   userId: string | null
   createdAt: string
 }
+export interface AgentRunListItem {
+  id: string
+  agent: string
+  userId?: string | null
+  editionId?: string | null
+  status: string
+  goal: string
+  iterations: number
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  latencyMs: number
+  hasError: boolean
+  createdAt: string
+}
+export interface AgentRunsPage {
+  total: number
+  items: AgentRunListItem[]
+}
+export interface AgentRunDetail {
+  id: string
+  agent: string
+  userId?: string | null
+  editionId?: string | null
+  status: string
+  goal: string
+  output?: string | null
+  stepsJson: string
+  iterations: number
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  latencyMs: number
+  error?: string | null
+  createdAt: string
+}
 export interface EvalRun {
   id: string
   feature: string
@@ -1105,6 +1141,19 @@ export const adminApi = {
 
   getAiTrace: async (id: string): Promise<TraceDetail> => {
     return fetchJson<TraceDetail>(`/admin/ai-quality/traces/${id}`)
+  },
+
+  getAgentRuns: async (params?: { agent?: string; limit?: number; offset?: number }): Promise<AgentRunsPage> => {
+    const query = new URLSearchParams()
+    if (params?.agent) query.set('agent', params.agent)
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const qs = query.toString()
+    return fetchJson<AgentRunsPage>(`/admin/ai-quality/agent-runs${qs ? `?${qs}` : ''}`)
+  },
+
+  getAgentRun: async (id: string): Promise<AgentRunDetail> => {
+    return fetchJson<AgentRunDetail>(`/admin/ai-quality/agent-runs/${id}`)
   },
 
   getAiEvals: async (params?: { feature?: string; limit?: number }): Promise<EvalRun[]> => {
