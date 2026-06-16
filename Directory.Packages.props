@@ -27,6 +27,11 @@
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
     <!-- LLM -->
     <PackageVersion Include="OpenAI" Version="2.10.0" />
+    <!-- MCP (Phase 8, AI-047). Official ModelContextProtocol C# SDK (MS/Anthropic).
+         Latest stable 1.4.0 (2026-06-04). Powers the stdio MCP server in
+         TextStack.Ai.Mcp — the SDK ships the stdio transport + low-level
+         ListTools/CallTool handler API used by the runtime tool catalog. -->
+    <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
     <!-- Tool-args validation (AI-030): real JSON Schema draft 2020-12 evaluation before dispatch -->
     <PackageVersion Include="JsonSchema.Net" Version="7.3.4" />
     <!-- AI eval framework (MEAI.Evaluation). Stable 10.6.0 — IChatClient seam +
