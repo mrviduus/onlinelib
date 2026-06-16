@@ -456,13 +456,13 @@ That single command builds the AAB and pushes it to Internal Testing. Service ac
 
 ```
 Internet → Cloudflare (DNS+SSL) → Cloudflare Tunnel → nginx (port 80)
-  ├─ textstack.app → SSG static files + /api/ proxy to :8080
+  ├─ textstack.app → SSG static files + /api/ proxy to :8080 + /mcp proxy to :8090
   └─ textstack.dev → admin panel (:81)
 ```
 
-Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard` (profile-gated), `ollama`. All localhost-only, no public ports except 80 via tunnel.
+Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-worker`, `aspire-dashboard` (profile-gated), `ollama`, `mcp-server` (profile-gated, `--profile mcp`). All localhost-only, no public ports except 80 via tunnel.
 
-**Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m).
+**Nginx bot detection**: Regex map identifies crawlers (Google, Bing, Yandex, social bots) → routes to prerendered SSG HTML. Rate limiting zones: API (10r/s), uploads (1r/s), translation (5r/m), MCP (10r/s).
 
 **Systemd services**: `seo-publish-poller` (auto-publish with SEO generation).
 
@@ -473,6 +473,16 @@ Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-
 Supported formats: EPUB, PDF, FB2. Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
 
 FB2 (`Fb2TextExtractor`): XML-based FictionBook 2.0. Cover from binary elements, metadata extraction, chapter flattening, namespace detection for non-compliant files.
+
+## MCP Server (`backend/src/Ai/TextStack.Ai.Mcp/`)
+
+Thin, stateless MCP↔HTTP bridge (Phase 8) — every tool call becomes an HTTP request to the public TextStack API (no DB/EF/OpenAI). 7 tools: `search_books`, `get_book`, `get_chapter` (public) + `list_my_highlights`, `list_my_vocabulary`, `ask_book`, `save_highlight` (Bearer).
+
+**Dual transport** (env `MCP_TRANSPORT`: `stdio` default | `http`; `--http` flag also selects http). Shared wiring (tool catalog handlers, typed `TextStackApiClient`) in `McpBridgeCore`; the two host builders in `McpHosts`.
+- **stdio** (local, single identity): `Host.CreateApplicationBuilder`, **logs→stderr** (stdout is JSON-RPC only — never `Console.Write*`), singleton DI, token from `TEXTSTACK_MCP_TOKEN` (static) or the device flow (`DeviceFlowTokenProvider`, AI-050). Byte-identical to the pre-049 server.
+- **http** (AI-049, remote, **multi-user**): `WebApplication`, `.WithHttpTransport(o => o.Stateless = true)`, `app.MapMcp("/mcp")` + `GET /health`. Each connection authenticates with its OWN `Authorization: Bearer <token>` — the AI-050 device-flow JWT pasted into the client config — read per-request by `HttpContextTokenProvider` (SCOPED; `McpToolCatalog` + provider scoped so no identity leaks across connections). NEVER touches the device-flow cache. Package: `ModelContextProtocol.AspNetCore` 1.4.0 (matches the pinned `ModelContextProtocol`).
+
+**Deploy** (http mode): Docker `mcp-server` (`backend/Docker/Mcp.Dockerfile`, profile `mcp`) binds `http://+:8090`, mapped `127.0.0.1:8090`; talks to the API over the **internal** docker network (`TEXTSTACK_API_URL=http://api:8080`). nginx `location /mcp` (upstream `textstack_mcp`, zone `mcp_limit`) proxies with SSE settings (`proxy_buffering off`, `Connection ""`, relays `Authorization`, 3600s timeouts). Behind Cloudflare tunnel — no new cloud. Bring up: `docker compose --profile mcp up -d mcp-server`. nginx `/mcp` block is applied manually on the server at deploy.
 
 ## Telemetry
 

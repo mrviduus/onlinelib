@@ -1,0 +1,96 @@
+using System.Reflection;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using TextStack.Ai.Mcp.Http;
+using TextStack.Ai.Mcp.Tools;
+
+namespace TextStack.Ai.Mcp;
+
+/// <summary>
+/// Transport-agnostic wiring shared by BOTH hosts (stdio + http, AI-049): the
+/// typed <see cref="TextStackApiClient"/> HTTP config and the
+/// <c>tools/list</c> / <c>tools/call</c> handler delegates.
+///
+/// The handlers resolve <see cref="McpToolCatalog"/> from <c>request.Services</c>
+/// (which is request-scoped under HTTP and the root provider under stdio), so they
+/// are lifetime-agnostic and IDENTICAL across hosts. Only the DI lifetime of the
+/// catalog / token provider differs per transport, registered by the callers.
+/// </summary>
+internal static class McpBridgeCore
+{
+    /// <summary>
+    /// Registers the typed <see cref="TextStackApiClient"/> over the public API.
+    /// The Host header is set per-request inside the client so
+    /// <c>SiteContextMiddleware</c> resolves the site. Bound timeout so a stuck
+    /// upstream can't hang a tool call for the default 100s.
+    /// </summary>
+    public static void AddApiClient(IServiceCollection services, McpBridgeOptions options) =>
+        services.AddHttpClient<TextStackApiClient>(http =>
+        {
+            http.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
+            http.Timeout = TimeSpan.FromSeconds(McpTimeoutSeconds());
+        });
+
+    /// <summary>
+    /// The shared MCP server handlers. Both hosts register the SAME pair; identity
+    /// (and lifetime) is supplied by whatever <see cref="McpToolCatalog"/> the
+    /// request scope resolves.
+    /// </summary>
+    public static McpServerHandlers BuildHandlers() => new()
+    {
+        // tools/list — projected from the runtime catalog.
+        ListToolsHandler = (request, _) =>
+        {
+            var catalog = request.Services!.GetRequiredService<McpToolCatalog>();
+            return ValueTask.FromResult(new ListToolsResult { Tools = catalog.ListTools() });
+        },
+        // tools/call — dispatch by name; args dictionary → a single JSON object for
+        // the catalog handler (which validates against the input schema).
+        CallToolHandler = async (request, ct) =>
+        {
+            var catalog = request.Services!.GetRequiredService<McpToolCatalog>();
+            var name = request.Params!.Name;
+            var arguments = ToArgumentsObject(request.Params.Arguments);
+            return await catalog.CallAsync(name, arguments, ct);
+        },
+    };
+
+    /// <summary>Server identity advertised in both transports.</summary>
+    public static Implementation ServerInfo() => new()
+    {
+        Name = "textstack",
+        Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0",
+    };
+
+    /// <summary>Tools-only capability set (no prompts/resources).</summary>
+    public static ServerCapabilities Capabilities() => new() { Tools = new ToolsCapability() };
+
+    // Rebuilds the MCP-supplied args dictionary into a single JSON object element so
+    // the catalog handler can validate/read it as one schema-shaped value.
+    private static JsonElement? ToArgumentsObject(IDictionary<string, JsonElement>? arguments)
+    {
+        if (arguments is null)
+            return null;
+
+        var node = new System.Text.Json.Nodes.JsonObject();
+        foreach (var (key, value) in arguments)
+            node[key] = System.Text.Json.Nodes.JsonNode.Parse(value.GetRawText());
+
+        return JsonSerializer.SerializeToElement(node);
+    }
+
+    // HttpClient timeout in seconds. Env: TEXTSTACK_MCP_TIMEOUT_SECONDS (default 15);
+    // a non-positive / unparseable value falls back to the 15s default. internal so
+    // the stdio device-flow client (McpHosts) shares the SAME env-overridable value
+    // as the typed TextStackApiClient — no drift.
+    internal static double McpTimeoutSeconds()
+    {
+        var raw = Environment.GetEnvironmentVariable("TEXTSTACK_MCP_TIMEOUT_SECONDS");
+        if (double.TryParse(raw, out var seconds) && seconds > 0)
+            return seconds;
+
+        return 15;
+    }
+}

@@ -1,0 +1,27 @@
+# TextStack MCP server — remote HTTP (streamable) transport (AI-049, Phase 8).
+# Mirrors Api.Dockerfile (alpine sdk build → alpine aspnet runtime). The project
+# is a thin, stateless MCP↔HTTP bridge: it references ONLY the MCP SDK packages
+# (no Application / Infrastructure / Domain), so the restore layer copies just its
+# csproj + the central package/build props.
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+WORKDIR /src
+
+COPY Directory.Build.props Directory.Packages.props ./
+COPY backend/src/Ai/TextStack.Ai.Mcp/TextStack.Ai.Mcp.csproj backend/src/Ai/TextStack.Ai.Mcp/
+RUN dotnet restore backend/src/Ai/TextStack.Ai.Mcp/TextStack.Ai.Mcp.csproj
+
+COPY backend/src/Ai/TextStack.Ai.Mcp/ backend/src/Ai/TextStack.Ai.Mcp/
+RUN dotnet publish backend/src/Ai/TextStack.Ai.Mcp/TextStack.Ai.Mcp.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+RUN deluser app 2>/dev/null; delgroup app 2>/dev/null; \
+    addgroup -g 1000 app && adduser -D -u 1000 -G app app
+WORKDIR /app
+COPY --from=build /app/publish .
+USER app
+# Remote, multi-user transport: each connection carries its own Bearer; the
+# container binds all interfaces on 8090 (compose maps it to 127.0.0.1 only,
+# nginx fronts /mcp). MCP_TRANSPORT=http is supplied by compose.
+ENV ASPNETCORE_URLS=http://+:8090
+EXPOSE 8090
+ENTRYPOINT ["dotnet", "TextStack.Ai.Mcp.dll"]
