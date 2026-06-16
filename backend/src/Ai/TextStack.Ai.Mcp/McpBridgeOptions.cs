@@ -16,7 +16,9 @@ public sealed class McpBridgeOptions
     public required string SiteHost { get; init; }
 
     /// <summary>
-    /// Bearer token reserved for AI-050 (authenticated tools). Unused in AI-047.
+    /// Bearer token for the user-scoped tools (AI-048a serves it via
+    /// <see cref="Auth.StaticEnvTokenProvider"/>). AI-050 replaces the provider
+    /// with a device-flow source; this env var stays the interim contract.
     /// Env: <c>TEXTSTACK_MCP_TOKEN</c>.
     /// </summary>
     public string? McpToken { get; init; }
