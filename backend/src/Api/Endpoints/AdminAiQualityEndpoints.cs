@@ -33,6 +33,68 @@ public static class AdminAiQualityEndpoints
         group.MapPost("/evals/toolcalls/run", RunToolCallEval);
         group.MapPost("/evals/studybuddy/run", RunStudyBuddyEval);
         group.MapPost("/evals/criticdefects/run", RunCriticDefectEval);
+        group.MapPost("/evals/crew-ab/run", RunCrewAbEval);
+    }
+
+    // Phase 7 DoD gate (AI-046): A/B the single-call baseline vs the full FieldCrew on the same brief+source over
+    // the golden set, judged by an independent stronger judge (gpt-4.1). Reports crew lift % + cost ratio and
+    // gates on lift ≥ 0.10 AND costRatio ≤ 2.0. Generation goes through the gateway (same nano for both arms);
+    // the judge runs the dedicated openai-judge provider. ~30 gen + 20 judge calls, run sync like the others.
+    private static async Task<IResult> RunCrewAbEval(
+        HttpContext httpContext,
+        IServiceProvider services,
+        IConfiguration config,
+        TextStack.Ai.EvalSuite.CrewAbEvalRunner runner,
+        FieldCrew crew,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        ILlmService gateway;
+        try
+        {
+            gateway = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("LLM gateway is not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        ILlmService judge;
+        try
+        {
+            judge = services.GetRequiredKeyedService<ILlmService>("openai-judge");
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("Judge LLM is not configured.", statusCode: 503);
+        }
+
+        var judgeModelId = config["Eval:JudgeModel"] ?? "gpt-4.1";
+        var baseline = new BaselineFieldAgent(gateway);
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+
+        var result = await runner.RunAsync(
+            baseline, crew, judge, judgeModelId, persist: true, db, gitSha, ct);
+
+        return Results.Ok(new
+        {
+            avgA = Math.Round(result.AvgA, 3),
+            avgB = Math.Round(result.AvgB, 3),
+            liftPct = Math.Round(result.LiftPct, 4),
+            costRatio = double.IsPositiveInfinity(result.CostRatio) ? (double?)null : Math.Round(result.CostRatio, 3),
+            winRate = Math.Round(result.WinRate, 3),
+            n = result.N,
+            passed = result.Passed,
+            cases = result.Cases.Select(c => new
+            {
+                c.Id,
+                scoreA = Math.Round(c.JudgeScoreA, 3),
+                scoreB = Math.Round(c.JudgeScoreB, 3),
+                c.CostA,
+                c.CostB,
+                c.BWins,
+            }),
+        });
     }
 
     // Phase 7 DoD gate (AI-044): inject KNOWN defects into clean drafts, run the REAL AI-041 critic (nano)

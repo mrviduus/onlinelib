@@ -18,6 +18,13 @@ public record ContentBrief(
 /// <summary>Input to the researcher: the brief plus the raw source material to condense into neutral facts.</summary>
 public record ResearchInput(ContentBrief Brief, string SourceMaterial);
 
+/// <summary>
+/// Input to the single-call baseline (AI-046): the SAME brief the crew reads plus the raw source material.
+/// One LLM call folds the brief's full contract into its system prompt and writes the field directly — so an
+/// A/B eval isolates orchestration (crew vs single call), not the rubric the two are held to.
+/// </summary>
+public record BaselineInput(ContentBrief Brief, string SourceMaterial);
+
 /// <summary>The researcher's output: bullet FACTS grounded entirely in the source, ready for the drafter.</summary>
 public record ResearchNotes(string Notes);
 
