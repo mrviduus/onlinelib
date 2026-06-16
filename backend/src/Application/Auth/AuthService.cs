@@ -17,17 +17,20 @@ public class AuthService
     private readonly JwtSettings _jwtSettings;
     private readonly GoogleSettings _googleSettings;
     private readonly AppleSettings? _appleSettings;
+    private readonly TimeProvider _clock;
 
     public AuthService(
         IAppDbContext db,
         IOptions<JwtSettings> jwtSettings,
         IOptions<GoogleSettings> googleSettings,
-        IOptions<AppleSettings>? appleSettings = null)
+        IOptions<AppleSettings>? appleSettings = null,
+        TimeProvider? clock = null)
     {
         _db = db;
         _jwtSettings = jwtSettings.Value;
         _googleSettings = googleSettings.Value;
         _appleSettings = appleSettings?.Value;
+        _clock = clock ?? TimeProvider.System;
     }
 
     public async Task<(User user, string accessToken, string refreshToken)> TestLoginAsync(
@@ -424,11 +427,169 @@ public class AuthService
         return true;
     }
 
-    private static string HashToken(string token)
+    // ===========================================================================
+    // OAuth 2.0 Device Authorization Grant (RFC 8628) — AI-050a
+    // Reuses the same GenerateAccessToken + CreateRefreshTokenAsync as the login
+    // path; uses the injected TimeProvider so expiry is testable with a fake clock.
+    // ===========================================================================
+
+    /// <summary>
+    /// RFC 8628 §3.2 — create a device authorization. Returns the PLAINTEXT
+    /// device_code (returned to the CLI once, stored only hashed) + the short
+    /// user_code the user types into the consent page.
+    /// </summary>
+    public async Task<DeviceCodeResult> CreateDeviceAuthorizationAsync(CancellationToken ct)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
-        return Convert.ToHexStringLower(bytes);
+        var deviceCode = DeviceCodes.GenerateSecureToken();
+        var deviceCodeHash = DeviceCodes.HashToken(deviceCode);
+        var now = _clock.GetUtcNow();
+
+        var userCode = await GenerateUniqueUserCodeAsync(now, ct);
+
+        const int expiresInSeconds = 600; // 10 min
+        const int intervalSeconds = 5;
+
+        _db.DeviceAuthorizations.Add(new DeviceAuthorization
+        {
+            Id = Guid.NewGuid(),
+            DeviceCodeHash = deviceCodeHash,
+            UserCode = userCode,
+            Status = DeviceAuthorizationStatus.Pending,
+            ExpiresAt = now.AddSeconds(expiresInSeconds),
+            IntervalSeconds = intervalSeconds,
+            CreatedAt = now
+        });
+        await _db.SaveChangesAsync(ct);
+
+        return new DeviceCodeResult(deviceCode, userCode, expiresInSeconds, intervalSeconds);
     }
+
+    /// <summary>Approve a pending device authorization, binding it to the user.</summary>
+    public async Task<DeviceApprovalResult> ApproveDeviceAsync(string userCode, Guid userId, CancellationToken ct)
+    {
+        var normalized = DeviceCodes.NormalizeUserCode(userCode);
+        if (normalized.Length == 0)
+            return DeviceApprovalResult.NotFound;
+
+        // Scope to the live pending row only. The UserCode index is FILTERED on
+        // status='pending' (not unique), so the same user_code legitimately recurs
+        // across history (old denied/expired/approved rows). Filtering on Pending
+        // makes those stale terminal rows invisible — we only ever act on the one
+        // still-live row. Expiry is checked below (lazy-expiry) so a genuinely
+        // past-deadline pending row still reports Expired rather than NotFound.
+        var row = await _db.DeviceAuthorizations.FirstOrDefaultAsync(
+            x => x.UserCode == normalized && x.Status == DeviceAuthorizationStatus.Pending, ct);
+        if (row == null)
+            return DeviceApprovalResult.NotFound;
+
+        var now = _clock.GetUtcNow();
+        if (row.ExpiresAt <= now)
+        {
+            row.Status = DeviceAuthorizationStatus.Expired;
+            await _db.SaveChangesAsync(ct);
+            return DeviceApprovalResult.Expired;
+        }
+
+        row.Status = DeviceAuthorizationStatus.Approved;
+        row.UserId = userId;
+        await _db.SaveChangesAsync(ct);
+        return DeviceApprovalResult.Ok;
+    }
+
+    /// <summary>Deny a pending device authorization (user rejected the CLI).</summary>
+    public async Task<DeviceApprovalResult> DenyDeviceAsync(string userCode, CancellationToken ct)
+    {
+        var normalized = DeviceCodes.NormalizeUserCode(userCode);
+        if (normalized.Length == 0)
+            return DeviceApprovalResult.NotFound;
+
+        // Same scoping as ApproveDeviceAsync: act on the live pending row only so a
+        // stale terminal row sharing the same recurring user_code is never touched.
+        var row = await _db.DeviceAuthorizations.FirstOrDefaultAsync(
+            x => x.UserCode == normalized && x.Status == DeviceAuthorizationStatus.Pending, ct);
+        if (row == null)
+            return DeviceApprovalResult.NotFound;
+
+        var now = _clock.GetUtcNow();
+        if (row.ExpiresAt <= now)
+        {
+            row.Status = DeviceAuthorizationStatus.Expired;
+            await _db.SaveChangesAsync(ct);
+            return DeviceApprovalResult.Expired;
+        }
+
+        row.Status = DeviceAuthorizationStatus.Denied;
+        await _db.SaveChangesAsync(ct);
+        return DeviceApprovalResult.Ok;
+    }
+
+    /// <summary>
+    /// RFC 8628 §3.4/§3.5 — the CLI polls with its device_code. Returns either a
+    /// freshly-minted token pair (single-use) or one of the RFC error states.
+    /// </summary>
+    public async Task<DeviceRedeemResult> RedeemDeviceCodeAsync(string deviceCode, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(deviceCode))
+            return DeviceRedeemResult.ExpiredToken(); // unknown == don't distinguish
+
+        var hash = DeviceCodes.HashToken(deviceCode);
+        var row = await _db.DeviceAuthorizations
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.DeviceCodeHash == hash, ct);
+
+        // Unknown device_code → expired_token (avoid enumeration; don't reveal "not found").
+        if (row == null)
+            return DeviceRedeemResult.ExpiredToken();
+
+        var now = _clock.GetUtcNow();
+
+        // Lazily mark past-expiry pending rows expired.
+        if (row.Status == DeviceAuthorizationStatus.Pending && row.ExpiresAt <= now)
+        {
+            row.Status = DeviceAuthorizationStatus.Expired;
+            await _db.SaveChangesAsync(ct);
+            return DeviceRedeemResult.ExpiredToken();
+        }
+
+        switch (row.Status)
+        {
+            case DeviceAuthorizationStatus.Pending:
+                return DeviceRedeemResult.AuthorizationPending();
+            case DeviceAuthorizationStatus.Denied:
+                return DeviceRedeemResult.AccessDenied();
+            case DeviceAuthorizationStatus.Expired:
+                return DeviceRedeemResult.ExpiredToken();
+            case DeviceAuthorizationStatus.Approved when row.User != null:
+                // Single-use: flip status off pending so a second redeem can't re-mint.
+                row.Status = DeviceAuthorizationStatus.Expired;
+                row.ConsumedAt = now;
+                var accessToken = GenerateAccessToken(row.User);
+                var refreshToken = await CreateRefreshTokenAsync(row.User.Id, ct);
+                return DeviceRedeemResult.Success(row.User, accessToken, refreshToken);
+            default:
+                // Approved-but-already-consumed (UserId set, status flipped) or any
+                // other terminal state → treat as expired (don't re-issue).
+                return DeviceRedeemResult.ExpiredToken();
+        }
+    }
+
+    private async Task<string> GenerateUniqueUserCodeAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var candidate = DeviceCodes.GenerateUserCode();
+            // Collision only matters among still-live pending rows (the approve lookup).
+            var clash = await _db.DeviceAuthorizations.AnyAsync(
+                x => x.UserCode == candidate
+                    && x.Status == DeviceAuthorizationStatus.Pending
+                    && x.ExpiresAt > now, ct);
+            if (!clash)
+                return candidate;
+        }
+        throw new InvalidOperationException("Could not generate a unique device user_code.");
+    }
+
+    private static string HashToken(string token) => DeviceCodes.HashToken(token);
 
     public Guid? ValidateAccessToken(string accessToken)
     {

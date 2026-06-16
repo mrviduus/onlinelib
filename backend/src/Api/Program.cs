@@ -230,6 +230,41 @@ builder.Services.AddRateLimiter(options =>
         opt.PermitLimit = 10;
         opt.QueueLimit = 0;
     });
+    // Device Authorization Grant (RFC 8628, AI-050a) — all per-IP.
+    // device-code: CLI requests a device_code; one per CLI session, 5/min is ample.
+    options.AddPolicy("device-code", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 5,
+            QueueLimit = 0,
+        });
+    });
+    // device-token: CLI polls the token endpoint ~every 5s (interval); 12/min covers
+    // honest polling with headroom and still caps scripted abuse.
+    options.AddPolicy("device-token", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 12,
+            QueueLimit = 0,
+        });
+    });
+    // device-approve: authed consent action; one submit per CLI session. 10/min per IP.
+    options.AddPolicy("device-approve", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 10,
+            QueueLimit = 0,
+        });
+    });
     // Per-IP partition — bot with one IP can't exhaust the limit for everyone.
     // 3 guest-creates per 5min per IP: covers legit shared-WiFi cases, blocks scripted abuse.
     // ForwardedHeaders runs before RateLimiter in the pipeline, so RemoteIpAddress is the real client.
@@ -536,6 +571,7 @@ app.MapSiteEndpoints();
 app.MapSeoEndpoints();
 app.MapSsgEndpoints();
 app.MapAuthEndpoints();
+app.MapDeviceAuthEndpoints();
 app.MapProfileEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();

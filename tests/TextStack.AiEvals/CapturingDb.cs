@@ -87,6 +87,7 @@ internal sealed class CapturingDb : IAppDbContext
     public DbSet<WordCluster> WordClusters => throw new NotSupportedException();
     public DbSet<AutoPublishJob> AutoPublishJobs => throw new NotSupportedException();
     public DbSet<PasswordResetToken> PasswordResetTokens => throw new NotSupportedException();
+    public DbSet<DeviceAuthorization> DeviceAuthorizations => throw new NotSupportedException();
     public DbSet<BookQualityJob> BookQualityJobs => throw new NotSupportedException();
     public DbSet<SeoTemplate> SeoTemplates => throw new NotSupportedException();
     public DbSet<SeoBackfillJob> SeoBackfillJobs => throw new NotSupportedException();

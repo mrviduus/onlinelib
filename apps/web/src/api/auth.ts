@@ -102,6 +102,29 @@ export async function getCurrentUser(): Promise<AuthResponse> {
   return authFetch<AuthResponse>('/auth/me')
 }
 
+// Device Authorization Grant (RFC 8628, AI-050a) — consent page approves a
+// CLI's user_code from the authenticated browser session. authFetch sends
+// credentials:'include', so the session cookie authenticates the approval.
+export type DeviceApproveError =
+  | 'invalid_user_code'
+  | 'expired_user_code'
+  | 'user_code_already_used'
+  | 'invalid_request'
+
+export async function approveDevice(userCode: string): Promise<void> {
+  await authFetch<void>('/auth/device/approve', {
+    method: 'POST',
+    body: JSON.stringify({ user_code: userCode }),
+  })
+}
+
+export async function denyDevice(userCode: string): Promise<void> {
+  await authFetch<void>('/auth/device/deny', {
+    method: 'POST',
+    body: JSON.stringify({ user_code: userCode }),
+  })
+}
+
 // Profile API
 export interface UpdateProfilePayload {
   name?: string | null

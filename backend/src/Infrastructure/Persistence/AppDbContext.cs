@@ -72,6 +72,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<WordCluster> WordClusters => Set<WordCluster>();
     public DbSet<AutoPublishJob> AutoPublishJobs => Set<AutoPublishJob>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<DeviceAuthorization> DeviceAuthorizations => Set<DeviceAuthorization>();
     public DbSet<BookQualityJob> BookQualityJobs => Set<BookQualityJob>();
     public DbSet<SeoTemplate> SeoTemplates => Set<SeoTemplate>();
     public DbSet<SeoBackfillJob> SeoBackfillJobs => Set<SeoBackfillJob>();

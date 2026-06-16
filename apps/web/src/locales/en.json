@@ -282,6 +282,31 @@
   "auth": {
     "progressSavedToast": "Your reading progress and saved words were kept."
   },
+  "deviceVerify": {
+    "title": "Connect a device",
+    "codeLabel": "Enter the code shown by your MCP client",
+    "codePlaceholder": "XXXX-XXXX",
+    "continue": "Continue",
+    "signInTitle": "Sign in to continue",
+    "signInText": "Sign in to your TextStack account to approve this connection.",
+    "signInBtn": "Sign in",
+    "consentTitle": "Approve connection",
+    "consentLead": "TextStack MCP wants to connect to your library as {{email}}.",
+    "consentScope": "It will be able to read your highlights, vocabulary, and ask questions about your books — and (soon) save highlights — the same access as this website.",
+    "consentWarning": "Only approve this if you started a login from your own MCP client.",
+    "approve": "Approve",
+    "cancel": "Cancel",
+    "submitting": "Approving...",
+    "deniedTitle": "Request canceled",
+    "deniedText": "No access was granted. You can close this page.",
+    "successTitle": "✓ Connected",
+    "successText": "Return to your MCP client or terminal — you can close this page now.",
+    "errorInvalidCode": "That code wasn't found — check it and try again.",
+    "errorExpired": "This code expired — start a new login from your MCP client.",
+    "errorAlreadyUsed": "This code was already used.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "errorNotSignedIn": "Please sign in first."
+  },
   "common": {
     "loading": "Loading...",
     "noBooksYet": "No books available yet.",

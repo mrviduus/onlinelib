@@ -51,6 +51,7 @@ public interface IAppDbContext
     DbSet<WordCluster> WordClusters { get; }
     DbSet<AutoPublishJob> AutoPublishJobs { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
+    DbSet<DeviceAuthorization> DeviceAuthorizations { get; }
     DbSet<BookQualityJob> BookQualityJobs { get; }
     DbSet<SeoTemplate> SeoTemplates { get; }
     DbSet<SeoBackfillJob> SeoBackfillJobs { get; }
