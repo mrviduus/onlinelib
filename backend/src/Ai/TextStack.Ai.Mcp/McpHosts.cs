@@ -68,7 +68,7 @@ public static class McpHosts
         const string deviceFlowClient = "device-flow";
         services.AddHttpClient(deviceFlowClient, http =>
         {
-            http.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
+            http.BaseAddress = McpBridgeCore.BaseUri(options.ApiBaseUrl);
             http.DefaultRequestHeaders.Host = options.SiteHost;
             // Env-overridable (TEXTSTACK_MCP_TIMEOUT_SECONDS, default 15) — same helper
             // the typed TextStackApiClient uses, so the auth client never drifts.

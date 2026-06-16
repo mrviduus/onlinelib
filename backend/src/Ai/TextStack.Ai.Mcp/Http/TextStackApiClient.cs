@@ -218,10 +218,16 @@ public sealed class TextStackApiClient
     // Public route: Host header only (site + EN default-language resolution).
     private HttpRequestMessage PublicRequest(HttpMethod method, string url)
     {
-        var request = new HttpRequestMessage(method, url);
+        var request = new HttpRequestMessage(method, Relative(url));
         request.Headers.Host = _siteHost;
         return request;
     }
+
+    // Build a relative URI that PRESERVES any path prefix on BaseAddress (e.g.
+    // ".../api/"). A leading slash would make HttpClient resolve from the host
+    // root and drop the prefix, so strip it; BaseAddress is normalized to end
+    // with "/" at registration so the prefix segment isn't treated as a file.
+    private static Uri Relative(string url) => new(url.TrimStart('/'), UriKind.Relative);
 
     // User-scoped route: Host header + Bearer. Asks the token provider; a
     // non-Authorized result throws McpUnauthorizedException (carrying the
@@ -234,7 +240,7 @@ public sealed class TextStackApiClient
         switch (token)
         {
             case TokenResult.Authorized a:
-                var request = new HttpRequestMessage(method, url);
+                var request = new HttpRequestMessage(method, Relative(url));
                 request.Headers.Host = _siteHost;
                 request.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", a.AccessToken);
