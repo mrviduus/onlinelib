@@ -6,11 +6,13 @@ import {
   DailyCostPoint,
   TraceListItem,
   TraceDetail,
+  AgentRunListItem,
+  AgentRunDetail,
   EvalRun,
   CriticDefectEvalResult,
 } from '../api/client'
 
-type Tab = 'summary' | 'traces' | 'evals'
+type Tab = 'summary' | 'traces' | 'transcripts' | 'evals'
 
 const KNOWN_FEATURES = ['explain', 'translate', 'distractor', 'bookmeta', 'tagsuggestion', 'eval.judge']
 
@@ -20,7 +22,7 @@ export function AiQualityPage() {
     <div className="dashboard-page">
       <h1>AI Quality</h1>
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e5e7eb', margin: '12px 0 16px' }}>
-        {(['summary', 'traces', 'evals'] as Tab[]).map((t) => (
+        {(['summary', 'traces', 'transcripts', 'evals'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -41,6 +43,7 @@ export function AiQualityPage() {
       </div>
       {tab === 'summary' && <SummaryTab />}
       {tab === 'traces' && <TracesTab />}
+      {tab === 'transcripts' && <TranscriptsTab />}
       {tab === 'evals' && <EvalsTab />}
     </div>
   )
@@ -318,6 +321,357 @@ function Section({ title, body }: { title: string; body: string | null }) {
   )
 }
 
+// ─────────────────────────── Transcripts ───────────────────────────
+
+const RUN_PAGE = 25
+const AGENT_FILTERS = ['crew.autopublish', 'crew.seo', 'studybuddy']
+
+function isErrorStatus(status: string, hasError?: boolean): boolean {
+  return hasError === true || status === 'error' || status === 'budget_exhausted'
+}
+
+function TranscriptsTab() {
+  const [items, setItems] = useState<AgentRunListItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [agent, setAgent] = useState('')
+  const [offset, setOffset] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<AgentRunDetail | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    adminApi
+      .getAgentRuns({ agent: agent || undefined, limit: RUN_PAGE, offset })
+      .then((d) => {
+        setItems(d.items)
+        setTotal(d.total)
+        setError(null)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [agent, offset])
+
+  const openRun = async (id: string) => {
+    try {
+      setSelected(await adminApi.getAgentRun(id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load transcript')
+    }
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <select
+          value={agent}
+          onChange={(e) => {
+            setOffset(0)
+            setAgent(e.target.value)
+          }}
+          style={input}
+        >
+          <option value="">All agents</option>
+          {AGENT_FILTERS.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <Banner text={error} />}
+
+      {loading ? (
+        <p className="dashboard-page__subtitle">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="dashboard-empty">No agent runs match. (Crew/agent transcripts appear after the app runs an agent.)</p>
+      ) : (
+        <>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Agent</th>
+                <th style={th}>Status</th>
+                <th style={th}>Goal</th>
+                <th style={th}>Cost</th>
+                <th style={th}>Tokens</th>
+                <th style={th}>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r) => {
+                const err = isErrorStatus(r.status, r.hasError)
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() => openRun(r.id)}
+                    style={{ cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: err ? '#fef2f2' : undefined }}
+                  >
+                    <td style={td}>{r.agent}{err && <span style={{ color: '#dc2626' }}> ⚠</span>}</td>
+                    <td style={td}>{r.status}</td>
+                    <td style={{ ...td, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.goal}</td>
+                    <td style={td}>${r.costUsd.toFixed(4)}</td>
+                    <td style={td}>{r.tokensIn}/{r.tokensOut}</td>
+                    <td style={td}>{timeAgo(r.createdAt)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <Pager offset={offset} total={total} onChange={setOffset} pageSize={RUN_PAGE} label="runs" />
+        </>
+      )}
+
+      {selected && <TranscriptModal run={selected} onClose={() => setSelected(null)} />}
+    </>
+  )
+}
+
+function statusColor(status: string, hasError?: boolean): string {
+  if (isErrorStatus(status, hasError)) return '#dc2626'
+  if (status === 'completed') return '#059669'
+  return '#6b7280'
+}
+
+function TranscriptModal({ run, onClose }: { run: AgentRunDetail; onClose: () => void }) {
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={(e) => e.stopPropagation()} style={modal}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {run.agent}
+            <span style={{ fontSize: 12, fontWeight: 600, color: statusColor(run.status, run.error != null) }}>
+              {run.status}
+            </span>
+          </h2>
+          <button onClick={onClose} style={{ ...rangeBtn(false), border: 'none' }}>✕</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px 12px', marginBottom: 12 }}>
+          <Metric label="Iterations" value={String(run.iterations)} />
+          <Metric label="Cost" value={`$${run.costUsd.toFixed(4)}`} />
+          <Metric label="Latency" value={`${run.latencyMs} ms`} />
+          <Metric label="Tokens (in/out)" value={`${run.tokensIn} / ${run.tokensOut}`} />
+          <Metric label="When" value={new Date(run.createdAt).toLocaleString()} />
+        </div>
+        {run.error && <Banner text={run.error} />}
+        <Section title="Goal" body={run.goal} />
+        <Section title="Output" body={run.output ?? null} />
+        <StepTree stepsJson={run.stepsJson} />
+      </div>
+    </div>
+  )
+}
+
+// PascalCase shapes from the backend transcript JSON.
+interface AgentStep {
+  Index?: number
+  Kind?: string
+  Payload?: unknown
+  At?: string
+}
+interface SubAgentUsage {
+  Iterations?: number
+  InputTokensTotal?: number
+  OutputTokensTotal?: number
+  CostUsdTotal?: number
+  LatencyMs?: number
+}
+interface SubAgentPayload {
+  stage?: string
+  agentName?: string
+  status?: string
+  usage?: SubAgentUsage
+  steps?: AgentStep[]
+}
+
+function StepTree({ stepsJson }: { stepsJson: string }) {
+  let steps: AgentStep[]
+  try {
+    const parsed = JSON.parse(stepsJson)
+    if (!Array.isArray(parsed)) throw new Error('not an array')
+    steps = parsed as AgentStep[]
+  } catch {
+    return <Section title="Steps (raw)" body={pretty(stepsJson)} />
+  }
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>Steps</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {steps.map((step, i) => (
+          <StepNode key={i} step={step} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StepNode({ step }: { step: AgentStep }) {
+  try {
+    if (step.Kind === 'sub_agent') {
+      return <SubAgentPanel payload={step.Payload as SubAgentPayload} />
+    }
+    return (
+      <div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>{step.Kind ?? 'step'}</div>
+        <pre style={pre}>{pretty(JSON.stringify(step.Payload))}</pre>
+      </div>
+    )
+  } catch {
+    return (
+      <div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>step</div>
+        <pre style={pre}>{pretty(JSON.stringify(step))}</pre>
+      </div>
+    )
+  }
+}
+
+function SubAgentPanel({ payload }: { payload: SubAgentPayload }) {
+  const p = payload ?? {}
+  const isCritic = p.agentName === 'critic'
+  const [open, setOpen] = useState(isCritic) // critic default-expanded, others collapsed
+  const usage = p.usage ?? {}
+  const title = `${p.stage ?? '?'} · ${p.agentName ?? '?'}`
+  return (
+    <div style={card}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', background: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+      >
+        <span style={{ color: '#9ca3af', fontSize: 12 }}>{open ? '▼' : '▶'}</span>
+        <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{title}</span>
+        {p.status && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: statusColor(p.status), textTransform: 'uppercase' }}>{p.status}</span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px 12px', margin: '12px 0' }}>
+            <Metric label="Iterations" value={String(usage.Iterations ?? '—')} />
+            <Metric label="Tokens (in/out)" value={`${usage.InputTokensTotal ?? 0} / ${usage.OutputTokensTotal ?? 0}`} />
+            <Metric label="Cost" value={`$${(usage.CostUsdTotal ?? 0).toFixed(4)}`} />
+            <Metric label="Latency" value={`${usage.LatencyMs ?? 0} ms`} />
+          </div>
+          <SubAgentBody payload={p} isCritic={isCritic} />
+        </>
+      )}
+    </div>
+  )
+}
+
+function SubAgentBody({ payload, isCritic }: { payload: SubAgentPayload; isCritic: boolean }) {
+  const steps = Array.isArray(payload.steps) ? payload.steps : []
+  if (isCritic) {
+    const text = firstLlmResponseText(steps)
+    if (text != null) {
+      return <CriticReview text={text} />
+    }
+  }
+  if (steps.length === 0) {
+    return <pre style={pre}>{pretty(JSON.stringify(payload))}</pre>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {steps.map((s, i) => {
+        try {
+          const inner = s.Payload as { text?: string } | undefined
+          const body = inner && typeof inner.text === 'string' ? inner.text : pretty(JSON.stringify(s.Payload))
+          return (
+            <div key={i}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>{s.Kind ?? 'step'}</div>
+              <pre style={pre}>{body}</pre>
+            </div>
+          )
+        } catch {
+          return <pre key={i} style={pre}>{pretty(JSON.stringify(s))}</pre>
+        }
+      })}
+    </div>
+  )
+}
+
+function firstLlmResponseText(steps: AgentStep[]): string | null {
+  for (const s of steps) {
+    if (s.Kind === 'llm_response') {
+      const inner = s.Payload as { text?: string } | undefined
+      if (inner && typeof inner.text === 'string') return inner.text
+    }
+  }
+  // fall back to any step that carries a text payload
+  for (const s of steps) {
+    const inner = s.Payload as { text?: string } | undefined
+    if (inner && typeof inner.text === 'string') return inner.text
+  }
+  return null
+}
+
+interface CriticScores {
+  factual_accuracy?: number
+  tone?: number
+  length?: number
+  banned_phrases?: number
+}
+interface CriticIssue {
+  severity?: string
+  axis?: string
+  message?: string
+  detail?: string
+}
+
+function CriticReview({ text }: { text: string }) {
+  let parsed: { scores?: CriticScores; issues?: CriticIssue[] }
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return <pre style={pre}>{pretty(text)}</pre>
+  }
+  const scores = parsed.scores ?? {}
+  const issues = Array.isArray(parsed.issues) ? parsed.issues : []
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+        <Metric label="Factual accuracy" value={fmtScore(scores.factual_accuracy)} />
+        <Metric label="Tone" value={fmtScore(scores.tone)} />
+        <Metric label="Length" value={fmtScore(scores.length)} />
+        <Metric label="Banned phrases" value={fmtScore(scores.banned_phrases)} />
+      </div>
+      {issues.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {issues.map((iss, i) => (
+            <div
+              key={i}
+              style={{
+                borderLeft: `3px solid ${severityColor(iss.severity)}`,
+                background: '#f9fafb',
+                borderRadius: 4,
+                padding: '6px 10px',
+                fontSize: 13,
+              }}
+            >
+              <span style={{ fontWeight: 600, color: severityColor(iss.severity), textTransform: 'uppercase', fontSize: 11 }}>
+                {iss.severity ?? 'issue'}
+              </span>
+              {iss.axis && <span style={{ color: '#6b7280', marginLeft: 8, fontSize: 11 }}>{iss.axis}</span>}
+              <div style={{ color: '#374151', marginTop: 2 }}>{iss.message ?? iss.detail ?? ''}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function fmtScore(v: number | undefined): string {
+  return v == null ? '—' : String(v)
+}
+
+function severityColor(severity?: string): string {
+  if (severity === 'blocker') return '#dc2626'
+  if (severity === 'major') return '#d97706'
+  return '#6b7280' // minor / unknown
+}
+
 // ─────────────────────────── Evals ───────────────────────────
 
 function EvalsTab() {
@@ -484,18 +838,30 @@ function EvalsTab() {
 
 // ─────────────────────────── shared ───────────────────────────
 
-function Pager({ offset, total, onChange }: { offset: number; total: number; onChange: (o: number) => void }) {
-  const page = Math.floor(offset / PAGE) + 1
-  const pages = Math.max(1, Math.ceil(total / PAGE))
+function Pager({
+  offset,
+  total,
+  onChange,
+  pageSize = PAGE,
+  label = 'traces',
+}: {
+  offset: number
+  total: number
+  onChange: (o: number) => void
+  pageSize?: number
+  label?: string
+}) {
+  const page = Math.floor(offset / pageSize) + 1
+  const pages = Math.max(1, Math.ceil(total / pageSize))
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, fontSize: 13, color: '#6b7280' }}>
-      <button disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - PAGE))} style={rangeBtn(false)}>
+      <button disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - pageSize))} style={rangeBtn(false)}>
         ← Prev
       </button>
       <span>
-        Page {page} / {pages} · {total} traces
+        Page {page} / {pages} · {total} {label}
       </span>
-      <button disabled={offset + PAGE >= total} onClick={() => onChange(offset + PAGE)} style={rangeBtn(false)}>
+      <button disabled={offset + pageSize >= total} onClick={() => onChange(offset + pageSize)} style={rangeBtn(false)}>
         Next →
       </button>
     </div>

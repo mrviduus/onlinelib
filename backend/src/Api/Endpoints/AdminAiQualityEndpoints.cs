@@ -25,6 +25,8 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/summary", GetSummary);
         group.MapGet("/traces", GetTraces);
         group.MapGet("/traces/{id:guid}", GetTrace);
+        group.MapGet("/agent-runs", GetAgentRuns);
+        group.MapGet("/agent-runs/{id:guid}", GetAgentRun);
         group.MapGet("/evals", GetEvals);
         group.MapPost("/evals/run", RunEvals);
         group.MapGet("/evals/status", GetEvalStatus);
@@ -258,6 +260,68 @@ public static class AdminAiQualityEndpoints
             .ToListAsync(ct);
 
         return Results.Ok(new TracesPageDto(total, items));
+    }
+
+    // AI-045: list persisted agent_run rows for the admin transcript UI. Mirrors GetTraces
+    // (newest-first, clamp, paged). The list projection omits StepsJson + Output (both big) and
+    // truncates Goal. The `agent` filter matches exact OR prefix (so "crew." narrows to all crew
+    // runs, "crew.autopublish"/"studybuddy" narrow to that one).
+    private static async Task<IResult> GetAgentRuns(
+        AppDbContext db,
+        [FromQuery] string? agent,
+        [FromQuery] int limit = 25,
+        [FromQuery] int offset = 0,
+        CancellationToken ct = default)
+    {
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
+
+        var query = db.AgentRuns.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(agent))
+        {
+            var a = agent.Trim();
+            query = query.Where(r => r.Agent == a || r.Agent.StartsWith(a));
+        }
+
+        var total = await query.LongCountAsync(ct);
+        var rows = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip(offset).Take(limit)
+            .Select(r => new
+            {
+                r.Id,
+                r.Agent,
+                r.UserId,
+                r.EditionId,
+                r.Status,
+                r.Goal,
+                r.Iterations,
+                r.TokensIn,
+                r.TokensOut,
+                r.CostUsd,
+                r.LatencyMs,
+                HasError = r.Error != null && r.Error != "",
+                r.CreatedAt,
+            })
+            .ToListAsync(ct);
+
+        var items = rows.Select(r => new AgentRunListItemDto(
+            r.Id, r.Agent, r.UserId, r.EditionId, r.Status,
+            r.Goal.Length > 120 ? r.Goal[..120] : r.Goal,
+            r.Iterations, r.TokensIn, r.TokensOut, r.CostUsd, r.LatencyMs,
+            r.HasError, r.CreatedAt)).ToList();
+
+        return Results.Ok(new AgentRunsPageDto(total, items));
+    }
+
+    // AI-045: full transcript for one agent run (StepsJson shipped RAW; frontend parses).
+    private static async Task<IResult> GetAgentRun(Guid id, AppDbContext db, CancellationToken ct)
+    {
+        var r = await db.AgentRuns.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (r is null) return Results.NotFound();
+        return Results.Ok(new AgentRunDetailDto(
+            r.Id, r.Agent, r.UserId, r.EditionId, r.Status, r.Goal, r.Output, r.StepsJson,
+            r.Iterations, r.TokensIn, r.TokensOut, r.CostUsd, r.LatencyMs, r.Error, r.CreatedAt));
     }
 
     private static async Task<IResult> GetTrace(Guid id, AppDbContext db, CancellationToken ct)
