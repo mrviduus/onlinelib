@@ -17,8 +17,20 @@
          registration (WithListToolsHandler/WithCallToolHandler) we drive the
          runtime catalog through. -->
     <PackageReference Include="ModelContextProtocol" />
+    <!-- HTTP (streamable) transport (AI-049). Used ONLY in the http branch
+         (MCP_TRANSPORT=http): WithHttpTransport(o => o.Stateless = true) +
+         MapMcp("/mcp") on a WebApplication. The stdio branch never touches it. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <!-- The http branch builds a WebApplication. ModelContextProtocol.AspNetCore
+       pulls the framework ref transitively, but declare it explicitly so the
+       ASP.NET Core types (WebApplication, IHttpContextAccessor) are always
+       available on Microsoft.NET.Sdk (NOT .Web). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <!-- Deliberately thin: NO reference to Application / Infrastructure / Ai.Tools.

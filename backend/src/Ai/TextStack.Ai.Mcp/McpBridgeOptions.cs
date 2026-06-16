@@ -31,7 +31,18 @@ public sealed class McpBridgeOptions
     /// </summary>
     public string? TokenCachePath { get; init; }
 
-    public static McpBridgeOptions FromEnvironment()
+    /// <summary>
+    /// Server transport (AI-049). <c>stdio</c> (default) = the local single-identity
+    /// host (device-flow / static token). <c>http</c> = the remote, multi-user
+    /// streamable HTTP host behind nginx, where each connection carries its own
+    /// <c>Authorization: Bearer</c> (see
+    /// <see cref="Auth.HttpContextTokenProvider"/>). Env: <c>MCP_TRANSPORT</c>;
+    /// the <c>--http</c> CLI flag also selects http. Defaults to <c>stdio</c> so
+    /// callers that don't set it keep the pre-049, byte-identical behaviour.
+    /// </summary>
+    public McpTransport Transport { get; init; } = McpTransport.Stdio;
+
+    public static McpBridgeOptions FromEnvironment(string[]? args = null)
     {
         var apiUrl = Environment.GetEnvironmentVariable("TEXTSTACK_API_URL");
         if (string.IsNullOrWhiteSpace(apiUrl))
@@ -48,6 +59,33 @@ public sealed class McpBridgeOptions
             // When set → static-token mode (CI / escape hatch); else device flow.
             McpToken = Environment.GetEnvironmentVariable("TEXTSTACK_MCP_TOKEN"),
             TokenCachePath = Environment.GetEnvironmentVariable("TEXTSTACK_MCP_TOKEN_CACHE"),
+            Transport = ResolveTransport(
+                Environment.GetEnvironmentVariable("MCP_TRANSPORT"), args),
         };
     }
+
+    /// <summary>
+    /// http when <c>MCP_TRANSPORT=http</c> (case-insensitive) OR the <c>--http</c>
+    /// CLI flag is present; stdio otherwise (the default, byte-identical to today).
+    /// Any unrecognized MCP_TRANSPORT value falls back to stdio.
+    /// </summary>
+    internal static McpTransport ResolveTransport(string? envValue, string[]? args)
+    {
+        if (args is not null && Array.Exists(args, a => string.Equals(a, "--http", StringComparison.OrdinalIgnoreCase)))
+            return McpTransport.Http;
+
+        return string.Equals(envValue?.Trim(), "http", StringComparison.OrdinalIgnoreCase)
+            ? McpTransport.Http
+            : McpTransport.Stdio;
+    }
+}
+
+/// <summary>Selected MCP server transport (AI-049).</summary>
+public enum McpTransport
+{
+    /// <summary>Local stdio (default). One process identity; device-flow / static token.</summary>
+    Stdio,
+
+    /// <summary>Remote streamable HTTP. Multi-user; per-request bearer.</summary>
+    Http,
 }

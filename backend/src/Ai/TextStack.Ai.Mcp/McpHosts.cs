@@ -1,0 +1,135 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Server;
+using TextStack.Ai.Mcp.Auth;
+using TextStack.Ai.Mcp.Tools;
+
+namespace TextStack.Ai.Mcp;
+
+/// <summary>
+/// Builds the two transport hosts (AI-049). Extracted from <c>Program.cs</c> so
+/// the wiring is unit-testable (construct without throwing; mode switch) and so the
+/// shared bits (<see cref="McpBridgeCore"/>) are registered identically.
+///
+/// stdio = byte-identical to the pre-049 server (singletons, logs→stderr,
+/// device-flow / static token). http = multi-user streamable HTTP (scoped per-
+/// request identity via <see cref="HttpContextTokenProvider"/>, normal logging,
+/// <c>/mcp</c> + a <c>/health</c> probe).
+/// </summary>
+public static class McpHosts
+{
+    // ── stdio (default — UNCHANGED from the original Program.cs) ─────────────────
+
+    /// <summary>
+    /// Local single-identity host. stdout carries ONLY JSON-RPC, so ALL logging
+    /// goes to stderr. Singleton DI; token from the static env var OR the device
+    /// flow. This path must stay byte-identical to the pre-049 behaviour.
+    /// </summary>
+    public static IHost BuildStdio(McpBridgeOptions options, string[] args)
+    {
+        var builder = Host.CreateApplicationBuilder(args);
+
+        // stdout is reserved for JSON-RPC — route every log record to stderr.
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
+
+        builder.Services.AddSingleton(options);
+        AddTokenProviderStdio(builder.Services, options);
+        McpBridgeCore.AddApiClient(builder.Services, options);
+        builder.Services.AddSingleton<McpToolCatalog>();
+
+        builder.Services
+            .AddMcpServer(o =>
+            {
+                o.ServerInfo = McpBridgeCore.ServerInfo();
+                o.Capabilities = McpBridgeCore.Capabilities();
+                o.Handlers = McpBridgeCore.BuildHandlers();
+            })
+            .WithStdioServerTransport();
+
+        return builder.Build();
+    }
+
+    // Stdio token provider: static env var → StaticEnvTokenProvider (CI / escape
+    // hatch); else the device flow (cached token → refresh → device authorization).
+    private static void AddTokenProviderStdio(IServiceCollection services, McpBridgeOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.McpToken))
+        {
+            services.AddSingleton<IMcpTokenProvider, StaticEnvTokenProvider>();
+            return;
+        }
+
+        services.AddSingleton(new TokenCache(TokenCache.ResolvePath(options.TokenCachePath)));
+
+        const string deviceFlowClient = "device-flow";
+        services.AddHttpClient(deviceFlowClient, http =>
+        {
+            http.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
+            http.DefaultRequestHeaders.Host = options.SiteHost;
+            // Env-overridable (TEXTSTACK_MCP_TIMEOUT_SECONDS, default 15) — same helper
+            // the typed TextStackApiClient uses, so the auth client never drifts.
+            http.Timeout = TimeSpan.FromSeconds(McpBridgeCore.McpTimeoutSeconds());
+        });
+
+        services.AddSingleton<IMcpTokenProvider>(sp => new DeviceFlowTokenProvider(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(deviceFlowClient),
+            sp.GetRequiredService<TokenCache>(),
+            sp.GetRequiredService<ILogger<DeviceFlowTokenProvider>>()));
+    }
+
+    // ── http (AI-049 — remote, multi-user streamable transport) ─────────────────
+
+    /// <summary>
+    /// Remote streamable HTTP host. NORMAL logging (no JSON-RPC on stdout here).
+    /// Each connection carries its OWN bearer, so identity is per-request: the
+    /// token provider + catalog are SCOPED and read the live request via
+    /// <see cref="IHttpContextAccessor"/>. Stateless transport. Exposes
+    /// <c>/mcp</c> (the MCP endpoint) and <c>/health</c> (Docker probe).
+    /// </summary>
+    public static WebApplication BuildHttp(McpBridgeOptions options, string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+
+        // Defense-in-depth for the public multi-user endpoint: turn the DI safety net
+        // ON regardless of environment (this host doesn't run in Development, so both
+        // would default OFF). A future regression that registers an identity service
+        // (HttpContextTokenProvider / McpToolCatalog) as a SINGLETON capturing a scoped
+        // dep would then fail at build instead of silently leaking one user's bearer.
+        builder.Host.UseDefaultServiceProvider((_, o) =>
+        {
+            o.ValidateScopes = true;
+            o.ValidateOnBuild = true;
+        });
+
+        builder.Services.AddSingleton(options);
+        builder.Services.AddHttpContextAccessor();
+
+        // Per-request bearer → scoped provider + scoped catalog (NEVER singletons,
+        // or one connection's identity would leak to another).
+        builder.Services.AddScoped<IMcpTokenProvider, HttpContextTokenProvider>();
+        McpBridgeCore.AddApiClient(builder.Services, options); // typed client is request-scoped already
+        builder.Services.AddScoped<McpToolCatalog>();
+
+        builder.Services
+            .AddMcpServer(o =>
+            {
+                o.ServerInfo = McpBridgeCore.ServerInfo();
+                o.Capabilities = McpBridgeCore.Capabilities();
+                o.Handlers = McpBridgeCore.BuildHandlers();
+            })
+            .WithHttpTransport(t => t.Stateless = true);
+
+        var app = builder.Build();
+
+        // Docker healthcheck — plain 200, no auth, no MCP framing.
+        app.MapGet("/health", () => Results.Ok("ok"));
+
+        app.MapMcp("/mcp");
+
+        return app;
+    }
+}
