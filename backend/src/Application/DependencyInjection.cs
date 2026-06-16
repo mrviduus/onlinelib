@@ -12,6 +12,7 @@ using Application.Export;
 using Application.SsgRebuild;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Application;
@@ -20,6 +21,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        // Testable clock for time-sensitive flows (device-grant expiry, AI-050a).
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddScoped<AuthorsService>();
         services.AddScoped<BookService>();
         services.AddScoped<SeoService>();

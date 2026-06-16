@@ -21,6 +21,7 @@ import { TermsPage } from './pages/TermsPage'
 import { DmcaPage } from './pages/DmcaPage'
 import { ContactPage } from './pages/ContactPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { DeviceVerifyPage } from './pages/DeviceVerifyPage'
 import { SitemapPage } from './pages/SitemapPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 // User-only / heavy routes — lazy so they ship in separate chunks.
@@ -130,6 +131,9 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      {/* Device Authorization Grant consent (AI-050a) — MCP CLI points here at a
+          fixed, language-less URL (/device?code=XXXX-XXXX), so mount top-level. */}
+      <Route path="/device" element={<DeviceVerifyPage />} />
       {/* Redirect legacy URLs without language prefix */}
       <Route path="/books/*" element={<LegacyRedirect />} />
       <Route path="/authors/*" element={<LegacyRedirect />} />

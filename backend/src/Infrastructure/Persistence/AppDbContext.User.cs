@@ -69,5 +69,19 @@ public partial class AppDbContext
             e.Property(x => x.TokenHash).HasMaxLength(128);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
+
+        // DeviceAuthorization (RFC 8628 device-grant). device_code stored hashed.
+        modelBuilder.Entity<DeviceAuthorization>(e =>
+        {
+            e.Property(x => x.DeviceCodeHash).HasMaxLength(128);
+            e.Property(x => x.UserCode).HasMaxLength(16);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.HasIndex(x => x.DeviceCodeHash).IsUnique();
+            // Lookup-by-user_code only matters for pending rows (approve step).
+            e.HasIndex(x => x.UserCode).HasFilter("status = 'pending'");
+            e.HasIndex(x => x.ExpiresAt);
+            // User stays null until approved; SetNull keeps the audit row if the user is deleted.
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
     }
 }
