@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TextStack.Ai.Mcp;
+using TextStack.Ai.Mcp.Auth;
 using TextStack.Ai.Mcp.Http;
 using TextStack.Ai.Mcp.Tools;
 
@@ -30,6 +31,13 @@ builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogL
 
 var bridgeOptions = McpBridgeOptions.FromEnvironment();
 builder.Services.AddSingleton(bridgeOptions);
+
+// Bearer token for the user-scoped tools. AI-050 SWAP POINT: replace this single
+// registration with a device-flow provider — no tool/client/catalog signature
+// churn. StaticEnvTokenProvider reads the reserved TEXTSTACK_MCP_TOKEN env var;
+// a null token makes user-scoped tools fail-clean (auth required), never calling
+// the API, while ALL tools stay listed for stable discovery.
+builder.Services.AddSingleton<IMcpTokenProvider, StaticEnvTokenProvider>();
 
 // Typed HTTP client over the public API. Host header is set per-request inside
 // TextStackApiClient so SiteContextMiddleware resolves the site for /search.

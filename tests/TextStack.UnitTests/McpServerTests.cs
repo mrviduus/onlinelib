@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using ModelContextProtocol.Protocol;
 using TextStack.Ai.Mcp;
+using TextStack.Ai.Mcp.Auth;
 using TextStack.Ai.Mcp.Http;
 using TextStack.Ai.Mcp.Tools;
 
@@ -36,8 +37,8 @@ public class McpServerTests
     {
         var handler = new CapturingHandler(response);
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.example/") };
-        var options = new McpBridgeOptions { ApiBaseUrl = "https://api.example", SiteHost = SiteHost };
-        var api = new TextStackApiClient(http, options);
+        var options = new McpBridgeOptions { ApiBaseUrl = "https://api.example", SiteHost = SiteHost, McpToken = "t" };
+        var api = new TextStackApiClient(http, options, new StaticEnvTokenProvider(options));
         return (new McpToolCatalog(api), handler);
     }
 
@@ -51,8 +52,8 @@ public class McpServerTests
     private static McpToolCatalog BuildCatalogThatThrows(Func<CancellationToken, Exception> factory)
     {
         var http = new HttpClient(new ThrowingHandler(factory)) { BaseAddress = new Uri("https://api.example/") };
-        var options = new McpBridgeOptions { ApiBaseUrl = "https://api.example", SiteHost = SiteHost };
-        return new McpToolCatalog(new TextStackApiClient(http, options));
+        var options = new McpBridgeOptions { ApiBaseUrl = "https://api.example", SiteHost = SiteHost, McpToken = "t" };
+        return new McpToolCatalog(new TextStackApiClient(http, options, new StaticEnvTokenProvider(options)));
     }
 
     private static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
@@ -72,8 +73,7 @@ public class McpServerTests
 
         var tools = catalog.ListTools();
 
-        var tool = Assert.Single(tools);
-        Assert.Equal("search_books", tool.Name);
+        var tool = Assert.Single(tools, t => t.Name == "search_books");
         Assert.Equal("Search the TextStack library for books and chapters matching a query.", tool.Description);
 
         var schema = tool.InputSchema;
