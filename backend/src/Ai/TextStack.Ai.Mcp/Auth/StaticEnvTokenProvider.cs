@@ -1,11 +1,12 @@
 namespace TextStack.Ai.Mcp.Auth;
 
 /// <summary>
-/// Interim <see cref="IMcpTokenProvider"/> backed by the static
-/// <c>TEXTSTACK_MCP_TOKEN</c> env var (surfaced via <see cref="McpBridgeOptions.McpToken"/>).
+/// <see cref="IMcpTokenProvider"/> backed by the static <c>TEXTSTACK_MCP_TOKEN</c>
+/// env var (surfaced via <see cref="McpBridgeOptions.McpToken"/>).
 ///
-/// This is the AI-050 swap point: replacing the DI registration of this type with
-/// a device-flow provider is a one-line change in <c>Program.cs</c>.
+/// This is the CI / escape-hatch provider: when the env var is set the bridge
+/// uses it instead of the device flow (one branch in <c>Program.cs</c>). A blank
+/// token is treated as absent and yields <see cref="TokenResult.Failed"/>.
 /// </summary>
 public sealed class StaticEnvTokenProvider : IMcpTokenProvider
 {
@@ -17,5 +18,8 @@ public sealed class StaticEnvTokenProvider : IMcpTokenProvider
         _token = string.IsNullOrWhiteSpace(options.McpToken) ? null : options.McpToken;
     }
 
-    public string? GetToken() => _token;
+    public Task<TokenResult> GetTokenAsync(CancellationToken ct) =>
+        Task.FromResult<TokenResult>(_token is null
+            ? new TokenResult.Failed("no TEXTSTACK_MCP_TOKEN configured")
+            : new TokenResult.Authorized(_token));
 }

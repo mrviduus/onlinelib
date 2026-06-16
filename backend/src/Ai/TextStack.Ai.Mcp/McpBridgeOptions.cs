@@ -16,12 +16,20 @@ public sealed class McpBridgeOptions
     public required string SiteHost { get; init; }
 
     /// <summary>
-    /// Bearer token for the user-scoped tools (AI-048a serves it via
-    /// <see cref="Auth.StaticEnvTokenProvider"/>). AI-050 replaces the provider
-    /// with a device-flow source; this env var stays the interim contract.
-    /// Env: <c>TEXTSTACK_MCP_TOKEN</c>.
+    /// Bearer token for the user-scoped tools. When set, the bridge uses
+    /// <see cref="Auth.StaticEnvTokenProvider"/> (CI / escape hatch) instead of the
+    /// device flow. When unset, the default is
+    /// <see cref="Auth.DeviceFlowTokenProvider"/>. Env: <c>TEXTSTACK_MCP_TOKEN</c>.
     /// </summary>
     public string? McpToken { get; init; }
+
+    /// <summary>
+    /// Optional explicit path for the device-flow token cache file. When unset,
+    /// <see cref="Auth.TokenCache.ResolvePath"/> uses
+    /// <c>$XDG_CONFIG_HOME/textstack/mcp-token.json</c> (or
+    /// <c>~/.textstack/mcp-token.json</c>). Env: <c>TEXTSTACK_MCP_TOKEN_CACHE</c>.
+    /// </summary>
+    public string? TokenCachePath { get; init; }
 
     public static McpBridgeOptions FromEnvironment()
     {
@@ -37,8 +45,9 @@ public sealed class McpBridgeOptions
         {
             ApiBaseUrl = apiUrl.TrimEnd('/'),
             SiteHost = siteHost,
-            // Reserved for AI-050; read now so the env var contract is stable.
+            // When set → static-token mode (CI / escape hatch); else device flow.
             McpToken = Environment.GetEnvironmentVariable("TEXTSTACK_MCP_TOKEN"),
+            TokenCachePath = Environment.GetEnvironmentVariable("TEXTSTACK_MCP_TOKEN_CACHE"),
         };
     }
 }

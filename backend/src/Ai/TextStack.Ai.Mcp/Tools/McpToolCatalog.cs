@@ -73,11 +73,16 @@ public sealed class McpToolCatalog
         {
             return await body();
         }
-        // Missing/invalid token (no token configured, or API answered 401). Clean,
-        // expected — never an HTTP fault to surface as "unavailable".
-        catch (McpUnauthorizedException)
+        // Missing/invalid token (no token configured, device flow pending, or API
+        // answered 401). Clean, expected — never an HTTP fault to surface as
+        // "unavailable". For a pending device flow, render the actionable
+        // verification URL + code so the user can authorize and retry; otherwise
+        // relay the provider's reason (e.g. "no TEXTSTACK_MCP_TOKEN configured").
+        catch (McpUnauthorizedException ex)
         {
-            return Error("authentication required — run the TextStack login (coming in AI-050)");
+            return Error(ex.VerificationUri is { } uri && ex.UserCode is { } code
+                ? $"authentication required — open {uri} and enter code {code} to connect TextStack, then retry."
+                : $"authentication required — {ex.Message}");
         }
         // Real client cancellation (client disconnected) is cooperative — propagate
         // so the SDK ends the call. Only a TIMEOUT (HttpClient's own timeout also

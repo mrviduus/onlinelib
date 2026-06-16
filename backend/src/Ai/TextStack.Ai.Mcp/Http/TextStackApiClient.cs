@@ -112,7 +112,7 @@ public sealed class TextStackApiClient
     /// </summary>
     public async Task<IReadOnlyList<HighlightJson>> GetHighlightsAsync(Guid editionId, CancellationToken ct)
     {
-        using var request = AuthorizedRequest(HttpMethod.Get, $"/me/highlights/{editionId}");
+        using var request = await AuthorizedRequestAsync(HttpMethod.Get, $"/me/highlights/{editionId}", ct);
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
@@ -144,7 +144,7 @@ public sealed class TextStackApiClient
         if (offset is { } o) query.Add($"offset={o}");
         var url = "/me/vocabulary/words" + (query.Count > 0 ? "?" + string.Join("&", query) : "");
 
-        using var request = AuthorizedRequest(HttpMethod.Get, url);
+        using var request = await AuthorizedRequestAsync(HttpMethod.Get, url, ct);
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
@@ -168,7 +168,7 @@ public sealed class TextStackApiClient
     /// </summary>
     public async Task<AskJson?> AskAsync(Guid editionId, string question, int? k, CancellationToken ct)
     {
-        using var request = AuthorizedRequest(HttpMethod.Post, $"/books/{editionId}/ask");
+        using var request = await AuthorizedRequestAsync(HttpMethod.Post, $"/books/{editionId}/ask", ct);
         request.Content = JsonContent.Create(new AskRequestJson(question, k), options: JsonOptions);
 
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -192,18 +192,29 @@ public sealed class TextStackApiClient
         return request;
     }
 
-    // User-scoped route: Host header + Bearer. Throws McpUnauthorizedException up
-    // front when no token is available, so the call never leaves the process.
-    private HttpRequestMessage AuthorizedRequest(HttpMethod method, string url)
+    // User-scoped route: Host header + Bearer. Asks the token provider; a
+    // non-Authorized result throws McpUnauthorizedException (carrying the
+    // verification URL/code for Pending, or the message for Failed) up front so
+    // the HTTP call never leaves the process. The catalog maps it to an
+    // actionable IsError.
+    private async Task<HttpRequestMessage> AuthorizedRequestAsync(HttpMethod method, string url, CancellationToken ct)
     {
-        var token = _tokenProvider.GetToken();
-        if (string.IsNullOrEmpty(token))
-            throw new McpUnauthorizedException();
-
-        var request = new HttpRequestMessage(method, url);
-        request.Headers.Host = _siteHost;
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        return request;
+        var token = await _tokenProvider.GetTokenAsync(ct);
+        switch (token)
+        {
+            case TokenResult.Authorized a:
+                var request = new HttpRequestMessage(method, url);
+                request.Headers.Host = _siteHost;
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", a.AccessToken);
+                return request;
+            case TokenResult.Pending p:
+                throw new McpUnauthorizedException(verificationUri: p.VerificationUri, userCode: p.UserCode);
+            case TokenResult.Failed f:
+                throw new McpUnauthorizedException(message: f.Message);
+            default:
+                throw new McpUnauthorizedException();
+        }
     }
 
     private static readonly PaginatedResult<SearchResultDto> EmptySearch = new(0, []);
@@ -212,13 +223,36 @@ public sealed class TextStackApiClient
 
 /// <summary>
 /// Typed "no/invalid auth" signal for user-scoped tools. Raised when the token
-/// provider yields nothing, or the API answers 401. The handler maps it to a
-/// clean <c>IsError</c> ("authentication required") — it is NOT a transport fault,
-/// so the shared wrapper rethrows it for the handler to translate.
+/// provider can't supply a usable token, or the API answers 401. The catalog maps
+/// it to a clean, actionable <c>IsError</c> — it is NOT a transport fault, so the
+/// shared wrapper rethrows it for the catalog to translate.
+///
+/// When a device flow is in progress the provider yields
+/// <see cref="TokenResult.Pending"/>, surfaced here via
+/// <see cref="VerificationUri"/> + <see cref="UserCode"/> so the catalog can tell
+/// the user where to authorize. Otherwise <see cref="Message"/> carries the reason
+/// (e.g. "no TEXTSTACK_MCP_TOKEN configured") or the default (401 from the API).
 /// </summary>
 public sealed class McpUnauthorizedException : Exception
 {
-    public McpUnauthorizedException() : base("Unauthorized: no valid TextStack token.") { }
+    /// <summary>Device-flow verification URL (set only for the Pending case).</summary>
+    public string? VerificationUri { get; }
+
+    /// <summary>Device-flow user code (set only for the Pending case).</summary>
+    public string? UserCode { get; }
+
+    public McpUnauthorizedException()
+        : base("Unauthorized: no valid TextStack token.") { }
+
+    public McpUnauthorizedException(string message)
+        : base(message) { }
+
+    public McpUnauthorizedException(string verificationUri, string userCode)
+        : base("Unauthorized: device authorization pending.")
+    {
+        VerificationUri = verificationUri;
+        UserCode = userCode;
+    }
 }
 
 // ── Local DTOs mirroring the API's JSON (deliberately not a Contracts reference:

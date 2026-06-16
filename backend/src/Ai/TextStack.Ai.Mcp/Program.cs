@@ -32,12 +32,39 @@ builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogL
 var bridgeOptions = McpBridgeOptions.FromEnvironment();
 builder.Services.AddSingleton(bridgeOptions);
 
-// Bearer token for the user-scoped tools. AI-050 SWAP POINT: replace this single
-// registration with a device-flow provider — no tool/client/catalog signature
-// churn. StaticEnvTokenProvider reads the reserved TEXTSTACK_MCP_TOKEN env var;
-// a null token makes user-scoped tools fail-clean (auth required), never calling
-// the API, while ALL tools stay listed for stable discovery.
-builder.Services.AddSingleton<IMcpTokenProvider, StaticEnvTokenProvider>();
+// Bearer token for the user-scoped tools. ONE branch:
+//   • TEXTSTACK_MCP_TOKEN set → StaticEnvTokenProvider (CI / escape hatch).
+//   • else → DeviceFlowTokenProvider (the real, default flow): cached token →
+//     refresh → device authorization, non-blocking (returns Pending immediately,
+//     polls in the background). Either way ALL tools stay listed for stable
+//     discovery; user-scoped calls fail-clean (auth required) until a token exists.
+if (!string.IsNullOrWhiteSpace(bridgeOptions.McpToken))
+{
+    builder.Services.AddSingleton<IMcpTokenProvider, StaticEnvTokenProvider>();
+}
+else
+{
+    // The device-flow token cache (0600 on Unix). Path: env override →
+    // $XDG_CONFIG_HOME/textstack → ~/.textstack.
+    builder.Services.AddSingleton(new TokenCache(TokenCache.ResolvePath(bridgeOptions.TokenCachePath)));
+
+    // Named HTTP client to the auth endpoints, Host header pinned so
+    // SiteContextMiddleware resolves the site. Same 15s timeout convention.
+    const string deviceFlowClient = "device-flow";
+    builder.Services.AddHttpClient(deviceFlowClient, http =>
+    {
+        http.BaseAddress = new Uri(bridgeOptions.ApiBaseUrl, UriKind.Absolute);
+        http.DefaultRequestHeaders.Host = bridgeOptions.SiteHost;
+        http.Timeout = TimeSpan.FromSeconds(McpTimeoutSeconds());
+    });
+
+    // Singleton — the provider holds the cache + single-flight device-flow state
+    // across tool calls. Pull its HttpClient from the factory's named config.
+    builder.Services.AddSingleton<IMcpTokenProvider>(sp => new DeviceFlowTokenProvider(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient(deviceFlowClient),
+        sp.GetRequiredService<TokenCache>(),
+        sp.GetRequiredService<ILogger<DeviceFlowTokenProvider>>()));
+}
 
 // Typed HTTP client over the public API. Host header is set per-request inside
 // TextStackApiClient so SiteContextMiddleware resolves the site for /search.
