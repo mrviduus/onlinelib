@@ -29,9 +29,18 @@ internal static class McpBridgeCore
     public static void AddApiClient(IServiceCollection services, McpBridgeOptions options) =>
         services.AddHttpClient<TextStackApiClient>(http =>
         {
-            http.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
+            http.BaseAddress = BaseUri(options.ApiBaseUrl);
             http.Timeout = TimeSpan.FromSeconds(McpTimeoutSeconds());
         });
+
+    /// <summary>
+    /// Absolute base URI with a guaranteed trailing slash so a path prefix
+    /// (e.g. <c>https://textstack.app/api</c>) is kept when relative request
+    /// URIs are resolved — without it, the last segment ("api") is treated as a
+    /// file and replaced, dropping the prefix.
+    /// </summary>
+    public static Uri BaseUri(string apiBaseUrl) =>
+        new(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/", UriKind.Absolute);
 
     /// <summary>
     /// The shared MCP server handlers. Both hosts register the SAME pair; identity

@@ -180,7 +180,7 @@ public sealed class DeviceFlowTokenProvider : IMcpTokenProvider
     // callers. Throws on failure (caller clears the slot to make it retryable).
     private async Task<DeviceCodeResponse> RequestDeviceCodeAsync()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/device/code");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "auth/device/code");
         using var response = await _http.SendAsync(request, CancellationToken.None);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException("could not start TextStack device authorization");
@@ -243,7 +243,7 @@ public sealed class DeviceFlowTokenProvider : IMcpTokenProvider
 
     private async Task<PollOutcome> PollOnceAsync(string deviceCode)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/device/token")
+        using var request = new HttpRequestMessage(HttpMethod.Post, "auth/device/token")
         {
             Content = JsonContent.Create(new DeviceTokenRequestBody(
                 "urn:ietf:params:oauth:grant-type:device_code", deviceCode)),
@@ -282,7 +282,7 @@ public sealed class DeviceFlowTokenProvider : IMcpTokenProvider
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh-mobile")
+            using var request = new HttpRequestMessage(HttpMethod.Post, "auth/refresh-mobile")
             {
                 Content = JsonContent.Create(new RefreshRequestBody(refreshToken)),
             };
