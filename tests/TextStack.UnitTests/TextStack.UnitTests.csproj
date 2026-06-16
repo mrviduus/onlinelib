@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Tools\TextStack.Ai.Tools.csproj" />
     <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Agents\TextStack.Ai.Agents.csproj" />
     <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.EvalSuite\TextStack.Ai.EvalSuite.csproj" />
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Mcp\TextStack.Ai.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

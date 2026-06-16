@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TextStack.Ai.Mcp</RootNamespace>
+    <AssemblyName>TextStack.Ai.Mcp</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Official MCP C# SDK (MS/Anthropic). Brings the stdio transport, the
+         protocol types (Tool/CallToolResult/...), and the low-level handler
+         registration (WithListToolsHandler/WithCallToolHandler) we drive the
+         runtime catalog through. -->
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <!-- Deliberately thin: NO reference to Application / Infrastructure / Ai.Tools.
+       This is a stateless MCP <-> HTTP bridge; every tool call becomes an HTTP
+       call to the existing public API. -->
+</Project>
