@@ -6,10 +6,11 @@ namespace TextStack.Ai.Mcp.Tools;
 
 /// <summary>
 /// The runtime catalog of MCP tools the server exposes. AI-047 shipped
-/// <c>search_books</c>; AI-048a appends 5 READ tools (<c>get_book</c>,
+/// <c>search_books</c>; AI-048a appended 5 READ tools (<c>get_book</c>,
 /// <c>get_chapter</c>, <c>list_my_highlights</c>, <c>list_my_vocabulary</c>,
-/// <c>ask_book</c>). <c>tools/list</c> and <c>tools/call</c> are served from this
-/// list, so adding a tool is a single append + its handler.
+/// <c>ask_book</c>); AI-048b appends the first WRITE tool (<c>save_highlight</c>),
+/// completing the 7-tool surface. <c>tools/list</c> and <c>tools/call</c> are served
+/// from this list, so adding a tool is a single append + its handler.
 ///
 /// Tool handlers contain only validation + mapping. Upstream timeout / transport
 /// / parse faults are handled centrally by <see cref="InvokeAsync"/> so every tool
@@ -35,6 +36,7 @@ public sealed class McpToolCatalog
             BuildListMyHighlights(api),
             BuildListMyVocabulary(api),
             BuildAskBook(api),
+            BuildSaveHighlight(api),
         };
         _byName = tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
     }
@@ -400,6 +402,109 @@ public sealed class McpToolCatalog
             });
         },
     };
+
+    // ── save_highlight (Bearer, WRITE) ───────────────────────────────────────────
+
+    // The agent-providable fields only. No DOM-anchor blob is accepted — Claude
+    // Desktop has no reader DOM, so the bridge synthesizes a minimal text-quote
+    // anchor server-side (see SynthesizeAnchor). color is a small enum (reader's
+    // palette) defaulting to "yellow".
+    private static readonly JsonElement SaveHighlightSchema = JsonDocument.Parse(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "editionId": { "type": "string", "format": "uuid" },
+            "chapterId": { "type": "string", "format": "uuid" },
+            "selectedText": { "type": "string", "minLength": 1, "maxLength": 5000 },
+            "color": { "type": "string", "enum": ["yellow", "green", "blue", "pink"] },
+            "noteText": { "type": "string", "maxLength": 2000 }
+          },
+          "required": ["editionId", "chapterId", "selectedText"],
+          "additionalProperties": false
+        }
+        """).RootElement;
+
+    // Match the web reader's HighlightColor palette (offlineDb.ts) — no "orange".
+    private static readonly string[] HighlightColors = ["yellow", "green", "blue", "pink"];
+
+    private static McpToolDescriptor BuildSaveHighlight(TextStackApiClient api) => new()
+    {
+        Name = "save_highlight",
+        Description =
+            "Saves a highlight to YOUR TextStack library for the given catalog book chapter "
+            + "(WRITE on your own account — requires you to be signed in). Pass the editionId "
+            + "and chapterId (from get_book), the exact selected text, and optionally a color "
+            + "and a note. The highlight is stored and listable via list_my_highlights.",
+        InputSchema = SaveHighlightSchema,
+        Handler = (args, ct) =>
+        {
+            if (!ArgReader.TryObject(args, out var obj, out var err, "editionId", "chapterId", "selectedText", "color", "noteText")
+                || !ArgReader.TryRequiredGuid(obj, "editionId", out var editionId, out err)
+                || !ArgReader.TryRequiredGuid(obj, "chapterId", out var chapterId, out err)
+                || !ArgReader.TryRequiredString(obj, "selectedText", 1, 5000, out var selectedText, out err)
+                || !ArgReader.TryOptionalString(obj, "noteText", 2000, out var noteText, out err)
+                || !TryReadColor(obj, out var color, out err))
+                return Task.FromResult(Error(err));
+
+            // No DOM → synthesize a W3C text-quote anchor from the agent's args.
+            // The web reader's findTextByAnchor matches on `exact` first, so a
+            // single-occurrence quote re-anchors; otherwise it stays saved + listable.
+            var anchorJson = SynthesizeAnchor(chapterId, selectedText);
+
+            return InvokeAsync("save_highlight", ct, async () =>
+            {
+                var saved = await api.SaveHighlightAsync(editionId, chapterId, anchorJson, color, selectedText, noteText, ct);
+                if (saved is null)
+                    return Error("save_highlight failed: the book or chapter was not found, or the save was rejected");
+
+                var mapped = new
+                {
+                    id = saved.Id,
+                    chapterId = saved.ChapterId,
+                    color = saved.Color,
+                    selectedText = saved.SelectedText,
+                    noteText = saved.NoteText,
+                    createdAt = saved.CreatedAt,
+                    saved = true,
+                };
+                return Text(JsonSerializer.Serialize(mapped));
+            });
+        },
+    };
+
+    // Optional color: absent → "yellow"; present must be one of the reader palette.
+    private static bool TryReadColor(JsonElement obj, out string color, out string error)
+    {
+        color = "yellow";
+        if (!ArgReader.TryOptionalString(obj, "color", 20, out var raw, out error))
+            return false;
+        if (raw is null)
+            return true;
+        if (Array.IndexOf(HighlightColors, raw) < 0)
+        {
+            error = $"'color' must be one of: {string.Join(", ", HighlightColors)}.";
+            return false;
+        }
+        color = raw;
+        return true;
+    }
+
+    // Minimal W3C text-quote anchor (matches the reader's TextAnchor shape) the API
+    // stores in its jsonb anchor column. No DOM offsets are available from an MCP
+    // client, so prefix/suffix are empty and offsets are quote-relative; the reader
+    // re-anchors by `exact`.
+    private static string SynthesizeAnchor(Guid chapterId, string selectedText) =>
+        JsonSerializer.Serialize(new
+        {
+            prefix = "",
+            exact = selectedText,
+            suffix = "",
+            startOffset = 0,
+            endOffset = selectedText.Length,
+            chapterId = chapterId.ToString(),
+            source = "mcp",
+        });
 
     // ── search_books arg validation (mirrors the input schema) ───────────────────
 
