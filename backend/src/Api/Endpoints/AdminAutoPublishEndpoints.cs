@@ -1,9 +1,12 @@
+using Api.Middleware;
 using Application.AdminSettings;
+using Application.Agents;
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TextStack.Ai.Core;
 
 namespace Api.Endpoints;
 
@@ -25,6 +28,11 @@ public static class AdminAutoPublishEndpoints
         group.MapPost("/trigger", Trigger);
         group.MapPost("/queue/{editionId:guid}", QueueEdition);
         group.MapGet("/candidates", GetCandidates);
+
+        // AI-042: in-process crew path — runs the AI-041 specialists over ILlmService to generate SEO prose.
+        // Behind the same /admin/* auth group; rate-limited (each call = two 4-stage crews = 8 LLM calls).
+        group.MapPost("/editions/{editionId:guid}/crew-generate", CrewGenerate)
+            .RequireRateLimiting("autopublish.crew");
     }
 
     private static async Task<IResult> GetSettings(AdminSettingsService settings, CancellationToken ct)
@@ -233,7 +241,137 @@ public static class AdminAutoPublishEndpoints
 
         return Results.Ok(candidates);
     }
+
+    /// <summary>
+    /// AI-042 — runs the in-process content crew over an Edition to generate its two SEO prose fields
+    /// (<c>Description</c> + <c>SeoRelevanceText</c>). Loads the same source material the legacy
+    /// <c>seo-generate.sh</c> uses (title, author(s), language, first-chapter excerpt), runs the crew once per
+    /// field (own runId, own cost cap, own persisted agent_run), and applies a fail-closed review gate: only if
+    /// BOTH fields pass cleanly does it write them and set <c>SeoSource = Auto</c>. The Edition stays Draft
+    /// either way — publishing remains the existing separate flow. No auto-publish, ever.
+    /// </summary>
+    private static async Task<IResult> CrewGenerate(
+        Guid editionId,
+        HttpContext httpContext,
+        IAppDbContext db,
+        AutoPublishCrew crew,
+        CancellationToken ct)
+    {
+        var adminId = httpContext.GetAdminUserId();
+
+        var edition = await db.Editions
+            .Include(e => e.EditionAuthors)
+                .ThenInclude(ea => ea.Author)
+            .FirstOrDefaultAsync(e => e.Id == editionId, ct);
+        if (edition == null) return Results.NotFound();
+
+        // First-chapter excerpt — mirror seo-generate.sh: LEFT(plain_text, 1000) of the lowest chapter_number.
+        var excerpt = await db.Chapters
+            .Where(c => c.EditionId == editionId)
+            .OrderBy(c => c.ChapterNumber)
+            .Select(c => c.PlainText)
+            .FirstOrDefaultAsync(ct);
+
+        var authors = string.Join(", ", edition.EditionAuthors
+            .Select(ea => ea.Author?.Name)
+            .Where(n => !string.IsNullOrWhiteSpace(n)));
+        var lang = edition.Language;
+
+        var sourceMaterial = BuildSourceMaterial(edition.Title, authors, lang, excerpt);
+
+        // One crew per field — separate runIds so AI-045's transcript UI can fetch each independently.
+        var descCtx = new AgentContext(adminId, editionId, Guid.NewGuid(), httpContext.RequestServices);
+        var descResult = await crew.RunFieldAsync(AutoPublishBriefs.Description(lang), sourceMaterial, descCtx, ct);
+
+        var relCtx = new AgentContext(adminId, editionId, Guid.NewGuid(), httpContext.RequestServices);
+        var relResult = await crew.RunFieldAsync(AutoPublishBriefs.Relevance(lang), sourceMaterial, relCtx, ct);
+
+        var runIds = new[] { descResult.RunId, relResult.RunId };
+        var fields = new[]
+        {
+            FieldSummary("description", descResult),
+            FieldSummary("relevance", relResult),
+        };
+
+        // Manual-source protection (AI-042 P2): a Manual edition with hand-written prose in either targeted field
+        // is never overwritten by the crew — same contract legacy SEO backfill honors (SeoCoverageAnalyzer). The
+        // crew transcripts are still persisted (audit), only the write-back is blocked.
+        if (IsManualProtected(edition.SeoSource, edition.Description, edition.SeoRelevanceText))
+            return Results.Ok(new CrewGenerateResponse(true, runIds, fields, ManualProtected: true));
+
+        // Fail-closed gate: if EITHER field needs review, write NOTHING — the admin inspects both transcripts.
+        var needsReview = descResult.NeedsReview || relResult.NeedsReview;
+        if (needsReview)
+            return Results.Ok(new CrewGenerateResponse(true, runIds, fields));
+
+        // Both clean → apply the prose and mark provenance Auto. Edition stays Draft regardless.
+        edition.Description = descResult.EditedText;
+        edition.SeoRelevanceText = relResult.EditedText;
+        edition.SeoSource = SeoSource.Auto;
+        edition.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new CrewGenerateResponse(false, runIds, fields));
+    }
+
+    /// <summary>
+    /// The manual-source write-block decision (AI-042 P2), pure for unit testing. Returns true when the edition is
+    /// <see cref="SeoSource.Manual"/> AND either targeted prose field already holds hand-written content — in which
+    /// case the crew must NOT overwrite it. Empty Manual fields are still fair game for first-time generation.
+    /// </summary>
+    internal static bool IsManualProtected(SeoSource source, string? description, string? relevanceText) =>
+        source == SeoSource.Manual &&
+        (!string.IsNullOrWhiteSpace(description) || !string.IsNullOrWhiteSpace(relevanceText));
+
+    /// <summary>The source block the crew reasons from — same fields seo-generate.sh feeds Claude.</summary>
+    private static string BuildSourceMaterial(string title, string author, string lang, string? excerpt) =>
+        $"""
+         Book: {title}
+         Author: {(string.IsNullOrWhiteSpace(author) ? "Unknown" : author)}
+         Language: {lang}
+         First chapter excerpt: {Excerpt(excerpt)}
+         """;
+
+    private static string Excerpt(string? plainText)
+    {
+        if (string.IsNullOrWhiteSpace(plainText)) return "(none)";
+        return plainText.Length <= 1000 ? plainText : plainText[..1000];
+    }
+
+    private static CrewFieldSummary FieldSummary(string field, AutoPublishFieldResult r) =>
+        new(
+            field,
+            r.RunId,
+            r.Status,
+            r.NeedsReview,
+            r.EditedText?.Length ?? 0,
+            r.Critique is { } c
+                ? new CrewCritiqueSummary(c.FactualAccuracy, c.Tone, c.Length, c.BannedPhrases, c.ParseFailed,
+                    c.Issues.Count(i => i.Severity == "blocker"))
+                : null);
 }
+
+public record CrewGenerateResponse(
+    bool NeedsReview,
+    IReadOnlyList<Guid> RunIds,
+    IReadOnlyList<CrewFieldSummary> Fields,
+    bool ManualProtected = false);
+
+public record CrewFieldSummary(
+    string Field,
+    Guid RunId,
+    string Status,
+    bool NeedsReview,
+    int CharLength,
+    CrewCritiqueSummary? Critique);
+
+public record CrewCritiqueSummary(
+    int FactualAccuracy,
+    int Tone,
+    int Length,
+    int BannedPhrases,
+    bool ParseFailed,
+    int BlockerCount);
 
 public record AutoPublishSettingsDto(
     bool Enabled, int BooksPerDay, int HourUtc, bool RequireReview, string Language);

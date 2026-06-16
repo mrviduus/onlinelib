@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
     <InternalsVisibleTo Include="TextStack.IntegrationTests" />
+    <InternalsVisibleTo Include="TextStack.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
