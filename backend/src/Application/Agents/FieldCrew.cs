@@ -72,7 +72,8 @@ public sealed class FieldCrew(
             result);
         await runWriter.WriteAsync(record, ct);
 
-        return new FieldResult(editedText, state.Critique, needsReview, result.Status, ctx.AgentRunId);
+        return new FieldResult(
+            editedText, state.Critique, needsReview, result.Status, ctx.AgentRunId, result.Usage.CostUsdTotal);
     }
 
     /// <summary>
@@ -134,11 +135,14 @@ public sealed class FieldCrew(
 /// Outcome of one content-crew field run (AI-043). <see cref="EditedText"/> is the editor's final prose (null
 /// if the crew never reached the edit stage). <see cref="Critique"/> is the critic's verdict (null on halt
 /// before critique). <see cref="NeedsReview"/> is the fail-closed gate — true means "do not auto-apply". The
-/// entity write and apply decision live in the caller, never here.
+/// entity write and apply decision live in the caller, never here. <see cref="CostUsd"/> is the crew run's
+/// TOTAL cost (sum of the four sub-agent usages, honestly aggregated by the orchestrator) — surfaced so the
+/// AI-046 A/B eval can compute crew-vs-baseline cost ratio without re-reading the persisted agent_run.
 /// </summary>
 public record FieldResult(
     string? EditedText,
     CritiqueResult? Critique,
     bool NeedsReview,
     string Status,
-    Guid RunId);
+    Guid RunId,
+    decimal CostUsd);

@@ -10,6 +10,7 @@ import {
   AgentRunDetail,
   EvalRun,
   CriticDefectEvalResult,
+  CrewAbEvalResult,
 } from '../api/client'
 
 type Tab = 'summary' | 'traces' | 'transcripts' | 'evals'
@@ -682,6 +683,8 @@ function EvalsTab() {
   const [running, setRunning] = useState(false)
   const [criticRunning, setCriticRunning] = useState(false)
   const [criticResult, setCriticResult] = useState<CriticDefectEvalResult | null>(null)
+  const [crewAbRunning, setCrewAbRunning] = useState(false)
+  const [crewAbResult, setCrewAbResult] = useState<CrewAbEvalResult | null>(null)
 
   const load = () =>
     adminApi
@@ -732,6 +735,19 @@ function EvalsTab() {
     }
   }
 
+  const runCrewAb = async () => {
+    setError(null)
+    setCrewAbRunning(true)
+    try {
+      setCrewAbResult(await adminApi.runCrewAbEval())
+      load() // persisted as a crew_ab eval_run → refresh history
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to run crew A/B eval')
+    } finally {
+      setCrewAbRunning(false)
+    }
+  }
+
   const controls = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -754,6 +770,14 @@ function EvalsTab() {
           Injects known defects into clean drafts, runs the real nano critic (~23 calls, 20–30s), gate ≥ 0.80 catch-rate.
         </span>
       </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={runCrewAb} disabled={crewAbRunning} style={rangeBtn(false)}>
+          {crewAbRunning ? 'Running…' : 'Run crew A/B eval'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          A/B-tests the crew vs a single-call baseline over the goldens (~1–2 min), gate lift ≥ 10% and cost ratio ≤ 2×.
+        </span>
+      </div>
       {criticResult && (
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -770,6 +794,32 @@ function EvalsTab() {
             />
             <Metric label="False-positive rate" value={`${(criticResult.falsePositiveRate * 100).toFixed(1)}%`} />
             <Metric label="N" value={String(criticResult.n)} />
+          </div>
+        </div>
+      )}
+      {crewAbResult && (
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: 15, color: '#111827' }}>Crew A/B eval</span>
+            <span style={{ fontWeight: 600, fontSize: 13, color: crewAbResult.passed ? '#059669' : '#dc2626' }}>
+              {crewAbResult.passed ? 'PASS' : 'FAIL'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+            <Metric
+              label="Lift"
+              value={`${(crewAbResult.liftPct * 100).toFixed(1)}%`}
+              color={crewAbResult.passed ? '#059669' : '#dc2626'}
+            />
+            <Metric
+              label="Cost ratio"
+              value={`${crewAbResult.costRatio.toFixed(1)}×`}
+              color={crewAbResult.costRatio > 2 ? '#dc2626' : undefined}
+            />
+            <Metric label="Avg A (baseline)" value={crewAbResult.avgA.toFixed(2)} />
+            <Metric label="Avg B (crew)" value={crewAbResult.avgB.toFixed(2)} />
+            <Metric label="Win rate" value={`${(crewAbResult.winRate * 100).toFixed(1)}%`} />
+            <Metric label="N" value={String(crewAbResult.n)} />
           </div>
         </div>
       )}

@@ -546,6 +546,16 @@ export interface CriticDefectEvalResult {
     parseFailed: boolean
   }[]
 }
+export interface CrewAbEvalResult {
+  avgA: number
+  avgB: number
+  liftPct: number
+  costRatio: number
+  winRate: number
+  n: number
+  passed: boolean
+  cases?: unknown[]
+}
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -1178,6 +1188,12 @@ export const adminApi = {
 
   runCriticDefectEval: async (): Promise<CriticDefectEvalResult> => {
     return fetchJson<CriticDefectEvalResult>('/admin/ai-quality/evals/criticdefects/run', {
+      method: 'POST',
+    })
+  },
+
+  runCrewAbEval: async (): Promise<CrewAbEvalResult> => {
+    return fetchJson<CrewAbEvalResult>('/admin/ai-quality/evals/crew-ab/run', {
       method: 'POST',
     })
   },

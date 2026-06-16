@@ -85,6 +85,7 @@ builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CriticDefectEvalRunner>();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CrewAbEvalRunner>();
 // Tool catalogue (AI-029/030): scans Application for ITool impls; dispatch is schema-validated.
 builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 // Agent loop engine (Phase 6, AI-034). Concrete agents (StudyBuddy, AI-035) build on it.
@@ -96,6 +97,9 @@ builder.Services.AddSingleton<Application.Agents.ResearcherAgent>();
 builder.Services.AddSingleton<Application.Agents.DrafterAgent>();
 builder.Services.AddSingleton<Application.Agents.CriticAgent>();
 builder.Services.AddSingleton<Application.Agents.EditorAgent>();
+// Single-call A/B baseline (Phase 7, AI-046): the "A" arm of the crew-vs-single-call eval — one ILlmService
+// call that writes a field directly under the crew's full brief contract. Stateless singleton like the specialists.
+builder.Services.AddSingleton<Application.Agents.BaselineFieldAgent>();
 // AutoPublish crew (Phase 7, AI-042): in-process admin path that runs the specialists over ILlmService to
 // generate SEO prose for an Edition. Scoped because it persists via the scoped IAgentRunWriter (per-request
 // DbContext). The legacy bash + Claude-CLI poller stays the default; this is the observable, traced alternative.
