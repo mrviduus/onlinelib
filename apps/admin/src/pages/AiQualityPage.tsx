@@ -7,6 +7,7 @@ import {
   TraceListItem,
   TraceDetail,
   EvalRun,
+  CriticDefectEvalResult,
 } from '../api/client'
 
 type Tab = 'summary' | 'traces' | 'evals'
@@ -325,6 +326,8 @@ function EvalsTab() {
   const [error, setError] = useState<string | null>(null)
   const [judge, setJudge] = useState<'ollama' | 'openai'>('ollama')
   const [running, setRunning] = useState(false)
+  const [criticRunning, setCriticRunning] = useState(false)
+  const [criticResult, setCriticResult] = useState<CriticDefectEvalResult | null>(null)
 
   const load = () =>
     adminApi
@@ -362,18 +365,60 @@ function EvalsTab() {
     }
   }
 
+  const runCriticDefect = async () => {
+    setError(null)
+    setCriticRunning(true)
+    try {
+      setCriticResult(await adminApi.runCriticDefectEval())
+      load() // persisted as an eval_run → refresh history
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to run critic-defect eval')
+    } finally {
+      setCriticRunning(false)
+    }
+  }
+
   const controls = (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-      <select value={judge} onChange={(e) => setJudge(e.target.value as 'ollama' | 'openai')} style={input} disabled={running}>
-        <option value="ollama">Judge: Ollama (free)</option>
-        <option value="openai">Judge: OpenAI (gpt-4.1)</option>
-      </select>
-      <button onClick={run} disabled={running} style={rangeBtn(false)}>
-        {running ? 'Running…' : 'Run evals'}
-      </button>
-      <span style={{ fontSize: 12, color: '#6b7280' }}>
-        Runs all goldens through the real gateway and writes eval history.
-      </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select value={judge} onChange={(e) => setJudge(e.target.value as 'ollama' | 'openai')} style={input} disabled={running}>
+          <option value="ollama">Judge: Ollama (free)</option>
+          <option value="openai">Judge: OpenAI (gpt-4.1)</option>
+        </select>
+        <button onClick={run} disabled={running} style={rangeBtn(false)}>
+          {running ? 'Running…' : 'Run evals'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          Runs all goldens through the real gateway and writes eval history.
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={runCriticDefect} disabled={criticRunning} style={rangeBtn(false)}>
+          {criticRunning ? 'Running…' : 'Run critic-defect eval'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          Injects known defects into clean drafts, runs the real nano critic (~23 calls, 20–30s), gate ≥ 0.80 catch-rate.
+        </span>
+      </div>
+      {criticResult && (
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: 15, color: '#111827' }}>Critic-defect eval</span>
+            <span style={{ fontWeight: 600, fontSize: 13, color: criticResult.passed ? '#059669' : '#dc2626' }}>
+              {criticResult.passed ? 'PASS' : 'FAIL'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+            <Metric
+              label="Catch rate"
+              value={`${(criticResult.catchRate * 100).toFixed(1)}%`}
+              color={criticResult.passed ? '#059669' : '#dc2626'}
+            />
+            <Metric label="False-positive rate" value={`${(criticResult.falsePositiveRate * 100).toFixed(1)}%`} />
+            <Metric label="N" value={String(criticResult.n)} />
+          </div>
+        </div>
+      )}
     </div>
   )
 

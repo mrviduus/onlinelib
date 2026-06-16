@@ -30,6 +30,48 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/evals/status", GetEvalStatus);
         group.MapPost("/evals/toolcalls/run", RunToolCallEval);
         group.MapPost("/evals/studybuddy/run", RunStudyBuddyEval);
+        group.MapPost("/evals/criticdefects/run", RunCriticDefectEval);
+    }
+
+    // Phase 7 DoD gate (AI-044): inject KNOWN defects into clean drafts, run the REAL AI-041 critic (nano)
+    // over each, and measure per-axis + overall catch-rate vs the ≥0.80 gate plus a clean-control
+    // false-positive rate. Deterministic injection + scoring; ~23 nano calls, run sync like the others.
+    private static async Task<IResult> RunCriticDefectEval(
+        IServiceProvider services,
+        CriticDefectEvalRunner runner,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        ILlmService llm;
+        try
+        {
+            llm = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("LLM gateway is not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        var critic = new CriticAgent(llm);
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+        var result = await runner.RunAsync(critic, persist: true, db, gitSha, ct);
+
+        return Results.Ok(new
+        {
+            catchRate = Math.Round(result.CatchRate, 4),
+            falsePositiveRate = Math.Round(result.FalsePositiveRate, 4),
+            n = result.N,
+            passed = result.Passed,
+            cases = result.Cases.Select(c => new
+            {
+                c.Id,
+                c.DefectType,
+                expectedAxis = c.ExpectedAxis ?? "(clean control)",
+                c.Caught,
+                c.Flagged,
+                c.ParseFailed,
+            }),
+        });
     }
 
     // Phase 6 DoD gate (AI-039): runs the Study Buddy agent over the golden passages against a real

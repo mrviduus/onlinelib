@@ -496,6 +496,20 @@ export interface EvalRun {
   gitSha: string | null
   createdAt: string
 }
+export interface CriticDefectEvalResult {
+  catchRate: number
+  falsePositiveRate: number
+  n: number
+  passed: boolean
+  cases: {
+    id: string
+    defectType: string
+    expectedAxis: string
+    caught: boolean
+    flagged: boolean
+    parseFailed: boolean
+  }[]
+}
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -1111,6 +1125,12 @@ export const adminApi = {
 
   getAiEvalStatus: async (): Promise<EvalStatus> => {
     return fetchJson<EvalStatus>('/admin/ai-quality/evals/status')
+  },
+
+  runCriticDefectEval: async (): Promise<CriticDefectEvalResult> => {
+    return fetchJson<CriticDefectEvalResult>('/admin/ai-quality/evals/criticdefects/run', {
+      method: 'POST',
+    })
   },
 
   // Podcasts
