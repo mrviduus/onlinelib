@@ -159,6 +159,37 @@ public sealed class TextStackApiClient
         return EmptyVocab;
     }
 
+    // ── save_highlight (Bearer, WRITE) ───────────────────────────────────────────
+
+    /// <summary>
+    /// <c>POST /me/highlights</c> with <c>{ editionId, chapterId, anchorJson, color,
+    /// selectedText, noteText }</c> — the first WRITE tool. An MCP client has no DOM,
+    /// so it cannot produce a real reader anchor; the caller synthesizes a minimal
+    /// W3C text-quote <paramref name="anchorJson"/> (exact = selectedText) so the
+    /// jsonb column is satisfied and the web reader can best-effort re-anchor.
+    /// 401 → <see cref="McpUnauthorizedException"/> (write NEVER issued without a
+    /// usable token, enforced in <see cref="AuthorizedRequestAsync"/>); other
+    /// non-success (2xx-but-not-201, 4xx) → null (handler maps to a clean error).
+    /// </summary>
+    public async Task<HighlightJson?> SaveHighlightAsync(
+        Guid editionId, Guid chapterId, string anchorJson, string color, string selectedText, string? noteText, CancellationToken ct)
+    {
+        using var request = await AuthorizedRequestAsync(HttpMethod.Post, "/me/highlights", ct);
+        request.Content = JsonContent.Create(
+            new CreateHighlightJson(editionId, chapterId, anchorJson, color, selectedText, noteText),
+            options: JsonOptions);
+
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            throw new McpUnauthorizedException();
+
+        if (response.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK)
+            return await response.Content.ReadFromJsonAsync<HighlightJson>(JsonOptions, ct);
+
+        return null;
+    }
+
     // ── ask_book (Bearer) ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -306,6 +337,7 @@ public sealed record ChapterJson(
 public sealed record ChapterNavJson(string? Slug, string Title);
 
 // GET /me/highlights/{editionId} → HighlightDto[] (subset).
+// Also the POST /me/highlights response body (Created → HighlightDto).
 public sealed record HighlightJson(
     Guid Id,
     Guid? ChapterId,
@@ -313,6 +345,17 @@ public sealed record HighlightJson(
     string SelectedText,
     string? NoteText,
     DateTimeOffset CreatedAt);
+
+// POST /me/highlights request → CreateHighlightRequest (edition-scoped subset).
+// AnchorJson is a JSON string stored opaquely in the API's jsonb column; the MCP
+// bridge sends a synthesized W3C text-quote anchor (no DOM available client-side).
+public sealed record CreateHighlightJson(
+    Guid EditionId,
+    Guid ChapterId,
+    string AnchorJson,
+    string Color,
+    string SelectedText,
+    string? NoteText);
 
 // GET /me/vocabulary/words → { total, items: VocabWordDto[] } (subset of items).
 public sealed record VocabularyPageJson(int Total, IReadOnlyList<VocabWordJson> Items);

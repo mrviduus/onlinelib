@@ -74,17 +74,17 @@ public class McpReadToolsTests
 
     private const string Edition = "33333333-3333-3333-3333-333333333333";
 
-    // ── tools/list: all 6 exposed with correct schemas ──────────────────────────
+    // ── tools/list: all 7 exposed with correct schemas (6 reads + save_highlight) ─
 
     [Fact]
-    public void ListTools_ExposesAllSixTools()
+    public void ListTools_ExposesAllSevenTools()
     {
         var (catalog, _) = BuildCatalog(Json("{}"));
 
         var names = catalog.ListTools().Select(t => t.Name).OrderBy(n => n).ToArray();
 
         Assert.Equal(
-            ["ask_book", "get_book", "get_chapter", "list_my_highlights", "list_my_vocabulary", "search_books"],
+            ["ask_book", "get_book", "get_chapter", "list_my_highlights", "list_my_vocabulary", "save_highlight", "search_books"],
             names);
     }
 
