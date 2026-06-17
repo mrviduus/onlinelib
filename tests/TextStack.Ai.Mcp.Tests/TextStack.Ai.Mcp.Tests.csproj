@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- The real MCP SDK client (McpClient + HttpClientTransport + StdioClientTransport)
+         drives the server over the wire. ModelContextProtocol.AspNetCore is what the
+         hosted server uses (MapMcp); referenced here for the stub backend host too. -->
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
+  <!-- The harness hosts the real BuildHttp WebApplication AND a stub backend
+       WebApplication on loopback ports, so the ASP.NET Core types (WebApplication,
+       minimal APIs) must be available on Microsoft.NET.Sdk (NOT .Web). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ONLY the bridge under test. NO Application / Tools reference → zero ITool in
+         this assembly (StudyBuddy set-equality stays safe by construction). -->
+    <ProjectReference Include="..\..\backend\src\Ai\TextStack.Ai.Mcp\TextStack.Ai.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

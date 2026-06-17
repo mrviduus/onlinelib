@@ -56,6 +56,17 @@ jobs:
       - name: Search tests
         run: dotnet test tests/TextStack.Search.Tests --no-build
 
+      # MCP over-the-wire integration suite (AI-053) — hermetic (loopback only, no
+      # Postgres/Docker). In the solution, so --no-build reuses the Build step above.
+      - name: MCP integration tests
+        run: dotnet test tests/TextStack.Ai.Mcp.Tests --no-build
+
+      # Unit tests (incl. the AI-047..050 MCP unit suites) are NOT in textstack.sln,
+      # so the Build step doesn't compile them — run WITHOUT --no-build. This closes a
+      # real CI gap: these were never executed by an explicit dotnet test step before.
+      - name: Unit tests
+        run: dotnet test tests/TextStack.UnitTests
+
   frontend:
     runs-on: ubuntu-latest
 
