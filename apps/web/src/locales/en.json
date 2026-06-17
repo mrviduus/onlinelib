@@ -392,6 +392,52 @@
       "blog": "Read my Blog"
     }
   },
+  "mcp": {
+    "seoTitle": "Connect TextStack to your AI assistant (MCP)",
+    "seoDescription": "Connect TextStack as an MCP server. Ask your reading library questions, look up highlights, and get explanations from Claude, Cursor, or ChatGPT. Copy-paste install snippets for remote and local clients.",
+    "title": "Connect TextStack to your AI assistant",
+    "intro": "Ask your reading library questions, look up highlights, save passages, and get explanations — straight from Claude, Cursor, or ChatGPT via the Model Context Protocol.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "remote": {
+      "heading": "Remote (recommended)",
+      "lead": "For Cursor, remote Claude, and ChatGPT: add a custom MCP server / connector pointing at the TextStack endpoint. Transport is Streamable HTTP.",
+      "endpointLabel": "MCP endpoint URL",
+      "transport": "Transport: Streamable HTTP.",
+      "addServer": "In your client, choose \"add a custom MCP server\" (or \"connector\") and paste the endpoint URL above.",
+      "publicTools": "Public tools (search_books, get_book, get_chapter, ask_book) work without signing in.",
+      "authNote": "The first user-scoped call (your highlights or vocabulary) returns a message like \"authentication required — open https://textstack.app/device and enter code XXXX-XXXX\". Open the device page, sign in, enter the code, then retry.",
+      "deviceLink": "Open the device page"
+    },
+    "local": {
+      "heading": "Claude Desktop (local)",
+      "lead": "Add TextStack to your claude_desktop_config.json under mcpServers.",
+      "nowLabel": "Now (run the built DLL)",
+      "nowHint": "Requires .NET 10 and the built TextStack.Ai.Mcp.dll. Point the args path at your local copy.",
+      "soonLabel": "Coming soon (after npm publish)",
+      "soonHint": "Once @textstack/mcp is published to npm (AI-051), no .NET install needed — just npx."
+    },
+    "tools": {
+      "heading": "The 7 tools",
+      "lead": "What your AI assistant can do once connected:",
+      "searchBooks": "Search the public book library by query.",
+      "getBook": "Fetch a book's metadata and chapter list by slug.",
+      "getChapter": "Fetch the full text of a single chapter.",
+      "listMyHighlights": "List your saved highlights (requires sign-in).",
+      "saveHighlight": "Save a passage to your highlights (requires sign-in).",
+      "listMyVocabulary": "List your saved vocabulary words (requires sign-in).",
+      "askBook": "Ask a question about a book and get a cited, grounded answer."
+    },
+    "steps": {
+      "heading": "Auth in 3 steps",
+      "step1": "Add the TextStack server to your client (remote endpoint or local config above).",
+      "step2": "Call a user-scoped tool — the response shows a code and a link to /device.",
+      "step3": "Open /device, sign in, enter the code, then retry the tool call."
+    },
+    "manifest": {
+      "label": "Machine-readable manifest:"
+    }
+  },
   "contact": {
     "seoTitle": "Contact Us - TextStack Reader",
     "seoDesc": "Get in touch with TextStack Reader. We'd love to hear your feedback, questions, or content requests.",

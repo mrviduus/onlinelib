@@ -1,0 +1,256 @@
+/* =============================================
+   MCP Landing Page — mirrors AboutPage chrome
+   ============================================= */
+
+.mcp-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+@media (min-width: 1024px) {
+  .mcp-page {
+    padding: 80px 24px 128px;
+  }
+}
+
+/* Header */
+.mcp-page__header {
+  margin-bottom: 56px;
+}
+
+.mcp-page__title {
+  font-family: 'Crimson Pro', 'Playfair Display', serif;
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 24px;
+  color: var(--color-text);
+}
+
+.mcp-page__accent-bar {
+  height: 4px;
+  width: 80px;
+  background: var(--color-accent, #8b7e74);
+  border-radius: 2px;
+}
+
+.mcp-page__intro {
+  font-family: 'Crimson Pro', 'Playfair Display', serif;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 32px 0 0;
+}
+
+/* Sections */
+.mcp-section {
+  margin-bottom: 64px;
+}
+
+.mcp-section__heading {
+  font-family: 'Crimson Pro', 'Playfair Display', serif;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 400;
+  margin: 0 0 16px;
+  color: var(--color-text);
+}
+
+.mcp-section__subheading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 32px 0 6px;
+  color: var(--color-text);
+}
+
+.mcp-section__lead {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  margin: 0 0 20px;
+}
+
+.mcp-section__hint {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+}
+
+/* Code block */
+.mcp-code {
+  margin: 16px 0 8px;
+}
+
+.mcp-code__label {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.mcp-code__shell {
+  position: relative;
+  background: var(--color-bg-secondary, #f5f1ea);
+  border: 1px solid var(--color-border, #e2dccf);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mcp-code__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border, #e2dccf);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mcp-code__copy:hover {
+  background: var(--color-bg-hover, #e8e2d9);
+  border-color: var(--color-border-hover, #d0c9be);
+}
+
+.mcp-code__copy .material-icons-outlined {
+  font-size: 16px;
+}
+
+.mcp-code__pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.mcp-code__pre code {
+  font-family: inherit;
+}
+
+/* Lists */
+.mcp-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.mcp-list li {
+  margin-bottom: 6px;
+}
+
+/* Auth note */
+.mcp-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: var(--color-bg-secondary, #f5f1ea);
+  border: 1px solid var(--color-border, #e2dccf);
+  border-radius: 8px;
+}
+
+.mcp-note .material-icons-outlined {
+  font-size: 20px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.mcp-note p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* Tools list */
+.mcp-tools {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-tools__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border, #e2dccf);
+}
+
+.mcp-tools__item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mcp-tools__name {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex-shrink: 0;
+  min-width: 180px;
+}
+
+.mcp-tools__desc {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* Steps */
+.mcp-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+}
+
+.mcp-steps li {
+  margin-bottom: 8px;
+}
+
+/* Manifest footer line */
+.mcp-manifest {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border, #e2dccf);
+}
+
+.mcp-link {
+  color: var(--color-accent, #8b7e74);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.mcp-link:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 480px) {
+  .mcp-tools__name {
+    min-width: 0;
+  }
+}
