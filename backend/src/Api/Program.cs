@@ -153,7 +153,7 @@ builder.Services.AddScoped<SearchReindexService>();
 builder.Services.AddTextStackVocabulary(options =>
 {
     options.OllamaBaseUrl = builder.Configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
-    options.OllamaModel = builder.Configuration["Ollama:Model"] ?? "gemma4:e4b";
+    options.OllamaModel = builder.Configuration["Ollama:Model"] ?? "gemma4:e2b";
     options.OllamaTimeoutSeconds = builder.Configuration.GetValue("Ollama:TimeoutSeconds", 30);
 });
 

@@ -156,7 +156,7 @@ public static class AdminAiQualityEndpoints
 
         var useOllama = string.Equals(judge, "ollama", StringComparison.OrdinalIgnoreCase);
         var judgeKey = useOllama ? "ollama" : "openai-judge";
-        var judgeModelId = useOllama ? config["Ollama:Model"] ?? "gemma4:e4b" : config["Eval:JudgeModel"] ?? "gpt-4.1";
+        var judgeModelId = useOllama ? config["Ollama:Model"] ?? "gemma4:e2b" : config["Eval:JudgeModel"] ?? "gpt-4.1";
 
         ILlmService judgeClient;
         try
@@ -257,7 +257,7 @@ public static class AdminAiQualityEndpoints
         var judgeKey = useOpenAiJudge ? "openai-judge" : "ollama";
         var judgeModelId = useOpenAiJudge
             ? config["Eval:JudgeModel"] ?? "gpt-4.1"
-            : config["Ollama:Model"] ?? "gemma4:e4b";
+            : config["Ollama:Model"] ?? "gemma4:e2b";
         var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
         var features = body?.Features;
 

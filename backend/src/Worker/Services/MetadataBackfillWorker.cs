@@ -27,7 +27,7 @@ public class MetadataBackfillWorker(
     ILogger<MetadataBackfillWorker> logger) : BackgroundService
 {
     // Defer the run a bit so the rest of the system is up (Ollama may still
-    // be loading the gemma4:e4b model into memory on a fresh deploy).
+    // be loading the gemma4:e2b model into memory on a fresh deploy).
     private static readonly TimeSpan StartDelay = TimeSpan.FromMinutes(2);
     // Tight cap so a misbehaving Ollama can't burn forever on startup.
     private const int MaxPerRun = 50;

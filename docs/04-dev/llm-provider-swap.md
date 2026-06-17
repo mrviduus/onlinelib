@@ -1,6 +1,6 @@
 # LLM Provider Swap Guide
 
-Default: self-hosted **Ollama** (`gemma4:e4b`) in Docker. This doc shows how to swap it for a managed LLM API (OpenAI, Anthropic, Groq, etc.) if self-hosting is undesirable.
+Default: self-hosted **Ollama** (`gemma4:e2b`) in Docker. This doc shows how to swap it for a managed LLM API (OpenAI, Anthropic, Groq, etc.) if self-hosting is undesirable.
 
 ## What the LLM does
 
@@ -78,7 +78,7 @@ var response = await client.PostAsJsonAsync($"{_options.BaseUrl}/v1/messages", r
 Remove:
 ```
 Ollama__BaseUrl=http://ollama:11434
-Ollama__Model=gemma4:e4b
+Ollama__Model=gemma4:e2b
 ```
 
 Add (example for OpenAI):

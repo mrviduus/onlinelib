@@ -30,7 +30,7 @@ public sealed class OllamaLlmClient : ILlmService
             ?? "http://localhost:11434";
         _model = config["Ollama:Model"]
             ?? Environment.GetEnvironmentVariable("OLLAMA_MODEL")
-            ?? "gemma4:e4b";
+            ?? "gemma4:e2b";
         _timeoutSeconds = int.TryParse(config["Ollama:TimeoutSeconds"], out var t) ? t : 30;
     }
 

@@ -46,7 +46,7 @@ After ingestion completes, Ollama proposes 3–5 tags for the book based on titl
   
   Tags should be in {userNativeLanguage}.
   ```
-- **Model:** reuse existing `Ollama:Model` config (`gemma4:e4b` per CLAUDE.md). No new model.
+- **Model:** reuse existing `Ollama:Model` config (`gemma4:e2b` per CLAUDE.md). No new model.
 - **Timeout:** 30s (matches existing). On timeout/error, log and skip — never block ingestion.
 - **Validation:** parsed tags must be 1–30 chars, lowercase, alphanumeric+hyphen. Drop invalid silently.
 - **De-duplicate** suggestions against user's existing tags (via `useUserTags()` data).

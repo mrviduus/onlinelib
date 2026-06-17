@@ -28,7 +28,7 @@ public class LlmServiceChatClientTests
     }
 
     private static LlmResponse Canned(string text = "hello") =>
-        new(text, [], new LlmUsage(11, 22, 0m), "gemma4:e4b", Guid.NewGuid());
+        new(text, [], new LlmUsage(11, 22, 0m), "gemma4:e2b", Guid.NewGuid());
 
     [Fact]
     public async Task GetResponseAsync_collapses_system_and_maps_messages()
@@ -61,7 +61,7 @@ public class LlmServiceChatClientTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("the answer", resp.Text);
-        Assert.Equal("gemma4:e4b", resp.ModelId);
+        Assert.Equal("gemma4:e2b", resp.ModelId);
         Assert.Equal(11, resp.Usage?.InputTokenCount);
         Assert.Equal(22, resp.Usage?.OutputTokenCount);
     }
