@@ -60,7 +60,7 @@ public static class AdminRagEndpoints
             var useOllama = judgeChoice == "ollama";
             var judgeKey = useOllama ? "ollama" : "openai-judge";
             judgeModelId = useOllama
-                ? config["Ollama:Model"] ?? "gemma4:e4b"
+                ? config["Ollama:Model"] ?? "gemma4:e2b"
                 : config["Eval:JudgeModel"] ?? "gpt-4.1";
             ask = services.GetRequiredService<IRagAskService>();
             judgeClient = services.GetRequiredKeyedService<ILlmService>(judgeKey);

@@ -92,7 +92,7 @@ out; only technical vocabulary gets surfaced.
 - Auto-added while reading — sentence context, definition, translation
 - 5 stages (New → Recognition → Recall → Context → Mastered)
 - Capped weekly queue + LLM-generated distractors and hints (Ollama
-  `gemma4:e4b`)
+  `gemma4:e2b`)
 - Review modes: multiple choice, classic flashcard
 
 **Library**
@@ -125,7 +125,7 @@ out; only technical vocabulary gets surfaced.
 | Search | PostgreSQL FTS |
 | Web | React 19, Vite, pnpm |
 | Mobile | React Native (Expo 55) |
-| LLM | OpenAI `gpt-4.1-nano` (explanations + translation) + Ollama `gemma4:e4b` (distractors, local) |
+| LLM | OpenAI `gpt-4.1-nano` (explanations + translation) + Ollama `gemma4:e2b` (distractors, local) |
 | TTS | Edge TTS (WebSocket, no API key) |
 | SSG | Puppeteer prerender, nginx serves static first |
 | Telemetry | OpenTelemetry → Aspire Dashboard |
