@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Infrastructure.Persistence;
+using Infrastructure.Rag;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,7 +103,49 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
         }
 
         await db.SaveChangesAsync(ct);
+
+        // AI-054: now that this batch's vectors are persisted, recompute the mean-pool
+        // edition embedding for each touched edition that is now FULLY embedded. The
+        // fully-embedded guard avoids writing a partial mean on every batch (and avoids
+        // per-chunk recompute); editions still draining are caught when their last batch
+        // lands (or by the backfill CLI). Best-effort — match the worker's resilience.
+        await RecomputeFullyEmbeddedEditionsAsync(db, batch.Select(c => c.EditionId), ct);
+
         return batch.Count;
+    }
+
+    /// <summary>
+    /// For each distinct edition touched by a just-saved batch, recompute its mean-pool
+    /// embedding (<see cref="EditionEmbeddingUpdater"/>) IFF no chunk of that edition is
+    /// still un-embedded. Runs over the same EF connection. Failures are logged and
+    /// swallowed so a recompute hiccup never stalls the embedding backlog.
+    /// </summary>
+    private async Task RecomputeFullyEmbeddedEditionsAsync(
+        AppDbContext db, IEnumerable<Guid> editionIds, CancellationToken ct)
+    {
+        var connection = db.Database.GetDbConnection();
+        foreach (var editionId in editionIds.Distinct())
+        {
+            try
+            {
+                // Cheap pre-filter: skip issuing the UPDATE for editions still draining (avoids
+                // an N+1 round-trip per still-incomplete edition per batch). The mean-pool SQL
+                // ALSO self-guards (its NOT EXISTS clause), so this is belt-and-suspenders — the
+                // "only fully-embedded editions get a mean" invariant holds even without it.
+                var fullyEmbedded = !await db.ChapterChunks
+                    .AnyAsync(c => c.EditionId == editionId && c.Embedding == null, ct);
+                if (!fullyEmbedded)
+                    continue;
+
+                await EditionEmbeddingUpdater.RecomputeAsync(connection, editionId, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to recompute edition embedding for {EditionId}; will retry on next batch or backfill.",
+                    editionId);
+            }
+        }
     }
 
     private async Task EmbedPerItemAsync(IEmbeddingService embedder, List<ChapterChunk> batch, CancellationToken ct)

@@ -804,4 +804,20 @@ if (args.Length > 0 && args[0] == "reindex-search")
     return;
 }
 
+// CLI: backfill-edition-embeddings — AI-054. Recomputes editions.embedding as the
+// element-wise mean-pool (SQL AVG) of each edition's already-embedded chapter chunks.
+// $0 — reuses existing chunk embeddings, makes NO OpenAI calls. Idempotent.
+if (args.Length > 0 && args[0] == "backfill-edition-embeddings")
+{
+    using var cliScope = app.Services.CreateScope();
+    var db = cliScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var connection = db.Database.GetDbConnection();
+
+    Console.WriteLine("Backfilling edition embeddings (mean-pool of chunk embeddings, $0 — no OpenAI calls)...");
+    var updated = await Infrastructure.Rag.EditionEmbeddingUpdater.RecomputeAsync(
+        connection, editionId: null, CancellationToken.None);
+    Console.WriteLine($"Done: {updated} edition embedding(s) updated.");
+    return;
+}
+
 app.Run();

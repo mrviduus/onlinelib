@@ -36,6 +36,15 @@ public class Edition
     // Table of contents (JSON)
     public string? TocJson { get; set; }
 
+    /// <summary>
+    /// AI-054: element-wise mean-pool of this edition's chapter-chunk embeddings
+    /// (pgvector <c>vector(1536)</c>). Populated by the embedding worker once the
+    /// edition is fully embedded, or by the <c>backfill-edition-embeddings</c> CLI.
+    /// NULL until embedded chunks exist. Raw mean (not L2-normalized) — query with
+    /// cosine (AI-055). Modeled as <c>float[]</c> to keep Domain framework-free.
+    /// </summary>
+    public float[]? Embedding { get; set; }
+
     public Work Work { get; set; } = null!;
     public Site Site { get; set; } = null!;
     public Edition? SourceEdition { get; set; }
