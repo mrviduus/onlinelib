@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Phase 9 — "Similar books" rail on BookDetailPage (AI-056) (2026-06-17)
+
+The first user-visible Phase 9 surface. A `SimilarBooksRail` on the web `BookDetailPage` renders books most similar to the one being viewed, via the AI-055 endpoint `GET /books/{slug}/similar?limit=8` (cosine over `editions.embedding`). `getSimilarBooks(slug, limit)` added to the api client (mirrors the language-prefixed `/books/{slug}/...` pattern), wired through `useApi()`. The rail reuses the existing "more by author" book-card markup/CSS (cover + `stringToColor` first-letter fallback, `LocalizedLink` to `/books/{slug}`) — no new design. **Renders nothing (returns null) on an empty list OR a fetch error** — a book with no embedding (or no neighbors) simply shows no rail, never an error/skeleton; client-side fetch, SSG-safe. 3 Vitest cases (renders cards, hides on empty, hides on error); web suite 520 green; tsc + build clean. Note: existing prod editions have NULL embedding until the owner runs the AI-054 `backfill-edition-embeddings` CLI — the rail hides gracefully until then.
+
 ### Phase 9 — edition embeddings: mean-pool of chunk vectors (AI-054) (2026-06-17)
 
 First Phase 9 slice: give each `editions` row a single `vector(1536)` so AI-055 can do book↔book similarity. An edition embedding = the element-wise **mean-pool** (`AVG(vector)`) of that edition's already-embedded `chapter_chunk` rows — pure SQL, **$0**: it reuses the existing chunk embeddings and makes **NO** OpenAI calls. This slice is the column + the going-forward worker hook + the backfill CLI + tests. **No similarity endpoint** (that's AI-055).
