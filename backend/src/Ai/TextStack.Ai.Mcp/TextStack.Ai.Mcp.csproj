@@ -5,6 +5,34 @@
     <AssemblyName>TextStack.Ai.Mcp</AssemblyName>
   </PropertyGroup>
 
+  <!-- ════════════════════════════════════════════════════════════════════════
+       Distribution as a .NET global tool (AI-051). `dotnet pack -c Release`
+       produces a DotnetTool package `TextStack.Mcp` whose command is
+       `textstack-mcp`. Users: `dotnet tool install -g TextStack.Mcp` (or
+       `dnx textstack-mcp` on .NET 10). The tool defaults to stdio mode, which
+       is exactly what a local Claude Desktop / Cursor stdio client needs.
+       Owner publishes: dotnet nuget push bin/Release/TextStack.Mcp.1.0.0.nupkg.
+       ════════════════════════════════════════════════════════════════════════ -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>textstack-mcp</ToolCommandName>
+    <PackageId>TextStack.Mcp</PackageId>
+    <Version>1.0.0</Version>
+    <!-- Run on .NET 10 AND future majors — don't pin users to one runtime. -->
+    <RollForward>Major</RollForward>
+    <Authors>TextStack</Authors>
+    <Description>TextStack MCP server — query your TextStack reading library from Claude Desktop / Cursor / any MCP client. Search books, read chapters, ask grounded questions, and manage your highlights and vocabulary over stdio or remote HTTP.</Description>
+    <PackageTags>mcp;modelcontextprotocol;ai;textstack;reading</PackageTags>
+    <RepositoryUrl>https://github.com/mrviduus/textstack</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Unit tests drive the device-flow provider's internal test seams
          (WaitForBackgroundPollAsync, ReadExp). -->

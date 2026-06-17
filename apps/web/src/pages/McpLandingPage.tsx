@@ -21,11 +21,16 @@ const CLAUDE_LOCAL_NOW = `{
   }
 }`
 
-const CLAUDE_LOCAL_NPM = `{
+const TOOL_INSTALL = `dotnet tool install -g TextStack.Mcp`
+
+const CLAUDE_LOCAL_TOOL = `{
   "mcpServers": {
     "textstack": {
-      "command": "npx",
-      "args": ["-y", "@textstack/mcp"]
+      "command": "textstack-mcp",
+      "env": {
+        "TEXTSTACK_API_URL": "https://textstack.app/api",
+        "TEXTSTACK_SITE_HOST": "textstack.app"
+      }
     }
   }
 }`
@@ -113,9 +118,10 @@ export function McpLandingPage() {
           <p className="mcp-section__hint">{t('mcp.local.nowHint')}</p>
           <CodeBlock code={CLAUDE_LOCAL_NOW} label="claude_desktop_config.json" />
 
-          <h3 className="mcp-section__subheading">{t('mcp.local.soonLabel')}</h3>
-          <p className="mcp-section__hint">{t('mcp.local.soonHint')}</p>
-          <CodeBlock code={CLAUDE_LOCAL_NPM} label="claude_desktop_config.json" />
+          <h3 className="mcp-section__subheading">{t('mcp.local.toolLabel')}</h3>
+          <p className="mcp-section__hint">{t('mcp.local.toolHint')}</p>
+          <CodeBlock code={TOOL_INSTALL} label={t('mcp.local.toolInstallLabel')} />
+          <CodeBlock code={CLAUDE_LOCAL_TOOL} label="claude_desktop_config.json" />
         </section>
 
         <section className="mcp-section">

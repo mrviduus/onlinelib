@@ -414,8 +414,9 @@
       "lead": "Add TextStack to your claude_desktop_config.json under mcpServers.",
       "nowLabel": "Now (run the built DLL)",
       "nowHint": "Requires .NET 10 and the built TextStack.Ai.Mcp.dll. Point the args path at your local copy.",
-      "soonLabel": "Coming soon (after npm publish)",
-      "soonHint": "Once @textstack/mcp is published to npm (AI-051), no .NET install needed — just npx."
+      "toolLabel": "Install as a global tool",
+      "toolHint": "Install the TextStack.Mcp .NET global tool, then reference its textstack-mcp command directly — no DLL path. Needs .NET 10+; on .NET 10 you can also run it without installing via dnx textstack-mcp.",
+      "toolInstallLabel": "terminal"
     },
     "tools": {
       "heading": "The 7 tools",

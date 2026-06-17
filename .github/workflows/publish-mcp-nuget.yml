@@ -1,0 +1,59 @@
+name: Publish MCP tool to NuGet
+
+# Publishes the TextStack MCP server as a .NET global tool (TextStack.Mcp) to
+# nuget.org. Manual-only (publishing a version is irreversible — nuget.org never
+# lets you overwrite or truly delete a version), or on an `mcp-v*` tag.
+#
+# REQUIRES a repo secret NUGET_API_KEY (owner sets it: nuget.org → API Keys →
+# create a key scoped to push TextStack.* → GitHub repo Settings → Secrets and
+# variables → Actions → New repository secret → NUGET_API_KEY).
+#
+# To release a NEW version: bump <Version> in
+# backend/src/Ai/TextStack.Ai.Mcp/TextStack.Ai.Mcp.csproj, then run this workflow
+# (or push a tag like mcp-v1.0.1). --skip-duplicate makes re-runs of an
+# already-published version a no-op instead of a failure.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'mcp-v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Require NUGET_API_KEY secret
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY secret is not set. Add it in repo Settings → Secrets → Actions (get the key from nuget.org → API Keys)."
+            exit 1
+          fi
+
+      - name: Pack the .NET tool
+        run: |
+          dotnet pack backend/src/Ai/TextStack.Ai.Mcp/TextStack.Ai.Mcp.csproj \
+            -c Release -o ./artifacts
+          ls -lh ./artifacts/*.nupkg
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          # --skip-duplicate: re-running for an already-published version is a
+          # no-op (nuget.org rejects overwrites). Bump <Version> for a new release.
+          dotnet nuget push ./artifacts/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
