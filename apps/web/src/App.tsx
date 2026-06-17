@@ -20,6 +20,7 @@ import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
 import { DmcaPage } from './pages/DmcaPage'
 import { ContactPage } from './pages/ContactPage'
+import { McpLandingPage } from './pages/McpLandingPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DeviceVerifyPage } from './pages/DeviceVerifyPage'
 import { SitemapPage } from './pages/SitemapPage'
@@ -95,6 +96,7 @@ function LanguageRoutes() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/dmca" element={<DmcaPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/mcp" element={<McpLandingPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/library/shelf/:shelfId" element={<LibraryShelfPage />} />
           <Route path="/stats" element={<StatsPage />} />

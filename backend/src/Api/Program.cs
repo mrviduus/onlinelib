@@ -572,6 +572,7 @@ app.MapSeoEndpoints();
 app.MapSsgEndpoints();
 app.MapAuthEndpoints();
 app.MapDeviceAuthEndpoints();
+app.MapMcpManifestEndpoints();
 app.MapProfileEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();
