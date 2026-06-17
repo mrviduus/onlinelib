@@ -32,7 +32,7 @@ docker run -d --rm \
   -e POSTGRES_PASSWORD="$PG_PASS" \
   -e POSTGRES_DB="$PG_DB" \
   -p "$PORT:5432" \
-  postgres:16 >/dev/null
+  pgvector/pgvector:pg16 >/dev/null  # prod schema uses CREATE EXTENSION vector (pgvector); vanilla postgres:16 fails restore
 
 echo "[verify] waiting for postgres to accept connections ..."
 for i in {1..30}; do
