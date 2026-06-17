@@ -35,6 +35,7 @@ Free book library with Kindle-like reader. EPUB/PDF/FB2 upload, parsing, SEO pag
 | Search | PostgreSQL FTS, fuzzy search | [feat-0006](05-features/feat-0006-search-library.md) |
 | Vocabulary | SRS vocab builder + Ollama LLM | [vocabulary-srs.md](05-features/vocabulary-srs.md) |
 | Ingestion | EPUB parsing, chapter extraction | [ingestion.md](02-system/ingestion.md) |
+| MCP server | Connect TextStack to Claude Desktop / Cursor / ChatGPT | [mcp.md](05-features/mcp.md) |
 
 ## Structure
 
