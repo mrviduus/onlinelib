@@ -160,6 +160,15 @@ builder.Services.AddScoped<Application.Rag.UserBookRagContextService>();
 builder.Services.AddScoped(_ =>
     new Application.Recommendations.SimilarBooksService(() => new NpgsqlConnection(connectionString)));
 
+// Hybrid catalog search (AI-057): blends the FTS edition ranking with cosine NN over
+// editions.embedding via RRF. Only invoked on `semantic=true`; the pure-FTS path never touches it.
+builder.Services.AddScoped(sp =>
+    new Application.Search.HybridCatalogSearch(
+        sp.GetRequiredService<TextStack.Search.Abstractions.ISearchProvider>(),
+        sp.GetRequiredService<global::TextStack.Ai.Core.IEmbeddingService>(),
+        () => new NpgsqlConnection(connectionString),
+        sp.GetRequiredService<ILogger<Application.Search.HybridCatalogSearch>>()));
+
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();
 
@@ -387,6 +396,26 @@ builder.Services.AddRateLimiter(options =>
     {
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
+    // Hybrid catalog search (AI-057): semantic=true embeds the query (one paid OpenAI embedding
+    // call per request) before the $0 pgvector scan, so it gets its own per-IP throttle. CRITICAL:
+    // this policy is a NO-OP unless `semantic` is truthy — the pure-FTS path (semantic absent/false)
+    // consumes no partition and stays completely unthrottled (zero new cost/latency).
+    options.AddPolicy("search-semantic", httpContext =>
+    {
+        var semantic = httpContext.Request.Query["semantic"].ToString();
+        var isSemantic = semantic.Equals("true", StringComparison.OrdinalIgnoreCase)
+                         || semantic == "1";
+        if (!isSemantic)
+            return RateLimitPartition.GetNoLimiter("search-fts");
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter("semantic:" + ip, _ => new FixedWindowRateLimiterOptions
         {
             Window = TimeSpan.FromMinutes(1),
             PermitLimit = 20,

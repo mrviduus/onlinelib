@@ -10,6 +10,7 @@
 
 using Api.Language;
 using Api.Sites;
+using Application.Search;
 using Contracts.Common;
 using Microsoft.AspNetCore.Mvc;
 using TextStack.Search.Abstractions;
@@ -29,8 +30,9 @@ public static class SearchEndpoints
         // Group endpoints under /search prefix with OpenAPI tag
         var group = app.MapGroup("/search").WithTags("Search");
 
-        // Two endpoints: full-text search and autocomplete suggestions
-        group.MapGet("", Search).WithName("Search");
+        // Two endpoints: full-text search and autocomplete suggestions.
+        // search-semantic limiter is a NO-OP unless ?semantic=true (AI-057) — pure-FTS stays unthrottled.
+        group.MapGet("", Search).WithName("Search").RequireRateLimiting("search-semantic");
         group.MapGet("/suggest", Suggest).WithName("SearchSuggest");
     }
 
@@ -41,10 +43,12 @@ public static class SearchEndpoints
     private static async Task<IResult> Search(
         HttpContext httpContext,
         ISearchProvider searchProvider,  // Injected via DI
+        HybridCatalogSearch hybridSearch, // AI-057: resolved always, invoked only when semantic=true
         [FromQuery] string q,             // Search query
         [FromQuery] int? limit,           // Page size (default 20, max 100)
         [FromQuery] int? offset,          // Skip N results
         [FromQuery] bool? highlight,      // Include text snippets?
+        [FromQuery] bool? semantic,       // AI-057: blend FTS + vector via RRF? (default OFF)
         CancellationToken ct)
     {
         // ─── Input Validation ───────────────────────────────────
@@ -77,7 +81,12 @@ public static class SearchEndpoints
             highlight ?? false);
 
         // ─── Execute Search ─────────────────────────────────────
-        var result = await searchProvider.SearchAsync(request, ct);
+        // AI-057: semantic=true blends FTS + editions.embedding cosine via RRF (same DTO shape).
+        // The ≥2-char/non-empty guard above already ran, so the embed call is never wasted on a
+        // short query. semantic absent/false → today's pure-FTS path, byte-for-byte unchanged.
+        var result = semantic == true
+            ? await hybridSearch.SearchAsync(request, language, ct)
+            : await searchProvider.SearchAsync(request, ct);
 
         // ─── Map to Response ────────────────────────────────────
         // Transform internal SearchHit to API DTO
