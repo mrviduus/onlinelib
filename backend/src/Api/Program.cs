@@ -146,6 +146,11 @@ builder.Services.AddScoped<Application.Rag.RagContextService>();
 builder.Services.AddScoped<Application.Rag.RagAskService>();
 builder.Services.AddScoped<Application.Rag.IRagAskService>(sp => sp.GetRequiredService<Application.Rag.RagAskService>());
 
+// Similar books (AI-055): cosine NN over editions.embedding. Same raw Func<IDbConnection>
+// factory as RAG — a raw connection casts the vector server-side (no pgvector type registration).
+builder.Services.AddScoped(_ =>
+    new Application.Recommendations.SimilarBooksService(() => new NpgsqlConnection(connectionString)));
+
 // Reindex service (used by CLI)
 builder.Services.AddScoped<SearchReindexService>();
 

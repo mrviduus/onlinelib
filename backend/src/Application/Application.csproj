@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" />
+    <!-- AI-055: raw-Npgsql cosine NN over editions.embedding (SimilarBooksService). -->
+    <PackageReference Include="Dapper" />
     <PackageReference Include="Google.Apis.Auth" />
     <PackageReference Include="HtmlAgilityPack" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
