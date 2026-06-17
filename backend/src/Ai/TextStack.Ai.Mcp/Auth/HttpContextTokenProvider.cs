@@ -23,8 +23,10 @@ public sealed class HttpContextTokenProvider : IMcpTokenProvider
 {
     private const string BearerScheme = "Bearer ";
 
+    // Detail only — the catalog wrapper already prefixes "authentication required — ",
+    // so we must NOT repeat it here (avoids "authentication required — authentication required — …").
     private static readonly TokenResult.Failed NoBearer = new(
-        "authentication required — set Authorization: Bearer <token> in your MCP client");
+        "set Authorization: Bearer <token> in your MCP client");
 
     private readonly IHttpContextAccessor _accessor;
 
