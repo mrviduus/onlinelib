@@ -191,15 +191,6 @@ Full command reference: [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## Roadmap (6-month)
-
-- **Now** — Reader + Vocab SRS + offline PWA, 1,500+ books live
-- **Next** — Android on Google Play, cap weekly SRS queue UX polish,
-  curated AI-engineering corpus (DDIA, ML papers, 15–20 titles)
-- **Goal** — one paying customer by October 2026
-
----
-
 ## Contributing
 
 Feedback, bug reports, and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md)
