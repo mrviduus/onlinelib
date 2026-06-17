@@ -48,7 +48,7 @@ domain.** Tap "attention" in an ML book and you get *увага (механіз�
 нейромережах)* in Ukrainian or *внимание (механизм в нейросетях)* in
 Russian — not the everyday meaning of the word. Explanation mode (no
 translation) is also available for native English readers who want the
-term clarified instead of translated. Powered by OpenAI `gpt-5-mini`,
+term clarified instead of translated. Powered by OpenAI `gpt-4.1-nano`,
 swap-in friendly — any `ILlmService` impl works. 18+ target languages
 supported, with Russian and Ukrainian as the focus during current
 development.
@@ -80,7 +80,7 @@ out; only technical vocabulary gets surfaced.
   keyboard shortcuts
 - **Explain** — select any technical phrase → 2-3 sentence explanation in
   your native language, aware of the book's domain. Uses OpenAI
-  `gpt-5-mini`. Includes a concrete analogy when the term is technical
+  `gpt-4.1-nano`. Includes a concrete analogy when the term is technical
   (see GIF above).
 - Text selection extras — contextual translation in 18+ languages,
   dictionary fallback (Free Dictionary API), highlights
@@ -125,7 +125,7 @@ out; only technical vocabulary gets surfaced.
 | Search | PostgreSQL FTS |
 | Web | React 19, Vite, pnpm |
 | Mobile | React Native (Expo 55) |
-| LLM | OpenAI `gpt-5-mini` (explanations + translation) + Ollama `gemma4:e4b` (distractors, local) |
+| LLM | OpenAI `gpt-4.1-nano` (explanations + translation) + Ollama `gemma4:e4b` (distractors, local) |
 | TTS | Edge TTS (WebSocket, no API key) |
 | SSG | Puppeteer prerender, nginx serves static first |
 | Telemetry | OpenTelemetry → Aspire Dashboard |
