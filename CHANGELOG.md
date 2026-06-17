@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Phase 9 — "Similar books" rail on BookDetailPage (AI-056) (2026-06-17)
+
+The first user-visible Phase 9 surface. A `SimilarBooksRail` on the web `BookDetailPage` renders books most similar to the one being viewed, via the AI-055 endpoint `GET /books/{slug}/similar?limit=8` (cosine over `editions.embedding`). `getSimilarBooks(slug, limit)` added to the api client (mirrors the language-prefixed `/books/{slug}/...` pattern), wired through `useApi()`. The rail reuses the existing "more by author" book-card markup/CSS (cover + `stringToColor` first-letter fallback, `LocalizedLink` to `/books/{slug}`) — no new design. **Renders nothing (returns null) on an empty list OR a fetch error** — a book with no embedding (or no neighbors) simply shows no rail, never an error/skeleton; client-side fetch, SSG-safe. 3 Vitest cases (renders cards, hides on empty, hides on error); web suite 520 green; tsc + build clean. Note: existing prod editions have NULL embedding until the owner runs the AI-054 `backfill-edition-embeddings` CLI — the rail hides gracefully until then.
 ### Phase 9 — "Similar books" service + endpoint (AI-055) (2026-06-17)
 
 Second Phase 9 slice: given a published edition, return the most-similar published editions by **cosine** over the AI-054 `editions.embedding` mean-pool vector. **$0** — pure vector math, no LLM call. Service + public endpoint + tests only; the rail UI is AI-056.
