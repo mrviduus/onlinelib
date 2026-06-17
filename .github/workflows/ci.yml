@@ -67,6 +67,11 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/TextStack.UnitTests
 
+      # AI-051: keep the MCP global-tool packaging green (no publish, no secret).
+      # Owner publishes manually via `dotnet nuget push` with their nuget.org key.
+      - name: Pack MCP global tool
+        run: dotnet pack backend/src/Ai/TextStack.Ai.Mcp -c Release
+
   frontend:
     runs-on: ubuntu-latest
 
