@@ -193,7 +193,10 @@ jobs:
         # the default compose file (that would break the ci/docker job).
         run: |
           cd $PROJECT_DIR
-          docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+          # --profile mcp brings up the remote MCP server (mcp-server) in prod.
+          # It's profile-gated so CI's bare `compose up` (docker/e2e jobs) never
+          # builds/runs it; prod opts in here. nginx /mcp is synced below.
+          docker compose --profile mcp -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 
       - name: Sync nginx config
         run: |
@@ -227,6 +230,18 @@ jobs:
         run: |
           curl -sf http://localhost:80 || exit 1
           echo "Frontend health check passed"
+
+      - name: Health check MCP server
+        run: |
+          # mcp-server is localhost-only on :8090; nginx fronts /mcp.
+          curl -sf http://localhost:8090/health || { echo "FAIL: mcp-server /health down"; exit 1; }
+          echo "mcp-server /health OK"
+          # MCP streamable endpoint through nginx (Host-routed, like a real client).
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Host: textstack.app" \
+            -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"deploy-check","version":"1"}}}' \
+            http://localhost/mcp)
+          [ "$CODE" = "200" ] && echo "nginx /mcp → MCP initialize 200 OK" || { echo "FAIL: /mcp returned $CODE"; exit 1; }
 
       - name: Verify SEO setup
         run: |

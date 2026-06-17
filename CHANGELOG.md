@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Phase 8 — enable remote MCP in the prod deploy (AI-049 follow-up) (2026-06-17)
+
+Makes the remote MCP endpoint actually go live. The `mcp-server` Docker service is profile-gated (`profiles:[mcp]`) so CI's bare `compose up` never builds/runs it — which also meant the prod deploy didn't bring it up. Fixed: `deploy.yml` now runs `docker compose --profile mcp ...` so prod opts the service in (CI still excludes it). The nginx `/mcp` block already syncs via the existing "Sync nginx config" step. Added a **Health check MCP server** deploy step (fail-loud): asserts `mcp-server` `/health` is up AND a real MCP `initialize` POST through nginx `/mcp` returns 200. After this merges + deploys, `https://textstack.app/mcp` is the remote streamable-HTTP MCP endpoint (for ChatGPT / Cursor / remote Claude), authenticated per-request via the device-flow JWT. Verified the http transport locally (`/health`→200, `POST /mcp` initialize→`text/event-stream` 200).
+
 ### Phase 8 — MCP bridge: preserve API path prefix on relative URLs (AI-049) (2026-06-16)
 
 - **Fix.** The MCP bridge dropped the API **path prefix** (e.g. `/api`) on every request when `TEXTSTACK_API_URL` carried one (`https://textstack.app/api`). `TextStackApiClient` built relative URLs with a LEADING slash (`/search`, `/me/highlights/{id}`, `/books/{id}/ask`) and `HttpClient.BaseAddress` had NO trailing slash, so .NET resolved the leading-slash relative URI from the HOST ROOT and dropped `/api` — the bridge hit the SPA (`https://textstack.app/search`, 301 → HTML → `JsonException` → "upstream unavailable") instead of the API. Silently green in unit tests (fake handler ignores `BaseAddress`) and in prod-internal (`http://api:8080`, no prefix); confirmed live against prod. Fixed two ways: `McpBridgeCore.BaseUri(...)` now trailing-slash-normalizes the base (idempotent — no double slash), and `TextStackApiClient` + `DeviceFlowTokenProvider` build relative URIs leading-slash-stripped (`auth/device/code`, `auth/device/token`, `auth/refresh-mobile`), so the prefix segment survives instead of being treated as a replaceable file.
