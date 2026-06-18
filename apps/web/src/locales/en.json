@@ -923,7 +923,12 @@
     "overview": "Overview",
     "time": "Time",
     "today": "Today",
-    "words": "words"
+    "words": "words",
+    "concepts": {
+      "title": "Concepts you're learning",
+      "empty": "Save 20+ words across a few topics to see your concept map.",
+      "more": "+{count} more"
+    }
   },
   "terms": {
     "seoTitle": "Terms of Service - TextStack Reader",

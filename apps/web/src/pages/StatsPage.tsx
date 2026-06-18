@@ -14,6 +14,7 @@ import { StatsBooksTab } from '../components/stats/StatsBooksTab'
 import { StatsTimeTab } from '../components/stats/StatsTimeTab'
 import { StatsAchievementsTab } from '../components/stats/StatsAchievementsTab'
 import { VocabStreakSection } from '../components/stats/VocabStreakSection'
+import { ConceptsSection } from '../components/stats/ConceptsSection'
 import { useVocabDailyStats } from '../hooks/useVocabDailyStats'
 
 type Tab = 'overview' | 'books' | 'time' | 'achievements'
@@ -82,6 +83,9 @@ export function StatsPage() {
         {vocabStats && vocabStats.totalWords > 0 && (
           <VocabStreakSection vocabStats={vocabStats} dailyStats={vocabDailyStats} />
         )}
+
+        {/* Concepts you're learning — self-fetches, hides gracefully when empty */}
+        <ConceptsSection />
 
         {/* Year filter (for books/time tabs) */}
         {(tab === 'books' || tab === 'time') && (

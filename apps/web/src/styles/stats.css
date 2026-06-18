@@ -600,3 +600,59 @@ html.dark .vocab-heatmap {
     flex-wrap: wrap;
   }
 }
+
+/* --- Concepts you're learning (AI-060) --- */
+
+.concepts-section {
+  margin-bottom: 2rem;
+}
+
+.concepts-section__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.concepts-section__empty {
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  background: var(--color-bg-secondary, #f9fafb);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0;
+}
+
+.concepts-section__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.concept-card {
+  background: var(--color-bg-secondary, #f9fafb);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.concept-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.concept-card__theme {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b7280);
+  margin-bottom: 8px;
+}
+
+.concept-card__words {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text, #111827);
+}
+
+.concept-card__more {
+  color: var(--color-text-secondary, #6b7280);
+  font-weight: 500;
+}
