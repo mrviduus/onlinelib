@@ -102,7 +102,8 @@ public record RunEvalsRequest(string[]? Features, string? Judge);
 /// <summary>State of the in-app eval runner (one run at a time).</summary>
 public record EvalStatusDto(bool Running, DateTimeOffset? StartedAt, string? LastError);
 
-/// <summary>One persisted eval run for the Evals tab history.</summary>
+/// <summary>One persisted eval run for the Evals tab history. <c>RunType</c> is
+/// "manual" (admin-triggered) or "scheduled" (ContinuousEvalWorker).</summary>
 public record EvalRunDto(
     Guid Id,
     string Feature,
@@ -112,6 +113,17 @@ public record EvalRunDto(
     int N,
     string? BreakdownJson,
     string? GitSha,
+    string RunType,
+    DateTimeOffset CreatedAt);
+
+/// <summary>One point on the scheduled-eval trend (Drift tab, slice 5b). Only
+/// <c>RunType='scheduled'</c> rows, newest-first.</summary>
+public record ScheduledEvalPointDto(
+    string Feature,
+    string ModelId,
+    double Score,
+    int N,
+    string GitSha,
     DateTimeOffset CreatedAt);
 
 // ── Shadow-run comparison + models registry (Phase 12 RLOps) ──────────────────

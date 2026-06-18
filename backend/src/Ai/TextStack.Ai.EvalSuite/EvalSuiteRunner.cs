@@ -31,7 +31,8 @@ public sealed class EvalSuiteRunner(ILogger<EvalSuiteRunner> logger)
         bool persist,
         IAppDbContext? db,
         string? gitSha,
-        CancellationToken ct)
+        CancellationToken ct,
+        string runType = "manual")
     {
         var defs = EvalDefinitions.Build(keys);
         var chatConfig = new ChatConfiguration(new LlmServiceChatClient(judgeClient, defaultFeatureTag: "eval.judge"));
@@ -85,6 +86,7 @@ public sealed class EvalSuiteRunner(ILogger<EvalSuiteRunner> logger)
                         N = summary.N,
                         BreakdownJson = Breakdown(entry.Rubric, summary),
                         GitSha = gitSha,
+                        RunType = runType,
                         CreatedAt = DateTimeOffset.UtcNow,
                     });
                 }

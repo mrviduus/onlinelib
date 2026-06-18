@@ -104,6 +104,9 @@ public partial class AppDbContext
             e.Property(x => x.GitSha).HasMaxLength(64);
             e.Property(x => x.Score).HasColumnType("numeric(6,3)");
             e.Property(x => x.BreakdownJson).HasColumnType("jsonb");
+            // RunType (slice 5a): "manual" | "scheduled". Existing rows backfill to "manual"
+            // via the migration default; the Drift tab + worker filter on RunType='scheduled'.
+            e.Property(x => x.RunType).HasMaxLength(20).HasDefaultValue("manual");
         });
     }
 }

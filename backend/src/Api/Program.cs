@@ -81,6 +81,10 @@ builder.Services.AddOpenApi();
 // Application layer
 builder.Services.AddApplication();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EvalSuiteRunner>();
+// Scheduled-eval support (Phase 12 RLOps slice 5a): shared single-slot overlap gate +
+// pure regression detector, consumed by both the admin trigger and ContinuousEvalWorker.
+builder.Services.AddSingleton<Application.Ai.IEvalRunGate, Application.Ai.EvalRunGate>();
+builder.Services.AddSingleton<Application.Ai.EvalRegressionDetector>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
@@ -222,6 +226,8 @@ builder.Services.AddHostedService<ClusterCandidateBuilderWorker>();
 
 // AI-058: weekly semantic concept clustering (groups vocab by meaning across all books)
 builder.Services.AddHostedService<ConceptClusteringWorker>();
+// Phase 12 RLOps slice 5a: scheduled continuous evals (OFF by default — Eval:Scheduled:Enabled).
+builder.Services.AddHostedService<ContinuousEvalWorker>();
 
 // Rate limiting
 builder.Services.AddRateLimiter(options =>
