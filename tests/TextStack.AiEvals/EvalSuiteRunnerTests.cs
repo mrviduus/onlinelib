@@ -49,4 +49,51 @@ public class EvalSuiteRunnerTests
         Assert.Equal(3.0, r.Summary.Mean2, 3);
         Assert.Equal(5.0, r.Summary.Mean3, 3);
     }
+
+    [Fact]
+    public async Task RunAsync_DefaultRunType_PersistsManual()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var generator = new FixedLlm("GENRE: Fiction\nYEAR: 1900\nDESCRIPTION: A canned description.");
+        var judge = new FixedLlm("{\"d1\": 4, \"d2\": 3, \"d3\": 5, \"rationale\": \"ok\"}");
+        var db = new CapturingDb();
+
+        var runner = new EvalSuiteRunner(NullLogger<EvalSuiteRunner>.Instance);
+        await runner.RunAsync(
+            generatorFor: _ => generator,
+            judgeClient: judge,
+            judgeModelId: "judge-test",
+            keys: ["bookmeta"],
+            persist: true,
+            db: db,
+            gitSha: null,
+            ct: ct); // runType omitted → defaults to "manual"
+
+        var run = Assert.Single(db.Added);
+        Assert.Equal("manual", run.RunType);
+    }
+
+    [Fact]
+    public async Task RunAsync_ScheduledRunType_PersistsScheduled()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var generator = new FixedLlm("GENRE: Fiction\nYEAR: 1900\nDESCRIPTION: A canned description.");
+        var judge = new FixedLlm("{\"d1\": 4, \"d2\": 3, \"d3\": 5, \"rationale\": \"ok\"}");
+        var db = new CapturingDb();
+
+        var runner = new EvalSuiteRunner(NullLogger<EvalSuiteRunner>.Instance);
+        await runner.RunAsync(
+            generatorFor: _ => generator,
+            judgeClient: judge,
+            judgeModelId: "judge-test",
+            keys: ["bookmeta"],
+            persist: true,
+            db: db,
+            gitSha: null,
+            ct: ct,
+            runType: "scheduled");
+
+        var run = Assert.Single(db.Added);
+        Assert.Equal("scheduled", run.RunType);
+    }
 }

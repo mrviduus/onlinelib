@@ -20,5 +20,11 @@ public class EvalRun
     public int N { get; set; }
     public string? BreakdownJson { get; set; }
     public string? GitSha { get; set; }
+
+    /// <summary>How this run was triggered: <c>"manual"</c> (admin Evals tab) or
+    /// <c>"scheduled"</c> (ContinuousEvalWorker, Phase 12 RLOps slice 5a). Drives the
+    /// Drift tab's scheduled-only trend + the worker's "is it due" / regression checks.</summary>
+    public string RunType { get; set; } = "manual";
+
     public DateTimeOffset CreatedAt { get; set; }
 }

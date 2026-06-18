@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Phase 12 — ContinuousEvalWorker (AI-079, slice 5a) (2026-06-18)
+
+Automates the eval suite on a cadence so quality regressions on prod are caught without an admin clicking "run evals". `ContinuousEvalWorker` (Api host `BackgroundService`, ~10min startup delay + hourly check) runs `EvalSuiteRunner` for the configured features when due (no `run_type='scheduled'` row newer than `Eval:Scheduled:IntervalHours`, default 24h), persists with the new **`eval_runs.run_type`** column (`scheduled`/`manual`), and emails the admin (via `ResendEmailService`, no-op if unset) when a feature's score drops ≥ `RegressionDrop` (default 0.5 on the 1-5 scale) vs the **prior scheduled** run (`EvalRegressionDetector`, pure). **OFF by default** (`Eval:Scheduled:Enabled=false`) — it spends judge $ when on, so it also respects an optional `eval.judge` daily cap (fail-open). Concurrency-safe: the in-process overlap guard the admin trigger used is extracted into a shared singleton `IEvalRunGate` (so a scheduled run + an admin run can't collide), plus a **Postgres advisory lock** for multi-replica. The worker never crashes the host (every tick wrapped); the advisory lock is released with `CancellationToken.None` so host shutdown can't leak it onto a pooled connection (QA P1); the admin trigger releases the gate even on a synchronous setup failure (QA P2). New `GET /admin/ai-quality/drift/eval-trend` exposes the scheduled-only score trend (consumed by the Drift tab in slice 5b). Migration `AddEvalRunType` (backfills existing rows to `manual`). 780 unit tests green. Slice 5b (DriftDetectionWorker + Drift tab) follows.
+
 ### Phase 12 — cost-aware routing + per-feature daily budget (AI-078, slice 4) (2026-06-18)
 
 Per-feature daily USD budgets with cost-aware enforcement — the DoD "cost-aware routing cuts spend" lever.
