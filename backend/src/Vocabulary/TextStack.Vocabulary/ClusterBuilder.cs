@@ -45,6 +45,78 @@ public sealed class ClusterBuilder : IClusterBuilder
         }
     }
 
+    public async Task<ClusterLabel?> LabelAsync(
+        IReadOnlyList<string> words,
+        string nativeLanguage,
+        CancellationToken ct)
+    {
+        if (words.Count == 0) return null;
+
+        try
+        {
+            var prompt = BuildLabelPrompt(words, nativeLanguage);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(_options.OllamaTimeoutSeconds);
+
+            var request = new { model = _options.OllamaModel, prompt, stream = false };
+            var response = await client.PostAsJsonAsync($"{_options.OllamaBaseUrl}/api/generate", request, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(ct);
+            if (string.IsNullOrWhiteSpace(result?.Response)) return null;
+
+            return ParseLabel(result.Response);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string BuildLabelPrompt(IReadOnlyList<string> words, string nativeLanguage)
+    {
+        // Label-only: the words ALREADY form one group (membership fixed upstream). No scoring,
+        // no member selection — just name the shared theme.
+        var parts = new List<string>
+        {
+            "You name vocabulary groups.",
+            "",
+            "The following words have already been grouped together because they share meaning.",
+            "Give the group one short, descriptive name.",
+            "",
+            $"Words: {string.Join(", ", words)}",
+            "",
+            $"Title must be short (max 8 words), in {nativeLanguage}, describing the shared theme.",
+            "Theme must be a single lowercase slug (e.g. 'finance', 'emotions', 'warfare').",
+            "",
+            "Reply in this EXACT format (no other text):",
+            "THEME: slug",
+            "TITLE: human readable title",
+        };
+
+        return string.Join("\n", parts);
+    }
+
+    private static ClusterLabel? ParseLabel(string raw)
+    {
+        string? theme = null;
+        string? title = null;
+
+        foreach (var line in raw.Split('\n', StringSplitOptions.TrimEntries))
+        {
+            if (line.StartsWith("THEME:", StringComparison.OrdinalIgnoreCase))
+                theme = line["THEME:".Length..].Trim().ToLowerInvariant();
+            else if (line.StartsWith("TITLE:", StringComparison.OrdinalIgnoreCase))
+                title = line["TITLE:".Length..].Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(title)) return null;
+
+        return new ClusterLabel(
+            Title: title.Length > 200 ? title[..200] : title,
+            Theme: string.IsNullOrWhiteSpace(theme) ? null : (theme.Length > 100 ? theme[..100] : theme));
+    }
+
     private static string BuildPrompt(List<string> words, string? bookTitle, string nativeLanguage)
     {
         var parts = new List<string>

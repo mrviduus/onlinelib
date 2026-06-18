@@ -20,8 +20,11 @@ namespace Application.Vocabulary;
 /// (the SetNull FK nulls members' <c>ConceptClusterId</c>) and recreates fresh ones. Labels
 /// are a placeholder until AI-059; the StatsPage widget is AI-060.
 /// </summary>
-public class ConceptClusteringService(IAppDbContext db, IConfiguration config)
+public class ConceptClusteringService(IAppDbContext db, IConfiguration config, IClusterBuilder labeler)
 {
+    // AI-058 placeholder Title kept as the resilient fallback when LLM labeling fails.
+    private const string PlaceholderTitle = "Concept group";
+
     // Gate: don't cluster until the user has enough embedded signal to form meaningful groups.
     private const int MinEmbeddedWords = 20;
 
@@ -76,9 +79,17 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config)
         if (clusters.Count == 0)
             return 0;
 
+        // AI-059 labels are in the user's native language (mirrors the book-grouper). Default "en".
+        var user = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.NativeLanguage })
+            .FirstOrDefaultAsync(ct);
+        var nativeLanguage = user?.NativeLanguage ?? "en";
+
         var now = DateTimeOffset.UtcNow;
         // Map word id -> the new cluster id it belongs to, for a single bulk member update.
         var assignment = new Dictionary<Guid, Guid>();
+        var newClusters = new List<(WordCluster Cluster, IReadOnlyList<Guid> WordIds)>();
         foreach (var c in clusters)
         {
             var cluster = new WordCluster
@@ -87,7 +98,7 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config)
                 UserId = userId,
                 SiteId = siteId,
                 Kind = "concept",
-                Title = "Concept group", // AI-059 replaces this with an LLM-generated label.
+                Title = PlaceholderTitle, // labeled below; placeholder is the fallback on LLM failure.
                 Theme = null,
                 EditionId = null,
                 UserBookId = null,
@@ -97,6 +108,7 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config)
                 CreatedAt = now,
             };
             db.WordClusters.Add(cluster);
+            newClusters.Add((cluster, c.WordIds));
             foreach (var wid in c.WordIds)
                 assignment[wid] = cluster.Id;
         }
@@ -109,6 +121,34 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config)
             .ToListAsync(ct);
         foreach (var w in members)
             w.ConceptClusterId = assignment[w.Id];
+
+        // AI-059: one LLM label per concept cluster, in the user's native language. Membership is
+        // HDBSCAN's — the labeler ONLY names the group. Resilient: a failure (Ollama down / null)
+        // leaves the placeholder Title and never aborts the build or skips a cluster.
+        var wordText = members.ToDictionary(w => w.Id, w => w.Word);
+        foreach (var (cluster, wordIds) in newClusters)
+        {
+            var labelWords = wordIds
+                .Where(wordText.ContainsKey)
+                .Select(id => wordText[id])
+                .ToList();
+            if (labelWords.Count == 0)
+                continue;
+
+            try
+            {
+                var label = await labeler.LabelAsync(labelWords, nativeLanguage, ct);
+                if (label is not null && !string.IsNullOrWhiteSpace(label.Title))
+                {
+                    cluster.Title = label.Title;
+                    cluster.Theme = label.Theme;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Keep the placeholder Title; labeling failure must not abort the build.
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         return clusters.Count;
