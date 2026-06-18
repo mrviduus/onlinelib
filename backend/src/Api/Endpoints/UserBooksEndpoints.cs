@@ -17,9 +17,15 @@ public static class UserBooksEndpoints
 
         group.MapPost("/upload", UploadBook)
             .WithName("UploadUserBook")
+            .RequireRateLimiting("user-upload")
             .DisableAntiforgery();
 
+        group.MapPost("/clip", ClipArticle)
+            .WithName("ClipArticle")
+            .RequireRateLimiting("clip");
+
         group.MapGet("", GetBooks).WithName("GetUserBooks");
+        group.MapPut("/{id:guid}/read", MarkRead).WithName("MarkUserBookRead");
         group.MapGet("/quota", GetStorageQuota).WithName("GetStorageQuota");
         group.MapGet("/{id:guid}", GetBook).WithName("GetUserBook");
         group.MapGet("/{id:guid}/chapters/{slug}", GetChapterBySlug).WithName("GetUserBookChapter");
@@ -234,7 +240,56 @@ public static class UserBooksEndpoints
         return Results.Ok(response);
     }
 
+    private const int MaxClipHtmlBytes = 2 * 1024 * 1024; // ~2 MB
+
+    private static async Task<IResult> ClipArticle(
+        HttpContext httpContext,
+        AuthService authService,
+        UserBookService userBookService,
+        [FromBody] ClipRequest request,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Title))
+            return Results.BadRequest(new { error = "Title is required" });
+
+        if (string.IsNullOrWhiteSpace(request.Html))
+            return Results.BadRequest(new { error = "Html is required" });
+
+        if (System.Text.Encoding.UTF8.GetByteCount(request.Html) > MaxClipHtmlBytes)
+            return Results.BadRequest(new { error = "Article is too large (max 2 MB)" });
+
+        if (!string.IsNullOrWhiteSpace(request.SourceUrl) &&
+            !(Uri.TryCreate(request.SourceUrl, UriKind.Absolute, out var uri) &&
+              (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)))
+            return Results.BadRequest(new { error = "SourceUrl must be an http(s) URL" });
+
+        var (response, error) = await userBookService.ClipAsync(userId.Value, request, ct);
+        if (error is not null)
+            return Results.BadRequest(new { error });
+
+        return Results.Ok(response);
+    }
+
     private static async Task<IResult> GetBooks(
+        HttpContext httpContext,
+        AuthService authService,
+        UserBookService userBookService,
+        [FromQuery] string? shelf,
+        [FromQuery] string? status,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var books = await userBookService.GetBooksAsync(userId.Value, ct, shelf, status);
+        return Results.Ok(books);
+    }
+
+    private static async Task<IResult> MarkRead(
+        Guid id,
         HttpContext httpContext,
         AuthService authService,
         UserBookService userBookService,
@@ -243,8 +298,11 @@ public static class UserBooksEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var books = await userBookService.GetBooksAsync(userId.Value, ct);
-        return Results.Ok(books);
+        var (success, error) = await userBookService.SetReadAsync(userId.Value, id, true, ct);
+        if (!success)
+            return Results.NotFound(new { error });
+
+        return Results.NoContent();
     }
 
     private static async Task<IResult> GetStorageQuota(

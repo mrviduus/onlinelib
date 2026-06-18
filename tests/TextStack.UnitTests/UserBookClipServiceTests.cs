@@ -1,0 +1,212 @@
+using Application.Common.Interfaces;
+using Application.UserBooks;
+using Contracts.UserBooks;
+using Domain.Entities;
+using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using Moq;
+
+namespace TextStack.UnitTests;
+
+// ClipAsync over a Moq IAppDbContext whose sets are backed by List<T> (async LINQ via
+// TestAsyncQueryable). The production AppDbContext can't load on EF InMemory (NpgsqlTsVector
+// on Chapter), so we fake just the sets ClipAsync touches. The key assertion is the spec
+// §1.7 invariant: a clip is a PRIVATE UserBook and MUST NEVER create Work/Edition/Chapter rows.
+public class UserBookClipServiceTests
+{
+    private sealed class Harness
+    {
+        public List<User> Users { get; } = [];
+        public List<UserBook> UserBooks { get; } = [];
+        public List<UserBookFile> UserBookFiles { get; } = [];
+        public List<UserIngestionJob> Jobs { get; } = [];
+        public List<Work> Works { get; } = [];
+        public List<Edition> Editions { get; } = [];
+        public List<Chapter> Chapters { get; } = [];
+        public Mock<IFileStorageService> Storage { get; } = new();
+        public UserBookService Service { get; }
+
+        public Harness()
+        {
+            Storage
+                .Setup(s => s.SaveUserFileAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid uid, Guid bid, string name, Stream _, CancellationToken _) => $"users/{uid}/books/{bid}/{name}");
+
+            var db = new Mock<IAppDbContext>();
+            db.Setup(x => x.Users).Returns(() => FakeSet(Users).Object);
+            db.Setup(x => x.UserBooks).Returns(() => FakeSet(UserBooks).Object);
+            db.Setup(x => x.UserBookFiles).Returns(() => FakeSet(UserBookFiles).Object);
+            db.Setup(x => x.UserIngestionJobs).Returns(() => FakeSet(Jobs).Object);
+            db.Setup(x => x.Works).Returns(() => FakeSet(Works).Object);
+            db.Setup(x => x.Editions).Returns(() => FakeSet(Editions).Object);
+            db.Setup(x => x.Chapters).Returns(() => FakeSet(Chapters).Object);
+            db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+            Service = new UserBookService(db.Object, Storage.Object);
+        }
+
+        public User SeedUser()
+        {
+            var u = new User { Id = Guid.NewGuid(), Email = "clip@test.dev", IsGuest = false, StorageUsedBytes = 0 };
+            Users.Add(u);
+            return u;
+        }
+    }
+
+    private static Mock<DbSet<T>> FakeSet<T>(List<T> data) where T : class
+    {
+        var q = new TestAsyncEnumerable<T>(data);
+        var set = new Mock<DbSet<T>>();
+        var iq = set.As<IQueryable<T>>();
+        iq.Setup(m => m.Provider).Returns(((IQueryable<T>)q).Provider);
+        iq.Setup(m => m.Expression).Returns(((IQueryable<T>)q).Expression);
+        iq.Setup(m => m.ElementType).Returns(((IQueryable<T>)q).ElementType);
+        iq.Setup(m => m.GetEnumerator()).Returns(() => data.GetEnumerator());
+        set.As<IAsyncEnumerable<T>>()
+            .Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(() => new TestAsyncEnumerator<T>(data.GetEnumerator()));
+        set.Setup(m => m.Add(It.IsAny<T>())).Callback<T>(e => data.Add(e));
+        return set;
+    }
+
+    private static ClipRequest SampleClip() => new(
+        Title: "How Reading Builds Fluency",
+        Author: "Jane Doe",
+        SourceUrl: "https://example.com/article",
+        Html: "<h1>How Reading Builds Fluency</h1><p>Real fluency comes from real books.</p>",
+        Language: "en");
+
+    [Fact]
+    public async Task ClipAsync_ValidRequest_CreatesPrivateUserBookClip()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+
+        var (response, error) = await h.Service.ClipAsync(user.Id, SampleClip(), CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.NotNull(response);
+        Assert.Equal("Processing", response!.Status);
+
+        var book = Assert.Single(h.UserBooks);
+        Assert.True(book.IsClip);
+        Assert.Equal("https://example.com/article", book.SourceUrl);
+        Assert.Equal("Jane Doe", book.Author);
+        Assert.Equal("en", book.Language);
+
+        var file = Assert.Single(h.UserBookFiles);
+        Assert.Equal(BookFormat.Html, file.Format);
+        // OriginalFileName must carry .html so the worker registry resolves HtmlTextExtractor.
+        Assert.EndsWith(".html", file.OriginalFileName);
+
+        Assert.Single(h.Jobs);
+    }
+
+    [Fact]
+    public async Task ClipAsync_AnyClip_CreatesNoWorkOrEdition()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+
+        await h.Service.ClipAsync(user.Id, SampleClip(), CancellationToken.None);
+
+        // The locked constraint: clips are private UserBooks only — never the public path.
+        Assert.Empty(h.Works);
+        Assert.Empty(h.Editions);
+        Assert.Empty(h.Chapters);
+    }
+
+    [Fact]
+    public async Task ClipAsync_MissingUser_ReturnsError()
+    {
+        var h = new Harness();
+
+        var (response, error) = await h.Service.ClipAsync(Guid.NewGuid(), SampleClip(), CancellationToken.None);
+
+        Assert.Null(response);
+        Assert.Equal("User not found", error);
+    }
+
+    [Fact]
+    public async Task ClipAsync_StorageLimitExceeded_ReturnsError()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        user.StorageUsedBytes = User.StorageLimitBytes; // already full
+
+        var (response, error) = await h.Service.ClipAsync(user.Id, SampleClip(), CancellationToken.None);
+
+        Assert.Null(response);
+        Assert.NotNull(error);
+        Assert.Contains("Storage limit", error);
+    }
+
+    [Fact]
+    public async Task ClipAsync_CountsAgainstStorageQuota()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+
+        await h.Service.ClipAsync(user.Id, SampleClip(), CancellationToken.None);
+
+        // A clip is a stored file; its bytes must be added to the user's quota.
+        Assert.True(user.StorageUsedBytes > 0, "clip did not consume storage quota");
+        var file = Assert.Single(h.UserBookFiles);
+        Assert.Equal(user.StorageUsedBytes, file.FileSize);
+    }
+
+    // The UserBook.Title shows in the shelf + reader header. The backend stores it as TEXT
+    // verbatim (it is NOT HTML), so the frontend is responsible for escaping it on render.
+    // This test pins the contract: a script-y title is persisted raw, never executed/parsed here.
+    [Fact]
+    public async Task ClipAsync_HtmlTitle_StoredVerbatimAsText()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        var clip = new ClipRequest(
+            Title: "<img src=x onerror=alert(1)>",
+            Author: null,
+            SourceUrl: "https://example.com/a",
+            Html: "<h1>Body</h1><p>prose</p>",
+            Language: "en");
+
+        await h.Service.ClipAsync(user.Id, clip, CancellationToken.None);
+
+        var book = Assert.Single(h.UserBooks);
+        Assert.Equal("<img src=x onerror=alert(1)>", book.Title);
+        Assert.True(book.IsClip);
+    }
+
+    [Fact]
+    public async Task SetReadAsync_ForeignBook_ReturnsErrorNotSilentSuccess()
+    {
+        var h = new Harness();
+        var owner = h.SeedUser();
+        var other = h.SeedUser();
+        await h.Service.ClipAsync(owner.Id, SampleClip(), CancellationToken.None);
+        var book = h.UserBooks[0];
+
+        // A different user must not be able to flip read-state on someone else's clip.
+        var (success, error) = await h.Service.SetReadAsync(other.Id, book.Id, true, CancellationToken.None);
+
+        Assert.False(success);
+        Assert.Equal("Book not found", error);
+        Assert.False(book.IsRead);
+    }
+
+    [Fact]
+    public async Task SetReadAsync_OwnBook_FlipsState()
+    {
+        var h = new Harness();
+        var owner = h.SeedUser();
+        await h.Service.ClipAsync(owner.Id, SampleClip(), CancellationToken.None);
+        var book = h.UserBooks[0];
+
+        var (success, error) = await h.Service.SetReadAsync(owner.Id, book.Id, true, CancellationToken.None);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.True(book.IsRead);
+        Assert.NotNull(book.ReadAt);
+    }
+}

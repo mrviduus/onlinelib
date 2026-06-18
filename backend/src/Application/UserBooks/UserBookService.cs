@@ -14,15 +14,69 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
     public async Task<(UploadUserBookResponse? Response, string? Error)> UploadAsync(
         Guid userId, Stream fileStream, string fileName, string? title, string? language, CancellationToken ct)
     {
-        // Get user and check quota
+        // Detect format
+        var format = DetectFormat(fileName);
+        if (format == BookFormat.Other)
+            return (null, "Unsupported file format. Only EPUB, PDF, and FB2 are supported.");
+
+        using var ms = new MemoryStream();
+        await fileStream.CopyToAsync(ms, ct);
+
+        return await CreateBookAsync(
+            userId,
+            content: ms,
+            originalFileName: fileName,
+            storedFileName: $"original{Path.GetExtension(fileName)}",
+            format: format,
+            title: title ?? Path.GetFileNameWithoutExtension(fileName),
+            author: null,
+            language: language ?? "en",
+            sourceUrl: null,
+            isClip: false,
+            ct);
+    }
+
+    /// <summary>
+    /// "Send to TextStack" receiver: persists already-clean article HTML as a private clip
+    /// (UserBook with <c>IsClip=true</c>, <see cref="BookFormat.Html"/>) reusing the same
+    /// upload plumbing. NEVER creates Work/Edition/Chapter rows or touches the SSG path.
+    /// </summary>
+    public async Task<(UploadUserBookResponse? Response, string? Error)> ClipAsync(
+        Guid userId, ClipRequest req, CancellationToken ct)
+    {
+        using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(req.Html));
+
+        return await CreateBookAsync(
+            userId,
+            content: ms,
+            // Worker uses OriginalFileName as the extraction request FileName, so it must
+            // carry .html for the registry to resolve HtmlTextExtractor.
+            originalFileName: "original.html",
+            storedFileName: "original.html",
+            format: BookFormat.Html,
+            title: req.Title,
+            author: req.Author,
+            language: req.Language ?? "en",
+            sourceUrl: req.SourceUrl,
+            isClip: true,
+            ct);
+    }
+
+    /// <summary>
+    /// Shared body for <see cref="UploadAsync"/> and <see cref="ClipAsync"/>: quota check,
+    /// slug gen + collision, create UserBook + UserBookFile + UserIngestionJob, storage save,
+    /// SHA256, quota update. <paramref name="content"/> position is reset internally.
+    /// </summary>
+    private async Task<(UploadUserBookResponse? Response, string? Error)> CreateBookAsync(
+        Guid userId, MemoryStream content, string originalFileName, string storedFileName,
+        BookFormat format, string title, string? author, string language, string? sourceUrl,
+        bool isClip, CancellationToken ct)
+    {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null)
             return (null, "User not found");
 
-        // Get file size (need to read to memory for size check and hashing)
-        using var ms = new MemoryStream();
-        await fileStream.CopyToAsync(ms, ct);
-        var fileSize = ms.Length;
+        var fileSize = content.Length;
 
         var storageLimit = user.IsGuest ? User.GuestStorageLimitBytes : User.StorageLimitBytes;
         if (user.StorageUsedBytes + fileSize > storageLimit)
@@ -35,20 +89,12 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 return (null, "Guest accounts can upload 1 book. Sign up for more.");
         }
 
-        // Detect format
-        var format = DetectFormat(fileName);
-        if (format == BookFormat.Other)
-            return (null, "Unsupported file format. Only EPUB, PDF, and FB2 are supported.");
+        content.Position = 0;
+        var sha256 = await ComputeSha256Async(content, ct);
 
-        // Calculate SHA256
-        ms.Position = 0;
-        var sha256 = await ComputeSha256Async(ms, ct);
-
-        // Create UserBook
         var userBookId = Guid.NewGuid();
-        var slug = SlugGenerator.GenerateSlug(title ?? Path.GetFileNameWithoutExtension(fileName));
+        var slug = SlugGenerator.GenerateSlug(title);
 
-        // Ensure unique slug for user
         var existingSlug = await db.UserBooks
             .Where(b => b.UserId == userId && b.Slug == slug)
             .Select(b => b.Slug)
@@ -60,23 +106,25 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         {
             Id = userBookId,
             UserId = userId,
-            Title = title ?? Path.GetFileNameWithoutExtension(fileName),
+            Title = title,
             Slug = slug,
-            Language = language ?? "en",
+            Language = language,
+            Author = author,
             Status = UserBookStatus.Processing,
+            SourceUrl = sourceUrl,
+            IsClip = isClip,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
-        // Save file
-        ms.Position = 0;
-        var storagePath = await storage.SaveUserFileAsync(userId, userBookId, $"original{Path.GetExtension(fileName)}", ms, ct);
+        content.Position = 0;
+        var storagePath = await storage.SaveUserFileAsync(userId, userBookId, storedFileName, content, ct);
 
         var userBookFile = new UserBookFile
         {
             Id = Guid.NewGuid(),
             UserBookId = userBookId,
-            OriginalFileName = fileName,
+            OriginalFileName = originalFileName,
             StoragePath = storagePath,
             Format = format,
             Sha256 = sha256,
@@ -93,7 +141,6 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        // Update storage usage
         user.StorageUsedBytes += fileSize;
 
         db.UserBooks.Add(userBook);
@@ -104,10 +151,24 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         return (new UploadUserBookResponse(userBookId, job.Id, UserBookStatus.Processing.ToString()), null);
     }
 
-    public async Task<IReadOnlyList<UserBookListDto>> GetBooksAsync(Guid userId, CancellationToken ct)
+    /// <summary>
+    /// Lists the user's books. <paramref name="shelf"/>="readlater" returns only clips
+    /// (the Read later shelf); absent/other returns only non-clips (the Books tab) so clips
+    /// never pollute the normal library. <paramref name="status"/>="unread" filters IsRead==false.
+    /// </summary>
+    public async Task<IReadOnlyList<UserBookListDto>> GetBooksAsync(
+        Guid userId, CancellationToken ct, string? shelf = null, string? status = null)
     {
-        var books = await db.UserBooks
+        var readLater = string.Equals(shelf, "readlater", StringComparison.OrdinalIgnoreCase);
+
+        var query = db.UserBooks
             .Where(b => b.UserId == userId && b.TakedownAt == null)
+            .Where(b => b.IsClip == readLater);
+
+        if (string.Equals(status, "unread", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(b => !b.IsRead);
+
+        var books = await query
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new
             {
@@ -129,7 +190,11 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.ProgressUpdatedAt,
                 b.ProgressChapterSlug,
                 b.Tags,
-                b.SuggestedTags
+                b.SuggestedTags,
+                b.SourceUrl,
+                b.IsClip,
+                b.IsRead,
+                b.ReadAt
             })
             .ToListAsync(ct);
 
@@ -152,8 +217,28 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             b.ProgressUpdatedAt,
             b.ProgressChapterSlug,
             b.Tags ?? [],
-            b.SuggestedTags ?? []
+            b.SuggestedTags ?? [],
+            b.SourceUrl,
+            b.IsClip,
+            b.IsRead,
+            b.ReadAt
         )).ToList();
+    }
+
+    /// <summary>Manually flip a book's read state (Read later shelf). Owner-scoped.</summary>
+    public async Task<(bool Success, string? Error)> SetReadAsync(
+        Guid userId, Guid bookId, bool isRead, CancellationToken ct)
+    {
+        var book = await db.UserBooks.FirstOrDefaultAsync(
+            b => b.UserId == userId && b.Id == bookId && b.TakedownAt == null, ct);
+        if (book is null)
+            return (false, "Book not found");
+
+        book.IsRead = isRead;
+        book.ReadAt = isRead ? DateTimeOffset.UtcNow : null;
+        book.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 
     public async Task<UserBookDetailDto?> GetBookAsync(Guid userId, Guid bookId, CancellationToken ct)
@@ -420,8 +505,16 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         book.ProgressPercent = request.Percent;
         book.ProgressUpdatedAt = request.UpdatedAt ?? DateTimeOffset.UtcNow;
 
-        if (book.CompletedAt is null && request.Percent is >= 0.99)
-            book.CompletedAt = DateTimeOffset.UtcNow;
+        if (request.Percent is >= 0.99)
+        {
+            book.CompletedAt ??= DateTimeOffset.UtcNow;
+            // Auto-mark clips read once finished so they leave the Unread shelf.
+            if (!book.IsRead)
+            {
+                book.IsRead = true;
+                book.ReadAt = DateTimeOffset.UtcNow;
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         return (true, null);

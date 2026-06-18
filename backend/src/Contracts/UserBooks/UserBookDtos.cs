@@ -19,7 +19,11 @@ public record UserBookListDto(
     DateTimeOffset? ProgressUpdatedAt,
     string? ProgressChapterSlug,
     string[] Tags,
-    string[] SuggestedTags
+    string[] SuggestedTags,
+    string? SourceUrl,
+    bool IsClip,
+    bool IsRead,
+    DateTimeOffset? ReadAt
 );
 
 public record AcceptSuggestedTagsRequest(string[] Accepted);
@@ -68,6 +72,12 @@ public record UserChapterNavDto(int ChapterNumber, string? Slug, string Title);
 public record TocEntryDto(string Title, int? ChapterNumber, IReadOnlyList<TocEntryDto>? Children);
 
 public record UploadUserBookResponse(Guid UserBookId, Guid JobId, string Status);
+
+/// <summary>
+/// "Send to TextStack" web clip — the extension sends already-clean (Readability) article HTML.
+/// The server never fetches a URL. Lands on the private Read later shelf.
+/// </summary>
+public record ClipRequest(string Title, string? Author, string? SourceUrl, string Html, string? Language);
 
 public record StorageQuotaDto(long UsedBytes, long LimitBytes, double UsedPercent);
 
