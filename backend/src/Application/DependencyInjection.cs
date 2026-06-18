@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<DailyCapService>();
         services.AddScoped<RetirementSweeper>();
         services.AddScoped<ClusterCandidateService>();
+        services.AddScoped<ConceptClusteringService>();
         services.AddSingleton<IFrequencyFilter, FrequencyFilter>();
 
         // Legacy ILlmServiceFactory — now backed by LegacyLlmAdapter over the new

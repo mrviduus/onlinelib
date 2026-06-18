@@ -60,6 +60,10 @@
     <!-- Override transitive (ML.Tokenizers pulls 9.0.4) to clear NU1903 high-sev
          advisory GHSA-73j8-2gch-69rq; 10.0.9 aligns with our other 10.0.x packages. -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.9" />
+    <!-- HDBSCAN density clustering (AI-058 concept clusterer). Real HDBSCAN* in pure
+         .NET (targets netstandard2.0 → runs on net10); cosine distance over OpenAI
+         word embeddings. Replaces the hand-rolled cosine-threshold union-find. MIT. -->
+    <PackageVersion Include="HdbscanSharp" Version="3.0.1" />
     <!-- Search -->
     <PackageVersion Include="Dapper" Version="2.1.72" />
     <PackageVersion Include="Meilisearch" Version="0.16.0" />

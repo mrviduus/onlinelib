@@ -32,11 +32,28 @@ public partial class AppDbContext
             e.Property(x => x.Explanation).HasMaxLength(1000);
             e.Property(x => x.Source).HasMaxLength(40);
             e.Property(x => x.RetiredReason).HasMaxLength(60);
+
+            // AI-058: OpenAI word embedding. Same float[] <-> pgvector vector(1536)
+            // conversion as Edition.Embedding (AppDbContext.Catalog.cs). NULL until
+            // embedded at save / backfill. NO HNSW index — concept clustering is an
+            // in-memory N²/2 pass over a single user's ≤300 vectors, not a SQL ANN scan.
+            e.Property(x => x.Embedding)
+                .HasColumnType("vector(1536)")
+                .HasConversion(
+                    v => v == null ? null : new Pgvector.Vector(v),
+                    v => v == null ? null : v.ToArray());
+            // AI-058: index on the concept-cluster FK for member lookups + full-replace deletes.
+            e.HasIndex(x => x.ConceptClusterId);
+
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            // AI-058: concept-cluster FK — SetNull on delete so the full-replace rebuild
+            // (delete this user's concept clusters → recreate) nulls members cleanly.
+            e.HasOne(x => x.ConceptCluster).WithMany(c => c.ConceptWords)
+                .HasForeignKey(x => x.ConceptClusterId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // UserVocabularySettings — one row per (user, site).
@@ -120,6 +137,9 @@ public partial class AppDbContext
             e.Property(x => x.Title).HasMaxLength(200);
             e.Property(x => x.Theme).HasMaxLength(100);
             e.Property(x => x.BookTitle).HasMaxLength(500);
+            // AI-058: "book" (legacy book-grouper, default — existing rows backfilled to it
+            // by the migration) | "concept" (semantic concept-grouper, spans all books).
+            e.Property(x => x.Kind).HasMaxLength(16).HasDefaultValue("book");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);

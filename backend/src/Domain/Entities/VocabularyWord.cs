@@ -46,6 +46,14 @@ public class VocabularyWord
     public string Source { get; set; } = "tap";
     public DateTimeOffset? ActivatedAt { get; set; }
     public Guid? ClusterId { get; set; }
+
+    // AI-058: semantic concept clustering — separate from the book-grouper's ClusterId.
+    // OpenAI word embedding (pgvector vector(1536), float[] to keep Domain framework-free)
+    // and the FK to the user's concept-group WordCluster (Kind="concept").
+    public float[]? Embedding { get; set; }
+    public Guid? ConceptClusterId { get; set; }
+    public WordCluster? ConceptCluster { get; set; }
+
     public bool IsRetired { get; set; }
     public DateTimeOffset? RetiredAt { get; set; }
     public string? RetiredReason { get; set; }
