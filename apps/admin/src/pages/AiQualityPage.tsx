@@ -2,6 +2,7 @@ import { useState, useEffect, CSSProperties } from 'react'
 import {
   adminApi,
   AiQualitySummary,
+  BudgetStatus,
   FeatureSummary,
   DailyCostPoint,
   TraceListItem,
@@ -120,7 +121,112 @@ function SummaryTab() {
           </div>
         </>
       )}
+
+      <BudgetsSection />
     </>
+  )
+}
+
+// ─────────────────────────── Budgets ───────────────────────────
+
+function budgetBarColor(pctUsed: number): string {
+  if (pctUsed >= 1) return '#dc2626' // red, over budget
+  if (pctUsed >= 0.8) return '#d97706' // amber, near budget
+  return '#059669' // green
+}
+
+function BudgetsSection() {
+  const [budgets, setBudgets] = useState<BudgetStatus[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    adminApi
+      .getBudgets()
+      .then((d) => {
+        setBudgets(d)
+        setError(null)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Only show features that actually have a budget or are not "off" — the rest are noise.
+  const rows = (budgets ?? []).filter((b) => b.dailyBudgetUsd != null || b.mode !== 'off')
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>Daily budgets</h2>
+      <p className="dashboard-page__subtitle" style={{ margin: '0 0 12px' }}>
+        Per-feature spend today vs the configured daily cap.
+      </p>
+
+      {error && <Banner text={error} />}
+
+      {loading ? (
+        <p className="dashboard-page__subtitle">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="dashboard-empty">
+          No daily budgets configured. Set Ai:Budgets:Features:&#123;feature&#125; to cap per-feature spend (over-budget
+          routes to a cheaper fallback or 429).
+        </p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={th}>Feature</th>
+              <th style={th}>Today</th>
+              <th style={th}>Budget</th>
+              <th style={{ ...th, minWidth: 160 }}>% used</th>
+              <th style={th}>Mode</th>
+              <th style={th}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((b) => {
+              const pct = Math.min(100, Math.max(0, b.pctUsed * 100))
+              const color = budgetBarColor(b.pctUsed)
+              return (
+                <tr key={b.featureTag} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={td}>{b.featureTag}</td>
+                  <td style={td}>${b.todaySpendUsd.toFixed(4)}</td>
+                  <td style={td}>{b.dailyBudgetUsd != null ? `$${b.dailyBudgetUsd.toFixed(4)}` : '—'}</td>
+                  <td style={td}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#f3f4f6', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: color }} />
+                      </div>
+                      <span style={{ fontWeight: 600, color, minWidth: 42, textAlign: 'right' }}>
+                        {(b.pctUsed * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+                  <td style={td}>{b.mode}</td>
+                  <td style={td}>
+                    {b.inFallback && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          color: '#92400e',
+                          background: '#fef3c7',
+                          borderRadius: 4,
+                          padding: '2px 8px',
+                        }}
+                      >
+                        in fallback{b.fallbackKey ? ` · ${b.fallbackKey}` : ''}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }
 

@@ -454,6 +454,15 @@ export interface AiQualitySummary {
   totalCostUsd: number
   features: FeatureSummary[]
 }
+export interface BudgetStatus {
+  featureTag: string
+  todaySpendUsd: number
+  dailyBudgetUsd: number | null
+  pctUsed: number
+  mode: 'off' | 'fallback' | 'hardstop'
+  fallbackKey: string | null
+  inFallback: boolean
+}
 export interface TraceListItem {
   id: string
   featureTag: string
@@ -1205,6 +1214,10 @@ export const adminApi = {
     if (params?.feature) query.set('feature', params.feature)
     const qs = query.toString()
     return fetchJson<AiQualitySummary>(`/admin/ai-quality/summary${qs ? `?${qs}` : ''}`)
+  },
+
+  getBudgets: async (): Promise<BudgetStatus[]> => {
+    return fetchJson<BudgetStatus[]>('/admin/ai-quality/budgets')
   },
 
   getAiTraces: async (params?: { feature?: string; q?: string; limit?: number; offset?: number }): Promise<TracesPage> => {

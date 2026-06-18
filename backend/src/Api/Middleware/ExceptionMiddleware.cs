@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Domain.Exceptions;
+using TextStack.Ai.Core;
 
 namespace Api.Middleware;
 
@@ -37,6 +38,10 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
 
             DomainException ex => (StatusCodes.Status400BadRequest,
                 new ErrorResponse(ex.Code, ex.Message)),
+
+            // Per-feature daily budget hit in hard-stop mode (Phase 12 RLOps slice 4).
+            BudgetExceededException ex => (StatusCodes.Status429TooManyRequests,
+                new ErrorResponse("BUDGET_EXCEEDED", ex.Message)),
 
             _ => HandleUnexpectedException(exception)
         };

@@ -257,7 +257,8 @@ public class ModelGatewayShadowTests
             TimeoutSeconds: 15);
         var routes = new StubRouteProvider(new() { ["explain"] = "openai-explain" });
 
-        var gateway = new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes, NullLogger<ModelGateway>.Instance);
+        var gateway = new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes,
+            new NoopSpendTracker(), BudgetOptions.Empty, NullLogger<ModelGateway>.Instance);
 
         var result = await gateway.CompleteAsync(Req(), CancellationToken.None);
         Assert.Equal("primary", result.Text);
@@ -374,7 +375,8 @@ public class ModelGatewayShadowTests
             TimeoutSeconds: timeoutSeconds);
 
         var routes = routeProvider ?? new StubRouteProvider();
-        return new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes, NullLogger<ModelGateway>.Instance);
+        return new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes,
+            new NoopSpendTracker(), BudgetOptions.Empty, NullLogger<ModelGateway>.Instance);
     }
 
     /// <summary>Registry route provider returning a fixed map (empty = no registry hit).</summary>
@@ -384,6 +386,13 @@ public class ModelGatewayShadowTests
         public string? PrimaryProviderKey(string featureTag) =>
             _routes.TryGetValue(featureTag, out var k) ? k : null;
         public void Invalidate() { }
+    }
+
+    /// <summary>No-op tracker: budgets are off for the shadow tests.</summary>
+    private sealed class NoopSpendTracker : ISpendTracker
+    {
+        public decimal SpentTodayUsd(string featureTag) => 0m;
+        public void Record(string featureTag, decimal costUsd) { }
     }
 
     // ---- fakes ----
