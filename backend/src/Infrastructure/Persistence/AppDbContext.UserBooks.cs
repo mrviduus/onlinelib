@@ -31,6 +31,11 @@ public partial class AppDbContext
             e.Property(x => x.Tags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
             e.HasIndex(x => x.Tags).HasMethod("gin");
             e.Property(x => x.SuggestedTags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
+            // "Send to TextStack" clip fields. IsClip/IsRead NOT NULL default false.
+            e.Property(x => x.SourceUrl).HasMaxLength(2048);
+            e.Property(x => x.IsClip).HasDefaultValue(false);
+            e.Property(x => x.IsRead).HasDefaultValue(false);
+            e.HasIndex(x => new { x.UserId, x.IsClip });
             e.HasOne(x => x.User).WithMany(x => x.UserBooks).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
