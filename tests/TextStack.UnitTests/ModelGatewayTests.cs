@@ -33,8 +33,17 @@ public class ModelGatewayTests
         var shadow = new ShadowOptions(0.0, new Dictionary<string, string>(), null, 15);
         // No registry routes → falls through to the config route (these tests cover config routing).
         var routes = new StubRouteProvider();
+        // Budgets OFF → routing unaffected (budget routing covered in ModelGatewayBudgetTests).
         return new ModelGateway(
-            sp, cfg, sp.GetRequiredService<IServiceScopeFactory>(), shadow, routes, NullLogger<ModelGateway>.Instance);
+            sp, cfg, sp.GetRequiredService<IServiceScopeFactory>(), shadow, routes,
+            new NoopSpendTracker(), BudgetOptions.Empty, NullLogger<ModelGateway>.Instance);
+    }
+
+    /// <summary>No-op tracker: budgets are off for these routing-precedence tests.</summary>
+    private sealed class NoopSpendTracker : ISpendTracker
+    {
+        public decimal SpentTodayUsd(string featureTag) => 0m;
+        public void Record(string featureTag, decimal costUsd) { }
     }
 
     /// <summary>Registry route provider returning a fixed map (empty = no registry hit).</summary>
@@ -83,7 +92,8 @@ public class ModelGatewayTests
 
         var shadow = new ShadowOptions(0.0, new Dictionary<string, string>(), null, 15);
         return new ModelGateway(
-            sp, cfg, sp.GetRequiredService<IServiceScopeFactory>(), shadow, routes, NullLogger<ModelGateway>.Instance);
+            sp, cfg, sp.GetRequiredService<IServiceScopeFactory>(), shadow, routes,
+            new NoopSpendTracker(), BudgetOptions.Empty, NullLogger<ModelGateway>.Instance);
     }
 
     [Fact]

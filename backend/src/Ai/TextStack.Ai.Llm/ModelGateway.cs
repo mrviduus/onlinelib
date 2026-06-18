@@ -30,14 +30,17 @@ public sealed class ModelGateway(
     IServiceScopeFactory scopeFactory,
     ShadowOptions shadowOptions,
     IModelRouteProvider routeProvider,
+    ISpendTracker spendTracker,
+    BudgetOptions budgetOptions,
     ILogger<ModelGateway> logger) : ILlmService
 {
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
-        var primary = await Route(request.FeatureTag).CompleteAsync(request, ct);
+        var primary = await BudgetAwareRoute(request.FeatureTag).CompleteAsync(request, ct);
         sw.Stop();
 
+        RecordSpend(request.FeatureTag, primary);
         // Fire-and-forget — never awaited, so the primary returns instantly.
         MaybeShadow(request, primary, sw.ElapsedMilliseconds);
         return primary;
@@ -57,7 +60,7 @@ public sealed class ModelGateway(
         string? modelId = null;
         var traceId = Guid.NewGuid();
 
-        await using var e = Route(request.FeatureTag).StreamAsync(request, ct).GetAsyncEnumerator(ct);
+        await using var e = BudgetAwareRoute(request.FeatureTag).StreamAsync(request, ct).GetAsyncEnumerator(ct);
         while (true)
         {
             if (!await e.MoveNextAsync())
@@ -75,6 +78,7 @@ public sealed class ModelGateway(
         // Only reached on clean completion (an exception escapes the loop without
         // running this), so a primary that throws mid-stream is never shadowed.
         var primary = TracingDecorator.BuildStreamedResponse(text.ToString(), toolCalls, usage, modelId, traceId);
+        RecordSpend(request.FeatureTag, primary);
         MaybeShadow(request, primary, sw.ElapsedMilliseconds);
     }
 
@@ -102,6 +106,84 @@ public sealed class ModelGateway(
             svc = serviceProvider.GetRequiredKeyedService<ILlmService>(key);
         }
         return svc;
+    }
+
+    /// <summary>
+    /// Route resolution with cost-aware budget enforcement layered on top of the true primary
+    /// (<see cref="Route"/>). When a feature is at/over its daily budget and budget enforcement is
+    /// ON for it: <c>fallback</c> mode reroutes to the configured cheaper provider (if it resolves
+    /// to a registered keyed service; otherwise it logs + uses the true primary), and <c>hardstop</c>
+    /// mode throws <see cref="BudgetExceededException"/>. ANY exception in the budget check (a
+    /// tracker glitch, an options bug) is swallowed → the true primary is used, so budget logic can
+    /// NEVER break a real LLM call. The shadow path is unaffected: it always compares the TRUE
+    /// primary (see <see cref="ResolvedPrimaryKey"/>), not the budget fallback.
+    /// </summary>
+    private ILlmService BudgetAwareRoute(string? featureTag)
+    {
+        var truePrimary = Route(featureTag);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(featureTag))
+                return truePrimary;
+
+            var mode = budgetOptions.ModeFor(featureTag);
+            if (mode == BudgetMode.Off)
+                return truePrimary;
+
+            if (budgetOptions.DailyUsdFor(featureTag) is not { } dailyUsd)
+                return truePrimary;
+
+            var spent = spendTracker.SpentTodayUsd(featureTag);
+            if (spent < dailyUsd)
+                return truePrimary;
+
+            if (mode == BudgetMode.HardStop)
+                throw new BudgetExceededException(featureTag, dailyUsd, spent);
+
+            // Fallback mode: reroute to the cheaper provider if it's a registered keyed service.
+            var fallbackKey = budgetOptions.FallbackKeyFor(featureTag);
+            if (fallbackKey is not null
+                && serviceProvider.GetKeyedService<ILlmService>(fallbackKey) is { } fallbackSvc)
+            {
+                logger.LogDebug(
+                    "Feature '{Feature}' over budget (${Spent}/${Budget}); routing to fallback '{Key}'",
+                    featureTag, spent, dailyUsd, fallbackKey);
+                return fallbackSvc;
+            }
+
+            logger.LogWarning(
+                "Feature '{Feature}' over budget but fallback '{Key}' is not registered; using primary",
+                featureTag, fallbackKey);
+            return truePrimary;
+        }
+        catch (BudgetExceededException)
+        {
+            // Hard stop is a deliberate signal — let it surface (mapped to 429 by the API).
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Budget logic must NEVER break a call — fall back to the true primary.
+            logger.LogDebug(ex, "Budget-aware routing failed for feature '{Feature}'; using primary", featureTag);
+            return truePrimary;
+        }
+    }
+
+    /// <summary>Record one completed call's cost against the feature's running daily total, exactly
+    /// once per gateway call (regardless of whether the budget fallback served it). Shadow <c>-raw</c>
+    /// calls bypass the gateway entirely, so shadow spend is correctly NOT counted. Never throws.</summary>
+    private void RecordSpend(string? featureTag, LlmResponse primary)
+    {
+        if (string.IsNullOrWhiteSpace(featureTag))
+            return;
+        try
+        {
+            spendTracker.Record(featureTag, primary.Usage.CostUsd);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Spend record failed for feature '{Feature}'", featureTag);
+        }
     }
 
     /// <summary>Resolved PRIMARY provider key for a feature (registry → config → default),

@@ -180,6 +180,20 @@ public record ModelRegistrationDto(
 /// <summary>The models registry payload (whole table; tiny).</summary>
 public record ModelsRegistryDto(IReadOnlyList<ModelRegistrationDto> Models);
 
+/// <summary>Per-feature budget status for the Budgets tab (Phase 12 RLOps slice 4). Spend is read
+/// from the live in-memory tracker (NOT the sampled traces — those undercount). <c>PctUsed</c> is
+/// 0 when the feature has no budget. <c>InFallback</c> is true only when the mode is fallback AND
+/// today's spend is at/over the budget (i.e. calls are currently being rerouted to the cheaper
+/// provider). Mode is the lowercased string: "off" | "fallback" | "hardstop".</summary>
+public record BudgetStatusDto(
+    string FeatureTag,
+    decimal TodaySpendUsd,
+    decimal? DailyBudgetUsd,
+    double PctUsed,
+    string Mode,
+    string? FallbackKey,
+    bool InFallback);
+
 /// <summary>Result of a promote/rollback: the new Primary, the model demoted to Shadow
 /// (null if there was none), the audited action ("Promote"/"Rollback") + admin + time.</summary>
 public record ModelPromotionResultDto(

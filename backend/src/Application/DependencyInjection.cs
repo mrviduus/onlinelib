@@ -122,6 +122,38 @@ public static class DependencyInjection
         // Singleton (caches one snapshot of the `models` registry); hot-path safe + never throws.
         services.AddSingleton<global::TextStack.Ai.Core.IModelRouteProvider, Ai.RegistryModelRouteProvider>();
 
+        // Cost-aware routing policy (Ai:Budgets, Phase 12 RLOps slice 4). OFF by default
+        // (empty Features + Default mode Off → no enforcement). A budgeted feature can hard-stop
+        // (→429) or reroute to a cheaper fallback provider once over its daily USD cap.
+        services.AddSingleton(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+
+            global::TextStack.Ai.Llm.BudgetMode ParseMode(string? raw) =>
+                Enum.TryParse<global::TextStack.Ai.Llm.BudgetMode>(raw, ignoreCase: true, out var m)
+                    ? m
+                    : global::TextStack.Ai.Llm.BudgetMode.Off;
+
+            var defaultMode = ParseMode(c["Ai:Budgets:Default:Mode"]);
+            var def = new global::TextStack.Ai.Llm.FeatureBudget(null, null, defaultMode);
+
+            var features = new Dictionary<string, global::TextStack.Ai.Llm.FeatureBudget>();
+            foreach (var section in c.GetSection("Ai:Budgets:Features").GetChildren())
+            {
+                var daily = section.GetValue<decimal?>("DailyUsd");
+                var fallback = section["Fallback"];
+                var mode = ParseMode(section["Mode"]);
+                features[section.Key] = new global::TextStack.Ai.Llm.FeatureBudget(daily, fallback, mode);
+            }
+
+            return new global::TextStack.Ai.Llm.BudgetOptions(def, features);
+        });
+
+        // Per-feature daily spend tracker (in-memory, UTC rollover, lazy-seeds from llm_traces).
+        // Singleton: the gateway reads/records spend on every call; lives behind the never-throw
+        // ISpendTracker contract. Registered BEFORE the gateway (the gateway depends on it).
+        services.AddSingleton<global::TextStack.Ai.Core.ISpendTracker, Ai.RollingSpendTracker>();
+
         // One-click promote / rollback of the primary model for a feature.
         services.AddScoped<Ai.ModelPromotionService>();
 
@@ -134,6 +166,8 @@ public static class DependencyInjection
                 sp.GetRequiredService<IServiceScopeFactory>(),
                 sp.GetRequiredService<global::TextStack.Ai.Llm.ShadowOptions>(),
                 sp.GetRequiredService<global::TextStack.Ai.Core.IModelRouteProvider>(),
+                sp.GetRequiredService<global::TextStack.Ai.Core.ISpendTracker>(),
+                sp.GetRequiredService<global::TextStack.Ai.Llm.BudgetOptions>(),
                 sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ModelGateway>>()));
 
         // Embeddings (Phase 4 RAG). Single OpenAI provider; resolved lazily so a keyless

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 12 — cost-aware routing + per-feature daily budget (AI-078, slice 4) (2026-06-18)
+
+Per-feature daily USD budgets with cost-aware enforcement — the DoD "cost-aware routing cuts spend" lever.
+- **Spend tracking**: new in-memory `RollingSpendTracker` (singleton, Core `ISpendTracker`) accumulates per-feature spend in **UTC-daily buckets** as lock-free `long` micro-dollars (`Interlocked.Add`, `Math.Round` away-from-zero — no truncation drift). Lazy day rollover via injected `TimeProvider`. On a feature's first touch each day it **seeds from `llm_traces`** — scaled by **1/sample-rate** (same `TracingOptions` the tracer uses; explain is sampled 0.1 in prod, so the raw trace sum is 10× low) — so a mid-day restart doesn't reset the budget to $0. Every-call recording happens in the gateway (unsampled, exactly once per `CompleteAsync`/`StreamAsync`), NOT the sampled tracer.
+- **Enforcement** in `ModelGateway`: when today's spend ≥ a feature's `DailyUsd`, mode `fallback` reroutes to a cheaper provider key (e.g. free local `ollama`); mode `hardstop` throws `BudgetExceededException` → **429**. Budget logic can **never break a live call** — any tracker/config failure or unregistered fallback falls through to the true primary + logs. Shadow is unaffected (it still compares the TRUE primary, not the budget fallback); shadow spend does not count against the primary budget.
+- **80%-of-budget admin alert**: edge-triggered (fires once on crossing 0.8×budget, not per call), deduped per (feature, day), fire-and-forget via `ResendEmailService` (no-op if `Resend:AdminAlertEmail` empty), refires next day.
+- **Admin**: `GET /admin/ai-quality/budgets` + a "Daily budgets" section on the Summary tab — per-feature today-spend vs cap, color-coded % bar, mode, "in fallback" badge. Reads the tracker (unsampled, accurate) only for budgeted features (read-only endpoint doesn't seed unbudgeted ones).
+
+**Budgets OFF by default** (`Ai:Budgets` empty) → zero behavior change until configured per feature (`Features:{feature}:{DailyUsd,Fallback,Mode}`). No migration (in-memory + config). Multi-replica caveat: counters are per-replica (lazy DB seed bounds drift; periodic re-seed is a named follow-up); prod is single-replica. architect → backend + frontend (parallel) → adversarial QA (verdict SHIP; money-counting/edge-alert/never-break all verified, P2 fixed). 761 unit tests green; admin tsc + build clean.
+
 ### Phase 12 — table-driven routing + one-click promote/rollback (AI-077, slice 3) (2026-06-18)
 
 The `models` registry is now a **routing input**, not just an audit log — and an admin can swap which model serves a feature in one click, no redeploy.
