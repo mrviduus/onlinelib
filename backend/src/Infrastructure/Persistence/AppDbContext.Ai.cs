@@ -35,6 +35,43 @@ public partial class AppDbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<ShadowRun>(e =>
+        {
+            // Hot query: recent shadow runs for a feature (comparison dashboards).
+            e.HasIndex(x => new { x.FeatureTag, x.CreatedAt });
+            // Per-user lookups; partial index keeps it small (mirrors llm_traces).
+            e.HasIndex(x => x.UserId).HasFilter("user_id IS NOT NULL");
+
+            e.Property(x => x.FeatureTag).HasMaxLength(64);
+            e.Property(x => x.PrimaryModelId).HasMaxLength(128);
+            e.Property(x => x.ShadowModelId).HasMaxLength(128);
+            e.Property(x => x.PromptHash).HasMaxLength(64);
+            e.Property(x => x.PrimaryCostUsd).HasColumnType("numeric(10,6)");
+            e.Property(x => x.ShadowCostUsd).HasColumnType("numeric(10,6)");
+
+            // Optional FK → users; a deleted user nulls the column but keeps the run.
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ModelRegistration>(e =>
+        {
+            // Hot query: which models serve a feature, by status (gateway / seeder).
+            e.HasIndex(x => new { x.FeatureTag, x.Status });
+
+            // Natural key — makes the startup seeder race-safe across replicas: a
+            // concurrent second insert violates this and is swallowed by the seeder
+            // guard instead of duplicating the seed rows.
+            e.HasIndex(x => new { x.FeatureTag, x.ProviderKey, x.ModelId }).IsUnique();
+
+            e.Property(x => x.ProviderKey).HasMaxLength(64);
+            e.Property(x => x.ModelId).HasMaxLength(128);
+            e.Property(x => x.FeatureTag).HasMaxLength(64);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+        });
+
         modelBuilder.Entity<EvalRun>(e =>
         {
             // Hot query: recent runs for a feature (Evals tab history + regression).
