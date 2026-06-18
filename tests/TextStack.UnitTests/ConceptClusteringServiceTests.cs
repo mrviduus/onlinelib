@@ -4,6 +4,7 @@ using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using TextStack.Vocabulary;
 
 namespace TextStack.UnitTests;
 
@@ -20,15 +21,23 @@ public class ConceptClusteringServiceTests
     {
         public List<VocabularyWord> Words { get; } = [];
         public List<WordCluster> Clusters { get; } = [];
+        public List<User> Users { get; } = [];
+        public Mock<IClusterBuilder> Labeler { get; } = new();
         public ConceptClusteringService Service { get; }
 
         public Harness()
         {
+            // Default labeler: no usable label → service keeps the placeholder Title.
+            Labeler
+                .Setup(x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ClusterLabel?)null);
+
             var db = new Mock<IAppDbContext>();
             db.Setup(x => x.VocabularyWords).Returns(() => FakeSet(Words).Object);
             db.Setup(x => x.WordClusters).Returns(() => FakeSet(Clusters).Object);
+            db.Setup(x => x.Users).Returns(() => FakeSet(Users).Object);
             db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
-            Service = new ConceptClusteringService(db.Object, new ConfigurationBuilder().Build());
+            Service = new ConceptClusteringService(db.Object, new ConfigurationBuilder().Build(), Labeler.Object);
         }
     }
 
@@ -73,6 +82,19 @@ public class ConceptClusteringServiceTests
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow,
     };
+
+    private static User SeedUser(Harness h, Guid userId, string? nativeLanguage)
+    {
+        var u = new User
+        {
+            Id = userId,
+            Email = userId.ToString("N") + "@test.local",
+            NativeLanguage = nativeLanguage,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        h.Users.Add(u);
+        return u;
+    }
 
     // Seeds words split into two tight semantic groups (axis 0 / axis 1) so the clusterer forms
     // exactly two concept clusters. Returns the seeded words.
@@ -268,5 +290,112 @@ public class ConceptClusteringServiceTests
         var created = await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
 
         Assert.Equal(0, created); // gate counts only non-retired embedded → 18 < 20.
+    }
+
+    // ── AI-059: LLM labeling ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task BuildForUser_LabelerSucceeds_SetsTitleAndThemeFromLlm()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+        h.Labeler
+            .Setup(x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ClusterLabel("Money and finance", "finance"));
+
+        var created = await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        Assert.Equal(2, created);
+        Assert.All(h.Clusters, c => Assert.Equal("Money and finance", c.Title));
+        Assert.All(h.Clusters, c => Assert.Equal("finance", c.Theme));
+        Assert.DoesNotContain(h.Clusters, c => c.Title == "Concept group");
+    }
+
+    [Fact]
+    public async Task BuildForUser_LabelerReturnsNull_KeepsPlaceholderTitle()
+    {
+        // Default harness labeler returns null (Ollama down / unusable response).
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+
+        var created = await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        Assert.Equal(2, created); // build not aborted.
+        Assert.All(h.Clusters, c => Assert.Equal("Concept group", c.Title));
+        Assert.All(h.Clusters, c => Assert.Null(c.Theme));
+    }
+
+    [Fact]
+    public async Task BuildForUser_LabelerThrows_BuildCompletesWithPlaceholder()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+        h.Labeler
+            .Setup(x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("ollama unreachable"));
+
+        var created = await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        Assert.Equal(2, created); // a labeling failure must not abort the build.
+        Assert.Equal(2, h.Clusters.Count);
+        Assert.All(h.Clusters, c => Assert.Equal("Concept group", c.Title));
+    }
+
+    [Fact]
+    public async Task BuildForUser_OneLabelerCallFails_OtherClustersStillLabeled()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+        // First cluster labeled fails, second succeeds (sequenced by call order).
+        h.Labeler
+            .SetupSequence(x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("transient"))
+            .ReturnsAsync(new ClusterLabel("Emotions", "emotions"));
+
+        var created = await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        Assert.Equal(2, created);
+        Assert.Contains(h.Clusters, c => c.Title == "Concept group"); // failed one fell back.
+        Assert.Contains(h.Clusters, c => c.Title == "Emotions");      // other still labeled.
+    }
+
+    [Fact]
+    public async Task BuildForUser_PassesUsersNativeLanguageToLabeler()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedUser(h, userId, nativeLanguage: "uk");
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+
+        await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        h.Labeler.Verify(
+            x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), "uk", It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task BuildForUser_NoUserNativeLanguage_DefaultsToEnglish()
+    {
+        // No User row seeded → native language unknown → defaults to "en".
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        SeedTwoGroups(h, userId, siteId, perGroup: 12);
+
+        await h.Service.BuildForUserAsync(userId, siteId, CancellationToken.None);
+
+        h.Labeler.Verify(
+            x => x.LabelAsync(It.IsAny<IReadOnlyList<string>>(), "en", It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 }
