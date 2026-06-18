@@ -228,6 +228,8 @@ builder.Services.AddHostedService<ClusterCandidateBuilderWorker>();
 builder.Services.AddHostedService<ConceptClusteringWorker>();
 // Phase 12 RLOps slice 5a: scheduled continuous evals (OFF by default — Eval:Scheduled:Enabled).
 builder.Services.AddHostedService<ContinuousEvalWorker>();
+// Phase 12 RLOps slice 5b: embedding-drift detection (OFF by default — Drift:Enabled).
+builder.Services.AddHostedService<DriftDetectionWorker>();
 
 // Rate limiting
 builder.Services.AddRateLimiter(options =>

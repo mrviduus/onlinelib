@@ -126,6 +126,17 @@ public record ScheduledEvalPointDto(
     string GitSha,
     DateTimeOffset CreatedAt);
 
+/// <summary>One day's drift point for the Drift tab (Phase 12 RLOps slice 5b), from
+/// <c>drift_centroids</c>. Day-ordered; the raw centroid vector is intentionally NOT exposed.
+/// <c>DriftScore</c> is null on an <c>insufficient</c> row, 0 on the seed <c>baseline</c> row.
+/// <c>AlertState</c>: baseline | ok | warning | alerting | insufficient.</summary>
+public record DriftPointDto(
+    string Feature,
+    DateOnly Day,
+    double? DriftScore,
+    int SampleSize,
+    string AlertState);
+
 // ── Shadow-run comparison + models registry (Phase 12 RLOps) ──────────────────
 
 /// <summary>One primary↔shadow pairing rolled up over the window (from shadow_runs).

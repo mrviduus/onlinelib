@@ -613,6 +613,23 @@ export interface ShadowSamplesPage {
   total: number
   items: ShadowSample[]
 }
+// Drift detection (RLOps)
+export type DriftAlertState = 'baseline' | 'ok' | 'warning' | 'alerting' | 'insufficient'
+export interface DriftPoint {
+  feature: string
+  day: string // date "YYYY-MM-DD"
+  driftScore: number | null
+  sampleSize: number
+  alertState: DriftAlertState
+}
+export interface ScheduledEvalPoint {
+  feature: string
+  modelId: string
+  score: number
+  n: number
+  gitSha: string
+  createdAt: string
+}
 // Model registry
 export interface ModelRegistration {
   id: string
@@ -1297,6 +1314,22 @@ export const adminApi = {
     if (params.offset) query.set('offset', String(params.offset))
     const qs = query.toString()
     return fetchJson<ShadowSamplesPage>(`/admin/ai-quality/shadow/samples${qs ? `?${qs}` : ''}`)
+  },
+
+  getDrift: async (params?: { feature?: string; days?: number }): Promise<DriftPoint[]> => {
+    const query = new URLSearchParams()
+    if (params?.feature) query.set('feature', params.feature)
+    if (params?.days) query.set('days', String(params.days))
+    const qs = query.toString()
+    return fetchJson<DriftPoint[]>(`/admin/ai-quality/drift${qs ? `?${qs}` : ''}`)
+  },
+
+  getEvalTrend: async (params?: { feature?: string; limit?: number }): Promise<ScheduledEvalPoint[]> => {
+    const query = new URLSearchParams()
+    if (params?.feature) query.set('feature', params.feature)
+    if (params?.limit) query.set('limit', String(params.limit))
+    const qs = query.toString()
+    return fetchJson<ScheduledEvalPoint[]>(`/admin/ai-quality/drift/eval-trend${qs ? `?${qs}` : ''}`)
   },
 
   getModels: async (): Promise<ModelsRegistry> => {
