@@ -269,6 +269,28 @@ public static partial class VocabularyEndpoints
                 var enricher = scope.ServiceProvider.GetRequiredService<IDefinitionEnricher>();
                 var generator = scope.ServiceProvider.GetRequiredService<IDistractorGenerator>();
 
+                // AI-058: embed the word for semantic concept clustering. Own try/catch so an
+                // embedding failure (OpenAI down/unconfigured) never drops the Ollama distractor
+                // write below — and vice-versa. en-only signal (word + definition + sentence),
+                // NOT Translation, to keep the embedding space monolingual.
+                try
+                {
+                    var embedder = scope.ServiceProvider.GetRequiredService<global::TextStack.Ai.Core.IEmbeddingService>();
+                    var signal = $"{wordText}. {def} {sent}".Trim();
+                    var vec = await embedder.EmbedAsync(signal, CancellationToken.None);
+                    var w = await bgDb.VocabularyWords.FirstOrDefaultAsync(
+                        x => x.Id == wordId, CancellationToken.None);
+                    if (w != null)
+                    {
+                        w.Embedding = vec;
+                        await bgDb.SaveChangesAsync(CancellationToken.None);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Embedding failed for word {Word}", wordText);
+                }
+
                 // Enrich definition from Free Dictionary API if not provided.
                 string? enrichedDef = null;
                 if (string.IsNullOrWhiteSpace(def))
