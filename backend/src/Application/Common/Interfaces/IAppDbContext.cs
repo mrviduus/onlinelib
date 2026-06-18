@@ -64,6 +64,7 @@ public interface IAppDbContext
     DbSet<ModelPromotion> ModelPromotions { get; }
     DbSet<EvalRun> EvalRuns { get; }
     DbSet<AgentRun> AgentRuns { get; }
+    DbSet<DriftCentroid> DriftCentroids { get; }
     DbSet<PodcastGenerationJob> PodcastGenerationJobs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);

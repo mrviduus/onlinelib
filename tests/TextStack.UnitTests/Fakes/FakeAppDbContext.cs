@@ -1,49 +1,44 @@
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace TextStack.AiEvals;
+namespace TextStack.UnitTests.Fakes;
 
 /// <summary>
-/// Minimal capturing <see cref="IAppDbContext"/> for the AI-044 persistence test: only the path the eval
-/// runners touch (<c>EvalRuns.Add</c> + <c>SaveChangesAsync</c>) is implemented; everything else throws so a
-/// stray access is loud, not silently wrong. Avoids pulling EF Core InMemory (not a repo dependency) for a
-/// single Add assertion.
+/// In-memory <see cref="IAppDbContext"/> for the DriftDetectionWorker per-feature flow tests. Only
+/// the two sets the worker reads/writes (<see cref="DriftCentroids"/>, <see cref="LlmTraces"/>) are
+/// backed by lists; everything else throws so a stray access is loud. <see cref="SaveChangesAsync"/>
+/// is a no-op count (FakeDbSet.Add already appended to the backing list).
 /// </summary>
-internal sealed class CapturingDb : IAppDbContext
+internal sealed class FakeAppDbContext : IAppDbContext
 {
-    public List<EvalRun> Added { get; } = [];
+    public List<DriftCentroid> DriftStore { get; } = [];
+    public List<LlmTrace> TraceStore { get; } = [];
     public int SaveCalls { get; private set; }
 
-    public DbSet<EvalRun> EvalRuns { get; }
+    private readonly FakeDbSet<DriftCentroid> _drift;
+    private readonly FakeDbSet<LlmTrace> _traces;
 
-    public CapturingDb() => EvalRuns = new CapturingEvalRunSet(Added);
+    public FakeAppDbContext()
+    {
+        _drift = new FakeDbSet<DriftCentroid>(DriftStore);
+        _traces = new FakeDbSet<LlmTrace>(TraceStore);
+    }
+
+    public DbSet<DriftCentroid> DriftCentroids => _drift;
+    public DbSet<LlmTrace> LlmTraces => _traces;
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         SaveCalls++;
-        return Task.FromResult(Added.Count);
+        return Task.FromResult(0);
     }
 
     public DatabaseFacade Database => throw new NotSupportedException();
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default) =>
         throw new NotSupportedException();
-
-    /// <summary>A <see cref="DbSet{T}"/> that records <see cref="Add"/>; the runner ignores the returned entry.</summary>
-    private sealed class CapturingEvalRunSet(List<EvalRun> sink) : DbSet<EvalRun>
-    {
-        public override EntityEntry<EvalRun> Add(EvalRun entity)
-        {
-            sink.Add(entity);
-            return null!; // runner discards the entry
-        }
-
-        public override Microsoft.EntityFrameworkCore.Metadata.IEntityType EntityType =>
-            throw new NotSupportedException();
-    }
 
     public DbSet<Site> Sites => throw new NotSupportedException();
     public DbSet<SiteDomain> SiteDomains => throw new NotSupportedException();
@@ -94,11 +89,10 @@ internal sealed class CapturingDb : IAppDbContext
     public DbSet<SeoBackfillSettings> SeoBackfillSettings => throw new NotSupportedException();
     public DbSet<Collection> Collections => throw new NotSupportedException();
     public DbSet<BookCollection> BookCollections => throw new NotSupportedException();
-    public DbSet<LlmTrace> LlmTraces => throw new NotSupportedException();
-    public DbSet<AgentRun> AgentRuns => throw new NotSupportedException();
     public DbSet<ShadowRun> ShadowRuns => throw new NotSupportedException();
     public DbSet<ModelRegistration> Models => throw new NotSupportedException();
     public DbSet<ModelPromotion> ModelPromotions => throw new NotSupportedException();
-    public DbSet<DriftCentroid> DriftCentroids => throw new NotSupportedException();
+    public DbSet<EvalRun> EvalRuns => throw new NotSupportedException();
+    public DbSet<AgentRun> AgentRuns => throw new NotSupportedException();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => throw new NotSupportedException();
 }
