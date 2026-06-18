@@ -72,6 +72,9 @@ public static partial class VocabularyEndpoints
         group.MapPost("/clusters/{id:guid}/dismiss", DismissCluster).WithName("DismissCluster");
         group.MapPost("/clusters/{id:guid}/complete", CompleteCluster).WithName("CompleteCluster");
 
+        // AI-060: read-only semantic concept clusters for the StatsPage widget
+        group.MapGet("/concepts", GetConcepts).WithName("GetVocabularyConcepts");
+
         // Admin: backfill definitions for words missing them
         app.MapPost("/admin/vocabulary/backfill-definitions", BackfillDefinitions)
             .WithTags("Admin").WithName("BackfillVocabularyDefinitions");
@@ -850,6 +853,12 @@ public record WordClusterDto(
     Guid? EditionId, Guid? UserBookId, string? BookTitle,
     int MemberCount, double CohesionScore,
     bool IsConfirmed, DateTimeOffset CreatedAt);
+
+// AI-060: concept cluster (Kind=="concept") for the StatsPage widget — Title/Theme + member words.
+public record ConceptClusterDto(
+    Guid Id, string Title, string? Theme,
+    int MemberCount, double CohesionScore,
+    IReadOnlyList<string> Words);
 
 public record VocabSettingsDto(
     int DailyNewCap,

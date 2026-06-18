@@ -375,3 +375,19 @@ export async function dismissCluster(id: string): Promise<void> {
 export async function completeCluster(id: string): Promise<void> {
   await authFetch<void>(`/me/vocabulary/clusters/${id}/complete`, { method: 'POST' })
 }
+
+// --- Concept clusters (AI-060) ---
+
+export interface ConceptCluster {
+  id: string
+  title: string
+  theme: string | null
+  memberCount: number
+  cohesionScore: number
+  words: string[]
+}
+
+export async function getConcepts(): Promise<ConceptCluster[]> {
+  const res = await authFetch<{ items: ConceptCluster[] }>('/me/vocabulary/concepts')
+  return res.items
+}
