@@ -485,6 +485,18 @@
       "scrollLeft": "Scroll left",
       "scrollRight": "Scroll right"
     },
+    "readLater": {
+      "tab": "Read later",
+      "tabBooks": "Books",
+      "unread": "Unread",
+      "min": "min",
+      "processing": "Processing…",
+      "markRead": "Mark as read",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this clip?",
+      "openOriginal": "Open original article",
+      "empty": "Nothing saved yet — install the Send to TextStack extension to clip articles."
+    },
     "sidebar": {
       "all": "All books",
       "uploads": "My uploads",

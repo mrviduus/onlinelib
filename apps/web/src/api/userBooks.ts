@@ -21,6 +21,12 @@ export interface UserBook {
   progressChapterSlug: string | null
   tags?: string[]
   suggestedTags?: string[]
+  // "Send to TextStack" web clips (Read later shelf). Present on every list row;
+  // sourceUrl/readAt are null for non-clips and for unread clips respectively.
+  sourceUrl?: string | null
+  isClip?: boolean
+  isRead?: boolean
+  readAt?: string | null
 }
 
 export interface UserChapterSummary {
@@ -125,8 +131,24 @@ export async function uploadUserBook(
   })
 }
 
-export async function getUserBooks(): Promise<UserBook[]> {
-  return authFetch<UserBook[]>('/me/books')
+export interface GetUserBooksOptions {
+  /** 'readlater' → only web clips (Read later shelf). Omit → Books tab (excludes clips). */
+  shelf?: 'readlater'
+  /** 'unread' → only unread books (applied within the chosen shelf). */
+  status?: 'unread'
+}
+
+export async function getUserBooks(opts?: GetUserBooksOptions): Promise<UserBook[]> {
+  const params = new URLSearchParams()
+  if (opts?.shelf) params.set('shelf', opts.shelf)
+  if (opts?.status) params.set('status', opts.status)
+  const qs = params.toString()
+  return authFetch<UserBook[]>(qs ? `/me/books?${qs}` : '/me/books')
+}
+
+/** Mark a clip read (isRead=true, readAt=now). Owner-scoped; 404 if not yours. */
+export async function markUserBookRead(id: string): Promise<void> {
+  await authFetch<void>(`/me/books/${id}/read`, { method: 'PUT' })
 }
 
 export async function getUserBook(id: string): Promise<UserBookDetail> {

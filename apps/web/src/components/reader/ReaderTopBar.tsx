@@ -8,6 +8,8 @@ interface Props {
   progress: number
   isBookmarked: boolean
   backUrl: string
+  sourceUrl?: string | null // Send to TextStack clips — link to the original article
+  sourceDomain?: string | null // hostname of sourceUrl (sans www), shown as the link label
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
   showAsk?: boolean // catalog editions only — user uploads aren't chunked for RAG
   onAskClick?: () => void
@@ -24,6 +26,8 @@ export function ReaderTopBar({
   progress,
   isBookmarked,
   backUrl,
+  sourceUrl,
+  sourceDomain,
   useLocalizedLink = true,
   showAsk = false,
   onAskClick,
@@ -50,7 +54,25 @@ export function ReaderTopBar({
         </BackLink>
         <div className="reader-top-bar__title">
           <span className="reader-top-bar__book-title">{title}</span>
-          <span className="reader-top-bar__chapter-title">{chapterTitle}</span>
+          {sourceUrl && sourceDomain ? (
+            // Send to TextStack clip: link to the original article. sourceDomain is
+            // derived from an untrusted clipped URL — render as text only.
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="reader-top-bar__source"
+              title={sourceUrl}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <path d="M15 3h6v6M10 14L21 3" />
+              </svg>
+              {sourceDomain}
+            </a>
+          ) : (
+            <span className="reader-top-bar__chapter-title">{chapterTitle}</span>
+          )}
         </div>
       </div>
 
