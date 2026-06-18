@@ -29,7 +29,10 @@ public class ModelGatewayTests
         services.AddKeyedSingleton<ILlmService>("ollama", new KeyEchoLlm("ollama"));
         var sp = services.BuildServiceProvider();
 
-        return new ModelGateway(sp, cfg, NullLogger<ModelGateway>.Instance);
+        // No shadow routes → primary-only routing (these tests cover primary routing).
+        var shadow = new ShadowOptions(0.0, new Dictionary<string, string>(), null, 15);
+        return new ModelGateway(
+            sp, cfg, sp.GetRequiredService<IServiceScopeFactory>(), shadow, NullLogger<ModelGateway>.Instance);
     }
 
     [Theory]

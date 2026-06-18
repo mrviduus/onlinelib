@@ -437,6 +437,17 @@ if (!app.Environment.IsEnvironment("Test"))
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    // Idempotent: seed the model registry (current Primary routes) only if empty (AI-075).
+    // Non-critical (the gateway routes by config today) — a seeding failure must NOT
+    // abort startup, so it's guarded + logged rather than allowed to escape.
+    try
+    {
+        await ModelRegistrySeeder.SeedAsync(db);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Model registry seeding failed; continuing startup (registry not yet authoritative)");
+    }
 }
 
 if (app.Environment.IsDevelopment())

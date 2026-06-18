@@ -60,6 +60,10 @@ public static class DependencyInjection
         services.AddScoped<global::TextStack.Ai.Core.ILlmTraceWriter, Ai.DbLlmTraceWriter>();
         services.AddScoped<global::TextStack.Ai.Core.IAgentRunWriter, Ai.DbAgentRunWriter>();
 
+        // Shadow-run writer: scoped (per-request DbContext); the singleton ModelGateway
+        // resolves it inside a fresh scope per fire-and-forget write (AI-075).
+        services.AddScoped<global::TextStack.Ai.Core.IShadowRunWriter, Ai.DbShadowRunWriter>();
+
         // Sampling policy (Ai:Tracing:Sampling). Errors always sampled regardless.
         services.AddSingleton(sp =>
         {
@@ -67,6 +71,17 @@ public static class DependencyInjection
             return new global::TextStack.Ai.Llm.TracingOptions(
                 c.GetValue("Ai:Tracing:Sampling:Default", 1.0),
                 c.GetSection("Ai:Tracing:Sampling:PerFeature").Get<Dictionary<string, double>>());
+        });
+
+        // Shadow-routing policy (Ai:Shadow). OFF by default (no Routes → no shadow calls).
+        services.AddSingleton(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+            return new global::TextStack.Ai.Llm.ShadowOptions(
+                c.GetValue("Ai:Shadow:Default:SampleRate", 0.0),
+                c.GetSection("Ai:Shadow:Routes").Get<Dictionary<string, string>>() ?? new(),
+                c.GetSection("Ai:Shadow:SampleRates").Get<Dictionary<string, double>>(),
+                c.GetValue("Ai:Shadow:TimeoutSeconds", 15));
         });
 
         // Raw providers (keyed) on Core.ILlmService.
@@ -102,8 +117,15 @@ public static class DependencyInjection
                     sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>()));
         }
 
-        // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider).
-        services.AddSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.ModelGateway>();
+        // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider;
+        // optional fire-and-forget shadow routing per Ai:Shadow).
+        services.AddSingleton<global::TextStack.Ai.Core.ILlmService>(sp =>
+            new global::TextStack.Ai.Llm.ModelGateway(
+                sp,
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<IServiceScopeFactory>(),
+                sp.GetRequiredService<global::TextStack.Ai.Llm.ShadowOptions>(),
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ModelGateway>>()));
 
         // Embeddings (Phase 4 RAG). Single OpenAI provider; resolved lazily so a keyless
         // host still starts (the client throws on construction without a key).
