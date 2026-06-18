@@ -100,7 +100,10 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             .Select(b => b.Slug)
             .FirstOrDefaultAsync(ct);
         if (existingSlug is not null)
-            slug = $"{slug}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            // Suffix with the (globally unique) book id, NOT a second-resolution
+            // timestamp: two same-title saves within the same second would otherwise
+            // collide on the (UserId, Slug) unique index and 500 on SaveChangesAsync.
+            slug = $"{slug}-{userBookId.ToString("N")[..8]}";
 
         var userBook = new UserBook
         {
