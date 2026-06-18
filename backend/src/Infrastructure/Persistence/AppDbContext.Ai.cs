@@ -70,6 +70,28 @@ public partial class AppDbContext
             e.Property(x => x.ModelId).HasMaxLength(128);
             e.Property(x => x.FeatureTag).HasMaxLength(64);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+
+            // Table-driven routing invariant (Phase 12 RLOps): AT MOST ONE Primary per
+            // feature. A partial unique index enforces it at the DB level, so a concurrent
+            // promote violates it (caught in ModelPromotionService → 409) rather than
+            // racing two Primaries. Filter uses the STORED enum string ('Primary') on the
+            // snake_case column.
+            e.HasIndex(x => x.FeatureTag)
+                .IsUnique()
+                .HasFilter("status = 'Primary'");
+        });
+
+        modelBuilder.Entity<ModelPromotion>(e =>
+        {
+            // Hot query: latest promotion for a feature (rollback) — feature + time.
+            e.HasIndex(x => new { x.FeatureTag, x.CreatedAt });
+
+            e.Property(x => x.FeatureTag).HasMaxLength(64);
+            e.Property(x => x.FromProviderKey).HasMaxLength(64);
+            e.Property(x => x.FromModelId).HasMaxLength(128);
+            e.Property(x => x.ToProviderKey).HasMaxLength(64);
+            e.Property(x => x.ToModelId).HasMaxLength(128);
+            e.Property(x => x.Action).HasConversion<string>().HasMaxLength(20);
         });
 
         modelBuilder.Entity<EvalRun>(e =>

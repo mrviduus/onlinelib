@@ -616,6 +616,14 @@ export interface ModelRegistration {
 export interface ModelsRegistry {
   models: ModelRegistration[]
 }
+export interface ModelPromotionResult {
+  featureTag: string
+  newPrimary: ModelRegistration
+  demotedToShadow: ModelRegistration | null
+  action: 'Promote' | 'Rollback'
+  adminUserId: string | null
+  createdAt: string
+}
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -1280,6 +1288,18 @@ export const adminApi = {
 
   getModels: async (): Promise<ModelsRegistry> => {
     return fetchJson<ModelsRegistry>('/admin/ai-quality/models')
+  },
+
+  promoteModel: async (id: string): Promise<ModelPromotionResult> => {
+    return fetchJson<ModelPromotionResult>(`/admin/ai-quality/models/${id}/promote`, {
+      method: 'POST',
+    })
+  },
+
+  rollbackModel: async (feature: string): Promise<ModelPromotionResult> => {
+    return fetchJson<ModelPromotionResult>(`/admin/ai-quality/models/${encodeURIComponent(feature)}/rollback`, {
+      method: 'POST',
+    })
   },
 
   // Podcasts

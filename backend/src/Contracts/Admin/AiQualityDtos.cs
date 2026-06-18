@@ -179,3 +179,13 @@ public record ModelRegistrationDto(
 
 /// <summary>The models registry payload (whole table; tiny).</summary>
 public record ModelsRegistryDto(IReadOnlyList<ModelRegistrationDto> Models);
+
+/// <summary>Result of a promote/rollback: the new Primary, the model demoted to Shadow
+/// (null if there was none), the audited action ("Promote"/"Rollback") + admin + time.</summary>
+public record ModelPromotionResultDto(
+    string FeatureTag,
+    ModelRegistrationDto NewPrimary,
+    ModelRegistrationDto? DemotedToShadow,
+    string Action,
+    Guid? AdminUserId,
+    DateTimeOffset CreatedAt);

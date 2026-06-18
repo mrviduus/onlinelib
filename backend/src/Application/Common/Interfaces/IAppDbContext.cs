@@ -61,6 +61,7 @@ public interface IAppDbContext
     DbSet<LlmTrace> LlmTraces { get; }
     DbSet<ShadowRun> ShadowRuns { get; }
     DbSet<ModelRegistration> Models { get; }
+    DbSet<ModelPromotion> ModelPromotions { get; }
     DbSet<EvalRun> EvalRuns { get; }
     DbSet<AgentRun> AgentRuns { get; }
     DbSet<PodcastGenerationJob> PodcastGenerationJobs { get; }

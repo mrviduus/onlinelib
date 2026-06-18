@@ -29,6 +29,7 @@ public sealed class ModelGateway(
     IConfiguration config,
     IServiceScopeFactory scopeFactory,
     ShadowOptions shadowOptions,
+    IModelRouteProvider routeProvider,
     ILogger<ModelGateway> logger) : ILlmService
 {
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
@@ -79,15 +80,58 @@ public sealed class ModelGateway(
 
     private ILlmService Route(string? featureTag)
     {
-        string? key = null;
-        if (!string.IsNullOrWhiteSpace(featureTag))
+        // Precedence: registry Primary (table-driven, set by admin promote/rollback) →
+        // config Ai:Routes:{feature} → Ai:DefaultProvider → "openai". The route provider
+        // is hot-path safe (cached, never throws → null on any failure), so a missing DB
+        // or empty registry transparently falls through to the config route below.
+        var registryKey = RegistryKey(featureTag);
+        var configKey = !string.IsNullOrWhiteSpace(featureTag)
+            ? config[$"Ai:Routes:{featureTag}"]
+            : null;
+        var key = registryKey ?? configKey ?? config["Ai:DefaultProvider"] ?? "openai";
+
+        // A registry row may name a provider key with no keyed registration (e.g. a key
+        // renamed in config but still recorded in `models`). That must NEVER throw — fall
+        // back to the config route + log, mirroring an unknown-key first-deploy guard.
+        var svc = serviceProvider.GetKeyedService<ILlmService>(key);
+        if (svc is null)
         {
-            key = config[$"Ai:Routes:{featureTag}"];
-            if (key is null)
-                logger.LogDebug("No Ai:Routes entry for feature '{Feature}'; using default provider", featureTag);
+            logger.LogWarning(
+                "Unknown provider key '{Key}' for feature '{Feature}'; falling back to config route", key, featureTag);
+            key = configKey ?? config["Ai:DefaultProvider"] ?? "openai";
+            svc = serviceProvider.GetRequiredKeyedService<ILlmService>(key);
         }
-        key ??= config["Ai:DefaultProvider"] ?? "openai";
-        return serviceProvider.GetRequiredKeyedService<ILlmService>(key);
+        return svc;
+    }
+
+    /// <summary>Resolved PRIMARY provider key for a feature (registry → config → default),
+    /// mirroring <see cref="Route"/>'s precedence WITHOUT touching DI. Used to skip a
+    /// shadow that now points at the same provider as the primary.</summary>
+    private string ResolvedPrimaryKey(string? featureTag)
+    {
+        var registryKey = RegistryKey(featureTag);
+        var configKey = !string.IsNullOrWhiteSpace(featureTag)
+            ? config[$"Ai:Routes:{featureTag}"]
+            : null;
+        return registryKey ?? configKey ?? config["Ai:DefaultProvider"] ?? "openai";
+    }
+
+    /// <summary>Registry Primary key for a feature, defensively. The provider contract is
+    /// never-throws, but we ALSO guard here so a misbehaving provider can never break a real
+    /// LLM call — it just falls through to the config route.</summary>
+    private string? RegistryKey(string? featureTag)
+    {
+        if (string.IsNullOrWhiteSpace(featureTag))
+            return null;
+        try
+        {
+            return routeProvider.PrimaryProviderKey(featureTag);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Registry route lookup threw for feature '{Feature}'; using config route", featureTag);
+            return null;
+        }
     }
 
     /// <summary>
@@ -101,6 +145,18 @@ public sealed class ModelGateway(
         var shadowKey = shadowOptions.ShadowKeyFor(request.FeatureTag);
         if (shadowKey is null)
             return;
+
+        // Post-promotion guard: if the shadow route now points at the SAME provider the
+        // primary already resolves to (e.g. the shadow candidate got promoted), shadowing
+        // would compare a model to itself + burn paid calls for nothing. Skip it.
+        if (string.Equals(shadowKey, ResolvedPrimaryKey(request.FeatureTag), StringComparison.Ordinal))
+        {
+            logger.LogDebug(
+                "Shadow key '{Key}' equals the primary for feature '{Feature}'; skipping self-shadow",
+                shadowKey, request.FeatureTag);
+            return;
+        }
+
         if (!ShouldSample(shadowOptions.RateFor(request.FeatureTag)))
             return;
 
@@ -125,7 +181,7 @@ public sealed class ModelGateway(
                 // the gateway threads one (mirrors how LlmTrace.UserId is currently null).
                 var run = BuildShadowRun(
                     feature, primary, primaryLatencyMs, shadowResponse, sw.ElapsedMilliseconds,
-                    ComputePromptHash(request), userId: null);
+                    ComputePromptHash(request), userId: null, shadowProviderKey: shadowKey);
 
                 var writer = scope.ServiceProvider.GetRequiredService<IShadowRunWriter>();
                 await writer.WriteAsync(run, CancellationToken.None);
@@ -155,7 +211,8 @@ public sealed class ModelGateway(
     /// </summary>
     public static Core.ShadowRun BuildShadowRun(
         string featureTag, LlmResponse primary, long primaryMs,
-        LlmResponse shadow, long shadowMs, string promptHash, Guid? userId) =>
+        LlmResponse shadow, long shadowMs, string promptHash, Guid? userId,
+        string shadowProviderKey = "") =>
         new(
             Id: Guid.NewGuid(),
             FeatureTag: featureTag,
@@ -175,7 +232,8 @@ public sealed class ModelGateway(
             ShadowTraceId: shadow.TraceId,
             PromptHash: promptHash,
             UserId: userId,
-            CreatedAt: DateTimeOffset.UtcNow);
+            CreatedAt: DateTimeOffset.UtcNow,
+            ShadowProviderKey: shadowProviderKey);
 
     /// <summary>Same prompt-hash scheme as the TracingDecorator (system prompt + messages JSON).</summary>
     public static string ComputePromptHash(LlmRequest request)

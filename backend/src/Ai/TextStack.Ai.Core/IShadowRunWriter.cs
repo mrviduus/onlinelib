@@ -32,4 +32,7 @@ public record ShadowRun(
     Guid? ShadowTraceId,
     string PromptHash,
     Guid? UserId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    // Resolved shadow PROVIDER key (e.g. "openai-explain"), threaded from the gateway so
+    // the writer can upsert a candidate Shadow ModelRegistration (promotable later).
+    string ShadowProviderKey = "");
