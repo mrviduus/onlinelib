@@ -82,6 +82,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<LlmTrace> LlmTraces => Set<LlmTrace>();
     public DbSet<ShadowRun> ShadowRuns => Set<ShadowRun>();
     public DbSet<ModelRegistration> Models => Set<ModelRegistration>();
+    public DbSet<ModelPromotion> ModelPromotions => Set<ModelPromotion>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();

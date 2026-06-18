@@ -1,3 +1,4 @@
+using Api.Middleware;
 using Application.Common.Interfaces;
 using Contracts.Admin;
 using Infrastructure.Persistence;
@@ -37,6 +38,8 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/shadow/summary", GetShadowSummary);
         group.MapGet("/shadow/samples", GetShadowSamples);
         group.MapGet("/models", GetModels);
+        group.MapPost("/models/{id:guid}/promote", PromoteModel);
+        group.MapPost("/models/{feature}/rollback", RollbackModel);
     }
 
     // Phase 7 DoD gate (AI-046): A/B the single-call baseline vs the full FieldCrew on the same brief+source over
@@ -660,6 +663,47 @@ public static class AdminAiQualityEndpoints
 
         return Results.Ok(new ModelsRegistryDto(models));
     }
+
+    // Phase 12 (RLOps): make a Shadow registration the new Primary for its feature, demoting
+    // the current Primary to Shadow + writing an audit row, in one transaction. Service throws
+    // DomainException (→400 for not-found/Retired/already-Primary) or ConflictException (→409 for
+    // a concurrent promote), both mapped by the ExceptionMiddleware. AdminUserId is audited.
+    private static async Task<IResult> PromoteModel(
+        Guid id,
+        HttpContext httpContext,
+        Application.Ai.ModelPromotionService service,
+        CancellationToken ct)
+    {
+        var adminId = httpContext.GetAdminUserId();
+        var result = await service.PromoteAsync(id, adminId, ct);
+        return Results.Ok(ToDto(result));
+    }
+
+    // Phase 12 (RLOps): revert the most recent promotion for a feature (the demoted model becomes
+    // Primary again). 409 (ConflictException) if there's no prior promotion to roll back.
+    private static async Task<IResult> RollbackModel(
+        string feature,
+        HttpContext httpContext,
+        Application.Ai.ModelPromotionService service,
+        CancellationToken ct)
+    {
+        var adminId = httpContext.GetAdminUserId();
+        var result = await service.RollbackAsync(feature, adminId, ct);
+        return Results.Ok(ToDto(result));
+    }
+
+    private static ModelPromotionResultDto ToDto(Application.Ai.ModelPromotionResult r) =>
+        new(
+            r.FeatureTag,
+            new ModelRegistrationDto(
+                r.NewPrimary.Id, r.NewPrimary.FeatureTag, r.NewPrimary.ProviderKey,
+                r.NewPrimary.ModelId, r.NewPrimary.Status.ToString(), r.NewPrimary.CreatedAt),
+            r.DemotedToShadow is null ? null : new ModelRegistrationDto(
+                r.DemotedToShadow.Id, r.DemotedToShadow.FeatureTag, r.DemotedToShadow.ProviderKey,
+                r.DemotedToShadow.ModelId, r.DemotedToShadow.Status.ToString(), r.DemotedToShadow.CreatedAt),
+            r.Action.ToString(),
+            r.AdminUserId,
+            r.CreatedAt);
 
     /// <summary>Raw-SQL row for the shadow-pair aggregate (public + mutable for EF SqlQuery
     /// materialization, like FeatureRow). Avg columns are nullable — an all-null group yields NULL.</summary>

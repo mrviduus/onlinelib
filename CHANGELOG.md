@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase 12 — table-driven routing + one-click promote/rollback (AI-077, slice 3) (2026-06-18)
+
+The `models` registry is now a **routing input**, not just an audit log — and an admin can swap which model serves a feature in one click, no redeploy.
+- **Table-driven primary routing**: `ModelGateway.Route` resolves a feature's primary **provider key** from the registry (`status=Primary`) before the config route. New `IModelRouteProvider` (Core; impl `RegistryModelRouteProvider` in Application) serves a cached immutable `feature→provider_key` snapshot (TTL `Ai:Routes:CacheSeconds`, default 30s; built in a fresh scope under a double-checked lock; `Invalidate()` drops it). **The gateway can never fail a live call because of the registry** — null/throwing provider, empty registry, or a row whose ProviderKey has no keyed `ILlmService` all fall back: registry → config `Ai:Routes:{tag}` → `Ai:DefaultProvider` → `openai` (nullable keyed resolve + log, never throw). The snapshot build is duplicate-key resilient (oldest wins) even if the one-Primary invariant were ever violated.
+- **Promote / rollback** (first mutating Phase-12 endpoints): `POST /admin/ai-quality/models/{id}/promote` (Shadow→Primary, demotes the incumbent to Shadow so it keeps shadowing) and `POST /admin/ai-quality/models/{feature}/rollback` (replays the inverse of the latest promotion). Each is transactional with an append-only **`model_promotions`** audit trail (who/when via `GetAdminUserId()`), invalidates the route cache **only after commit**, and is **strictly Shadow→Primary** (Retired rejected → 400). A DB **partial unique index** `(feature_tag) WHERE status='Primary'` enforces exactly one Primary per feature — concurrent promotes surface as **409**, never two primaries.
+- **Candidates**: a shadow run now auto-upserts a promotable `Shadow` `ModelRegistration` for its (feature, provider, model) (guarded on the fire-and-forget path), so enabling a shadow route makes a promote target appear. After a promote, `MaybeShadow` **skips self-shadowing** (resolved shadow key == primary key).
+- **Admin UI**: the Models tab is now actionable — Promote on Shadow rows, Rollback on Primary rows (shown only when a Shadow candidate exists), each behind a confirm dialog (these change prod routing live); server error text (409 race / 400 reasons) surfaced without closing the dialog; refetch reflects the new split immediately.
+
+Shadow remains config-driven (`Ai:Shadow:Routes`) this slice — registry Shadow rows are a candidate/audit list, not a shadow-routing input (registry-driven shadow + cost-cap = later slices). Migration `AddModelPromotionAndPrimaryUniqueIndex`. Architect → backend + frontend (parallel) → adversarial QA (verdict SHIP; 2 P1 fixes: snapshot duplicate-resilience + concurrent-promote 409 coverage). 724 unit tests green; admin tsc + build clean; solution clean.
+
 ### Phase 12 — admin Shadow + Models tabs (AI-076, slice 2) (2026-06-18)
 
 Makes the slice-1 shadow data visible. Two **read-only** tabs on the admin AI-quality page (`/ai-quality`):

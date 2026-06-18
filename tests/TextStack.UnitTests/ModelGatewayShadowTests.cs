@@ -223,6 +223,50 @@ public class ModelGatewayShadowTests
         Assert.NotEqual(cts.Token, capturing.SeenToken);
     }
 
+    // ---- shadow self-skip: shadow key == resolved primary key → no shadow ----
+
+    [Fact]
+    public async Task MaybeShadow_ShadowKeyEqualsPrimaryKey_SkipsShadow()
+    {
+        // Registry promotes explain's primary to "openai-explain" — the SAME provider the
+        // shadow route points at. Shadowing would compare a model to itself; the gateway skips.
+        var writer = new FakeShadowRunWriter();
+        var rawShadow = new RecordingLlm(Resp("shadow"));
+        var primary = new RecordingLlm(Resp("primary"));
+
+        var cfg = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Ai:DefaultProvider"] = "openai",
+                ["Ai:Routes:explain"] = "openai",
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        // Registry routes explain → "openai-explain", so the primary resolves that keyed svc.
+        services.AddKeyedSingleton<ILlmService>("openai-explain", primary);
+        services.AddKeyedSingleton<ILlmService>("openai-explain-raw", rawShadow);
+        services.AddScoped<IShadowRunWriter>(_ => writer);
+        var inner = services.BuildServiceProvider();
+        var spy = new KeyRecordingProvider(inner, RequestedKeys);
+
+        var opts = new ShadowOptions(
+            DefaultSampleRate: 1.0,
+            Routes: new Dictionary<string, string> { ["explain"] = "openai-explain" },
+            PerFeatureRates: null,
+            TimeoutSeconds: 15);
+        var routes = new StubRouteProvider(new() { ["explain"] = "openai-explain" });
+
+        var gateway = new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes, NullLogger<ModelGateway>.Instance);
+
+        var result = await gateway.CompleteAsync(Req(), CancellationToken.None);
+        Assert.Equal("primary", result.Text);
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(writer.Written.Task.IsCompleted); // self-shadow skipped → no row
+        Assert.Equal(0, rawShadow.CallCount);
+    }
+
     // ---- StreamAsync edge: empty stream still fires exactly one shadow on clean end ----
 
     [Fact]
@@ -301,7 +345,8 @@ public class ModelGatewayShadowTests
 
     private ModelGateway Build(
         ILlmService primary, ILlmService shadow, FakeShadowRunWriter writer,
-        double sampleRate = 1.0, int timeoutSeconds = 15, ShadowOptions? shadowOpts = null)
+        double sampleRate = 1.0, int timeoutSeconds = 15, ShadowOptions? shadowOpts = null,
+        IModelRouteProvider? routeProvider = null)
     {
         var cfg = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -328,7 +373,17 @@ public class ModelGatewayShadowTests
             PerFeatureRates: null,
             TimeoutSeconds: timeoutSeconds);
 
-        return new ModelGateway(spy, cfg, spy.ScopeFactory, opts, NullLogger<ModelGateway>.Instance);
+        var routes = routeProvider ?? new StubRouteProvider();
+        return new ModelGateway(spy, cfg, spy.ScopeFactory, opts, routes, NullLogger<ModelGateway>.Instance);
+    }
+
+    /// <summary>Registry route provider returning a fixed map (empty = no registry hit).</summary>
+    private sealed class StubRouteProvider(Dictionary<string, string>? routes = null) : IModelRouteProvider
+    {
+        private readonly Dictionary<string, string> _routes = routes ?? new();
+        public string? PrimaryProviderKey(string featureTag) =>
+            _routes.TryGetValue(featureTag, out var k) ? k : null;
+        public void Invalidate() { }
     }
 
     // ---- fakes ----

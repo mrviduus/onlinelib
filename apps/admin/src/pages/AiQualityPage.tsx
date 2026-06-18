@@ -15,6 +15,7 @@ import {
   ShadowPair,
   ShadowSample,
   ModelRegistration,
+  ModelPromotionResult,
 } from '../api/client'
 
 type Tab = 'summary' | 'traces' | 'transcripts' | 'evals' | 'shadow' | 'models'
@@ -1126,12 +1127,21 @@ function modelStatusColor(status: string): string {
   return '#6b7280' // Retired
 }
 
+// A pending confirm action: which row + what kind of mutation.
+type ModelAction =
+  | { kind: 'promote'; row: ModelRegistration }
+  | { kind: 'rollback'; row: ModelRegistration }
+
 function ModelsTab() {
   const [models, setModels] = useState<ModelRegistration[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<ModelAction | null>(null)
+  const [dialogError, setDialogError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
 
-  useEffect(() => {
+  const load = () =>
     adminApi
       .getModels()
       .then((d) => {
@@ -1139,16 +1149,48 @@ function ModelsTab() {
         setError(null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false))
+
+  useEffect(() => {
+    load().finally(() => setLoading(false))
   }, [])
+
+  // Features that currently have at least one Shadow row — rollback needs a prior promotion.
+  const featuresWithShadow = new Set(models.filter((m) => m.status === 'Shadow').map((m) => m.featureTag))
+
+  const runAction = async () => {
+    if (!confirm) return
+    setPending(true)
+    setDialogError(null)
+    try {
+      let res: ModelPromotionResult
+      if (confirm.kind === 'promote') {
+        res = await adminApi.promoteModel(confirm.row.id)
+      } else {
+        res = await adminApi.rollbackModel(confirm.row.featureTag)
+      }
+      await load()
+      setConfirm(null)
+      setSuccess(
+        `${res.action === 'Rollback' ? 'Rolled back' : 'Promoted'} ${res.featureTag} → primary ${res.newPrimary.modelId}` +
+          (res.demotedToShadow ? ` (${res.demotedToShadow.modelId} now shadow)` : ''),
+      )
+    } catch (e) {
+      // Surface the server message (409 race / 400 reasons) in the dialog; keep it open.
+      setDialogError(e instanceof Error ? e.message : 'Action failed')
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
     <>
       <p className="dashboard-page__subtitle" style={{ margin: '0 0 12px' }}>
-        Registered models per feature and their routing status. Read-only.
+        Registered models per feature and their routing status. Promote a shadow to primary or roll a feature back to its
+        previous primary.
       </p>
 
       {error && <Banner text={error} />}
+      {success && <SuccessBanner text={success} onClose={() => setSuccess(null)} />}
 
       {loading ? (
         <p className="dashboard-page__subtitle">Loading…</p>
@@ -1163,6 +1205,7 @@ function ModelsTab() {
               <th style={th}>Model</th>
               <th style={th}>Status</th>
               <th style={th}>Created</th>
+              <th style={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1173,12 +1216,94 @@ function ModelsTab() {
                 <td style={td}>{m.modelId}</td>
                 <td style={{ ...td, fontWeight: 600, color: modelStatusColor(m.status) }}>{m.status}</td>
                 <td style={td}>{timeAgo(m.createdAt)}</td>
+                <td style={td}>
+                  {m.status === 'Shadow' && (
+                    <button
+                      onClick={() => {
+                        setDialogError(null)
+                        setConfirm({ kind: 'promote', row: m })
+                      }}
+                      disabled={pending}
+                      style={rangeBtn(false)}
+                    >
+                      Promote
+                    </button>
+                  )}
+                  {m.status === 'Primary' && featuresWithShadow.has(m.featureTag) && (
+                    <button
+                      onClick={() => {
+                        setDialogError(null)
+                        setConfirm({ kind: 'rollback', row: m })
+                      }}
+                      disabled={pending}
+                      style={rangeBtn(false)}
+                    >
+                      Rollback
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+
+      {confirm && (
+        <ModelConfirmDialog
+          action={confirm}
+          pending={pending}
+          error={dialogError}
+          onConfirm={runAction}
+          onClose={() => {
+            if (!pending) setConfirm(null)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+function ModelConfirmDialog({
+  action,
+  pending,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  action: ModelAction
+  pending: boolean
+  error: string | null
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const { row } = action
+  const title = action.kind === 'promote' ? 'Promote to primary' : 'Roll back primary'
+  const message =
+    action.kind === 'promote'
+      ? `Promote ${row.modelId} to primary for ${row.featureTag}? The current primary will keep running as shadow.`
+      : `Roll back ${row.featureTag} to its previous primary?`
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...modal, maxWidth: 460 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
+          <button onClick={onClose} disabled={pending} style={{ ...rangeBtn(false), border: 'none' }}>
+            ✕
+          </button>
+        </div>
+        <p style={{ fontSize: 14, color: '#374151', margin: '0 0 4px' }}>{message}</p>
+        <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 8px' }}>This changes production routing immediately.</p>
+        {error && <Banner text={error} />}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button onClick={onClose} disabled={pending} style={rangeBtn(false)}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={pending} style={rangeBtn(true)}>
+            {pending ? 'Working…' : action.kind === 'promote' ? 'Promote' : 'Roll back'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1216,6 +1341,22 @@ function Pager({
 
 function Banner({ text }: { text: string }) {
   return <div style={{ background: '#fef2f2', color: '#b91c1c', padding: 12, borderRadius: 8, margin: '12px 0' }}>{text}</div>
+}
+
+function SuccessBanner({ text, onClose }: { text: string; onClose: () => void }) {
+  return (
+    <div
+      style={{
+        background: '#ecfdf5', color: '#065f46', padding: 12, borderRadius: 8, margin: '12px 0',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+      }}
+    >
+      <span>{text}</span>
+      <button onClick={onClose} style={{ border: 'none', background: 'none', color: '#065f46', cursor: 'pointer', fontSize: 14 }}>
+        ✕
+      </button>
+    </div>
+  )
 }
 
 function formatBreakdown(json: string | null): string {

@@ -117,14 +117,23 @@ public static class DependencyInjection
                     sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>()));
         }
 
+        // Table-driven primary routing (Phase 12 RLOps): the gateway consults this BEFORE
+        // its config route, so an admin promote/rollback flips traffic without a redeploy.
+        // Singleton (caches one snapshot of the `models` registry); hot-path safe + never throws.
+        services.AddSingleton<global::TextStack.Ai.Core.IModelRouteProvider, Ai.RegistryModelRouteProvider>();
+
+        // One-click promote / rollback of the primary model for a feature.
+        services.AddScoped<Ai.ModelPromotionService>();
+
         // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider;
-        // optional fire-and-forget shadow routing per Ai:Shadow).
+        // registry-first primary routing + optional fire-and-forget shadow routing per Ai:Shadow).
         services.AddSingleton<global::TextStack.Ai.Core.ILlmService>(sp =>
             new global::TextStack.Ai.Llm.ModelGateway(
                 sp,
                 sp.GetRequiredService<IConfiguration>(),
                 sp.GetRequiredService<IServiceScopeFactory>(),
                 sp.GetRequiredService<global::TextStack.Ai.Llm.ShadowOptions>(),
+                sp.GetRequiredService<global::TextStack.Ai.Core.IModelRouteProvider>(),
                 sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ModelGateway>>()));
 
         // Embeddings (Phase 4 RAG). Single OpenAI provider; resolved lazily so a keyless
