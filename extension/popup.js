@@ -64,9 +64,6 @@ async function init() {
     }
     $("email").textContent = status.email || "";
 
-    const page = await send("detectPageType");
-    // The current tab is itself a document → offer a direct "Send this document".
-    $("btn-send-doc").classList.toggle("hidden", page.kind !== "document");
     // Greyed "Send selection" until we know there's a live selection (like Kindle).
     await refreshSelectionState();
 
@@ -223,42 +220,6 @@ $("btn-pv-send").addEventListener("click", async () => {
     onSuccess();
   } catch (e) {
     handleErr(e);
-  } finally {
-    spinner(false);
-  }
-});
-
-// Send THIS tab's document (only visible when the tab is a PDF/EPUB).
-$("btn-send-doc").addEventListener("click", async () => {
-  clearToast();
-  spinner(true);
-  try {
-    lastResult = await send("sendDocument");
-    onSuccess();
-  } catch (e) {
-    handleErr(e);
-  } finally {
-    spinner(false);
-  }
-});
-
-// Send a document from disk via the file picker.
-$("btn-pick-file").addEventListener("click", () => $("file-input").click());
-
-$("file-input").addEventListener("change", async (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = ""; // allow re-picking the same file
-  if (!file) return;
-  clearToast();
-  spinner(true);
-  try {
-    const bytes = await file.arrayBuffer();
-    lastResult = await send("uploadFile", {
-      file: { name: file.name, type: file.type, bytes },
-    });
-    onSuccess();
-  } catch (err) {
-    handleErr(err);
   } finally {
     spinner(false);
   }

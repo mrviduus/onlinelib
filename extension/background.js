@@ -1,23 +1,17 @@
 // background.js — MV3 service worker (type: module). The orchestration hub:
 //   • registers context menus
 //   • drives the device-flow poll on chrome.alarms ticks
-//   • routes messages from the popup (extract, clip, upload, connect, status)
+//   • routes messages from the popup (extract, clip, connect, status)
 //   • performs the on-demand content-script injection + extraction
 //
 // All network/auth lives here and in lib/*. The SW can be evicted between events,
 // so it holds no long-lived in-memory state (flow state is in chrome.storage.local).
 
 import { POLL_ALARM, pollOnce, startDeviceFlow, isConnected, disconnect, getTokens } from "./lib/auth.js";
-import { clip, upload, listReadLater, deleteClip, me, NotConnectedError } from "./lib/api.js";
+import { clip, listReadLater, deleteClip, me, NotConnectedError } from "./lib/api.js";
 
 const MENU_PAGE = "textstack-clip-page";
 const MENU_SELECTION = "textstack-clip-selection";
-
-const DOC_EXTENSIONS = /\.(pdf|epub)(\?|#|$)/i;
-const DOC_CONTENT_TYPES = [
-  "application/pdf",
-  "application/epub+zip",
-];
 
 // ── lifecycle ────────────────────────────────────────────────────────────────
 
@@ -64,10 +58,6 @@ async function handleMessage(msg) {
     case "disconnect":
       await disconnect();
       return { connected: false };
-    case "detectPageType": {
-      const tab = await activeTab();
-      return { kind: await detectPageType(tab), url: tab?.url, title: tab?.title };
-    }
     case "hasSelection": {
       const tab = await activeTab();
       return { hasSelection: await hasSelection(tab) };
@@ -82,12 +72,6 @@ async function handleMessage(msg) {
       const tab = await activeTab();
       return clipActiveTab(tab, msg.mode || "page");
     }
-    case "sendDocument": {
-      const tab = await activeTab();
-      return sendDocument(tab);
-    }
-    case "uploadFile":
-      return uploadPickedFile(msg.file);
     case "recent":
       return listReadLater();
     case "delete": {
@@ -116,22 +100,6 @@ async function getStatus() {
     }
   }
   return { connected, email };
-}
-
-// ── page-type detection ──────────────────────────────────────────────────────
-
-async function detectPageType(tab) {
-  const url = tab?.url || "";
-  if (DOC_EXTENSIONS.test(url)) return "document";
-  if (!/^https?:/i.test(url)) return "article"; // can't HEAD non-http; assume article
-  try {
-    const res = await fetch(url, { method: "HEAD", credentials: "omit" });
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    if (DOC_CONTENT_TYPES.some((t) => ct.includes(t))) return "document";
-  } catch {
-    /* HEAD blocked (CORS/etc) → treat as article */
-  }
-  return "article";
 }
 
 // ── selection probe (for greying "Send selection" like Kindle) ───────────────
@@ -185,43 +153,11 @@ async function clipActiveTab(tab, mode) {
   return result;
 }
 
-/** Fetch the document bytes and upload as multipart file. */
-async function sendDocument(tab) {
-  if (!tab?.url) throw new Error("No active tab.");
-  const res = await fetch(tab.url, { credentials: "omit" });
-  if (!res.ok) throw new Error(`Could not fetch document (${res.status}).`);
-  const blob = await res.blob();
-  const filename = filenameFromUrl(tab.url);
-  const result = await upload(blob, filename);
-  notify("Document sent to TextStack");
-  return result;
-}
-
-/** Upload a file the user picked in the popup. `file` = { name, type, bytes:ArrayBuffer }. */
-async function uploadPickedFile(file) {
-  if (!file || !file.bytes) throw new Error("No file selected.");
-  const blob = new Blob([file.bytes], { type: file.type || "application/octet-stream" });
-  const result = await upload(blob, file.name || "document");
-  notify("Document sent to TextStack");
-  return result;
-}
-
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
-}
-
-function filenameFromUrl(url) {
-  try {
-    const path = new URL(url).pathname;
-    const base = decodeURIComponent(path.split("/").pop() || "");
-    if (base && /\.(pdf|epub)$/i.test(base)) return base;
-    return base || "document";
-  } catch {
-    return "document";
-  }
 }
 
 function notify(message) {
