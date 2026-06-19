@@ -1,4 +1,4 @@
-# Send to TextStack — Chrome extension (MV3)
+# TextStack — Save to read later — Chrome extension (MV3)
 
 Clip the article you're reading, or send a document (PDF/EPUB/FB2), to your own
 private TextStack **Read-later** library. Vanilla JS, MV3, no bundler, no npm.

@@ -606,6 +606,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         <AskPanel
           open={askOpen}
           editionId={askEditionId}
+          currentChapterId={activeChapter?.id}
           isAuthenticated={isAuthenticated}
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}

@@ -23,8 +23,14 @@ public record AskAnswer(
 /// </summary>
 public interface IRagAskService
 {
-    /// <summary>Spoiler-safe ask for a real reader: gates context by their reading progress.</summary>
-    Task<AskAnswer> AskAsync(Guid userId, Guid siteId, Guid editionId, string question, int k, CancellationToken ct);
+    /// <summary>
+    /// Spoiler-safe ask for a real reader: gates context by their reading progress. Pass
+    /// <paramref name="currentChapterId"/> (the chapter open in the reader) so it counts as read even
+    /// before the debounced progress-save persists — resolved server-side, ignored if not this edition.
+    /// </summary>
+    Task<AskAnswer> AskAsync(
+        Guid userId, Guid siteId, Guid editionId, string question, int k,
+        Guid? currentChapterId, CancellationToken ct);
 
     /// <summary>
     /// Generate a grounded, cited answer from an already-retrieved chunk set — bypasses user-progress
@@ -49,9 +55,10 @@ public sealed class RagAskService(RagContextService context, ILlmService llm) : 
         "You haven't read enough of this book yet for me to answer from it. Keep reading and ask again.";
 
     public async Task<AskAnswer> AskAsync(
-        Guid userId, Guid siteId, Guid editionId, string question, int k, CancellationToken ct)
+        Guid userId, Guid siteId, Guid editionId, string question, int k,
+        Guid? currentChapterId, CancellationToken ct)
     {
-        var ctx = await context.BuildAsync(userId, siteId, editionId, question, k, ct);
+        var ctx = await context.BuildAsync(userId, siteId, editionId, question, k, currentChapterId, ct);
         var noteTexts = ctx.Notes.Select(n => n.Text).ToList();
         return await AskFromChunksAsync(question, ctx.Chunks, noteTexts, ctx.LastReadOrd, ct);
     }

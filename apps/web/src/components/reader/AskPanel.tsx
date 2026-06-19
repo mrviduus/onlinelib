@@ -7,16 +7,18 @@ import type { AskCitation } from '../../api/ask'
 interface Props {
   open: boolean
   editionId: string
+  /** GUID of the chapter the user is actively reading — gates the RAG spoiler check. */
+  currentChapterId?: string
   isAuthenticated: boolean
   onSignIn: () => void
   onNavigateToCitation: (citation: AskCitation) => void
   onClose: () => void
 }
 
-export function AskPanel({ open, editionId, isAuthenticated, onSignIn, onNavigateToCitation, onClose }: Props) {
+export function AskPanel({ open, editionId, currentChapterId, isAuthenticated, onSignIn, onNavigateToCitation, onClose }: Props) {
   const { t } = useTranslation()
   const containerRef = useFocusTrap(open)
-  const { history, isLoading, error, ask } = useAsk(editionId)
+  const { history, isLoading, error, ask } = useAsk(editionId, currentChapterId)
   const [input, setInput] = useState('')
   const historyRef = useRef<HTMLDivElement>(null)
 

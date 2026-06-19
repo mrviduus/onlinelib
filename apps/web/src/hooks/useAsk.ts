@@ -13,7 +13,7 @@ export interface AskTurn {
  * Session "Ask this book" state (AI-026a): an in-memory Q&A history (not persisted), plus loading
  * and error. `ask` appends a turn; in-flight requests are aborted on a new question / unmount.
  */
-export function useAsk(editionId: string | undefined) {
+export function useAsk(editionId: string | undefined, currentChapterId?: string) {
   const [history, setHistory] = useState<AskTurn[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +33,7 @@ export function useAsk(editionId: string | undefined) {
       setError(null)
 
       try {
-        const res = await askApi(editionId, q, undefined, ctrl.signal)
+        const res = await askApi(editionId, q, undefined, ctrl.signal, currentChapterId)
         setHistory(prev => [
           ...prev,
           { question: q, answer: res.answer, citations: res.citations, insufficient: res.insufficient },
@@ -46,7 +46,7 @@ export function useAsk(editionId: string | undefined) {
         if (abortRef.current === ctrl) setIsLoading(false)
       }
     },
-    [editionId, isLoading],
+    [editionId, isLoading, currentChapterId],
   )
 
   return { history, isLoading, error, ask }

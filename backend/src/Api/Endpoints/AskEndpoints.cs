@@ -61,7 +61,8 @@ public static class AskEndpoints
         try
         {
             var k = request.K is > 0 ? request.K.Value : IRagService.DefaultK;
-            var answer = await ask.AskAsync(userId.Value, siteId, editionId, request.Question, k, ct);
+            var answer = await ask.AskAsync(
+                userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, ct);
 
             var citations = answer.Citations.Select(c => new AskCitation(
                 c.Marker, c.Chunk.ChunkId, c.Chunk.ChapterId, c.Chunk.ChapterOrd,
