@@ -52,6 +52,15 @@ export function AskPanel({
     setInput('')
   }
 
+  const submitStarter = (q: string) => {
+    if (isLoading) return
+    ask(q)
+  }
+
+  // Suggested starter questions, shown only on an empty, Ready thread (AI-026e).
+  const starterKeys = ['summary', 'characters', 'keyIdea', 'attention'] as const
+  const showStarters = history.length === 0 && status === 'Ready' && isAuthenticated && !isLoading
+
   return (
     <>
       <div className="reader-drawer-backdrop" onClick={onClose} />
@@ -69,11 +78,35 @@ export function AskPanel({
           {history.length === 0 && !isLoading && (
             <p className="ask-panel__empty">{t('reader.ask.empty')}</p>
           )}
+          {showStarters && (
+            <div className="ask-panel__starters">
+              <p className="ask-panel__starters-title">{t('reader.ask.startersTitle')}</p>
+              {starterKeys.map(key => (
+                <button
+                  key={key}
+                  type="button"
+                  className="ask-panel__starter"
+                  onClick={() => submitStarter(t(`reader.ask.starters.${key}`))}
+                >
+                  {t(`reader.ask.starters.${key}`)}
+                </button>
+              ))}
+            </div>
+          )}
           {history.map((turn, i) => (
             <div key={i} className="ask-panel__turn">
               <p className="ask-panel__question">{turn.question}</p>
-              <p className="ask-panel__answer">{turn.answer}</p>
-              {turn.citations.length > 0 && (
+              <p className="ask-panel__answer">
+                {turn.answer}
+                {turn.streaming && <span className="ask-panel__cursor" aria-hidden="true" />}
+              </p>
+              {turn.streaming && !turn.answer && (
+                <div className="ask-panel__loading">
+                  <span className="ask-panel__spinner" />
+                  {t('reader.ask.thinking')}
+                </div>
+              )}
+              {!turn.streaming && turn.citations.length > 0 && (
                 <div className="ask-panel__citations">
                   {turn.citations.map(c => (
                     <button
@@ -89,12 +122,6 @@ export function AskPanel({
               )}
             </div>
           ))}
-          {isLoading && (
-            <div className="ask-panel__loading">
-              <span className="ask-panel__spinner" />
-              {t('reader.ask.thinking')}
-            </div>
-          )}
           {error && error !== 'auth' && <p className="ask-panel__error">{error}</p>}
         </div>
 

@@ -200,7 +200,14 @@
       "prepareCta": "Prepare this book for questions",
       "preparing": "Preparing this book… {{done}}/{{total}}",
       "indexFailed": "Preparation failed.",
-      "indexRetry": "Retry"
+      "indexRetry": "Retry",
+      "startersTitle": "Try asking",
+      "starters": {
+        "summary": "Summarize what I've read so far",
+        "characters": "Who are the main characters?",
+        "keyIdea": "Explain the key idea so far",
+        "attention": "What should I pay attention to?"
+      }
     },
     "studyBuddy": {
       "title": "Help me understand this",

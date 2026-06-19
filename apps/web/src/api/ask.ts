@@ -1,9 +1,76 @@
 import { authFetch } from './client'
-import type { AskResponse } from '@textstack/shared'
+import type { AskResponse, AskCitation, AskTurnDto } from '@textstack/shared'
+import { postSse } from '../lib/sse'
 import type { RagIndexState, RagIndexStatus } from '../types/api'
 
-export type { AskResponse, AskCitation } from '@textstack/shared'
+export type { AskResponse, AskCitation, AskTurnDto } from '@textstack/shared'
 export type { RagIndexState, RagIndexStatus } from '../types/api'
+
+// API_BASE: host (dev) or '' (prod, nginx strips /api). Backend route has no prefix.
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+/** Most recent conversation turns to send back for multi-turn context (AI-026e). */
+export const MAX_HISTORY_TURNS = 6
+
+/** Terminal `done` payload of a streamed ask (AI-026e). */
+export interface AskDone {
+  citations: AskCitation[]
+  lastReadOrd: number
+  insufficient: boolean
+}
+
+interface AskStreamCallbacks {
+  onDelta: (fragment: string) => void
+  onDone: (done: AskDone) => void
+  onError: (message: string) => void
+  signal?: AbortSignal
+}
+
+/**
+ * Streaming "Ask this book" (AI-026e). POSTs the question + bounded `history` with
+ * `Accept: text/event-stream` and consumes SSE via {@link postSse}: `delta` fragments append to the
+ * answer, `done` carries citations/insufficient, `error` surfaces a message. URL routes by
+ * `target.kind` (catalog vs userbook). Throws `SseUnauthorizedError`/`SseUnsupportedError` from
+ * `postSse` for the caller to handle (sign-in / JSON fallback).
+ */
+export function askStream(
+  target: AskTarget,
+  question: string,
+  history: AskTurnDto[],
+  { onDelta, onDone, onError, signal }: AskStreamCallbacks,
+  currentChapterId?: string,
+): Promise<void> {
+  const url =
+    target.kind === 'userbook'
+      ? `${API_BASE}/me/books/${target.id}/ask`
+      : `${API_BASE}/books/${target.id}/ask`
+  const body = {
+    question,
+    history: history.slice(-MAX_HISTORY_TURNS),
+    ...(currentChapterId ? { currentChapterId } : {}),
+  }
+  return postSse(
+    url,
+    body,
+    e => {
+      if (signal?.aborted) return
+      if (e.event === 'delta') onDelta(e.data)
+      else if (e.event === 'done') {
+        try {
+          const parsed = JSON.parse(e.data) as Partial<AskDone>
+          onDone({
+            citations: parsed.citations ?? [],
+            lastReadOrd: parsed.lastReadOrd ?? 0,
+            insufficient: Boolean(parsed.insufficient),
+          })
+        } catch {
+          onDone({ citations: [], lastReadOrd: 0, insufficient: false })
+        }
+      } else if (e.event === 'error') onError(e.data || 'Ask failed')
+    },
+    signal,
+  )
+}
 
 /**
  * Identifies what the "Ask this book" panel is pointed at (AI-027 P2). A catalog `edition`

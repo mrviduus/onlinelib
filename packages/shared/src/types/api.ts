@@ -441,3 +441,12 @@ export interface AskResponse {
   lastReadOrd: number
   insufficient: boolean
 }
+
+/**
+ * One prior turn of the conversation, sent back to the server for multi-turn "Ask this book"
+ * (AI-026e). The client bounds the history (last 6 turns) before sending.
+ */
+export interface AskTurnDto {
+  role: 'user' | 'assistant'
+  content: string
+}

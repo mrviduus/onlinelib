@@ -2270,6 +2270,43 @@ html[data-theme="dark"] .vocab-translation-overlay__item {
   font-size: 14px;
   margin: 0;
 }
+/* Streaming caret on the in-progress answer (AI-026e) */
+.ask-panel__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--reader-accent, #2563eb);
+  animation: stream-cursor-blink 1s steps(2, start) infinite;
+}
+/* Suggested starter questions on an empty thread (AI-026e) */
+.ask-panel__starters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ask-panel__starters-title {
+  margin: 0 0 2px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--reader-secondary);
+}
+.ask-panel__starter {
+  text-align: left;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--reader-border);
+  background: var(--reader-bar-bg);
+  color: var(--reader-text);
+  cursor: pointer;
+}
+.ask-panel__starter:hover {
+  border-color: var(--reader-text);
+}
 .ask-panel__composer {
   flex: 0 0 auto;
   border-top: 1px solid var(--reader-border);

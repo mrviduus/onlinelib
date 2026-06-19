@@ -106,8 +106,17 @@ public static class DependencyInjection
                 sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.OpenAiLlmClient>>(),
                 sp.GetRequiredService<IConfiguration>()["OpenAI:Explain:Model"] ?? "gpt-4.1-mini"));
 
+        // "Ask this book" (rag.ask) runs a STRONGER conversational model than the nano default
+        // (OpenAI:RagAsk:Model, default gpt-4.1-mini) for the warm reading-companion experience.
+        // Routed per-feature (Ai:Routes:rag.ask → openai-rag) so translate / podcast stay on nano.
+        services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>("openai-rag-raw", (sp, key) =>
+            new global::TextStack.Ai.Llm.OpenAiLlmClient(
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.OpenAiLlmClient>>(),
+                sp.GetRequiredService<IConfiguration>()["OpenAI:RagAsk:Model"] ?? "gpt-4.1-mini"));
+
         // Decorated providers (keyed): TracingDecorator wraps each raw provider.
-        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge", "openai-explain" })
+        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge", "openai-explain", "openai-rag" })
         {
             services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>(providerKey, (sp, key) =>
                 new global::TextStack.Ai.Llm.TracingDecorator(
