@@ -19,6 +19,23 @@
         --err: #b91c1c;
         --radius: 8px;
       }
+      /* Follow the OS/browser theme, using the TextStack site's dark tokens — so
+         when the user's system is dark, the popup is dark too (matches the app). */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0a0a;
+          --surface: #1e1e1e;
+          --bg-secondary: #1e1e1e;
+          --text: #f1f5f9;
+          --text-secondary: #94a3b8;
+          --border: #1e293b;
+          --brand: #d08762;
+          --brand-hover: #c4704b;
+          --brand-soft: rgba(208, 135, 98, 0.12);
+          --ok: #34d399;
+          --err: #f87171;
+        }
+      }
       * { box-sizing: border-box; }
       body {
         width: 340px;
