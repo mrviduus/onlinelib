@@ -1,4 +1,4 @@
-// config.js — origin resolution for the "Send to TextStack" extension.
+// config.js — origin resolution for the "TextStack — Save to read later" extension.
 //
 // PROD has TWO bases that differ by path:
 //   • Site origin (SPA):  https://textstack.app          — /connect-extension, /en/library, reader links
