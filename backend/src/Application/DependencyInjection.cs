@@ -117,6 +117,12 @@ public static class DependencyInjection
                     sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>()));
         }
 
+        // RegistryModelRouteProvider (below) + RollingSpendTracker depend on IMemoryCache.
+        // The API host calls AddMemoryCache(), but the Worker host does NOT — so without this
+        // the Worker crash-loops on startup ("Unable to resolve IMemoryCache") and processes
+        // ZERO ingestion jobs (uploads + clips stuck Queued forever). Idempotent (TryAdd).
+        services.AddMemoryCache();
+
         // Table-driven primary routing (Phase 12 RLOps): the gateway consults this BEFORE
         // its config route, so an admin promote/rollback flips traffic without a redeploy.
         // Singleton (caches one snapshot of the `models` registry); hot-path safe + never throws.
