@@ -87,6 +87,11 @@ export function listReadLater() {
   return request("/me/books?shelf=readlater");
 }
 
+/** DELETE /me/books/{id} → removes a clip / user book. */
+export function deleteClip(id) {
+  return request(`/me/books/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 /** GET /auth/me → { user: { id, email, name, ... } }. */
 export function me() {
   return request("/auth/me");

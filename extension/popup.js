@@ -7,8 +7,7 @@ const $ = (id) => document.getElementById(id);
 
 const views = {
   disconnected: $("view-disconnected"),
-  article: $("view-article"),
-  document: $("view-document"),
+  actions: $("view-actions"),
   preview: $("view-preview"),
   success: $("view-success"),
 };
@@ -55,6 +54,7 @@ function clearToast() {
 
 async function init() {
   spinner(true);
+  clearToast();
   try {
     const status = await send("status");
     if (!status.connected) {
@@ -65,11 +65,12 @@ async function init() {
     $("email").textContent = status.email || "";
 
     const page = await send("detectPageType");
-    if (page.kind === "document") {
-      show("document");
-    } else {
-      show("article");
-    }
+    // The current tab is itself a document → offer a direct "Send this document".
+    $("btn-send-doc").classList.toggle("hidden", page.kind !== "document");
+    // Greyed "Send selection" until we know there's a live selection (like Kindle).
+    await refreshSelectionState();
+
+    show("actions");
     loadRecent();
   } catch (e) {
     if (e.notConnected) {
@@ -80,6 +81,16 @@ async function init() {
     }
   } finally {
     spinner(false);
+  }
+}
+
+async function refreshSelectionState() {
+  const btn = $("btn-selection");
+  try {
+    const sel = await send("hasSelection");
+    btn.disabled = !sel?.hasSelection;
+  } catch {
+    btn.disabled = true;
   }
 }
 
@@ -94,23 +105,55 @@ async function loadRecent() {
       return;
     }
     for (const c of recent) {
-      const wrap = document.createElement("div");
-      wrap.className = "clip";
-      const a = document.createElement("a");
-      a.textContent = c.title || "Untitled";
-      a.href = "#";
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        openReader(c.id);
-      });
-      const small = document.createElement("small");
-      small.textContent = `${domainOf(c.sourceUrl)} · ${fmtDate(c.createdAt)} · ${c.status}`;
-      wrap.append(a, small);
-      list.appendChild(wrap);
+      list.appendChild(renderClip(c));
     }
     $("recent").classList.remove("hidden");
   } catch {
     $("recent").classList.add("hidden");
+  }
+}
+
+function renderClip(c) {
+  const wrap = document.createElement("div");
+  wrap.className = "clip";
+
+  const main = document.createElement("div");
+  main.className = "clip-main";
+  main.title = "Open in reader";
+  main.addEventListener("click", () => openReader(c.id));
+
+  const title = document.createElement("span");
+  title.className = "clip-title";
+  title.textContent = c.title || "Untitled";
+
+  const meta = document.createElement("span");
+  meta.className = "clip-meta";
+  meta.textContent = `${domainOf(c.sourceUrl)} · ${statusLabel(c.status)}`;
+
+  main.append(title, meta);
+
+  const del = document.createElement("button");
+  del.className = "clip-del";
+  del.textContent = "×"; // ×
+  del.title = "Delete clip";
+  del.addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteClip(c.id, wrap);
+  });
+
+  wrap.append(main, del);
+  return wrap;
+}
+
+async function deleteClip(id, row) {
+  if (!id) return;
+  row.style.opacity = "0.5";
+  try {
+    await send("delete", { id });
+    loadRecent();
+  } catch (e) {
+    row.style.opacity = "";
+    handleErr(e);
   }
 }
 
@@ -162,7 +205,7 @@ $("btn-preview").addEventListener("click", async () => {
   }
 });
 
-$("btn-pv-cancel").addEventListener("click", () => show("article"));
+$("btn-pv-cancel").addEventListener("click", () => show("actions"));
 
 $("btn-pv-send").addEventListener("click", async () => {
   if (!pendingArticle) return;
@@ -185,6 +228,7 @@ $("btn-pv-send").addEventListener("click", async () => {
   }
 });
 
+// Send THIS tab's document (only visible when the tab is a PDF/EPUB/FB2).
 $("btn-send-doc").addEventListener("click", async () => {
   clearToast();
   spinner(true);
@@ -193,6 +237,28 @@ $("btn-send-doc").addEventListener("click", async () => {
     onSuccess();
   } catch (e) {
     handleErr(e);
+  } finally {
+    spinner(false);
+  }
+});
+
+// Send a document from disk via the file picker.
+$("btn-pick-file").addEventListener("click", () => $("file-input").click());
+
+$("file-input").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ""; // allow re-picking the same file
+  if (!file) return;
+  clearToast();
+  spinner(true);
+  try {
+    const bytes = await file.arrayBuffer();
+    lastResult = await send("uploadFile", {
+      file: { name: file.name, type: file.type, bytes },
+    });
+    onSuccess();
+  } catch (err) {
+    handleErr(err);
   } finally {
     spinner(false);
   }
@@ -242,12 +308,11 @@ function domainOf(url) {
     return "clip";
   }
 }
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return "";
-  }
+function statusLabel(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "ready" || s === "completed" || s === "done") return "Ready";
+  if (s === "failed" || s === "error") return "Failed";
+  return "Processing";
 }
 // Strip scripts/styles from the preview render (defense-in-depth; this HTML is
 // already Readability-cleaned, but the popup must never execute page script).
