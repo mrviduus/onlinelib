@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send to TextStack</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #111827;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --accent: #2563eb;
+        --accent-fg: #ffffff;
+        --ok: #047857;
+        --err: #b91c1c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --fg: #f1f5f9;
+          --muted: #94a3b8;
+          --border: #1e293b;
+          --accent: #3b82f6;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        width: 340px;
+        margin: 0;
+        font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      header img { width: 20px; height: 20px; }
+      header b { font-size: 14px; }
+      header .email { margin-left: auto; color: var(--muted); font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      main { padding: 14px; }
+      button {
+        width: 100%;
+        padding: 9px 12px;
+        margin-bottom: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 13px;
+        cursor: pointer;
+      }
+      button:hover { border-color: var(--accent); }
+      button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+      button:disabled { opacity: 0.6; cursor: default; }
+      .row { display: flex; gap: 8px; }
+      .row button { margin-bottom: 0; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .hidden { display: none !important; }
+      .toast { padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
+      .toast.ok { background: rgba(4,120,87,0.12); color: var(--ok); }
+      .toast.err { background: rgba(185,28,28,0.12); color: var(--err); }
+      label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 3px; }
+      input, textarea {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+      }
+      textarea { resize: vertical; min-height: 70px; }
+      .preview {
+        max-height: 130px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .recent { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+      .recent h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 6px; }
+      .clip { display: flex; flex-direction: column; padding: 5px 0; border-bottom: 1px solid var(--border); }
+      .clip a { color: var(--fg); text-decoration: none; font-size: 12px; font-weight: 500; }
+      .clip a:hover { color: var(--accent); }
+      .clip small { color: var(--muted); font-size: 10px; }
+      .spinner { text-align: center; color: var(--muted); padding: 14px; }
+      footer { padding: 8px 14px; border-top: 1px solid var(--border); }
+      footer a { color: var(--muted); font-size: 11px; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon-32.png" alt="" />
+      <b>Send to TextStack</b>
+      <span class="email" id="email"></span>
+    </header>
+
+    <main>
+      <div id="toast" class="toast hidden"></div>
+
+      <!-- disconnected -->
+      <section id="view-disconnected" class="hidden">
+        <p class="muted">Connect this extension to your TextStack account to clip pages and send documents.</p>
+        <button class="primary" id="btn-connect">Connect to TextStack</button>
+        <p class="muted" id="connect-hint"></p>
+      </section>
+
+      <!-- article capture -->
+      <section id="view-article" class="hidden">
+        <button class="primary" id="btn-clip">Clip this page</button>
+        <div class="row">
+          <button id="btn-preview">Preview &amp; edit</button>
+          <button id="btn-selection">Selection</button>
+        </div>
+      </section>
+
+      <!-- document capture -->
+      <section id="view-document" class="hidden">
+        <p class="muted">This looks like a document (PDF/EPUB/FB2).</p>
+        <button class="primary" id="btn-send-doc">Send document</button>
+      </section>
+
+      <!-- preview & edit -->
+      <section id="view-preview" class="hidden">
+        <label for="pv-title">Title</label>
+        <input id="pv-title" type="text" />
+        <label for="pv-author">Author (optional)</label>
+        <input id="pv-author" type="text" />
+        <label>Cleaned content</label>
+        <div class="preview" id="pv-content"></div>
+        <div class="row" style="margin-top: 10px">
+          <button id="btn-pv-cancel">Cancel</button>
+          <button class="primary" id="btn-pv-send">Send clip</button>
+        </div>
+      </section>
+
+      <!-- success -->
+      <section id="view-success" class="hidden">
+        <div class="toast ok">Saved to your Read-later shelf.</div>
+        <div class="row">
+          <button class="primary" id="btn-open-reader">Open in reader</button>
+          <button id="btn-open-library">My library</button>
+        </div>
+        <button id="btn-done" style="margin-top: 8px">Clip something else</button>
+      </section>
+
+      <div id="spinner" class="spinner hidden">Working…</div>
+
+      <!-- recent clips -->
+      <div class="recent hidden" id="recent">
+        <h3>Recent clips</h3>
+        <div id="recent-list"></div>
+      </div>
+    </main>
+
+    <footer>
+      <a href="options.html" target="_blank" id="link-options">Settings</a>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
