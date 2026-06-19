@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Send to TextStack — Privacy Policy</title>
+    <style>
+      body { font: 15px/1.6 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #111827; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; margin-top: 24px; }
+      code { background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Send to TextStack — Privacy Policy</h1>
+    <p><em>Last updated: 2026.</em></p>
+
+    <h2>What this extension does</h2>
+    <p>
+      "Send to TextStack" lets you clip the article you are reading, or send a
+      document (PDF/EPUB/FB2) you have open, to your own private TextStack
+      Read-later library.
+    </p>
+
+    <h2>What data is sent, and when</h2>
+    <ul>
+      <li>
+        We send page content to TextStack <strong>only when you explicitly act</strong> —
+        clicking "Clip this page", "Clip selection", "Send clip", "Send document",
+        or the corresponding right-click menu items. Nothing is sent in the
+        background or while you merely browse.
+      </li>
+      <li>
+        For an article clip we send the cleaned article HTML (extracted locally by
+        Mozilla Readability), its title, detected author, the source page URL, and
+        the detected language.
+      </li>
+      <li>
+        For a document we send the document file you have open.
+      </li>
+    </ul>
+
+    <h2>Where it goes</h2>
+    <p>
+      Content is sent to <strong>your own TextStack account</strong> over HTTPS to
+      <code>https://textstack.app</code> (or a developer-configured origin). Clips
+      land on your private Read-later shelf and are visible only to you. The
+      extension does not share data with any third party.
+    </p>
+
+    <h2>Authentication</h2>
+    <p>
+      The extension connects to your account using the OAuth 2.0 Device
+      Authorization flow. Access and refresh tokens are stored locally in the
+      browser's extension storage (<code>chrome.storage.local</code>) and are never
+      sent anywhere except to the TextStack API. Use "Disconnect" in Settings to
+      remove them at any time.
+    </p>
+
+    <h2>Permissions</h2>
+    <p>
+      <code>activeTab</code> / <code>scripting</code> read the current page only when
+      you trigger a clip; <code>storage</code> holds your connection tokens and
+      settings; <code>contextMenus</code> adds the right-click items;
+      <code>alarms</code> drives the one-time connection polling.
+    </p>
+
+    <h2>Contact</h2>
+    <p>Questions: the maintainer of <a href="https://textstack.app">textstack.app</a>.</p>
+  </body>
+</html>
