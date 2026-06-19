@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useAsk } from '../../hooks/useAsk'
+import { useRagIndex } from '../../hooks/useRagIndex'
 import type { AskCitation } from '../../api/ask'
+import type { RagIndexStatus } from '../../types/api'
 
 interface Props {
   open: boolean
@@ -10,15 +12,36 @@ interface Props {
   /** GUID of the chapter the user is actively reading — gates the RAG spoiler check. */
   currentChapterId?: string
   isAuthenticated: boolean
+  /** Seed RAG index state from `publicBook` so the panel renders correctly with no extra fetch. */
+  initialRagStatus?: RagIndexStatus
+  initialChunkCount?: number
+  initialEmbeddedCount?: number
   onSignIn: () => void
   onNavigateToCitation: (citation: AskCitation) => void
   onClose: () => void
 }
 
-export function AskPanel({ open, editionId, currentChapterId, isAuthenticated, onSignIn, onNavigateToCitation, onClose }: Props) {
+export function AskPanel({
+  open,
+  editionId,
+  currentChapterId,
+  isAuthenticated,
+  initialRagStatus,
+  initialChunkCount,
+  initialEmbeddedCount,
+  onSignIn,
+  onNavigateToCitation,
+  onClose,
+}: Props) {
   const { t } = useTranslation()
   const containerRef = useFocusTrap(open)
   const { history, isLoading, error, ask } = useAsk(editionId, currentChapterId)
+  const { status, chunkCount, embeddedCount, preparing, prepare } = useRagIndex(
+    editionId,
+    initialRagStatus,
+    initialChunkCount,
+    initialEmbeddedCount,
+  )
   const [input, setInput] = useState('')
   const historyRef = useRef<HTMLDivElement>(null)
 
@@ -83,7 +106,40 @@ export function AskPanel({ open, editionId, currentChapterId, isAuthenticated, o
           {error && error !== 'auth' && <p className="ask-panel__error">{error}</p>}
         </div>
 
-        {isAuthenticated ? (
+        {!isAuthenticated ? (
+          <div className="ask-panel__composer ask-panel__composer--signin">
+            <p>{t('reader.ask.signIn')}</p>
+            <button className="ask-panel__send" onClick={onSignIn}>
+              {t('reader.ask.signInCta')}
+            </button>
+          </div>
+        ) : status === 'Indexing' ? (
+          <div className="ask-panel__composer ask-panel__composer--prepare">
+            <p className="ask-panel__preparing">
+              {t('reader.ask.preparing', { done: embeddedCount, total: chunkCount })}
+            </p>
+            <div className="ask-panel__progress" role="progressbar" aria-valuemin={0} aria-valuemax={chunkCount || 1} aria-valuenow={embeddedCount}>
+              <span
+                className="ask-panel__progress-bar"
+                style={{ width: `${chunkCount > 0 ? Math.round((embeddedCount / chunkCount) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+        ) : status === 'Failed' ? (
+          <div className="ask-panel__composer ask-panel__composer--prepare">
+            <p className="ask-panel__error">{t('reader.ask.indexFailed')}</p>
+            <button className="ask-panel__send" onClick={prepare} disabled={preparing}>
+              {t('reader.ask.indexRetry')}
+            </button>
+          </div>
+        ) : status !== 'Ready' ? (
+          <div className="ask-panel__composer ask-panel__composer--prepare">
+            <p className="ask-panel__prepare-copy">{t('reader.ask.prepareCopy')}</p>
+            <button className="ask-panel__send" onClick={prepare} disabled={preparing}>
+              {t('reader.ask.prepareCta')}
+            </button>
+          </div>
+        ) : (
           <div className="ask-panel__composer">
             {error === 'auth' && <p className="ask-panel__error">{t('reader.ask.signIn')}</p>}
             <textarea
@@ -101,13 +157,6 @@ export function AskPanel({ open, editionId, currentChapterId, isAuthenticated, o
             />
             <button className="ask-panel__send" onClick={submit} disabled={isLoading || !input.trim()}>
               {t('reader.ask.send')}
-            </button>
-          </div>
-        ) : (
-          <div className="ask-panel__composer ask-panel__composer--signin">
-            <p>{t('reader.ask.signIn')}</p>
-            <button className="ask-panel__send" onClick={onSignIn}>
-              {t('reader.ask.signInCta')}
             </button>
           </div>
         )}

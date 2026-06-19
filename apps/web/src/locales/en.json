@@ -195,7 +195,12 @@
       "empty": "Ask a question about the book — answers come only from chapters you've read.",
       "signIn": "Sign in to ask questions about this book.",
       "signInCta": "Sign in",
-      "citation": "ch.{{ch}}"
+      "citation": "ch.{{ch}}",
+      "prepareCopy": "One-time setup so you can ask about this book.",
+      "prepareCta": "Prepare this book for questions",
+      "preparing": "Preparing this book… {{done}}/{{total}}",
+      "indexFailed": "Preparation failed.",
+      "indexRetry": "Retry"
     },
     "studyBuddy": {
       "title": "Help me understand this",

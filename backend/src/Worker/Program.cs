@@ -73,6 +73,8 @@ builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
 builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
 // Phase 4 RAG: sentence-aware chunker emits chapter_chunk rows during ingestion.
 builder.Services.AddAiRag();
+// Shared chunking service (ingestion + on-demand "Ask this book" index trigger).
+builder.Services.AddSingleton<Infrastructure.Rag.BookChunkingService>();
 builder.Services.AddSingleton<IngestionWorkerService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();

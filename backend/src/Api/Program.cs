@@ -144,6 +144,9 @@ else
 // RAG vector retrieval (Phase 4). Raw Npgsql like the search provider; query embedded via
 // IEmbeddingService (registered in AddApplication). Used by the admin debug endpoint (AI-022).
 builder.Services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionString));
+// On-demand "Ask this book" index trigger (Phase 1): the chunker + shared chunking service.
+builder.Services.AddAiRag();
+builder.Services.AddScoped<Infrastructure.Rag.BookChunkingService>();
 // Spoiler-safe context builder (AI-024): resolves lastRead + gates chunks + private corpus.
 builder.Services.AddScoped<Application.Rag.RagContextService>();
 // "Ask this book" orchestration (AI-025): context + LLM gateway → grounded answer with citations.
@@ -400,6 +403,18 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // On-demand "Ask this book" index trigger (Phase 1): per-IP cap so a user can't mass-index
+    // the whole catalog. ~20/hour — generous for legit "index this book then poll" flows.
+    options.AddPolicy("rag.index", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromHours(1),
+            PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
     // Study Buddy agent (AI-037): each run is several LLM calls, so a tighter per-IP limit.
     options.AddPolicy("studybuddy", httpContext =>
     {
@@ -639,6 +654,7 @@ app.MapAdminBookQualityEndpoints();
 app.MapAdminAiQualityEndpoints();
 app.MapAdminRagEndpoints();
 app.MapAskEndpoints();
+app.MapBookIndexEndpoints();
 app.MapStudyBuddyEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();

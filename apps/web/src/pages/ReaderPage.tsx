@@ -618,6 +618,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           editionId={askEditionId}
           currentChapterId={activeChapter?.id}
           isAuthenticated={isAuthenticated}
+          initialRagStatus={publicBook?.ragStatus}
+          initialChunkCount={publicBook?.ragChunkCount}
+          initialEmbeddedCount={publicBook?.ragEmbeddedCount}
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}
           onClose={() => setAskOpen(false)}

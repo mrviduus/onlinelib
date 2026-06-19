@@ -104,14 +104,61 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
 
         await db.SaveChangesAsync(ct);
 
+        var touchedEditions = batch.Select(c => c.EditionId).Distinct().ToList();
+
+        // Phase 1 "Ask this book": refresh each touched edition's rag_embedded_count and flip
+        // rag_status → Ready (with rag_indexed_at) once every chunk is embedded. Cheap single
+        // UPDATE per edition. Runs before the mean-pool recompute so status surfaces ASAP.
+        await UpdateRagProgressAsync(db, touchedEditions, ct);
+
         // AI-054: now that this batch's vectors are persisted, recompute the mean-pool
         // edition embedding for each touched edition that is now FULLY embedded. The
         // fully-embedded guard avoids writing a partial mean on every batch (and avoids
         // per-chunk recompute); editions still draining are caught when their last batch
         // lands (or by the backfill CLI). Best-effort — match the worker's resilience.
-        await RecomputeFullyEmbeddedEditionsAsync(db, batch.Select(c => c.EditionId), ct);
+        await RecomputeFullyEmbeddedEditionsAsync(db, touchedEditions, ct);
 
         return batch.Count;
+    }
+
+    /// <summary>
+    /// For each touched edition, set <c>rag_embedded_count</c> to its current count of embedded
+    /// chunks; and when that equals <c>rag_chunk_count</c> (and &gt; 0) flip <c>rag_status</c> to
+    /// Ready(2) with <c>rag_indexed_at = now()</c>. One UPDATE per edition. Best-effort: a hiccup
+    /// is logged and never stalls the embedding backlog — the next batch (or a final drain) retries.
+    /// </summary>
+    private async Task UpdateRagProgressAsync(
+        AppDbContext db, IReadOnlyList<Guid> editionIds, CancellationToken ct)
+    {
+        foreach (var editionId in editionIds)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE editions e
+                    SET rag_embedded_count = sub.embedded,
+                        rag_status = CASE
+                            WHEN sub.embedded = e.rag_chunk_count AND e.rag_chunk_count > 0 THEN 2
+                            ELSE e.rag_status
+                        END,
+                        rag_indexed_at = CASE
+                            WHEN sub.embedded = e.rag_chunk_count AND e.rag_chunk_count > 0 THEN now()
+                            ELSE e.rag_indexed_at
+                        END
+                    FROM (
+                        SELECT count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded
+                        FROM chapter_chunk
+                        WHERE edition_id = {editionId}
+                    ) sub
+                    WHERE e.id = {editionId};
+                    """, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to update RAG progress for edition {EditionId}; will retry next batch.", editionId);
+            }
+        }
     }
 
     /// <summary>

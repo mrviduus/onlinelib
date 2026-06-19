@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Ask this book — on-demand indexing, Phase 1 (catalog) (2026-06-19)
+
+"Ask this book" returned a misleading "you haven't read enough" for **every** catalog book — because none were RAG-indexed (the 614 editions were imported before RAG; `chapter_chunk` was empty). Books are now indexed **on demand, per book**: a reader clicks **"Prepare this book for questions"** → `POST /books/{editionId}/index` **atomically claims** the edition (`UPDATE … WHERE rag_status IN (NotIndexed, Failed)` — DB-level dedup, concurrent triggers index once, a Ready book is a no-op so OpenAI is never re-billed), chunks it (`BookChunkingService`, extracted from ingestion + reused), and the existing `ChapterEmbeddingWorker` fills embeddings and flips `rag_status → Ready` once `embedded == chunk`. `GET /books/{editionId}/index` polls progress; the reader shows Prepare → "Preparing… N/M" → Ask. **No bulk indexing** — only books someone actually asks, one-time embed per book, rate-limited (`rag.index`, 20/hr/IP). The misleading message now only appears for a genuinely-indexed book hitting the spoiler gate; un-indexed books show the Prepare CTA. New `editions.rag_status/rag_chunk_count/rag_embedded_count/rag_indexed_at/rag_error` (migration `AddEditionRagIndexState`, with a backfill that marks already-chunked editions Ready at $0). architect → backend + frontend → adversarial QA (P1 double-chunk/re-embed-on-legacy + unmount-poll fixed). 845 unit + 555 web tests green. (Phase 2 = user-uploaded books; Phase 3 = observability.)
+
 ### Dropped FB2 (FictionBook) support (2026-06-19)
 
 FB2 was a niche format that never fit the dev-first, English-technical reading audience — pulling it shrinks the extraction surface and the upload contract. Removed across the stack: backend extraction (`Fb2TextExtractor` deleted), the upload/ingestion accept-list (API + Worker), the web + admin upload UIs, the mobile uploader, and the browser extension's "send document" path. **Supported upload formats are now EPUB + PDF only**; `.fb2` uploads are rejected at the boundary.
