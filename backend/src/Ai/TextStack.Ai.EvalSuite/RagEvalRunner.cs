@@ -153,7 +153,7 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
         {
             ct.ThrowIfCancellationRequested();
             // lastReadOrd is irrelevant here — chunks are supplied directly (no user gating).
-            var answer = await ask.AskFromChunksAsync(question, chunks, [], lastReadOrd: int.MaxValue, ct);
+            var answer = await ask.AskFromChunksAsync(question, chunks, [], [], lastReadOrd: int.MaxValue, ct);
             if (answer.Insufficient || answer.Citations.Count == 0)
                 continue;
             answersGenerated++;

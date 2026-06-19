@@ -1,5 +1,6 @@
 using Api.Extensions;
 using Api.Sites;
+using Application.Ai;
 using Application.Auth;
 using Application.Common.Interfaces;
 using Application.Rag;
@@ -11,14 +12,14 @@ using TextStack.Ai.Rag;
 namespace Api.Endpoints;
 
 /// <summary>
-/// Public "Ask this book" (Phase 4 RAG, AI-025). Authenticated question over a catalog edition →
-/// spoiler-safe retrieval (<see cref="RagContextService"/>) → grounded answer with citations. JSON
-/// for now; SSE/token streaming lands in AI-028. The reader UI + citation deep-links are AI-026.
+/// Public "Ask this book" (Phase 4 RAG, AI-025; conversational upgrade AI-028). Authenticated question
+/// over a catalog edition → spoiler-safe retrieval (<see cref="RagContextService"/>) → grounded,
+/// conversational answer with citations. Content-negotiated: <c>Accept: text/event-stream</c> streams
+/// tokens (SSE — <c>delta</c>* then <c>done</c>); anything else returns the original JSON
+/// <see cref="AskResponse"/> (eval + mobile keep working). Multi-turn history is carried on the request.
 /// </summary>
 public static class AskEndpoints
 {
-    private const int PreviewChars = 200;
-
     public static void MapAskEndpoints(this WebApplication app)
     {
         app.MapPost("/books/{editionId:guid}/ask", Ask)
@@ -33,6 +34,7 @@ public static class AskEndpoints
         AuthService authService,
         IAppDbContext db,
         IServiceProvider services,
+        ILogger<Program> logger,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -48,9 +50,11 @@ public static class AskEndpoints
 
         // RagAskService construction pulls in the embedder, which throws without an OpenAI key —
         // surface that as a clean 503 rather than a generic 500.
+        RagContextService context;
         RagAskService ask;
         try
         {
+            context = services.GetRequiredService<RagContextService>();
             ask = services.GetRequiredService<RagAskService>();
         }
         catch (InvalidOperationException)
@@ -58,17 +62,25 @@ public static class AskEndpoints
             return Results.Problem("Ask is not configured (no OpenAI key).", statusCode: 503);
         }
 
+        var k = request.K is > 0 ? request.K.Value : IRagService.DefaultK;
+        var history = RagAskHistory.Clamp(request.History);
+
+        if (AskSse.WantsSse(httpContext))
+        {
+            // Build the spoiler-safe context first (the gate/retrieval), then stream the answer.
+            var ctx = await context.BuildAsync(userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, ct);
+            var noteTexts = ctx.Notes.Select(n => n.Text).ToList();
+            return AskSse.Stream(
+                httpContext,
+                ct2 => ask.StreamAsync(request.Question, ctx.Chunks, noteTexts, history, ctx.LastReadOrd, ct2),
+                logger);
+        }
+
         try
         {
-            var k = request.K is > 0 ? request.K.Value : IRagService.DefaultK;
             var answer = await ask.AskAsync(
-                userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, ct);
-
-            var citations = answer.Citations.Select(c => new AskCitation(
-                c.Marker, c.Chunk.ChunkId, c.Chunk.ChapterId, c.Chunk.ChapterOrd,
-                c.Chunk.CharStart, c.Chunk.CharEnd, Preview(c.Chunk.Text))).ToList();
-
-            return Results.Ok(new AskResponse(answer.Answer, citations, answer.LastReadOrd, answer.Insufficient));
+                userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, history, ct);
+            return Results.Ok(AskSse.ToResponse(answer));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -79,7 +91,4 @@ public static class AskEndpoints
             return Results.Problem("Ask is temporarily unavailable.", statusCode: 503);
         }
     }
-
-    private static string Preview(string text) =>
-        text.Length <= PreviewChars ? text : text[..PreviewChars] + "…";
 }

@@ -23,7 +23,7 @@ public static class ModelRegistrySeeder
         ("bookmeta", "ollama", "gemma4:e2b"),
         ("tagsuggestion", "ollama", "gemma4:e2b"),
         ("podcast.script", "openai", "gpt-4.1-nano"),
-        ("rag.ask", "openai", "gpt-4.1-nano"),
+        ("rag.ask", "openai-rag", "gpt-4.1-mini"),
     ];
 
     public static async Task SeedAsync(AppDbContext db, CancellationToken ct = default)

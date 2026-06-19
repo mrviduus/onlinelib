@@ -38,6 +38,7 @@ const baseProps = {
 afterEach(() => {
   cleanup()
   askState.history = []
+  askState.ask = vi.fn()
   ragState.status = 'Ready'
   ragState.chunkCount = 0
   ragState.embeddedCount = 0
@@ -96,7 +97,7 @@ describe('AskPanel', () => {
 
   it('renders a citation chip and navigates on click', () => {
     const citation = { marker: 1, chunkId: 'c1', chapterId: 'ch1', chapterOrd: 4, charStart: 0, charEnd: 1, preview: 'snippet' }
-    askState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false }]
+    askState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
     const onNavigateToCitation = vi.fn()
 
     render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
@@ -104,5 +105,33 @@ describe('AskPanel', () => {
     fireEvent.click(chip)
 
     expect(onNavigateToCitation).toHaveBeenCalledWith(citation)
+  })
+
+  it('shows starter questions on an empty, Ready thread and submits one on click', () => {
+    askState.history = []
+    ragState.status = 'Ready'
+    const ask = vi.fn()
+    askState.ask = ask
+
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+
+    expect(screen.getByText('reader.ask.startersTitle')).toBeTruthy()
+    const starter = screen.getByText('reader.ask.starters.summary')
+    fireEvent.click(starter)
+    expect(ask).toHaveBeenCalledWith('reader.ask.starters.summary')
+  })
+
+  it('hides starters once the thread has a turn', () => {
+    askState.history = [{ question: 'q', answer: 'a', citations: [], insufficient: false, streaming: false }]
+    ragState.status = 'Ready'
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.queryByText('reader.ask.startersTitle')).toBeNull()
+  })
+
+  it('does not show starters until the index is Ready', () => {
+    askState.history = []
+    ragState.status = 'NotIndexed'
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.queryByText('reader.ask.startersTitle')).toBeNull()
   })
 })
