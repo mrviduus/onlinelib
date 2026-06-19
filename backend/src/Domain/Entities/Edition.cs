@@ -45,6 +45,14 @@ public class Edition
     /// </summary>
     public float[]? Embedding { get; set; }
 
+    // On-demand RAG index state (Phase 1 "Ask this book"). Catalog editions imported before RAG
+    // start NotIndexed (0 chunks); a user trigger claims → chunks → embedding worker flips to Ready.
+    public RagIndexStatus RagStatus { get; set; } = RagIndexStatus.NotIndexed;
+    public int RagChunkCount { get; set; }
+    public int RagEmbeddedCount { get; set; }
+    public DateTimeOffset? RagIndexedAt { get; set; }
+    public string? RagError { get; set; }
+
     public Work Work { get; set; } = null!;
     public Site Site { get; set; } = null!;
     public Edition? SourceEdition { get; set; }

@@ -93,6 +93,20 @@ export interface BookDetail {
   authors: BookAuthor[]
   genres: BookGenre[]
   moreByAuthor: RelatedBook[]
+  // On-demand RAG index for "Ask this book" (AI-027 P1). Absent on older payloads → treat as NotIndexed.
+  ragStatus?: RagIndexStatus
+  ragChunkCount?: number
+  ragEmbeddedCount?: number
+}
+
+/** Per-book RAG index lifecycle (camelCase JSON from the backend). */
+export type RagIndexStatus = 'NotIndexed' | 'Indexing' | 'Ready' | 'Failed'
+
+/** Response of GET/POST `/books/{editionId}/index`. */
+export interface RagIndexState {
+  status: RagIndexStatus
+  chunkCount: number
+  embeddedCount: number
 }
 
 export interface SearchEdition {

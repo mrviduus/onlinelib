@@ -11,6 +11,11 @@ const { askState } = vi.hoisted(() => ({
 }))
 vi.mock('../../../hooks/useAsk', () => ({ useAsk: () => askState }))
 
+const { ragState } = vi.hoisted(() => ({
+  ragState: { status: 'Ready', chunkCount: 0, embeddedCount: 0, preparing: false, prepare: vi.fn() },
+}))
+vi.mock('../../../hooks/useRagIndex', () => ({ useRagIndex: () => ragState }))
+
 import { AskPanel } from '../AskPanel'
 
 const baseProps = {
@@ -24,6 +29,10 @@ const baseProps = {
 afterEach(() => {
   cleanup()
   askState.history = []
+  ragState.status = 'Ready'
+  ragState.chunkCount = 0
+  ragState.embeddedCount = 0
+  ragState.prepare = vi.fn()
 })
 
 describe('AskPanel', () => {
@@ -37,6 +46,34 @@ describe('AskPanel', () => {
   it('shows the composer when authenticated', () => {
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
     expect(screen.getByPlaceholderText('reader.ask.placeholder')).toBeTruthy()
+  })
+
+  it('shows the prepare CTA when not indexed (not the read-enough message)', () => {
+    ragState.status = 'NotIndexed'
+    const prepare = vi.fn()
+    ragState.prepare = prepare
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.queryByPlaceholderText('reader.ask.placeholder')).toBeNull()
+    fireEvent.click(screen.getByText('reader.ask.prepareCta'))
+    expect(prepare).toHaveBeenCalled()
+  })
+
+  it('shows progress while indexing with composer hidden', () => {
+    ragState.status = 'Indexing'
+    ragState.chunkCount = 4
+    ragState.embeddedCount = 2
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.getByRole('progressbar')).toBeTruthy()
+    expect(screen.queryByPlaceholderText('reader.ask.placeholder')).toBeNull()
+  })
+
+  it('shows retry on failure', () => {
+    ragState.status = 'Failed'
+    const prepare = vi.fn()
+    ragState.prepare = prepare
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    fireEvent.click(screen.getByText('reader.ask.indexRetry'))
+    expect(prepare).toHaveBeenCalled()
   })
 
   it('renders a citation chip and navigates on click', () => {

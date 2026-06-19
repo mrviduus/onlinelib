@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -54,6 +55,11 @@ public partial class AppDbContext
             e.HasIndex(x => new { x.SiteId, x.Language, x.Slug }).IsUnique();
             e.Property(x => x.Language).HasMaxLength(8);
             e.Property(x => x.TocJson).HasColumnType("jsonb");
+
+            // On-demand RAG index state (Phase 1). RagStatus persisted as int (enum).
+            e.Property(x => x.RagStatus).HasConversion<int>().HasDefaultValue(RagIndexStatus.NotIndexed);
+            e.Property(x => x.RagChunkCount).HasDefaultValue(0);
+            e.Property(x => x.RagEmbeddedCount).HasDefaultValue(0);
 
             // AI-054: mean-pool edition embedding. Same float[] <-> pgvector vector(1536)
             // conversion as ChapterChunk.Embedding (see AppDbContext.Rag.cs). Nullable —

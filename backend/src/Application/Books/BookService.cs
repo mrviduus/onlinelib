@@ -90,6 +90,9 @@ public class BookService(IAppDbContext db)
                 e.SeoThemesJson,
                 e.SeoFaqsJson,
                 e.TocJson,
+                e.RagStatus,
+                e.RagChunkCount,
+                e.RagEmbeddedCount,
                 Work = new WorkDto(e.Work.Id, e.Work.Slug),
                 Chapters = e.Chapters
                     .OrderBy(c => c.ChapterNumber)
@@ -172,7 +175,10 @@ public class BookService(IAppDbContext db)
             result.Authors,
             result.Genres,
             moreByAuthor,
-            toc
+            toc,
+            result.RagStatus.ToString(),
+            result.RagChunkCount,
+            result.RagEmbeddedCount
         );
     }
 
