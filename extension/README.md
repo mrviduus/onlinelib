@@ -1,7 +1,7 @@
 # TextStack — Save to read later — Chrome extension (MV3)
 
-Clip the article you're reading, or send a document (PDF/EPUB), to your own
-private TextStack **Read-later** library. Vanilla JS, MV3, no bundler, no npm.
+Clip the web article you're reading to your own private TextStack
+**Read-later** library. Vanilla JS, MV3, no bundler, no npm.
 
 ## What it does
 
@@ -9,8 +9,6 @@ private TextStack **Read-later** library. Vanilla JS, MV3, no bundler, no npm.
   `POST /me/books/clip`.
 - **Selection** → clip only the highlighted text.
 - **Preview & edit** → review/edit the cleaned title/author before sending.
-- **Documents** (`.pdf` / `.epub`) → fetched and `POST /me/books/upload`
-  (multipart).
 - **Right-click menus**: "Clip page to TextStack", "Clip selection to TextStack".
 - **Connect** uses the OAuth 2.0 Device Authorization flow (RFC 8628) — the same
   device flow as the MCP CLI. No new backend.

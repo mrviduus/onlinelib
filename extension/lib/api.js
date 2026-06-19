@@ -75,13 +75,6 @@ export function clip({ title, author, sourceUrl, html, language }) {
   });
 }
 
-/** POST /me/books/upload — multipart `file` (Blob) → { userBookId, jobId, status }. */
-export function upload(blob, filename) {
-  const form = new FormData();
-  form.append("file", blob, filename);
-  return request("/me/books/upload", { method: "POST", body: form, isForm: true });
-}
-
 /** GET /me/books?shelf=readlater → recent clips (UserBookListDto[]). */
 export function listReadLater() {
   return request("/me/books?shelf=readlater");

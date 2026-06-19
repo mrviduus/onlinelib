@@ -135,9 +135,6 @@
         fill: none;
       }
       .action-row .label { flex: 1; }
-      .action-row .hint { color: var(--text-secondary); font-size: 11px; }
-
-      .sep { height: 1px; background: var(--border); margin: 6px 4px; }
 
       /* ── disconnected ── */
       .intro { color: var(--text-secondary); font-size: 12px; margin: 4px 4px 12px; }
@@ -255,7 +252,7 @@
 
       <!-- ── disconnected ── -->
       <section id="view-disconnected" class="hidden">
-        <p class="intro">Connect this extension to your TextStack account to clip pages and send documents.</p>
+        <p class="intro">Connect this extension to your TextStack account to clip web articles to read later.</p>
         <button class="btn-primary" id="btn-connect">Connect to TextStack</button>
         <p class="hint-text" id="connect-hint"></p>
       </section>
@@ -277,21 +274,6 @@
             <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 12h8"/></svg>
             <span class="label">Send selection</span>
           </button>
-
-          <div class="sep"></div>
-
-          <!-- shown only when the current tab itself is a document -->
-          <button class="action-row hidden" id="btn-send-doc">
-            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-            <span class="label">Send this document</span>
-          </button>
-
-          <button class="action-row" id="btn-pick-file">
-            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            <span class="label">Send a document…</span>
-            <span class="hint">PDF · EPUB</span>
-          </button>
-          <input type="file" id="file-input" accept=".pdf,.epub" class="hidden" />
         </div>
       </section>
 
