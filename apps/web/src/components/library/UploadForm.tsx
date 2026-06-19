@@ -94,7 +94,7 @@ export function UploadForm({ onUploadComplete, initialFile, queueLabel }: Upload
       >
         <input
           type="file"
-          accept=".epub,.pdf,.fb2"
+          accept=".epub,.pdf"
           onChange={handleFileSelect}
           disabled={isUploading}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: isUploading ? 'not-allowed' : 'pointer', zIndex: 2 }}

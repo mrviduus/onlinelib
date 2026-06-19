@@ -177,6 +177,24 @@ public class UserBookClipServiceTests
         Assert.True(book.IsClip);
     }
 
+    // FB2 support was dropped — a .fb2 upload must resolve to BookFormat.Other and be rejected
+    // up front with the EPUB/PDF-only message, before any storage or DB work happens.
+    [Fact]
+    public async Task UploadAsync_Fb2File_RejectedAsUnsupportedFormat()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        using var stream = new MemoryStream("<FictionBook/>"u8.ToArray());
+
+        var (response, error) = await h.Service.UploadAsync(
+            user.Id, stream, "book.fb2", title: null, language: "en", CancellationToken.None);
+
+        Assert.Null(response);
+        Assert.Equal("Unsupported file format. Only EPUB and PDF are supported.", error);
+        Assert.Empty(h.UserBooks);
+        Assert.Empty(h.UserBookFiles);
+    }
+
     [Fact]
     public async Task SetReadAsync_ForeignBook_ReturnsErrorNotSilentSuccess()
     {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Dropped FB2 (FictionBook) support (2026-06-19)
+
+FB2 was a niche format that never fit the dev-first, English-technical reading audience — pulling it shrinks the extraction surface and the upload contract. Removed across the stack: backend extraction (`Fb2TextExtractor` deleted), the upload/ingestion accept-list (API + Worker), the web + admin upload UIs, the mobile uploader, and the browser extension's "send document" path. **Supported upload formats are now EPUB + PDF only**; `.fb2` uploads are rejected at the boundary.
+- **Enum value retained for data integrity**: `BookFormat.Fb2=2` stays in the enum — one legacy library row still references it, so dropping the value would corrupt its `format`/`source_format`. It's now annotated "legacy, no longer accepted" in `docs/02-system/database.md`; no migration, no data touched.
+- **Docs swept**: every current-state mention of FB2 as a supported/upload format (`CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `docs/00-vision/`, `docs/02-system/{admin,ingestion,database}.md`, `docs/04-dev/testing.md`, `docs/05-features/feat-0003/0007`, `docs/README.md`) now reads EPUB/PDF. Historical records (existing CHANGELOG entries, ADRs) left as-is — point-in-time, not rewritten.
+
 ### Send to TextStack — Phase 2: Chrome MV3 extension + connect page (2026-06-18)
 
 The browser extension users actually touch — clip a web article (or selection) or send an open PDF/EPUB/FB2 straight into the private library. **Auth reuses the existing device-authorization flow (RFC 8628, AI-050) — zero new backend auth.** The extension is a second device-flow client (the MCP CLI was the first): it requests a device code, opens the connect page, the user signs in + approves with the existing `AuthProvider`, and the extension polls for tokens — no token ever crosses an origin via `chrome.runtime.sendMessage`, so no `externally_connectable`, no `chrome-extension://` CORS, no mint-a-token endpoint.

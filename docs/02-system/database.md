@@ -441,7 +441,7 @@ id              UUID PRIMARY KEY
 edition_id      UUID NOT NULL → editions(id)
 original_name   VARCHAR NOT NULL
 storage_path    VARCHAR NOT NULL
-format          INT NOT NULL      -- 0=Epub, 1=Pdf, 2=Fb2
+format          INT NOT NULL      -- 0=Epub, 1=Pdf, 2=Fb2 (legacy, no longer accepted)
 sha256          VARCHAR
 uploaded_at     TIMESTAMPTZ NOT NULL
 ```
@@ -474,7 +474,7 @@ started_at        TIMESTAMPTZ
 finished_at       TIMESTAMPTZ
 
 -- Extraction diagnostics (persisted after extraction)
-source_format     VARCHAR           -- detected format (epub, fb2, pdf)
+source_format     VARCHAR           -- detected format (epub, pdf)
 units_count       INT               -- number of chapters/units extracted
 text_source       VARCHAR           -- where text came from (epub content, pdf ocr, etc)
 confidence        FLOAT             -- extraction confidence (0.0-1.0)
@@ -733,7 +733,7 @@ INDEX(vocabulary_word_id)
 
 ```csharp
 EditionStatus      { Draft=0, Published=1, Hidden=2 }
-BookFormat         { Epub=0, Pdf=1, Fb2=2 }
+BookFormat         { Epub=0, Pdf=1, Fb2=2 (legacy, no longer accepted) }
 JobStatus          { Queued=0, Processing=1, Completed=2, Failed=3 }
 AdminRole          { Admin=0, Editor=1, Moderator=2 }
 AuthorRole         { Author=0, Translator=1, Editor=2, Illustrator=3 }

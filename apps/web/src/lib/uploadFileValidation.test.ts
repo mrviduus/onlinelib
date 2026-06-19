@@ -12,11 +12,8 @@ describe('isUploadableFile', () => {
   it('accepts .pdf by extension', () => {
     expect(isUploadableFile(file('paper.pdf'))).toBe(true)
   })
-  it('accepts .fb2 by extension', () => {
-    expect(isUploadableFile(file('novel.fb2'))).toBe(true)
-  })
-  it('accepts .fb2.zip compound extension', () => {
-    expect(isUploadableFile(file('novel.fb2.zip'))).toBe(true)
+  it('rejects .fb2 (FB2 dropped)', () => {
+    expect(isUploadableFile(file('novel.fb2'))).toBe(false)
   })
   it('accepts uppercase extensions', () => {
     expect(isUploadableFile(file('BOOK.EPUB'))).toBe(true)

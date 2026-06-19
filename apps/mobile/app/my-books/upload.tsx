@@ -46,7 +46,7 @@ export default function UploadScreen() {
   /** Map HTTP status to user-visible copy so errors are actionable (P3-3). */
   const uploadErrorMessage = (status: number): string => {
     if (status === 413) return 'File is too large. Try a smaller book.'
-    if (status === 415) return 'Unsupported file format. Use EPUB, PDF, or FB2.'
+    if (status === 415) return 'Unsupported file format. Use EPUB or PDF.'
     if (status === 400) return 'This file looks invalid. Try another one.'
     if (status === 401 || status === 403) return 'Sign in to upload books.'
     if (status === 429) return 'Too many uploads. Take a breather and retry.'
@@ -76,7 +76,6 @@ export default function UploadScreen() {
         type: [
           'application/epub+zip',
           'application/pdf',
-          'application/x-fictionbook+xml',
           'application/octet-stream',
         ],
         copyToCacheDirectory: true,
@@ -152,7 +151,7 @@ export default function UploadScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.title}>Upload a Book</Text>
-          <Text style={styles.subtitle}>Supported formats: EPUB, PDF, FB2</Text>
+          <Text style={styles.subtitle}>Supported formats: EPUB, PDF</Text>
 
           {quota && (
             <View style={styles.quotaBox}>

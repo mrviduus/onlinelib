@@ -181,7 +181,7 @@ export function HeroSection() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".epub,.pdf,.fb2"
+              accept=".epub,.pdf"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />

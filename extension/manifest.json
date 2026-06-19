@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TextStack — Save to read later",
   "version": "0.1.0",
-  "description": "Save articles and documents (EPUB/PDF/FB2) to your private TextStack library to read later — with TTS, highlights, and vocabulary.",
+  "description": "Save articles and documents (EPUB/PDF) to your private TextStack library to read later — with TTS, highlights, and vocabulary.",
   "permissions": [
     "activeTab",
     "scripting",

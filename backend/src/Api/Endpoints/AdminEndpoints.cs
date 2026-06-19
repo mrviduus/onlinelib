@@ -25,7 +25,7 @@ public static class AdminEndpoints
         group.MapPost("/books/upload", UploadBook)
             .DisableAntiforgery()
             .WithName("UploadBook")
-            .WithDescription("Upload a book file (EPUB, PDF, FB2)");
+            .WithDescription("Upload a book file (EPUB, PDF)");
 
         // Ingestion jobs
         group.MapGet("/ingestion/jobs", GetIngestionJobs)

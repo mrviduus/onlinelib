@@ -31,7 +31,6 @@ Phase 1:
 
 Phase 2:
 - PDF (text layer)
-- FB2 (XML-based)
 
 Phase 3:
 - Image-only PDFs via OCR fallback

@@ -83,7 +83,7 @@ backend/src/
   Domain/         # Entities, enums (pure C#)
   Infrastructure/ # EF Core, storage, adapters
   Worker/         # Ingestion + SSG polling + GC
-  Extraction/     # EPUB/PDF/FB2 parsers
+  Extraction/     # EPUB/PDF parsers
   Search/         # Postgres FTS (Meilisearch provider optional)
 
 apps/

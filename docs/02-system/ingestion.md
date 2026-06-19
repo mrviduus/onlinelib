@@ -1,6 +1,6 @@
 # Book Ingestion Pipeline
 
-Upload → Parse → Publish flow for EPUB/PDF/FB2 books.
+Upload → Parse → Publish flow for EPUB/PDF books.
 
 ## Overview
 
@@ -17,7 +17,7 @@ Content-Type: multipart/form-data
 ```
 
 ### Request
-- `file`: Book file (EPUB, PDF, FB2)
+- `file`: Book file (EPUB, PDF)
 - `siteId`: Target site
 - `language`: en, uk
 - `workId`: Optional (link to existing Work)
@@ -87,7 +87,6 @@ On failure:
 |--------|--------|--------|
 | EPUB | ✅ Done | EpubParser |
 | PDF | 🚧 Planned | — |
-| FB2 | 🚧 Planned | — |
 
 ## 4. Chapter Generation
 
