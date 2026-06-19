@@ -125,9 +125,12 @@ export async function startDeviceFlow() {
 
   const intervalSec = code.interval > 0 ? code.interval : 5;
   const expiresInSec = code.expires_in > 0 ? code.expires_in : 600;
-  const connectUrl =
-    code.verification_uri_complete ||
-    `${origin}${CONNECT_PATH}?code=${encodeURIComponent(code.user_code)}`;
+  // Prefer our branded extension connect page (reads ?code= and runs the same
+  // device-approve flow as /device). Fall back to the server's
+  // verification_uri_complete only if we somehow lack the user_code.
+  const connectUrl = code.user_code
+    ? `${origin}${CONNECT_PATH}?code=${encodeURIComponent(code.user_code)}`
+    : code.verification_uri_complete || `${origin}${CONNECT_PATH}`;
 
   const flow = {
     device_code: code.device_code,

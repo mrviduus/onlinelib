@@ -7,8 +7,8 @@
 
 export const DEFAULT_API_ORIGIN = "https://textstack.app";
 
-// Web connect page the device flow opens in a tab. We prefer the server-returned
-// verification_uri_complete; this is only a fallback if the server omits it.
+// Branded web connect page the device flow opens in a tab (reads ?code= and runs
+// the same device-approve flow as /device, with extension-flavored copy).
 export const CONNECT_PATH = "/connect-extension";
 
 /** Resolve the active API origin (storage override → prod default). No trailing slash. */
