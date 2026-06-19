@@ -1,6 +1,6 @@
 // options.js — connection status, Disconnect, and the dev API-origin override.
 
-import { DEFAULT_API_ORIGIN } from "./config.js";
+import { DEFAULT_SITE_ORIGIN } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,16 +45,18 @@ $("btn-disconnect").addEventListener("click", async () => {
 });
 
 $("btn-save").addEventListener("click", async () => {
-  const val = $("origin").value.trim().replace(/\/+$/, "");
-  await chrome.storage.local.set({ apiOrigin: val || "" });
-  $("save-msg").textContent = val
-    ? `Saved. Using ${val} — ensure host_permissions includes it.`
-    : `Saved. Using production default (${DEFAULT_API_ORIGIN}).`;
+  const site = $("site").value.trim().replace(/\/+$/, "");
+  const apiBase = $("apibase").value.trim().replace(/\/+$/, "");
+  await chrome.storage.local.set({ siteOrigin: site || "", apiBase: apiBase || "" });
+  $("save-msg").textContent = site || apiBase
+    ? `Saved. Site=${site || DEFAULT_SITE_ORIGIN}, API=${apiBase || (site || DEFAULT_SITE_ORIGIN) + "/api"} — ensure host_permissions includes the API host.`
+    : `Saved. Using production defaults (${DEFAULT_SITE_ORIGIN} + /api).`;
 });
 
 async function loadOrigin() {
-  const { apiOrigin } = await chrome.storage.local.get("apiOrigin");
-  $("origin").value = apiOrigin || "";
+  const { siteOrigin, apiBase } = await chrome.storage.local.get(["siteOrigin", "apiBase"]);
+  $("site").value = siteOrigin || "";
+  $("apibase").value = apiBase || "";
 }
 
 loadOrigin();

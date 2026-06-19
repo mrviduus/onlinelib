@@ -29,12 +29,17 @@
     </div>
 
     <div class="card">
-      <label for="origin">API origin (developer override)</label>
-      <input id="origin" type="text" placeholder="https://textstack.app" />
+      <label for="site">Site origin (developer override)</label>
+      <input id="site" type="text" placeholder="https://textstack.app" />
+      <p class="muted">Web app (connect page + library/reader links). Leave blank for production.</p>
+
+      <label for="apibase" style="margin-top:12px;">API base (developer override)</label>
+      <input id="apibase" type="text" placeholder="https://textstack.app/api" />
       <p class="muted">
-        Leave blank for production. For local dev set e.g. <code>http://localhost:8080</code> —
-        you must ALSO add <code>http://localhost:8080/*</code> to <code>host_permissions</code>
-        in <code>manifest.json</code> and reload the unpacked extension. See the README.
+        Leave blank to use <code>&lt;site origin&gt;/api</code> (production). For a local backend set
+        e.g. <code>http://localhost:8080</code> (dev serves the API at root, no <code>/api</code>) —
+        you must ALSO add that host to <code>host_permissions</code> in <code>manifest.json</code>
+        and reload the unpacked extension. See the README.
       </p>
       <button id="btn-save">Save</button>
       <div class="msg" id="save-msg"></div>
