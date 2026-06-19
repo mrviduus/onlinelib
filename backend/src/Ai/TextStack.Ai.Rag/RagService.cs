@@ -36,9 +36,12 @@ public sealed class RagService : IRagService
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
-        // Gate ≤ 0 means "no chapters read" → guaranteed empty; skip the embedding API call.
-        if (maxChapterOrd is <= 0)
-            return [];
+        // No gate-value short-circuit: `null` means "no gate" (ungated full-book retrieval — the tool
+        // path for anonymous users), and a non-null ordinal — INCLUDING 0 — is a real spoiler ceiling
+        // that flows to the SQL gate (`chapter_ord <= @maxChapterOrd`, correct for 0 since catalog
+        // chapters are 0-based). The previous `<= 0` short-circuit wrongly treated ord-0 (a read first
+        // chapter) as "nothing read". The authenticated RAG path null-guards "no progress" upstream in
+        // RagContextService, so retrieve is never asked to surface a whole book for a non-reader there.
         if (k <= 0)
             k = IRagService.DefaultK;
 

@@ -20,6 +20,20 @@ describe('ReaderNav', () => {
     expect(getByText('1 / 10')).toBeTruthy()
   })
 
+  it('shows 1 / N for the first chapter (positional index+1, not 0-based catalog number)', () => {
+    const { getByText } = render(
+      <ReaderNav
+        chapterTitle="First"
+        chapterNumber={1}
+        totalChapters={29}
+        chapterProgress={0}
+        onPrev={null}
+        onNext={() => {}}
+      />,
+    )
+    expect(getByText('1 / 29')).toBeTruthy()
+  })
+
   it('omits counter when totalChapters is null', () => {
     const { container } = render(
       <ReaderNav

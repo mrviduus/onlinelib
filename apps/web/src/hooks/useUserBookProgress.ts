@@ -114,8 +114,9 @@ export function useUserBookProgress(bookId: string) {
           lastAckedKeyRef.current = `${toSync.chapterSlug}:${toSync.locator ?? ''}`
           if (pendingSyncRef.current === toSync) pendingSyncRef.current = null
         })
-        .catch(() => {
-          // Leave ref so next save retries.
+        .catch((err) => {
+          // Leave ref so next save retries. Log only — never interrupt reading.
+          console.warn('[progress] userbook save failed', err)
         })
     }, DEBOUNCE_MS)
   }, [bookId])
@@ -150,7 +151,9 @@ export function useUserBookProgress(bookId: string) {
       .then(() => {
         lastAckedKeyRef.current = `${toSync.chapterSlug}:${toSync.locator ?? ''}`
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[progress] userbook flush save failed', err)
+      })
 
     pendingSyncRef.current = null
   }, [bookId])

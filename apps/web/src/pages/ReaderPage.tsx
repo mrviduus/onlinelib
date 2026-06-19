@@ -382,6 +382,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     setSearchOpen(true)
   }, [chapterHtml, search])
 
+  // Ship the LEAVING chapter's latest scroll synchronously before a same-component
+  // route change (the unmount flush doesn't fire when ReaderPage stays mounted).
+  const flushProgress = useCallback(() => {
+    if (mode === 'public') publicProgress.flushSave()
+    else userProgress.flushSave()
+  }, [mode, publicProgress, userProgress])
+
   // Chapter URL helper
   const getChapterUrl = useCallback((identifier: string) => {
     if (mode === 'public') {
@@ -548,11 +555,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
             />
             <ReaderNav
               chapterTitle={chapter.title}
-              chapterNumber={chapter.chapterNumber}
+              // Positional 1-based index — catalog chapterNumber is 0-based
+              // (0..N-1) but user-books are 1-based, so it's unreliable for
+              // display. Mirror ReaderFooterNav's currentChapterIndex + 1.
+              chapterNumber={currentChapterIndex >= 0 ? currentChapterIndex + 1 : null}
               totalChapters={totalChapters || null}
               chapterProgress={overlayScrollProgress}
-              onPrev={chapter.prev ? () => navigate(getChapterUrl(chapter.prev!.identifier)) : null}
-              onNext={chapter.next ? () => navigate(getChapterUrl(chapter.next!.identifier)) : null}
+              onPrev={chapter.prev ? () => { flushProgress(); navigate(getChapterUrl(chapter.prev!.identifier)) } : null}
+              onNext={chapter.next ? () => { flushProgress(); navigate(getChapterUrl(chapter.next!.identifier)) } : null}
             />
           </div>
           {searchOpen && (

@@ -148,8 +148,12 @@ public static class UserDataEndpoints
             existing.ChapterId = request.ChapterId;
             existing.Locator = request.Locator;
             existing.Percent = request.Percent;
-            // High-water mark for the RAG spoiler gate — monotonic, never decreases.
-            existing.MaxChapterNumber = Math.Max(existing.MaxChapterNumber ?? 0, chapter.ChapterNumber);
+            // High-water mark for the RAG spoiler gate — monotonic, never decreases. NULL means
+            // "never recorded" (distinct from ordinal 0, a real 0-based first chapter), so the first
+            // write seeds it rather than max-ing against an implied 0.
+            existing.MaxChapterNumber = existing.MaxChapterNumber.HasValue
+                ? Math.Max(existing.MaxChapterNumber.Value, chapter.ChapterNumber)
+                : chapter.ChapterNumber;
             existing.UpdatedAt = DateTimeOffset.UtcNow;
         }
         else

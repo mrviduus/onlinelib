@@ -14,6 +14,14 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  // Tests that simulate a real scrollTo mutate the shared scrollingElement.scrollTop — reset it so
+  // it can't leak a non-zero offset into the next test.
+  const el = (document.scrollingElement || document.documentElement) as HTMLElement
+  try {
+    Object.defineProperty(el, 'scrollTop', { value: 0, writable: true, configurable: true })
+  } catch {
+    // ignore if not redefinable
+  }
 })
 
 const noopProgress = {
@@ -125,5 +133,139 @@ describe('useReaderScrollSync — scroll restore', () => {
       effectiveProgress: { locator: 'scroll:ch1:8000' },
     })
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' })
+  })
+})
+
+describe('useReaderScrollSync — save on chapter open', () => {
+  it('fires exactly one public save when a chapter opens (after restore)', () => {
+    const updateProgress = vi.fn()
+    const props: Props = {
+      ...baseProps,
+      publicProgress: { updateProgress, flushSave: vi.fn() },
+    }
+    renderHook(() => useReaderScrollSync(props))
+
+    expect(updateProgress).toHaveBeenCalledTimes(1)
+    // (progress, page, scrollLocator, chapterId, chapterSlug)
+    expect(updateProgress).toHaveBeenCalledWith(0, undefined, 'scroll:ch1:0', 'ch1-id', 'ch1')
+  })
+
+  it('fires one userbook save when a chapter opens', () => {
+    const saveProgress = vi.fn()
+    const props: Props = {
+      ...baseProps,
+      mode: 'userbook',
+      publicBookChapters: undefined,
+      userProgress: { saveProgress, flushSave: vi.fn() },
+    }
+    renderHook(() => useReaderScrollSync(props))
+
+    expect(saveProgress).toHaveBeenCalledTimes(1)
+    expect(saveProgress).toHaveBeenCalledWith('ch1', 0, 0, 'scroll:ch1:0')
+  })
+
+  it('saves once per chapter on navigation (ch1 → ch2)', () => {
+    const updateProgress = vi.fn()
+    const props: Props = {
+      ...baseProps,
+      publicBookChapters: [
+        { id: 'ch1-id', slug: 'ch1' },
+        { id: 'ch2-id', slug: 'ch2' },
+      ] as any,
+      publicProgress: { updateProgress, flushSave: vi.fn() },
+    }
+    const { rerender } = renderHook((p: Props) => useReaderScrollSync(p), {
+      initialProps: props,
+    })
+    expect(updateProgress).toHaveBeenCalledTimes(1)
+    expect(updateProgress).toHaveBeenLastCalledWith(0, undefined, 'scroll:ch1:0', 'ch1-id', 'ch1')
+
+    rerender({ ...props, chapterIdentifier: 'ch2' })
+    expect(updateProgress).toHaveBeenCalledTimes(2)
+    expect(updateProgress).toHaveBeenLastCalledWith(0, undefined, 'scroll:ch2:0', 'ch2-id', 'ch2')
+  })
+
+  it('does not save before chapter is loaded', () => {
+    const updateProgress = vi.fn()
+    renderHook(() =>
+      useReaderScrollSync({
+        ...baseProps,
+        chapterLoaded: false,
+        publicProgress: { updateProgress, flushSave: vi.fn() },
+      }),
+    )
+    expect(updateProgress).not.toHaveBeenCalled()
+  })
+
+  // CLOBBER GUARD: the save-on-open must read scrollTop AFTER window.scrollTo restored it,
+  // never a transient 0. If it captured 0 here, the next load would restore to the top and the
+  // reader would silently lose their place. We make scrollTo actually move scrollingElement.scrollTop
+  // (jsdom's default scrollTo is a no-op) so the save reflects the RESTORED offset.
+  it('save-on-open captures the RESTORED offset, not a transient 0', () => {
+    const scrollEl = (document.scrollingElement || document.documentElement) as HTMLElement
+    Object.defineProperty(scrollEl, 'scrollTop', { value: 0, writable: true, configurable: true })
+    window.scrollTo = vi.fn((arg: any) => {
+      // Mirror real browser behaviour: scrollTo updates scrollTop synchronously.
+      ;(scrollEl as any).scrollTop = typeof arg === 'object' ? arg.top : arg
+    }) as unknown as typeof window.scrollTo
+
+    const updateProgress = vi.fn()
+    renderHook(() =>
+      useReaderScrollSync({
+        ...baseProps,
+        effectiveProgress: { locator: 'scroll:ch1:5000' },
+        publicProgress: { updateProgress, flushSave: vi.fn() },
+      }),
+    )
+
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 5000, behavior: 'instant' })
+    // The leak/clobber assertion: the open-save must record the RESTORED offset 5000, and must NEVER
+    // record a transient 0 for ch1 (a 0 here would persist top-of-chapter and lose the reader's place).
+    const locators = updateProgress.mock.calls.map(c => c[2] as string)
+    expect(locators).toContain('scroll:ch1:5000')
+    expect(locators).not.toContain('scroll:ch1:0')
+  })
+
+  // Re-render that does NOT change the chapter (e.g. overallProgress ticks) must not re-fire the
+  // open-save: exactly-once per opened chapter, else every render double-writes.
+  it('does not re-fire save-on-open on a same-chapter re-render', () => {
+    const updateProgress = vi.fn()
+    const props: Props = {
+      ...baseProps,
+      publicProgress: { updateProgress, flushSave: vi.fn() },
+    }
+    const { rerender } = renderHook((p: Props) => useReaderScrollSync(p), { initialProps: props })
+    expect(updateProgress).toHaveBeenCalledTimes(1)
+
+    // Same chapter, only overallProgress moved — open-save must stay armed-off.
+    rerender({ ...props, overallProgress: 0.42 })
+    expect(updateProgress).toHaveBeenCalledTimes(1)
+  })
+
+  // Re-arm guard: navigating away and BACK to the same chapter must save again (the once-guard is
+  // reset on chapter change), not stay permanently suppressed.
+  it('re-arms save-on-open when returning to a previously-opened chapter', () => {
+    const updateProgress = vi.fn()
+    const props: Props = {
+      ...baseProps,
+      publicBookChapters: [
+        { id: 'ch1-id', slug: 'ch1' },
+        { id: 'ch2-id', slug: 'ch2' },
+      ] as any,
+      publicProgress: { updateProgress, flushSave: vi.fn() },
+    }
+    const { rerender } = renderHook((p: Props) => useReaderScrollSync(p), { initialProps: props })
+    expect(updateProgress).toHaveBeenCalledTimes(1)
+
+    rerender({ ...props, chapterIdentifier: 'ch2' })
+    expect(updateProgress).toHaveBeenCalledTimes(2)
+
+    rerender({ ...props, chapterIdentifier: 'ch1' })
+    // Re-armed: a third write for ch1 (id + slug correct). Offset value isn't asserted here — it's
+    // exercised by the dedicated clobber test above; this case only proves the once-guard re-arms.
+    expect(updateProgress).toHaveBeenCalledTimes(3)
+    const last = updateProgress.mock.calls.at(-1)!
+    expect(last[3]).toBe('ch1-id')
+    expect(last[4]).toBe('ch1')
   })
 })
