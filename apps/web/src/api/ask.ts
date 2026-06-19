@@ -12,11 +12,12 @@ export function ask(
   question: string,
   k?: number,
   signal?: AbortSignal,
+  currentChapterId?: string,
 ): Promise<AskResponse> {
   return authFetch<AskResponse>(`/books/${editionId}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, k }),
+    body: JSON.stringify({ question, k, ...(currentChapterId ? { currentChapterId } : {}) }),
     signal,
   })
 }

@@ -31,18 +31,52 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
 
     /// <summary>
     /// Builds the spoiler-safe context. When the user has no progress (lastRead = 0) both lists
-    /// are empty — nothing is retrievable until they've read.
+    /// are empty — nothing is retrievable until they've read. Pass <paramref name="currentChapterId"/>
+    /// (the chapter open in the reader) to count it as read even before the debounced progress-save
+    /// persists; it's resolved to an ordinal server-side and ignored unless it belongs to this edition.
     /// </summary>
     public async Task<RagContext> BuildAsync(
-        Guid userId, Guid siteId, Guid editionId, string query, int k, CancellationToken ct)
+        Guid userId, Guid siteId, Guid editionId, string query, int k,
+        Guid? currentChapterId, CancellationToken ct)
     {
-        var lastRead = await ResolveLastReadOrdAsync(userId, siteId, editionId, ct);
+        var persistedLastRead = await ResolveLastReadOrdAsync(userId, siteId, editionId, ct);
+        var currentOrd = await ResolveCurrentChapterOrdAsync(editionId, currentChapterId, ct);
+
+        // The spoiler gate is an anti-accidental-spoiler UX guard, not a security boundary — the book
+        // is public/free and the reader can navigate ahead anyway. Counting the chapter they're
+        // actively viewing is correct and unblocks "ask about what I'm reading" without waiting on the
+        // 2s progress-sync debounce. We resolve the ordinal server-side (above) so a client can't
+        // claim a fake high ord; an id from another edition resolves to 0 and is ignored.
+        var lastRead = EffectiveLastReadOrd(persistedLastRead, currentOrd);
         if (lastRead <= 0)
             return new RagContext([], [], 0);
 
         var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: lastRead, ct);
         var notes = await GetPrivateNotesAsync(userId, siteId, editionId, lastRead, ct);
         return new RagContext(chunks, notes, lastRead);
+    }
+
+    /// <summary>
+    /// The gate ordinal: the larger of the persisted high-water mark and the currently-open chapter's
+    /// ordinal (0 when that chapter isn't part of this edition). Pure so it's directly unit-testable.
+    /// </summary>
+    public static int EffectiveLastReadOrd(int persistedLastRead, int currentOrd)
+        => Math.Max(persistedLastRead, currentOrd);
+
+    /// <summary>
+    /// Resolves the open chapter's ordinal authoritatively from the DB, but only if it belongs to this
+    /// edition (so a client can't pass a fake/foreign id to peek ahead). 0 when null or not matched.
+    /// </summary>
+    public async Task<int> ResolveCurrentChapterOrdAsync(
+        Guid editionId, Guid? currentChapterId, CancellationToken ct)
+    {
+        if (currentChapterId is not { } id)
+            return 0;
+
+        return await db.Chapters
+            .Where(c => c.Id == id && c.EditionId == editionId)
+            .Select(c => c.ChapterNumber)
+            .FirstOrDefaultAsync(ct);
     }
 
     /// <summary>

@@ -46,6 +46,16 @@ describe('useAsk', () => {
     expect(result.current.history[0].insufficient).toBe(true)
   })
 
+  it('forwards currentChapterId to the api when provided', async () => {
+    mockAsk.mockResolvedValueOnce({ answer: 'ok', citations: [], lastReadOrd: 0, insufficient: false })
+    const { result } = renderHook(() => useAsk('ed-1', 'chap-guid-4'))
+
+    await act(() => result.current.ask('why?'))
+
+    await waitFor(() => expect(mockAsk).toHaveBeenCalled())
+    expect(mockAsk).toHaveBeenCalledWith('ed-1', 'why?', undefined, expect.anything(), 'chap-guid-4')
+  })
+
   it('no-ops without an editionId', async () => {
     const { result } = renderHook(() => useAsk(undefined))
     await act(() => result.current.ask('why?'))

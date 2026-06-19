@@ -127,7 +127,7 @@ public static class AdminRagEndpoints
 
         var siteId = httpContext.GetSiteId();
         var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
-        var ctx = await ctxService.BuildAsync(userId, siteId, editionId, q, limit, ct);
+        var ctx = await ctxService.BuildAsync(userId, siteId, editionId, q, limit, currentChapterId: null, ct);
 
         return Results.Ok(new RagContextDto(
             ctx.LastReadOrd,

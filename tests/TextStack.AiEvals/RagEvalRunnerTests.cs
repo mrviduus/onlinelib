@@ -56,7 +56,7 @@ public class RagEvalRunnerTests
     /// <summary>Echoes back a one-citation answer pointing at the first supplied chunk.</summary>
     private sealed class FakeAsk : IRagAskService
     {
-        public Task<AskAnswer> AskAsync(Guid u, Guid s, Guid e, string q, int k, CancellationToken ct) =>
+        public Task<AskAnswer> AskAsync(Guid u, Guid s, Guid e, string q, int k, Guid? currentChapterId, CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task<AskAnswer> AskFromChunksAsync(
