@@ -151,9 +151,10 @@ public class RollingSpendTrackerTests
         var t = Build(out _, out var email, budgets: Budget("explain", 10m, BudgetMode.Fallback), clock: new FakeClock(Day1));
         Parallel.For(0, 200, _ => t.Record("explain", 0.1m)); // sums to $20, well over 80%
 
-        Thread.Sleep(100);
-        email.Verify(e => e.SendAdminAlertAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        // The alert email is fire-and-forget — poll (don't Thread.Sleep a fixed 100ms,
+        // which flakes on a slow CI runner before the dispatched Task runs).
+        Eventually(() => email.Verify(e => e.SendAdminAlertAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once));
     }
 
     [Fact]
