@@ -13,12 +13,10 @@ import { clip, upload, listReadLater, deleteClip, me, NotConnectedError } from "
 const MENU_PAGE = "textstack-clip-page";
 const MENU_SELECTION = "textstack-clip-selection";
 
-const DOC_EXTENSIONS = /\.(pdf|epub|fb2)(\?|#|$)/i;
+const DOC_EXTENSIONS = /\.(pdf|epub)(\?|#|$)/i;
 const DOC_CONTENT_TYPES = [
   "application/pdf",
   "application/epub+zip",
-  "application/x-fictionbook+xml",
-  "application/fb2",
 ];
 
 // ── lifecycle ────────────────────────────────────────────────────────────────
@@ -219,7 +217,7 @@ function filenameFromUrl(url) {
   try {
     const path = new URL(url).pathname;
     const base = decodeURIComponent(path.split("/").pop() || "");
-    if (base && /\.(pdf|epub|fb2)$/i.test(base)) return base;
+    if (base && /\.(pdf|epub)$/i.test(base)) return base;
     return base || "document";
   } catch {
     return "document";

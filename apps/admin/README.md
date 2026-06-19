@@ -31,7 +31,7 @@ src/
 |------|-------------|
 | Dashboard | Overview stats |
 | Books | Book listing + management |
-| Upload | Upload new EPUB/PDF/FB2 |
+| Upload | Upload new EPUB/PDF |
 | Ingestion Jobs | Monitor parsing jobs |
 | Authors | Author management |
 | Sites | Multi-site configuration |
@@ -47,7 +47,7 @@ pnpm preview  # Preview production build
 ## Features
 
 ### Book Upload
-- Drag & drop EPUB/PDF/FB2
+- Drag & drop EPUB/PDF
 - Metadata extraction
 - Ingestion job creation
 

@@ -1,6 +1,6 @@
 # TextStack Documentation
 
-Free book library with Kindle-like reader. EPUB/PDF/FB2 upload, parsing, SEO pages, and offline reading.
+Free book library with Kindle-like reader. EPUB/PDF upload, parsing, SEO pages, and offline reading.
 
 **Live**: [textstack.app](https://textstack.app/) (public) · [textstack.dev](https://textstack.dev/) (admin)
 

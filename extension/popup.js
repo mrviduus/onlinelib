@@ -228,7 +228,7 @@ $("btn-pv-send").addEventListener("click", async () => {
   }
 });
 
-// Send THIS tab's document (only visible when the tab is a PDF/EPUB/FB2).
+// Send THIS tab's document (only visible when the tab is a PDF/EPUB).
 $("btn-send-doc").addEventListener("click", async () => {
   clearToast();
   spinner(true);

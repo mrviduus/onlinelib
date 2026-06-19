@@ -1,18 +1,15 @@
-export const ACCEPTED_EXTENSIONS = ['epub', 'pdf', 'fb2', 'fb2.zip'] as const
+export const ACCEPTED_EXTENSIONS = ['epub', 'pdf'] as const
 
-export const ACCEPT_ATTR = '.epub,.pdf,.fb2,.fb2.zip'
+export const ACCEPT_ATTR = '.epub,.pdf'
 
 const MIME_HINTS: ReadonlyArray<string> = [
   'application/epub+zip',
   'application/pdf',
-  'application/x-fictionbook+xml',
-  'application/x-fictionbook',
   'application/zip',
 ]
 
 function getExt(name: string): string {
   const n = name.toLowerCase()
-  if (n.endsWith('.fb2.zip')) return 'fb2.zip'
   const idx = n.lastIndexOf('.')
   return idx === -1 ? '' : n.slice(idx + 1)
 }

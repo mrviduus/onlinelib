@@ -221,7 +221,6 @@ Ingestion is the “content factory”; we need high confidence here.
 - Curate a small set of public-domain fixtures:
   - 2–3 EPUBs (simple, complex)
   - 1 PDF (if PDF ingestion is supported)
-  - 1 FB2 (if supported)
 - Store fixtures in repo under `tests/fixtures/` (small size)
 
 **Golden master tests (snapshot)**

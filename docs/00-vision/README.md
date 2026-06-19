@@ -1,6 +1,6 @@
 # TextStack Vision
 
-Free book library with Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first reading sync.
+Free book library with Kindle-like reader. Upload EPUB/PDF → parse → SEO pages + offline-first reading sync.
 
 ## Core Principles
 
@@ -34,7 +34,7 @@ Free book library with Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO
 - Bookmarks and notes
 
 ### Admin
-- Upload books (EPUB/PDF/FB2)
+- Upload books (EPUB/PDF)
 - Edition management
 - Ingestion monitoring
 

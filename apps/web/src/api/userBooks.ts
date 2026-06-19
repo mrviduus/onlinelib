@@ -109,7 +109,7 @@ export async function uploadUserBook(
       if (xhr.status >= 200 && xhr.status < 300) {
         // GA4: conversion signal — users who upload their own book are far
         // more valuable than passive catalog readers. Derive format from
-        // extension since MIME for .fb2/.epub is inconsistent across browsers.
+        // extension since MIME for .epub is inconsistent across browsers.
         const ext = (file.name.split('.').pop() || '').toLowerCase()
         trackBookUploaded({ format: ext || 'unknown', sizeBytes: file.size })
         resolve(JSON.parse(xhr.responseText))

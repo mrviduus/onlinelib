@@ -76,7 +76,6 @@ public partial class AdminService
         {
             ".epub" => BookFormat.Epub,
             ".pdf" => BookFormat.Pdf,
-            ".fb2" => BookFormat.Fb2,
             _ => BookFormat.Other
         };
 

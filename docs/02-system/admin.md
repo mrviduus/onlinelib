@@ -40,7 +40,7 @@ POST /api/admin/auth/refresh
 ### Upload Books
 
 1. Select site
-2. Upload file (EPUB/PDF/FB2)
+2. Upload file (EPUB/PDF)
 3. Set language (EN, UK)
 4. Optional: link to existing Work (for translations)
 5. Submit → creates Edition + IngestionJob

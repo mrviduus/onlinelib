@@ -14,7 +14,7 @@ heuristics keep getting better and the Claude dependency keeps shrinking.
 
 ## Why
 
-PDF is the hard format. EPUB/FB2 carry publisher semantics (`<h2>`, `<p>`,
+PDF is the hard format. EPUB carries publisher semantics (`<h2>`, `<p>`,
 lists) → our extractors already produce ~90%. PDF carries only glyphs +
 geometry; structure must be reconstructed.
 
@@ -115,7 +115,7 @@ deps — a general-purpose document-AI tool, overweight for our narrow case
    `BookQualityJob` / `quality-poll.sh`, not a parallel system. Phase 3 runs
    after Phase 1-2 (structure fixes renumber chapters).
 
-4. **PDF-only.** EPUB/FB2 already carry semantics. Phase 3 skips non-PDF books
+4. **PDF-only.** EPUB already carries semantics. Phase 3 skips non-PDF books
    by source-format check.
 
 5. **Gated.** Only chapters the analyzer scores below threshold get a Claude

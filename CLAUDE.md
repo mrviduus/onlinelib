@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Free book library w/ Kindle-like reader. Upload EPUB/PDF/FB2 → parse → SEO pages + offline-first sync.
+Free book library w/ Kindle-like reader. Upload EPUB/PDF → parse → SEO pages + offline-first sync.
 
 **Live**: [textstack.app](https://textstack.app/) (public) · [textstack.dev](https://textstack.dev/) (admin)
 
@@ -116,7 +116,7 @@ API → Application → Domain ← Infrastructure
 - **Infrastructure**: EF Core (snake_case naming), storage implementations
 - **API/Worker**: Orchestration, DI
 
-**Backend class libraries** (`backend/src/`, beyond the layers above): `Extraction` (EPUB/PDF/FB2 parsers), `Search` (FTS providers), `Tts` (Edge TTS), `Vocabulary` (DistractorGenerator), `Epub` (`TextStack.Epub` — EPUB *builder*: `EpubBuilder`, `HtmlToXhtmlConverter`, used by export).
+**Backend class libraries** (`backend/src/`, beyond the layers above): `Extraction` (EPUB/PDF parsers), `Search` (FTS providers), `Tts` (Edge TTS), `Vocabulary` (DistractorGenerator), `Epub` (`TextStack.Epub` — EPUB *builder*: `EpubBuilder`, `HtmlToXhtmlConverter`, used by export).
 
 ### Shared Frontend Packages (`packages/`)
 
@@ -177,7 +177,7 @@ Context files: `apps/web/src/context/{Site,Auth,GuestLimits,NativeLanguage,Downl
 
 **Book Upload Flow**:
 ```
-Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
+Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
      → Worker polls → Extraction → Chapters created → search_vector indexed
 ```
 
@@ -309,7 +309,7 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | API Middleware | `backend/src/Api/Middleware/` |
 | API Entry | `backend/src/Api/Program.cs` |
 | Worker | `backend/src/Worker/Services/IngestionWorkerService.cs` |
-| Extraction | `backend/src/Extraction/` (EPUB/PDF/FB2 parsers) |
+| Extraction | `backend/src/Extraction/` (EPUB/PDF parsers) |
 | Search | `backend/src/Search/TextStack.Search/Providers/PostgresFts/PostgresSearchProvider.cs` |
 | DB Context | `backend/src/Infrastructure/Persistence/AppDbContext.cs` |
 | Web Contexts | `apps/web/src/context/` |
@@ -335,7 +335,6 @@ Upload EPUB/PDF/FB2 → BookFile (stored) → IngestionJob (queued)
 | TTS Hook | `apps/web/src/hooks/useTts.ts` |
 | TTS E2E | `apps/web/e2e/tests/tts.spec.ts` |
 | Meilisearch | `backend/src/Search/TextStack.Search.Meilisearch/` |
-| FB2 Extractor | `backend/src/Extraction/TextStack.Extraction/Extractors/Fb2TextExtractor.cs` |
 | Book Metadata | `backend/src/Worker/Services/BookMetadataGenerator.cs` |
 | Auto Publish API | `backend/src/Api/Endpoints/AdminAutoPublishEndpoints.cs` |
 | Auto Publish Entity | `backend/src/Domain/Entities/AutoPublishJob.cs` |
@@ -390,7 +389,7 @@ After schema changes:
 tests/
 ├── TextStack.UnitTests/           # Pure logic, no DB
 ├── TextStack.IntegrationTests/    # API tests against running server (LiveApiFixture → localhost:8080, override via API_URL env)
-├── TextStack.Extraction.Tests/    # Book parsing (EPUB/PDF/FB2)
+├── TextStack.Extraction.Tests/    # Book parsing (EPUB/PDF)
 ├── TextStack.Search.Tests/        # Search logic
 ├── TextStack.LoadTests/           # Load tests — auto-skipped by .runsettings on `dotnet test`
 apps/web/e2e/                      # Playwright E2E (chromium, mobile, admin projects) — 11 specs
@@ -470,9 +469,7 @@ Docker services: `db` (postgres:16), `migrator`, `api`, `worker`, `admin`, `ssg-
 
 ## Extraction Pipeline
 
-Supported formats: EPUB, PDF, FB2. Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
-
-FB2 (`Fb2TextExtractor`): XML-based FictionBook 2.0. Cover from binary elements, metadata extraction, chapter flattening, namespace detection for non-compliant files.
+Supported formats: EPUB, PDF. Processing order: Spelling → Hyphenation → Typography → Semantic → Linter. Details in `backend/src/Extraction/TextStack.Extraction/RULES.md`. ARM64 caveat: uses compiled `Regex` not `[GeneratedRegex]` (SIGILL bug).
 
 ## MCP Server (`backend/src/Ai/TextStack.Ai.Mcp/`)
 

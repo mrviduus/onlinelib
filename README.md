@@ -97,7 +97,7 @@ out; only technical vocabulary gets surfaced.
 
 **Library**
 - 1,500+ curated technical and classic books (starter corpus, self-hostable)
-- Your own uploads — EPUB / PDF / FB2, auto-parsed with metadata enrichment
+- Your own uploads — EPUB / PDF, auto-parsed with metadata enrichment
 - **PDF content-quality pipeline** — heuristic extraction first (instant,
   readable), then a gated Claude pass cleans flagged chapters in the
   background (running headers, fragmented paragraphs, line-wrap hyphens).

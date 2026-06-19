@@ -55,8 +55,8 @@ export function UploadDropZone() {
   }, [])
 
   const subtitle = quota
-    ? `EPUB, PDF, or FB2 — ${formatBytes(quota.usedBytes)} of ${formatBytes(quota.limitBytes)} used`
-    : 'EPUB, PDF, or FB2'
+    ? `EPUB or PDF — ${formatBytes(quota.usedBytes)} of ${formatBytes(quota.limitBytes)} used`
+    : 'EPUB or PDF'
 
   return (
     <>

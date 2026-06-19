@@ -17,7 +17,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         // Detect format
         var format = DetectFormat(fileName);
         if (format == BookFormat.Other)
-            return (null, "Unsupported file format. Only EPUB, PDF, and FB2 are supported.");
+            return (null, "Unsupported file format. Only EPUB and PDF are supported.");
 
         using var ms = new MemoryStream();
         await fileStream.CopyToAsync(ms, ct);
@@ -594,7 +594,6 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         {
             ".epub" => BookFormat.Epub,
             ".pdf" => BookFormat.Pdf,
-            ".fb2" => BookFormat.Fb2,
             _ => BookFormat.Other
         };
     }

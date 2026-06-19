@@ -9,7 +9,7 @@
       "subtitleAfter": "— stay in flow, finish the book.",
       "brandLine": "TextStack — a reader for developers, students, and curious minds.",
       "seoTitle": "TextStack — A reader that helps you finish dense books",
-      "seoDescription": "Finish the tech book, paper, or classic you keep quitting. Contextual word explanations tied to the book's domain. Capped weekly SRS, offline reading. EPUB, PDF, FB2.",
+      "seoDescription": "Finish the tech book, paper, or classic you keep quitting. Contextual word explanations tied to the book's domain. Capped weekly SRS, offline reading. EPUB, PDF.",
       "description": "TextStack is a reader for dense tech books, papers, and literary classics. Contextual word explanations tied to the book's domain, a capped weekly SRS queue, and detailed reading stats — all in one place.",
       "cta": "Browse catalog",
       "ctaPrimary": "Start reading",
@@ -56,7 +56,7 @@
       },
       "upload": {
         "title": "Your own books",
-        "description": "Upload EPUB, PDF, or FB2. Read your books with the full TextStack Reader toolkit."
+        "description": "Upload EPUB or PDF. Read your books with the full TextStack Reader toolkit."
       },
       "stats": {
         "title": "Reading stats",
@@ -138,7 +138,7 @@
       },
       "uploadBooks": {
         "q": "Can I upload my own books?",
-        "a": "Absolutely. Upload EPUB, PDF, or FB2 files and read them with the full TextStack toolkit — translation, flashcards, TTS, and progress tracking."
+        "a": "Absolutely. Upload EPUB or PDF files and read them with the full TextStack toolkit — translation, flashcards, TTS, and progress tracking."
       },
       "srsCards": {
         "q": "How do the SRS flashcards work?",
@@ -495,11 +495,11 @@
     "processing": "Processing...",
     "failed": "Failed",
     "noUploads": "No uploaded books yet.",
-    "uploadHint": "Click the + button to upload EPUB, PDF or FB2 files.",
+    "uploadHint": "Click the + button to upload EPUB or PDF files.",
     "empty": {
       "uploads": {
         "title": "Drop your first book here",
-        "subtitle": "EPUB, PDF, or FB2",
+        "subtitle": "EPUB or PDF",
         "cta": "Or browse files",
         "shortcut": "or press ⌘U from anywhere"
       }
@@ -763,10 +763,10 @@
       "hint": "Upload book (⌘U)"
     },
     "dropzone": {
-      "title": "Drop EPUB, PDF or FB2 here",
+      "title": "Drop EPUB or PDF here",
       "browse": "or click to browse",
-      "subtitle": "EPUB, PDF, or FB2",
-      "invalid": "Unsupported file. Use EPUB, PDF or FB2.",
+      "subtitle": "EPUB or PDF",
+      "invalid": "Unsupported file. Use EPUB or PDF.",
       "signinRequired": "Sign in to upload books",
       "signinAction": "Sign in"
     },

@@ -32,7 +32,7 @@
 
 ## Completed (MVP - Dec 2024)
 
-- [x] Core library (upload EPUB/PDF/FB2 → parse → serve)
+- [x] Core library (upload EPUB/PDF → parse → serve)
 - [x] Kindle-like reader (settings, pagination, keyboard)
 - [x] Multisite (textstack.app + textstack.dev)
 - [x] PostgreSQL full-text search + fuzzy matching

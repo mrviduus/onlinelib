@@ -106,7 +106,7 @@ public record ChapterPreviewDto(int ChapterNumber, string Title, string Preview,
 /// </summary>
 public partial class AdminService(IAppDbContext db, IFileStorageService storage, ISearchIndexer searchIndexer, SsgRebuildService ssgRebuildService, UserBookService userBookService)
 {
-    private static readonly string[] AllowedExtensions = [".epub", ".pdf", ".fb2"];
+    private static readonly string[] AllowedExtensions = [".epub", ".pdf"];
     private const long MaxFileSize = 100 * 1024 * 1024;
 
     private async Task EnqueueSsgSafe(Guid siteId, string[]? bookSlugs = null, string[]? authorSlugs = null, string[]? genreSlugs = null)
