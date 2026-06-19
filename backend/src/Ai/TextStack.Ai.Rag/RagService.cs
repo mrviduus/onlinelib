@@ -36,27 +36,12 @@ public sealed class RagService : IRagService
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
-        // No gate-value short-circuit: `null` means "no gate" (ungated full-book retrieval — the tool
-        // path for anonymous users), and a non-null ordinal — INCLUDING 0 — is a real spoiler ceiling
-        // that flows to the SQL gate (`chapter_ord <= @maxChapterOrd`, correct for 0 since catalog
-        // chapters are 0-based). The previous `<= 0` short-circuit wrongly treated ord-0 (a read first
-        // chapter) as "nothing read". The authenticated RAG path null-guards "no progress" upstream in
-        // RagContextService, so retrieve is never asked to surface a whole book for a non-reader there.
-        if (k <= 0)
-            k = IRagService.DefaultK;
 
-        var queryVector = await _embedder.EmbedAsync(query, ct);
-        var vectorLiteral = FormatVector(queryVector);
-        var pool = Math.Max(k, MinCandidatePool);
-
-        // Two retrievers in one round-trip, each spoiler-gated in its own WHERE (AI-024 — hard SQL
-        // filter, never a prompt instruction; null @maxChapterOrd = no gate):
+        // Two retrievers in one round-trip over chapter_chunk, each spoiler-gated in its own WHERE
+        // (AI-024 — hard SQL filter, never a prompt instruction; null @maxChapterOrd = no gate):
         //  1. Semantic — cosine NN over the embedding (skips not-yet-embedded chunks).
-        //  2. Lexical  — ts_rank_cd over the generated search_vector. websearch_to_tsquery parses the
-        //     raw question; a stopword-only query yields an empty tsquery → zero lexical rows → the
-        //     fusion degrades to vector-only. Lexical does NOT require an embedding, so it still
-        //     retrieves before the batch embedder has filled vectors in.
-        const string sql = """
+        //  2. Lexical  — ts_rank_cd over the generated search_vector (no embedding required).
+        const string vectorSql = """
             SELECT id            AS ChunkId,
                    chapter_id    AS ChapterId,
                    chapter_ord   AS ChapterOrd,
@@ -71,7 +56,9 @@ public sealed class RagService : IRagService
               AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
             ORDER BY embedding <=> CAST(@q AS vector)
             LIMIT @pool;
+            """;
 
+        const string lexicalSql = """
             SELECT id            AS ChunkId,
                    chapter_id    AS ChapterId,
                    chapter_ord   AS ChapterOrd,
@@ -88,11 +75,49 @@ public sealed class RagService : IRagService
             LIMIT @pool;
             """;
 
+        return await RetrieveHybridAsync(
+            query, k,
+            vectorSql + "\n\n" + lexicalSql,
+            withVector => new { q = withVector.Vector, query, editionId, pool = withVector.Pool, maxChapterOrd },
+            ct);
+    }
+
+    public async Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
+        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        return await RetrieveHybridAsync(
+            query, k,
+            BuildUserBookSql(),
+            withVector => new { q = withVector.Vector, query, userId, userBookId, pool = withVector.Pool, maxChapterOrd },
+            ct);
+    }
+
+    /// <summary>
+    /// Shared hybrid retrieval: embeds the query, runs the two given retrievers (vector NN + lexical
+    /// FTS, in one round-trip), fuses them with RRF, and materializes the top-k. The two callers only
+    /// differ in table + WHERE filter (catalog edition vs isolated user book), supplied via
+    /// <paramref name="sql"/> and <paramref name="parameters"/> — so RRF, the pgvector literal format,
+    /// pool sizing, and the timeout stay identical between paths.
+    /// </summary>
+    private async Task<IReadOnlyList<RetrievedChunk>> RetrieveHybridAsync(
+        string query, int k, string sql,
+        Func<(string Vector, int Pool), object> parameters, CancellationToken ct)
+    {
+        if (k <= 0)
+            k = IRagService.DefaultK;
+
+        var queryVector = await _embedder.EmbedAsync(query, ct);
+        var vectorLiteral = FormatVector(queryVector);
+        var pool = Math.Max(k, MinCandidatePool);
+
         using var connection = _connectionFactory();
         using var multi = await connection.QueryMultipleAsync(
             new CommandDefinition(
                 sql,
-                new { q = vectorLiteral, query, editionId, pool, maxChapterOrd },
+                parameters((vectorLiteral, pool)),
                 cancellationToken: ct,
                 commandTimeout: QueryTimeoutSeconds));
 
@@ -115,7 +140,7 @@ public sealed class RagService : IRagService
             .Select(f =>
             {
                 var r = byId[f.Item];
-                // Score is now the RRF fusion score (not cosine) — see RetrievedChunk.Score.
+                // Score is the RRF fusion score (not cosine) — see RetrievedChunk.Score.
                 return new RetrievedChunk(
                     r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, f.Score);
             })
@@ -134,6 +159,55 @@ public sealed class RagService : IRagService
         public int CharStart { get; init; }
         public int CharEnd { get; init; }
         public double Score { get; init; }
+    }
+
+    /// <summary>
+    /// The two-statement hybrid SQL for USER-book retrieval over the isolated <c>user_chapter_chunk</c>
+    /// table. Both retrievers (vector NN + lexical FTS) filter on BOTH <c>user_id</c> AND
+    /// <c>user_book_id</c> — a user must NEVER retrieve another user's chunks (per-user isolation,
+    /// defense in depth; user_id is the denormalized owner). <c>user_chapter_id</c> is surfaced as
+    /// ChapterId for reader deep-links. <c>public static</c> so the isolation invariant (both filters
+    /// present) is unit-testable without a live pgvector connection.
+    /// </summary>
+    public static string BuildUserBookSql()
+    {
+        const string vectorSql = """
+            SELECT id              AS ChunkId,
+                   user_chapter_id AS ChapterId,
+                   chapter_ord     AS ChapterOrd,
+                   ord             AS Ord,
+                   text            AS Text,
+                   char_start      AS CharStart,
+                   char_end        AS CharEnd,
+                   1 - (embedding <=> CAST(@q AS vector)) AS Score
+            FROM user_chapter_chunk
+            WHERE user_id = @userId
+              AND user_book_id = @userBookId
+              AND embedding IS NOT NULL
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+            ORDER BY embedding <=> CAST(@q AS vector)
+            LIMIT @pool;
+            """;
+
+        const string lexicalSql = """
+            SELECT id              AS ChunkId,
+                   user_chapter_id AS ChapterId,
+                   chapter_ord     AS ChapterOrd,
+                   ord             AS Ord,
+                   text            AS Text,
+                   char_start      AS CharStart,
+                   char_end        AS CharEnd,
+                   ts_rank_cd(search_vector, tsq) AS Score
+            FROM user_chapter_chunk, websearch_to_tsquery('english', @query) AS tsq
+            WHERE user_id = @userId
+              AND user_book_id = @userBookId
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+              AND search_vector @@ tsq
+            ORDER BY Score DESC
+            LIMIT @pool;
+            """;
+
+        return vectorSql + "\n\n" + lexicalSql;
     }
 
     /// <summary>

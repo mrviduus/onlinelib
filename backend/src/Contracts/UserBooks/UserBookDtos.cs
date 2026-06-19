@@ -45,7 +45,11 @@ public record UserBookDetailDto(
     IReadOnlyList<TocEntryDto>? Toc,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? CompletedAt
+    DateTimeOffset? CompletedAt,
+    // Phase 2 on-demand RAG index state (mirrors the catalog BookDetailDto).
+    string RagStatus,
+    int RagChunkCount,
+    int RagEmbeddedCount
 );
 
 public record UserChapterSummaryDto(

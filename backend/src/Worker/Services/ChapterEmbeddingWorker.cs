@@ -31,6 +31,7 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
     // Chunks that fail even per-item are parked in-memory so they don't re-appear at the head
     // of every batch (oldest-first) and force the whole backlog through the slow per-item path.
     private readonly HashSet<Guid> _poisoned = [];
+    private readonly HashSet<Guid> _poisonedUser = [];
 
     public ChapterEmbeddingWorker(
         IDbContextFactory<AppDbContext> dbFactory,
@@ -61,7 +62,10 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
         {
             try
             {
+                // One OpenAI drain across both corpora: catalog chunks first, then user-book chunks.
+                // Keeping a single worker (not a second one) preserves the rate-limited consumer.
                 var processed = await EmbedNextBatchAsync(embedder, stoppingToken);
+                processed += await EmbedNextUserBatchAsync(embedder, stoppingToken);
                 await Task.Delay(processed == 0 ? IdlePoll : InterBatchDelay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -119,6 +123,110 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
         await RecomputeFullyEmbeddedEditionsAsync(db, touchedEditions, ct);
 
         return batch.Count;
+    }
+
+    /// <summary>
+    /// Phase 2: the user-book analog of <see cref="EmbedNextBatchAsync"/>. Drains
+    /// <c>user_chapter_chunk WHERE embedding IS NULL</c> in batches using the SAME embedder, then
+    /// updates each touched user book's <c>rag_embedded_count</c> and flips it Ready. No mean-pool
+    /// recompute (that's a catalog-only feature). Best-effort, mirrors the catalog resilience.
+    /// </summary>
+    private async Task<int> EmbedNextUserBatchAsync(IEmbeddingService embedder, CancellationToken ct)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var poisoned = _poisonedUser.ToList();
+        var batch = await db.UserChapterChunks
+            .Where(c => c.Embedding == null && !poisoned.Contains(c.Id))
+            .OrderBy(c => c.CreatedAt)
+            .Take(BatchSize)
+            .ToListAsync(ct);
+
+        if (batch.Count == 0)
+            return 0;
+
+        try
+        {
+            var vectors = await embedder.EmbedBatchAsync(batch.Select(c => c.Text).ToList(), ct);
+            AssignUserEmbeddings(batch, vectors);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Batch embed failed for {Count} user chunks; falling back to per-item.", batch.Count);
+            await EmbedUserPerItemAsync(embedder, batch, ct);
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var touchedBooks = batch.Select(c => c.UserBookId).Distinct().ToList();
+        await UpdateUserBookRagProgressAsync(db, touchedBooks, ct);
+
+        return batch.Count;
+    }
+
+    /// <summary>
+    /// For each touched user book, set <c>rag_embedded_count</c> to its current count of embedded
+    /// chunks; flip <c>rag_status</c> to Ready(2) with <c>rag_indexed_at = now()</c> when that equals
+    /// <c>rag_chunk_count</c> (and &gt; 0) — the same predicate as <c>RagIndexLogic.IsReady</c>.
+    /// Best-effort per book.
+    /// </summary>
+    private async Task UpdateUserBookRagProgressAsync(
+        AppDbContext db, IReadOnlyList<Guid> userBookIds, CancellationToken ct)
+    {
+        foreach (var userBookId in userBookIds)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE user_books b
+                    SET rag_embedded_count = sub.embedded,
+                        rag_status = CASE
+                            WHEN sub.embedded = b.rag_chunk_count AND b.rag_chunk_count > 0 THEN 2
+                            ELSE b.rag_status
+                        END,
+                        rag_indexed_at = CASE
+                            WHEN sub.embedded = b.rag_chunk_count AND b.rag_chunk_count > 0 THEN now()
+                            ELSE b.rag_indexed_at
+                        END
+                    FROM (
+                        SELECT count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded
+                        FROM user_chapter_chunk
+                        WHERE user_book_id = {userBookId}
+                    ) sub
+                    WHERE b.id = {userBookId};
+                    """, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to update RAG progress for user book {UserBookId}; will retry next batch.", userBookId);
+            }
+        }
+    }
+
+    private async Task EmbedUserPerItemAsync(IEmbeddingService embedder, List<UserChapterChunk> batch, CancellationToken ct)
+    {
+        foreach (var chunk in batch)
+        {
+            try
+            {
+                chunk.Embedding = await embedder.EmbedAsync(chunk.Text, ct);
+            }
+            catch (Exception ex)
+            {
+                _poisonedUser.Add(chunk.Id);
+                _logger.LogWarning(ex, "Failed to embed user chunk {ChunkId}; parked for this process lifetime.", chunk.Id);
+            }
+        }
+    }
+
+    /// <summary>Assigns a batch of vectors onto user chunks by position (order-preserving).</summary>
+    public static void AssignUserEmbeddings(IReadOnlyList<UserChapterChunk> chunks, IReadOnlyList<float[]> vectors)
+    {
+        if (vectors.Count != chunks.Count)
+            throw new InvalidOperationException($"Embedding count {vectors.Count} != user chunk count {chunks.Count}");
+        for (var i = 0; i < chunks.Count; i++)
+            chunks[i].Embedding = vectors[i];
     }
 
     /// <summary>

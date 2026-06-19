@@ -91,6 +91,9 @@ public partial class AppDbContext : DbContext, IAppDbContext
     // Phase 4 RAG. Intentionally not on IAppDbContext — retrieval uses raw Npgsql.
     public DbSet<ChapterChunk> ChapterChunks => Set<ChapterChunk>();
 
+    // Phase 2 on-demand RAG over user uploads. Isolated per-user table; not on IAppDbContext.
+    public DbSet<UserChapterChunk> UserChapterChunks => Set<UserChapterChunk>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

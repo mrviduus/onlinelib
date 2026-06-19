@@ -33,6 +33,10 @@ public class RagContextServiceTests
             if (maxChapterOrd is null) GateWasNullOnAnyCall = true;
             return Task.FromResult<IReadOnlyList<RetrievedChunk>>([]);
         }
+
+        public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<RetrievedChunk>>([]);
     }
 
     private static Mock<DbSet<T>> FakeSet<T>(List<T> data) where T : class

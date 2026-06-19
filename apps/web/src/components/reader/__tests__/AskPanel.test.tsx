@@ -6,21 +6,30 @@ vi.mock('../../../hooks/useTranslation', () => ({
 }))
 vi.mock('../../../hooks/useFocusTrap', () => ({ useFocusTrap: () => ({ current: null }) }))
 
-const { askState } = vi.hoisted(() => ({
+const { askState, useAskSpy } = vi.hoisted(() => ({
   askState: { history: [] as unknown[], isLoading: false, error: null as string | null, ask: vi.fn() },
+  useAskSpy: vi.fn(),
 }))
-vi.mock('../../../hooks/useAsk', () => ({ useAsk: () => askState }))
+vi.mock('../../../hooks/useAsk', () => ({
+  useAsk: (...args: unknown[]) => { useAskSpy(...args); return askState },
+}))
 
-const { ragState } = vi.hoisted(() => ({
+const { ragState, useRagIndexSpy } = vi.hoisted(() => ({
   ragState: { status: 'Ready', chunkCount: 0, embeddedCount: 0, preparing: false, prepare: vi.fn() },
+  useRagIndexSpy: vi.fn(),
 }))
-vi.mock('../../../hooks/useRagIndex', () => ({ useRagIndex: () => ragState }))
+vi.mock('../../../hooks/useRagIndex', () => ({
+  useRagIndex: (...args: unknown[]) => { useRagIndexSpy(...args); return ragState },
+}))
 
 import { AskPanel } from '../AskPanel'
+import type { AskTarget } from '../../../api/ask'
+
+const editionTarget: AskTarget = { kind: 'edition', id: 'ed-1' }
 
 const baseProps = {
   open: true,
-  editionId: 'ed-1',
+  askTarget: editionTarget,
   onSignIn: vi.fn(),
   onNavigateToCitation: vi.fn(),
   onClose: vi.fn(),
@@ -33,6 +42,8 @@ afterEach(() => {
   ragState.chunkCount = 0
   ragState.embeddedCount = 0
   ragState.prepare = vi.fn()
+  useAskSpy.mockReset()
+  useRagIndexSpy.mockReset()
 })
 
 describe('AskPanel', () => {
@@ -74,6 +85,13 @@ describe('AskPanel', () => {
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
     fireEvent.click(screen.getByText('reader.ask.indexRetry'))
     expect(prepare).toHaveBeenCalled()
+  })
+
+  it('threads a userbook askTarget through to both hooks (AI-027 P2)', () => {
+    const userTarget: AskTarget = { kind: 'userbook', id: 'ub-1', ragStatus: 'NotIndexed' }
+    render(<AskPanel {...baseProps} askTarget={userTarget} isAuthenticated={true} />)
+    expect(useRagIndexSpy).toHaveBeenCalledWith(userTarget)
+    expect(useAskSpy).toHaveBeenCalledWith(userTarget, undefined)
   })
 
   it('renders a citation chip and navigates on click', () => {

@@ -38,6 +38,10 @@ public class RagEvalRunnerTests
 
         private static Task<IReadOnlyList<RetrievedChunk>> Ok(RetrievedChunk c) =>
             Task.FromResult<IReadOnlyList<RetrievedChunk>>([c]);
+
+        public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 
     /// <summary>Whiffs recall (wrong chapter) and leaks every gate (returns a chunk past it).</summary>
@@ -51,6 +55,10 @@ public class RagEvalRunnerTests
             var chunk = new RetrievedChunk(Guid.NewGuid(), Guid.NewGuid(), ord, 0, "irrelevant", 0, 10, 0.0);
             return Task.FromResult<IReadOnlyList<RetrievedChunk>>([chunk]);
         }
+
+        public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 
     /// <summary>Echoes back a one-citation answer pointing at the first supplied chunk.</summary>

@@ -48,7 +48,8 @@ public class MetadataService(IAppDbContext db)
             book.Chapters.OrderBy(c => c.ChapterNumber).Select(c =>
                 new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount)).ToList(),
             null,
-            book.CreatedAt, book.UpdatedAt, book.CompletedAt);
+            book.CreatedAt, book.UpdatedAt, book.CompletedAt,
+            book.RagStatus.ToString(), book.RagChunkCount, book.RagEmbeddedCount);
 
         return (dto, null);
     }

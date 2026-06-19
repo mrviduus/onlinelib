@@ -266,6 +266,9 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.CreatedAt,
                 b.UpdatedAt,
                 b.CompletedAt,
+                b.RagStatus,
+                b.RagChunkCount,
+                b.RagEmbeddedCount,
                 Chapters = b.Chapters
                     .OrderBy(c => c.ChapterNumber)
                     .Select(c => new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
@@ -306,7 +309,10 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             toc,
             book.CreatedAt,
             book.UpdatedAt,
-            book.CompletedAt
+            book.CompletedAt,
+            book.RagStatus.ToString(),
+            book.RagChunkCount,
+            book.RagEmbeddedCount
         );
     }
 
