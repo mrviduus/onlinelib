@@ -6,128 +6,296 @@
     <title>TextStack — Save to read later</title>
     <style>
       :root {
-        --bg: #ffffff;
-        --fg: #111827;
-        --muted: #6b7280;
-        --border: #e5e7eb;
-        --accent: #2563eb;
-        --accent-fg: #ffffff;
+        --bg: #fafafa;
+        --surface: #ffffff;
+        --bg-secondary: #f1f5f9;
+        --text: #111827;
+        --text-secondary: #64748b;
+        --border: #e2e8f0;
+        --brand: #c4704b;
+        --brand-hover: #a85a3a;
+        --brand-soft: rgba(196, 112, 75, 0.1);
         --ok: #047857;
         --err: #b91c1c;
+        --radius: 8px;
       }
+      /* Follow the OS/browser theme, using the TextStack site's dark tokens — so
+         when the user's system is dark, the popup is dark too (matches the app). */
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #0f172a;
-          --fg: #f1f5f9;
-          --muted: #94a3b8;
+          --bg: #0a0a0a;
+          --surface: #1e1e1e;
+          --bg-secondary: #1e1e1e;
+          --text: #f1f5f9;
+          --text-secondary: #94a3b8;
           --border: #1e293b;
-          --accent: #3b82f6;
+          --brand: #d08762;
+          --brand-hover: #c4704b;
+          --brand-soft: rgba(208, 135, 98, 0.12);
+          --ok: #34d399;
+          --err: #f87171;
         }
       }
       * { box-sizing: border-box; }
       body {
         width: 340px;
         margin: 0;
-        font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         background: var(--bg);
-        color: var(--fg);
+        color: var(--text);
       }
+
+      /* ── header ── */
       header {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 12px 14px;
+        background: var(--surface);
         border-bottom: 1px solid var(--border);
       }
-      header img { width: 20px; height: 20px; }
-      header b { font-size: 14px; }
-      header .email { margin-left: auto; color: var(--muted); font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      main { padding: 14px; }
-      button {
+      header img { width: 22px; height: 22px; border-radius: 5px; }
+      .wordmark {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--text);
+      }
+      header .email {
+        margin-left: auto;
+        color: var(--text-secondary);
+        font-size: 11px;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      main { padding: 10px 12px; }
+
+      /* ── toast ── */
+      .toast {
+        padding: 9px 11px;
+        border-radius: var(--radius);
+        margin-bottom: 10px;
+        font-size: 12px;
+      }
+      .toast.ok { background: rgba(4, 120, 87, 0.1); color: var(--ok); }
+      .toast.err { background: rgba(185, 28, 28, 0.1); color: var(--err); }
+
+      /* ── primary button ── */
+      .btn-primary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         width: 100%;
-        padding: 9px 12px;
-        margin-bottom: 8px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--bg);
-        color: var(--fg);
-        font-size: 13px;
+        padding: 11px 12px;
+        border: none;
+        border-radius: var(--radius);
+        background: var(--brand);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
         cursor: pointer;
       }
-      button:hover { border-color: var(--accent); }
-      button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-      button:disabled { opacity: 0.6; cursor: default; }
-      .row { display: flex; gap: 8px; }
-      .row button { margin-bottom: 0; }
-      .muted { color: var(--muted); font-size: 12px; }
-      .hidden { display: none !important; }
-      .toast { padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
-      .toast.ok { background: rgba(4,120,87,0.12); color: var(--ok); }
-      .toast.err { background: rgba(185,28,28,0.12); color: var(--err); }
-      label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 3px; }
-      input, textarea {
+      .btn-primary:hover { background: var(--brand-hover); }
+      .btn-primary:disabled { opacity: 0.55; cursor: default; }
+      .btn-primary .ico { width: 16px; height: 16px; stroke: #fff; }
+
+      /* ── action rows (Kindle-style menu) ── */
+      .actions { margin-top: 6px; }
+      .action-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         width: 100%;
-        padding: 7px 9px;
+        padding: 9px 8px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 6px;
+      }
+      .action-row:hover { background: var(--bg-secondary); }
+      .action-row:disabled {
+        color: var(--text-secondary);
+        opacity: 0.55;
+        cursor: default;
+      }
+      .action-row:disabled:hover { background: transparent; }
+      .action-row .ico {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 17px;
+        stroke: var(--text-secondary);
+        fill: none;
+      }
+      .action-row .label { flex: 1; }
+      .action-row .hint { color: var(--text-secondary); font-size: 11px; }
+
+      .sep { height: 1px; background: var(--border); margin: 6px 4px; }
+
+      /* ── disconnected ── */
+      .intro { color: var(--text-secondary); font-size: 12px; margin: 4px 4px 12px; }
+      .hint-text { color: var(--text-secondary); font-size: 11px; margin: 10px 4px 0; }
+
+      /* ── preview & edit form ── */
+      label { display: block; font-size: 11px; color: var(--text-secondary); margin: 8px 2px 3px; }
+      input,
+      textarea {
+        width: 100%;
+        padding: 8px 9px;
         border: 1px solid var(--border);
         border-radius: 6px;
-        background: var(--bg);
-        color: var(--fg);
+        background: var(--surface);
+        color: var(--text);
         font: inherit;
       }
-      textarea { resize: vertical; min-height: 70px; }
+      input:focus,
+      textarea:focus { outline: none; border-color: var(--brand); }
       .preview {
         max-height: 130px;
         overflow: auto;
         border: 1px solid var(--border);
         border-radius: 6px;
+        background: var(--surface);
         padding: 8px;
         font-size: 12px;
-        margin-top: 6px;
+        margin-top: 4px;
       }
-      .recent { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
-      .recent h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 6px; }
-      .clip { display: flex; flex-direction: column; padding: 5px 0; border-bottom: 1px solid var(--border); }
-      .clip a { color: var(--fg); text-decoration: none; font-size: 12px; font-weight: 500; }
-      .clip a:hover { color: var(--accent); }
-      .clip small { color: var(--muted); font-size: 10px; }
-      .spinner { text-align: center; color: var(--muted); padding: 14px; }
-      footer { padding: 8px 14px; border-top: 1px solid var(--border); }
-      footer a { color: var(--muted); font-size: 11px; text-decoration: none; }
+      .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+      .form-actions .btn-primary { flex: 1; }
+      .btn-quiet {
+        flex: 1;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+      .btn-quiet:hover { background: var(--bg-secondary); }
+
+      /* ── success ── */
+      .success-actions { display: flex; gap: 8px; margin-top: 4px; }
+      .success-actions > * { flex: 1; }
+
+      /* ── recent clips ── */
+      .recent { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+      .recent h3 {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin: 0 0 4px;
+        padding: 0 4px;
+      }
+      .recent-list { max-height: 168px; overflow: auto; }
+      .clip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 4px;
+        border-radius: 6px;
+      }
+      .clip:hover { background: var(--bg-secondary); }
+      .clip-main { flex: 1; min-width: 0; cursor: pointer; }
+      .clip-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .clip-main:hover .clip-title { color: var(--brand); }
+      .clip-meta { display: block; font-size: 10px; color: var(--text-secondary); }
+      .clip-del {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .clip-del:hover { background: rgba(185, 28, 28, 0.1); color: var(--err); }
+
+      .spinner { text-align: center; color: var(--text-secondary); padding: 16px; font-size: 12px; }
+
+      footer {
+        padding: 9px 14px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+      }
+      footer a { color: var(--text-secondary); font-size: 11px; text-decoration: none; }
+      footer a:hover { color: var(--brand); }
+
+      .hidden { display: none !important; }
     </style>
   </head>
   <body>
     <header>
       <img src="icons/icon-32.png" alt="" />
-      <b>TextStack</b>
+      <span class="wordmark">TextStack</span>
       <span class="email" id="email"></span>
     </header>
 
     <main>
       <div id="toast" class="toast hidden"></div>
 
-      <!-- disconnected -->
+      <!-- ── disconnected ── -->
       <section id="view-disconnected" class="hidden">
-        <p class="muted">Connect this extension to your TextStack account to clip pages and send documents.</p>
-        <button class="primary" id="btn-connect">Connect to TextStack</button>
-        <p class="muted" id="connect-hint"></p>
+        <p class="intro">Connect this extension to your TextStack account to clip pages and send documents.</p>
+        <button class="btn-primary" id="btn-connect">Connect to TextStack</button>
+        <p class="hint-text" id="connect-hint"></p>
       </section>
 
-      <!-- article capture -->
-      <section id="view-article" class="hidden">
-        <button class="primary" id="btn-clip">Clip this page</button>
-        <div class="row">
-          <button id="btn-preview">Preview &amp; edit</button>
-          <button id="btn-selection">Selection</button>
+      <!-- ── connected: actions ── -->
+      <section id="view-actions" class="hidden">
+        <button class="btn-primary" id="btn-clip">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+          Clip this page
+        </button>
+
+        <div class="actions">
+          <button class="action-row" id="btn-preview">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span class="label">Preview &amp; edit</span>
+          </button>
+
+          <button class="action-row" id="btn-selection">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 12h8"/></svg>
+            <span class="label">Send selection</span>
+          </button>
+
+          <div class="sep"></div>
+
+          <!-- shown only when the current tab itself is a document -->
+          <button class="action-row hidden" id="btn-send-doc">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span class="label">Send this document</span>
+          </button>
+
+          <button class="action-row" id="btn-pick-file">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="label">Send a document…</span>
+            <span class="hint">PDF · EPUB · FB2</span>
+          </button>
+          <input type="file" id="file-input" accept=".pdf,.epub,.fb2" class="hidden" />
         </div>
       </section>
 
-      <!-- document capture -->
-      <section id="view-document" class="hidden">
-        <p class="muted">This looks like a document (PDF/EPUB/FB2).</p>
-        <button class="primary" id="btn-send-doc">Send document</button>
-      </section>
-
-      <!-- preview & edit -->
+      <!-- ── preview & edit ── -->
       <section id="view-preview" class="hidden">
         <label for="pv-title">Title</label>
         <input id="pv-title" type="text" />
@@ -135,28 +303,30 @@
         <input id="pv-author" type="text" />
         <label>Cleaned content</label>
         <div class="preview" id="pv-content"></div>
-        <div class="row" style="margin-top: 10px">
-          <button id="btn-pv-cancel">Cancel</button>
-          <button class="primary" id="btn-pv-send">Send clip</button>
+        <div class="form-actions">
+          <button class="btn-quiet" id="btn-pv-cancel">Cancel</button>
+          <button class="btn-primary" id="btn-pv-send">Send clip</button>
         </div>
       </section>
 
-      <!-- success -->
+      <!-- ── success ── -->
       <section id="view-success" class="hidden">
         <div class="toast ok">Saved to your Read-later shelf.</div>
-        <div class="row">
-          <button class="primary" id="btn-open-reader">Open in reader</button>
-          <button id="btn-open-library">My library</button>
+        <div class="success-actions">
+          <button class="btn-primary" id="btn-open-reader">Open in reader</button>
+          <button class="btn-quiet" id="btn-open-library">My library</button>
         </div>
-        <button id="btn-done" style="margin-top: 8px">Clip something else</button>
+        <button class="action-row" id="btn-done" style="margin-top: 6px; justify-content: center">
+          Clip something else
+        </button>
       </section>
 
       <div id="spinner" class="spinner hidden">Working…</div>
 
-      <!-- recent clips -->
+      <!-- ── recent clips ── -->
       <div class="recent hidden" id="recent">
         <h3>Recent clips</h3>
-        <div id="recent-list"></div>
+        <div class="recent-list" id="recent-list"></div>
       </div>
     </main>
 

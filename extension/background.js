@@ -8,7 +8,7 @@
 // so it holds no long-lived in-memory state (flow state is in chrome.storage.local).
 
 import { POLL_ALARM, pollOnce, startDeviceFlow, isConnected, disconnect, getTokens } from "./lib/auth.js";
-import { clip, upload, listReadLater, me, NotConnectedError } from "./lib/api.js";
+import { clip, upload, listReadLater, deleteClip, me, NotConnectedError } from "./lib/api.js";
 
 const MENU_PAGE = "textstack-clip-page";
 const MENU_SELECTION = "textstack-clip-selection";
@@ -70,6 +70,10 @@ async function handleMessage(msg) {
       const tab = await activeTab();
       return { kind: await detectPageType(tab), url: tab?.url, title: tab?.title };
     }
+    case "hasSelection": {
+      const tab = await activeTab();
+      return { hasSelection: await hasSelection(tab) };
+    }
     case "extract": {
       const tab = await activeTab();
       return extractFromTab(tab, msg.mode || "page");
@@ -84,8 +88,14 @@ async function handleMessage(msg) {
       const tab = await activeTab();
       return sendDocument(tab);
     }
+    case "uploadFile":
+      return uploadPickedFile(msg.file);
     case "recent":
       return listReadLater();
+    case "delete": {
+      await deleteClip(msg.id);
+      return { deleted: true };
+    }
     case "me":
       return me();
     default:
@@ -124,6 +134,22 @@ async function detectPageType(tab) {
     /* HEAD blocked (CORS/etc) → treat as article */
   }
   return "article";
+}
+
+// ── selection probe (for greying "Send selection" like Kindle) ───────────────
+
+async function hasSelection(tab) {
+  if (!tab || tab.id == null || !/^https?:/i.test(tab.url || "")) return false;
+  try {
+    const [{ result } = {}] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (window.getSelection()?.toString() || "").trim().length > 0,
+    });
+    return !!result;
+  } catch {
+    // Injection blocked (e.g. chrome:// or restricted page) → no selection.
+    return false;
+  }
 }
 
 // ── article extraction (inject readability + content, then call extractor) ────
@@ -169,6 +195,15 @@ async function sendDocument(tab) {
   const blob = await res.blob();
   const filename = filenameFromUrl(tab.url);
   const result = await upload(blob, filename);
+  notify("Document sent to TextStack");
+  return result;
+}
+
+/** Upload a file the user picked in the popup. `file` = { name, type, bytes:ArrayBuffer }. */
+async function uploadPickedFile(file) {
+  if (!file || !file.bytes) throw new Error("No file selected.");
+  const blob = new Blob([file.bytes], { type: file.type || "application/octet-stream" });
+  const result = await upload(blob, file.name || "document");
   notify("Document sent to TextStack");
   return result;
 }
