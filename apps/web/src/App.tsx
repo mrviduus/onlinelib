@@ -136,6 +136,10 @@ function AppRoutes() {
       {/* Device Authorization Grant consent (AI-050a) — MCP CLI points here at a
           fixed, language-less URL (/device?code=XXXX-XXXX), so mount top-level. */}
       <Route path="/device" element={<DeviceVerifyPage />} />
+      {/* "Send to TextStack" browser extension authorization (Phase 2) — reuses
+          the same device flow as /device, only the copy differs. The extension
+          hardcodes this stable, language-less URL (/connect-extension?code=…). */}
+      <Route path="/connect-extension" element={<DeviceVerifyPage audience="extension" />} />
       {/* Redirect legacy URLs without language prefix */}
       <Route path="/books/*" element={<LegacyRedirect />} />
       <Route path="/authors/*" element={<LegacyRedirect />} />
