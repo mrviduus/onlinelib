@@ -1,19 +1,29 @@
-// config.js — API origin resolution for the "Send to TextStack" extension.
+// config.js — origin resolution for the "Send to TextStack" extension.
 //
-// Production default is https://textstack.app. The owner can override it for
-// local dev via chrome.storage.local.apiOrigin (set in the options page), e.g.
-// http://localhost:8080 — which ALSO requires temporarily adding
-// "http://localhost:8080/*" to host_permissions in manifest.json (see README).
+// PROD has TWO bases that differ by path:
+//   • Site origin (SPA):  https://textstack.app          — /connect-extension, /en/library, reader links
+//   • API base:           https://textstack.app/api      — /auth/*, /me/* (nginx proxies /api → backend)
+// So the extension must NOT collapse them into one origin (the API lives under /api).
+//
+// Overrides (options page, for local dev):
+//   • siteOrigin  e.g. http://localhost:5173  (web dev server)
+//   • apiBase     e.g. http://localhost:8080  (backend at root — no /api in dev)
+// If apiBase is unset it defaults to `${siteOrigin}/api` (the prod shape).
 
-export const DEFAULT_API_ORIGIN = "https://textstack.app";
-
-// Branded web connect page the device flow opens in a tab (reads ?code= and runs
-// the same device-approve flow as /device, with extension-flavored copy).
+export const DEFAULT_SITE_ORIGIN = "https://textstack.app";
 export const CONNECT_PATH = "/connect-extension";
 
-/** Resolve the active API origin (storage override → prod default). No trailing slash. */
-export async function getApiOrigin() {
-  const { apiOrigin } = await chrome.storage.local.get("apiOrigin");
-  const origin = (apiOrigin && String(apiOrigin).trim()) || DEFAULT_API_ORIGIN;
-  return origin.replace(/\/+$/, "");
+const stripTrailingSlash = (s) => String(s).trim().replace(/\/+$/, "");
+
+/** Web/SPA origin (connect page, library + reader links). No trailing slash. */
+export async function getSiteOrigin() {
+  const { siteOrigin } = await chrome.storage.local.get("siteOrigin");
+  return stripTrailingSlash((siteOrigin && String(siteOrigin).trim()) || DEFAULT_SITE_ORIGIN);
+}
+
+/** API base for /auth/* and /me/* calls. Defaults to `${siteOrigin}/api` (prod). */
+export async function getApiBase() {
+  const { apiBase } = await chrome.storage.local.get("apiBase");
+  if (apiBase && String(apiBase).trim()) return stripTrailingSlash(apiBase);
+  return (await getSiteOrigin()) + "/api";
 }

@@ -14,7 +14,7 @@
 // The service worker can be evicted between alarm ticks, so ALL flow state lives
 // in chrome.storage.local (key: "deviceFlow"), not in module memory.
 
-import { getApiOrigin, CONNECT_PATH } from "../config.js";
+import { getApiBase, getSiteOrigin, CONNECT_PATH } from "../config.js";
 
 const GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const TOKENS_KEY = "tokens"; // { access_token, refresh_token }
@@ -77,8 +77,8 @@ export async function getToken() {
 /** POST /auth/refresh-mobile { refreshToken } → new tokens, or null on failure. */
 async function tryRefresh(refreshToken) {
   try {
-    const origin = await getApiOrigin();
-    const res = await fetch(`${origin}/auth/refresh-mobile`, {
+    const apiBase = await getApiBase();
+    const res = await fetch(`${apiBase}/auth/refresh-mobile`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "omit",
@@ -109,8 +109,8 @@ export async function startDeviceFlow() {
     return { user_code: existing.user_code, verification_uri: existing.verification_uri };
   }
 
-  const origin = await getApiOrigin();
-  const res = await fetch(`${origin}/auth/device/code`, {
+  const apiBase = await getApiBase();
+  const res = await fetch(`${apiBase}/auth/device/code`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "omit",
@@ -125,17 +125,18 @@ export async function startDeviceFlow() {
 
   const intervalSec = code.interval > 0 ? code.interval : 5;
   const expiresInSec = code.expires_in > 0 ? code.expires_in : 600;
-  // Prefer our branded extension connect page (reads ?code= and runs the same
-  // device-approve flow as /device). Fall back to the server's
-  // verification_uri_complete only if we somehow lack the user_code.
+  // The connect page is a WEB route (no /api), so build it from the site origin.
+  // Prefer our branded /connect-extension page (reads ?code= and runs the same
+  // device-approve flow as /device); fall back only if we lack the user_code.
+  const siteOrigin = await getSiteOrigin();
   const connectUrl = code.user_code
-    ? `${origin}${CONNECT_PATH}?code=${encodeURIComponent(code.user_code)}`
-    : code.verification_uri_complete || `${origin}${CONNECT_PATH}`;
+    ? `${siteOrigin}${CONNECT_PATH}?code=${encodeURIComponent(code.user_code)}`
+    : code.verification_uri_complete || `${siteOrigin}${CONNECT_PATH}`;
 
   const flow = {
     device_code: code.device_code,
     user_code: code.user_code,
-    verification_uri: code.verification_uri || `${origin}${CONNECT_PATH}`,
+    verification_uri: code.verification_uri || `${siteOrigin}${CONNECT_PATH}`,
     connect_url: connectUrl,
     interval_sec: intervalSec,
     deadline_ms: Date.now() + expiresInSec * 1000,
@@ -208,8 +209,8 @@ export async function pollOnce() {
 
 /** POST /auth/device/token → outcome { kind, tokens? }. */
 async function pollToken(deviceCode) {
-  const origin = await getApiOrigin();
-  const res = await fetch(`${origin}/auth/device/token`, {
+  const apiBase = await getApiBase();
+  const res = await fetch(`${apiBase}/auth/device/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "omit",

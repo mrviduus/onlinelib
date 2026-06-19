@@ -1,7 +1,7 @@
 // popup.js — UI controller. Talks ONLY to background.js via chrome.runtime
 // messages (the SW owns all auth/network). No tokens ever touch the popup.
 
-import { getApiOrigin } from "./config.js";
+import { getSiteOrigin } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -225,11 +225,11 @@ function handleErr(e) {
 
 async function openReader(id) {
   if (!id) return openLibrary();
-  const origin = await getApiOrigin();
+  const origin = await getSiteOrigin();
   chrome.tabs.create({ url: `${origin}/en/library/my/${id}` });
 }
 async function openLibrary() {
-  const origin = await getApiOrigin();
+  const origin = await getSiteOrigin();
   chrome.tabs.create({ url: `${origin}/en/library` });
 }
 

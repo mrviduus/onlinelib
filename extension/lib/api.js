@@ -4,7 +4,7 @@
 // Bearer, no CORS-with-credentials). On 401 it refreshes the token once via
 // lib/auth.getToken() and retries the request.
 
-import { getApiOrigin } from "../config.js";
+import { getApiBase } from "../config.js";
 import { getToken } from "./auth.js";
 
 class NotConnectedError extends Error {
@@ -20,7 +20,7 @@ async function request(path, { method = "GET", body, isForm = false, retry = tru
   const token = await getToken();
   if (!token) throw new NotConnectedError();
 
-  const origin = await getApiOrigin();
+  const apiBase = await getApiBase();
   const headers = { Authorization: `Bearer ${token}` };
   let payload = body;
   if (body != null && !isForm) {
@@ -28,7 +28,7 @@ async function request(path, { method = "GET", body, isForm = false, retry = tru
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(`${origin}${path}`, {
+  const res = await fetch(`${apiBase}${path}`, {
     method,
     headers,
     credentials: "omit",
