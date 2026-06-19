@@ -35,6 +35,8 @@ import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
+import { getUserBooks } from '../api/userBooks'
+import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
 
 export type { ReaderMode } from '../hooks/useReaderChapter'
@@ -66,6 +68,22 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     userChapterSlug,
     isAuthenticated,
   })
+
+  // Source URL for "Send to TextStack" clips. The userbook detail DTO doesn't
+  // carry it, so resolve from the Read later list (clips only) once per book.
+  const [clipSourceUrl, setClipSourceUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (mode !== 'userbook' || !isAuthenticated || !id) { setClipSourceUrl(null); return }
+    let cancelled = false
+    getUserBooks({ shelf: 'readlater' })
+      .then(books => {
+        if (cancelled) return
+        const match = books.find(b => b.id === id)
+        setClipSourceUrl(match?.sourceUrl ?? null)
+      })
+      .catch(() => { if (!cancelled) setClipSourceUrl(null) })
+    return () => { cancelled = true }
+  }, [mode, isAuthenticated, id])
 
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -488,6 +506,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         progress={overallProgress}
         isBookmarked={isBookmarked(activeChapterIdentifier)}
         backUrl={backUrl}
+        sourceUrl={mode === 'userbook' ? clipSourceUrl : null}
+        sourceDomain={mode === 'userbook' ? sourceDomain(clipSourceUrl) : null}
         useLocalizedLink={mode === 'public'}
         showAsk={!!askEditionId}
         onAskClick={() => setAskOpen(true)}

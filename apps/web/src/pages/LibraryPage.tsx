@@ -37,6 +37,7 @@ import {
   bulkDeleteUserBooks, bulkFinishUserBooks, bulkTagUserBooks, bulkAddToCollection,
   searchUserLibrary, type UserBookSearchHit,
 } from '../api/userBooks'
+import { ReadLaterShelf } from '../components/library/ReadLaterShelf'
 import { stringToColor } from '../utils/colors'
 import { getAllProgress, ReadingProgressDto, markAsRead, markAsUnread } from '../api/auth'
 import { emitDataChanges, useDataChange } from '../lib/dataEvents'
@@ -57,6 +58,11 @@ export function LibraryPage() {
   const highlightedBookId = useHighlightedBook()
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [userBooksLoading, setUserBooksLoading] = useState(false)
+  // "Read later" shelf (Send to TextStack clips) — separate from the Books tab.
+  const [shelf, setShelf] = useState<'books' | 'readlater'>('books')
+  const [readLaterBooks, setReadLaterBooks] = useState<UserBook[]>([])
+  const [readLaterLoading, setReadLaterLoading] = useState(false)
+  const [readLaterUnread, setReadLaterUnread] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('library-view') as ViewMode) || 'list'
   })
@@ -154,10 +160,33 @@ export function LibraryPage() {
     fetchUserBooks()
   }, [fetchUserBooks])
 
+  // Read later shelf — separate fetch (clips only; backend excludes them from
+  // the default /me/books list). Refetches when the Unread filter toggles.
+  const fetchReadLater = useCallback(async () => {
+    if (!isAuthenticated) return
+    setReadLaterLoading(true)
+    try {
+      const books = await getUserBooks({
+        shelf: 'readlater',
+        status: readLaterUnread ? 'unread' : undefined,
+      })
+      setReadLaterBooks(books)
+    } catch {
+      // Ignore errors
+    } finally {
+      setReadLaterLoading(false)
+    }
+  }, [isAuthenticated, readLaterUnread])
+
+  useEffect(() => {
+    if (shelf === 'readlater') fetchReadLater()
+  }, [shelf, fetchReadLater])
+
   // Cross-component refresh: any add/delete/update in user-books anywhere in
   // the app (upload modal, action menu, bulk bar, detail page, etc) refetches
   // here. See lib/dataEvents.ts for the bus.
   useDataChange('user-books', fetchUserBooks)
+  useDataChange('user-books', fetchReadLater)
 
 
   // Auto-refresh processing books
@@ -168,6 +197,15 @@ export function LibraryPage() {
     const interval = setInterval(fetchUserBooks, 5000)
     return () => clearInterval(interval)
   }, [userBooks, fetchUserBooks])
+
+  // Reuse the 5s Processing poll for the Read later shelf (freshly clipped
+  // articles ingest async).
+  useEffect(() => {
+    if (shelf !== 'readlater') return
+    if (!readLaterBooks.some(b => b.status === 'Processing')) return
+    const interval = setInterval(fetchReadLater, 5000)
+    return () => clearInterval(interval)
+  }, [shelf, readLaterBooks, fetchReadLater])
 
   // Mark book as read
   const handleMarkRead = useCallback(async (editionId: string, slug: string, bookLanguage: string) => {
@@ -444,7 +482,39 @@ export function LibraryPage() {
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
-        {(() => {
+        {/* Shelf tabs: Books (existing library) vs Read later (Send to TextStack clips) */}
+        <div className="library-shelf-tabs" role="tablist" aria-label={t('library.title')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={shelf === 'books'}
+            className={`library-shelf-tab${shelf === 'books' ? ' library-shelf-tab--active' : ''}`}
+            onClick={() => setShelf('books')}
+          >
+            {t('library.readLater.tabBooks')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={shelf === 'readlater'}
+            className={`library-shelf-tab${shelf === 'readlater' ? ' library-shelf-tab--active' : ''}`}
+            onClick={() => setShelf('readlater')}
+          >
+            {t('library.readLater.tab')}
+          </button>
+        </div>
+
+        {shelf === 'readlater' ? (
+          <ReadLaterShelf
+            books={readLaterBooks}
+            language={language}
+            loading={readLaterLoading}
+            unreadOnly={readLaterUnread}
+            onToggleUnread={() => setReadLaterUnread(v => !v)}
+            onChange={fetchReadLater}
+            t={t}
+          />
+        ) : (() => {
           const totalRaw = (showSavedBlock ? items.length : 0) + (showUploadsBlock ? userBooks.length : 0)
           const totalVisible = renderList.length
           const isLoadingAny = (showSavedBlock && loading) || (showUploadsBlock && userBooksLoading && userBooks.length === 0)
@@ -787,7 +857,7 @@ export function LibraryPage() {
       </main>
 
       {/* FAB */}
-      {showUploadsBlock && !selection.active && (
+      {shelf === 'books' && showUploadsBlock && !selection.active && (
         <button
           className="library-fab"
           onClick={() => window.dispatchEvent(new Event('textstack:open-upload'))}

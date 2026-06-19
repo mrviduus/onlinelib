@@ -10,7 +10,8 @@ public sealed class ExtractorRegistry : IExtractorRegistry
     {
         [".epub"] = SourceFormat.Epub,
         [".pdf"] = SourceFormat.Pdf,
-        [".fb2"] = SourceFormat.Fb2
+        [".fb2"] = SourceFormat.Fb2,
+        [".html"] = SourceFormat.Html
     };
 
     private readonly Dictionary<SourceFormat, ITextExtractor> _extractors;

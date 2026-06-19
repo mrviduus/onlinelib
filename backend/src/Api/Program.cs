@@ -294,6 +294,31 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // "Send to TextStack" web clip receiver — per-IP cap. Each clip queues an
+    // ingestion job + stores HTML, so this blocks scripted bulk-clipping while
+    // staying generous for a human saving a handful of articles in a session.
+    options.AddPolicy("clip", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
+    // User book upload — per-IP cap, mirrors the clip zone. Uploads are heavier
+    // (file ingestion) so the same conservative bucket applies.
+    options.AddPolicy("user-upload", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0,
+        });
+    });
     // TTS synthesis — per-IP cap. Generous enough for bursty vocab-review /
     // reader-tap usage (~2/s average, tolerates ~20-req bursts via window
     // timing), but blocks scripted abuse hammering the upstream Bing WS.

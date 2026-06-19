@@ -32,6 +32,12 @@ public class UserBook
     public DateTimeOffset? TakedownAt { get; set; }
     public string? TakedownReason { get; set; }
 
+    // "Send to TextStack" web clip (private only — never enters the public Work/Edition/SSG path).
+    public string? SourceUrl { get; set; }   // original article URL
+    public bool IsClip { get; set; }         // true => Read later shelf
+    public bool IsRead { get; set; }         // manual or auto-set when progress completes
+    public DateTimeOffset? ReadAt { get; set; }
+
     // Editable metadata (slice 11)
     // 'auto' = LLM/import-derived, 'manual' = user-edited (protect from auto-overwrite)
     public string SeoSource { get; set; } = "auto";

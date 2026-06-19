@@ -12,7 +12,16 @@ namespace TextStack.Extraction.Utilities;
 /// </summary>
 public partial class HtmlCleaner
 {
-    private static readonly string[] DangerousAttributes = ["onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur"];
+    // Tags that can execute script or hijack the page even after script/style are dropped.
+    // Removed entirely (with their subtree) before attribute scrubbing. <base> rebases every
+    // relative URL; <form>/<iframe>/<object>/<embed> are active vectors; <link>/<meta> can
+    // load/redirect. Kept conservative so trusted-book prose (p/a/img/svg/figure/etc.) survives.
+    private static readonly string[] DangerousTags =
+        ["iframe", "object", "embed", "base", "form", "link", "meta", "noscript", "frame", "frameset", "applet"];
+
+    // URL-bearing attributes scrubbed with the same scheme allowlist as href.
+    private static readonly string[] UrlAttributes =
+        ["href", "src", "srcset", "data", "action", "formaction", "poster", "background", "xlink:href"];
 
     private readonly IProcessingPipeline _pipeline;
     private readonly TextProcessingOptions _options;
@@ -43,6 +52,8 @@ public partial class HtmlCleaner
 
         doc.DocumentNode.SelectNodes("//script|//style|//head")?.ToList()
             .ForEach(n => n.Remove());
+
+        RemoveDangerousTags(doc.DocumentNode);
 
         var body = doc.DocumentNode.SelectSingleNode("//body");
         var content = body ?? doc.DocumentNode;
@@ -136,40 +147,89 @@ public partial class HtmlCleaner
     [GeneratedRegex(@"<(script|title)(\s[^>]*)?\s*/>", RegexOptions.IgnoreCase)]
     private static partial Regex SelfClosingNonVoidRegex();
 
+    private static void RemoveDangerousTags(HtmlNode root)
+    {
+        // Build an XPath union of //iframe|//object|... — case-insensitive because HAP
+        // lower-cases element names on parse.
+        var xpath = string.Join("|", DangerousTags.Select(t => $"//{t}"));
+        root.SelectNodes(xpath)?.ToList().ForEach(n => n.Remove());
+    }
+
     private static void RemoveDangerousAttributes(HtmlNode node)
     {
         foreach (var descendant in node.DescendantsAndSelf())
         {
-            foreach (var attr in DangerousAttributes)
+            // Strip EVERY event handler (on*), not a fixed denylist — onerror/ontoggle/
+            // onmouseenter/onanimationstart/etc. all execute script. Snapshot first:
+            // we mutate the collection inside the loop.
+            foreach (var attr in descendant.Attributes.ToList())
             {
-                descendant.Attributes.Remove(attr);
+                if (attr.Name.StartsWith("on", StringComparison.OrdinalIgnoreCase))
+                    descendant.Attributes.Remove(attr);
             }
 
-            var href = descendant.GetAttributeValue("href", "");
-            if (!string.IsNullOrEmpty(href))
+            // Scrub every URL-bearing attribute with one scheme allowlist.
+            foreach (var attrName in UrlAttributes)
             {
-                if (href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
-                {
-                    descendant.SetAttributeValue("href", "#");
-                }
-                else if (!href.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                         !href.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
-                         !href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (href.StartsWith('#'))
-                    {
-                        // Keep anchor-only links
-                    }
-                    else if (href.Contains('#'))
-                    {
-                        descendant.SetAttributeValue("href", "#" + href.Split('#')[1]);
-                    }
-                    else
-                    {
-                        descendant.SetAttributeValue("href", "#");
-                    }
-                }
+                var value = descendant.GetAttributeValue(attrName, "");
+                if (string.IsNullOrEmpty(value))
+                    continue;
+
+                var sanitized = SanitizeUrl(attrName, value);
+                if (sanitized is null)
+                    descendant.Attributes.Remove(attrName);
+                else if (!ReferenceEquals(sanitized, value))
+                    descendant.SetAttributeValue(attrName, sanitized);
             }
         }
+    }
+
+    // Schemes that can execute or smuggle script. Anything matching is rejected; everything
+    // else (http(s), mailto, RELATIVE paths like "OEBPS/img.jpg", protocol-relative, anchors,
+    // and data:image/* used for inline covers) is allowed so trusted-book rendering is intact.
+    private static readonly string[] DangerousSchemes =
+        ["javascript:", "vbscript:", "file:", "blob:", "data:text/html"];
+
+    /// <summary>
+    /// Returns the value unchanged if safe, a neutered "#" for unsafe href-like links,
+    /// or null to signal the attribute should be removed entirely (src/srcset/etc.).
+    /// Only URLs whose scheme is in <see cref="DangerousSchemes"/> are treated as unsafe.
+    /// Bare <c>data:</c> (without an image/* media type) is also rejected.
+    /// </summary>
+    private static string? SanitizeUrl(string attrName, string value)
+    {
+        // Browsers ignore leading/embedded control chars & whitespace when resolving the
+        // scheme (e.g. "java\tscript:" → "javascript:"). Decode entities and strip those
+        // chars up to the first ':' before matching so obfuscated payloads don't slip past.
+        var decoded = HtmlEntity.DeEntitize(value) ?? value;
+        var collapsed = new string(decoded.Where(c => c is not ('\t' or '\n' or '\r' or '\f' or '\0' or ' ')).ToArray());
+        // srcset is a comma list of "url descriptor" pairs; check the first url.
+        var firstUrl = attrName == "srcset"
+            ? collapsed.Split(',')[0].Split(' ')[0]
+            : collapsed;
+
+        var isNavigational = attrName is "href" or "xlink:href";
+        // data:image/* is safe as an <img src> (browsers never run script there) but a NAVIGATIONAL
+        // data: link (href) opens in a document context where SVG/HTML scripts can run — reject those.
+        var dataImageOk = firstUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+                          && !isNavigational
+                          && !firstUrl.StartsWith("data:image/svg", StringComparison.OrdinalIgnoreCase);
+
+        var unsafeScheme = DangerousSchemes.Any(s =>
+                               firstUrl.StartsWith(s, StringComparison.OrdinalIgnoreCase))
+                           || (firstUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && !dataImageOk);
+
+        if (!unsafeScheme)
+            return value; // safe — keep as-is (relative paths preserved for image rewrite)
+
+        // href can be downgraded to a harmless anchor; everything else gets dropped.
+        if (attrName is "href" or "xlink:href")
+        {
+            if (value.Contains('#'))
+                return "#" + value.Split('#')[1];
+            return "#";
+        }
+
+        return null; // remove src/srcset/data/action/formaction/poster/background
     }
 }
