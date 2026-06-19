@@ -96,8 +96,22 @@ export function useReaderPersistence({
     tryRestore()
   }, [tryRestore, injectJs, progressRef])
 
+  // Pending-save buffer: chapterId resolves AFTER the chapter fetch lands, so a
+  // save requested during rapid chapter tap-through (e.g. emit-on-load firing
+  // before the destination chapter's id is known) would early-return and the
+  // destination chapter's first progress would be lost. Instead we stash a flag
+  // and replay the save once chapterId resolves (effect below). We don't snapshot
+  // the payload values — saveProgress already reads the live refs at flush time,
+  // which carry the latest scroll/percent for the destination chapter.
+  const pendingSaveRef = useRef(false)
+
   const saveProgress = useCallback(() => {
-    if (!bookKey || !chapterId || !chapterSlug) return
+    if (!bookKey || !chapterSlug) return
+    if (!chapterId) {
+      // Defer: remember that a save is owed; the chapterId effect flushes it.
+      pendingSaveRef.current = true
+      return
+    }
     const slug = currentChapterSlugRef.current || chapterSlug
     persist({
       chapterId,
@@ -108,6 +122,15 @@ export function useReaderPersistence({
       updatedAt: Date.now(),
     })
   }, [bookKey, chapterId, chapterSlug, persist, currentChapterSlugRef, progressRef, scrollOffsetRef, bookProgressRef])
+
+  // Flush a deferred save once chapterId resolves. Keyed on chapterId so it runs
+  // exactly when the destination chapter's id lands.
+  useEffect(() => {
+    if (chapterId && pendingSaveRef.current) {
+      pendingSaveRef.current = false
+      saveProgress()
+    }
+  }, [chapterId, saveProgress])
 
   // 2s-debounced save fired on every WebView progress bump. Short enough that
   // a force-kill mid-chapter loses < ~2s of scroll, long enough that fast
@@ -129,6 +152,7 @@ export function useReaderPersistence({
     positionLoadedRef.current = false
     savedOffsetRef.current = null
     savedPercentRef.current = null
+    pendingSaveRef.current = false
     if (!bookKey || !chapterSlug) return
     let cancelled = false
     loadPosition(chapterSlug)

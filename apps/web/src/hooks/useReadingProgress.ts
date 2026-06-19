@@ -95,8 +95,10 @@ export function useReadingProgress(
           lastAckedKeyRef.current = `${payload.locator}:${payload.percent.toFixed(4)}`
           if (pendingSyncRef.current === payload) pendingSyncRef.current = null
         })
-        .catch(() => {
+        .catch((err) => {
           // Leave lastAckedKeyRef as-is so subsequent updateProgress retries.
+          // Log only — never interrupt reading with a toast/UI.
+          console.warn('[progress] save failed', err)
         })
     }, 2000)
   }, [bookSlug, chapterSlug, isAuthenticated, editionId, chapterId, resolvedChapterSlug])
@@ -128,7 +130,9 @@ export function useReadingProgress(
       .then(() => {
         lastAckedKeyRef.current = `${payload.locator}:${payload.percent.toFixed(4)}`
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[progress] flush save failed', err)
+      })
 
     pendingSyncRef.current = null
   }, [isAuthenticated])

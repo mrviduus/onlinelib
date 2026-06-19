@@ -4,6 +4,7 @@
 
 interface Props {
   chapterTitle: string
+  /** 1-based positional index of the active chapter (NOT catalog chapterNumber, which is 0-based). */
   chapterNumber: number | null
   totalChapters: number | null
   /** Percent 0..1 of current chapter read (intra-chapter). */

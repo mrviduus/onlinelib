@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BookDetail } from '../types/api'
 import type { ReaderMode } from './useReaderChapter'
 
@@ -52,10 +52,17 @@ export function useReaderScrollSync({
   const lastSaveRef = useRef<{ identifier: string; offset: number; timestamp: number } | null>(null)
   const saveTimerRef = useRef<number | null>(null)
   const pendingSaveRef = useRef<{ identifier: string; offset: number; progress: number } | null>(null)
+  // State-backed mirror of scrollRestoredRef so the save-on-open effect can
+  // re-run AFTER restore completes (a ref flip won't trigger a re-render).
+  // Keyed by the chapter identifier that was restored.
+  const [restoredFor, setRestoredFor] = useState<string | null>(null)
+  // Guard: emit exactly one save-on-open per opened chapter.
+  const savedOnOpenForRef = useRef<string | null>(null)
 
   // Reset restore guard on chapter change.
   useEffect(() => {
     scrollRestoredRef.current = false
+    setRestoredFor(null)
   }, [chapterIdentifier])
 
   // Restore scroll: locator must match current chapter. Otherwise scroll to
@@ -78,8 +85,43 @@ export function useReaderScrollSync({
     requestAnimationFrame(() => {
       window.scrollTo({ top: targetOffset, behavior: 'instant' })
       scrollRestoredRef.current = true
+      setRestoredFor(chapterIdentifier ?? null)
     })
   }, [chapterLoaded, effectiveLoading, effectiveProgress, chapterIdentifier])
+
+  // Save-on-chapter-open: the debounced scroll save is gated by user scrolling,
+  // so chapter→chapter navigation (route param change; ReaderPage stays mounted)
+  // recorded NOTHING for the new chapter — MaxChapterNumber stayed unset and the
+  // book indicator showed "0 / N". Fire exactly ONE save when a chapter opens,
+  // sequenced AFTER restore so the offset reflects the restored scroll, not a
+  // transient 0. Uses the current chapter's id + book-level overallProgress.
+  useEffect(() => {
+    if (!chapterLoaded || !chapterIdentifier) return
+    // Wait until restore has run for THIS chapter (offset is settled).
+    if (restoredFor !== chapterIdentifier) return
+    if (savedOnOpenForRef.current === chapterIdentifier) return
+    savedOnOpenForRef.current = chapterIdentifier
+
+    const offset = (document.scrollingElement || document.documentElement).scrollTop
+    const scrollLocator = `scroll:${chapterIdentifier}:${Math.round(offset)}`
+
+    // Prime the dedupe/skip refs so the next scroll-debounced save doesn't
+    // immediately re-fire an identical write for the same chapter.
+    lastSaveRef.current = { identifier: chapterIdentifier, offset, timestamp: Date.now() }
+    pendingSaveRef.current = { identifier: chapterIdentifier, offset, progress: overallProgress }
+
+    if (mode === 'public' && publicBookChapters) {
+      const bookChapter = publicBookChapters.find(c => c.slug === chapterIdentifier)
+      if (bookChapter) {
+        publicProgress.updateProgress(overallProgress, undefined, scrollLocator, bookChapter.id, chapterIdentifier)
+      }
+    } else if (mode === 'userbook') {
+      userProgress.saveProgress(chapterIdentifier, 0, overallProgress, scrollLocator)
+    }
+    // overallProgress intentionally excluded: we snapshot it on open only. The
+    // scroll-debounced effect owns continuous updates as the user reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterIdentifier, chapterLoaded, mode, restoredFor, publicBookChapters, publicProgress, userProgress])
 
   // Flush pending save now: write locally + ask the underlying hook to ship
   // synchronously (keepalive fetch) so we don't lose the write on tab death.

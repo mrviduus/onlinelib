@@ -90,9 +90,21 @@ export function useReaderChapter({
           if (cachedEditionId) {
             const cached = await getCachedChapter(cachedEditionId, chapterSlug!)
             if (cached && !cancelled) {
+              // CachedChapter doesn't persist chapterNumber; resolve the real one
+              // from the (separately fetched) book so it isn't a misleading 0.
+              let bk: BookDetail | null = null
+              try {
+                bk = await api.getBook(bookSlug!)
+              } catch {
+                // Book fetch failed but chapter from cache - ok
+              }
+              if (cancelled) return
+              const realChapterNumber =
+                bk?.chapters.find(c => c.slug === cached.chapterSlug)?.chapterNumber ?? 0
+
               const rawChapter: Chapter = {
                 id: cached.key,
-                chapterNumber: 0,
+                chapterNumber: realChapterNumber,
                 slug: cached.chapterSlug,
                 title: cached.title,
                 html: cached.html,
@@ -111,23 +123,18 @@ export function useReaderChapter({
                 prev: rawChapter.prev ? { identifier: rawChapter.prev.slug, title: rawChapter.prev.title } : null,
                 next: rawChapter.next ? { identifier: rawChapter.next.slug, title: rawChapter.next.title } : null,
               })
-              try {
-                const bk = await api.getBook(bookSlug!)
-                if (!cancelled) {
-                  setPublicBook(bk)
-                  setBook({
-                    id: bk.id,
-                    title: bk.title,
-                    chapters: bk.chapters.map(c => ({
-                      id: c.id,
-                      identifier: c.slug,
-                      title: c.title,
-                      chapterNumber: c.chapterNumber,
-                    })),
-                  })
-                }
-              } catch {
-                // Book fetch failed but chapter from cache - ok
+              if (bk) {
+                setPublicBook(bk)
+                setBook({
+                  id: bk.id,
+                  title: bk.title,
+                  chapters: bk.chapters.map(c => ({
+                    id: c.id,
+                    identifier: c.slug,
+                    title: c.title,
+                    chapterNumber: c.chapterNumber,
+                  })),
+                })
               }
               fetchedKeyRef.current = fetchKey
               setLoading(false)

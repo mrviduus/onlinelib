@@ -322,6 +322,29 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         type: 'loaded',
         scrollHeight: document.documentElement.scrollHeight
       }));
+      // Emit-on-load: the scroll-gated reportProgress only fires once the
+      // reader actually moves, so a chapter the user navigates INTO records
+      // nothing (and ReadingProgress.MaxChapterNumber stays unset) until they
+      // scroll. Post one initial progress so ReaderShell runs its full
+      // book-progress + debounced-persistence path for the DESTINATION chapter
+      // immediately. Guard: only on the FIRST load (no infinite-scroll appends
+      // yet — chapterSlugs holds at most the initial chapter), so appends never
+      // re-fire this or reset getCurrentChapterSlug to the top chapter.
+      if (chapterSlugs.length <= 1) {
+        var initSlug = getCurrentChapterSlug();
+        if (initSlug) {
+          var initScrollTop = window.scrollY;
+          var initDocHeight = document.documentElement.scrollHeight - window.innerHeight;
+          var initProgress = initDocHeight > 0 ? Math.min(initScrollTop / initDocHeight, 1) : 0;
+          lastProgress = initProgress;
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'progress',
+            progress: initProgress,
+            chapterSlug: initSlug,
+            scrollY: Math.round(initScrollTop)
+          }));
+        }
+      }
       setTimeout(checkInfiniteScroll, 100);
     });
 

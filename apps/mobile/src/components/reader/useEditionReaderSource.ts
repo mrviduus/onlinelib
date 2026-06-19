@@ -86,7 +86,7 @@ export function useEditionReaderSource({
       chapterId: snap.chapterId,
       chapterSlug: snap.chapterSlug,
       progress: snap.chapterPercent,
-    }).catch(() => {})
+    }).catch((e) => { console.warn('[progress] save failed', e) })
   }, [isAuthenticated])
 
   const loadPosition = useCallback(async (slug: string): Promise<SavedPosition> => {

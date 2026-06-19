@@ -30,10 +30,12 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
     public const int PrivateNoteCap = 30;
 
     /// <summary>
-    /// Builds the spoiler-safe context. When the user has no progress (lastRead = 0) both lists
-    /// are empty — nothing is retrievable until they've read. Pass <paramref name="currentChapterId"/>
-    /// (the chapter open in the reader) to count it as read even before the debounced progress-save
-    /// persists; it's resolved to an ordinal server-side and ignored unless it belongs to this edition.
+    /// Builds the spoiler-safe context. When the user has no progress at all (effective ord is null)
+    /// both lists are empty — nothing is retrievable until they've read. An ordinal of <c>0</c> is a
+    /// real read chapter (catalog chapters are 0-based), so it does NOT mean "nothing read". Pass
+    /// <paramref name="currentChapterId"/> (the chapter open in the reader) to count it as read even
+    /// before the debounced progress-save persists; it's resolved to an ordinal server-side and ignored
+    /// unless it belongs to this edition.
     /// </summary>
     public async Task<RagContext> BuildAsync(
         Guid userId, Guid siteId, Guid editionId, string query, int k,
@@ -46,45 +48,56 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
         // is public/free and the reader can navigate ahead anyway. Counting the chapter they're
         // actively viewing is correct and unblocks "ask about what I'm reading" without waiting on the
         // 2s progress-sync debounce. We resolve the ordinal server-side (above) so a client can't
-        // claim a fake high ord; an id from another edition resolves to 0 and is ignored.
+        // claim a fake high ord; an id from another edition resolves to null and is ignored.
         var lastRead = EffectiveLastReadOrd(persistedLastRead, currentOrd);
-        if (lastRead <= 0)
+        // null = no progress at all → empty. 0 = read the first (0-based) chapter → retrieve normally.
+        if (lastRead is null)
             return new RagContext([], [], 0);
 
         var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: lastRead, ct);
-        var notes = await GetPrivateNotesAsync(userId, siteId, editionId, lastRead, ct);
-        return new RagContext(chunks, notes, lastRead);
+        var notes = await GetPrivateNotesAsync(userId, siteId, editionId, lastRead.Value, ct);
+        return new RagContext(chunks, notes, lastRead.Value);
     }
 
     /// <summary>
     /// The gate ordinal: the larger of the persisted high-water mark and the currently-open chapter's
-    /// ordinal (0 when that chapter isn't part of this edition). Pure so it's directly unit-testable.
+    /// ordinal. Each input is null when absent (no progress row / chapter not in this edition); the
+    /// result is null only when BOTH are null. A present <c>0</c> is a real read chapter (catalog
+    /// chapters are 0-based) and wins over null. Pure so it's directly unit-testable.
     /// </summary>
-    public static int EffectiveLastReadOrd(int persistedLastRead, int currentOrd)
-        => Math.Max(persistedLastRead, currentOrd);
+    public static int? EffectiveLastReadOrd(int? persistedLastRead, int? currentOrd)
+        => (persistedLastRead, currentOrd) switch
+        {
+            (null, null) => null,
+            (null, var c) => c,
+            (var p, null) => p,
+            (var p, var c) => Math.Max(p.Value, c.Value),
+        };
 
     /// <summary>
     /// Resolves the open chapter's ordinal authoritatively from the DB, but only if it belongs to this
-    /// edition (so a client can't pass a fake/foreign id to peek ahead). 0 when null or not matched.
+    /// edition (so a client can't pass a fake/foreign id to peek ahead). null when no id is supplied or
+    /// it isn't part of this edition; an ordinal of 0 is a legitimate (0-based) first chapter.
     /// </summary>
-    public async Task<int> ResolveCurrentChapterOrdAsync(
+    public async Task<int?> ResolveCurrentChapterOrdAsync(
         Guid editionId, Guid? currentChapterId, CancellationToken ct)
     {
         if (currentChapterId is not { } id)
-            return 0;
+            return null;
 
         return await db.Chapters
             .Where(c => c.Id == id && c.EditionId == editionId)
-            .Select(c => c.ChapterNumber)
+            .Select(c => (int?)c.ChapterNumber)
             .FirstOrDefaultAsync(ct);
     }
 
     /// <summary>
     /// The furthest chapter ordinal the user has reached in this edition (high-water mark), so
-    /// flipping back doesn't hide already-read chapters; falls back to the current chapter when the
-    /// mark is null (legacy rows). 0 when there's no progress at all.
+    /// flipping back doesn't hide already-read chapters; falls back to the current chapter's ordinal
+    /// when the mark is null (legacy rows). null when there's no progress row at all — distinct from a
+    /// resolved ordinal of 0 (the read first, 0-based chapter).
     /// </summary>
-    public async Task<int> ResolveLastReadOrdAsync(
+    public async Task<int?> ResolveLastReadOrdAsync(
         Guid userId, Guid siteId, Guid editionId, CancellationToken ct)
     {
         var row = await db.ReadingProgresses
@@ -93,14 +106,15 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
                 (p, c) => new { p.MaxChapterNumber, c.ChapterNumber })
             .FirstOrDefaultAsync(ct);
 
-        return row is null ? 0 : row.MaxChapterNumber ?? row.ChapterNumber;
+        return row is null ? null : row.MaxChapterNumber ?? row.ChapterNumber;
     }
 
     /// <summary>Highlights + notes from chapters with ChapterNumber ≤ maxOrd (read chapters).</summary>
     public async Task<IReadOnlyList<PrivateNote>> GetPrivateNotesAsync(
         Guid userId, Guid siteId, Guid editionId, int maxOrd, CancellationToken ct)
     {
-        if (maxOrd <= 0)
+        // 0 is a valid read (0-based first) chapter; only a negative ord means "none".
+        if (maxOrd < 0)
             return [];
 
         // Materialize raw fields first — HighlightToText is a C# method EF can't translate.
