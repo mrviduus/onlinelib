@@ -4,7 +4,7 @@ import { useNetworkRecovery } from './useNetworkRecovery'
 import { getUserBook, getUserBookChapter } from '../api/userBooks'
 import { getCachedChapter, cacheChapter } from '../lib/offlineDb'
 import { InvalidContentTypeError } from '../lib/fetchWithRetry'
-import type { Chapter, BookDetail } from '../types/api'
+import type { Chapter, BookDetail, RagIndexStatus } from '../types/api'
 import type { TocChapter } from '../components/reader/ReaderTocDrawer'
 
 export type ReaderMode = 'public' | 'userbook'
@@ -25,6 +25,10 @@ export interface NormalizedBook {
   title: string
   totalWordCount?: number | null
   chapters: TocChapter[]
+  // On-demand RAG index for "Ask this book" (AI-027 P2 — user uploads). Seeds the Ask panel.
+  ragStatus?: RagIndexStatus
+  ragChunkCount?: number
+  ragEmbeddedCount?: number
 }
 
 interface Params {
@@ -198,6 +202,9 @@ export function useReaderChapter({
             id: bk.id,
             title: bk.title,
             totalWordCount: bk.totalWordCount,
+            ragStatus: bk.ragStatus,
+            ragChunkCount: bk.ragChunkCount,
+            ragEmbeddedCount: bk.ragEmbeddedCount,
             chapters: bk.chapters.map(c => ({
               id: c.id,
               identifier: c.slug || String(c.chapterNumber),

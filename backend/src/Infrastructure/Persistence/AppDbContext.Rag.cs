@@ -52,5 +52,41 @@ public partial class AppDbContext
                 .HasForeignKey(x => x.ChapterId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // Phase 2: user-uploaded book chunks (table `user_chapter_chunk`). Isolated from
+        // `chapter_chunk` (NOT polymorphic) and carries a denormalized user_id so retrieval can
+        // hard-filter per user. Deleting a user book OR a user chapter cascades the chunks away.
+        modelBuilder.Entity<UserChapterChunk>(e =>
+        {
+            e.ToTable("user_chapter_chunk");
+
+            e.Property(x => x.Embedding)
+                .HasColumnType("vector(1536)")
+                .HasConversion(
+                    v => v == null ? null : new Vector(v),
+                    v => v == null ? null : v.ToArray());
+
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+
+            // Own HNSW index — cosine NN over the user chunks (independent of the catalog index).
+            e.HasIndex(x => x.Embedding)
+                .HasMethod("hnsw")
+                .HasOperators("vector_cosine_ops");
+
+            // Per-user isolation filter (user_id + user_book_id) is the hot path; index it.
+            e.HasIndex(x => new { x.UserId, x.UserBookId });
+            // Ordered fetch of a chapter's chunks.
+            e.HasIndex(x => new { x.UserBookId, x.UserChapterId, x.Ord });
+
+            e.HasOne(x => x.UserBook)
+                .WithMany()
+                .HasForeignKey(x => x.UserBookId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.UserChapter)
+                .WithMany()
+                .HasForeignKey(x => x.UserChapterId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

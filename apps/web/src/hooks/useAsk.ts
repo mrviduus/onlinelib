@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ask as askApi, type AskCitation } from '../api/ask'
+import { ask as askApi, askUserBook as askUserBookApi, type AskCitation, type AskTarget } from '../api/ask'
 import { ApiError } from '../api/client'
 
 export interface AskTurn {
@@ -12,8 +12,13 @@ export interface AskTurn {
 /**
  * Session "Ask this book" state (AI-026a): an in-memory Q&A history (not persisted), plus loading
  * and error. `ask` appends a turn; in-flight requests are aborted on a new question / unmount.
+ *
+ * `target.kind` (AI-027 P2) routes the POST — catalog `/books/{id}/ask` vs user-upload
+ * `/me/books/{id}/ask`.
  */
-export function useAsk(editionId: string | undefined, currentChapterId?: string) {
+export function useAsk(target: AskTarget | undefined, currentChapterId?: string) {
+  const id = target?.id
+  const kind = target?.kind
   const [history, setHistory] = useState<AskTurn[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +29,7 @@ export function useAsk(editionId: string | undefined, currentChapterId?: string)
   const ask = useCallback(
     async (question: string) => {
       const q = question.trim()
-      if (!q || !editionId || isLoading) return
+      if (!q || !id || isLoading) return
 
       abortRef.current?.abort()
       const ctrl = new AbortController()
@@ -33,7 +38,8 @@ export function useAsk(editionId: string | undefined, currentChapterId?: string)
       setError(null)
 
       try {
-        const res = await askApi(editionId, q, undefined, ctrl.signal, currentChapterId)
+        const fn = kind === 'userbook' ? askUserBookApi : askApi
+        const res = await fn(id, q, undefined, ctrl.signal, currentChapterId)
         setHistory(prev => [
           ...prev,
           { question: q, answer: res.answer, citations: res.citations, insufficient: res.insufficient },
@@ -46,7 +52,7 @@ export function useAsk(editionId: string | undefined, currentChapterId?: string)
         if (abortRef.current === ctrl) setIsLoading(false)
       }
     },
-    [editionId, isLoading, currentChapterId],
+    [id, kind, isLoading, currentChapterId],
   )
 
   return { history, isLoading, error, ask }

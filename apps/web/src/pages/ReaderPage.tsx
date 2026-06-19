@@ -21,7 +21,7 @@ import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { AskPanel } from '../components/reader/AskPanel'
 import { StudyBuddyPanel } from '../components/reader/StudyBuddyPanel'
-import type { AskCitation } from '../api/ask'
+import type { AskCitation, AskTarget } from '../api/ask'
 import { scrollToCitation } from '../lib/citationScroll'
 import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
@@ -397,8 +397,30 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return `/${language}/library/my/${id}/read/${identifier}`
   }, [mode, bookSlug, id, language, getLocalizedPath])
 
-  // RAG "Ask this book" — catalog editions only (user uploads aren't chunked).
-  const askEditionId = mode === 'public' ? publicBook?.id : undefined
+  // RAG "Ask this book" target (AI-027). P1: catalog editions. P2: user uploads — on-demand
+  // indexing via the owner-scoped `/me/books/{id}/...` endpoints, no spoiler gate. The target
+  // carries the kind + seeded index state/counts so the panel routes to the right endpoints.
+  const askTarget: AskTarget | undefined =
+    mode === 'public' && publicBook
+      ? {
+          kind: 'edition',
+          id: publicBook.id,
+          ragStatus: publicBook.ragStatus,
+          ragChunkCount: publicBook.ragChunkCount,
+          ragEmbeddedCount: publicBook.ragEmbeddedCount,
+        }
+      : mode === 'userbook' && book
+        ? {
+            kind: 'userbook',
+            id: book.id,
+            ragStatus: book.ragStatus,
+            ragChunkCount: book.ragChunkCount,
+            ragEmbeddedCount: book.ragEmbeddedCount,
+          }
+        : undefined
+
+  // StudyBuddy stays catalog-only (P1 behavior preserved); it has its own panel + endpoints.
+  const studyBuddyEditionId = mode === 'public' ? publicBook?.id : undefined
   const pendingCitationRef = useRef<AskCitation | null>(null)
   const handleNavigateToCitation = useCallback((c: AskCitation) => {
     const target = chapterList?.find(ch => ch.chapterNumber === c.chapterOrd)
@@ -516,7 +538,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         sourceUrl={mode === 'userbook' ? clipSourceUrl : null}
         sourceDomain={mode === 'userbook' ? sourceDomain(clipSourceUrl) : null}
         useLocalizedLink={mode === 'public'}
-        showAsk={!!askEditionId}
+        showAsk={!!askTarget}
         onAskClick={() => setAskOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
@@ -543,7 +565,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           ttsSpeed={settings.ttsSpeed}
           showInlineTranslations={settings.showInlineTranslations}
           scrollToHighlightId={scrollToHighlightId}
-          onStudyBuddy={askEditionId ? setStudyBuddyPassage : undefined}
+          onStudyBuddy={studyBuddyEditionId ? setStudyBuddyPassage : undefined}
         >
           <div ref={scrollContainerRef}>
             <ReaderSection
@@ -612,25 +634,22 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         onClose={() => setSettingsOpen(false)}
       />
 
-      {askEditionId && (
+      {askTarget && (
         <AskPanel
           open={askOpen}
-          editionId={askEditionId}
+          askTarget={askTarget}
           currentChapterId={activeChapter?.id}
           isAuthenticated={isAuthenticated}
-          initialRagStatus={publicBook?.ragStatus}
-          initialChunkCount={publicBook?.ragChunkCount}
-          initialEmbeddedCount={publicBook?.ragEmbeddedCount}
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}
           onClose={() => setAskOpen(false)}
         />
       )}
 
-      {askEditionId && studyBuddyPassage && (
+      {studyBuddyEditionId && studyBuddyPassage && (
         <StudyBuddyPanel
           open
-          editionId={askEditionId}
+          editionId={studyBuddyEditionId}
           passage={studyBuddyPassage}
           chapterNumber={activeChapter?.chapterNumber ?? null}
           isAuthenticated={isAuthenticated}

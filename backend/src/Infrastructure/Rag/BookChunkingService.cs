@@ -54,6 +54,93 @@ public sealed class BookChunkingService(IChunker chunker, ILogger<BookChunkingSe
     }
 
     /// <summary>
+    /// Phase 2: creates <see cref="UserChapterChunk"/> rows for every chapter of a USER-uploaded book
+    /// (<paramref name="userBookId"/>) into the isolated <c>user_chapter_chunk</c> table. Each row
+    /// carries the denormalized <see cref="UserChapterChunk.UserId"/> (the book's owner) so retrieval
+    /// can hard-filter per user. Best-effort like <see cref="ChunkEditionAsync"/>: logs and returns 0
+    /// on failure. Returns the total chunk count.
+    /// </summary>
+    public async Task<int> ChunkUserBookAsync(AppDbContext db, Guid userBookId, CancellationToken ct)
+    {
+        try
+        {
+            var ownerId = await db.UserBooks
+                .Where(b => b.Id == userBookId)
+                .Select(b => b.UserId)
+                .FirstOrDefaultAsync(ct);
+
+            if (ownerId == Guid.Empty)
+            {
+                logger.LogWarning("RAG chunking: user book {UserBookId} not found", userBookId);
+                return 0;
+            }
+
+            var chapters = await db.UserChapters
+                .Where(c => c.UserBookId == userBookId)
+                .OrderBy(c => c.ChapterNumber)
+                .Select(c => new { c.Id, c.ChapterNumber, c.PlainText })
+                .ToListAsync(ct);
+
+            var rows = BuildUserRows(
+                chunker, userBookId, ownerId,
+                chapters.Select(c => (c.Id, c.ChapterNumber, (string?)c.PlainText)));
+
+            if (rows.Count > 0)
+            {
+                db.UserChapterChunks.AddRange(rows);
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation(
+                    "Created {Count} RAG chunks for user book {UserBookId}", rows.Count, userBookId);
+            }
+
+            return rows.Count;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "RAG chunking failed for user book {UserBookId}; chunks can be regenerated on retrigger", userBookId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Pure mapping: user-book chapters → ordered <see cref="UserChapterChunk"/> rows (null embedding)
+    /// via <paramref name="chunker"/>. Each row carries <paramref name="userId"/> (denormalized owner)
+    /// + <paramref name="userBookId"/> so the per-user isolation filter works in SQL. Extracted so the
+    /// row shape is unit-testable without a DB.
+    /// </summary>
+    public static List<UserChapterChunk> BuildUserRows(
+        IChunker chunker,
+        Guid userBookId,
+        Guid userId,
+        IEnumerable<(Guid Id, int ChapterNumber, string? PlainText)> chapters)
+    {
+        var rows = new List<UserChapterChunk>();
+        foreach (var chapter in chapters)
+        {
+            foreach (var chunk in chunker.Chunk(chapter.PlainText ?? string.Empty))
+            {
+                rows.Add(new UserChapterChunk
+                {
+                    Id = Guid.NewGuid(),
+                    UserBookId = userBookId,
+                    UserChapterId = chapter.Id,
+                    UserId = userId,
+                    ChapterOrd = chapter.ChapterNumber,
+                    Ord = chunk.Ord,
+                    Text = chunk.Text,
+                    TokenCount = chunk.TokenCount,
+                    CharStart = chunk.CharStart,
+                    CharEnd = chunk.CharEnd,
+                    Embedding = null
+                });
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// Pure mapping: chapters → ordered <see cref="ChapterChunk"/> rows (null embedding) via
     /// <paramref name="chunker"/>. Extracted so the row shape (denormalized ChapterOrd, offsets,
     /// per-chapter Ord) is unit-testable without a DB. <c>ChapterOrd</c> is copied from the

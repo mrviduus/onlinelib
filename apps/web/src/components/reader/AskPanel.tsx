@@ -3,19 +3,19 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useTranslation } from '../../hooks/useTranslation'
 import { useAsk } from '../../hooks/useAsk'
 import { useRagIndex } from '../../hooks/useRagIndex'
-import type { AskCitation } from '../../api/ask'
-import type { RagIndexStatus } from '../../types/api'
+import type { AskCitation, AskTarget } from '../../api/ask'
 
 interface Props {
   open: boolean
-  editionId: string
+  /**
+   * What this panel asks against (AI-027 P2). Carries the kind (catalog edition vs user upload),
+   * the id, and the seeded RAG index state/counts so the panel renders correctly with no extra
+   * fetch and routes status/prepare/ask through the right endpoints.
+   */
+  askTarget: AskTarget
   /** GUID of the chapter the user is actively reading — gates the RAG spoiler check. */
   currentChapterId?: string
   isAuthenticated: boolean
-  /** Seed RAG index state from `publicBook` so the panel renders correctly with no extra fetch. */
-  initialRagStatus?: RagIndexStatus
-  initialChunkCount?: number
-  initialEmbeddedCount?: number
   onSignIn: () => void
   onNavigateToCitation: (citation: AskCitation) => void
   onClose: () => void
@@ -23,25 +23,17 @@ interface Props {
 
 export function AskPanel({
   open,
-  editionId,
+  askTarget,
   currentChapterId,
   isAuthenticated,
-  initialRagStatus,
-  initialChunkCount,
-  initialEmbeddedCount,
   onSignIn,
   onNavigateToCitation,
   onClose,
 }: Props) {
   const { t } = useTranslation()
   const containerRef = useFocusTrap(open)
-  const { history, isLoading, error, ask } = useAsk(editionId, currentChapterId)
-  const { status, chunkCount, embeddedCount, preparing, prepare } = useRagIndex(
-    editionId,
-    initialRagStatus,
-    initialChunkCount,
-    initialEmbeddedCount,
-  )
+  const { history, isLoading, error, ask } = useAsk(askTarget, currentChapterId)
+  const { status, chunkCount, embeddedCount, preparing, prepare } = useRagIndex(askTarget)
   const [input, setInput] = useState('')
   const historyRef = useRef<HTMLDivElement>(null)
 

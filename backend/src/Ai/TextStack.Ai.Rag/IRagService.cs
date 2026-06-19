@@ -21,4 +21,15 @@ public interface IRagService
     /// </param>
     Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
         Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct);
+
+    /// <summary>
+    /// Phase 2: hybrid retrieval over a USER-uploaded book's chunks (isolated <c>user_chapter_chunk</c>
+    /// table). Filters on BOTH <paramref name="userId"/> AND <paramref name="userBookId"/> in SQL — a
+    /// user must never retrieve another user's chunks (per-user isolation, defense in depth). The
+    /// returned <c>ChapterId</c> is the user chapter id (for reader deep-links). Same RRF fusion as
+    /// <see cref="RetrieveAsync"/>; user books have no spoiler gate so callers pass
+    /// <paramref name="maxChapterOrd"/> = null for full-book retrieval.
+    /// </summary>
+    Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
+        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct);
 }

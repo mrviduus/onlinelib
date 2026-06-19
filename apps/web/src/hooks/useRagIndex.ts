@@ -1,6 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { getIndexStatus, prepareIndex } from '../api/ask'
-import type { RagIndexStatus } from '../types/api'
+import {
+  getIndexStatus,
+  prepareIndex,
+  getUserIndexStatus,
+  prepareUserIndex,
+  type AskTarget,
+} from '../api/ask'
+import type { RagIndexState, RagIndexStatus } from '../types/api'
 
 const POLL_INTERVAL_MS = 3000
 
@@ -14,22 +20,36 @@ export interface RagIndexHook {
   prepare: () => void
 }
 
+/** Picks the status/prepare endpoints for the target kind (catalog vs user-uploaded). */
+function endpointsFor(target: AskTarget | undefined): {
+  getStatus: (id: string, signal?: AbortSignal) => Promise<RagIndexState>
+  postPrepare: (id: string, signal?: AbortSignal) => Promise<RagIndexState>
+} {
+  if (target?.kind === 'userbook') {
+    return { getStatus: getUserIndexStatus, postPrepare: prepareUserIndex }
+  }
+  return { getStatus: getIndexStatus, postPrepare: prepareIndex }
+}
+
 /**
- * On-demand per-book RAG index state (AI-027 P1). Seeds from the catalog book's `ragStatus` /
- * counts so the panel renders correctly on load with no extra fetch. `prepare()` POSTs to start
- * indexing, then polls `getIndexStatus` every ~3s while `status === 'Indexing'`, stopping at
+ * On-demand per-book RAG index state (AI-027). Seeds from the book's `ragStatus` / counts (threaded
+ * via {@link AskTarget}) so the panel renders correctly on load with no extra fetch. `prepare()`
+ * POSTs to start indexing, then polls every ~3s while `status === 'Indexing'`, stopping at
  * Ready/Failed. The poll interval is cleaned up on unmount and whenever indexing finishes.
+ *
+ * The `target.kind` (`edition` | `userbook`) selects the endpoint family — `/books/{id}/...` for
+ * catalog editions (P1), `/me/books/{id}/...` for user uploads (P2).
  */
-export function useRagIndex(
-  editionId: string | undefined,
-  initialStatus?: RagIndexStatus,
-  initialChunkCount?: number,
-  initialEmbeddedCount?: number,
-): RagIndexHook {
-  const [status, setStatus] = useState<RagIndexStatus>(initialStatus ?? 'NotIndexed')
-  const [chunkCount, setChunkCount] = useState(initialChunkCount ?? 0)
-  const [embeddedCount, setEmbeddedCount] = useState(initialEmbeddedCount ?? 0)
+export function useRagIndex(target: AskTarget | undefined): RagIndexHook {
+  const id = target?.id
+  const [status, setStatus] = useState<RagIndexStatus>(target?.ragStatus ?? 'NotIndexed')
+  const [chunkCount, setChunkCount] = useState(target?.ragChunkCount ?? 0)
+  const [embeddedCount, setEmbeddedCount] = useState(target?.ragEmbeddedCount ?? 0)
   const [preparing, setPreparing] = useState(false)
+
+  // Keep the endpoint pair in a ref so the poll/prepare callbacks don't churn on every render.
+  const endpointsRef = useRef(endpointsFor(target))
+  endpointsRef.current = endpointsFor(target)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -53,9 +73,9 @@ export function useRagIndex(
   }, [stopPolling])
 
   const poll = useCallback(async () => {
-    if (!editionId) return
+    if (!id) return
     try {
-      const res = await getIndexStatus(editionId)
+      const res = await endpointsRef.current.getStatus(id)
       // The interval is cleared on unmount, but an already-in-flight poll can still resolve after
       // unmount — guard the setState to avoid an update on an unmounted component.
       if (!mountedRef.current) return
@@ -66,7 +86,7 @@ export function useRagIndex(
     } catch {
       // Transient poll failure — keep polling; a persistent failure surfaces via the next tick.
     }
-  }, [editionId, stopPolling])
+  }, [id, stopPolling])
 
   const startPolling = useCallback(() => {
     stopPolling()
@@ -74,13 +94,13 @@ export function useRagIndex(
   }, [poll, stopPolling])
 
   const prepare = useCallback(async () => {
-    if (!editionId || preparing) return
+    if (!id || preparing) return
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setPreparing(true)
     try {
-      const res = await prepareIndex(editionId, ctrl.signal)
+      const res = await endpointsRef.current.postPrepare(id, ctrl.signal)
       if (!mountedRef.current) return
       setStatus(res.status)
       setChunkCount(res.chunkCount)
@@ -91,7 +111,7 @@ export function useRagIndex(
     } finally {
       if (mountedRef.current && abortRef.current === ctrl) setPreparing(false)
     }
-  }, [editionId, preparing, startPolling])
+  }, [id, preparing, startPolling])
 
   // If we mount already mid-index (seeded), pick up polling.
   useEffect(() => {

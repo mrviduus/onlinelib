@@ -51,6 +51,14 @@ public class UserBook
     public string[] SuggestedTags { get; set; } = [];
     public DateTimeOffset? SuggestedTagsAt { get; set; }
 
+    // On-demand RAG index state (Phase 2 "Ask this book" for user uploads). Mirrors Edition's fields.
+    // A user trigger claims (NotIndexed/Failed → Indexing) → chunks → the embedding worker flips Ready.
+    public RagIndexStatus RagStatus { get; set; } = RagIndexStatus.NotIndexed;
+    public int RagChunkCount { get; set; }
+    public int RagEmbeddedCount { get; set; }
+    public DateTimeOffset? RagIndexedAt { get; set; }
+    public string? RagError { get; set; }
+
     public User User { get; set; } = null!;
     public ICollection<UserChapter> Chapters { get; set; } = [];
     public ICollection<UserBookFile> BookFiles { get; set; } = [];

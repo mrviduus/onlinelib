@@ -152,6 +152,8 @@ builder.Services.AddScoped<Application.Rag.RagContextService>();
 // "Ask this book" orchestration (AI-025): context + LLM gateway → grounded answer with citations.
 builder.Services.AddScoped<Application.Rag.RagAskService>();
 builder.Services.AddScoped<Application.Rag.IRagAskService>(sp => sp.GetRequiredService<Application.Rag.RagAskService>());
+// Phase 2 "Ask this book" for user uploads: per-user isolated retrieval context (no spoiler gate).
+builder.Services.AddScoped<Application.Rag.UserBookRagContextService>();
 
 // Similar books (AI-055): cosine NN over editions.embedding. Same raw Func<IDbConnection>
 // factory as RAG — a raw connection casts the vector server-side (no pgvector type registration).
@@ -655,6 +657,8 @@ app.MapAdminAiQualityEndpoints();
 app.MapAdminRagEndpoints();
 app.MapAskEndpoints();
 app.MapBookIndexEndpoints();
+app.MapUserBookAskEndpoints();
+app.MapUserBookIndexEndpoints();
 app.MapStudyBuddyEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
