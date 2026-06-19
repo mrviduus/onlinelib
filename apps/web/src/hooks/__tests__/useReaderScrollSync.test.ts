@@ -264,7 +264,7 @@ describe('useReaderScrollSync — save on chapter open', () => {
     // Re-armed: a third write for ch1 (id + slug correct). Offset value isn't asserted here — it's
     // exercised by the dedicated clobber test above; this case only proves the once-guard re-arms.
     expect(updateProgress).toHaveBeenCalledTimes(3)
-    const last = updateProgress.mock.calls.at(-1)!
+    const last = updateProgress.mock.calls[updateProgress.mock.calls.length - 1]
     expect(last[3]).toBe('ch1-id')
     expect(last[4]).toBe('ch1')
   })
