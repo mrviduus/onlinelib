@@ -9,7 +9,13 @@ import { useTranslation } from '../hooks/useTranslation'
  * The MCP CLI prints a user_code and points the user at /device(?code=XXXX-XXXX).
  * A signed-in TextStack user confirms the code and approves the CLI's access.
  * Mounted at top-level (no /:lang prefix) so the CLI's stable URL works.
+ *
+ * Reused for the "Send to TextStack" browser extension (Phase 2): the same
+ * device flow + logic, only the copy differs. `audience` selects the i18n
+ * namespace — 'cli' (default) → deviceVerify.*, 'extension' → connectExtension.*.
  */
+
+export type DeviceVerifyAudience = 'cli' | 'extension'
 
 /** Strip everything but [A-Z0-9], then format as XXXX-XXXX for display. */
 function formatUserCode(raw: string): string {
@@ -23,27 +29,32 @@ function normalizeForSubmit(display: string): string {
   return display.trim().toUpperCase()
 }
 
-/** Map the thrown auth error (status + message=code) to an i18n key. */
-function errorKey(err: unknown): string {
+/** Map the thrown auth error (status + message=code) to an i18n key suffix. */
+function errorKeySuffix(err: unknown): string {
   const e = err as { status?: number; message?: string }
-  if (e?.status === 401) return 'deviceVerify.errorNotSignedIn'
+  if (e?.status === 401) return 'errorNotSignedIn'
   const code = e?.message as DeviceApproveError | undefined
   switch (code) {
     case 'invalid_user_code':
-      return 'deviceVerify.errorInvalidCode'
+      return 'errorInvalidCode'
     case 'expired_user_code':
-      return 'deviceVerify.errorExpired'
+      return 'errorExpired'
     case 'user_code_already_used':
-      return 'deviceVerify.errorAlreadyUsed'
+      return 'errorAlreadyUsed'
     default:
-      return 'deviceVerify.errorGeneric'
+      return 'errorGeneric'
   }
 }
 
-export function DeviceVerifyPage() {
+export function DeviceVerifyPage({ audience = 'cli' }: { audience?: DeviceVerifyAudience } = {}) {
   const [params] = useSearchParams()
   const { t } = useTranslation()
   const { isAuthenticated, user, openAuthModal } = useAuth()
+
+  // Copy namespace: CLI/MCP keeps the original deviceVerify.* strings; the
+  // browser extension uses the parallel connectExtension.* set.
+  const ns = audience === 'extension' ? 'connectExtension' : 'deviceVerify'
+  const k = (suffix: string) => `${ns}.${suffix}`
 
   const initialCode = useMemo(() => formatUserCode(params.get('code') || ''), [params])
   const [code, setCode] = useState(initialCode)
@@ -57,7 +68,7 @@ export function DeviceVerifyPage() {
     setErrorMsg('')
     const submitCode = normalizeForSubmit(code)
     if (!submitCode) {
-      setErrorMsg(t('deviceVerify.errorInvalidCode'))
+      setErrorMsg(t(k('errorInvalidCode')))
       return
     }
     setSubmitting(true)
@@ -65,7 +76,7 @@ export function DeviceVerifyPage() {
       await approveDevice(submitCode)
       setSuccess(true)
     } catch (err) {
-      setErrorMsg(t(errorKey(err)))
+      setErrorMsg(t(k(errorKeySuffix(err))))
     } finally {
       setSubmitting(false)
     }
@@ -86,7 +97,7 @@ export function DeviceVerifyPage() {
       await denyDevice(submitCode)
       setDenied(true)
     } catch (err) {
-      setErrorMsg(t(errorKey(err)))
+      setErrorMsg(t(k(errorKeySuffix(err))))
     } finally {
       setSubmitting(false)
     }
@@ -97,8 +108,8 @@ export function DeviceVerifyPage() {
     return (
       <div className="auth-page">
         <div className="auth-page__card">
-          <h2 className="auth-modal__title">{t('deviceVerify.successTitle')}</h2>
-          <p className="auth-modal__text">{t('deviceVerify.successText')}</p>
+          <h2 className="auth-modal__title">{t(k('successTitle'))}</h2>
+          <p className="auth-modal__text">{t(k('successText'))}</p>
         </div>
       </div>
     )
@@ -109,8 +120,8 @@ export function DeviceVerifyPage() {
     return (
       <div className="auth-page">
         <div className="auth-page__card">
-          <h2 className="auth-modal__title">{t('deviceVerify.deniedTitle')}</h2>
-          <p className="auth-modal__text">{t('deviceVerify.deniedText')}</p>
+          <h2 className="auth-modal__title">{t(k('deniedTitle'))}</h2>
+          <p className="auth-modal__text">{t(k('deniedText'))}</p>
         </div>
       </div>
     )
@@ -123,10 +134,10 @@ export function DeviceVerifyPage() {
     return (
       <div className="auth-page">
         <div className="auth-page__card">
-          <h2 className="auth-modal__title">{t('deviceVerify.signInTitle')}</h2>
-          <p className="auth-modal__text">{t('deviceVerify.signInText')}</p>
+          <h2 className="auth-modal__title">{t(k('signInTitle'))}</h2>
+          <p className="auth-modal__text">{t(k('signInText'))}</p>
           <button className="auth-modal__btn" onClick={openAuthModal}>
-            {t('deviceVerify.signInBtn')}
+            {t(k('signInBtn'))}
           </button>
         </div>
       </div>
@@ -137,23 +148,23 @@ export function DeviceVerifyPage() {
   return (
     <div className="auth-page">
       <div className="auth-page__card">
-        <h2 className="auth-modal__title">{t('deviceVerify.consentTitle')}</h2>
+        <h2 className="auth-modal__title">{t(k('consentTitle'))}</h2>
         <p className="auth-modal__text">
-          {t('deviceVerify.consentLead', { email: user?.email || '' })}
+          {t(k('consentLead'), { email: user?.email || '' })}
         </p>
-        <p className="auth-modal__text">{t('deviceVerify.consentScope')}</p>
+        <p className="auth-modal__text">{t(k('consentScope'))}</p>
         <p className="auth-modal__text">
-          <strong>{t('deviceVerify.consentWarning')}</strong>
+          <strong>{t(k('consentWarning'))}</strong>
         </p>
         <form onSubmit={handleApprove}>
           <label className="auth-modal__text" htmlFor="device-code">
-            {t('deviceVerify.codeLabel')}
+            {t(k('codeLabel'))}
           </label>
           <input
             id="device-code"
             type="text"
             className="auth-modal__input"
-            placeholder={t('deviceVerify.codePlaceholder')}
+            placeholder={t(k('codePlaceholder'))}
             value={code}
             onChange={(e) => setCode(formatUserCode(e.target.value))}
             autoComplete="off"
@@ -163,7 +174,7 @@ export function DeviceVerifyPage() {
           />
           {errorMsg && <p className="auth-modal__error">{errorMsg}</p>}
           <button className="auth-modal__btn" type="submit" disabled={submitting || !code}>
-            {submitting ? t('deviceVerify.submitting') : t('deviceVerify.approve')}
+            {submitting ? t(k('submitting')) : t(k('approve'))}
           </button>
           <button
             type="button"
@@ -172,7 +183,7 @@ export function DeviceVerifyPage() {
             disabled={submitting}
             style={{ background: 'transparent', color: 'var(--color-text-secondary)' }}
           >
-            {t('deviceVerify.cancel')}
+            {t(k('cancel'))}
           </button>
         </form>
       </div>
