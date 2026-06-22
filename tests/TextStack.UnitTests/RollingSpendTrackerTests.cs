@@ -138,10 +138,12 @@ public class RollingSpendTrackerTests
         for (var i = 0; i < 100; i++)
             t.Record("explain", 1.0m); // all well over 80%/100% — must not re-alert
 
-        // Let any wrongly-scheduled alerts run, then assert exactly one.
-        Thread.Sleep(100);
-        email.Verify(e => e.SendAdminAlertAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        // The alert email is fire-and-forget — poll until the one alert lands (don't
+        // Thread.Sleep a fixed 100ms, which flakes on a slow CI runner before the
+        // dispatched Task runs). The per-(feature,day) dedup guarantees it can never
+        // become Times.Exactly(2), so settling on Times.Once is sufficient.
+        Eventually(() => email.Verify(e => e.SendAdminAlertAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once));
     }
 
     [Fact]
