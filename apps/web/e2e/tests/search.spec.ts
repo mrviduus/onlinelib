@@ -36,17 +36,13 @@ test.describe('Search', () => {
   })
 
   test('empty search shows empty state', async ({ page }) => {
-    // Wait for the actual /search XHR to resolve (the empty-state only renders
-    // once `loading` flips false), then assert the empty-state element — instead
-    // of networkidle + a whole-body text match that raced SSG→CSR hydration and
-    // flaked (body resolved empty before React mounted the empty-state).
+    // Wait for the actual .empty-state element (Playwright auto-retries until it
+    // mounts) rather than networkidle + a whole-body text match that raced the
+    // SSG→CSR hydration. The empty-state only renders once the /search XHR
+    // returns and `loading` flips false.
     await page.goto('/en/search?q=xyznonexistentqueryzzz')
-    await page.waitForResponse(
-      (r) => r.url().includes('/search?') && r.url().includes('xyznonexistent'),
-      { timeout: 20_000 },
-    )
     const emptyState = page.locator('.empty-state')
-    await expect(emptyState).toBeVisible({ timeout: 15_000 })
+    await expect(emptyState).toBeVisible({ timeout: 20_000 })
     await expect(emptyState).toContainText(/no results/i)
   })
 })
