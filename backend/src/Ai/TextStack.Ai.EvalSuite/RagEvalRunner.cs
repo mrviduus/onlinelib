@@ -1,12 +1,8 @@
 using Application.Common.Interfaces;
 using Application.Rag;
-using Domain.Entities;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.AI.Evaluation;
 using Microsoft.Extensions.Logging;
 using TextStack.Ai.Core;
 using TextStack.Ai.Evals;
-using TextStack.Ai.Llm;
 using TextStack.Ai.Rag;
 
 namespace TextStack.Ai.EvalSuite;
@@ -49,17 +45,7 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
 {
     // Retrieval scores 0–1 (recall / 1−leak), unlike the 1–5 judged features — the feature key disambiguates.
     private const string RetrievalModelId = "hybrid-retrieval";
-    private const string NoJudge = "n/a";
-    private const int SupportPassThreshold = 4; // judge ≥4/5 on the support axis = a correct citation
-    private const string CitationFeature = "rag.citation";
-
-    // The "support" axis MUST stay Dim1 — SupportRate reads JudgeScore.D1.
-    private static readonly Rubric CitationRubric = new(
-        "support: does the cited excerpt actually contain or directly imply the specific claim it is attached to?",
-        "relevance: is the excerpt genuinely on-topic for the answer, not a loosely-related passage?",
-        "faithfulness: does the answer avoid asserting anything the cited excerpts do not support (no outside knowledge)?");
-
-    private static readonly ChatMessage[] JudgePlaceholderMessages = [new ChatMessage(ChatRole.User, string.Empty)];
+    private const string NoJudge = CitationJudge.NoJudge;
 
     public async Task<RagEvalResult> RunAsync(
         IRagService rag,
@@ -110,7 +96,7 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
         // Citation correctness (027b) — only when a generator + judge are supplied.
         RagCitationSummary? citation = null;
         if (ask is not null && judge is not null)
-            citation = await JudgeCitationsAsync(ask, judge, retrievedByQuestion, ct);
+            citation = await CitationJudge.JudgeCitationsAsync(ask, judge, retrievedByQuestion, ct);
 
         logger.LogInformation(
             "RAG eval edition={Edition} recall@{K}={Recall:0.00} (N={RecallN}) spoilerLeakRate={Leak:0.00} (N={SpoilerN}) citation={Cit}",
@@ -119,12 +105,12 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
 
         if (persist && db is not null)
         {
-            db.EvalRuns.Add(MakeRun("rag.retrieval", RetrievalModelId, NoJudge, (decimal)recall, recallCases.Count, gitSha,
+            db.EvalRuns.Add(CitationJudge.MakeRun("rag.retrieval", RetrievalModelId, NoJudge, (decimal)recall, recallCases.Count, gitSha,
                 $"{{\"recallAtK\":{recall:0.000},\"k\":{k},\"hits\":{recallDetail.Count(c => c.Hit)}}}"));
-            db.EvalRuns.Add(MakeRun("rag.spoiler", RetrievalModelId, NoJudge, (decimal)(1.0 - leakRate), spoilerCases.Count, gitSha,
+            db.EvalRuns.Add(CitationJudge.MakeRun("rag.spoiler", RetrievalModelId, NoJudge, (decimal)(1.0 - leakRate), spoilerCases.Count, gitSha,
                 $"{{\"leakRate\":{leakRate:0.000},\"leakingCases\":{spoilerDetail.Count(c => c.LeakCount > 0)}}}"));
             if (citation is not null)
-                db.EvalRuns.Add(MakeRun(CitationFeature, RagAskService.FeatureTag, judgeModelId ?? NoJudge,
+                db.EvalRuns.Add(CitationJudge.MakeRun(CitationJudge.CitationFeature, RagAskService.FeatureTag, judgeModelId ?? NoJudge,
                     (decimal)citation.Score, citation.CitationsJudged, gitSha,
                     $"{{\"supportRate\":{citation.SupportRate:0.000},\"answers\":{citation.AnswersGenerated}}}"));
             await db.SaveChangesAsync(ct);
@@ -132,79 +118,4 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
 
         return new RagEvalResult(recall, recallCases.Count, leakRate, spoilerCases.Count, recallDetail, spoilerDetail, citation);
     }
-
-    /// <summary>
-    /// Generates a grounded answer per question (over its already-retrieved chunks) and judges each
-    /// citation against the FULL text of the excerpt it points to. Returns the mean 1–5 score and the
-    /// support rate (citations scored ≥<see cref="SupportPassThreshold"/> on the support axis).
-    /// </summary>
-    private async Task<RagCitationSummary> JudgeCitationsAsync(
-        IRagAskService ask,
-        ILlmService judge,
-        IReadOnlyList<(string Question, IReadOnlyList<RetrievedChunk> Chunks)> retrieved,
-        CancellationToken ct)
-    {
-        var chatConfig = new ChatConfiguration(new LlmServiceChatClient(judge, defaultFeatureTag: "eval.judge"));
-        var scores = new List<JudgeScore>();
-        var supported = 0;
-        var answersGenerated = 0;
-
-        foreach (var (question, chunks) in retrieved)
-        {
-            ct.ThrowIfCancellationRequested();
-            // lastReadOrd is irrelevant here — chunks are supplied directly (no user gating).
-            var answer = await ask.AskFromChunksAsync(question, chunks, [], [], lastReadOrd: int.MaxValue, ct);
-            if (answer.Insufficient || answer.Citations.Count == 0)
-                continue;
-            answersGenerated++;
-
-            foreach (var cited in answer.Citations)
-            {
-                ct.ThrowIfCancellationRequested();
-                var evidence =
-                    $"Question: {question}\n\nAnswer:\n{answer.Answer}\n\n" +
-                    $"Cited excerpt [{cited.Marker}] (the answer attributes a claim to this passage):\n{cited.Chunk.Text}";
-
-                var evaluator = new RubricEvaluator(CitationFeature, CitationRubric);
-                var result = await evaluator.EvaluateAsync(
-                    JudgePlaceholderMessages,
-                    new ChatResponse(new ChatMessage(ChatRole.Assistant, answer.Answer)),
-                    chatConfig, [new RubricEvidenceContext(evidence)], ct);
-
-                var score = new JudgeScore(
-                    ReadAxis(result, CitationRubric.Dim1),
-                    ReadAxis(result, CitationRubric.Dim2),
-                    ReadAxis(result, CitationRubric.Dim3),
-                    string.Empty);
-                scores.Add(score);
-                if (score.D1 >= SupportPassThreshold)
-                    supported++;
-            }
-        }
-
-        if (scores.Count == 0)
-            return new RagCitationSummary(0, 0, 0, answersGenerated);
-
-        var summary = JudgeRunner.Aggregate(scores);
-        var supportRate = (double)supported / scores.Count;
-        return new RagCitationSummary(summary.MeanOverall, supportRate, scores.Count, answersGenerated);
-    }
-
-    // RubricEvaluator names each axis "{feature}.{label}" (label = text before ':').
-    private static int ReadAxis(EvaluationResult result, string dim) =>
-        (int)Math.Round(result.Get<NumericMetric>($"{CitationFeature}.{dim.Split(':')[0].Trim()}").Value ?? 0);
-
-    private static EvalRun MakeRun(
-        string feature, string modelId, string judgeModelId, decimal score, int n, string? gitSha, string breakdown) => new()
-        {
-            Id = Guid.NewGuid(),
-            Feature = feature,
-            ModelId = modelId,
-            JudgeModelId = judgeModelId,
-            Score = Math.Round(score, 3),
-            N = n,
-            BreakdownJson = breakdown,
-            GitSha = gitSha,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
 }

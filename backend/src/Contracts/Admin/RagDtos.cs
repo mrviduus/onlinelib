@@ -51,3 +51,24 @@ public record RagEvalDto(
     RagCitationDto? Citation,
     IReadOnlyList<RagRecallCaseDto> RecallCases,
     IReadOnlyList<RagSpoilerCaseDto> SpoilerCases);
+
+/// <summary>One synthesised grounding probe's outcome in the user-book eval (P1): citation count + refusal.</summary>
+public record UserBookProbeDto(string Question, int Citations, bool Insufficient);
+
+/// <summary>One behaviour probe's outcome (greeting | off_book) with a short pass/fail note.</summary>
+public record UserBookBehaviorDto(string Kind, string Question, bool Pass, string Note);
+
+/// <summary>
+/// Result of the user-book RAG eval (P1): citation correctness over the generated grounding probes, the
+/// fraction of probes that retrieved ≥1 chunk, the combined greeting+off-book behaviour pass-fraction,
+/// and per-probe detail. <see cref="Citation"/> is null + <see cref="Note"/> set when the book has no
+/// indexed chunks (empty short-circuit — no LLM call made).
+/// </summary>
+public record UserBookRagEvalDto(
+    RagCitationDto? Citation,
+    double Retrieval,
+    int ProbeN,
+    double BehaviorPass,
+    IReadOnlyList<UserBookProbeDto> Probes,
+    IReadOnlyList<UserBookBehaviorDto> Behavior,
+    string? Note);

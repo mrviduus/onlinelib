@@ -86,6 +86,7 @@ builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EvalSuiteRunner>();
 builder.Services.AddSingleton<Application.Ai.IEvalRunGate, Application.Ai.EvalRunGate>();
 builder.Services.AddSingleton<Application.Ai.EvalRegressionDetector>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.UserBookRagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CriticDefectEvalRunner>();

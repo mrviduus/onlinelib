@@ -3,6 +3,7 @@ using Application.Common.Interfaces;
 using Application.Rag;
 using Contracts.Admin;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
@@ -27,6 +28,79 @@ public static class AdminRagEndpoints
         group.MapGet("/{editionId:guid}/search", Search);
         group.MapGet("/{editionId:guid}/context", Context);
         group.MapPost("/{editionId:guid}/eval", RunEval);
+        group.MapPost("/userbook/{id:guid}/eval", RunUserBookEval);
+    }
+
+    // User-book RAG eval (P1): live grounding validation for ANY user-uploaded book — no goldens, so it
+    // synthesises probes from the book's own chunks (generated grounding + greeting + off-book). Reads
+    // PRIVATE user content under admin auth, so it logs the target userId. `judge` = openai (default,
+    // Eval:JudgeModel) | ollama. Persists rag.userbook.citation / .behavior / .retrieval EvalRun rows.
+    private static async Task<IResult> RunUserBookEval(
+        Guid id,
+        [FromQuery] int? k,
+        [FromQuery] string? judge,
+        IServiceProvider services,
+        IConfiguration config,
+        UserBookRagEvalRunner runner,
+        IAppDbContext db,
+        ILogger<UserBookRagEvalRunner> logger,
+        CancellationToken ct)
+    {
+        var userId = await db.UserBooks
+            .Where(b => b.Id == id)
+            .Select(b => (Guid?)b.UserId)
+            .FirstOrDefaultAsync(ct);
+        if (userId is null)
+            return Results.NotFound("Book not found");
+
+        // Privacy note: admin-triggered eval reads this user's private uploaded content.
+        logger.LogInformation("admin RAG eval reads private user content for userId {UserId}", userId.Value);
+
+        if (!TryResolve<IRagService>(services, out var rag, out var unavailable))
+            return unavailable;
+
+        IRagAskService ask;
+        ILlmService generator;
+        try
+        {
+            ask = services.GetRequiredService<IRagAskService>();
+            generator = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("Embeddings are not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        var useOllama = (judge ?? "openai").Trim().ToLowerInvariant() == "ollama";
+        var judgeKey = useOllama ? "ollama" : "openai-judge";
+        var judgeModelId = useOllama
+            ? config["Ollama:Model"] ?? "gemma4:e2b"
+            : config["Eval:JudgeModel"] ?? "gpt-4.1";
+        var judgeClient = services.GetRequiredKeyedService<ILlmService>(judgeKey);
+
+        var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
+        var gitSha = Environment.GetEnvironmentVariable("GIT_SHA");
+
+        var result = await runner.RunAsync(
+            rag, ask, generator, judgeClient, judgeModelId, userId.Value, id,
+            probeCount: 6, limit, persist: true, db, gitSha, ct);
+
+        var citation = result.Citation is null
+            ? null
+            : new RagCitationDto(
+                Math.Round(result.Citation.Score, 3),
+                Math.Round(result.Citation.SupportRate, 4),
+                result.Citation.CitationsJudged,
+                result.Citation.AnswersGenerated);
+
+        return Results.Ok(new UserBookRagEvalDto(
+            citation,
+            Math.Round(result.Retrieval, 4),
+            result.ProbeN,
+            Math.Round(result.BehaviorPass, 4),
+            result.ProbeCases.Select(c => new UserBookProbeDto(c.Question, c.Citations, c.Insufficient)).ToList(),
+            result.BehaviorCases.Select(c => new UserBookBehaviorDto(c.Kind, c.Question, c.Pass, c.Note)).ToList(),
+            result.Note));
     }
 
     // Phase 4 DoD gate (AI-027): runs the RAG eval against a real, embedded edition. Retrieval
