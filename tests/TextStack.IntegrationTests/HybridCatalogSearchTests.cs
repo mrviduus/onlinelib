@@ -76,7 +76,7 @@ public class HybridCatalogSearchTests
             var embedder = new FixedEmbeddingService(QueryVector());
             var ftsProvider = new PostgresSearchProvider(
                 () => new NpgsqlConnection(DbConn!), new TsQueryBuilder(), new MultilingualAnalyzer());
-            var sut = new HybridCatalogSearch(ftsProvider, embedder, () => new NpgsqlConnection(DbConn!));
+            var sut = new HybridCatalogSearch(ftsProvider, () => embedder, () => new NpgsqlConnection(DbConn!));
 
             var request = new SearchRequest(token, siteId, SearchLanguage.En, Offset: 0, Limit: 20);
             var result = await sut.SearchAsync(request, "en", ct);

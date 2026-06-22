@@ -165,7 +165,10 @@ builder.Services.AddScoped(_ =>
 builder.Services.AddScoped(sp =>
     new Application.Search.HybridCatalogSearch(
         sp.GetRequiredService<TextStack.Search.Abstractions.ISearchProvider>(),
-        sp.GetRequiredService<global::TextStack.Ai.Core.IEmbeddingService>(),
+        // Lazy: OpenAiEmbeddingClient throws in its ctor on a keyless host. Resolved only when
+        // semantic search actually runs (inside HybridCatalogSearch's try/catch), so non-semantic
+        // /search never constructs it and a keyless stack degrades to FTS instead of 500ing.
+        () => sp.GetRequiredService<global::TextStack.Ai.Core.IEmbeddingService>(),
         () => new NpgsqlConnection(connectionString),
         sp.GetRequiredService<ILogger<Application.Search.HybridCatalogSearch>>()));
 

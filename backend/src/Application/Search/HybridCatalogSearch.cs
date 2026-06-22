@@ -33,18 +33,22 @@ public sealed class HybridCatalogSearch
     private const int MaxCandidatePool = 200;
 
     private readonly ISearchProvider _searchProvider;
-    private readonly IEmbeddingService _embedder;
+    private readonly Func<IEmbeddingService> _embedderFactory;
     private readonly Func<IDbConnection> _connectionFactory;
     private readonly ILogger<HybridCatalogSearch> _logger;
 
+    // The embedder is resolved LAZILY (Func, not the instance): OpenAiEmbeddingClient THROWS in its
+    // ctor on a keyless host, and this service is a handler param resolved on EVERY /search request
+    // (even non-semantic). Eagerly resolving it 500'd all catalog search on a keyless stack (e2e).
+    // Now only the semantic branch touches it, inside the try/catch → keyless degrades to pure FTS.
     public HybridCatalogSearch(
         ISearchProvider searchProvider,
-        IEmbeddingService embedder,
+        Func<IEmbeddingService> embedderFactory,
         Func<IDbConnection> connectionFactory,
         ILogger<HybridCatalogSearch>? logger = null)
     {
         _searchProvider = searchProvider;
-        _embedder = embedder;
+        _embedderFactory = embedderFactory;
         _connectionFactory = connectionFactory;
         _logger = logger ?? NullLogger<HybridCatalogSearch>.Instance;
     }
@@ -89,7 +93,7 @@ public sealed class HybridCatalogSearch
         IReadOnlyList<Guid> vectorOrder;
         try
         {
-            var queryVector = await _embedder.EmbedAsync(request.Query, ct);
+            var queryVector = await _embedderFactory().EmbedAsync(request.Query, ct);
             vectorOrder = await VectorRankAsync(request.SiteId, language, queryVector, pool, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -124,7 +124,7 @@ public class HybridCatalogSearchTests
         var provider = new StubSearchProvider(ftsResult);
         var sut = new HybridCatalogSearch(
             provider,
-            new ThrowingEmbeddingService(new HttpRequestException("OpenAI down")),
+            () => new ThrowingEmbeddingService(new HttpRequestException("OpenAI down")),
             ThrowingConnectionFactory); // DB must never be touched on the fallback path.
 
         var request = new SearchRequest("dystopia", Guid.NewGuid(), Offset: 0, Limit: 20);
@@ -147,13 +147,34 @@ public class HybridCatalogSearchTests
         var provider = new StubSearchProvider(MakeFtsResult());
         var sut = new HybridCatalogSearch(
             provider,
-            new ThrowingEmbeddingService(new OperationCanceledException()),
+            () => new ThrowingEmbeddingService(new OperationCanceledException()),
             ThrowingConnectionFactory);
 
         var request = new SearchRequest("dystopia", Guid.NewGuid(), Offset: 0, Limit: 20);
 
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => sut.SearchAsync(request, "en", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SearchAsync_EmbedderFactoryThrows_FallsBackToFtsResult()
+    {
+        // Regression: on a keyless host OpenAiEmbeddingClient throws in its CTOR. The embedder is
+        // resolved lazily, and the semantic try/catch must swallow the ctor throw → pure-FTS fallback
+        // (a keyless stack must NOT 500 the catalog — this is the bug that blocked AI-057's e2e).
+        var ftsResult = MakeFtsResult();
+        var provider = new StubSearchProvider(ftsResult);
+        var sut = new HybridCatalogSearch(
+            provider,
+            () => throw new InvalidOperationException("OPENAI_API_KEY not configured"),
+            ThrowingConnectionFactory);
+
+        var request = new SearchRequest("dystopia", Guid.NewGuid(), Offset: 0, Limit: 20);
+
+        var result = await sut.SearchAsync(request, "en", CancellationToken.None);
+
+        Assert.Same(ftsResult, result);
+        Assert.Equal(request, provider.LastFallbackRequest);
     }
 
     private static SearchResult MakeFtsResult()
