@@ -4,9 +4,13 @@ import { useAuth } from '../../context/AuthContext'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
 import { getAnonymousReader } from '@textstack/shared'
 import { getUserInitials } from '../../lib/userInitials'
+import { useTranslation } from '../../hooks/useTranslation'
+import { DeleteAccountDialog } from './DeleteAccountDialog'
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile, updateAvatar, deleteAvatar } = useAuth()
+  const { t } = useTranslation()
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const [name, setName] = useState(user?.name || '')
   const [nativeLanguage, setNativeLanguage] = useState(user?.nativeLanguage || '')
   const [preview, setPreview] = useState<string | null>(null)
@@ -174,8 +178,22 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               {loading ? 'Saving...' : 'Save changes'}
             </button>
           </form>
+          {!isGuest && (
+            <section className="profile-modal__danger-zone">
+              <h3 className="profile-modal__danger-title">{t('deleteAccount.dangerZone')}</h3>
+              <p className="profile-modal__danger-desc">{t('deleteAccount.sectionDesc')}</p>
+              <button
+                type="button"
+                className="profile-modal__btn profile-modal__btn--danger"
+                onClick={() => setShowDeleteAccount(true)}
+              >
+                {t('deleteAccount.openButton')}
+              </button>
+            </section>
+          )}
         </div>
       </div>
+      {showDeleteAccount && <DeleteAccountDialog onClose={() => setShowDeleteAccount(false)} />}
     </div>,
     document.body,
   )

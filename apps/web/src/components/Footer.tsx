@@ -19,6 +19,7 @@ export function Footer() {
           <LocalizedLink to="/privacy" className="site-footer__link">{t('footer.privacy')}</LocalizedLink>
           <LocalizedLink to="/terms" className="site-footer__link">{t('footer.terms')}</LocalizedLink>
           <LocalizedLink to="/dmca" className="site-footer__link">{t('footer.dmca')}</LocalizedLink>
+          <LocalizedLink to="/delete-account" className="site-footer__link">{t('footer.deleteAccount')}</LocalizedLink>
           <LocalizedLink to="/contact" className="site-footer__link">{t('footer.contact')}</LocalizedLink>
           <LocalizedLink to="/sitemap" className="site-footer__link">{t('footer.sitemap')}</LocalizedLink>
         </nav>

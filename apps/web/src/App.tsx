@@ -19,6 +19,7 @@ import { AboutPage } from './pages/AboutPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
 import { DmcaPage } from './pages/DmcaPage'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { ContactPage } from './pages/ContactPage'
 import { McpLandingPage } from './pages/McpLandingPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -95,6 +96,7 @@ function LanguageRoutes() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/dmca" element={<DmcaPage />} />
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/mcp" element={<McpLandingPage />} />
           <Route path="/library" element={<LibraryPage />} />
@@ -149,6 +151,7 @@ function AppRoutes() {
       <Route path="/privacy" element={<LegacyRedirect />} />
       <Route path="/terms" element={<LegacyRedirect />} />
       <Route path="/dmca" element={<LegacyRedirect />} />
+      <Route path="/delete-account" element={<LegacyRedirect />} />
       <Route path="/contact" element={<LegacyRedirect />} />
       <Route path="/library" element={<LegacyRedirect />} />
       <Route path="/stats" element={<LegacyRedirect />} />

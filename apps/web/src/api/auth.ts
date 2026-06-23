@@ -157,6 +157,11 @@ export async function deleteAvatar(): Promise<void> {
   await authFetch<void>('/me/profile/avatar', { method: 'DELETE' })
 }
 
+// Permanently deletes the authenticated user and ALL their data. Backend → 204.
+export async function deleteAccount(): Promise<void> {
+  await authFetch<void>('/me/account', { method: 'DELETE' })
+}
+
 // Reading Progress API
 export interface ReadingProgressDto {
   editionId: string
