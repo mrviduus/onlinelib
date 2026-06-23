@@ -547,12 +547,97 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     var tapTimeout = null;
     var touchStartX = 0, touchStartY = 0;
     var touchStartTime = 0;
+
+    // Word-action gate (Item A): a deliberate held press — not a brushing
+    // tap — resolves the word and opens the WordCard. A quick tap on a word
+    // does nothing, so accidental screen brushes no longer auto-fire TTS /
+    // translate / Explain (LLM token spend).
+    //   LONGPRESS_MS  — hold duration before the word fires.
+    //   DRAG_TOLERANCE — movement (px) that reclassifies the touch as a
+    //                    scroll / swipe / page-turn and cancels the hold.
+    var LONGPRESS_MS = 450;
+    var DRAG_TOLERANCE = 8;
+    // After the timer has fired a single-word selection, a drag past this
+    // larger threshold means the finger is extending a native multi-word
+    // selection — release the suppression window so the extension's
+    // selectionchange is honoured rather than swallowed (FIX 4).
+    var SELECT_EXTEND_TOLERANCE = 16;
+    var wordPressTimer = null;
+    var _wordPressFired = false;
+
+    // Single cancel path so every abort (drag past tolerance, touchend,
+    // touchcancel) clears the pending hold the same way and resets the
+    // fired flag — prevents a stale timer firing a WordCard for a word the
+    // finger already left (FIX 1).
+    function cancelWordPress() {
+      if (wordPressTimer) { clearTimeout(wordPressTimer); wordPressTimer = null; }
+      _wordPressFired = false;
+    }
+
     document.addEventListener('touchstart', function(e) {
       touchStartX = e.changedTouches[0].clientX;
       touchStartY = e.changedTouches[0].clientY;
       touchStartTime = Date.now();
+      cancelWordPress();
+
+      var target = e.target;
+      var onLink = target && (target.tagName === 'A' || (target.closest && target.closest('a')));
+      // Don't arm the hold over links — let the anchor own the gesture.
+      if (onLink) return;
+      // Capture start coords now; the timer resolves the word at the point
+      // where the finger first landed (not wherever it drifts to).
+      var startX = touchStartX, startY = touchStartY;
+      wordPressTimer = setTimeout(function() {
+        wordPressTimer = null;
+        // Highlight tap just fired — skip word-select so a hold doesn't
+        // open both the highlight editor and the WordCard.
+        if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
+        if (selectWordAtPoint(startX, startY)) {
+          _wordPressFired = true;
+          // RN can't reach expo-haptics from inside the WebView — ask it to
+          // buzz a light/selection impact so the hold feels deliberate.
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'wordEngage' }));
+        }
+      }, LONGPRESS_MS);
     }, { passive: true });
+
+    document.addEventListener('touchmove', function(e) {
+      var mx = e.changedTouches[0].clientX;
+      var my = e.changedTouches[0].clientY;
+      var movedX = Math.abs(mx - touchStartX);
+      var movedY = Math.abs(my - touchStartY);
+      // After the timer fired its single-word selection, a clear drag means
+      // the user is extending a native selection. Cancel the suppression
+      // window so the extension's selectionchange isn't swallowed for 1.5s
+      // (FIX 4). Needs on-device validation of the extend-from-tap gesture.
+      if (_wordPressFired) {
+        if (movedX > SELECT_EXTEND_TOLERANCE || movedY > SELECT_EXTEND_TOLERANCE) {
+          _suppressSelectionChangeUntil = 0;
+        }
+        return;
+      }
+      if (!wordPressTimer) return;
+      if (movedX > DRAG_TOLERANCE || movedY > DRAG_TOLERANCE) {
+        // Scroll / swipe / page-turn — not a deliberate hold. Cancel.
+        cancelWordPress();
+      }
+    }, { passive: true });
+
+    // touchcancel — the OS took the gesture (incoming call, notification
+    // shade, scroll takeover, WebView losing the touch). touchend never
+    // fires here, so without this the pending timer would open a WordCard
+    // (+ haptic + auto-TTS) for a word the finger already left (FIX 1).
+    document.addEventListener('touchcancel', function() {
+      cancelWordPress();
+    }, { passive: true });
+
     document.addEventListener('touchend', function(e) {
+      if (wordPressTimer) { clearTimeout(wordPressTimer); wordPressTimer = null; }
+
+      // The hold already resolved the word on the timer — don't also run the
+      // immersive-toggle / page-turn fallback for this same touch.
+      if (_wordPressFired) { _wordPressFired = false; return; }
+
       var tx = e.changedTouches[0].clientX;
       var ty = e.changedTouches[0].clientY;
       var dx = tx - touchStartX;
@@ -564,9 +649,11 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       // a tap and call removeAllRanges() we destroy the selection the
       // user just made. selectionchange already dispatched it to RN, so
       // bail out here and let the native handles + RN SelectionActionBar
-      // own the lifecycle. 350ms is below Android's 500ms long-press
-      // threshold but above any plausible normal tap.
-      if (dur > 350) return;
+      // own the lifecycle. Use LONGPRESS_MS so a release in the old
+      // 351–449ms dead band still falls through to quick-tap handling
+      // (word-swallow / immersive toggle). The hold timer is already
+      // cleared at the top of touchend, so this can't double-fire (FIX 5).
+      if (dur > LONGPRESS_MS) return;
       var target = e.target;
       if (target.tagName === 'A' || target.closest('a')) return;
 
@@ -584,13 +671,13 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         return;
       }
 
-      // Highlight tap just fired — skip word-select so a single tap doesn't
-      // open both the highlight editor and the WordCard.
+      // Highlight tap just fired — skip the fallback so a single tap doesn't
+      // open the highlight editor twice.
       if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
 
-      // Try selecting the word under the tap. If it hits a word, the
-      // selectionchange listener takes over (pulse + RN message + save).
-      if (selectWordAtPoint(tx, ty)) return;
+      // Quick tap on a word does nothing now (word action requires a hold).
+      // If the tap landed on a word, swallow it so a brush can't toggle bars.
+      if (wordRangeAtPoint(tx, ty)) return;
 
       // Not on a word — empty space / between paragraphs. Fall back to
       // immersive toggle, keeping double-tap suppression.

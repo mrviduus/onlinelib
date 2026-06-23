@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView, useWindowDimensions,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -33,6 +34,7 @@ import { useLibrarySearch } from '../../src/hooks/useLibrarySearch'
 import { matchesQuery } from '../../src/lib/searchUtils'
 import { LibrarySearch } from '../../src/components/library/LibrarySearch'
 import { useBookActions } from '../../src/hooks/useBookActions'
+import { clearLibraryShelvesCache } from '../../src/hooks/useLibraryShelves'
 
 const NEW_BADGE_TTL_MS = 24 * 60 * 60 * 1000
 const isNewUpload = (createdAt?: string): boolean => {
@@ -153,6 +155,11 @@ export default function LibraryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true)
+    // Pull-to-refresh is an explicit "give me fresh data" intent: invalidate
+    // the shelves TTL cache too (it fires an immediate refetch in the live
+    // LibraryShelves via the pub/sub) so the carousels aren't left stale while
+    // the rest of the screen reloads (FIX 3).
+    clearLibraryShelvesCache()
     await loadData()
     setRefreshing(false)
   }
@@ -195,6 +202,13 @@ export default function LibraryScreen() {
     : tab
   const showTabs = source === 'all'
 
+  // Rendered inside each list's ListHeaderComponent so the shelf carousels
+  // scroll together with the rest of the screen (they used to sit in a fixed
+  // top region, which cut off "Quick reads" and below with no way to scroll).
+  const shelvesHeader = (
+    <LibraryShelves hasAnyContent={library.length > 0 || userBooks.length > 0} />
+  )
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.sidebarHeader}>
@@ -208,7 +222,6 @@ export default function LibraryScreen() {
           {user.isGuest ? getAnonymousReaderName(user.id) : user.email}
         </Text>
       )}
-      <LibraryShelves hasAnyContent={library.length > 0 || userBooks.length > 0} />
       <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {showTabs && (
           <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
@@ -235,9 +248,9 @@ export default function LibraryScreen() {
       </View>
 
       {effectiveTab === 'saved' ? (
-        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionSavedIds} />
+        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionSavedIds} shelvesHeader={shelvesHeader} hasAnyContent={library.length > 0 || userBooks.length > 0} />
       ) : (
-        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionUploadIds} />
+        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionUploadIds} shelvesHeader={shelvesHeader} />
       )}
       <LibrarySidebarDrawer
         visible={drawerOpen}
@@ -268,14 +281,18 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshing, onRefresh, viewMode, collectionFilterIds }: {
-  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null
+function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshing, onRefresh, viewMode, collectionFilterIds, shelvesHeader, hasAnyContent }: {
+  library: UserLibraryItem[]; setLibrary: React.Dispatch<React.SetStateAction<UserLibraryItem[]>>; progressMap: Record<string, ReadingProgressDto>; setProgressMap: React.Dispatch<React.SetStateAction<Record<string, ReadingProgressDto>>>; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null; shelvesHeader: React.ReactNode; hasAnyContent: boolean
 }) {
   const router = useRouter()
   const { colors } = useTheme()
   const { t } = useLanguage()
   const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  // Clear the floating tab bar (~56 + bottom inset) so the last row/card isn't
+  // hidden behind it or the raised "+" button.
+  const bottomPad = 56 + insets.bottom + 24
   const { sort, setSort } = useLibrarySort('saved')
   const { status: filter, setStatus: setFilter } = useLibraryStatus()
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('saved')
@@ -292,15 +309,27 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
 
   if (library.length === 0) {
     return (
-      <View style={styles.center}>
-        <EmptyState
-          icon="book-outline"
-          title={t('library.emptyLibrary')}
-          subtitle={t('library.browseBooks')}
-          buttonLabel={t('library.browseBooks')}
-          onButtonPress={() => router.push('/(tabs)/search')}
-        />
-      </View>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomPad }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* When nothing exists anywhere, LibraryShelves renders its own empty
+            placeholder (with a browse CTA) — stacking it above this EmptyState
+            gives two CTAs. Suppress the shelves header in that all-empty case
+            and let the single EmptyState stand. If uploads exist, keep the
+            shelves so their carousels still render here (FIX 6). */}
+        {hasAnyContent && shelvesHeader}
+        <View style={styles.center}>
+          <EmptyState
+            icon="book-outline"
+            title={t('library.emptyLibrary')}
+            subtitle={t('library.browseBooks')}
+            buttonLabel={t('library.browseBooks')}
+            onButtonPress={() => router.push('/(tabs)/search')}
+          />
+        </View>
+      </ScrollView>
     )
   }
 
@@ -318,6 +347,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
         keyExtractor={item => item.editionId}
         ListHeaderComponent={
           <View>
+            {shelvesHeader}
             <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
             <LibraryStatusTabs value={filter} onChange={setFilter} counts={counts} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedSortRow}>
@@ -349,7 +379,7 @@ function SavedList({ library, setLibrary, progressMap, setProgressMap, refreshin
           </View>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
+        contentContainerStyle={[viewMode === 'grid' ? styles.gridContent : styles.listContent, { paddingBottom: bottomPad }]}
         columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
         renderItem={({ item }) => {
           const progress = progressMap[item.editionId]
@@ -485,14 +515,16 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterIds }: {
-  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null
+function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterIds, shelvesHeader }: {
+  books: UserBookDto[]; refreshing: boolean; onRefresh: () => void; viewMode: ViewMode; collectionFilterIds: Set<string> | null; shelvesHeader: React.ReactNode
 }) {
   const router = useRouter()
   const { colors } = useTheme()
   const { t } = useLanguage()
   const { show: showToast } = useToast()
   const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const bottomPad = 56 + insets.bottom + 24
   const { sort, setSort } = useLibrarySort('uploads')
   const { status: filter, setStatus: setFilter } = useLibraryStatus()
   const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('uploads')
@@ -535,6 +567,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterI
 
   const listHeader = (
     <>
+      {shelvesHeader}
       <TouchableOpacity
         style={[styles.uploadBtn, { borderColor: colors.primary }]}
         onPress={() => router.push('/my-books/upload')}
@@ -579,7 +612,12 @@ function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterI
 
   if (sorted.length === 0) {
     return (
-      <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomPad }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+      >
         {listHeader}
         {books.length === 0 ? (
           <View style={styles.center}>
@@ -604,7 +642,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterI
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </ScrollView>
     )
   }
 
@@ -617,7 +655,7 @@ function UploadsList({ books, refreshing, onRefresh, viewMode, collectionFilterI
         keyExtractor={item => item.id}
         ListHeaderComponent={listHeader}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
+        contentContainerStyle={[viewMode === 'grid' ? styles.gridContent : styles.listContent, { paddingBottom: bottomPad }]}
         columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
           renderItem={({ item }) => {
             const s = item.status.toLowerCase()

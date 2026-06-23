@@ -6,6 +6,7 @@ import {
 } from '@textstack/shared'
 import { useLanguage } from '../context/LanguageContext'
 import { useToast } from '../context/ToastContext'
+import { clearLibraryShelvesCache } from './useLibraryShelves'
 
 interface SavedCtx {
   progressMap: Record<string, ReadingProgressDto>
@@ -73,6 +74,9 @@ export function useBookActions() {
       onPress: async () => {
         const snapshot = ctx.library
         ctx.setLibrary(prev => prev.filter(l => l.editionId !== item.editionId))
+        // Drop the shelves cache so Continue reading / Recently added don't
+        // keep showing the removed book on the next focus (TTL is 60s).
+        clearLibraryShelvesCache()
         try {
           await libraryApi.removeFromLibrary(item.editionId)
         } catch (e) {
@@ -111,7 +115,12 @@ export function useBookActions() {
       buttons.push({
         text: isFinished ? t('library.actions.markUnfinished') : t('library.actions.markFinished'),
         onPress: () => run(
-          () => isFinished ? userBooksApi.unmarkUserBookComplete(item.id) : userBooksApi.markUserBookComplete(item.id),
+          async () => {
+            await (isFinished ? userBooksApi.unmarkUserBookComplete(item.id) : userBooksApi.markUserBookComplete(item.id))
+            // Completion toggles shelf membership (continueReading ↔
+            // finishedThisMonth) — invalidate so the live carousel refetches.
+            clearLibraryShelvesCache()
+          },
           isFinished ? 'Mark as unfinished' : 'Mark as finished',
         ),
       })
@@ -132,7 +141,12 @@ export function useBookActions() {
       buttons.push({
         text: t('library.actions.cancel'),
         style: 'destructive',
-        onPress: () => run(() => userBooksApi.cancelUserBook(item.id), 'Cancel upload'),
+        onPress: () => run(async () => {
+          await userBooksApi.cancelUserBook(item.id)
+          // Cancelling removes the in-progress upload from recentlyAdded /
+          // continueReading — invalidate so the live carousel refetches.
+          clearLibraryShelvesCache()
+        }, 'Cancel upload'),
       })
     }
     buttons.push({
@@ -147,7 +161,12 @@ export function useBookActions() {
             {
               text: t('library.actions.confirmDeleteConfirm'),
               style: 'destructive',
-              onPress: () => run(() => userBooksApi.deleteUserBook(item.id), 'Delete book'),
+              onPress: () => run(async () => {
+                await userBooksApi.deleteUserBook(item.id)
+                // Invalidate shelves so the deleted upload disappears from
+                // Continue reading / Recently added immediately.
+                clearLibraryShelvesCache()
+              }, 'Delete book'),
             },
           ],
         )
