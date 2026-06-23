@@ -89,6 +89,7 @@ builder.Services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.UserBookRagEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EnrichmentEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CriticDefectEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CrewAbEvalRunner>();
 // Tool catalogue (AI-029/030): scans Application for ITool impls; dispatch is schema-validated.
@@ -96,6 +97,8 @@ builder.Services.AddAiTools(typeof(Application.Tools.GetChapterTool).Assembly);
 // Agent loop engine (Phase 6, AI-034). Concrete agents (StudyBuddy, AI-035) build on it.
 TextStack.Ai.Agents.ServiceCollectionExtensions.AddAiAgents(builder.Services);
 builder.Services.AddScoped<Application.Agents.StudyBuddyAgent>();
+// Enrichment agent (AI-Agent-1): registered in the API too so the admin eval path can run it.
+builder.Services.AddScoped<Application.Agents.EnrichmentAgent>();
 // Crew specialists (Phase 7, AI-041): single-call IAgent<TIn,TOut> sub-agents the content crews
 // (AI-042/043) compose via CrewTasks.Of. Stateless + ILlmService is a singleton, so singleton is fine.
 builder.Services.AddSingleton<Application.Agents.ResearcherAgent>();

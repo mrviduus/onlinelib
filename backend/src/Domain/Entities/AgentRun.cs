@@ -38,6 +38,16 @@ public class AgentRun
     public string? Error { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>
+    /// Agent self-reported overall confidence in its output (0–1), when the agent produces a
+    /// calibrated confidence (e.g. the Enrichment agent, AI-Agent-1). Null for agents that don't.
+    /// Telemetry only — lets the admin AI-quality page chart agent reliability over time.
+    /// </summary>
+    public double? Confidence { get; set; }
+
+    /// <summary>Number of tool calls the run made across all iterations (telemetry; 0 for tool-less runs).</summary>
+    public int ToolCallsCount { get; set; }
+
     // Optional FK → users; ON DELETE SET NULL (a deleted user shouldn't erase the run history).
     public User? User { get; set; }
 }

@@ -273,8 +273,11 @@ public class UserIngestionService
             {
                 try
                 {
-                    var meta = await _metadataGenerator.GenerateAsync(
-                        bookTitle, bookAuthor, needsDesc, CancellationToken.None);
+                    // AI-Agent-1: tool-using, cross-checked, calibrated enrichment (Open Library cross-check),
+                    // with the opening excerpt for genre/tone cues. Falls back to Ollama internally on
+                    // agent error / budget exhaustion, so this returns best-effort metadata either way.
+                    var meta = await _metadataGenerator.EnrichAsync(
+                        bookId, bookTitle, bookAuthor, firstChapterExcerpt, needsDesc, CancellationToken.None);
 
                     if (meta is null) return;
 
@@ -282,6 +285,9 @@ public class UserIngestionService
                     var book = await bgDb.UserBooks.FirstOrDefaultAsync(
                         b => b.Id == bookId, CancellationToken.None);
                     if (book is null) return;
+
+                    // Never overwrite user-edited ('manual') metadata — mirrors the SEO backfill guard.
+                    if (string.Equals(book.SeoSource, "manual", StringComparison.OrdinalIgnoreCase)) return;
 
                     var changed = false;
                     if (meta.Genre != null && string.IsNullOrEmpty(book.Genre))
@@ -293,6 +299,9 @@ public class UserIngestionService
 
                     if (changed)
                     {
+                        // Persist provenance/confidence from the agent path (null on the Ollama fallback).
+                        if (meta.Confidence is not null) book.MetadataConfidence = meta.Confidence;
+                        if (meta.ProvenanceJson is not null) book.MetadataProvenanceJson = meta.ProvenanceJson;
                         book.UpdatedAt = DateTimeOffset.UtcNow;
                         await bgDb.SaveChangesAsync(CancellationToken.None);
                     }

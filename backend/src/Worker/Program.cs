@@ -9,6 +9,7 @@ using Npgsql;
 using TextStack.Extraction.Extractors;
 using TextStack.Extraction.Registry;
 using TextStack.Ai.Rag;
+using TextStack.Ai.Tools;
 using TextStack.Search;
 using TextStack.Search.Meilisearch;
 using TextStack.Tts;
@@ -63,8 +64,17 @@ builder.Services.AddApplication();
 // HTTP client factory (for OllamaLlmService + etc.)
 builder.Services.AddHttpClient();
 
-// Services
-builder.Services.AddSingleton<IBookMetadataGenerator, BookMetadataGenerator>();
+// Book metadata enrichment (AI-Agent-1): the EnrichmentAgent (tool-using, cross-checked, calibrated)
+// is the primary IBookMetadataGenerator; it decorates the legacy Ollama BookMetadataGenerator and falls
+// back to it on agent error / budget exhaustion. The agent needs the in-process ITool registry +
+// AgentLoop, which the API host wires but the Worker did not — register both here.
+builder.Services.AddAiTools(typeof(Application.Tools.OpenLibrarySearchTool).Assembly);
+TextStack.Ai.Agents.ServiceCollectionExtensions.AddAiAgents(builder.Services);
+builder.Services.AddScoped<Application.Agents.EnrichmentAgent>();
+builder.Services.AddSingleton<BookMetadataGenerator>();
+builder.Services.AddSingleton<IBookMetadataGenerator, EnrichmentAgentMetadataGenerator>();
+// Startup observability: warn once if the agent is routed to OpenAI but has no key (silent Ollama fallback).
+builder.Services.AddHostedService<EnrichmentKeyCheck>();
 builder.Services.AddSingleton<ITagSuggestionGenerator, TagSuggestionGenerator>();
 builder.Services.AddScoped<IPodcastScriptBuilder, PodcastScriptBuilder>();
 // TTS + audio assembly for podcasts (Edge TTS is free; ffmpeg is in the Worker image).

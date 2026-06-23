@@ -23,6 +23,10 @@ public partial class AppDbContext
             e.Property(x => x.Status).HasMaxLength(32);
             e.Property(x => x.StepsJson).HasColumnType("jsonb");
             e.Property(x => x.CostUsd).HasColumnType("numeric(10,6)");
+            // Telemetry (AI-Agent-1): agent-reported confidence + tool-call count, charted in the
+            // admin AI-quality page. Nullable confidence — only agents that calibrate set it.
+            e.Property(x => x.Confidence).HasColumnType("double precision");
+            e.Property(x => x.ToolCallsCount).HasDefaultValue(0);
 
             // Optional FK → users; a deleted user nulls the column but keeps the run.
             e.HasOne(x => x.User)
