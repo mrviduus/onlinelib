@@ -23,6 +23,8 @@ public class StudyBuddyToolsTests
     [
         "get_chapter", "search_book", "lookup_dictionary", "get_user_highlights",
         "find_earlier_definition", "get_chapter_summary", "get_user_vocabulary",
+        // AI-Agent-1 enrichment tools.
+        "search_open_library", "get_open_library_work",
     ];
 
     private static JsonElement Args(string json) => JsonDocument.Parse(json).RootElement;

@@ -44,6 +44,13 @@ public class UserBook
     // JSONB array of prior metadata snapshots (capped at 5 server-side)
     public string? MetadataHistoryJson { get; set; }
 
+    // Enrichment agent provenance (AI-Agent-1). The agent cross-checks the LLM guess against
+    // Open Library and writes a calibrated overall confidence (0–1) + per-field provenance
+    // ({field: {value, source, confidence}}). SeoSource above doubles as the source guard:
+    // 'manual' rows are never overwritten; the agent writes 'auto'.
+    public double? MetadataConfidence { get; set; }
+    public string? MetadataProvenanceJson { get; set; }
+
     // User-defined tags (slice 12) — Postgres text[] with GIN index, max 20 enforced server-side
     public string[] Tags { get; set; } = [];
 

@@ -32,6 +32,8 @@ public sealed class DbAgentRunWriter(IAppDbContext db) : global::TextStack.Ai.Co
             LatencyMs = run.Usage.LatencyMs,
             Error = run.Error,
             CreatedAt = run.CreatedAt,
+            Confidence = run.Confidence,
+            ToolCallsCount = run.ToolCallsCount,
         });
         await db.SaveChangesAsync(ct);
     }

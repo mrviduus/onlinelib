@@ -28,6 +28,9 @@ public partial class AppDbContext
             e.Property(x => x.TakedownReason).HasMaxLength(1000);
             e.Property(x => x.SeoSource).HasMaxLength(20).HasDefaultValue("auto");
             e.Property(x => x.MetadataHistoryJson).HasColumnType("jsonb");
+            // Enrichment agent provenance (AI-Agent-1): calibrated confidence + per-field source map.
+            e.Property(x => x.MetadataConfidence).HasColumnType("double precision");
+            e.Property(x => x.MetadataProvenanceJson).HasColumnType("jsonb");
             e.Property(x => x.Tags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
             e.HasIndex(x => x.Tags).HasMethod("gin");
             e.Property(x => x.SuggestedTags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");

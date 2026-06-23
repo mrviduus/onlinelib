@@ -35,6 +35,7 @@ public static class AdminAiQualityEndpoints
         group.MapGet("/evals/status", GetEvalStatus);
         group.MapPost("/evals/toolcalls/run", RunToolCallEval);
         group.MapPost("/evals/studybuddy/run", RunStudyBuddyEval);
+        group.MapPost("/enrichment/eval", RunEnrichmentEval);
         group.MapPost("/evals/criticdefects/run", RunCriticDefectEval);
         group.MapPost("/evals/crew-ab/run", RunCrewAbEval);
         group.MapGet("/shadow/summary", GetShadowSummary);
@@ -197,6 +198,59 @@ public static class AdminAiQualityEndpoints
                 c.JudgeScore,
                 c.Completed,
                 c.OfferedTools,
+            }),
+        });
+    }
+
+    // AI-Agent-1 DoD gate: runs the REAL EnrichmentAgent over the enrichment golden set and scores
+    // genre/year accuracy, the headline CALIBRATION metric (committed ⇒ correct), the honest-unknown
+    // rate, and avg tool calls. Generation goes through the gateway (routed by FeatureTag bookmeta.agent
+    // → the configured model, e.g. gpt-4.1-mini); the agent's tools hit Open Library. Deterministic
+    // scoring (no judge — ground truth is in the golden). Needs a key; ~30 model calls + tool calls,
+    // run sync like the other eval gates. This is the path that validates the calibration claim on a real
+    // model. Threshold = Enrichment:ConfidenceThreshold (default 0.7), matching the Worker.
+    private static async Task<IResult> RunEnrichmentEval(
+        HttpContext httpContext,
+        IServiceProvider services,
+        IConfiguration config,
+        EnrichmentEvalRunner runner,
+        EnrichmentAgent agent,
+        CancellationToken ct)
+    {
+        try
+        {
+            // The agent resolves its ILlmService through the gateway when it runs; probe it here so a
+            // keyless host returns a clean 503 instead of failing deep in the loop.
+            _ = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("LLM gateway is not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        var threshold = config.GetValue("Enrichment:ConfidenceThreshold", 0.7);
+        // The agent's tools resolve scoped services (IHttpClientFactory) from the request scope.
+        var result = await runner.RunAsync(agent, threshold, httpContext.RequestServices, ct);
+
+        return Results.Ok(new
+        {
+            genreAccuracy = Math.Round(result.GenreAccuracy, 3),
+            yearAccuracy = Math.Round(result.YearAccuracy, 3),
+            calibration = Math.Round(result.Calibration, 3),
+            honestUnknownRate = Math.Round(result.HonestUnknownRate, 3),
+            avgToolCalls = Math.Round(result.AvgToolCalls, 2),
+            n = result.N,
+            cases = result.Cases.Select(c => new
+            {
+                c.Title,
+                c.Difficulty,
+                c.GenreActual,
+                c.YearActual,
+                confidence = Math.Round(c.Confidence, 3),
+                c.ToolCalls,
+                c.GenreCorrect,
+                c.YearCorrect,
+                c.SaidUnknown,
             }),
         });
     }

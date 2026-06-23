@@ -98,7 +98,11 @@ public record AgentRunRecord(
     IReadOnlyList<AgentStep> Steps,
     AgentUsage Usage,
     string? Error,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    /// <summary>Agent-reported overall confidence (0–1), when the agent calibrates one. Null otherwise (telemetry).</summary>
+    double? Confidence = null,
+    /// <summary>Number of tool calls the run made (telemetry). Defaults 0 for tool-less / unset runs.</summary>
+    int ToolCallsCount = 0);
 
 /// <summary>Persists an <see cref="AgentRunRecord"/> (e.g. to Postgres) so the UI can replay the agent's steps.</summary>
 public interface IAgentRunWriter
