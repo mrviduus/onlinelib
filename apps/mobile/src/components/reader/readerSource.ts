@@ -1,6 +1,6 @@
 import type { MutableRefObject, RefObject } from 'react'
 import type { WebView } from 'react-native-webview'
-import type { BookmarkDto } from '@textstack/shared'
+import type { BookmarkDto, AskTarget } from '@textstack/shared'
 import type { ReaderSource, ReaderShellChapter } from './ReaderShell'
 
 /**
@@ -102,6 +102,10 @@ export interface ReaderRuntime {
 
   // Explain sheet bookId — editionId for catalog, undefined for user-book.
   explainBookId?: string
+
+  // "Ask this book" target — catalog edition or user-uploaded book (AI-027 P2).
+  // Drives the Ask button visibility + which endpoint family the sheet hits.
+  askTarget?: AskTarget
 }
 
 export type { ReaderShellChapter }

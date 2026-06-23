@@ -87,6 +87,7 @@ export function Reader({ runtime }: { runtime: ReaderRuntime }) {
       bookTitleRef={runtime.bookTitleRef}
       wordCount={runtime.wordCount}
       explainBookId={runtime.explainBookId}
+      askTarget={runtime.askTarget}
     />
   )
 }

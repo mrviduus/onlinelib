@@ -450,3 +450,23 @@ export interface AskTurnDto {
   role: 'user' | 'assistant'
   content: string
 }
+
+/** Per-book RAG index lifecycle (AI-027). camelCase JSON from the backend. */
+export type RagIndexStatus = 'NotIndexed' | 'Indexing' | 'Ready' | 'Failed'
+
+/** Response of GET/POST `/books/{editionId}/index` and `/me/books/{id}/index`. */
+export interface RagIndexState {
+  status: RagIndexStatus
+  chunkCount: number
+  embeddedCount: number
+}
+
+/**
+ * Identifies what the "Ask this book" panel is pointed at (AI-027 P2). A catalog `edition`
+ * routes to `/books/{id}/...`; a user-uploaded `userbook` routes to `/me/books/{id}/...`.
+ * The reader builds this from whichever book it loaded and threads it through the sheet.
+ */
+export interface AskTarget {
+  kind: 'edition' | 'userbook'
+  id: string
+}

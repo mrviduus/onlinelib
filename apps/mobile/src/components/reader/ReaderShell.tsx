@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'rea
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
 import { t, computeBookProgress, citationChapterSlug, makeSnippet } from '@textstack/shared'
-import type { Chapter, BookmarkDto, AskCitation } from '@textstack/shared'
+import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml } from '../../lib/readerHtml'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
@@ -113,6 +113,9 @@ export interface ReaderShellProps {
   wordCount: number
   /** Explain sheet "bookId" — editionId for public, undefined for user-book. */
   explainBookId?: string
+  /** "Ask this book" target — catalog edition OR user-uploaded book (AI-027 P2).
+   *  Drives the Ask button visibility and which endpoint family the sheet hits. */
+  askTarget?: AskTarget
 }
 
 /**
@@ -134,7 +137,7 @@ export function ReaderShell(props: ReaderShellProps) {
     onWebViewLoaded,
     onChapterLoaded, onRequestNextChapter, onNavigateChapter,
     bookmarks, onToggleCurrentBookmark, onDeleteBookmark, bookmarkChapterSlug,
-    bookTitleRef, wordCount, explainBookId,
+    bookTitleRef, wordCount, explainBookId, askTarget,
   } = props
 
   const router = useRouter()
@@ -456,7 +459,7 @@ export function ReaderShell(props: ReaderShellProps) {
           sessionWordCount={sessionWordCount}
           isAuthenticated={isAuthenticated}
           hasChapters={chapters.length > 0}
-          showAsk={!!explainBookId}
+          showAsk={!!askTarget}
           isCurrentBookmarked={isCurrentBookmarked}
           onExit={handleExit}
           onAskPress={() => setAskOpen(true)}
@@ -578,10 +581,10 @@ export function ReaderShell(props: ReaderShellProps) {
           onClose={() => setExplainOpen(false)}
         />
 
-        {explainBookId && (
+        {askTarget && (
           <AskSheet
             visible={askOpen}
-            editionId={explainBookId}
+            target={askTarget}
             isAuthenticated={isAuthenticated}
             onCitation={handleCitation}
             onSignIn={() => { setAskOpen(false); router.push('/(auth)/login') }}
