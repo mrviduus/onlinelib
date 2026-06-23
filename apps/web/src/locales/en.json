@@ -2,6 +2,28 @@
   "userMenu": {
     "anonymousReader": "Anonymous reader"
   },
+  "deleteAccount": {
+    "dangerZone": "Danger zone",
+    "sectionDesc": "Permanently delete your account and everything in it.",
+    "openButton": "Delete account",
+    "title": "Delete your account?",
+    "warning": "This permanently deletes your account and all data — books, highlights, vocabulary, and reading history. This cannot be undone.",
+    "confirmLabel": "Type {{phrase}} to confirm",
+    "cancel": "Cancel",
+    "confirm": "Delete account",
+    "deleting": "Deleting…",
+    "error": "Could not delete your account. Please try again.",
+    "seoTitle": "Delete your account - TextStack",
+    "seoDesc": "How to permanently delete your TextStack account and all associated data.",
+    "pageTitle": "Delete your account",
+    "intro": "You can permanently delete your TextStack account and all associated data at any time.",
+    "inAppHeading": "Delete in the app",
+    "inAppBody": "Sign in, open the user menu in the top-right corner, choose \"Edit profile\", then scroll to the \"Danger zone\" section and select \"Delete account\". You'll be asked to type DELETE to confirm.",
+    "dataHeading": "What gets deleted",
+    "dataBody": "Deleting your account permanently removes your profile, uploaded books, highlights and notes, saved vocabulary, reading progress, and reading history. This action cannot be undone.",
+    "contactHeading": "Need help?",
+    "contactBody": "If you can't access your account but want it deleted, contact us at"
+  },
   "home": {
     "hero": {
       "title": "Finish the book you keep quitting.",
@@ -383,6 +405,7 @@
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "dmca": "DMCA",
+    "deleteAccount": "Delete Account",
     "authors": "Authors",
     "contact": "Contact Us",
     "sitemap": "Sitemap"

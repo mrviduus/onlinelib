@@ -211,3 +211,67 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Danger zone — destructive account actions, visually separated */
+.profile-modal__danger-zone {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border, rgba(239, 68, 68, 0.25));
+}
+
+.profile-modal__danger-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ef4444;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.profile-modal__danger-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.9rem;
+  line-height: 1.4;
+}
+
+.profile-modal__btn--danger {
+  background: #ef4444;
+}
+
+.profile-modal__btn--danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.profile-modal__btn--secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+}
+
+.profile-modal__btn--secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* Delete-account confirm dialog */
+.profile-modal--danger {
+  border-top: 3px solid #ef4444;
+}
+
+.profile-modal__danger-warning {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  margin: 0 0 1.1rem;
+}
+
+.profile-modal__danger-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.profile-modal__danger-actions .profile-modal__btn {
+  width: auto;
+  flex: 1;
+}

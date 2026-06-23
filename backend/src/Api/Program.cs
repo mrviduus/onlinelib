@@ -485,6 +485,20 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // Account deletion — destructive and irreversible (GDPR hard delete). A user
+    // never needs to call this more than once, so a tight per-IP cap blocks abuse
+    // (e.g. scripted churn against the cascade delete) while staying out of the way
+    // of a legitimate retry after a transient failure.
+    options.AddPolicy("account-delete", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(5),
+            PermitLimit = 3,
+            QueueLimit = 0,
+        });
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     // Emit Retry-After so clients can back off intelligently instead of
     // hammering in a tight retry loop. RateLimiter exposes the metadata
@@ -676,6 +690,7 @@ app.MapAuthEndpoints();
 app.MapDeviceAuthEndpoints();
 app.MapMcpManifestEndpoints();
 app.MapProfileEndpoints();
+app.MapAccountEndpoints();
 app.MapUserDataEndpoints();
 app.MapHighlightsEndpoints();
 app.MapTranslationEndpoints();

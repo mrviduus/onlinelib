@@ -109,4 +109,25 @@ export function setupApi() {
   initApi({ baseUrl: API_URL, getAccessToken, onUnauthorized })
 }
 
+/**
+ * Permanently delete the signed-in user and ALL their data
+ * (`DELETE /me/account` → 204). Irreversible. The caller is responsible
+ * for signing the user out on success. The Bearer token is passed
+ * explicitly (same pattern as `authApi.logout`/`deleteAvatar`) so this
+ * works regardless of the shared client's getAccessToken wiring.
+ */
+export async function deleteAccount(accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/me/account`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw Object.assign(
+      new Error(data?.error || `Failed to delete account: ${res.status}`),
+      { status: res.status },
+    )
+  }
+}
+
 export { API_URL }

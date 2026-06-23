@@ -3,6 +3,7 @@ import {
   User, UpdateProfilePayload, getCurrentUser, loginWithGoogle, logout as logoutApi, refreshToken,
   loginWithEmail as loginWithEmailApi, registerWithEmail as registerWithEmailApi,
   updateProfile as updateProfileApi, uploadAvatar as uploadAvatarApi, deleteAvatar as deleteAvatarApi,
+  deleteAccount as deleteAccountApi,
   createGuestSession as createGuestSessionApi,
 } from '../api/auth'
 import { flushLocalProgress } from '../lib/progressSync'
@@ -26,6 +27,8 @@ interface AuthContextValue {
   updateProfile: (payload: UpdateProfilePayload) => Promise<void>
   updateAvatar: (file: File) => Promise<void>
   deleteAvatar: () => Promise<void>
+  /** Permanently deletes the account + all data, then clears the session locally. Rejects on error (caller stays signed in). */
+  deleteAccount: () => Promise<void>
   /** Set to true after a successful register/login. Consumer shows toast then calls dismissAuthSuccessToast. */
   authSuccessToast: boolean
   dismissAuthSuccessToast: () => void
@@ -48,6 +51,7 @@ const AuthContext = createContext<AuthContextValue>({
   updateProfile: async () => {},
   updateAvatar: async () => {},
   deleteAvatar: async () => {},
+  deleteAccount: async () => {},
   authSuccessToast: false,
   dismissAuthSuccessToast: () => {},
 })
@@ -265,6 +269,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => prev ? { ...prev, picture: null } : null)
   }, [])
 
+  // Permanently deletes the account server-side, then clears the local session.
+  // Mirrors logout's anonymous-after sign-out: no guest re-create here. Rethrows
+  // on failure so the caller keeps the user signed in and surfaces an error.
+  const deleteAccount = useCallback(async () => {
+    await deleteAccountApi()
+    if (typeof google !== 'undefined') {
+      google.accounts.id.disableAutoSelect()
+    }
+    setUser(null)
+  }, [])
+
   // Public: create a guest session if not authenticated. Routes through the single-flight
   // helper so concurrent callers (e.g. HeroSection upload + bootstrap) share one network call.
   const ensureSession = useCallback(async () => {
@@ -307,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         updateAvatar,
         deleteAvatar,
+        deleteAccount,
         authSuccessToast,
         dismissAuthSuccessToast,
       }}

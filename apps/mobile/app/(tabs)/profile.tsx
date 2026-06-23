@@ -15,6 +15,7 @@ import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
+import { deleteAccount } from '../../src/lib/api'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
 import { fonts } from '../../src/theme/typography'
 
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
   const [langPickerOpen, setLangPickerOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const online = useOnline()
   const isGuest = !!user?.isGuest
@@ -107,6 +109,61 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Permanently delete the account. Two-step confirm before the
+  // irreversible network call: a warning explaining what's lost, then a
+  // final confirm. On success we sign out (clears SecureStore token/user
+  // + per-user caches) and the (tabs) layout drops back to the signed-out
+  // state; on failure we keep the user signed in and surface the error.
+  const performDelete = async () => {
+    setDeleting(true)
+    try {
+      const token = await getAccessToken()
+      if (!token) {
+        Alert.alert('Not signed in', 'Your session expired. Sign in again and retry.')
+        return
+      }
+      await deleteAccount(token)
+      await signOut()
+      router.replace('/(tabs)')
+    } catch (e: any) {
+      const status: number | undefined = e?.status
+      let message = e?.message || 'Something went wrong. Please try again.'
+      if (status === 401 || status === 403) {
+        message = 'Your session expired. Sign in again and retry.'
+      } else if (typeof status === 'number' && status >= 500) {
+        message = 'Our servers are having trouble. Please try again in a minute.'
+      } else if (!status) {
+        message = 'Check your connection and try again.'
+      }
+      Alert.alert('Delete failed', message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account and ALL your data — uploaded books, highlights, vocabulary, and reading history. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert(
+              'Are you absolutely sure?',
+              'There is no way to recover your account or data after this.',
+              [
+                { text: 'Keep my account', style: 'cancel' },
+                { text: 'Delete account', style: 'destructive', onPress: performDelete },
+              ],
+            ),
+        },
+      ],
+    )
   }
 
   if (!isAuthenticated) {
@@ -317,6 +374,33 @@ export default function ProfileScreen() {
           <Ionicons name="log-out-outline" size={20} color={colors.error} style={styles.menuIcon} />
           <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
         </TouchableOpacity>
+
+        {/* Danger zone — destructive, visually separated from normal settings.
+            Hidden for guest accounts (nothing server-side to delete). */}
+        {!isGuest && (
+          <View style={[styles.dangerZone, { borderColor: colors.error }]}>
+            <Text style={[styles.sectionLabel, { color: colors.error, marginTop: 0 }]}>Danger zone</Text>
+            <TouchableOpacity
+              style={styles.dangerRow}
+              onPress={confirmDelete}
+              disabled={deleting}
+              activeOpacity={0.7}
+              accessibilityLabel="Delete account"
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={colors.error} style={styles.menuIcon} />
+              ) : (
+                <Ionicons name="trash-outline" size={20} color={colors.error} style={styles.menuIcon} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuText, { color: colors.error }]}>Delete account</Text>
+                <Text style={[styles.dangerHint, { color: colors.textSecondary }]}>
+                  Permanently removes your account and all data. Cannot be undone.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <LanguagePickerModal
@@ -407,4 +491,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
+  dangerZone: {
+    marginTop: 32,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dangerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dangerHint: { fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
 })
