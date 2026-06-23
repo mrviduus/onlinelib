@@ -12,6 +12,7 @@ import { fonts } from '../../src/theme/typography'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { trackBookOpened } from '../../src/lib/analytics'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
+import { clearLibraryShelvesCache } from '../../src/hooks/useLibraryShelves'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -138,6 +139,9 @@ export default function UserBookDetailScreen() {
           setDeleting(true)
           try {
             await userBooksApi.deleteUserBook(id)
+            // Invalidate the library shelves cache so the deleted book is gone
+            // from Continue reading / Recently added when we land back on Library.
+            clearLibraryShelvesCache()
             // Don't reset `deleting` on success — the screen unmounts on router.back()
             // and any lingering state change would warn. (P2-2)
             router.back()

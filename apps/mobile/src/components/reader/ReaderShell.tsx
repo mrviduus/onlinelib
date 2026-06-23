@@ -296,6 +296,10 @@ export function ReaderShell(props: ReaderShellProps) {
       } else if (data.type === 'highlightTap') {
         const hl = highlightsRef.current.find(h => h.id === data.highlightId)
         if (hl) setEditingHighlight(hl)
+      } else if (data.type === 'wordEngage') {
+        // Word resolved via deliberate long-press (Item A). Light selection
+        // impact confirms the hold registered before the WordCard opens.
+        haptics.play('flip')
       } else if (data.type === 'selection') {
         const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
         const nextId = openSelection(data.text ? { ...data, mode } : null)
@@ -307,7 +311,7 @@ export function ReaderShell(props: ReaderShellProps) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
   }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
-      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress])
+      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics])
 
   const navigateChapter = (slug: string) => {
     saveProgress()

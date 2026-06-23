@@ -11,6 +11,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
+import { clearLibraryShelvesCache } from '../../src/hooks/useLibraryShelves'
 import {
   isBookFullyCached,
   getAllCachedBooks,
@@ -280,6 +281,9 @@ export default function BookDetailScreen() {
                   } else {
                     await libraryApi.addToLibrary(book.id)
                   }
+                  // Library membership changed — drop the cached shelves so the
+                  // book appears in / disappears from the shelves on next focus.
+                  clearLibraryShelvesCache()
                 } catch (err) {
                   console.warn('library toggle failed:', err)
                   setInLibrary(wasInLibrary)
