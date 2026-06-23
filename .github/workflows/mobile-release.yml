@@ -6,6 +6,10 @@ name: Mobile Release (EAS)
 #   • build      — `eas build` only. Produces an artifact; does NOT touch the store.
 #   • submit     — `eas submit --latest` — pushes the latest build to the store.
 #                  Run this yourself, on purpose, when you've decided to release.
+#   • build-submit — one run, no tags: `eas build --auto-submit`. Builds on EAS,
+#                  waits, then pushes to the store in the same run. Submit track
+#                  follows eas.json (submit.production.android.track). Android-only
+#                  by default (only Android has a submit config in eas.json).
 #
 # Requires repo secret EXPO_TOKEN (expo.dev → Account → Access tokens).
 # workflow_dispatch ONLY — no push/tag/schedule triggers, so the store is never
@@ -16,7 +20,7 @@ on:
       action:
         description: What to do (store submit is its own explicit action)
         type: choice
-        options: [ota-update, build, submit]
+        options: [ota-update, build, submit, build-submit]
         default: ota-update
       platform:
         description: Target platform
@@ -91,4 +95,16 @@ jobs:
             --platform "${{ inputs.platform }}" \
             --profile "${{ inputs.profile }}" \
             --latest \
+            --non-interactive
+
+      # One run, no tags: build on EAS, wait, then push to the store. The submit
+      # track comes from eas.json (submit.<profile>.android.track). Android only —
+      # iOS has no submit config, so pick android for this action.
+      - name: Build + submit
+        if: ${{ inputs.action == 'build-submit' }}
+        run: |
+          eas build \
+            --platform android \
+            --profile "${{ inputs.profile }}" \
+            --auto-submit \
             --non-interactive
