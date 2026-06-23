@@ -517,7 +517,14 @@
       "thinking": "Thinking…",
       "empty": "Ask a question about the book — answers come only from chapters you've read.",
       "signIn": "Sign in to ask questions about this book.",
-      "signInCta": "Sign in"
+      "signInCta": "Sign in",
+      "indexing": "Indexing this book…",
+      "indexFailed": "Could not index this book.",
+      "indexTimeout": "Indexing is taking too long. Try again.",
+      "retry": "Retry",
+      "notConfigured": "Ask is not available right now.",
+      "insufficient": "Not enough in the book to answer that.",
+      "error": "Could not get an answer"
     },
     "reviewNow": "Review Now",
     "later": "Later",

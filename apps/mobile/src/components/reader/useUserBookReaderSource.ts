@@ -233,5 +233,6 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     onToggleCurrentBookmark: toggleBookmark,
     onDeleteBookmark: deleteBookmark,
     bookmarkChapterSlug: bookmarkSlug,
+    askTarget: bookId ? { kind: 'userbook', id: bookId } : undefined,
   }
 }
