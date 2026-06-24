@@ -13,8 +13,14 @@ public record TutorFeedbackRequest(IReadOnlyList<TutorFeedbackResultDto> Results
 /// One planned study item in the Tutor response. <see cref="WordId"/> + <see cref="Word"/> reference a REAL
 /// vocab card (re-projected from a tool result — never invented). <see cref="ExerciseType"/> is calibrated to
 /// the card's SRS <see cref="Stage"/> (recognition / recall / context), <see cref="Difficulty"/> to stage +
-/// accuracy, and <see cref="Why"/> is the per-item reasoning. The client hands these off to the existing
-/// vocabulary-review flow.
+/// accuracy, and <see cref="Why"/> is the per-item reasoning.
+/// <para>
+/// The render fields (<see cref="Translation"/>, <see cref="Definition"/>, <see cref="Sentence"/>,
+/// <see cref="BookTitle"/>, <see cref="Hint"/>, <see cref="Distractors"/>) are enriched server-side from the
+/// caller's REAL <c>VocabularyWord</c> row (keyed on the already-validated <see cref="WordId"/>) so the client
+/// can build the same card the vocabulary-review flow renders without a fragile re-fetch+join. An item whose
+/// id no longer maps to one of the caller's cards is dropped, not emitted with null render fields.
+/// </para>
 /// </summary>
 public record TutorPlanItemDto(
     Guid WordId,
@@ -22,7 +28,13 @@ public record TutorPlanItemDto(
     int Stage,
     string ExerciseType,
     string Difficulty,
-    string Why);
+    string Why,
+    string? Translation,
+    string? Definition,
+    string? Sentence,
+    string? BookTitle,
+    string? Hint,
+    IReadOnlyList<string> Distractors);
 
 /// <summary>
 /// The Tutor agent's response: the persisted <see cref="SessionId"/> (carry it to the feedback endpoint), the

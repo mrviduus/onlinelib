@@ -1308,6 +1308,50 @@
       "practicedToday": "Practiced today"
     }
   },
+  "tutor": {
+    "title": "Smart session",
+    "planning": "Your tutor is planning your session…",
+    "entry": {
+      "cta": "Smart session",
+      "hint": "Let your AI tutor plan what to study and explain why"
+    },
+    "plan": {
+      "rationaleLabel": "Here's your plan, and why",
+      "adjustedLabel": "Your tutor adjusted your plan",
+      "adjustedNote": "Your tutor adjusted your plan based on how you did.",
+      "start": "Start studying"
+    },
+    "exercise": {
+      "recognition": "Recognition",
+      "recall": "Recall",
+      "context": "Context",
+      "generic": "Exercise"
+    },
+    "study": {
+      "why": "Why this card"
+    },
+    "summary": {
+      "done": "Session complete",
+      "studied": "Studied",
+      "accuracy": "Accuracy",
+      "back": "Back to vocabulary"
+    },
+    "empty": {
+      "title": "Nothing to study right now",
+      "subtitle": "You're all caught up. Keep reading to grow your vocabulary.",
+      "cta": "Browse books"
+    },
+    "error": {
+      "title": "Couldn't plan your session",
+      "subtitle": "Something went wrong reaching your tutor.",
+      "retry": "Try again"
+    },
+    "signIn": {
+      "title": "Sign in for a smart session",
+      "subtitle": "Your AI tutor plans what to study from the words you save while reading.",
+      "cta": "Browse books"
+    }
+  },
   "breadcrumbs": {
     "home": "Home",
     "books": "Books",

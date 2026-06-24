@@ -34,6 +34,7 @@ const UserBookDetailPage = lazy(() => import('./pages/UserBookDetailPage').then(
 const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
 const VocabularyPage = lazy(() => import('./pages/VocabularyPage').then(m => ({ default: m.VocabularyPage })))
 const VocabularyReviewPage = lazy(() => import('./pages/VocabularyReviewPage').then(m => ({ default: m.VocabularyReviewPage })))
+const TutorSessionPage = lazy(() => import('./pages/TutorSessionPage').then(m => ({ default: m.TutorSessionPage })))
 const HighlightsPage = lazy(() => import('./pages/HighlightsPage').then(m => ({ default: m.HighlightsPage })))
 const HighlightReviewPage = lazy(() => import('./pages/HighlightReviewPage').then(m => ({ default: m.HighlightReviewPage })))
 import { Header } from './components/Header'
@@ -104,6 +105,7 @@ function LanguageRoutes() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/vocabulary" element={<VocabularyPage />} />
           <Route path="/vocabulary/review" element={<VocabularyReviewPage />} />
+          <Route path="/vocabulary/tutor" element={<TutorSessionPage />} />
           <Route path="/highlights" element={<HighlightsPage />} />
           <Route path="/highlights/review" element={<HighlightReviewPage />} />
           <Route path="/library/my/:id" element={<UserBookDetailPage />} />
@@ -157,6 +159,7 @@ function AppRoutes() {
       <Route path="/stats" element={<LegacyRedirect />} />
       <Route path="/vocabulary" element={<LegacyRedirect />} />
       <Route path="/vocabulary/review" element={<LegacyRedirect />} />
+      <Route path="/vocabulary/tutor" element={<LegacyRedirect />} />
       <Route path="/highlights" element={<LegacyRedirect />} />
       <Route path="/highlights/review" element={<LegacyRedirect />} />
       <Route path="/:lang/*" element={<LanguageRoutes />} />
