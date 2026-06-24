@@ -69,6 +69,7 @@ public class TutorToolSanitizationTests
                     Id = wordId,
                     UserId = userId, // tool scopes by user_id
                     Word = "ostensibly",
+                    Language = "en",
                     Sentence = $"He {Injection} walked.",
                     BookTitle = "My Upload",
                 },
@@ -100,7 +101,7 @@ public class TutorToolSanitizationTests
             };
             var userBooks = new List<UserBook>
             {
-                new() { Id = ubId, UserId = userId, Title = $"Notes {Injection} on Reading", Language = "en" },
+                new() { Id = ubId, UserId = userId, Slug = "notes-on-reading", Title = $"Notes {Injection} on Reading", Language = "en" },
             };
             db.Setup(x => x.ReadingSessions).Returns(() => FakeSet(sessions).Object);
             db.Setup(x => x.UserBooks).Returns(() => FakeSet(userBooks).Object);
