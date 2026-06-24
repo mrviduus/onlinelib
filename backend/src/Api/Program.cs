@@ -91,6 +91,7 @@ builder.Services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.EnrichmentEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.LibrarianEvalRunner>();
+builder.Services.AddSingleton<TextStack.Ai.EvalSuite.TutorEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CriticDefectEvalRunner>();
 builder.Services.AddSingleton<TextStack.Ai.EvalSuite.CrewAbEvalRunner>();
 // Tool catalogue (AI-029/030): scans Application for ITool impls; dispatch is schema-validated.
@@ -104,6 +105,10 @@ builder.Services.AddScoped<Application.Agents.EnrichmentAgent>();
 // search tools resolve the scoped IAppDbContext + LibrarySearchService per request).
 builder.Services.AddScoped<Application.Search.LibrarySearchService>();
 builder.Services.AddScoped<Application.Agents.LibrarianAgent>();
+// Learning Tutor agent (AI-Agent-2): plans an ordered study set over the learner's SRS + reading state and
+// hands off to the existing vocabulary-review flow. Scoped (its tools resolve the scoped IAppDbContext +
+// IRagService per request).
+builder.Services.AddScoped<Application.Agents.TutorAgent>();
 // Crew specialists (Phase 7, AI-041): single-call IAgent<TIn,TOut> sub-agents the content crews
 // (AI-042/043) compose via CrewTasks.Of. Stateless + ILlmService is a singleton, so singleton is fine.
 builder.Services.AddSingleton<Application.Agents.ResearcherAgent>();
@@ -480,6 +485,18 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         });
     });
+    // Learning Tutor agent (AI-Agent-2): each planning turn is several LLM calls + DB reads, so a tight per-IP
+    // cap. Mirrors the librarian policy shape.
+    options.AddPolicy("tutor", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 8,
+            QueueLimit = 0,
+        });
+    });
     // AutoPublish crew (AI-042): an admin generate is TWO 4-stage crews = 8 LLM calls, so a tight per-IP cap.
     // Mirrors the studybuddy policy shape; it sits behind admin auth too, this is just runaway protection.
     options.AddPolicy("autopublish.crew", httpContext =>
@@ -728,6 +745,7 @@ app.MapUserBookAskEndpoints();
 app.MapUserBookIndexEndpoints();
 app.MapStudyBuddyEndpoints();
 app.MapLibrarianEndpoints();
+app.MapTutorEndpoints();
 app.MapVocabularyEndpoints();
 app.MapTtsEndpoints();
 app.MapExportEndpoints();

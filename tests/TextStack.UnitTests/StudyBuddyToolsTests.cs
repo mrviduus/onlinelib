@@ -27,6 +27,8 @@ public class StudyBuddyToolsTests
         "search_open_library", "get_open_library_work",
         // AI-Agent-3 librarian library-search tools.
         "search_library", "search_library_semantic",
+        // AI-Agent-2 tutor tools.
+        "get_due_vocabulary", "get_weak_vocabulary", "get_reading_context", "get_example_sentence",
     ];
 
     private static JsonElement Args(string json) => JsonDocument.Parse(json).RootElement;
@@ -49,6 +51,10 @@ public class StudyBuddyToolsTests
     [InlineData(typeof(FindEarlierDefinitionTool), """{"term": "quorum"}""", """{}""")]
     [InlineData(typeof(GetChapterSummaryTool), """{"chapter_number": 5}""", """{"chapter_number": 0}""")]
     [InlineData(typeof(GetUserVocabularyTool), """{"query": "lsm", "limit": 10}""", """{"limit": 99}""")]
+    [InlineData(typeof(GetDueVocabularyTool), """{"limit": 10}""", """{"limit": 99}""")]
+    [InlineData(typeof(GetWeakVocabularyTool), """{"limit": 10}""", """{"limit": 0}""")]
+    [InlineData(typeof(GetReadingContextTool), """{"days": 7}""", """{"days": 999}""")]
+    [InlineData(typeof(GetExampleSentenceTool), """{"wordId": "abc"}""", """{}""")]
     public void ArgsSchema_AcceptsHappyPath_RejectsMalformed(Type toolType, string goodArgs, string badArgs)
     {
         var tool = (ITool)Activator.CreateInstance(toolType)!;
@@ -61,6 +67,10 @@ public class StudyBuddyToolsTests
     [InlineData(typeof(FindEarlierDefinitionTool))]
     [InlineData(typeof(GetChapterSummaryTool))]
     [InlineData(typeof(GetUserVocabularyTool))]
+    [InlineData(typeof(GetDueVocabularyTool))]
+    [InlineData(typeof(GetWeakVocabularyTool))]
+    [InlineData(typeof(GetReadingContextTool))]
+    [InlineData(typeof(GetExampleSentenceTool))]
     public void ArgsSchema_RejectsUnknownProperties(Type toolType)
     {
         var tool = (ITool)Activator.CreateInstance(toolType)!;
