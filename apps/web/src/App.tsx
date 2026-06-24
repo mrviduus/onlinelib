@@ -35,6 +35,7 @@ const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m
 const VocabularyPage = lazy(() => import('./pages/VocabularyPage').then(m => ({ default: m.VocabularyPage })))
 const VocabularyReviewPage = lazy(() => import('./pages/VocabularyReviewPage').then(m => ({ default: m.VocabularyReviewPage })))
 const TutorSessionPage = lazy(() => import('./pages/TutorSessionPage').then(m => ({ default: m.TutorSessionPage })))
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage').then(m => ({ default: m.DiscoverPage })))
 const HighlightsPage = lazy(() => import('./pages/HighlightsPage').then(m => ({ default: m.HighlightsPage })))
 const HighlightReviewPage = lazy(() => import('./pages/HighlightReviewPage').then(m => ({ default: m.HighlightReviewPage })))
 import { Header } from './components/Header'
@@ -50,6 +51,7 @@ import './styles/reader.css'
 import './styles/books.css'
 import './styles/stats.css'
 import './styles/vocabulary.css'
+import './styles/librarian.css'
 import './styles/highlights.css'
 import './styles/auth.css'
 import './styles/profile.css'
@@ -86,6 +88,7 @@ function LanguageRoutes() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/books" element={<BooksPage />} />
           <Route path="/books/:bookSlug" element={<BookDetailPage />} />
           <Route path="/books/:bookSlug/:chapterSlug" element={<ReaderPage />} />
@@ -149,6 +152,7 @@ function AppRoutes() {
       <Route path="/authors/*" element={<LegacyRedirect />} />
       <Route path="/genres/*" element={<LegacyRedirect />} />
       <Route path="/search" element={<LegacyRedirect />} />
+      <Route path="/discover" element={<LegacyRedirect />} />
       <Route path="/about" element={<LegacyRedirect />} />
       <Route path="/privacy" element={<LegacyRedirect />} />
       <Route path="/terms" element={<LegacyRedirect />} />
