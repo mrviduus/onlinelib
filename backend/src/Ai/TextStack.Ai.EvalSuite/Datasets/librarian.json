@@ -1,0 +1,55 @@
+[
+  {
+    "Query": "find books like 1984 about surveillance and totalitarianism, in English",
+    "ExpectedSlugs": ["nineteen-eighty-four", "brave-new-world", "we"],
+    "NeedsExternal": false,
+    "Language": "en"
+  },
+  {
+    "Query": "classic gothic horror novels",
+    "ExpectedSlugs": ["dracula", "frankenstein", "the-castle-of-otranto"],
+    "NeedsExternal": false
+  },
+  {
+    "Query": "a short detective mystery under 300 pages",
+    "ExpectedSlugs": ["the-hound-of-the-baskervilles", "the-murder-of-roger-ackroyd"],
+    "NeedsExternal": false,
+    "MaxPages": 300
+  },
+  {
+    "Query": "books like Pride and Prejudice — witty romance and social manners",
+    "ExpectedSlugs": ["pride-and-prejudice", "emma", "sense-and-sensibility"],
+    "NeedsExternal": false
+  },
+  {
+    "Query": "seafaring adventure novels",
+    "ExpectedSlugs": ["moby-dick", "treasure-island", "twenty-thousand-leagues-under-the-seas"],
+    "NeedsExternal": false
+  },
+  {
+    "Query": "philosophy of stoicism",
+    "ExpectedSlugs": ["meditations", "the-enchiridion"],
+    "NeedsExternal": false
+  },
+  {
+    "Query": "Russian psychological novels about guilt and morality",
+    "ExpectedSlugs": ["crime-and-punishment", "the-brothers-karamazov"],
+    "NeedsExternal": false
+  },
+  {
+    "Query": "war and its aftermath, in English",
+    "ExpectedSlugs": ["the-red-badge-of-courage", "all-quiet-on-the-western-front"],
+    "NeedsExternal": false,
+    "Language": "en"
+  },
+  {
+    "Query": "a contemporary 2023 cyberpunk thriller by an indie self-published author",
+    "ExpectedSlugs": [],
+    "NeedsExternal": true
+  },
+  {
+    "Query": "the latest peer-reviewed research monograph on CRISPR gene editing",
+    "ExpectedSlugs": [],
+    "NeedsExternal": true
+  }
+]
