@@ -7,7 +7,7 @@ using TextStack.Ai.Core;
 using TextStack.Ai.EvalSuite;
 using TextStack.Ai.Tools;
 
-namespace TextStack.UnitTests;
+namespace TextStack.AiEvals;
 
 /// <summary>
 /// AI-Agent-3 LibrarianEvalRunner — the deterministic scoring (recall@k, constraint-satisfaction, coverage

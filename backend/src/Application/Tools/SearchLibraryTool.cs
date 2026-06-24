@@ -49,7 +49,13 @@ public sealed class SearchLibraryTool : ITool
         if (siteId is null)
             return LibraryToolShared.NoSite(query);
 
-        var service = ctx.Services.GetRequiredService<LibrarySearchService>();
+        // API-host-only: LibrarySearchService is wired in the API DI but NOT in the Worker. The Worker's
+        // assembly tool-scan still constructs this tool, so resolve defensively (GetService, not GetRequired)
+        // and degrade as data rather than NRE if a future Worker agent ever allow-lists it.
+        var service = ctx.Services.GetService<LibrarySearchService>();
+        if (service is null)
+            return LibraryToolShared.Unavailable();
+
         var books = await service.SearchAsync(query, siteId.Value, language, limit, ct);
         return LibraryToolShared.Shape(books, query);
     }
