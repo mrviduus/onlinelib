@@ -4,12 +4,12 @@ name: Mobile Release (EAS)
 # the store automatically; each run is a deliberate human click:
 #   • ota-update — `eas update` to the production channel (JS-only changes, instant).
 #   • build      — `eas build` only. Produces an artifact; does NOT touch the store.
-#   • submit     — `eas submit --latest` — pushes the latest build to the store.
-#                  Run this yourself, on purpose, when you've decided to release.
-#   • build-submit — one run, no tags: `eas build --auto-submit`. Builds on EAS,
-#                  waits, then pushes to the store in the same run. Submit track
-#                  follows eas.json (submit.production.android.track). Android-only
-#                  by default (only Android has a submit config in eas.json).
+#   • submit     — `eas submit --latest` — pushes the latest build to the store,
+#                  to the `track` input (internal | closed). Android-only.
+#   • build-submit — one run, no tags: `eas build --auto-submit-with-profile`.
+#                  Builds on EAS, waits, then pushes to the store in the same run,
+#                  to the `track` input (internal | closed). Android-only.
+# Submit destination = the `track` input → eas.json `submit.<track>` profile.
 #
 # Requires repo secret EXPO_TOKEN (expo.dev → Account → Access tokens).
 # workflow_dispatch ONLY — no push/tag/schedule triggers, so the store is never
@@ -28,10 +28,15 @@ on:
         options: [all, android, ios]
         default: all
       profile:
-        description: Build/submit profile
+        description: Build profile (build / ota / build-submit)
         type: choice
         options: [production, preview]
         default: production
+      track:
+        description: Submit track (submit / build-submit only)
+        type: choice
+        options: [internal, closed]
+        default: internal
       message:
         description: OTA message (ota-update only)
         type: string
@@ -92,8 +97,8 @@ jobs:
         if: ${{ inputs.action == 'submit' }}
         run: |
           eas submit \
-            --platform "${{ inputs.platform }}" \
-            --profile "${{ inputs.profile }}" \
+            --platform android \
+            --profile "${{ inputs.track }}" \
             --latest \
             --non-interactive
 
@@ -106,5 +111,5 @@ jobs:
           eas build \
             --platform android \
             --profile "${{ inputs.profile }}" \
-            --auto-submit \
+            --auto-submit-with-profile "${{ inputs.track }}" \
             --non-interactive

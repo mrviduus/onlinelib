@@ -33,9 +33,16 @@
     }
   },
   "submit": {
-    "production": {
+    "internal": {
       "android": {
         "track": "internal",
+        "releaseStatus": "completed",
+        "changesNotSentForReview": false
+      }
+    },
+    "closed": {
+      "android": {
+        "track": "alpha",
         "releaseStatus": "completed",
         "changesNotSentForReview": false
       }
