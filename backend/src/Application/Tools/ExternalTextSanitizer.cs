@@ -17,7 +17,7 @@ public static class ExternalTextSanitizer
         new(@"</?(prompt|system|instructions)>", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\b(system|assistant|developer|human)\s*:", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"<\|[^>]{0,50}\|>", RegexOptions.Compiled),
-        new(@"ignore\s+(all|the|any|previous|above|prior)\s+(instructions|prompts|context)",
+        new(@"ignore\s+((all|the|any|previous|above|prior|earlier)\s+){1,3}(instructions|prompts|context)",
             RegexOptions.Compiled | RegexOptions.IgnoreCase),
     };
 
