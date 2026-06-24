@@ -337,12 +337,22 @@ export function VocabularyPage() {
               </div>
             </div>
 
-            <button
-              className="practice-page__start-btn"
-              onClick={handleStartPractice}
-            >
-              {practiceLabel()}
-            </button>
+            <div className="practice-page__actions">
+              <button
+                className="practice-page__start-btn"
+                onClick={handleStartPractice}
+              >
+                {practiceLabel()}
+              </button>
+              <button
+                className="practice-page__tutor-btn"
+                onClick={() => navigate(getLocalizedPath('/vocabulary/tutor'))}
+                title={t('tutor.entry.hint')}
+              >
+                <span className="practice-page__tutor-icon" aria-hidden>🧭</span>
+                {t('tutor.entry.cta')}
+              </button>
+            </div>
           </div>
         )}
 

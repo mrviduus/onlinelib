@@ -23,6 +23,13 @@ public static class TutorEndpoints
     /// <summary>Default session size when the client doesn't ask for one — a sane, non-drilling session.</summary>
     public const int DefaultMaxItems = 5;
 
+    /// <summary>
+    /// Hard cap on re-plan turns (HITL). Each feedback turn increments <c>TurnCount</c>; once it reaches this,
+    /// the session is completed (empty plan) instead of re-planning, so a persistently-wrong card (or an
+    /// over-eager planner) can't re-surface forever. The client already treats an empty plan as "complete".
+    /// </summary>
+    public const int MaxTurns = 6;
+
     public static void MapTutorEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/me/tutor").WithTags("Agents").RequireRateLimiting("tutor");
@@ -66,7 +73,8 @@ public static class TutorEndpoints
         db.TutorSessions.Add(session);
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(ToResponse(session.Id, plan, runId));
+        var cards = await LoadPlanCardsAsync(db, plan, userId.Value, ct);
+        return Results.Ok(ToResponse(session.Id, plan, cards, runId));
     }
 
     // POST /me/tutor/session/{id}/feedback — re-plan the remainder given the learner's results.
@@ -97,6 +105,20 @@ public static class TutorEndpoints
             .Where(r => priorPlanIds.Contains(r.WordId))
             .Select(r => new TutorFeedbackItem(r.WordId, r.Correct, Math.Max(0, r.ResponseTimeMs)))
             .ToList();
+
+        // Turn cap: once the session has run MaxTurns re-plans, complete it instead of planning again so a
+        // persistently-wrong card can't loop forever. Returns an empty plan (the client's "session complete"
+        // signal) — short-circuits before any LLM call.
+        if (ReachedTurnCap(session.TurnCount))
+        {
+            var done = TutorPlan.Empty("Session complete — you've reached the turn limit for this round. Keep reading.");
+            session.PlanJson = done.ToPlanJson();
+            session.Status = TutorSession.StatusCompleted;
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToResponse(session.Id, done, [], Guid.Empty));
+        }
+
         var maxItems = CountPlanItems(session.PlanJson, fallback: DefaultMaxItems);
         var input = new TutorInput(maxItems, feedback);
 
@@ -116,7 +138,8 @@ public static class TutorEndpoints
             session.Status = TutorSession.StatusCompleted;
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(ToResponse(session.Id, plan, runId));
+        var cards = await LoadPlanCardsAsync(db, plan, userId.Value, ct);
+        return Results.Ok(ToResponse(session.Id, plan, cards, runId));
     }
 
     /// <summary>
@@ -164,14 +187,68 @@ public static class TutorEndpoints
         return (outcome.Plan, runId, null);
     }
 
-    private static TutorSessionResponse ToResponse(Guid sessionId, TutorPlan plan, Guid runId) =>
+    /// <summary>
+    /// Loads the REAL <c>VocabularyWord</c> rows backing a plan, scoped to the caller. This is the render-field
+    /// source for <see cref="EnrichPlanItems"/> and a natural anti-hallucination re-check: only the caller's
+    /// own cards survive (the <c>UserId</c> filter), and any planned id that isn't one of them is later dropped.
+    /// </summary>
+    private static async Task<IReadOnlyList<VocabularyWord>> LoadPlanCardsAsync(
+        IAppDbContext db, TutorPlan plan, Guid userId, CancellationToken ct)
+    {
+        var ids = plan.Items.Select(i => i.WordId).Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return await db.VocabularyWords
+            .Where(v => ids.Contains(v.Id) && v.UserId == userId)
+            .ToListAsync(ct);
+    }
+
+    private static TutorSessionResponse ToResponse(
+        Guid sessionId, TutorPlan plan, IReadOnlyList<VocabularyWord> cards, Guid runId) =>
         new(
             sessionId,
-            plan.Items.Select(i => new TutorPlanItemDto(
-                i.WordId, i.Word, i.Stage, i.ExerciseType, i.Difficulty, i.Why)).ToList(),
+            EnrichPlanItems(plan, cards),
             plan.Rationale,
             plan.ReadingNudge,
             runId);
+
+    /// <summary>
+    /// Projects each plan item to its DTO, enriching the render fields from the caller's matching
+    /// <c>VocabularyWord</c> row (keyed on the already-validated <see cref="TutorPlanItem.WordId"/>). An item
+    /// with no matching row is DROPPED — the enrichment never introduces an unvalidated id and never emits a
+    /// card with null render fields for a phantom id. Distractors are parsed from the same JSON array column
+    /// the vocabulary-review flow reads (<c>["w1","w2",...]</c>); empty list when absent or malformed.
+    /// </summary>
+    internal static List<TutorPlanItemDto> EnrichPlanItems(TutorPlan plan, IReadOnlyList<VocabularyWord> cards)
+    {
+        var byId = cards.ToDictionary(c => c.Id);
+        var result = new List<TutorPlanItemDto>(plan.Items.Count);
+        foreach (var i in plan.Items)
+        {
+            if (!byId.TryGetValue(i.WordId, out var card))
+                continue; // planned id isn't one of the caller's cards → drop (anti-hallucination re-check)
+            result.Add(new TutorPlanItemDto(
+                i.WordId, i.Word, i.Stage, i.ExerciseType, i.Difficulty, i.Why,
+                card.Translation, card.Definition, card.Sentence, card.BookTitle, card.Hint,
+                ParseDistractors(card.Distractors)));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Parses the <c>VocabularyWord.Distractors</c> JSON array (<c>["w1","w2",...]</c>) into a list, mirroring
+    /// the review flow's tolerance: missing/empty/malformed → empty list. (Kept minimal — the MC-option
+    /// shuffling/filtering lives in the review card builder; the tutor hands raw distractors to the client.)
+    /// </summary>
+    internal static IReadOnlyList<string> ParseDistractors(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try
+        {
+            var list = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+            return list?.Where(w => !string.IsNullOrWhiteSpace(w)).ToList() ?? [];
+        }
+        catch { return []; }
+    }
 
     /// <summary>
     /// Deterministic backstop (not LLM-trusted): removes any plan item whose card the learner just answered
@@ -210,6 +287,12 @@ public static class TutorEndpoints
         catch { /* malformed persisted plan → no trusted prior ids */ }
         return ids;
     }
+
+    /// <summary>
+    /// True once a session has reached the re-plan turn cap (FIX 2) — the feedback path then completes the
+    /// session with an empty plan instead of planning again, so a persistently-wrong card can't loop forever.
+    /// </summary>
+    internal static bool ReachedTurnCap(int turnCount) => turnCount >= MaxTurns;
 
     /// <summary>Counts the items in a persisted plan (the prior session size) to keep re-plan turns the same length.</summary>
     internal static int CountPlanItems(string planJson, int fallback)

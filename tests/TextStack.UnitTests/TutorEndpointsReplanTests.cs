@@ -1,5 +1,6 @@
 using Api.Endpoints;
 using Application.Agents;
+using Domain.Entities;
 
 namespace TextStack.UnitTests;
 
@@ -97,5 +98,97 @@ public class TutorEndpointsReplanTests
         var result = TutorEndpoints.DropPassedCards(replanned, feedback);
 
         Assert.Single(result.Items); // a missed card is allowed to re-surface
+    }
+
+    // ---- FIX 1: enrich plan items from the caller's REAL vocab rows ---------------------------------
+
+    private static VocabularyWord Card(Guid id, string? distractorsJson = null) => new()
+    {
+        Id = id,
+        UserId = Guid.NewGuid(),
+        SiteId = Guid.NewGuid(),
+        Word = "alacrity",
+        Language = "en",
+        Translation = "жвавість",
+        Definition = "brisk and cheerful readiness",
+        Sentence = "She accepted with alacrity.",
+        BookTitle = "Pride and Prejudice",
+        Hint = "eager willingness",
+        Distractors = distractorsJson,
+    };
+
+    [Fact]
+    public void EnrichPlanItems_MatchingCard_PopulatesRenderFieldsFromRow()
+    {
+        var plan = PlanOf(A);
+        var rows = new[] { Card(A, "[\"sloth\",\"reluctance\",\"delay\"]") };
+
+        var dtos = TutorEndpoints.EnrichPlanItems(plan, rows);
+
+        var dto = Assert.Single(dtos);
+        Assert.Equal(A, dto.WordId);
+        Assert.Equal("жвавість", dto.Translation);
+        Assert.Equal("brisk and cheerful readiness", dto.Definition);
+        Assert.Equal("She accepted with alacrity.", dto.Sentence);
+        Assert.Equal("Pride and Prejudice", dto.BookTitle);
+        Assert.Equal("eager willingness", dto.Hint);
+        Assert.Equal(new[] { "sloth", "reluctance", "delay" }, dto.Distractors);
+        // The planning fields are preserved alongside the render fields.
+        Assert.Equal(TutorPlanItem.ExerciseRecognition, dto.ExerciseType);
+        Assert.Equal("why", dto.Why);
+    }
+
+    [Fact]
+    public void EnrichPlanItems_PlanIdNotInCallerCards_IsDroppedNotNullEnriched()
+    {
+        // Plan has A and B; only A is one of the caller's real cards. B must be DROPPED, not emitted with nulls.
+        var plan = PlanOf(A, B);
+        var rows = new[] { Card(A) };
+
+        var dtos = TutorEndpoints.EnrichPlanItems(plan, rows);
+
+        var dto = Assert.Single(dtos);
+        Assert.Equal(A, dto.WordId);
+        Assert.DoesNotContain(dtos, d => d.WordId == B); // anti-hallucination re-check holds
+    }
+
+    [Fact]
+    public void EnrichPlanItems_NoMatchingCards_ReturnsEmpty()
+    {
+        var dtos = TutorEndpoints.EnrichPlanItems(PlanOf(A), cards: []);
+        Assert.Empty(dtos);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("[]")]
+    public void ParseDistractors_MissingOrMalformed_ReturnsEmptyList(string? json)
+    {
+        Assert.Empty(TutorEndpoints.ParseDistractors(json));
+    }
+
+    [Fact]
+    public void ParseDistractors_ValidArray_DropsBlankEntries()
+    {
+        var result = TutorEndpoints.ParseDistractors("[\"a\",\"\",\"  \",\"b\"]");
+        Assert.Equal(new[] { "a", "b" }, result);
+    }
+
+    // ---- FIX 2: re-plan turns are capped so a session can't loop forever ----------------------------
+
+    [Fact]
+    public void ReachedTurnCap_BelowCap_IsFalse()
+    {
+        Assert.False(TutorEndpoints.ReachedTurnCap(TutorEndpoints.MaxTurns - 1));
+    }
+
+    [Fact]
+    public void ReachedTurnCap_AtCap_IsTrue()
+    {
+        // At MaxTurns the feedback path completes the session (empty plan) instead of re-planning.
+        Assert.True(TutorEndpoints.ReachedTurnCap(TutorEndpoints.MaxTurns));
+        Assert.True(TutorEndpoints.ReachedTurnCap(TutorEndpoints.MaxTurns + 1));
     }
 }
