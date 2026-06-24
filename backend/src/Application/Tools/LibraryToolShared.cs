@@ -18,10 +18,16 @@ public static class LibraryToolShared
 {
     public const int DefaultLimit = 8;
 
-    /// <summary>The catalog is single-site (ADR-007); resolve the one site so the FTS query can scope to it.</summary>
+    /// <summary>
+    /// The catalog is single-site (ADR-007); resolve the one site so the FTS query can scope to it. The
+    /// <see cref="OrderBy"/> on <c>Id</c> makes the pick deterministic (not "whatever row comes first").
+    /// SINGLE-SITE ASSUMPTION: if multi-site is ever reintroduced, the agent runs OUTSIDE
+    /// <c>SiteContextMiddleware</c>, so picking the first site here would be a cross-site leak — the agent
+    /// must instead be handed the resolved <c>SiteId</c> from the request context. Not plumbed now by design.
+    /// </summary>
     public static async Task<Guid?> ResolveSiteIdAsync(IAppDbContext db, CancellationToken ct)
     {
-        var site = await db.Sites.AsNoTracking().FirstOrDefaultAsync(ct);
+        var site = await db.Sites.AsNoTracking().OrderBy(s => s.Id).FirstOrDefaultAsync(ct);
         return site?.Id;
     }
 
@@ -51,4 +57,11 @@ public static class LibraryToolShared
     /// <summary>Empty-but-successful result (no DB site → degrade as data, never throw — the agent recovers).</summary>
     public static JsonElement NoSite(string query) =>
         ToolJson.Result(new { found = false, query, results = Array.Empty<object>(), message = "Catalog unavailable." });
+
+    /// <summary>
+    /// Error-as-data when <see cref="LibrarySearchService"/> isn't registered in the host (Worker, not API).
+    /// Matches the tools' error-as-data shape so a future Worker agent gets a clean result, not an NRE.
+    /// </summary>
+    public static JsonElement Unavailable() =>
+        ToolJson.Result(new { ok = false, error = "library search unavailable in this host" });
 }
