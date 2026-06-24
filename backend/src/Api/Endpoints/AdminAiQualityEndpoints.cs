@@ -37,6 +37,7 @@ public static class AdminAiQualityEndpoints
         group.MapPost("/evals/studybuddy/run", RunStudyBuddyEval);
         group.MapPost("/enrichment/eval", RunEnrichmentEval);
         group.MapPost("/librarian/eval", RunLibrarianEval);
+        group.MapPost("/tutor/eval", RunTutorEval);
         group.MapPost("/evals/criticdefects/run", RunCriticDefectEval);
         group.MapPost("/evals/crew-ab/run", RunCrewAbEval);
         group.MapGet("/shadow/summary", GetShadowSummary);
@@ -306,6 +307,52 @@ public static class AdminAiQualityEndpoints
                 c.ConstraintsSatisfied,
                 c.CoverageDecisionCorrect,
                 c.NoHallucination,
+                c.ToolCalls,
+            }),
+        });
+    }
+
+    // AI-Agent-2 DoD gate: runs the REAL TutorAgent over the synthetic tutor golden states (an SRS snapshot +
+    // reading context per case, served by fake tools) and scores the structural rubric DETERMINISTICALLY (no
+    // judge — there is no single ground-truth plan): due-coverage, weak-targeting, difficulty-appropriateness,
+    // the hard NO-HALLUCINATION guarantee (every planned wordId exists in the state), and thesis-alignment
+    // (bounded plan + reading nudge). Planning goes through the gateway (FeatureTag tutor.agent → gpt-4.1-mini);
+    // the tools are fakes, so the only non-determinism is the model. Needs a key; run sync like the others.
+    private static async Task<IResult> RunTutorEval(
+        IServiceProvider services,
+        TutorEvalRunner runner,
+        CancellationToken ct)
+    {
+        ILlmService llm;
+        try
+        {
+            llm = services.GetRequiredService<ILlmService>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Results.Problem("LLM gateway is not configured (no OpenAI key).", statusCode: 503);
+        }
+
+        var result = await runner.RunAsync(llm, ct);
+
+        return Results.Ok(new
+        {
+            dueCoverage = Math.Round(result.DueCoverage, 3),
+            weakTargeting = Math.Round(result.WeakTargeting, 3),
+            difficultyAppropriateness = Math.Round(result.DifficultyAppropriateness, 3),
+            noHallucinationRate = Math.Round(result.NoHallucinationRate, 3),
+            thesisAlignment = Math.Round(result.ThesisAlignment, 3),
+            avgToolCalls = Math.Round(result.AvgToolCalls, 2),
+            n = result.N,
+            cases = result.Cases.Select(c => new
+            {
+                c.Name,
+                c.Planned,
+                dueCoverage = Math.Round(c.DueCoverage, 3),
+                weakTargeting = Math.Round(c.WeakTargeting, 3),
+                c.DifficultyAppropriate,
+                c.NoHallucination,
+                c.ThesisAligned,
                 c.ToolCalls,
             }),
         });

@@ -34,5 +34,28 @@ public partial class AppDbContext
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // Learning Tutor session state (AI-Agent-2). One row per multi-turn micro-session, holding the current
+        // plan between HITL turns. PlanJson is jsonb (read whole). Deleting the user cascades their sessions.
+        modelBuilder.Entity<TutorSession>(e =>
+        {
+            e.ToTable("tutor_session");
+
+            // Hot query: the user's most recent active session (resume / re-plan lookup).
+            e.HasIndex(x => new { x.UserId, x.Status, x.UpdatedAt });
+
+            e.Property(x => x.PlanJson).HasColumnType("jsonb");
+            e.Property(x => x.Status).HasMaxLength(16);
+
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Site)
+                .WithMany()
+                .HasForeignKey(x => x.SiteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

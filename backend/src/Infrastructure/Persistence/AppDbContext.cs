@@ -85,6 +85,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<ModelPromotion> ModelPromotions => Set<ModelPromotion>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
+    public DbSet<TutorSession> TutorSessions => Set<TutorSession>();
     public DbSet<DriftCentroid> DriftCentroids => Set<DriftCentroid>();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();
 
