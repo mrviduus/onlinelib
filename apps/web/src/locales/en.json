@@ -392,6 +392,7 @@
     "discoverMenu": {
       "trendingGenres": "Trending Genres",
       "quickLinks": "Quick Links",
+      "askLibrarian": "Ask the librarian",
       "latestAuthors": "Latest Authors",
       "allBooks": "All Books",
       "topFreeBooks": "Top Free Books",
@@ -1306,6 +1307,36 @@
       "correctRate": "Correct rate",
       "streak": "Review streak",
       "practicedToday": "Practiced today"
+    }
+  },
+  "librarian": {
+    "title": "Ask the librarian",
+    "subtitle": "Describe what you want to read and the librarian reasons over the library to recommend the best fits.",
+    "placeholder": "Describe what you want to read — e.g. 'books like 1984 about surveillance, under 300 pages'",
+    "inputLabel": "What do you want to read?",
+    "ask": "Ask",
+    "thinkingShort": "Thinking…",
+    "thinking": "The librarian is thinking…",
+    "reasoningLabel": "Here's what I found and why",
+    "usedExternalNote": "The library was thin on this, so I reached beyond the catalog for a couple of suggestions.",
+    "suggestionBadge": "Suggestion",
+    "suggestionNote": "Not in your library yet — an outside suggestion.",
+    "openBook": "Open {{title}}",
+    "unknownAuthor": "Unknown author",
+    "pagesCount": "{{count}} pages",
+    "empty": {
+      "title": "Couldn't find a good match",
+      "subtitle": "Try rephrasing your request — add a theme, a comparable book, or a length."
+    },
+    "error": {
+      "title": "Couldn't reach the librarian",
+      "subtitle": "Something went wrong. Please try again.",
+      "retry": "Try again"
+    },
+    "signIn": {
+      "title": "Sign in to ask the librarian",
+      "subtitle": "The librarian recommends books from a natural-language request, with its reasoning.",
+      "cta": "Sign in"
     }
   },
   "tutor": {
