@@ -12,6 +12,9 @@ import {
   EvalRun,
   CriticDefectEvalResult,
   CrewAbEvalResult,
+  EnrichmentEvalResult,
+  LibrarianEvalResult,
+  TutorEvalResult,
   ShadowSummary,
   ShadowPair,
   ShadowSample,
@@ -802,6 +805,12 @@ function EvalsTab() {
   const [criticResult, setCriticResult] = useState<CriticDefectEvalResult | null>(null)
   const [crewAbRunning, setCrewAbRunning] = useState(false)
   const [crewAbResult, setCrewAbResult] = useState<CrewAbEvalResult | null>(null)
+  const [enrichmentRunning, setEnrichmentRunning] = useState(false)
+  const [enrichmentResult, setEnrichmentResult] = useState<EnrichmentEvalResult | null>(null)
+  const [librarianRunning, setLibrarianRunning] = useState(false)
+  const [librarianResult, setLibrarianResult] = useState<LibrarianEvalResult | null>(null)
+  const [tutorRunning, setTutorRunning] = useState(false)
+  const [tutorResult, setTutorResult] = useState<TutorEvalResult | null>(null)
 
   const load = () =>
     adminApi
@@ -865,6 +874,52 @@ function EvalsTab() {
     }
   }
 
+  // Backend returns Results.Problem(..., 503) with a problem-details body when the host has no
+  // OpenAI key — surface that as a clear hint rather than the raw JSON.
+  const evalError = (e: unknown, fallback: string) => {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/503|no openai key|not configured/i.test(msg)) {
+      return 'OpenAI key not configured on this host — agent evals are unavailable.'
+    }
+    return msg || fallback
+  }
+
+  const runEnrichment = async () => {
+    setError(null)
+    setEnrichmentRunning(true)
+    try {
+      setEnrichmentResult(await adminApi.runEnrichmentEval())
+    } catch (e) {
+      setError(evalError(e, 'Failed to run enrichment eval'))
+    } finally {
+      setEnrichmentRunning(false)
+    }
+  }
+
+  const runLibrarian = async () => {
+    setError(null)
+    setLibrarianRunning(true)
+    try {
+      setLibrarianResult(await adminApi.runLibrarianEval())
+    } catch (e) {
+      setError(evalError(e, 'Failed to run librarian eval'))
+    } finally {
+      setLibrarianRunning(false)
+    }
+  }
+
+  const runTutor = async () => {
+    setError(null)
+    setTutorRunning(true)
+    try {
+      setTutorResult(await adminApi.runTutorEval())
+    } catch (e) {
+      setError(evalError(e, 'Failed to run tutor eval'))
+    } finally {
+      setTutorRunning(false)
+    }
+  }
+
   const controls = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -893,6 +948,30 @@ function EvalsTab() {
         </button>
         <span style={{ fontSize: 12, color: '#6b7280' }}>
           A/B-tests the crew vs a single-call baseline over the goldens (~1–2 min), gate lift ≥ 10% and cost ratio ≤ 2×.
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={runEnrichment} disabled={enrichmentRunning} style={rangeBtn(false)}>
+          {enrichmentRunning ? 'Running…' : 'Run enrichment eval'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          Runs the real EnrichmentAgent over ~30 goldens — calibration, honest-unknown, genre/year accuracy. This can take a minute.
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={runLibrarian} disabled={librarianRunning} style={rangeBtn(false)}>
+          {librarianRunning ? 'Running…' : 'Run librarian eval'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          Runs the real LibrarianAgent over the golden queries — recall/precision/F1@k + hallucination-free. This can take a minute.
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={runTutor} disabled={tutorRunning} style={rangeBtn(false)}>
+          {tutorRunning ? 'Running…' : 'Run tutor eval'}
+        </button>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          Runs the real TutorAgent over synthetic SRS states — due-coverage, weak-targeting, difficulty, thesis-alignment. This can take a minute.
         </span>
       </div>
       {criticResult && (
@@ -938,6 +1017,128 @@ function EvalsTab() {
             <Metric label="Win rate" value={`${(crewAbResult.winRate * 100).toFixed(1)}%`} />
             <Metric label="N" value={String(crewAbResult.n)} />
           </div>
+        </div>
+      )}
+      {enrichmentResult && (
+        <div style={card}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: '#111827', marginBottom: 12 }}>Enrichment eval</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+            <Metric label="Calibration" value={`${(enrichmentResult.calibration * 100).toFixed(1)}%`} color="#059669" />
+            <Metric label="Honest-unknown" value={`${(enrichmentResult.honestUnknownRate * 100).toFixed(1)}%`} />
+            <Metric label="Genre accuracy" value={`${(enrichmentResult.genreAccuracy * 100).toFixed(1)}%`} />
+            <Metric label="Year accuracy" value={`${(enrichmentResult.yearAccuracy * 100).toFixed(1)}%`} />
+            <Metric label="Avg tool calls" value={enrichmentResult.avgToolCalls.toFixed(2)} />
+            <Metric label="N" value={String(enrichmentResult.n)} />
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Title</th>
+                <th style={th}>Diff</th>
+                <th style={th}>Conf</th>
+                <th style={th}>Genre</th>
+                <th style={th}>Year</th>
+                <th style={th}>Unknown</th>
+                <th style={th}>Tools</th>
+              </tr>
+            </thead>
+            <tbody>
+              {enrichmentResult.cases.map((c, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={td}>{c.title}</td>
+                  <td style={td}>{c.difficulty}</td>
+                  <td style={td}>{c.confidence.toFixed(2)}</td>
+                  <td style={{ ...td, color: c.genreCorrect ? '#059669' : '#dc2626' }}>{c.genreCorrect ? '✓' : '✗'}</td>
+                  <td style={{ ...td, color: c.yearCorrect ? '#059669' : '#dc2626' }}>{c.yearCorrect ? '✓' : '✗'}</td>
+                  <td style={td}>{c.saidUnknown ? 'yes' : '—'}</td>
+                  <td style={td}>{c.toolCalls}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {librarianResult && (
+        <div style={card}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: '#111827', marginBottom: 12 }}>Librarian eval</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+            <Metric label="Recall@k" value={`${(librarianResult.recallAtK * 100).toFixed(1)}%`} color="#059669" />
+            <Metric label="Precision@k" value={`${(librarianResult.precisionAtK * 100).toFixed(1)}%`} />
+            <Metric label="F1@k" value={`${(librarianResult.f1AtK * 100).toFixed(1)}%`} />
+            <Metric label="Constraint sat." value={`${(librarianResult.constraintSatisfaction * 100).toFixed(1)}%`} />
+            <Metric label="Coverage acc." value={`${(librarianResult.coverageDecisionAccuracy * 100).toFixed(1)}%`} />
+            <Metric label="Hallucination-free" value={`${(librarianResult.hallucinationFreeRate * 100).toFixed(1)}%`} />
+            <Metric label="Avg tool calls" value={librarianResult.avgToolCalls.toFixed(2)} />
+            <Metric label="N" value={String(librarianResult.n)} />
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Query</th>
+                <th style={th}>R@k</th>
+                <th style={th}>P@k</th>
+                <th style={th}>F1</th>
+                <th style={th}>Constr</th>
+                <th style={th}>No-halluc</th>
+                <th style={th}>Tools</th>
+              </tr>
+            </thead>
+            <tbody>
+              {librarianResult.cases.map((c, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={td}>{c.query}</td>
+                  <td style={td}>{c.recallAtK.toFixed(2)}</td>
+                  <td style={td}>{c.precisionAtK.toFixed(2)}</td>
+                  <td style={td}>{c.f1AtK.toFixed(2)}</td>
+                  <td style={{ ...td, color: c.constraintsSatisfied ? '#059669' : '#dc2626' }}>{c.constraintsSatisfied ? '✓' : '✗'}</td>
+                  <td style={{ ...td, color: c.noHallucination ? '#059669' : '#dc2626' }}>{c.noHallucination ? '✓' : '✗'}</td>
+                  <td style={td}>{c.toolCalls}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {tutorResult && (
+        <div style={card}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: '#111827', marginBottom: 12 }}>Tutor eval</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 12px' }}>
+            <Metric label="Due coverage" value={`${(tutorResult.dueCoverage * 100).toFixed(1)}%`} color="#059669" />
+            <Metric label="Weak targeting" value={`${(tutorResult.weakTargeting * 100).toFixed(1)}%`} />
+            <Metric label="Difficulty" value={`${(tutorResult.difficultyAppropriateness * 100).toFixed(1)}%`} />
+            <Metric label="No-hallucination" value={`${(tutorResult.noHallucinationRate * 100).toFixed(1)}%`} />
+            <Metric label="Thesis-aligned" value={`${(tutorResult.thesisAlignment * 100).toFixed(1)}%`} />
+            <Metric label="Avg tool calls" value={tutorResult.avgToolCalls.toFixed(2)} />
+            <Metric label="N" value={String(tutorResult.n)} />
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={th}>Case</th>
+                <th style={th}>Planned</th>
+                <th style={th}>Due</th>
+                <th style={th}>Weak</th>
+                <th style={th}>Diff</th>
+                <th style={th}>No-halluc</th>
+                <th style={th}>Thesis</th>
+                <th style={th}>Tools</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tutorResult.cases.map((c, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={td}>{c.name}</td>
+                  <td style={td}>{c.planned}</td>
+                  <td style={td}>{c.dueCoverage.toFixed(2)}</td>
+                  <td style={td}>{c.weakTargeting.toFixed(2)}</td>
+                  <td style={{ ...td, color: c.difficultyAppropriate ? '#059669' : '#dc2626' }}>{c.difficultyAppropriate ? '✓' : '✗'}</td>
+                  <td style={{ ...td, color: c.noHallucination ? '#059669' : '#dc2626' }}>{c.noHallucination ? '✓' : '✗'}</td>
+                  <td style={{ ...td, color: c.thesisAligned ? '#059669' : '#dc2626' }}>{c.thesisAligned ? '✓' : '✗'}</td>
+                  <td style={td}>{c.toolCalls}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

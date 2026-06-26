@@ -565,6 +565,69 @@ export interface CrewAbEvalResult {
   passed: boolean
   cases?: unknown[]
 }
+// AI-Agent-1: Enrichment agent eval (calibration / honest-unknown / genre+year accuracy)
+export interface EnrichmentEvalResult {
+  genreAccuracy: number
+  yearAccuracy: number
+  calibration: number
+  honestUnknownRate: number
+  avgToolCalls: number
+  n: number
+  cases: {
+    title: string
+    difficulty: string
+    genreActual: string | null
+    yearActual: number | null
+    confidence: number
+    toolCalls: number
+    genreCorrect: boolean
+    yearCorrect: boolean
+    saidUnknown: boolean
+  }[]
+}
+// AI-Agent-3: Librarian agent eval (recall/precision/F1 @k, hallucination-free)
+export interface LibrarianEvalResult {
+  recallAtK: number
+  precisionAtK: number
+  f1AtK: number
+  constraintSatisfaction: number
+  coverageDecisionAccuracy: number
+  hallucinationFreeRate: number
+  avgToolCalls: number
+  n: number
+  cases: {
+    query: string
+    returned: number
+    libraryReturned: number
+    recallAtK: number
+    precisionAtK: number
+    f1AtK: number
+    constraintsSatisfied: boolean
+    coverageDecisionCorrect: boolean
+    noHallucination: boolean
+    toolCalls: number
+  }[]
+}
+// AI-Agent-2: Tutor agent eval (due-coverage / weak-targeting / difficulty / thesis-alignment)
+export interface TutorEvalResult {
+  dueCoverage: number
+  weakTargeting: number
+  difficultyAppropriateness: number
+  noHallucinationRate: number
+  thesisAlignment: number
+  avgToolCalls: number
+  n: number
+  cases: {
+    name: string
+    planned: number
+    dueCoverage: number
+    weakTargeting: number
+    difficultyAppropriate: boolean
+    noHallucination: boolean
+    thesisAligned: boolean
+    toolCalls: number
+  }[]
+}
 // Shadow comparison
 export interface ShadowPair {
   featureTag: string
@@ -1292,6 +1355,26 @@ export const adminApi = {
 
   runCrewAbEval: async (): Promise<CrewAbEvalResult> => {
     return fetchJson<CrewAbEvalResult>('/admin/ai-quality/evals/crew-ab/run', {
+      method: 'POST',
+    })
+  },
+
+  // AI-Agent eval gates (synchronous; each calls the paid model over the golden set).
+  // Enrichment uses the backend's Enrichment:ConfidenceThreshold default — no client param.
+  runEnrichmentEval: async (): Promise<EnrichmentEvalResult> => {
+    return fetchJson<EnrichmentEvalResult>('/admin/ai-quality/enrichment/eval', {
+      method: 'POST',
+    })
+  },
+
+  runLibrarianEval: async (): Promise<LibrarianEvalResult> => {
+    return fetchJson<LibrarianEvalResult>('/admin/ai-quality/librarian/eval', {
+      method: 'POST',
+    })
+  },
+
+  runTutorEval: async (): Promise<TutorEvalResult> => {
+    return fetchJson<TutorEvalResult>('/admin/ai-quality/tutor/eval', {
       method: 'POST',
     })
   },
