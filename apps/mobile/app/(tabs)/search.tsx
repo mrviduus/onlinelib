@@ -288,6 +288,30 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
+      {/* Ask the librarian — natural-language, reasoned recommendations (signed-in only; the screen gates). */}
+      {!searched && (
+        <TouchableOpacity
+          style={[styles.librarianEntry, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => router.push('/librarian')}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('librarian.title')}
+        >
+          <View style={[styles.librarianIcon, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.librarianTitle, { color: colors.text, fontFamily: fonts.sansMedium }]}>
+              {t('librarian.title')}
+            </Text>
+            <Text style={[styles.librarianSubtitle, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>
+              {t('librarian.entry.hint')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+
       {loading ? (
         <View style={styles.skeletonList}>
           {[0, 1, 2, 3].map(i => (
@@ -451,6 +475,19 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   searchBar: { padding: 12 },
+  librarianEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  librarianIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  librarianTitle: { fontSize: 15 },
+  librarianSubtitle: { fontSize: 12, marginTop: 2 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',

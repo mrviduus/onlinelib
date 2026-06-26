@@ -35,6 +35,13 @@ export default defineConfig({
         find: '@react-native-async-storage/async-storage',
         replacement: resolve(__dirname, 'src/lib/__mocks__/async-storage.ts'),
       },
+      // Shared workspace package is a source path-alias (not built) — point
+      // Vitest at its source entry so lib tests that import RN-free helpers
+      // from modules which also re-export `authFetch` (e.g. agents.ts) resolve.
+      {
+        find: '@textstack/shared',
+        replacement: resolve(__dirname, '../../packages/shared/src/index.ts'),
+      },
     ],
   },
   define: {

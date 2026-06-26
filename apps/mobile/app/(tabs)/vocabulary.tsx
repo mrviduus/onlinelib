@@ -297,8 +297,8 @@ export default function VocabularyScreen() {
               </PressableScale>
             ))}
           </View>
-          {dueCount > 0 && (
-            <View style={styles.reviewRow}>
+          <View style={styles.reviewRow}>
+            {dueCount > 0 && (
               <TouchableOpacity
                 style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
                 onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
@@ -306,8 +306,20 @@ export default function VocabularyScreen() {
                 <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
                 <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Practice ({dueCount})</Text>
               </TouchableOpacity>
-            </View>
-          )}
+            )}
+            {/* Smart session — AI tutor plans what to study and explains why (signed-in only; vocab tab is) */}
+            <TouchableOpacity
+              style={[styles.reviewBtn, { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1, flex: 1 }]}
+              onPress={() => router.push('/tutor')}
+              accessibilityRole="button"
+              accessibilityLabel={t('tutor.entry.cta')}
+            >
+              <Ionicons name="sparkles-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.reviewBtnText, { color: colors.primary, fontFamily: fonts.sansMedium }]}>
+                {t('tutor.entry.cta')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 

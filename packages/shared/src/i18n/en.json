@@ -1,4 +1,77 @@
 {
+  "tutor": {
+    "title": "Smart session",
+    "planning": "Your tutor is planning your session…",
+    "entry": {
+      "cta": "Smart session",
+      "hint": "Let your AI tutor plan what to study and explain why"
+    },
+    "plan": {
+      "rationaleLabel": "Here's your plan, and why",
+      "adjustedLabel": "Your tutor adjusted your plan",
+      "adjustedNote": "Your tutor adjusted your plan based on how you did.",
+      "start": "Start studying"
+    },
+    "exercise": {
+      "recognition": "Recognition",
+      "recall": "Recall",
+      "context": "Context",
+      "generic": "Exercise"
+    },
+    "summary": {
+      "done": "Session complete",
+      "studied": "Studied",
+      "accuracy": "Accuracy",
+      "back": "Back to vocabulary"
+    },
+    "empty": {
+      "title": "Nothing to study right now",
+      "subtitle": "You're all caught up. Keep reading to grow your vocabulary.",
+      "cta": "Browse books"
+    },
+    "error": {
+      "title": "Couldn't plan your session",
+      "subtitle": "Something went wrong reaching your tutor.",
+      "retry": "Try again"
+    },
+    "signIn": {
+      "title": "Sign in for a smart session",
+      "subtitle": "Your AI tutor plans what to study from the words you save while reading.",
+      "cta": "Sign in"
+    }
+  },
+  "librarian": {
+    "title": "Ask the librarian",
+    "subtitle": "Describe what you want to read and the librarian reasons over the library to recommend the best fits.",
+    "placeholder": "Describe what you want to read — e.g. 'books like 1984 about surveillance, under 300 pages'",
+    "inputLabel": "What do you want to read?",
+    "ask": "Ask",
+    "thinking": "The librarian is thinking…",
+    "reasoningLabel": "Here's what I found and why",
+    "usedExternalNote": "The library was thin on this, so I reached beyond the catalog for a couple of suggestions.",
+    "suggestionBadge": "Suggestion",
+    "suggestionNote": "Not in your library yet — an outside suggestion.",
+    "openBook": "Open book",
+    "unknownAuthor": "Unknown author",
+    "pages": "pages",
+    "entry": {
+      "hint": "Tell the librarian what you want to read"
+    },
+    "empty": {
+      "title": "Couldn't find a good match",
+      "subtitle": "Try rephrasing your request — add a theme, a comparable book, or a length."
+    },
+    "error": {
+      "title": "Couldn't reach the librarian",
+      "subtitle": "Something went wrong. Please try again.",
+      "retry": "Try again"
+    },
+    "signIn": {
+      "title": "Sign in to ask the librarian",
+      "subtitle": "The librarian recommends books from a natural-language request, with its reasoning.",
+      "cta": "Sign in"
+    }
+  },
   "home": {
     "hero": {
       "title": "Learn languages by reading real books",
