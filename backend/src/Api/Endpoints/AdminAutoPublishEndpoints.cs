@@ -12,8 +12,6 @@ namespace Api.Endpoints;
 
 public static class AdminAutoPublishEndpoints
 {
-    private static readonly Guid GeneralSiteId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-
     public static void MapAdminAutoPublishEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/admin/autopublish").WithTags("Auto Publish");
@@ -145,7 +143,7 @@ public static class AdminAutoPublishEndpoints
         return Results.Ok();
     }
 
-    private static async Task<IResult> Trigger(IAppDbContext db, AdminSettingsService settings, CancellationToken ct)
+    private static async Task<IResult> Trigger(IAppDbContext db, AdminSettingsService settings, ICurrentSite site, CancellationToken ct)
     {
         var lang = await settings.GetAsync("autopublish.language", "", ct);
 
@@ -170,7 +168,7 @@ public static class AdminAutoPublishEndpoints
         var job = new AutoPublishJob
         {
             Id = Guid.NewGuid(),
-            SiteId = GeneralSiteId,
+            SiteId = site.Id,
             EditionId = edition.Id,
             Priority = true,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -182,7 +180,7 @@ public static class AdminAutoPublishEndpoints
         return Results.Created($"/admin/autopublish/jobs/{job.Id}", new { id = job.Id });
     }
 
-    private static async Task<IResult> QueueEdition(Guid editionId, IAppDbContext db, CancellationToken ct)
+    private static async Task<IResult> QueueEdition(Guid editionId, IAppDbContext db, ICurrentSite site, CancellationToken ct)
     {
         var edition = await db.Editions.FirstOrDefaultAsync(e => e.Id == editionId, ct);
         if (edition == null) return Results.NotFound();
@@ -199,7 +197,7 @@ public static class AdminAutoPublishEndpoints
         var job = new AutoPublishJob
         {
             Id = Guid.NewGuid(),
-            SiteId = GeneralSiteId,
+            SiteId = site.Id,
             EditionId = editionId,
             Priority = true,
             CreatedAt = DateTimeOffset.UtcNow,

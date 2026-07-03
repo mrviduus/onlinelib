@@ -133,6 +133,9 @@ builder.Services.AddAuthSettings(builder.Configuration);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("ConnectionStrings:Default is required");
 
+builder.Services.AddSingleton<Application.Common.Interfaces.ICurrentSite>(
+    sp => new Infrastructure.Persistence.CurrentSite(sp.GetRequiredService<IConfiguration>()));
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, o => o.UseVector())
         .UseSnakeCaseNamingConvention()
