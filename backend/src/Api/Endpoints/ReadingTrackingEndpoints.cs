@@ -172,8 +172,6 @@ public record SessionDto(
     double StartPercent, double EndPercent
 );
 
-public record DailyStatDto(DateTime Date, int TotalSeconds, int TotalWords, int SessionCount);
-
 public record GoalDto(Guid Id, string GoalType, int TargetValue, int Year, int StreakMinMinutes, DateTimeOffset UpdatedAt);
 
 public record CreateGoalRequest(string GoalType, int TargetValue, int Year, int? StreakMinMinutes);

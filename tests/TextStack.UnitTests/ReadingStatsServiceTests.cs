@@ -286,6 +286,82 @@ public class ReadingStatsServiceTests
         Assert.Equal(1, byBucket["long"]);    // 400
     }
 
+    // ── R5 slice-2: GetDailyStatsAsync ──────────────────────────────────────────────────────────
+
+    // UTC session start with an explicit time-of-day (the daily-stats bucketing is tz-sensitive, so
+    // the raw plain-Utc(y,mo,d) midnight helper isn't enough for the boundary cases).
+    private static DateTimeOffset UtcT(int y, int mo, int d, int h, int mi)
+        => new(y, mo, d, h, mi, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task GetDailyStats_NoTzOffset_BucketsByUtcDate_SumsMinutesWordsCount_NoGapFill_Sorted()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+
+        // == from boundary: 2025-01-01 00:00 UTC is included by the `>= from` filter.
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 1, 1, 0, 0), end: UtcT(2025, 1, 1, 0, 10), dur: 100, words: 10, editionId: Guid.NewGuid()));
+        // Two sessions on Jan 5 → merge into one bucket.
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 1, 5, 10, 0), end: UtcT(2025, 1, 5, 10, 10), dur: 600, words: 100, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 1, 5, 14, 0), end: UtcT(2025, 1, 5, 14, 5), dur: 300, words: 50, editionId: Guid.NewGuid()));
+        // Jan 8 single session (leaves Jan 2,3,4,6,7 as gaps that must NOT be filled).
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 1, 8, 10, 0), end: UtcT(2025, 1, 8, 10, 20), dur: 1200, words: 200, editionId: Guid.NewGuid()));
+        // Out of range on both sides → excluded.
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2024, 12, 31, 23, 59), end: UtcT(2025, 1, 1, 0, 0), dur: 999, words: 999, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 2, 1, 0, 1), end: UtcT(2025, 2, 1, 0, 2), dur: 999, words: 999, editionId: Guid.NewGuid()));
+
+        var from = UtcT(2025, 1, 1, 0, 0);
+        var to = UtcT(2025, 1, 31, 0, 0);
+
+        var r = await h.Service.GetDailyStatsAsync(userId, from, to, TimeSpan.Zero, CancellationToken.None);
+
+        // Exactly 3 buckets — gaps are NOT back-filled with empty days.
+        Assert.Equal(3, r.Count);
+        // Ascending by date.
+        Assert.Equal(new DateTime(2025, 1, 1), r[0].Date);
+        Assert.Equal((100, 10, 1), (r[0].TotalSeconds, r[0].TotalWords, r[0].SessionCount));
+        Assert.Equal(new DateTime(2025, 1, 5), r[1].Date);
+        Assert.Equal((900, 150, 2), (r[1].TotalSeconds, r[1].TotalWords, r[1].SessionCount)); // 600+300, 100+50
+        Assert.Equal(new DateTime(2025, 1, 8), r[2].Date);
+        Assert.Equal((1200, 200, 1), (r[2].TotalSeconds, r[2].TotalWords, r[2].SessionCount));
+    }
+
+    [Fact]
+    public async Task GetDailyStats_TzOffset_ShiftsNearMidnightSessionsIntoCorrectDayBucket()
+    {
+        // Two sessions straddling both midnight edges of 2025-03-15 UTC:
+        //   sA 00:30 UTC (just after midnight), sB 23:30 UTC (just before midnight).
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 15, 0, 30), end: UtcT(2025, 3, 15, 0, 40), dur: 600, words: 100, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 15, 23, 30), end: UtcT(2025, 3, 15, 23, 40), dur: 300, words: 50, editionId: Guid.NewGuid()));
+
+        var from = UtcT(2025, 3, 1, 0, 0);
+        var to = UtcT(2025, 4, 1, 0, 0);
+
+        // Offset 0: both fall on Mar 15 → one merged bucket.
+        var utc = await h.Service.GetDailyStatsAsync(userId, from, to, TimeSpan.Zero, CancellationToken.None);
+        Assert.Single(utc);
+        Assert.Equal(new DateTime(2025, 3, 15), utc[0].Date);
+        Assert.Equal((900, 150, 2), (utc[0].TotalSeconds, utc[0].TotalWords, utc[0].SessionCount));
+
+        // Offset -60min: sA 00:30→2025-03-14 23:30 (prev day), sB 23:30→2025-03-15 22:30 (same day).
+        var minus = await h.Service.GetDailyStatsAsync(userId, from, to, TimeSpan.FromMinutes(-60), CancellationToken.None);
+        Assert.Equal(2, minus.Count);
+        Assert.Equal(new DateTime(2025, 3, 14), minus[0].Date);
+        Assert.Equal((600, 100, 1), (minus[0].TotalSeconds, minus[0].TotalWords, minus[0].SessionCount));
+        Assert.Equal(new DateTime(2025, 3, 15), minus[1].Date);
+        Assert.Equal((300, 50, 1), (minus[1].TotalSeconds, minus[1].TotalWords, minus[1].SessionCount));
+
+        // Offset +60min: sA 00:30→2025-03-15 01:30 (same day), sB 23:30→2025-03-16 00:30 (next day).
+        var plus = await h.Service.GetDailyStatsAsync(userId, from, to, TimeSpan.FromMinutes(60), CancellationToken.None);
+        Assert.Equal(2, plus.Count);
+        Assert.Equal(new DateTime(2025, 3, 15), plus[0].Date);
+        Assert.Equal((600, 100, 1), (plus[0].TotalSeconds, plus[0].TotalWords, plus[0].SessionCount));
+        Assert.Equal(new DateTime(2025, 3, 16), plus[1].Date);
+        Assert.Equal((300, 50, 1), (plus[1].TotalSeconds, plus[1].TotalWords, plus[1].SessionCount));
+    }
+
     // Small helpers to make genre tuple asserts read cleanly.
     private readonly record struct GenreStatDtoTuple(string Name, string Slug, int Count);
     private static GenreStatDtoTuple Tuple(Contracts.ReadingTracking.GenreStatDto g) => new(g.Name, g.Slug, g.Count);

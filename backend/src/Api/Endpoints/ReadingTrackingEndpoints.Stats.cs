@@ -2,6 +2,7 @@ using Api.Extensions;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
+using Application.ReadingTracking;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -116,7 +117,7 @@ public static partial class ReadingTrackingEndpoints
     private static async Task<IResult> GetDailyStats(
         HttpContext httpContext,
         AuthService authService,
-        IAppDbContext db,
+        ReadingStatsService statsService,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
         [FromQuery] string? tz,
@@ -130,23 +131,7 @@ public static partial class ReadingTrackingEndpoints
         var start = from ?? now.AddDays(-90);
         var end = to ?? now;
 
-        // Get raw sessions in range
-        var sessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.StartedAt >= start && s.StartedAt <= end)
-            .Select(s => new { s.StartedAt, s.DurationSeconds, s.WordsRead })
-            .ToListAsync(ct);
-
-        // Group by local date
-        var daily = sessions
-            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
-            .Select(g => new DailyStatDto(
-                g.Key,
-                g.Sum(s => s.DurationSeconds),
-                g.Sum(s => s.WordsRead),
-                g.Count()))
-            .OrderBy(d => d.Date)
-            .ToList();
-
+        var daily = await statsService.GetDailyStatsAsync(userId.Value, start, end, tzOffset, ct);
         return Results.Ok(daily);
     }
 }
