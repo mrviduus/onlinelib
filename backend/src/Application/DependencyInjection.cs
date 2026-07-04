@@ -4,6 +4,7 @@ using Application.AdminSettings;
 using Application.Auth;
 using Application.Authors;
 using Application.Books;
+using Application.ReadingTracking;
 using Application.Reprocessing;
 using Application.Seo;
 using Application.LLM;
@@ -26,6 +27,7 @@ public static class DependencyInjection
 
         services.AddScoped<AuthorsService>();
         services.AddScoped<BookService>();
+        services.AddScoped<ReadingStatsService>();
         services.AddScoped<SeoService>();
 
         // SEO Backfill Automation
