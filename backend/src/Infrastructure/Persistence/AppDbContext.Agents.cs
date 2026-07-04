@@ -10,7 +10,8 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext
 {
-    private static void ConfigureAgents(ModelBuilder modelBuilder)
+    // Instance (not static): the TutorSession query filter closes over _currentSite.
+    private void ConfigureAgents(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AgentRun>(e =>
         {
@@ -56,6 +57,8 @@ public partial class AppDbContext
                 .WithMany()
                 .HasForeignKey(x => x.SiteId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
     }
 }

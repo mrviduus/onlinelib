@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Domain.Entities;
 
-public class Genre
+public class Genre : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid SiteId { get; set; }

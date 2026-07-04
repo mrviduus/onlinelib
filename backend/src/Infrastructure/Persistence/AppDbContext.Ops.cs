@@ -9,7 +9,8 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext
 {
-    private static void ConfigureOps(ModelBuilder modelBuilder)
+    // Instance (not static): site-scoped query filters close over _currentSite.
+    private void ConfigureOps(ModelBuilder modelBuilder)
     {
         // AdminSettings — key/value store, primary key is the key string.
         modelBuilder.Entity<AdminSettings>(e =>
@@ -31,6 +32,7 @@ public partial class AppDbContext
             e.Property(x => x.AuthorSlugsJson).HasColumnType("jsonb");
             e.Property(x => x.GenreSlugsJson).HasColumnType("jsonb");
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // SsgRebuildResult
@@ -50,6 +52,13 @@ public partial class AppDbContext
             e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Code).HasMaxLength(10);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AutoPublishJob — otherwise convention-configured; here only to carry the
+        // R1b site-scoped query filter (no schema config, so no migration delta).
+        modelBuilder.Entity<AutoPublishJob>(e =>
+        {
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
     }
 }

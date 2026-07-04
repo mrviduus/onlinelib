@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class ReadingSession
+public class ReadingSession : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

@@ -25,6 +25,9 @@ builder.Logging.AddTelemetryLogging(builder.Configuration, "textstack-worker");
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";
 
+builder.Services.AddSingleton<Application.Common.Interfaces.ICurrentSite>(
+    sp => new Infrastructure.Persistence.CurrentSite(sp.GetRequiredService<IConfiguration>()));
+
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(connectionString, o => o.UseVector())
         .UseSnakeCaseNamingConvention()

@@ -8,7 +8,7 @@ namespace Domain.Entities;
 /// answers. <see cref="PlanJson"/> is the current ordered study set as jsonb (read whole, not queried per
 /// field). Plain POCO; EF mapping in AppDbContext.Agents.cs.
 /// </summary>
-public class TutorSession
+public class TutorSession : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Domain.Entities;
 
-public class AutoPublishJob
+public class AutoPublishJob : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid SiteId { get; set; }

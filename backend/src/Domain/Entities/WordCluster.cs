@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class WordCluster
+public class WordCluster : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

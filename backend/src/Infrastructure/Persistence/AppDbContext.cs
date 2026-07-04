@@ -25,10 +25,32 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext : DbContext, IAppDbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    // R1b: drives the site-scoped global query filters (OnModelCreating) and the
+    // SaveChanges write-stamping above. Process-wide constant in single-site.
+    private readonly ICurrentSite _currentSite;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSite currentSite) : base(options)
+    {
+        _currentSite = currentSite;
+    }
 
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default)
         => Database.BeginTransactionAsync(ct);
+
+    // R1b write-stamping: fill SiteId on newly-added ISiteScoped entities that were
+    // left empty. Overriding the two "core" overloads covers the parameterless
+    // convenience overloads too — they funnel through these.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        SiteScopedStamp.Apply(ChangeTracker, _currentSite.Id);
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        SiteScopedStamp.Apply(ChangeTracker, _currentSite.Id);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     public DbSet<Site> Sites => Set<Site>();
     public DbSet<SiteDomain> SiteDomains => Set<SiteDomain>();

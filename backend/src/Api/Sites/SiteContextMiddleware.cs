@@ -36,12 +36,12 @@ public class SiteContextMiddleware
             return;
         }
 
-        // Dev mode: allow ?site= query param override
-        var siteOverride = context.Request.Query["site"].FirstOrDefault();
-
-        var host = !string.IsNullOrEmpty(siteOverride)
-            ? $"{siteOverride}.localhost"
-            : context.Request.Host.Host;
+        // Single-site (ADR-007): resolve strictly by request host. The legacy dev
+        // `?site=` override was removed in R1b — it could resolve a SiteContext whose
+        // Id diverged from the process-wide ICurrentSite.Id that the new EF global
+        // query filters key on, silently yielding zero rows. The one seeded site's
+        // host always resolves to SiteConstants.DefaultSiteId == ICurrentSite.Id.
+        var host = context.Request.Host.Host;
 
         var siteContext = await _resolver.ResolveAsync(host, context.RequestAborted);
 

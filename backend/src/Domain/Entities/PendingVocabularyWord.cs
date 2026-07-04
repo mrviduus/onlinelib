@@ -4,7 +4,7 @@ namespace Domain.Entities;
 // reconciler promotes the highest-Priority pending rows once the day rolls
 // over and the active queue has headroom. Shape mirrors VocabularyWord minus
 // the SRS columns — SRS state is assigned at promotion time, not at save.
-public class PendingVocabularyWord
+public class PendingVocabularyWord : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

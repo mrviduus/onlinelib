@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Domain.Entities;
 
-public class SsgRebuildJob
+public class SsgRebuildJob : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid SiteId { get; set; }

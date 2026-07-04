@@ -5,7 +5,7 @@ namespace Domain.Entities;
 // flooding the review queue with words the user will likely never see again.
 // Mid-tier words sit here until TapCount >= LOOKUP_PROMOTION_TAPS, at which
 // point SaveWord auto-promotes into VocabularyWord.
-public class WordLookup
+public class WordLookup : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

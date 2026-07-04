@@ -2,7 +2,7 @@ namespace Domain.Entities;
 
 // TODO: Notes feature partially implemented - entity/DB exists but API endpoints not wired.
 // Relationships: User, Site, Edition, Chapter - keep entity, implement API later.
-public class Note
+public class Note : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

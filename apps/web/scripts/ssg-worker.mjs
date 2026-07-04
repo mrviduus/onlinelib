@@ -58,14 +58,19 @@ async function pollForJob() {
 }
 
 /**
- * Get routes from API
- * Uses ?site= query param instead of Host header (Node.js fetch doesn't pass Host properly)
+ * Get routes from API.
+ *
+ * Sends an explicit Host header so SiteContextMiddleware can resolve the site.
+ * The legacy `?site=` query-param override was removed in R1b (single-site); node
+ * fetch would otherwise default Host to the URL host (`api`) → 404 → silent job
+ * failure. API_HOST resolves to a seeded domain (`localhost` in compose, or the
+ * `general.localhost` default) → DefaultSiteId == ICurrentSite.Id.
  */
-async function getRoutesFromApi(siteCode) {
-  const url = `${API_URL}/ssg/routes?site=${siteCode}`;
-  console.log(`Fetching routes from ${url}`);
+async function getRoutesFromApi() {
+  const url = `${API_URL}/ssg/routes`;
+  console.log(`Fetching routes from ${url} (Host: ${API_HOST})`);
 
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { host: API_HOST } });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch routes: ${res.status} ${res.statusText}`);
@@ -113,8 +118,8 @@ async function processJob(job) {
   console.log(`Processing job ${jobId} for site ${siteCode} (${apiHost})`);
 
   try {
-    // 1. Get routes via API (uses ?site= query param)
-    const routes = await getRoutesFromApi(siteCode);
+    // 1. Get routes via API (site resolved from the Host header)
+    const routes = await getRoutesFromApi();
     console.log(`Got ${routes.length} routes to render`);
 
     if (routes.length === 0) {

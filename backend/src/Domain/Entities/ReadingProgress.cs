@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class ReadingProgress
+public class ReadingProgress : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
