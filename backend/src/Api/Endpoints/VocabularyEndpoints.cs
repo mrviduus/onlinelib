@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Api.Extensions;
+using Api.Mapping;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -560,15 +561,10 @@ public static partial class VocabularyEndpoints
                 && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
             .Take(MaxDistractorPoolSize)
-            .Select(w => new DistractorPoolEntry(w.Word, w.Language))
+            .Select(VocabularyMappings.DistractorPoolProject)
             .ToListAsync(ct);
 
-        var wordsForReview = dueWords.Select(w => new WordForReview(
-            w.Id, w.Word, w.Language,
-            w.Translation, w.Definition,
-            w.Sentence, w.BookTitle, w.Hint,
-            w.Explanation, w.Distractors,
-            w.Stage, w.TotalReviews)).ToList();
+        var wordsForReview = dueWords.Select(VocabularyMappings.ToWordForReview).ToList();
 
         var cards = cardBuilder.BuildCards(wordsForReview, distractorPool);
 

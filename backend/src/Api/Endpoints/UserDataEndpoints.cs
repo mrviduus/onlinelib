@@ -1,4 +1,5 @@
 using Api.Extensions;
+using Api.Mapping;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -229,14 +230,7 @@ public static class UserDataEndpoints
         var items = await query
             .Skip(offset ?? 0)
             .Take(limit ?? 100)
-            .Select(b => new BookmarkDto(
-                b.Id,
-                b.EditionId,
-                b.ChapterId,
-                b.Locator,
-                b.Title,
-                b.CreatedAt
-            ))
+            .Select(BookmarkMappings.Project)
             .ToListAsync(ct);
 
         return Results.Ok(new { total, items });
@@ -256,14 +250,7 @@ public static class UserDataEndpoints
         var bookmarks = await db.Bookmarks
             .Where(b => b.UserId == userId.Value && b.EditionId == editionId)
             .OrderByDescending(b => b.CreatedAt)
-            .Select(b => new BookmarkDto(
-                b.Id,
-                b.EditionId,
-                b.ChapterId,
-                b.Locator,
-                b.Title,
-                b.CreatedAt
-            ))
+            .Select(BookmarkMappings.Project)
             .ToListAsync(ct);
 
         return Results.Ok(bookmarks);
@@ -310,14 +297,7 @@ public static class UserDataEndpoints
         db.Bookmarks.Add(bookmark);
         await db.SaveChangesAsync(ct);
 
-        return Results.Created($"/me/bookmarks/{bookmark.Id}", new BookmarkDto(
-            bookmark.Id,
-            bookmark.EditionId,
-            bookmark.ChapterId,
-            bookmark.Locator,
-            bookmark.Title,
-            bookmark.CreatedAt
-        ));
+        return Results.Created($"/me/bookmarks/{bookmark.Id}", bookmark.ToDto());
     }
 
     private static async Task<IResult> DeleteBookmark(

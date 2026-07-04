@@ -1,4 +1,5 @@
 using Api.Extensions;
+using Api.Mapping;
 using Application.Auth;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -44,7 +45,7 @@ public static class AuthEndpoints
         {
             var existingUser = await authService.GetUserByIdAsync(existingUserId.Value, ct);
             if (existingUser != null)
-                return Results.Ok(new AuthResponse(ToDto(existingUser)));
+                return Results.Ok(new AuthResponse(existingUser.ToDto()));
         }
 
         var result = await authService.CreateGuestSessionAsync(ct);
@@ -176,7 +177,7 @@ public static class AuthEndpoints
             return Results.Unauthorized();
 
         var (user, newAccessToken, newRefreshToken) = result.Value;
-        return Results.Ok(new MobileAuthResponse(ToDto(user), newAccessToken, newRefreshToken));
+        return Results.Ok(new MobileAuthResponse(user.ToDto(), newAccessToken, newRefreshToken));
     }
 
     private static async Task<IResult> Logout(
@@ -205,7 +206,7 @@ public static class AuthEndpoints
         if (user == null)
             return Results.Unauthorized();
 
-        return Results.Ok(new AuthResponse(ToDto(user)));
+        return Results.Ok(new AuthResponse(user.ToDto()));
     }
 
     private static async Task<IResult> ForgotPassword(
@@ -244,15 +245,12 @@ public static class AuthEndpoints
         return Results.Ok();
     }
 
-    private static UserDto ToDto(User user) =>
-        new(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage);
-
     private static IResult ReturnAuthResult(
         (User user, string accessToken, string refreshToken) result,
         HttpContext httpContext)
     {
         var (user, accessToken, refreshToken) = result;
-        var dto = ToDto(user);
+        var dto = user.ToDto();
 
         if (IsMobileClient(httpContext))
             return Results.Ok(new MobileAuthResponse(dto, accessToken, refreshToken));

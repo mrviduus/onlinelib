@@ -1,4 +1,5 @@
 using Api.Extensions;
+using Api.Mapping;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -21,7 +22,7 @@ public static partial class ReadingTrackingEndpoints
 
         var goals = await db.ReadingGoals
             .Where(g => g.UserId == userId.Value && g.IsActive)
-            .Select(g => new GoalDto(g.Id, g.GoalType, g.TargetValue, g.Year, g.StreakMinMinutes, g.UpdatedAt))
+            .Select(ReadingMappings.Project)
             .ToListAsync(ct);
 
         return Results.Ok(goals);
@@ -75,8 +76,7 @@ public static partial class ReadingTrackingEndpoints
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new GoalDto(existing.Id, existing.GoalType, existing.TargetValue,
-            existing.Year, existing.StreakMinMinutes, existing.UpdatedAt));
+        return Results.Ok(existing.ToDto());
     }
 
     private static async Task<IResult> DeleteGoal(

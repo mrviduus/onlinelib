@@ -1,4 +1,5 @@
 using Api.Extensions;
+using Api.Mapping;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
@@ -38,11 +39,7 @@ public static class HighlightsEndpoints
         var highlights = await db.Highlights
             .Where(h => h.UserId == userId.Value && h.EditionId == editionId)
             .OrderByDescending(h => h.CreatedAt)
-            .Select(h => new HighlightDto(
-                h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
-                h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
-                h.Version, h.CreatedAt, h.UpdatedAt
-            ))
+            .Select(HighlightMappings.Project)
             .ToListAsync(ct);
 
         return Results.Ok(highlights);
@@ -65,11 +62,7 @@ public static class HighlightsEndpoints
         var highlights = await db.Highlights
             .Where(h => h.UserId == userId.Value && h.UserBookId == userBookId)
             .OrderByDescending(h => h.CreatedAt)
-            .Select(h => new HighlightDto(
-                h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
-                h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
-                h.Version, h.CreatedAt, h.UpdatedAt
-            ))
+            .Select(HighlightMappings.Project)
             .ToListAsync(ct);
 
         return Results.Ok(highlights);
@@ -269,7 +262,7 @@ public static class HighlightsEndpoints
         db.Highlights.Add(highlight);
         await db.SaveChangesAsync(ct);
 
-        return Results.Created($"/me/highlights/{highlight.Id}", ToDto(highlight));
+        return Results.Created($"/me/highlights/{highlight.Id}", highlight.ToDto());
     }
 
     private static async Task<IResult> UpdateHighlight(
@@ -290,7 +283,7 @@ public static class HighlightsEndpoints
         if (highlight == null) return Results.NotFound();
 
         if (request.Version.HasValue && request.Version.Value != highlight.Version)
-            return Results.Conflict(ToDto(highlight));
+            return Results.Conflict(highlight.ToDto());
 
         if (request.Color != null)
             highlight.Color = request.Color;
@@ -308,7 +301,7 @@ public static class HighlightsEndpoints
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(ToDto(highlight));
+        return Results.Ok(highlight.ToDto());
     }
 
     private static async Task<IResult> DeleteHighlight(
@@ -332,12 +325,6 @@ public static class HighlightsEndpoints
 
         return Results.NoContent();
     }
-
-    private static HighlightDto ToDto(Highlight h) => new(
-        h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
-        h.AnchorJson, h.Color, h.SelectedText, h.NoteText,
-        h.Version, h.CreatedAt, h.UpdatedAt
-    );
 }
 
 // DTOs
