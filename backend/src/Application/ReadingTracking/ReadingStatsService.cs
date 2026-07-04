@@ -207,4 +207,35 @@ public class ReadingStatsService(IAppDbContext db)
             AvailableYears: availableYears
         );
     }
+
+    /// <summary>
+    /// Daily reading buckets (R5 slice-2). Body moved verbatim from the former
+    /// <c>ReadingTrackingEndpoints.GetDailyStats</c> handler. The caller resolves the tz offset and
+    /// the <paramref name="from"/>/<paramref name="to"/> defaults from the query string; here the
+    /// single <c>.ToListAsync()</c> boundary and the in-memory <c>ToOffset(tzOffset).Date</c> day
+    /// bucketing are preserved byte-for-byte so the JSON response is identical. Sessions near local
+    /// midnight land in the day the tz offset shifts them into.
+    /// </summary>
+    public async Task<List<DailyStatDto>> GetDailyStatsAsync(
+        Guid userId, DateTimeOffset from, DateTimeOffset to, TimeSpan tzOffset, CancellationToken ct)
+    {
+        // Get raw sessions in range
+        var sessions = await db.ReadingSessions
+            .Where(s => s.UserId == userId && s.StartedAt >= from && s.StartedAt <= to)
+            .Select(s => new { s.StartedAt, s.DurationSeconds, s.WordsRead })
+            .ToListAsync(ct);
+
+        // Group by local date
+        var daily = sessions
+            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
+            .Select(g => new DailyStatDto(
+                g.Key,
+                g.Sum(s => s.DurationSeconds),
+                g.Sum(s => s.WordsRead),
+                g.Count()))
+            .OrderBy(d => d.Date)
+            .ToList();
+
+        return daily;
+    }
 }
