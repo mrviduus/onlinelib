@@ -209,6 +209,103 @@ public class ReadingStatsService(IAppDbContext db)
     }
 
     /// <summary>
+    /// Aggregate reading stats (R5 slice-3). Body moved verbatim from the former
+    /// <c>ReadingTrackingEndpoints.GetStats</c> handler; the caller resolves the tz offset and passes
+    /// <paramref name="now"/> (was <c>DateTimeOffset.UtcNow</c> inline) so the time-window boundaries are
+    /// deterministic under test. Every server-side aggregate keeps its <c>(long)</c> cast and the daily-goal
+    /// effective-minutes math is preserved, so the JSON is byte-identical. Site scope is enforced by the
+    /// R1b EF query filter (no explicit SiteId here).
+    /// </summary>
+    public async Task<ReadingStatsResponse> GetStatsAsync(
+        Guid userId, TimeSpan tzOffset, DateTimeOffset now, CancellationToken ct)
+    {
+        var allSessions = db.ReadingSessions
+            .Where(s => s.UserId == userId);
+
+        var totalSeconds = await allSessions.SumAsync(s => (long)s.DurationSeconds, ct);
+        var totalWords = await allSessions.SumAsync(s => (long)s.WordsRead, ct);
+        var sessionCount = await allSessions.CountAsync(ct);
+
+        var booksFinished = await allSessions
+            .Where(s => s.EndPercent >= 0.99)
+            .Select(s => s.EditionId ?? s.UserBookId)
+            .Distinct()
+            .CountAsync(ct);
+
+        // Time-period sums (calculate in user tz, convert to UTC for PostgreSQL)
+        var todayLocal = StreakCalculator.GetDayStart(now, tzOffset);
+        var todayStart = todayLocal.ToUniversalTime();
+        var weekStart = todayLocal.AddDays(-(int)todayLocal.DayOfWeek).ToUniversalTime();
+        var monthStart = new DateTimeOffset(todayLocal.Year, todayLocal.Month, 1, 0, 0, 0, tzOffset).ToUniversalTime();
+
+        var todaySeconds = await allSessions
+            .Where(s => s.StartedAt >= todayStart)
+            .SumAsync(s => (long)s.DurationSeconds, ct);
+        var weekSeconds = await allSessions
+            .Where(s => s.StartedAt >= weekStart)
+            .SumAsync(s => (long)s.DurationSeconds, ct);
+        var monthSeconds = await allSessions
+            .Where(s => s.StartedAt >= monthStart)
+            .SumAsync(s => (long)s.DurationSeconds, ct);
+
+        // Streak
+        var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId, ct);
+        var currentStreak = await StreakCalculator.CalculateStreak(db, userId, streakMinMinutes, now, ct, tzOffset);
+        var longestStreak = await StreakCalculator.CalculateLongestStreak(db, userId, streakMinMinutes, ct, tzOffset);
+
+        // Averages
+        double avgDailyMinutes = 0;
+        double avgWordsPerMinute = 0;
+        if (sessionCount > 0)
+        {
+            var firstSession = await allSessions
+                .OrderBy(s => s.StartedAt)
+                .Select(s => s.StartedAt)
+                .FirstOrDefaultAsync(ct);
+            var daysSinceFirst = Math.Max(1, (now - firstSession).TotalDays);
+            avgDailyMinutes = totalSeconds / 60.0 / daysSinceFirst;
+
+            if (totalSeconds > 0)
+                avgWordsPerMinute = totalWords / (totalSeconds / 60.0);
+        }
+
+        // Vocab reviews today
+        var todayVocabReviews = await db.VocabularyReviews
+            .Where(r => r.UserId == userId && r.CreatedAt >= todayStart)
+            .CountAsync(ct);
+
+        // Daily goal (reading + vocab reviews as effective minutes)
+        var dailyGoal = await db.ReadingGoals
+            .Where(g => g.UserId == userId && g.GoalType == "daily_minutes" && g.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+        DailyGoalStatusDto? dailyGoalObj = null;
+        if (dailyGoal != null)
+        {
+            var effectiveTodayMinutes = todaySeconds / 60.0 + todayVocabReviews * 0.5;
+            dailyGoalObj = new DailyGoalStatusDto(
+                Target: dailyGoal.TargetValue,
+                Today: Math.Round(effectiveTodayMinutes, 1),
+                Met: effectiveTodayMinutes >= dailyGoal.TargetValue);
+        }
+
+        return new ReadingStatsResponse(
+            TotalSeconds: totalSeconds,
+            TotalWords: totalWords,
+            BooksFinished: booksFinished,
+            CurrentStreak: currentStreak,
+            LongestStreak: longestStreak,
+            StreakMinMinutes: streakMinMinutes,
+            AvgDailyMinutes: Math.Round(avgDailyMinutes, 1),
+            AvgWordsPerMinute: Math.Round(avgWordsPerMinute, 1),
+            TodaySeconds: todaySeconds,
+            TodayVocabReviews: todayVocabReviews,
+            WeekSeconds: weekSeconds,
+            MonthSeconds: monthSeconds,
+            DailyGoal: dailyGoalObj);
+    }
+
+    /// <summary>
     /// Daily reading buckets (R5 slice-2). Body moved verbatim from the former
     /// <c>ReadingTrackingEndpoints.GetDailyStats</c> handler. The caller resolves the tz offset and
     /// the <paramref name="from"/>/<paramref name="to"/> defaults from the query string; here the
@@ -237,5 +334,106 @@ public class ReadingStatsService(IAppDbContext db)
             .ToList();
 
         return daily;
+    }
+
+    // Reading-pace tuning (slice 19). Moved verbatim from the Api handler.
+    private const int PaceMinSessions = 3;
+    private const int FallbackPaceWpm = 200;
+
+    /// <summary>
+    /// Library summary card (slice 20 / R5 slice-3). Body moved verbatim from the former
+    /// <c>ReadingTrackingEndpoints.GetLibrarySummary</c> handler; the <c>IMemoryCache</c> lookup/store stays
+    /// in the caller (this service is cache-free). The caller resolves the tz offset and passes
+    /// <paramref name="now"/> so the month/year window boundaries are deterministic. The integer division
+    /// (words/250 → pages, seconds/60 → minutes) and the daily→yearly goal precedence are preserved so the
+    /// JSON is byte-identical.
+    /// </summary>
+    public async Task<LibrarySummaryDto> GetLibrarySummaryAsync(
+        Guid userId, TimeSpan tzOffset, DateTimeOffset now, CancellationToken ct)
+    {
+        var todayLocal = StreakCalculator.GetDayStart(now, tzOffset);
+        var monthStart = new DateTimeOffset(todayLocal.Year, todayLocal.Month, 1, 0, 0, 0, tzOffset).ToUniversalTime();
+        var yearStart = new DateTimeOffset(todayLocal.Year, 1, 1, 0, 0, 0, tzOffset).ToUniversalTime();
+
+        var monthAgg = await db.ReadingSessions
+            .Where(s => s.UserId == userId && s.StartedAt >= monthStart)
+            .GroupBy(_ => 1)
+            .Select(g => new { Words = g.Sum(s => (long)s.WordsRead), Seconds = g.Sum(s => (long)s.DurationSeconds) })
+            .FirstOrDefaultAsync(ct);
+
+        var pagesThisMonth = (int)((monthAgg?.Words ?? 0) / 250);
+        var minutesThisMonth = (int)((monthAgg?.Seconds ?? 0) / 60);
+
+        var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId, ct);
+        var currentStreak = await StreakCalculator.CalculateStreak(db, userId, streakMinMinutes, now, ct, tzOffset);
+
+        var booksFinishedYtd = await db.ReadingSessions
+            .Where(s => s.UserId == userId && s.EndPercent >= 0.99 && s.EndedAt >= yearStart)
+            .Select(s => s.EditionId ?? s.UserBookId)
+            .Distinct()
+            .CountAsync(ct);
+
+        var dailyGoal = await db.ReadingGoals
+            .Where(g => g.UserId == userId && g.GoalType == "daily_minutes" && g.IsActive)
+            .Select(g => new { g.TargetValue, g.StreakMinMinutes })
+            .FirstOrDefaultAsync(ct);
+        var yearlyGoal = await db.ReadingGoals
+            .Where(g => g.UserId == userId && g.GoalType == "books_per_year" && g.IsActive)
+            .Select(g => new { g.TargetValue, g.Year })
+            .FirstOrDefaultAsync(ct);
+
+        GoalSummaryDto? goal = null;
+        if (dailyGoal != null)
+        {
+            var todayStart = todayLocal.ToUniversalTime();
+            var todaySeconds = await db.ReadingSessions
+                .Where(s => s.UserId == userId && s.StartedAt >= todayStart)
+                .SumAsync(s => (long)s.DurationSeconds, ct);
+            goal = new GoalSummaryDto("daily_minutes", (int)(todaySeconds / 60), dailyGoal.TargetValue);
+        }
+        else if (yearlyGoal != null)
+        {
+            goal = new GoalSummaryDto("books_per_year", booksFinishedYtd, yearlyGoal.TargetValue);
+        }
+
+        return new LibrarySummaryDto(
+            PagesThisMonth: pagesThisMonth,
+            MinutesThisMonth: minutesThisMonth,
+            CurrentStreak: currentStreak,
+            StreakMinMinutes: streakMinMinutes,
+            BooksFinishedYtd: booksFinishedYtd,
+            Goal: goal
+        );
+    }
+
+    /// <summary>
+    /// Reading pace (slice 19 / R5 slice-3). Body moved verbatim from the former
+    /// <c>ReadingTrackingEndpoints.GetPace</c> handler; not tz-dependent. The <c>IMemoryCache</c> lookup/store
+    /// stays in the caller. Fallback returns <see cref="FallbackPaceWpm"/> when there are fewer than
+    /// <see cref="PaceMinSessions"/> qualifying sessions or no seconds; otherwise wpm is rounded and clamped
+    /// to [50, 800]. Byte-identical to the pre-refactor response.
+    /// </summary>
+    public async Task<ReadingPaceDto> GetPaceAsync(Guid userId, CancellationToken ct)
+    {
+        var agg = await db.ReadingSessions
+            .Where(s => s.UserId == userId && s.WordsRead > 0 && s.DurationSeconds > 0)
+            .GroupBy(_ => 1)
+            .Select(g => new { Sessions = g.Count(), Words = g.Sum(s => (long)s.WordsRead), Seconds = g.Sum(s => (long)s.DurationSeconds) })
+            .FirstOrDefaultAsync(ct);
+
+        ReadingPaceDto dto;
+        if (agg == null || agg.Sessions < PaceMinSessions || agg.Seconds <= 0)
+        {
+            dto = new ReadingPaceDto(FallbackPaceWpm, agg?.Sessions ?? 0, false);
+        }
+        else
+        {
+            var wpm = (int)Math.Round(agg.Words / (agg.Seconds / 60.0));
+            // Clamp to sane range — guards against ultra-short sessions skewing avg
+            wpm = Math.Clamp(wpm, 50, 800);
+            dto = new ReadingPaceDto(wpm, agg.Sessions, true);
+        }
+
+        return dto;
     }
 }

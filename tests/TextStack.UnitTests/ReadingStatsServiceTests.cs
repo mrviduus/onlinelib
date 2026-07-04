@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.ReadingTracking;
+using Contracts.ReadingTracking;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +22,8 @@ public class ReadingStatsServiceTests
         public List<ReadingSession> Sessions { get; } = [];
         public List<Edition> Editions { get; } = [];
         public List<UserBook> UserBooks { get; } = [];
+        public List<ReadingGoal> Goals { get; } = [];
+        public List<VocabularyReview> Reviews { get; } = [];
         public Mock<IAppDbContext> Db { get; } = new();
         public ReadingStatsService Service { get; }
 
@@ -28,9 +32,33 @@ public class ReadingStatsServiceTests
             Db.Setup(x => x.ReadingSessions).Returns(() => FakeSet(Sessions).Object);
             Db.Setup(x => x.Editions).Returns(() => FakeSet(Editions).Object);
             Db.Setup(x => x.UserBooks).Returns(() => FakeSet(UserBooks).Object);
+            Db.Setup(x => x.ReadingGoals).Returns(() => FakeSet(Goals).Object);
+            Db.Setup(x => x.VocabularyReviews).Returns(() => FakeSet(Reviews).Object);
             Service = new ReadingStatsService(Db.Object);
         }
     }
+
+    private static ReadingGoal Goal(
+        Guid userId, string type, int target, int year = 0, int streakMin = 5, bool active = true) => new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            GoalType = type,
+            TargetValue = target,
+            Year = year,
+            IsActive = active,
+            StreakMinMinutes = streakMin,
+        };
+
+    private static VocabularyReview Review(Guid userId, DateTimeOffset at) => new()
+    {
+        Id = Guid.NewGuid(),
+        VocabularyWordId = Guid.NewGuid(),
+        UserId = userId,
+        ReviewMode = "multiple_choice",
+        IsCorrect = true,
+        CreatedAt = at,
+    };
 
     // Builds a DbSet<T> mock backed by `data`: queryable (sync + async). (Read-only service — no
     // Add/Remove needed.) Mirrors ConceptClusteringServiceTests.FakeSet.
@@ -360,6 +388,290 @@ public class ReadingStatsServiceTests
         Assert.Equal((600, 100, 1), (plus[0].TotalSeconds, plus[0].TotalWords, plus[0].SessionCount));
         Assert.Equal(new DateTime(2025, 3, 16), plus[1].Date);
         Assert.Equal((300, 50, 1), (plus[1].TotalSeconds, plus[1].TotalWords, plus[1].SessionCount));
+    }
+
+    // ── R5 slice-3: GetStatsAsync ───────────────────────────────────────────────────────────────
+
+    // now is fixed at 2025-03-15 08:00Z (a Saturday → DayOfWeek 6, so weekStart = 2025-03-09).
+    // firstSession (u1) is exactly 69 days earlier (2025-01-05 08:00Z) so the avg-days divisor is exact.
+    [Fact]
+    public async Task GetStats_FixedNowAndTz_AggregatesEveryFieldExactly()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var e1 = Guid.NewGuid();
+        var e2 = Guid.NewGuid();
+        var u1 = Guid.NewGuid();
+
+        // Finished distinct books: e1 (via two finishing sessions) + u1 → 2. e2 never finished.
+        h.Sessions.Add(Session(userId, endPct: 1.0, start: UtcT(2025, 3, 15, 6, 0), end: UtcT(2025, 3, 15, 6, 10), dur: 600, words: 1500, editionId: e1));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 10, 8, 0), end: UtcT(2025, 3, 10, 8, 20), dur: 1200, words: 2000, editionId: e2));
+        h.Sessions.Add(Session(userId, endPct: 0.99, start: UtcT(2025, 3, 2, 8, 0), end: UtcT(2025, 3, 2, 8, 5), dur: 300, words: 400, editionId: e1));
+        h.Sessions.Add(Session(userId, endPct: 1.0, start: UtcT(2025, 1, 5, 8, 0), end: UtcT(2025, 1, 6, 8, 0), dur: 900, words: 1000, userBookId: u1));
+        // Two more consecutive days to build a 3-day current streak (03-13, 03-14, 03-15).
+        h.Sessions.Add(Session(userId, endPct: 0.6, start: UtcT(2025, 3, 14, 8, 0), end: UtcT(2025, 3, 14, 8, 10), dur: 600, words: 500, editionId: e2));
+        h.Sessions.Add(Session(userId, endPct: 0.6, start: UtcT(2025, 3, 13, 8, 0), end: UtcT(2025, 3, 13, 8, 10), dur: 600, words: 500, editionId: e2));
+
+        // Two vocab reviews today (2025-03-15) → todayVocabReviews = 2, +60 effective streak seconds.
+        h.Reviews.Add(Review(userId, UtcT(2025, 3, 15, 7, 0)));
+        h.Reviews.Add(Review(userId, UtcT(2025, 3, 15, 7, 30)));
+
+        // Active daily goal: 20 min target, streak threshold 5 min.
+        h.Goals.Add(Goal(userId, "daily_minutes", target: 20, streakMin: 5));
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var r = await h.Service.GetStatsAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Equal(4200L, r.TotalSeconds);            // 600+1200+300+900+600+600
+        Assert.Equal(5900L, r.TotalWords);              // 1500+2000+400+1000+500+500
+        Assert.Equal(2, r.BooksFinished);               // distinct {e1, u1}
+        Assert.Equal(3, r.CurrentStreak);               // 03-15,03-14,03-13 all qualify
+        Assert.Equal(3, r.LongestStreak);               // longest consecutive run is that same 3
+        Assert.Equal(5, r.StreakMinMinutes);
+        Assert.Equal(1.0, r.AvgDailyMinutes);           // 4200/60/69 = 1.0145 → 1.0
+        Assert.Equal(84.3, r.AvgWordsPerMinute);        // 5900/(4200/60) = 84.2857 → 84.3
+        Assert.Equal(600L, r.TodaySeconds);             // only 03-15 session
+        Assert.Equal(2, r.TodayVocabReviews);
+        Assert.Equal(3000L, r.WeekSeconds);             // 03-15,03-14,03-13,03-10 (>=03-09)
+        Assert.Equal(3300L, r.MonthSeconds);            // all March sessions (>=03-01)
+
+        Assert.NotNull(r.DailyGoal);
+        Assert.Equal(20, r.DailyGoal!.Target);
+        Assert.Equal(11.0, r.DailyGoal.Today);          // 600/60 + 2*0.5 = 11.0
+        Assert.False(r.DailyGoal.Met);                  // 11 < 20
+    }
+
+    [Fact]
+    public async Task GetStats_NoActiveDailyGoal_DailyGoalIsNull()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        h.Sessions.Add(Session(userId, endPct: 1.0, start: UtcT(2025, 3, 15, 6, 0), end: UtcT(2025, 3, 15, 6, 10), dur: 600, words: 1500, editionId: Guid.NewGuid()));
+        // Only an inactive daily goal + a books_per_year goal → GetStats daily-goal query finds nothing.
+        h.Goals.Add(Goal(userId, "daily_minutes", target: 30, active: false));
+        h.Goals.Add(Goal(userId, "books_per_year", target: 12, year: 2025));
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var r = await h.Service.GetStatsAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Null(r.DailyGoal);
+        Assert.Equal(5, r.StreakMinMinutes); // default when no active daily goal
+    }
+
+    [Fact]
+    public async Task GetStats_NoSessions_ZeroTotalsAndAverages()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var r = await h.Service.GetStatsAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Equal(0L, r.TotalSeconds);
+        Assert.Equal(0L, r.TotalWords);
+        Assert.Equal(0, r.BooksFinished);
+        Assert.Equal(0, r.CurrentStreak);
+        Assert.Equal(0, r.LongestStreak);
+        Assert.Equal(0.0, r.AvgDailyMinutes);
+        Assert.Equal(0.0, r.AvgWordsPerMinute);
+        Assert.Null(r.DailyGoal);
+    }
+
+    // ── R5 slice-3: GetLibrarySummaryAsync ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetLibrarySummary_DailyGoalPrecedence_IntDivFloorsPagesAndMinutes()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var e1 = Guid.NewGuid();
+        var e2 = Guid.NewGuid();
+
+        // This-month session lands exactly on the floor edges: 249 words → 0 pages, 59s → 0 min.
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 10, 8, 0), end: UtcT(2025, 3, 10, 8, 1), dur: 59, words: 249, editionId: e1));
+        // Earlier-this-year finish (outside the current month) → counts toward booksFinishedYtd only.
+        h.Sessions.Add(Session(userId, endPct: 1.0, start: UtcT(2025, 2, 1, 8, 0), end: UtcT(2025, 2, 2, 8, 0), dur: 100, words: 100, editionId: e2));
+
+        // Both goals present → daily wins.
+        h.Goals.Add(Goal(userId, "daily_minutes", target: 30, streakMin: 5));
+        h.Goals.Add(Goal(userId, "books_per_year", target: 12, year: 2025));
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var s = await h.Service.GetLibrarySummaryAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Equal(0, s.PagesThisMonth);       // 249/250
+        Assert.Equal(0, s.MinutesThisMonth);      // 59/60
+        Assert.Equal(0, s.CurrentStreak);         // 59s < 300s threshold → no qualifying day
+        Assert.Equal(5, s.StreakMinMinutes);
+        Assert.Equal(1, s.BooksFinishedYtd);      // e2 finished this year
+        Assert.NotNull(s.Goal);
+        Assert.Equal("daily_minutes", s.Goal!.Type);
+        Assert.Equal(0, s.Goal.Current);          // no session today → 0 min
+        Assert.Equal(30, s.Goal.Target);
+    }
+
+    [Fact]
+    public async Task GetLibrarySummary_NoDailyGoal_UsesYearlyGoal()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var e1 = Guid.NewGuid();
+
+        // 500 words → 2 pages, 120s → 2 min; finished this year.
+        h.Sessions.Add(Session(userId, endPct: 1.0, start: UtcT(2025, 3, 5, 8, 0), end: UtcT(2025, 3, 6, 8, 0), dur: 120, words: 500, editionId: e1));
+        h.Goals.Add(Goal(userId, "books_per_year", target: 12, year: 2025));
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var s = await h.Service.GetLibrarySummaryAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Equal(2, s.PagesThisMonth);
+        Assert.Equal(2, s.MinutesThisMonth);
+        Assert.Equal(1, s.BooksFinishedYtd);
+        Assert.Equal(5, s.StreakMinMinutes);      // default (no active daily goal)
+        Assert.NotNull(s.Goal);
+        Assert.Equal("books_per_year", s.Goal!.Type);
+        Assert.Equal(1, s.Goal.Current);          // booksFinishedYtd
+        Assert.Equal(12, s.Goal.Target);
+    }
+
+    [Fact]
+    public async Task GetLibrarySummary_NoGoals_GoalIsNull()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 10, 8, 0), end: UtcT(2025, 3, 10, 8, 5), dur: 200, words: 300, editionId: Guid.NewGuid()));
+
+        var now = UtcT(2025, 3, 15, 8, 0);
+        var s = await h.Service.GetLibrarySummaryAsync(userId, TimeSpan.Zero, now, CancellationToken.None);
+
+        Assert.Equal(1, s.PagesThisMonth);        // 300/250
+        Assert.Equal(3, s.MinutesThisMonth);      // 200/60
+        Assert.Equal(0, s.BooksFinishedYtd);
+        Assert.Null(s.Goal);
+    }
+
+    // ── R5 slice-3: GetPaceAsync ────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPace_NoSessions_ReturnsFallback200ZeroCountNotUserSpecific()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+
+        var p = await h.Service.GetPaceAsync(userId, CancellationToken.None);
+
+        Assert.Equal(200, p.Wpm);
+        Assert.Equal(0, p.SessionCount);
+        Assert.False(p.IsUserSpecific);
+    }
+
+    [Fact]
+    public async Task GetPace_FewerThanThreeSessions_ReturnsFallbackWithRealCount()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 1, 8, 0), end: UtcT(2025, 3, 1, 8, 10), dur: 600, words: 1000, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 2, 8, 0), end: UtcT(2025, 3, 2, 8, 10), dur: 600, words: 1000, editionId: Guid.NewGuid()));
+
+        var p = await h.Service.GetPaceAsync(userId, CancellationToken.None);
+
+        Assert.Equal(200, p.Wpm);      // fallback
+        Assert.Equal(2, p.SessionCount); // but real count surfaces
+        Assert.False(p.IsUserSpecific);
+    }
+
+    [Fact]
+    public async Task GetPace_ThreeSessions_RoundsWpm()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        // Totals: 1000 words / 190s. wpm = 1000 / (190/60) = 315.789 → Round → 316.
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 1, 8, 0), end: UtcT(2025, 3, 1, 8, 1), dur: 60, words: 400, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 2, 8, 0), end: UtcT(2025, 3, 2, 8, 1), dur: 60, words: 400, editionId: Guid.NewGuid()));
+        h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, 3, 8, 0), end: UtcT(2025, 3, 3, 8, 1), dur: 70, words: 200, editionId: Guid.NewGuid()));
+
+        var p = await h.Service.GetPaceAsync(userId, CancellationToken.None);
+
+        Assert.Equal(316, p.Wpm);
+        Assert.Equal(3, p.SessionCount);
+        Assert.True(p.IsUserSpecific);
+    }
+
+    [Fact]
+    public async Task GetPace_UltraSlow_ClampsToFifty()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        // 3 sessions, 300 words / 600s → 30 wpm → clamp up to 50.
+        for (var i = 0; i < 3; i++)
+            h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, i + 1, 8, 0), end: UtcT(2025, 3, i + 1, 8, 3), dur: 200, words: 100, editionId: Guid.NewGuid()));
+
+        var p = await h.Service.GetPaceAsync(userId, CancellationToken.None);
+
+        Assert.Equal(50, p.Wpm);
+        Assert.True(p.IsUserSpecific);
+    }
+
+    [Fact]
+    public async Task GetPace_UltraFast_ClampsToEightHundred()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        // 3 sessions, 30000 words / 180s → 10000 wpm → clamp down to 800.
+        for (var i = 0; i < 3; i++)
+            h.Sessions.Add(Session(userId, endPct: 0.5, start: UtcT(2025, 3, i + 1, 8, 0), end: UtcT(2025, 3, i + 1, 8, 1), dur: 60, words: 10000, editionId: Guid.NewGuid()));
+
+        var p = await h.Service.GetPaceAsync(userId, CancellationToken.None);
+
+        Assert.Equal(800, p.Wpm);
+        Assert.True(p.IsUserSpecific);
+    }
+
+    // ── R5 slice-3: golden JSON snapshot ────────────────────────────────────────────────────────
+    // Locks field order + camelCase + null serialization for the /me/reading/stats wire contract.
+    // Uses the ASP.NET Core minimal-API default (JsonSerializerDefaults.Web → camelCase).
+
+    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public void ReadingStatsResponse_SerializesToStableCamelCaseJson_WithDailyGoal()
+    {
+        var resp = new ReadingStatsResponse(
+            TotalSeconds: 3600,
+            TotalWords: 6000,
+            BooksFinished: 2,
+            CurrentStreak: 4,
+            LongestStreak: 9,
+            StreakMinMinutes: 5,
+            AvgDailyMinutes: 12.5,
+            AvgWordsPerMinute: 100.0,
+            TodaySeconds: 600,
+            TodayVocabReviews: 3,
+            WeekSeconds: 1800,
+            MonthSeconds: 7200,
+            DailyGoal: new DailyGoalStatusDto(20, 10.5, false));
+
+        var json = JsonSerializer.Serialize(resp, WebJson);
+
+        Assert.Equal(
+            "{\"totalSeconds\":3600,\"totalWords\":6000,\"booksFinished\":2,\"currentStreak\":4," +
+            "\"longestStreak\":9,\"streakMinMinutes\":5,\"avgDailyMinutes\":12.5,\"avgWordsPerMinute\":100," +
+            "\"todaySeconds\":600,\"todayVocabReviews\":3,\"weekSeconds\":1800,\"monthSeconds\":7200," +
+            "\"dailyGoal\":{\"target\":20,\"today\":10.5,\"met\":false}}",
+            json);
+    }
+
+    [Fact]
+    public void ReadingStatsResponse_SerializesNullDailyGoal_AsJsonNull()
+    {
+        var resp = new ReadingStatsResponse(
+            TotalSeconds: 0, TotalWords: 0, BooksFinished: 0, CurrentStreak: 0, LongestStreak: 0,
+            StreakMinMinutes: 5, AvgDailyMinutes: 0, AvgWordsPerMinute: 0, TodaySeconds: 0,
+            TodayVocabReviews: 0, WeekSeconds: 0, MonthSeconds: 0, DailyGoal: null);
+
+        var json = JsonSerializer.Serialize(resp, WebJson);
+
+        Assert.EndsWith("\"dailyGoal\":null}", json);
     }
 
     // Small helpers to make genre tuple asserts read cleanly.

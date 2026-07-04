@@ -666,8 +666,8 @@ public static partial class VocabularyEndpoints
         // here prevents grinding "1000 reviews"-style achievements.
         if (!isPractice)
         {
-            var streakMinMinutes = await ReadingTrackingEndpoints.GetStreakMinMinutes(db, userId, siteId, ct);
-            var currentStreak = await ReadingTrackingEndpoints.CalculateStreak(db, userId, siteId, streakMinMinutes, now, ct);
+            var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId, ct);
+            var currentStreak = await StreakCalculator.CalculateStreak(db, userId, streakMinMinutes, now, ct);
             await new AchievementChecker(db).CheckAfterReview(userId, siteId, currentStreak, ct);
         }
 
