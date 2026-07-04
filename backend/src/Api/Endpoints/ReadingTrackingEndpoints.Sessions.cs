@@ -87,8 +87,8 @@ public static partial class ReadingTrackingEndpoints
         List<string> newAchievements = [];
         try
         {
-            var streakMinMinutes = await GetStreakMinMinutes(db, userId.Value, siteId, ct);
-            var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, request.EndedAt, ct);
+            var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId.Value, ct);
+            var currentStreak = await StreakCalculator.CalculateStreak(db, userId.Value, streakMinMinutes, request.EndedAt, ct);
 
             var checker = new AchievementChecker(db);
             newAchievements = await checker.CheckAfterSession(userId.Value, siteId, session, currentStreak, ct);

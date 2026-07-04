@@ -1,6 +1,3 @@
-using Application.Common.Interfaces;
-using Microsoft.EntityFrameworkCore;
-
 namespace Api.Endpoints;
 
 /// <summary>
@@ -14,8 +11,10 @@ namespace Api.Endpoints;
 ///   - ReadingTrackingEndpoints.BookStats.cs     GetBookStats
 ///   - ReadingTrackingEndpoints.Summary.cs       GetLibrarySummary, GetPace
 ///
-/// This file keeps the route table + shared streak/tz helpers + DTOs. Splits use C#
-/// `partial` — compile-identical to the original monolithic file.
+/// This file keeps the route table + the tz query-parse helper + the session/goal request DTOs.
+/// The stats aggregations live in <see cref="Application.ReadingTracking.ReadingStatsService"/> and the
+/// streak/local-day helpers in <see cref="Application.ReadingTracking.StreakCalculator"/> (R5). Splits use
+/// C# `partial` — compile-identical to the original monolithic file.
 /// </summary>
 public static partial class ReadingTrackingEndpoints
 {
@@ -45,110 +44,6 @@ public static partial class ReadingTrackingEndpoints
             return TimeSpan.FromMinutes(minutes);
         return TimeSpan.Zero;
     }
-
-    private static DateTimeOffset GetDayStart(DateTimeOffset now, TimeSpan tzOffset)
-    {
-        var local = now.ToOffset(tzOffset);
-        return new DateTimeOffset(local.Year, local.Month, local.Day, 0, 0, 0, tzOffset);
-    }
-
-    internal static async Task<int> GetStreakMinMinutes(IAppDbContext db, Guid userId, Guid siteId, CancellationToken ct)
-    {
-        var goal = await db.ReadingGoals
-            .Where(g => g.UserId == userId && g.GoalType == "daily_minutes" && g.IsActive)
-            .Select(g => (int?)g.StreakMinMinutes)
-            .FirstOrDefaultAsync(ct);
-        return goal ?? 5;
-    }
-
-    /// Combines reading sessions + vocab reviews into effective seconds per local date.
-    /// Each vocab review counts as 30 equivalent seconds (0.5 min).
-    private static async Task<Dictionary<DateTime, int>> GetDailyEffectiveSeconds(
-        IAppDbContext db, Guid userId, Guid siteId,
-        DateTimeOffset since, TimeSpan tzOffset, CancellationToken ct)
-    {
-        var sessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId && s.StartedAt >= since)
-            .Select(s => new { s.StartedAt, s.DurationSeconds })
-            .ToListAsync(ct);
-
-        var daily = sessions
-            .GroupBy(s => s.StartedAt.ToOffset(tzOffset).Date)
-            .ToDictionary(g => g.Key, g => g.Sum(s => s.DurationSeconds));
-
-        var reviews = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.CreatedAt >= since)
-            .Select(r => r.CreatedAt)
-            .ToListAsync(ct);
-
-        foreach (var g in reviews.GroupBy(r => r.ToOffset(tzOffset).Date))
-        {
-            daily.TryGetValue(g.Key, out var existing);
-            daily[g.Key] = existing + g.Count() * 30;
-        }
-
-        return daily;
-    }
-
-    internal static async Task<int> CalculateStreak(
-        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes,
-        DateTimeOffset now, CancellationToken ct, TimeSpan tzOffset = default)
-    {
-        var since = now.AddDays(-365);
-        var daily = await GetDailyEffectiveSeconds(db, userId, siteId, since, tzOffset, ct);
-
-        if (daily.Count == 0) return 0;
-
-        var thresholdSeconds = streakMinMinutes * 60;
-        var qualifyingDates = daily
-            .Where(d => d.Value >= thresholdSeconds)
-            .Select(d => d.Key)
-            .ToHashSet();
-
-        var today = now.ToOffset(tzOffset).Date;
-        var streak = 0;
-        var checkDate = today;
-
-        // If today doesn't qualify, start from yesterday
-        if (!qualifyingDates.Contains(checkDate))
-            checkDate = checkDate.AddDays(-1);
-
-        while (qualifyingDates.Contains(checkDate))
-        {
-            streak++;
-            checkDate = checkDate.AddDays(-1);
-        }
-
-        return streak;
-    }
-
-    private static async Task<int> CalculateLongestStreak(
-        IAppDbContext db, Guid userId, Guid siteId, int streakMinMinutes, CancellationToken ct, TimeSpan tzOffset = default)
-    {
-        var daily = await GetDailyEffectiveSeconds(db, userId, siteId, DateTimeOffset.MinValue, tzOffset, ct);
-
-        if (daily.Count == 0) return 0;
-
-        var thresholdSeconds = streakMinMinutes * 60;
-        var sorted = daily.Where(d => d.Value >= thresholdSeconds).Select(d => d.Key).OrderBy(d => d).ToList();
-
-        if (sorted.Count == 0) return 0;
-
-        var longest = 1;
-        var current = 1;
-
-        for (var i = 1; i < sorted.Count; i++)
-        {
-            if ((sorted[i] - sorted[i - 1]).Days == 1)
-                current++;
-            else
-                current = 1;
-
-            if (current > longest) longest = current;
-        }
-
-        return longest;
-    }
 }
 
 // DTOs
@@ -177,15 +72,3 @@ public record GoalDto(Guid Id, string GoalType, int TargetValue, int Year, int S
 public record CreateGoalRequest(string GoalType, int TargetValue, int Year, int? StreakMinMinutes);
 
 public record AchievementDto(string Code, DateTimeOffset UnlockedAt);
-
-public record ReadingPaceDto(int Wpm, int SessionCount, bool IsUserSpecific);
-
-public record GoalSummaryDto(string Type, int Current, int Target);
-public record LibrarySummaryDto(
-    int PagesThisMonth,
-    int MinutesThisMonth,
-    int CurrentStreak,
-    int StreakMinMinutes,
-    int BooksFinishedYtd,
-    GoalSummaryDto? Goal
-);
