@@ -3,7 +3,7 @@ using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
 using Application.ReadingTracking;
-using Domain.Entities;
+using Contracts.ReadingTracking;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,8 +15,7 @@ public static partial class ReadingTrackingEndpoints
         [FromBody] SubmitSessionRequest request,
         HttpContext httpContext,
         AuthService authService,
-        IAppDbContext db,
-        ILogger<Program> logger,
+        ReadingSessionService sessionService,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
@@ -36,69 +35,7 @@ public static partial class ReadingTrackingEndpoints
         if (elapsed < request.DurationSeconds)
             return Results.BadRequest("EndedAt - StartedAt must be >= DurationSeconds");
 
-        // Pre-check the unique-by-(user, user_book, started_at) constraint
-        // for user-book sessions. The DB constraint is the source of truth
-        // and the catch below still covers a race; this just keeps the
-        // happy path off the "SQL error level: ERROR" log line that
-        // Npgsql emits before the catch can swallow it. The constraint is
-        // partial (WHERE user_book_id IS NOT NULL), so edition-only
-        // sessions skip the check entirely.
-        if (request.UserBookId != null)
-        {
-            var dup = await db.ReadingSessions.AnyAsync(
-                s => s.UserId == userId.Value
-                  && s.UserBookId == request.UserBookId
-                  && s.StartedAt == request.StartedAt,
-                ct);
-            if (dup) return Results.Ok(new SubmitSessionResponse(Guid.Empty, []));
-        }
-
-        var session = new ReadingSession
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId.Value,
-            SiteId = siteId,
-            EditionId = request.EditionId,
-            UserBookId = request.UserBookId,
-            StartedAt = request.StartedAt,
-            EndedAt = request.EndedAt,
-            DurationSeconds = request.DurationSeconds,
-            WordsRead = request.WordsRead,
-            StartPercent = request.StartPercent,
-            EndPercent = request.EndPercent,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        db.ReadingSessions.Add(session);
-
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
-        {
-            // Race-window fallback: another concurrent request slipped in
-            // between our pre-check and SaveChanges. The first one won; we
-            // ack idempotently.
-            return Results.Ok(new SubmitSessionResponse(session.Id, []));
-        }
-
-        // Achievement check is best-effort — never fail the session submit because of it.
-        List<string> newAchievements = [];
-        try
-        {
-            var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId.Value, ct);
-            var currentStreak = await StreakCalculator.CalculateStreak(db, userId.Value, streakMinMinutes, request.EndedAt, ct);
-
-            var checker = new AchievementChecker(db);
-            newAchievements = await checker.CheckAfterSession(userId.Value, siteId, session, currentStreak, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "AchievementChecker failed for session {SessionId}, session still saved", session.Id);
-        }
-
-        return Results.Ok(new SubmitSessionResponse(session.Id, newAchievements));
+        return Results.Ok(await sessionService.SubmitAsync(userId.Value, siteId, request, ct));
     }
 
     private static async Task<IResult> GetSessions(

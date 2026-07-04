@@ -47,19 +47,8 @@ public static partial class ReadingTrackingEndpoints
 }
 
 // DTOs
-public record SubmitSessionRequest(
-    Guid? EditionId,
-    Guid? UserBookId,
-    DateTimeOffset StartedAt,
-    DateTimeOffset EndedAt,
-    int DurationSeconds,
-    int WordsRead,
-    double StartPercent,
-    double EndPercent
-);
-
-public record SubmitSessionResponse(Guid SessionId, List<string> NewAchievements);
-
+// SubmitSessionRequest/SubmitSessionResponse moved to Contracts.ReadingTracking (R5 slice-4),
+// beside the ReadingSessionService that consumes them.
 public record SessionDto(
     Guid Id, Guid? EditionId, Guid? UserBookId,
     DateTimeOffset StartedAt, DateTimeOffset EndedAt,
