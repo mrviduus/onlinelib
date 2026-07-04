@@ -95,9 +95,6 @@ public class SsgRebuildService : ISsgJobService
             .Include(j => j.Site)
             .AsQueryable();
 
-        if (siteId.HasValue)
-            query = query.Where(j => j.SiteId == siteId.Value);
-
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<SsgRebuildJobStatus>(status, true, out var statusEnum))
             query = query.Where(j => j.Status == statusEnum);
 
@@ -230,8 +227,7 @@ public class SsgRebuildService : ISsgJobService
 
         // Dedup: skip if identical job already queued or running
         var duplicateQuery = _db.SsgRebuildJobs
-            .Where(j => j.SiteId == request.SiteId
-                && j.Mode == mode
+            .Where(j => j.Mode == mode
                 && (j.Status == SsgRebuildJobStatus.Queued || j.Status == SsgRebuildJobStatus.Running));
 
         if (mode == SsgRebuildMode.Specific)

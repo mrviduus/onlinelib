@@ -17,7 +17,7 @@ public class ClusterCandidateService(IAppDbContext db, IClusterBuilder builder)
     public async Task<int> BuildForUserAsync(Guid userId, Guid siteId, CancellationToken ct)
     {
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId, ct);
         if (settings is { ClusteringEnabled: false }) return 0;
 
         var user = await db.Users
@@ -30,7 +30,6 @@ public class ClusterCandidateService(IAppDbContext db, IClusterBuilder builder)
 
         var recent = await db.VocabularyWords
             .Where(w => w.UserId == userId
-                     && w.SiteId == siteId
                      && !w.IsRetired
                      && w.ClusterId == null
                      && w.ActivatedAt != null
@@ -61,7 +60,6 @@ public class ClusterCandidateService(IAppDbContext db, IClusterBuilder builder)
             // Skip if an active (undismissed, uncompleted) cluster already exists for this book.
             var existing = await db.WordClusters.AnyAsync(c =>
                 c.UserId == userId
-                && c.SiteId == siteId
                 && c.EditionId == group.Key.EditionId
                 && c.UserBookId == group.Key.UserBookId
                 && !c.IsDismissed
@@ -93,7 +91,7 @@ public class ClusterCandidateService(IAppDbContext db, IClusterBuilder builder)
             // Assign cluster id to each matched word.
             var matched = members.Where(m => candidate.MemberWordIds.Contains(m.Id)).Select(m => m.Id).ToHashSet();
             var words = await db.VocabularyWords
-                .Where(w => matched.Contains(w.Id) && w.UserId == userId && w.SiteId == siteId)
+                .Where(w => matched.Contains(w.Id) && w.UserId == userId)
                 .ToListAsync(ct);
             foreach (var w in words)
                 w.ClusterId = cluster.Id;

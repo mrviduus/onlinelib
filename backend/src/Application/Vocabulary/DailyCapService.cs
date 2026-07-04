@@ -25,7 +25,7 @@ public class DailyCapService(IAppDbContext db)
     public async Task<DailyCapStatus> GetStatusAsync(Guid userId, Guid siteId, CancellationToken ct)
     {
         var cap = await db.UserVocabularySettings
-            .Where(s => s.UserId == userId && s.SiteId == siteId)
+            .Where(s => s.UserId == userId)
             .Select(s => (int?)s.DailyNewCap)
             .FirstOrDefaultAsync(ct) ?? DefaultDailyCap;
 
@@ -37,8 +37,7 @@ public class DailyCapService(IAppDbContext db)
     {
         var todayStart = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
         return db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId
-                && w.ActivatedAt != null && w.ActivatedAt >= todayStart)
+            .Where(w => w.UserId == userId && w.ActivatedAt != null && w.ActivatedAt >= todayStart)
             .CountAsync(ct);
     }
 
@@ -93,7 +92,7 @@ public class DailyCapService(IAppDbContext db)
         if (status.Remaining <= 0) return 0;
 
         var toPromote = await db.PendingVocabularyWords
-            .Where(p => p.UserId == userId && p.SiteId == siteId)
+            .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.Priority)
             .ThenBy(p => p.CreatedAt)
             .Take(status.Remaining)

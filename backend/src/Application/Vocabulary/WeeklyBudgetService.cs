@@ -20,19 +20,19 @@ public class WeeklyBudgetService(IAppDbContext db)
         // Practice rows (ReviewMode prefixed `practice_`) are excluded — they
         // bypass the budget by design, so they must not feed back into it.
         var used = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= since
+            .Where(r => r.UserId == userId && r.CreatedAt >= since
                 && !r.ReviewMode.StartsWith("practice_"))
             .CountAsync(ct);
 
         var budget = await db.UserVocabularySettings
-            .Where(s => s.UserId == userId && s.SiteId == siteId)
+            .Where(s => s.UserId == userId)
             .Select(s => (int?)s.WeeklyReviewBudget)
             .FirstOrDefaultAsync(ct) ?? DefaultWeeklyBudget;
 
         // ResetAt = oldest review in window rolls off → window opens up.
         // If no reviews in window, budget resets immediately (now).
         var oldestInWindow = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= since
+            .Where(r => r.UserId == userId && r.CreatedAt >= since
                 && !r.ReviewMode.StartsWith("practice_"))
             .OrderBy(r => r.CreatedAt)
             .Select(r => (DateTimeOffset?)r.CreatedAt)

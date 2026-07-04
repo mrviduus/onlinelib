@@ -94,11 +94,10 @@ public static class PodcastEndpoints
         IAppDbContext db,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var language = httpContext.GetLanguage();
 
         var edition = await db.Editions.FirstOrDefaultAsync(
-            e => e.SiteId == siteId && e.Slug == slug && e.Language == language && e.Status == EditionStatus.Published, ct);
+            e => e.Slug == slug && e.Language == language && e.Status == EditionStatus.Published, ct);
         if (edition is null)
             return Results.NotFound();
 

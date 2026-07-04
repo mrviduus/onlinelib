@@ -24,7 +24,6 @@ public static partial class VocabularyEndpoints
 
         var clusters = await db.WordClusters
             .Where(c => c.UserId == userId
-                     && c.SiteId == siteId
                      && !c.IsDismissed
                      && c.CompletedAt == null)
             .OrderByDescending(c => c.CreatedAt)
@@ -79,8 +78,7 @@ public static partial class VocabularyEndpoints
         // user's most-developed themes.
         var clusters = await db.WordClusters
             .Where(c => c.Kind == "concept"
-                     && c.UserId == userId
-                     && c.SiteId == siteId)
+                     && c.UserId == userId)
             .OrderByDescending(c => c.MemberCount)
             .ThenByDescending(c => c.CohesionScore)
             .Take(ConceptClustersTake)
@@ -103,8 +101,7 @@ public static partial class VocabularyEndpoints
         var words = await db.VocabularyWords
             .Where(w => w.ConceptClusterId != null
                      && clusterIds.Contains(w.ConceptClusterId.Value)
-                     && w.UserId == userId
-                     && w.SiteId == siteId)
+                     && w.UserId == userId)
             .Select(w => new { ClusterId = w.ConceptClusterId!.Value, w.Word })
             .ToListAsync(ct);
 
@@ -140,7 +137,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var cluster = await db.WordClusters
-            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, ct);
         if (cluster == null) return Results.NotFound();
         if (cluster.IsDismissed || cluster.CompletedAt != null) return Results.Conflict();
 
@@ -148,7 +145,6 @@ public static partial class VocabularyEndpoints
         var members = await db.VocabularyWords
             .Where(w => w.ClusterId == id
                      && w.UserId == userId
-                     && w.SiteId == siteId
                      && !w.IsRetired)
             .ToListAsync(ct);
 
@@ -158,8 +154,7 @@ public static partial class VocabularyEndpoints
         var languages = members.Select(w => w.Language).Distinct().ToList();
         var memberIds = members.Select(w => w.Id).ToHashSet();
         var pool = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId
-                     && !memberIds.Contains(w.Id)
+            .Where(w => w.UserId == userId && !memberIds.Contains(w.Id)
                      && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
             .Take(MaxDistractorPoolSize)
@@ -196,7 +191,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var cluster = await db.WordClusters
-            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, ct);
         if (cluster == null) return Results.NotFound();
 
         cluster.IsDismissed = true;
@@ -216,7 +211,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var cluster = await db.WordClusters
-            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId && c.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, ct);
         if (cluster == null) return Results.NotFound();
 
         cluster.CompletedAt = DateTimeOffset.UtcNow;

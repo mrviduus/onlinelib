@@ -34,10 +34,9 @@ public static class HighlightsEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var highlights = await db.Highlights
-            .Where(h => h.UserId == userId.Value && h.SiteId == siteId && h.EditionId == editionId)
+            .Where(h => h.UserId == userId.Value && h.EditionId == editionId)
             .OrderByDescending(h => h.CreatedAt)
             .Select(h => new HighlightDto(
                 h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
@@ -59,13 +58,12 @@ public static class HighlightsEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var owns = await db.UserBooks.AnyAsync(b => b.Id == userBookId && b.UserId == userId.Value, ct);
         if (!owns) return Results.NotFound();
 
         var highlights = await db.Highlights
-            .Where(h => h.UserId == userId.Value && h.SiteId == siteId && h.UserBookId == userBookId)
+            .Where(h => h.UserId == userId.Value && h.UserBookId == userBookId)
             .OrderByDescending(h => h.CreatedAt)
             .Select(h => new HighlightDto(
                 h.Id, h.EditionId, h.ChapterId, h.UserBookId, h.UserChapterId,
@@ -92,11 +90,10 @@ public static class HighlightsEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
         limit = Math.Clamp(limit, 1, 100);
 
         var query = db.Highlights
-            .Where(h => h.UserId == userId.Value && h.SiteId == siteId);
+            .Where(h => h.UserId == userId.Value);
 
         if (bookType == "edition")
             query = query.Where(h => h.EditionId != null);
@@ -153,14 +150,12 @@ public static class HighlightsEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
         limit = Math.Clamp(limit, 1, 30);
 
         var cutoff = DateTimeOffset.UtcNow.AddHours(-24);
 
         var highlights = await db.Highlights
-            .Where(h => h.UserId == userId.Value && h.SiteId == siteId
-                && (h.LastReviewedAt == null || h.LastReviewedAt < cutoff))
+            .Where(h => h.UserId == userId.Value && (h.LastReviewedAt == null || h.LastReviewedAt < cutoff))
             .OrderBy(h => h.LastReviewedAt ?? DateTimeOffset.MinValue)
             .ThenBy(h => h.CreatedAt)
             .Take(limit)
@@ -226,7 +221,7 @@ public static class HighlightsEndpoints
             var editionId = request.EditionId!.Value;
             var chapterId = request.ChapterId!.Value;
             var edition = await db.Editions
-                .Where(e => e.Id == editionId && e.SiteId == siteId)
+                .Where(e => e.Id == editionId)
                 .FirstOrDefaultAsync(ct);
             if (edition == null) return Results.NotFound("Edition not found");
 

@@ -133,7 +133,7 @@ public static class SeoEndpoints
 
         // Only include authors who have at least one published book
         var authors = await db.Authors
-            .Where(a => a.SiteId == site.SiteId && a.Indexable)
+            .Where(a => a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>
                 ea.Edition.Status == EditionStatus.Published &&
                 ea.Edition.Indexable))
@@ -172,7 +172,7 @@ public static class SeoEndpoints
 
         // Only include genres that have at least one published book
         var genres = await db.Genres
-            .Where(g => g.SiteId == site.SiteId && g.Indexable)
+            .Where(g => g.Indexable)
             .Where(g => g.Editions.Any(e =>
                 e.Status == EditionStatus.Published &&
                 e.Indexable))

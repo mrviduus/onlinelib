@@ -62,7 +62,7 @@ public static class AdminAuthorsEndpoints
         if (siteId is null)
             return Results.BadRequest(new { error = "siteId is required" });
 
-        var authors = db.Authors.Where(a => a.SiteId == siteId.Value);
+        var authors = db.Authors.AsQueryable();
 
         var total = await authors.CountAsync(ct);
 
@@ -92,8 +92,7 @@ public static class AdminAuthorsEndpoints
 
         var take = Math.Min(limit ?? 10, 20);
 
-        var query = db.Authors
-            .Where(a => a.SiteId == siteId.Value);
+        var query = db.Authors.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -126,7 +125,7 @@ public static class AdminAuthorsEndpoints
 
         // Check for existing author with exact name (case-insensitive)
         var existing = await db.Authors
-            .FirstOrDefaultAsync(a => a.SiteId == req.SiteId && a.Name.ToLower() == trimmedName.ToLower(), ct);
+            .FirstOrDefaultAsync(a => a.Name.ToLower() == trimmedName.ToLower(), ct);
 
         if (existing is not null)
         {
@@ -138,7 +137,7 @@ public static class AdminAuthorsEndpoints
         var slug = baseSlug;
         var suffix = 2;
 
-        while (await db.Authors.AnyAsync(a => a.SiteId == req.SiteId && a.Slug == slug, ct))
+        while (await db.Authors.AnyAsync(a => a.Slug == slug, ct))
         {
             slug = $"{baseSlug}-{suffix}";
             suffix++;
@@ -180,7 +179,7 @@ public static class AdminAuthorsEndpoints
         var skip = offset ?? 0;
         var take = Math.Min(limit ?? 20, 100);
 
-        var query = db.Authors.Where(a => a.SiteId == siteId.Value);
+        var query = db.Authors.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(a => EF.Functions.ILike(a.Name, $"%{search}%"));
@@ -304,7 +303,7 @@ public static class AdminAuthorsEndpoints
 
         // Check for duplicate name (case-insensitive, exclude current author)
         var duplicate = await db.Authors
-            .AnyAsync(a => a.SiteId == author.SiteId && a.Id != id && a.Name.ToLower() == trimmedName.ToLower(), ct);
+            .AnyAsync(a => a.Id != id && a.Name.ToLower() == trimmedName.ToLower(), ct);
         if (duplicate)
             return Results.BadRequest(new { error = "An author with this name already exists" });
 
@@ -314,7 +313,7 @@ public static class AdminAuthorsEndpoints
             var baseSlug = SlugGenerator.GenerateSlug(trimmedName);
             var slug = baseSlug;
             var suffix = 2;
-            while (await db.Authors.AnyAsync(a => a.SiteId == author.SiteId && a.Id != id && a.Slug == slug, ct))
+            while (await db.Authors.AnyAsync(a => a.Id != id && a.Slug == slug, ct))
             {
                 slug = $"{baseSlug}-{suffix}";
                 suffix++;

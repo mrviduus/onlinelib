@@ -49,8 +49,7 @@ public static class SsgEndpoints
         // would leave nginx serving a hard 404 — see the matching change
         // in SsgRouteProvider.AddBookRoutesAsync.
         var books = await db.Editions
-            .Where(e => e.SiteId == site.SiteId &&
-                        e.Status == EditionStatus.Published &&
+            .Where(e => e.Status == EditionStatus.Published &&
                         e.Chapters.Any())
             .Select(e => new { e.Slug, e.Language })
             .ToListAsync(ct);
@@ -74,7 +73,7 @@ public static class SsgEndpoints
         // Primary signal is "has at least one Published+Indexable edition" —
         // that's why orphan-author-from-non-indexable-book is impossible.
         var authors = await db.Authors
-            .Where(a => a.SiteId == site.SiteId && a.Indexable)
+            .Where(a => a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>
                 ea.Edition.Status == EditionStatus.Published &&
                 ea.Edition.Indexable))
@@ -88,7 +87,7 @@ public static class SsgEndpoints
 
         // Genres (use default language)
         var genres = await db.Genres
-            .Where(g => g.SiteId == site.SiteId && g.Indexable)
+            .Where(g => g.Indexable)
             .Where(g => g.Editions.Any(e =>
                 e.Status == EditionStatus.Published &&
                 e.Indexable))
@@ -111,8 +110,7 @@ public static class SsgEndpoints
         var site = httpContext.GetSiteContext();
 
         var books = await db.Editions
-            .Where(e => e.SiteId == site.SiteId &&
-                        e.Status == EditionStatus.Published &&
+            .Where(e => e.Status == EditionStatus.Published &&
                         e.Indexable &&
                         e.Chapters.Any())
             .OrderBy(e => e.Title)
@@ -130,7 +128,7 @@ public static class SsgEndpoints
         var site = httpContext.GetSiteContext();
 
         var authors = await db.Authors
-            .Where(a => a.SiteId == site.SiteId && a.Indexable)
+            .Where(a => a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>
                 ea.Edition.Status == EditionStatus.Published &&
                 ea.Edition.Indexable))
@@ -149,7 +147,7 @@ public static class SsgEndpoints
         var site = httpContext.GetSiteContext();
 
         var genres = await db.Genres
-            .Where(g => g.SiteId == site.SiteId && g.Indexable)
+            .Where(g => g.Indexable)
             .Where(g => g.Editions.Any(e =>
                 e.Status == EditionStatus.Published &&
                 e.Indexable))

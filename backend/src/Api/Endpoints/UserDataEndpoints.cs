@@ -45,10 +45,9 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var query = db.ReadingProgresses
-            .Where(p => p.UserId == userId.Value && p.SiteId == siteId)
+            .Where(p => p.UserId == userId.Value)
             .OrderByDescending(p => p.UpdatedAt);
 
         var total = await query.CountAsync(ct);
@@ -79,10 +78,9 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var progress = await db.ReadingProgresses
-            .Where(p => p.UserId == userId.Value && p.SiteId == siteId && p.EditionId == editionId)
+            .Where(p => p.UserId == userId.Value && p.EditionId == editionId)
             .Join(db.Chapters, p => p.ChapterId, c => c.Id, (p, c) => new { p, c })
             .Select(x => new ReadingProgressDto(
                 x.p.EditionId,
@@ -112,7 +110,7 @@ public static class UserDataEndpoints
 
         // Validate edition exists
         var edition = await db.Editions
-            .Where(e => e.Id == editionId && e.SiteId == siteId)
+            .Where(e => e.Id == editionId)
             .FirstOrDefaultAsync(ct);
 
         if (edition == null) return Results.NotFound("Edition not found");
@@ -125,7 +123,7 @@ public static class UserDataEndpoints
         if (chapter == null) return Results.NotFound("Chapter not found");
 
         var existing = await db.ReadingProgresses
-            .Where(p => p.UserId == userId.Value && p.SiteId == siteId && p.EditionId == editionId)
+            .Where(p => p.UserId == userId.Value && p.EditionId == editionId)
             .FirstOrDefaultAsync(ct);
 
         if (existing != null)
@@ -196,10 +194,9 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var progress = await db.ReadingProgresses
-            .Where(p => p.UserId == userId.Value && p.SiteId == siteId && p.EditionId == editionId)
+            .Where(p => p.UserId == userId.Value && p.EditionId == editionId)
             .FirstOrDefaultAsync(ct);
 
         if (progress == null) return Results.NotFound();
@@ -223,10 +220,9 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var query = db.Bookmarks
-            .Where(b => b.UserId == userId.Value && b.SiteId == siteId)
+            .Where(b => b.UserId == userId.Value)
             .OrderByDescending(b => b.CreatedAt);
 
         var total = await query.CountAsync(ct);
@@ -256,10 +252,9 @@ public static class UserDataEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         var bookmarks = await db.Bookmarks
-            .Where(b => b.UserId == userId.Value && b.SiteId == siteId && b.EditionId == editionId)
+            .Where(b => b.UserId == userId.Value && b.EditionId == editionId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookmarkDto(
                 b.Id,
@@ -288,7 +283,7 @@ public static class UserDataEndpoints
 
         // Validate edition exists
         var edition = await db.Editions
-            .Where(e => e.Id == request.EditionId && e.SiteId == siteId)
+            .Where(e => e.Id == request.EditionId)
             .FirstOrDefaultAsync(ct);
 
         if (edition == null) return Results.NotFound("Edition not found");

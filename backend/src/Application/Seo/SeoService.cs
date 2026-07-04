@@ -12,7 +12,7 @@ public class SeoService(IAppDbContext db)
     {
         // Get all published, indexable editions with their Work's other editions
         var editions = await db.Editions
-            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published && e.Indexable)
+            .Where(e => e.Status == EditionStatus.Published && e.Indexable)
             .Include(e => e.Work)
                 .ThenInclude(w => w.Editions.Where(oe => oe.Status == EditionStatus.Published && oe.Indexable))
             .OrderByDescending(e => e.UpdatedAt)

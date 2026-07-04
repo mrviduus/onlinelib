@@ -16,7 +16,7 @@ public class EpubExportService(IAppDbContext db, IFileStorageService storage)
             .Include(e => e.EditionAuthors).ThenInclude(ea => ea.Author)
             .Include(e => e.Chapters)
             .Include(e => e.Assets)
-            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Language == language
+            .Where(e => e.Slug == slug && e.Language == language
                         && e.Status == EditionStatus.Published)
             .FirstOrDefaultAsync(ct);
 

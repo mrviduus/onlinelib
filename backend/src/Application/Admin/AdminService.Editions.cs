@@ -28,12 +28,15 @@ public partial class AdminService
         var authorQuery = db.Authors.AsQueryable();
         var chapterQuery = db.Chapters.AsQueryable();
 
+        // Chapter is not ISiteScoped, so it carries no query filter of its own.
+        // This query also references Edition nowhere else, so EF has no reason to
+        // join editions and Edition's query filter cannot propagate here. The
+        // explicit c.Edition.SiteId term is therefore required to keep the chapter
+        // count site-scoped. (Contrast BookService.GetChapterAsync, where Edition
+        // is already joined via Slug/Language/Status, so its query filter applies
+        // and the manual term was dropped.)
         if (siteId.HasValue)
-        {
-            editionQuery = editionQuery.Where(e => e.SiteId == siteId.Value);
-            authorQuery = authorQuery.Where(a => a.SiteId == siteId.Value);
             chapterQuery = chapterQuery.Where(c => c.Edition.SiteId == siteId.Value);
-        }
 
         var totalEditions = await editionQuery.CountAsync(ct);
         var publishedEditions = await editionQuery.Where(e => e.Status == EditionStatus.Published).CountAsync(ct);
@@ -56,9 +59,6 @@ public partial class AdminService
         Guid? siteId, int offset, int limit, EditionStatus? status, string? search, string? language, bool? indexable, bool? seoReady, string? sort, string? sortOrder, CancellationToken ct)
     {
         var query = db.Editions.AsQueryable();
-
-        if (siteId.HasValue)
-            query = query.Where(e => e.SiteId == siteId.Value);
 
         if (status.HasValue)
             query = query.Where(e => e.Status == status.Value);
@@ -246,7 +246,7 @@ public partial class AdminService
             if (request.GenreIds.Count > 0)
             {
                 var genres = await db.Genres
-                    .Where(g => request.GenreIds.Contains(g.Id) && g.SiteId == edition.SiteId)
+                    .Where(g => request.GenreIds.Contains(g.Id))
                     .ToListAsync(ct);
 
                 foreach (var genre in genres)

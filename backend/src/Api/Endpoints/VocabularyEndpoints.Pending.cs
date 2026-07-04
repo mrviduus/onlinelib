@@ -23,7 +23,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var items = await db.PendingVocabularyWords
-            .Where(p => p.UserId == userId && p.SiteId == siteId)
+            .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.Priority)
             .ThenBy(p => p.CreatedAt)
             .Select(p => new PendingVocabWordDto(
@@ -52,7 +52,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var pending = await db.PendingVocabularyWords
-            .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId && p.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId, ct);
         if (pending == null) return Results.NotFound();
 
         // Capture enrichment inputs before PromoteAsync disposes the pending row.
@@ -87,7 +87,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var pending = await db.PendingVocabularyWords
-            .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId && p.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId, ct);
         if (pending == null) return Results.NotFound();
 
         db.PendingVocabularyWords.Remove(pending);

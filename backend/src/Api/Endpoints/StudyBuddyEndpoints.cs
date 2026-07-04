@@ -53,8 +53,7 @@ public static class StudyBuddyEndpoints
         if (request.Passage.Length > MaxPassageLength)
             return Results.BadRequest(new { error = $"Passage exceeds {MaxPassageLength} chars." });
 
-        var siteId = httpContext.GetSiteId();
-        var editionExists = await db.Editions.AnyAsync(e => e.Id == editionId && e.SiteId == siteId, ct);
+        var editionExists = await db.Editions.AnyAsync(e => e.Id == editionId, ct);
         if (!editionExists) return Results.NotFound("Edition not found");
 
         // Cloudflare/nginx must not buffer the stream (same Phase 5 risk as Explain SSE).

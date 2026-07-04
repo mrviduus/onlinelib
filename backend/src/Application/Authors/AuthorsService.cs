@@ -12,7 +12,7 @@ public class AuthorsService(IAppDbContext db)
         Guid siteId, int offset, int limit, string? language, string? sort, string? search, CancellationToken ct)
     {
         var query = db.Authors
-            .Where(a => a.SiteId == siteId && a.Indexable)
+            .Where(a => a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea => ea.Edition.Status == EditionStatus.Published));
 
         if (!string.IsNullOrEmpty(language))
@@ -54,7 +54,7 @@ public class AuthorsService(IAppDbContext db)
     public async Task<AuthorDetailDto?> GetAuthorAsync(Guid siteId, string slug, CancellationToken ct)
     {
         var author = await db.Authors
-            .Where(a => a.SiteId == siteId && a.Slug == slug)
+            .Where(a => a.Slug == slug)
             .Select(a => new AuthorDetailDto(
                 a.Id,
                 a.Slug,
