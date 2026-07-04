@@ -15,7 +15,7 @@ public class RetirementSweeper(IAppDbContext db, ISrsEngine srs)
     public async Task<int> SweepAsync(Guid userId, Guid siteId, CancellationToken ct)
     {
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId, ct);
         if (settings is { AutoRetireEnabled: false }) return 0;
 
         // Pull candidates — Mastered + not already retired. Evaluating the rule
@@ -23,7 +23,6 @@ public class RetirementSweeper(IAppDbContext db, ISrsEngine srs)
         // the threshold (avoid duplicating 3/14 constants in an EF expression).
         var candidates = await db.VocabularyWords
             .Where(w => w.UserId == userId
-                     && w.SiteId == siteId
                      && !w.IsRetired
                      && w.Stage == 4
                      && w.ConsecutiveCorrect >= 3

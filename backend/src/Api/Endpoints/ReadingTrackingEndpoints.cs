@@ -54,7 +54,7 @@ public static class ReadingTrackingEndpoints
         var yearStart = new DateTimeOffset(todayLocal.Year, 1, 1, 0, 0, 0, tzOffset).ToUniversalTime();
 
         var monthAgg = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.StartedAt >= monthStart)
+            .Where(s => s.UserId == userId.Value && s.StartedAt >= monthStart)
             .GroupBy(_ => 1)
             .Select(g => new { Words = g.Sum(s => (long)s.WordsRead), Seconds = g.Sum(s => (long)s.DurationSeconds) })
             .FirstOrDefaultAsync(ct);
@@ -66,17 +66,17 @@ public static class ReadingTrackingEndpoints
         var currentStreak = await CalculateStreak(db, userId.Value, siteId, streakMinMinutes, now, ct, tzOffset);
 
         var booksFinishedYtd = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EndPercent >= 0.99 && s.EndedAt >= yearStart)
+            .Where(s => s.UserId == userId.Value && s.EndPercent >= 0.99 && s.EndedAt >= yearStart)
             .Select(s => s.EditionId ?? s.UserBookId)
             .Distinct()
             .CountAsync(ct);
 
         var dailyGoal = await db.ReadingGoals
-            .Where(g => g.UserId == userId.Value && g.SiteId == siteId && g.GoalType == "daily_minutes" && g.IsActive)
+            .Where(g => g.UserId == userId.Value && g.GoalType == "daily_minutes" && g.IsActive)
             .Select(g => new { g.TargetValue, g.StreakMinMinutes })
             .FirstOrDefaultAsync(ct);
         var yearlyGoal = await db.ReadingGoals
-            .Where(g => g.UserId == userId.Value && g.SiteId == siteId && g.GoalType == "books_per_year" && g.IsActive)
+            .Where(g => g.UserId == userId.Value && g.GoalType == "books_per_year" && g.IsActive)
             .Select(g => new { g.TargetValue, g.Year })
             .FirstOrDefaultAsync(ct);
 
@@ -85,7 +85,7 @@ public static class ReadingTrackingEndpoints
         {
             var todayStart = todayLocal.ToUniversalTime();
             var todaySeconds = await db.ReadingSessions
-                .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.StartedAt >= todayStart)
+                .Where(s => s.UserId == userId.Value && s.StartedAt >= todayStart)
                 .SumAsync(s => (long)s.DurationSeconds, ct);
             goal = new GoalSummaryDto("daily_minutes", (int)(todaySeconds / 60), dailyGoal.TargetValue);
         }
@@ -128,7 +128,7 @@ public static class ReadingTrackingEndpoints
             return Results.Ok(cached);
 
         var agg = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.WordsRead > 0 && s.DurationSeconds > 0)
+            .Where(s => s.UserId == userId.Value && s.WordsRead > 0 && s.DurationSeconds > 0)
             .GroupBy(_ => 1)
             .Select(g => new { Sessions = g.Count(), Words = g.Sum(s => (long)s.WordsRead), Seconds = g.Sum(s => (long)s.DurationSeconds) })
             .FirstOrDefaultAsync(ct);
@@ -253,10 +253,9 @@ public static class ReadingTrackingEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
 
         var query = db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId);
+            .Where(s => s.UserId == userId.Value);
 
         if (from.HasValue) query = query.Where(s => s.StartedAt >= from.Value);
         if (to.HasValue) query = query.Where(s => s.StartedAt <= to.Value);
@@ -290,7 +289,7 @@ public static class ReadingTrackingEndpoints
         var now = DateTimeOffset.UtcNow;
 
         var allSessions = db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId);
+            .Where(s => s.UserId == userId.Value);
 
         var totalSeconds = await allSessions.SumAsync(s => (long)s.DurationSeconds, ct);
         var totalWords = await allSessions.SumAsync(s => (long)s.WordsRead, ct);
@@ -341,13 +340,12 @@ public static class ReadingTrackingEndpoints
 
         // Vocab reviews today
         var todayVocabReviews = await db.VocabularyReviews
-            .Where(r => r.UserId == userId.Value && r.SiteId == siteId && r.CreatedAt >= todayStart)
+            .Where(r => r.UserId == userId.Value && r.CreatedAt >= todayStart)
             .CountAsync(ct);
 
         // Daily goal (reading + vocab reviews as effective minutes)
         var dailyGoal = await db.ReadingGoals
-            .Where(g => g.UserId == userId.Value && g.SiteId == siteId
-                && g.GoalType == "daily_minutes" && g.IsActive)
+            .Where(g => g.UserId == userId.Value && g.GoalType == "daily_minutes" && g.IsActive)
             .FirstOrDefaultAsync(ct);
 
         object? dailyGoalObj = null;
@@ -391,7 +389,6 @@ public static class ReadingTrackingEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
 
         var tzOffset = ParseTzOffset(tz);
         var now = DateTimeOffset.UtcNow;
@@ -400,8 +397,7 @@ public static class ReadingTrackingEndpoints
 
         // Get raw sessions in range
         var sessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId
-                && s.StartedAt >= start && s.StartedAt <= end)
+            .Where(s => s.UserId == userId.Value && s.StartedAt >= start && s.StartedAt <= end)
             .Select(s => new { s.StartedAt, s.DurationSeconds, s.WordsRead })
             .ToListAsync(ct);
 
@@ -429,10 +425,9 @@ public static class ReadingTrackingEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
 
         var goals = await db.ReadingGoals
-            .Where(g => g.UserId == userId.Value && g.SiteId == siteId && g.IsActive)
+            .Where(g => g.UserId == userId.Value && g.IsActive)
             .Select(g => new GoalDto(g.Id, g.GoalType, g.TargetValue, g.Year, g.StreakMinMinutes, g.UpdatedAt))
             .ToListAsync(ct);
 
@@ -456,8 +451,7 @@ public static class ReadingTrackingEndpoints
             return Results.BadRequest("TargetValue must be positive");
 
         var existing = await db.ReadingGoals
-            .FirstOrDefaultAsync(g => g.UserId == userId.Value && g.SiteId == siteId
-                && g.GoalType == request.GoalType, ct);
+            .FirstOrDefaultAsync(g => g.UserId == userId.Value && g.GoalType == request.GoalType, ct);
 
         if (existing != null)
         {
@@ -522,10 +516,9 @@ public static class ReadingTrackingEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
 
         var unlocked = await db.UserAchievements
-            .Where(a => a.UserId == userId.Value && a.SiteId == siteId)
+            .Where(a => a.UserId == userId.Value)
             .Select(a => new AchievementDto(a.AchievementCode, a.UnlockedAt))
             .ToListAsync(ct);
 
@@ -543,18 +536,17 @@ public static class ReadingTrackingEndpoints
     {
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
-        var siteId = httpContext.GetSiteId();
 
         // 1. Find finished editions: first session where EndPercent >= 0.99 per edition
         var finishEvents = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && s.EndPercent >= 0.99)
+            .Where(s => s.UserId == userId.Value && s.EditionId != null && s.EndPercent >= 0.99)
             .GroupBy(s => s.EditionId!.Value)
             .Select(g => new { EditionId = g.Key, FinishedAt = g.Min(s => s.EndedAt) })
             .ToListAsync(ct);
 
         // Also find finished user books (with metadata for breakdowns)
         var userBookFinishEvents = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.UserBookId != null && s.EndPercent >= 0.99)
+            .Where(s => s.UserId == userId.Value && s.UserBookId != null && s.EndPercent >= 0.99)
             .GroupBy(s => s.UserBookId!.Value)
             .Select(g => new { UserBookId = g.Key, FinishedAt = g.Min(s => s.EndedAt) })
             .ToListAsync(ct);
@@ -605,7 +597,7 @@ public static class ReadingTrackingEndpoints
 
         // 4. First session per edition (for avg days to finish)
         var firstSessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
+            .Where(s => s.UserId == userId.Value && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
             .GroupBy(s => s.EditionId!.Value)
             .Select(g => new { EditionId = g.Key, FirstStarted = g.Min(s => s.StartedAt) })
             .ToListAsync(ct);
@@ -613,7 +605,7 @@ public static class ReadingTrackingEndpoints
 
         // 5. Reading time per edition (for pace + time-by-genre/author)
         var sessionsByEdition = await db.ReadingSessions
-            .Where(s => s.UserId == userId.Value && s.SiteId == siteId && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
+            .Where(s => s.UserId == userId.Value && s.EditionId != null && editionIds.Contains(s.EditionId!.Value))
             .GroupBy(s => s.EditionId!.Value)
             .Select(g => new { EditionId = g.Key, TotalSeconds = g.Sum(s => s.DurationSeconds), TotalWords = g.Sum(s => s.WordsRead) })
             .ToListAsync(ct);
@@ -758,7 +750,7 @@ public static class ReadingTrackingEndpoints
     internal static async Task<int> GetStreakMinMinutes(IAppDbContext db, Guid userId, Guid siteId, CancellationToken ct)
     {
         var goal = await db.ReadingGoals
-            .Where(g => g.UserId == userId && g.SiteId == siteId && g.GoalType == "daily_minutes" && g.IsActive)
+            .Where(g => g.UserId == userId && g.GoalType == "daily_minutes" && g.IsActive)
             .Select(g => (int?)g.StreakMinMinutes)
             .FirstOrDefaultAsync(ct);
         return goal ?? 5;
@@ -771,7 +763,7 @@ public static class ReadingTrackingEndpoints
         DateTimeOffset since, TimeSpan tzOffset, CancellationToken ct)
     {
         var sessions = await db.ReadingSessions
-            .Where(s => s.UserId == userId && s.SiteId == siteId && s.StartedAt >= since)
+            .Where(s => s.UserId == userId && s.StartedAt >= since)
             .Select(s => new { s.StartedAt, s.DurationSeconds })
             .ToListAsync(ct);
 
@@ -780,7 +772,7 @@ public static class ReadingTrackingEndpoints
             .ToDictionary(g => g.Key, g => g.Sum(s => s.DurationSeconds));
 
         var reviews = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= since)
+            .Where(r => r.UserId == userId && r.CreatedAt >= since)
             .Select(r => r.CreatedAt)
             .ToListAsync(ct);
 

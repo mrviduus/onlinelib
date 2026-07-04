@@ -34,7 +34,7 @@ public class TextStackImportService
     public async Task<bool> IsAlreadyImportedAsync(Guid siteId, string identifier, CancellationToken ct)
     {
         return await _db.TextStackImports
-            .AnyAsync(i => i.SiteId == siteId && i.Identifier == identifier, ct);
+            .AnyAsync(i => i.Identifier == identifier, ct);
     }
 
     public async Task<ImportResult> ImportBookAsync(Guid siteId, string bookPath, CancellationToken ct)
@@ -81,7 +81,7 @@ public class TextStackImportService
                 ? SlugGenerator.GenerateSlug(metadata.AuthorNames[0])
                 : "unknown";
             var workSlug = $"{authorSlug}-{SlugGenerator.GenerateSlug(metadata.Title)}";
-            var work = await _db.Works.FirstOrDefaultAsync(w => w.SiteId == siteId && w.Slug == workSlug, ct);
+            var work = await _db.Works.FirstOrDefaultAsync(w => w.Slug == workSlug, ct);
 
             if (work == null)
             {
@@ -224,19 +224,19 @@ public class TextStackImportService
             var edition = await _db.Editions
                 .Include(e => e.Chapters)
                 .Include(e => e.Assets)
-                .FirstOrDefaultAsync(e => e.SiteId == siteId && e.Slug == expectedSlug, ct);
+                .FirstOrDefaultAsync(e => e.Slug == expectedSlug, ct);
 
             // Fallback to contains if exact match not found
             edition ??= await _db.Editions
                 .Include(e => e.Chapters)
                 .Include(e => e.Assets)
-                .FirstOrDefaultAsync(e => e.SiteId == siteId && e.Slug.Contains(expectedSlug), ct);
+                .FirstOrDefaultAsync(e => e.Slug.Contains(expectedSlug), ct);
 
             // Fallback to title match (case-insensitive)
             edition ??= await _db.Editions
                 .Include(e => e.Chapters)
                 .Include(e => e.Assets)
-                .FirstOrDefaultAsync(e => e.SiteId == siteId && e.Title.ToLower() == metadata.Title.ToLower(), ct);
+                .FirstOrDefaultAsync(e => e.Title.ToLower() == metadata.Title.ToLower(), ct);
 
             if (edition == null)
             {
@@ -330,7 +330,7 @@ public class TextStackImportService
     {
         var slug = SlugGenerator.GenerateSlug(name);
         var existing = await _db.Authors
-            .FirstOrDefaultAsync(a => a.SiteId == siteId && a.Slug == slug, ct);
+            .FirstOrDefaultAsync(a => a.Slug == slug, ct);
 
         if (existing is not null)
             return existing;
@@ -353,7 +353,7 @@ public class TextStackImportService
     {
         var slug = SlugGenerator.GenerateSlug(name);
         var existing = await _db.Genres
-            .FirstOrDefaultAsync(g => g.SiteId == siteId && g.Slug == slug, ct);
+            .FirstOrDefaultAsync(g => g.Slug == slug, ct);
 
         if (existing is not null)
             return existing;
@@ -379,7 +379,7 @@ public class TextStackImportService
         var slug = baseSlug;
         var counter = 1;
 
-        while (await _db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct))
+        while (await _db.Editions.AnyAsync(e => e.Language == language && e.Slug == slug, ct))
         {
             slug = $"{baseSlug}-{counter}";
             counter++;

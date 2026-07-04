@@ -79,9 +79,8 @@ public class LibraryShelvesService(IAppDbContext db)
             from ul in db.UserLibraries
             where ul.UserId == userId
             join e in db.Editions on ul.EditionId equals e.Id
-            where e.SiteId == siteId
             let latestProgress = db.ReadingProgresses
-                .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == e.Id)
+                .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
                 .Select(p => new { p.Percent, p.UpdatedAt, p.ChapterId, p.Locator })
                 .FirstOrDefault()
@@ -172,9 +171,8 @@ public class LibraryShelvesService(IAppDbContext db)
             from ul in db.UserLibraries
             where ul.UserId == userId && ul.CreatedAt >= cutoff
             join e in db.Editions on ul.EditionId equals e.Id
-            where e.SiteId == siteId
             let latest = db.ReadingProgresses
-                .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == e.Id)
+                .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
                 .Select(p => new { p.Percent, p.UpdatedAt, p.ChapterId, p.Locator })
                 .FirstOrDefault()
@@ -261,12 +259,11 @@ public class LibraryShelvesService(IAppDbContext db)
             from ul in db.UserLibraries
             where ul.UserId == userId
             join e in db.Editions on ul.EditionId equals e.Id
-            where e.SiteId == siteId
             let totalWords = db.Chapters
                 .Where(c => c.EditionId == e.Id)
                 .Sum(c => (int?)c.WordCount ?? 0)
             let latest = db.ReadingProgresses
-                .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == e.Id)
+                .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
                 .Select(p => new { p.Percent, p.UpdatedAt, p.ChapterId, p.Locator })
                 .FirstOrDefault()
@@ -349,9 +346,8 @@ public class LibraryShelvesService(IAppDbContext db)
             from ul in db.UserLibraries
             where ul.UserId == userId
             join e in db.Editions on ul.EditionId equals e.Id
-            where e.SiteId == siteId
             let latest = db.ReadingProgresses
-                .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == e.Id)
+                .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
                 .Select(p => new { p.Percent, p.UpdatedAt })
                 .FirstOrDefault()

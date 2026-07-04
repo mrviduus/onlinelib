@@ -107,7 +107,6 @@ public class StandardEbooksSyncService
     public async Task<HashSet<string>> GetImportedIdentifiersAsync(Guid siteId, CancellationToken ct)
     {
         var identifiers = await _db.TextStackImports
-            .Where(i => i.SiteId == siteId)
             .Select(i => i.Identifier)
             .ToListAsync(ct);
 

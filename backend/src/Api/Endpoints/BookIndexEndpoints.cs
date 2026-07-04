@@ -44,12 +44,11 @@ public static class BookIndexEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
 
         // Validate the edition exists + belongs to this site (mirror AskEndpoints). Read the prior
         // status to drive the (pure, tested) claim decision; the actual transition is still atomic.
         var prior = await db.Editions
-            .Where(e => e.Id == editionId && e.SiteId == siteId)
+            .Where(e => e.Id == editionId)
             .Select(e => (RagIndexStatus?)e.RagStatus)
             .FirstOrDefaultAsync(ct);
         if (prior is null) return Results.NotFound("Edition not found");
@@ -117,8 +116,7 @@ public static class BookIndexEndpoints
         var userId = httpContext.GetUserId(authService);
         if (userId == null) return Results.Unauthorized();
 
-        var siteId = httpContext.GetSiteId();
-        var exists = await db.Editions.AnyAsync(e => e.Id == editionId && e.SiteId == siteId, ct);
+        var exists = await db.Editions.AnyAsync(e => e.Id == editionId, ct);
         if (!exists) return Results.NotFound("Edition not found");
 
         var status = await ReadStatusAsync(db, editionId, ct);

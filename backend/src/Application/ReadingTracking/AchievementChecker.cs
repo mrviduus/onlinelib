@@ -18,7 +18,7 @@ public class AchievementChecker
         CancellationToken ct)
     {
         var unlocked = await _db.UserAchievements
-            .Where(a => a.UserId == userId && a.SiteId == siteId)
+            .Where(a => a.UserId == userId)
             .Select(a => a.AchievementCode)
             .ToHashSetAsync(ct);
 
@@ -41,12 +41,12 @@ public class AchievementChecker
 
         // First session
         var sessionCount = await _db.ReadingSessions
-            .CountAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
+            .CountAsync(s => s.UserId == userId, ct);
         if (sessionCount == 1) TryUnlock("first_session");
 
         // Books finished (sessions that end at >= 99%)
         var booksFinished = await _db.ReadingSessions
-            .Where(s => s.UserId == userId && s.SiteId == siteId && s.EndPercent >= 0.99)
+            .Where(s => s.UserId == userId && s.EndPercent >= 0.99)
             .Select(s => s.EditionId ?? s.UserBookId)
             .Distinct()
             .CountAsync(ct);
@@ -62,7 +62,7 @@ public class AchievementChecker
 
         // Total hours
         var totalSeconds = await _db.ReadingSessions
-            .Where(s => s.UserId == userId && s.SiteId == siteId)
+            .Where(s => s.UserId == userId)
             .SumAsync(s => (long)s.DurationSeconds, ct);
         var totalHours = totalSeconds / 3600.0;
 
@@ -97,7 +97,7 @@ public class AchievementChecker
         Guid userId, Guid siteId, int currentStreak, CancellationToken ct)
     {
         var unlocked = await _db.UserAchievements
-            .Where(a => a.UserId == userId && a.SiteId == siteId)
+            .Where(a => a.UserId == userId)
             .Select(a => a.AchievementCode)
             .ToHashSetAsync(ct);
 

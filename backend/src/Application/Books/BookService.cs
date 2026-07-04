@@ -14,7 +14,7 @@ public class BookService(IAppDbContext db)
         string? search, string? genreSlug, string? sort, CancellationToken ct)
     {
         var query = db.Editions
-            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published)
+            .Where(e => e.Status == EditionStatus.Published)
             // Only show books with at least one chapter
             .Where(e => e.Chapters.Any())
             .AsQueryable();
@@ -72,7 +72,7 @@ public class BookService(IAppDbContext db)
     public async Task<BookDetailDto?> GetBookAsync(Guid siteId, string slug, string language, CancellationToken ct)
     {
         var result = await db.Editions
-            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Language == language && e.Status == EditionStatus.Published)
+            .Where(e => e.Slug == slug && e.Language == language && e.Status == EditionStatus.Published)
             .Select(e => new
             {
                 e.Id,
@@ -129,8 +129,7 @@ public class BookService(IAppDbContext db)
 
         // More books by same author(s)
         var moreByAuthor = await db.Editions
-            .Where(e => e.SiteId == siteId
-                && e.Id != result.Id
+            .Where(e => e.Id != result.Id
                 && e.Language == result.Language
                 && e.Status == EditionStatus.Published
                 && e.Chapters.Any()
@@ -185,7 +184,7 @@ public class BookService(IAppDbContext db)
     public async Task<string?> FindBookLanguageAsync(Guid siteId, string slug, CancellationToken ct)
     {
         return await db.Editions
-            .Where(e => e.SiteId == siteId && e.Slug == slug && e.Status == EditionStatus.Published)
+            .Where(e => e.Slug == slug && e.Status == EditionStatus.Published)
             .Select(e => e.Language)
             .FirstOrDefaultAsync(ct);
     }
@@ -194,8 +193,7 @@ public class BookService(IAppDbContext db)
         Guid siteId, string bookSlug, string chapterSlug, string language, CancellationToken ct)
     {
         var chapter = await db.Chapters
-            .Where(c => c.Edition.SiteId == siteId
-                && c.Edition.Slug == bookSlug
+            .Where(c => c.Edition.Slug == bookSlug
                 && c.Edition.Language == language
                 && c.Slug == chapterSlug
                 && c.Edition.Status == EditionStatus.Published)

@@ -24,12 +24,11 @@ public static class GenresEndpoints
         [FromQuery] string? language,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
         var take = Math.Min(limit ?? 50, 100);
         var skip = offset ?? 0;
 
         var query = db.Genres
-            .Where(g => g.SiteId == siteId && g.Indexable)
+            .Where(g => g.Indexable)
             .AsQueryable();
 
         // Filter to genres with published editions (optionally in a specific language)
@@ -62,10 +61,9 @@ public static class GenresEndpoints
         string slug,
         CancellationToken ct)
     {
-        var siteId = httpContext.GetSiteId();
 
         var genre = await db.Genres
-            .Where(g => g.SiteId == siteId && g.Slug == slug)
+            .Where(g => g.Slug == slug)
             .Select(g => new GenreDetailDto(
                 g.Id,
                 g.Slug,

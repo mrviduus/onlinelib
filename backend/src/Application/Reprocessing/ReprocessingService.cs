@@ -47,9 +47,6 @@ public class ReprocessingService(IAppDbContext db, ILogger<ReprocessingService> 
             .Include(e => e.BookFiles)
             .Where(e => e.Status == EditionStatus.Published);
 
-        if (siteId.HasValue)
-            query = query.Where(e => e.SiteId == siteId.Value);
-
         var editions = await query.ToListAsync(ct);
 
         var results = new List<ReprocessedEditionInfo>();

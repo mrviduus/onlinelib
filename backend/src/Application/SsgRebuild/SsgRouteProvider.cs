@@ -68,7 +68,7 @@ public class SsgRouteProvider : ISsgRouteProvider
         // traffic) still get the static page. Filtering Indexable here
         // would just leave nginx serving a hard 404 for the slug.
         var query = _db.Editions
-            .Where(e => e.SiteId == siteId && e.Status == EditionStatus.Published);
+            .Where(e => e.Status == EditionStatus.Published);
 
         if (mode == SsgRebuildMode.Specific && slugs?.Length > 0)
             query = query.Where(e => slugs.Contains(e.Slug));
@@ -93,7 +93,7 @@ public class SsgRouteProvider : ISsgRouteProvider
         // same filter shape here on purpose: both route producers must agree
         // or the periodic worker and the build-time prerender will drift.
         var query = _db.Authors
-            .Where(a => a.SiteId == siteId && a.Indexable)
+            .Where(a => a.Indexable)
             .Where(a => a.EditionAuthors.Any(ea =>
                 ea.Edition.Status == EditionStatus.Published &&
                 ea.Edition.Indexable));
@@ -114,7 +114,7 @@ public class SsgRouteProvider : ISsgRouteProvider
         CancellationToken ct)
     {
         var query = _db.Genres
-            .Where(g => g.SiteId == siteId && g.Indexable)
+            .Where(g => g.Indexable)
             .Where(g => g.Editions.Any(e =>
                 e.Status == EditionStatus.Published &&
                 e.Indexable));

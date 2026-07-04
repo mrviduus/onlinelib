@@ -23,7 +23,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId, ct);
 
         // First-time read: return defaults without persisting — settings row is
         // created lazily on first PUT to avoid a write on every new user.
@@ -51,7 +51,7 @@ public static partial class VocabularyEndpoints
             return Results.BadRequest("WeeklyReviewBudget must be 10–500");
 
         var settings = await db.UserVocabularySettings
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId, ct);
         var now = DateTimeOffset.UtcNow;
 
         if (settings is null)

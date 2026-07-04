@@ -52,7 +52,7 @@ public static class AdminGenresEndpoints
         if (siteId is null)
             return Results.BadRequest(new { error = "siteId is required" });
 
-        var genres = db.Genres.Where(g => g.SiteId == siteId.Value);
+        var genres = db.Genres.AsQueryable();
 
         var total = await genres.CountAsync(ct);
 
@@ -82,8 +82,7 @@ public static class AdminGenresEndpoints
 
         var take = Math.Min(limit ?? 10, 20);
 
-        var query = db.Genres
-            .Where(g => g.SiteId == siteId.Value);
+        var query = db.Genres.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -116,7 +115,7 @@ public static class AdminGenresEndpoints
 
         // Check for existing genre with exact name (case-insensitive)
         var existing = await db.Genres
-            .FirstOrDefaultAsync(g => g.SiteId == req.SiteId && g.Name.ToLower() == trimmedName.ToLower(), ct);
+            .FirstOrDefaultAsync(g => g.Name.ToLower() == trimmedName.ToLower(), ct);
 
         if (existing is not null)
         {
@@ -128,7 +127,7 @@ public static class AdminGenresEndpoints
         var slug = baseSlug;
         var suffix = 2;
 
-        while (await db.Genres.AnyAsync(g => g.SiteId == req.SiteId && g.Slug == slug, ct))
+        while (await db.Genres.AnyAsync(g => g.Slug == slug, ct))
         {
             slug = $"{baseSlug}-{suffix}";
             suffix++;
@@ -168,7 +167,7 @@ public static class AdminGenresEndpoints
         var skip = offset ?? 0;
         var take = Math.Min(limit ?? 20, 100);
 
-        var query = db.Genres.Where(g => g.SiteId == siteId.Value);
+        var query = db.Genres.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(g => EF.Functions.ILike(g.Name, $"%{search}%")
@@ -261,7 +260,7 @@ public static class AdminGenresEndpoints
 
         // Check for duplicate name (case-insensitive, exclude current genre)
         var duplicate = await db.Genres
-            .AnyAsync(g => g.SiteId == genre.SiteId && g.Id != id && g.Name.ToLower() == trimmedName.ToLower(), ct);
+            .AnyAsync(g => g.Id != id && g.Name.ToLower() == trimmedName.ToLower(), ct);
         if (duplicate)
             return Results.BadRequest(new { error = "A genre with this name already exists" });
 
@@ -271,7 +270,7 @@ public static class AdminGenresEndpoints
             var baseSlug = SlugGenerator.GenerateSlug(trimmedName);
             var slug = baseSlug;
             var suffix = 2;
-            while (await db.Genres.AnyAsync(g => g.SiteId == genre.SiteId && g.Id != id && g.Slug == slug, ct))
+            while (await db.Genres.AnyAsync(g => g.Id != id && g.Slug == slug, ct))
             {
                 slug = $"{baseSlug}-{suffix}";
                 suffix++;

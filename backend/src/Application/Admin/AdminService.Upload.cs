@@ -54,7 +54,7 @@ public partial class AdminService
 
         var slug = SlugGenerator.GenerateSlug(title);
         var existingWork = await db.Works
-            .FirstOrDefaultAsync(w => w.SiteId == siteId && w.Slug == slug, ct);
+            .FirstOrDefaultAsync(w => w.Slug == slug, ct);
         if (existingWork is not null)
             return (true, null, existingWork);
 
@@ -319,19 +319,19 @@ public partial class AdminService
     {
         var baseSlug = SlugGenerator.GenerateSlug(title);
         var slug = baseSlug;
-        var exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
+        var exists = await db.Editions.AnyAsync(e => e.Language == language && e.Slug == slug, ct);
 
         if (exists)
         {
             slug = $"{baseSlug}-{language}";
-            exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
+            exists = await db.Editions.AnyAsync(e => e.Language == language && e.Slug == slug, ct);
         }
 
         var counter = 2;
         while (exists)
         {
             slug = $"{baseSlug}-{language}-{counter}";
-            exists = await db.Editions.AnyAsync(e => e.SiteId == siteId && e.Language == language && e.Slug == slug, ct);
+            exists = await db.Editions.AnyAsync(e => e.Language == language && e.Slug == slug, ct);
             counter++;
         }
 

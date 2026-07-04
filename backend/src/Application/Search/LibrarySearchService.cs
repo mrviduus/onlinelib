@@ -118,8 +118,7 @@ public sealed class LibrarySearchService(
     {
         var rows = await db.Editions
             .AsNoTracking()
-            .Where(e => e.SiteId == siteId
-                        && e.Status == EditionStatus.Published
+            .Where(e => e.Status == EditionStatus.Published
                         && editionIds.Contains(e.Id))
             .Select(e => new
             {

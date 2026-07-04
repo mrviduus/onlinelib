@@ -89,8 +89,9 @@ public class ConceptClustersQueryTests
         h.Clusters.Add(new WordCluster { Id = Guid.NewGuid(), UserId = UserId, SiteId = SiteId, Kind = "book", Title = "Dracula vocab", MemberCount = 9 });
         // Concept cluster owned by another user must be excluded.
         h.Clusters.Add(new WordCluster { Id = Guid.NewGuid(), UserId = Guid.NewGuid(), SiteId = SiteId, Kind = "concept", Title = "Other user", MemberCount = 5 });
-        // Concept cluster on another site must be excluded.
-        h.Clusters.Add(new WordCluster { Id = Guid.NewGuid(), UserId = UserId, SiteId = Guid.NewGuid(), Kind = "concept", Title = "Other site", MemberCount = 5 });
+        // Note: cross-site exclusion is now enforced by the EF global query filter
+        // (R1b), not by this endpoint's LINQ, so it is not exercised by this
+        // list-backed mock. Site isolation is covered by the R1b isolation test.
 
         var result = await VocabularyEndpoints.QueryConceptsAsync(h.Db, UserId, SiteId, CancellationToken.None);
 

@@ -46,7 +46,6 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config, I
         // EF can't translate the float[] null check the same across providers, and the set is small.)
         var candidates = await db.VocabularyWords
             .Where(w => w.UserId == userId
-                     && w.SiteId == siteId
                      && !w.IsRetired
                      && w.Embedding != null)
             .Select(w => new { w.Id, w.Embedding })
@@ -68,7 +67,7 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config, I
         // OnDelete(SetNull), so deleting the cluster rows nulls every member's ConceptClusterId
         // (including words that drop to noise this run). The book-grouper ClusterId is untouched.
         var existing = await db.WordClusters
-            .Where(c => c.UserId == userId && c.SiteId == siteId && c.Kind == "concept")
+            .Where(c => c.UserId == userId && c.Kind == "concept")
             .ToListAsync(ct);
         if (existing.Count > 0)
         {
@@ -117,7 +116,7 @@ public class ConceptClusteringService(IAppDbContext db, IConfiguration config, I
         // and keep ConceptClusterId == null (already nulled by the full-replace delete above).
         var memberIds = assignment.Keys.ToHashSet();
         var members = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId && memberIds.Contains(w.Id))
+            .Where(w => w.UserId == userId && memberIds.Contains(w.Id))
             .ToListAsync(ct);
         foreach (var w in members)
             w.ConceptClusterId = assignment[w.Id];

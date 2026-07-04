@@ -45,7 +45,7 @@ public static class AskEndpoints
 
         var siteId = httpContext.GetSiteId();
 
-        var editionExists = await db.Editions.AnyAsync(e => e.Id == editionId && e.SiteId == siteId, ct);
+        var editionExists = await db.Editions.AnyAsync(e => e.Id == editionId, ct);
         if (!editionExists) return Results.NotFound("Edition not found");
 
         // RagAskService construction pulls in the embedder, which throws without an OpenAI key —

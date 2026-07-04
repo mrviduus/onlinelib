@@ -31,7 +31,7 @@ public static partial class VocabularyEndpoints
         // keep retired rows (user still wants to see "2000 mastered" even if
         // they no longer appear in the queue).
         var words = db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId);
+            .Where(w => w.UserId == userId);
 
         var totalWords = await words.CountAsync(ct);
 
@@ -48,7 +48,7 @@ public static partial class VocabularyEndpoints
 
         // Single query for today's review stats
         var todayStats = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId && r.CreatedAt >= todayStart)
+            .Where(r => r.UserId == userId && r.CreatedAt >= todayStart)
             .GroupBy(_ => 1)
             .Select(g => new
             {
@@ -68,7 +68,7 @@ public static partial class VocabularyEndpoints
 
         // Single query for all-time review stats
         var allStats = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId)
+            .Where(r => r.UserId == userId)
             .GroupBy(_ => 1)
             .Select(g => new { Total = g.Count(), Correct = g.Count(r => r.IsCorrect) })
             .FirstOrDefaultAsync(ct);
@@ -78,7 +78,7 @@ public static partial class VocabularyEndpoints
 
         // Streak: consecutive days with reviews (HashSet for O(1) lookup)
         var reviewDays = (await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId)
+            .Where(r => r.UserId == userId)
             .Select(r => r.CreatedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)
@@ -107,12 +107,11 @@ public static partial class VocabularyEndpoints
         var weeklyProgress = ToDto(await weeklyBudget.GetProgressAsync(userId, siteId, ct));
         var capStatus = await dailyCap.GetStatusAsync(userId, siteId, ct);
         var pendingCount = await db.PendingVocabularyWords
-            .CountAsync(p => p.UserId == userId && p.SiteId == siteId, ct);
+            .CountAsync(p => p.UserId == userId, ct);
         var lookupCount = await db.WordLookups
-            .CountAsync(l => l.UserId == userId && l.SiteId == siteId, ct);
+            .CountAsync(l => l.UserId == userId, ct);
         var clusterCount = await db.WordClusters
-            .CountAsync(c => c.UserId == userId && c.SiteId == siteId
-                          && !c.IsDismissed && c.CompletedAt == null, ct);
+            .CountAsync(c => c.UserId == userId && !c.IsDismissed && c.CompletedAt == null, ct);
 
         return Results.Ok(new
         {
@@ -174,8 +173,7 @@ public static partial class VocabularyEndpoints
 
         // Reviews per day
         var reviews = await db.VocabularyReviews
-            .Where(r => r.UserId == userId && r.SiteId == siteId
-                && r.CreatedAt >= start && r.CreatedAt <= end)
+            .Where(r => r.UserId == userId && r.CreatedAt >= start && r.CreatedAt <= end)
             .Select(r => new { r.CreatedAt, r.IsCorrect, r.ReviewMode })
             .ToListAsync(ct);
 
@@ -193,8 +191,7 @@ public static partial class VocabularyEndpoints
 
         // Words added per day
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId
-                && w.CreatedAt >= start && w.CreatedAt <= end)
+            .Where(w => w.UserId == userId && w.CreatedAt >= start && w.CreatedAt <= end)
             .Select(w => w.CreatedAt)
             .ToListAsync(ct);
 

@@ -101,7 +101,7 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
         Guid userId, Guid siteId, Guid editionId, CancellationToken ct)
     {
         var row = await db.ReadingProgresses
-            .Where(p => p.UserId == userId && p.SiteId == siteId && p.EditionId == editionId)
+            .Where(p => p.UserId == userId && p.EditionId == editionId)
             .Join(db.Chapters, p => p.ChapterId, c => c.Id,
                 (p, c) => new { p.MaxChapterNumber, c.ChapterNumber })
             .FirstOrDefaultAsync(ct);
@@ -119,7 +119,7 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
 
         // Materialize raw fields first — HighlightToText is a C# method EF can't translate.
         var highlightRows = await db.Highlights
-            .Where(h => h.UserId == userId && h.SiteId == siteId && h.EditionId == editionId
+            .Where(h => h.UserId == userId && h.EditionId == editionId
                         && h.ChapterId != null && h.Chapter!.ChapterNumber <= maxOrd)
             .Select(h => new { h.ChapterId, Ord = h.Chapter!.ChapterNumber, h.SelectedText, h.NoteText })
             .ToListAsync(ct);
@@ -127,7 +127,7 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
         // Only free-standing notes — a note attached to a highlight (HighlightId set) is already
         // represented via that highlight's inline NoteText, so including it again would double-count.
         var noteRows = await db.Notes
-            .Where(n => n.UserId == userId && n.SiteId == siteId && n.EditionId == editionId
+            .Where(n => n.UserId == userId && n.EditionId == editionId
                         && n.HighlightId == null && n.Chapter.ChapterNumber <= maxOrd)
             .Select(n => new { ChapterId = (Guid?)n.ChapterId, Ord = n.Chapter.ChapterNumber, n.Text })
             .ToListAsync(ct);

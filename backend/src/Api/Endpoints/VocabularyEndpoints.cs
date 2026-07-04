@@ -113,23 +113,21 @@ public static partial class VocabularyEndpoints
         // Dedup: SRS table first, then pending buffer. A word in either bucket
         // is "already saved" from the user's perspective — don't double-insert.
         var existing = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.UserId == userId && w.SiteId == siteId
-                && w.Word == word && w.Language == request.Language, ct);
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.Word == word && w.Language == request.Language, ct);
         if (existing != null)
             return Results.Ok(SaveWordResponse.AlreadySaved(ToDto(existing)));
 
         var existingPending = await db.PendingVocabularyWords
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.SiteId == siteId
-                && p.Word == word && p.Language == request.Language, ct);
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.Word == word && p.Language == request.Language, ct);
         if (existingPending != null)
             return Results.Ok(SaveWordResponse.AlreadyPending(existingPending.Id));
 
         // Hard ceiling — counts both active + pending. Keeps one user from
         // bloating the pending bucket past the vocabulary cap.
         var count = await db.VocabularyWords.CountAsync(
-            w => w.UserId == userId && w.SiteId == siteId, ct);
+            w => w.UserId == userId, ct);
         count += await db.PendingVocabularyWords.CountAsync(
-            p => p.UserId == userId && p.SiteId == siteId, ct);
+            p => p.UserId == userId, ct);
         if (count >= MaxWordsPerUser)
             return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
 
@@ -142,15 +140,14 @@ public static partial class VocabularyEndpoints
         // default. Every tapped word goes straight to SRS unless the user has
         // explicitly turned the frequency filter back on.
         var filterEnabled = await db.UserVocabularySettings
-            .Where(s => s.UserId == userId && s.SiteId == siteId)
+            .Where(s => s.UserId == userId)
             .Select(s => (bool?)s.FrequencyFilterEnabled)
             .FirstOrDefaultAsync(ct) ?? false;
 
         // Query unconditionally so a user who flips the filter off doesn't leave
         // orphan lookups behind when the same word is next saved to SRS.
         var existingLookup = await db.WordLookups
-            .FirstOrDefaultAsync(l => l.UserId == userId && l.SiteId == siteId
-                && l.Word == word && l.Language == request.Language, ct);
+            .FirstOrDefaultAsync(l => l.UserId == userId && l.Word == word && l.Language == request.Language, ct);
 
         int? zipfRank = null;
         double? zipfScore = null;
@@ -366,7 +363,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var query = db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId);
+            .Where(w => w.UserId == userId);
 
         if (!string.IsNullOrEmpty(stage))
         {
@@ -453,7 +450,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId)
+            .Where(w => w.UserId == userId)
             .ToListAsync(ct);
 
         db.VocabularyWords.RemoveRange(words);
@@ -520,7 +517,7 @@ public static partial class VocabularyEndpoints
 
         // Retired rows (F4) are hidden from the queue — they already graduated.
         var baseQuery = db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId && !w.IsRetired);
+            .Where(w => w.UserId == userId && !w.IsRetired);
 
         var totalDue = await baseQuery
             .CountAsync(w => w.NextReviewAt <= now, ct);
@@ -559,8 +556,7 @@ public static partial class VocabularyEndpoints
         var dueWordIds = dueWords.Select(w => w.Id).ToHashSet();
 
         var distractorPool = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId
-                && !dueWordIds.Contains(w.Id)
+            .Where(w => w.UserId == userId && !dueWordIds.Contains(w.Id)
                 && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
             .Take(MaxDistractorPoolSize)
@@ -638,7 +634,7 @@ public static partial class VocabularyEndpoints
             if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
             {
                 var autoRetireEnabled = await db.UserVocabularySettings
-                    .Where(s => s.UserId == userId && s.SiteId == siteId)
+                    .Where(s => s.UserId == userId)
                     .Select(s => (bool?)s.AutoRetireEnabled)
                     .FirstOrDefaultAsync(ct) ?? true;
                 if (autoRetireEnabled)
@@ -696,7 +692,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var words = await db.VocabularyWords
-            .Where(w => w.UserId == userId && w.SiteId == siteId)
+            .Where(w => w.UserId == userId)
             .OrderBy(w => w.Word)
             .Take(MaxWordsPerUser)
             .Select(w => new ReaderVocabWordDto(w.Id, w.Word, w.Stage, w.Translation))
@@ -749,7 +745,7 @@ public static partial class VocabularyEndpoints
     private static Task<VocabularyWord?> FindUserWordAsync(
         IAppDbContext db, Guid id, Guid userId, Guid siteId, CancellationToken ct)
         => db.VocabularyWords.FirstOrDefaultAsync(
-            w => w.Id == id && w.UserId == userId && w.SiteId == siteId, ct);
+            w => w.Id == id && w.UserId == userId, ct);
 
     private static VocabWordDto ToDto(VocabularyWord w) => new(
         w.Id, w.Word, w.Language, w.Translation, w.Definition,

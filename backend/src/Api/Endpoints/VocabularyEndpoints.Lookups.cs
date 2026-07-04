@@ -28,7 +28,7 @@ public static partial class VocabularyEndpoints
         var skip = Math.Max(0, offset ?? 0);
 
         var baseQuery = db.WordLookups
-            .Where(l => l.UserId == userId && l.SiteId == siteId);
+            .Where(l => l.UserId == userId);
 
         var total = await baseQuery.CountAsync(ct);
         var items = await baseQuery
@@ -60,14 +60,13 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var lookup = await db.WordLookups
-            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId && l.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId, ct);
         if (lookup == null) return Results.NotFound();
 
         // Guard against a race where the word was saved via another path between
         // the list render and the promote click.
         var already = await db.VocabularyWords
-            .FirstOrDefaultAsync(w => w.UserId == userId && w.SiteId == siteId
-                && w.Word == lookup.Word && w.Language == lookup.Language, ct);
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.Word == lookup.Word && w.Language == lookup.Language, ct);
         if (already != null)
         {
             db.WordLookups.Remove(lookup);
@@ -79,9 +78,9 @@ public static partial class VocabularyEndpoints
         // the 5000-word vocabulary limit. Counts both active SRS + pending
         // so a user can't exceed the cap via the lookup bypass.
         var count = await db.VocabularyWords.CountAsync(
-            w => w.UserId == userId && w.SiteId == siteId, ct);
+            w => w.UserId == userId, ct);
         count += await db.PendingVocabularyWords.CountAsync(
-            p => p.UserId == userId && p.SiteId == siteId, ct);
+            p => p.UserId == userId, ct);
         if (count >= MaxWordsPerUser)
             return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
 
@@ -139,7 +138,7 @@ public static partial class VocabularyEndpoints
             return Results.Unauthorized();
 
         var lookup = await db.WordLookups
-            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId && l.SiteId == siteId, ct);
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId, ct);
         if (lookup == null) return Results.NotFound();
 
         db.WordLookups.Remove(lookup);
