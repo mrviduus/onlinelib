@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class UserAchievement
+public class UserAchievement : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

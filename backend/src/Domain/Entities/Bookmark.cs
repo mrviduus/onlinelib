@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class Bookmark
+public class Bookmark : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

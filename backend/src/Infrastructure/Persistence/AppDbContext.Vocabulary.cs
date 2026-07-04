@@ -11,7 +11,8 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext
 {
-    private static void ConfigureVocabulary(ModelBuilder modelBuilder)
+    // Instance (not static): site-scoped query filters close over _currentSite.
+    private void ConfigureVocabulary(ModelBuilder modelBuilder)
     {
         // VocabularyWord
         modelBuilder.Entity<VocabularyWord>(e =>
@@ -54,6 +55,7 @@ public partial class AppDbContext
             // (delete this user's concept clusters → recreate) nulls members cleanly.
             e.HasOne(x => x.ConceptCluster).WithMany(c => c.ConceptWords)
                 .HasForeignKey(x => x.ConceptClusterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // UserVocabularySettings — one row per (user, site).
@@ -62,6 +64,7 @@ public partial class AppDbContext
             e.HasKey(x => new { x.UserId, x.SiteId });
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // VocabularyReview
@@ -73,6 +76,7 @@ public partial class AppDbContext
             e.HasOne(x => x.VocabularyWord).WithMany(x => x.Reviews).HasForeignKey(x => x.VocabularyWordId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // PendingVocabularyWord (F2: over-cap buffer)
@@ -96,6 +100,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // WordLookup (F1: rare-word reference bucket — taps that don't enter SRS)
@@ -115,6 +120,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // WordFrequency (F1: reference data — seeded from wordfreq export at startup)
@@ -145,6 +151,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasMany(x => x.Words).WithOne().HasForeignKey(x => x.ClusterId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
     }
 }

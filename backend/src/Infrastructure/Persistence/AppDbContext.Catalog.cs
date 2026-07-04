@@ -15,7 +15,9 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext
 {
-    private static void ConfigureCatalog(ModelBuilder modelBuilder)
+    // Instance (not static): the site-scoped query filters below close over
+    // _currentSite so EF parameterizes them per context instance.
+    private void ConfigureCatalog(ModelBuilder modelBuilder)
     {
         // Site
         modelBuilder.Entity<Site>(e =>
@@ -43,6 +45,7 @@ public partial class AppDbContext
             e.HasIndex(x => x.SiteId);
             e.HasIndex(x => new { x.SiteId, x.Slug }).IsUnique();
             e.HasOne(x => x.Site).WithMany(x => x.Works).HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // Edition
@@ -77,6 +80,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Work).WithMany(x => x.Editions).HasForeignKey(x => x.WorkId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.SourceEdition).WithMany(x => x.TranslatedEditions).HasForeignKey(x => x.SourceEditionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // Chapter
@@ -125,6 +129,7 @@ public partial class AppDbContext
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.ExternalLinksJson).HasColumnType("jsonb");
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // EditionAuthor (junction table with order + role)
@@ -147,6 +152,7 @@ public partial class AppDbContext
             e.Property(x => x.Name).HasMaxLength(100);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasMany(x => x.Editions).WithMany(x => x.Genres).UsingEntity("edition_genres");
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // TextStackImport — provenance link for imported books.
@@ -158,6 +164,7 @@ public partial class AppDbContext
             e.Property(x => x.Identifier).HasMaxLength(500);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // BookAsset — extracted images/etc tied to an edition.

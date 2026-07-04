@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Domain.Entities;
 
-public class Edition
+public class Edition : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid WorkId { get; set; }

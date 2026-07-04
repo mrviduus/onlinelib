@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class TextStackImport
+public class TextStackImport : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid SiteId { get; set; }

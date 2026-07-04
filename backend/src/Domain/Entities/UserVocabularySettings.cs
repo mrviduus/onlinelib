@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class UserVocabularySettings
+public class UserVocabularySettings : ISiteScoped
 {
     public Guid UserId { get; set; }
     public Guid SiteId { get; set; }

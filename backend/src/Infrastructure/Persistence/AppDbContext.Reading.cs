@@ -9,7 +9,8 @@ namespace Infrastructure.Persistence;
 /// </summary>
 public partial class AppDbContext
 {
-    private static void ConfigureReading(ModelBuilder modelBuilder)
+    // Instance (not static): site-scoped query filters close over _currentSite.
+    private void ConfigureReading(ModelBuilder modelBuilder)
     {
         // ReadingProgress
         modelBuilder.Entity<ReadingProgress>(e =>
@@ -22,6 +23,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Chapter).WithMany(x => x.ReadingProgresses).HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // Bookmark
@@ -35,6 +37,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Chapter).WithMany(x => x.Bookmarks).HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // Note
@@ -50,6 +53,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Chapter).WithMany(x => x.Notes).HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Highlight).WithOne(x => x.Note).HasForeignKey<Note>(x => x.HighlightId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // Highlight — can attach to either an Edition+Chapter or a UserBook+UserChapter.
@@ -69,6 +73,7 @@ public partial class AppDbContext
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserChapter).WithMany().HasForeignKey(x => x.UserChapterId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // ReadingSession
@@ -82,6 +87,7 @@ public partial class AppDbContext
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Edition).WithMany().HasForeignKey(x => x.EditionId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // ReadingGoal
@@ -92,6 +98,7 @@ public partial class AppDbContext
             e.Property(x => x.GoalType).HasMaxLength(50);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
 
         // UserAchievement
@@ -102,6 +109,7 @@ public partial class AppDbContext
             e.Property(x => x.AchievementCode).HasMaxLength(50);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasQueryFilter(x => x.SiteId == _currentSite.Id);
         });
     }
 }

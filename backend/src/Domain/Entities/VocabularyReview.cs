@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class VocabularyReview
+public class VocabularyReview : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid VocabularyWordId { get; set; }

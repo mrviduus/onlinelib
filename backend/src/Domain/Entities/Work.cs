@@ -1,6 +1,6 @@
 namespace Domain.Entities;
 
-public class Work
+public class Work : ISiteScoped
 {
     public Guid Id { get; set; }
     public Guid SiteId { get; set; }
