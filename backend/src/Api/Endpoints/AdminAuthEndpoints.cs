@@ -1,3 +1,4 @@
+using Api.Mapping;
 using Application.AdminAuth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -37,7 +38,7 @@ public static class AdminAuthEndpoints
         await SetAuthCookiesAsync(httpContext, authService, accessToken, refreshToken, ct);
 
         return Results.Ok(new AdminAuthResponse(
-            new AdminUserDto(user.Id, user.Email, user.Role, user.CreatedAt)));
+            user.ToDto()));
     }
 
     private static async Task<IResult> RefreshToken(
@@ -63,7 +64,7 @@ public static class AdminAuthEndpoints
         await SetAuthCookiesAsync(httpContext, authService, newAccessToken, newRefreshToken, ct);
 
         return Results.Ok(new AdminAuthResponse(
-            new AdminUserDto(user.Id, user.Email, user.Role, user.CreatedAt)));
+            user.ToDto()));
     }
 
     private static async Task<IResult> Logout(
@@ -102,7 +103,7 @@ public static class AdminAuthEndpoints
             return Results.Unauthorized();
 
         return Results.Ok(new AdminAuthResponse(
-            new AdminUserDto(user.Id, user.Email, user.Role, user.CreatedAt)));
+            user.ToDto()));
     }
 
     private static async Task SetAuthCookiesAsync(

@@ -1,3 +1,4 @@
+using Api.Mapping;
 using Application.Auth;
 using Application.Common.Interfaces;
 using Application.Vocabulary;
@@ -158,15 +159,10 @@ public static partial class VocabularyEndpoints
                      && languages.Contains(w.Language))
             .OrderBy(_ => EF.Functions.Random())
             .Take(MaxDistractorPoolSize)
-            .Select(w => new DistractorPoolEntry(w.Word, w.Language))
+            .Select(VocabularyMappings.DistractorPoolProject)
             .ToListAsync(ct);
 
-        var wordsForReview = members.Select(w => new WordForReview(
-            w.Id, w.Word, w.Language,
-            w.Translation, w.Definition,
-            w.Sentence, w.BookTitle, w.Hint,
-            w.Explanation, w.Distractors,
-            w.Stage, w.TotalReviews)).ToList();
+        var wordsForReview = members.Select(VocabularyMappings.ToWordForReview).ToList();
 
         var cards = cardBuilder.BuildCards(wordsForReview, pool);
         var cardDtos = cards.Select(c => new ReviewCardDto(

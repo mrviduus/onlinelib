@@ -1,4 +1,5 @@
 using Api.Extensions;
+using Api.Mapping;
 using Application.Auth;
 using Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -40,7 +41,7 @@ public static class ProfileEndpoints
         var user = await authService.GetUserByIdAsync(userId.Value, ct);
         if (user == null) return Results.Unauthorized();
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
+        return Results.Ok(new AuthResponse(user.ToDto()));
     }
 
     private static async Task<IResult> UpdateProfile(
@@ -80,7 +81,7 @@ public static class ProfileEndpoints
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
+        return Results.Ok(new AuthResponse(user.ToDto()));
     }
 
     private static async Task<IResult> UploadAvatar(
@@ -126,7 +127,7 @@ public static class ProfileEndpoints
         user.Picture = relativePath;
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new AuthResponse(new UserDto(user.Id, user.Email, user.Name, user.Picture, user.IsGuest, user.CreatedAt, user.NativeLanguage)));
+        return Results.Ok(new AuthResponse(user.ToDto()));
     }
 
     private static async Task<IResult> DeleteAvatar(
