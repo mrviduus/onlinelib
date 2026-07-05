@@ -159,6 +159,76 @@ describe('computeBookProgress — single-chapter book', () => {
   })
 })
 
+describe('computeBookProgress — web ReaderPage inline-formula parity (R6)', () => {
+  // Frozen copy of the ORIGINAL inline `calculatedProgress` from
+  // apps/web/src/pages/ReaderPage.tsx (pre-R6-slice2), proving the shared
+  // function returns the byte-identical number the web reader used to compute
+  // locally. If this drifts, the reader progress bar / resume % would shift.
+  function legacyInline(
+    chapterList: Array<{ identifier: string; wordCount?: number | null }> | null,
+    chapterIdentifier: string | null | undefined,
+    overlayScrollProgress: number,
+  ): number {
+    if (!chapterList) return 0
+    const currentId = chapterIdentifier || ''
+    if (!currentId) return 0
+    const currentChapterIndex = chapterList.findIndex(c => c.identifier === currentId)
+    if (currentChapterIndex === -1) return 0
+
+    const totalWords = chapterList.reduce((sum, c) => sum + (c.wordCount || 0), 0)
+    if (totalWords === 0) {
+      return (currentChapterIndex + overlayScrollProgress) / chapterList.length
+    }
+    const wordsBeforeCurrent = chapterList
+      .slice(0, currentChapterIndex)
+      .reduce((sum, c) => sum + (c.wordCount || 0), 0)
+    const currentChapterWords = chapterList[currentChapterIndex].wordCount || 0
+    const wordsRead = wordsBeforeCurrent + currentChapterWords * overlayScrollProgress
+    return wordsRead / totalWords
+  }
+
+  // How ReaderPage now feeds the shared fn (overlayScrollProgress already 0..1).
+  function viaShared(
+    chapterList: Array<{ identifier: string; wordCount?: number | null }> | null,
+    chapterIdentifier: string | null | undefined,
+    overlayScrollProgress: number,
+  ): number {
+    const chapters = chapterList?.map(c => ({ slug: c.identifier, wordCount: c.wordCount })) ?? []
+    return computeBookProgress(chapters, chapterIdentifier, overlayScrollProgress) ?? 0
+  }
+
+  const weighted = [
+    { identifier: 'ch1', wordCount: 100 },
+    { identifier: 'ch2', wordCount: 200 },
+    { identifier: 'ch3', wordCount: 700 },
+  ]
+  const noWords = [
+    { identifier: 'a', wordCount: 0 },
+    { identifier: 'b', wordCount: null },
+    { identifier: 'c' },
+  ]
+  const single = [{ identifier: 'only', wordCount: 500 }]
+
+  const cases: Array<[string, typeof weighted | null, string | null | undefined, number]> = [
+    ['mid-chapter weighted', weighted, 'ch2', 0.5],
+    ['first chapter start', weighted, 'ch1', 0],
+    ['last chapter full', weighted, 'ch3', 1],
+    ['no-wordCount fallback mid', noWords, 'b', 0.5],
+    ['no-wordCount fallback last', noWords, 'c', 1],
+    ['single chapter half', single, 'only', 0.5],
+    ['null chapterList', null, 'ch1', 0.5],
+    ['empty chapterId', weighted, '', 0.5],
+    ['unknown chapterId', weighted, 'nope', 0.5],
+    ['undefined chapterId', weighted, undefined, 0.5],
+  ]
+
+  for (const [name, list, id, prog] of cases) {
+    it(`matches legacy inline: ${name}`, () => {
+      expect(viaShared(list, id, prog)).toBeCloseTo(legacyInline(list, id, prog), 12)
+    })
+  }
+})
+
 describe('computeBookProgress — monotonicity invariant', () => {
   it('moving forward through chapters never decreases book progress', () => {
     const chapters: ChapterWithCount[] = [

@@ -36,6 +36,7 @@ import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import { getUserBooks } from '../api/userBooks'
+import { computeBookProgress } from '@textstack/shared'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
 
@@ -212,24 +213,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Overall book progress = words-read / total-words across chapters,
   // driven by URL chapter + intra-chapter scroll.
   const calculatedProgress = useMemo(() => {
-    if (!chapterList) return 0
-    const currentId = chapterIdentifier || ''
-    if (!currentId) return 0
-    const currentChapterIndex = chapterList.findIndex(c => c.identifier === currentId)
-    if (currentChapterIndex === -1) return 0
-
-    const totalWords = chapterList.reduce((sum, c) => sum + (c.wordCount || 0), 0)
-    if (totalWords === 0) {
-      return (currentChapterIndex + overlayScrollProgress) / chapterList.length
-    }
-
-    const wordsBeforeCurrent = chapterList
-      .slice(0, currentChapterIndex)
-      .reduce((sum, c) => sum + (c.wordCount || 0), 0)
-    const currentChapterWords = chapterList[currentChapterIndex].wordCount || 0
-    const wordsRead = wordsBeforeCurrent + currentChapterWords * overlayScrollProgress
-
-    return wordsRead / totalWords
+    const chapters = chapterList?.map(c => ({ slug: c.identifier, wordCount: c.wordCount })) ?? []
+    // overlayScrollProgress is already clamped 0..1. Don't pass totalWordCount:
+    // the legacy inline formula used the chapter-list word sum as denominator,
+    // which is exactly computeBookProgress's fallback — passing a canonical
+    // total would diverge from that number.
+    return computeBookProgress(chapters, chapterIdentifier, overlayScrollProgress) ?? 0
   }, [chapterList, chapterIdentifier, overlayScrollProgress])
 
   // Force 100% when book is completed
