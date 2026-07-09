@@ -42,6 +42,23 @@ public static class BookTitleCleaner
         @"\$\{[^}]*\}|\{\{[^}]*\}\}|\$[A-Za-z_][\w.]*",
         RegexOptions.Compiled);
 
+    // Leading "Microsoft Word - " that Word→PDF (Quartz) exports stamp onto the
+    // document title from the source .docx filename.
+    private static readonly Regex WordExportPrefix = new(
+        @"^\s*microsoft\s+word\s*[-–—]\s*",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Trailing office/PDF file extension ("… FINAL.docx" → "… FINAL").
+    private static readonly Regex FileExtensionSuffix = new(
+        @"\.(docx?|pdf|rtf|pages|odt)\s*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Trailing " copy" / " copy 5" duplicate marker (Finder / Save-As artifact),
+    // optionally followed by a version-ish date token like "5.3.23".
+    private static readonly Regex CopyVersionSuffix = new(
+        @"\s+copy(\s+\d+(?:[.\-]\d+)*)?\s*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>
     /// Returns a cleaned title or the input unchanged. Null/empty pass through.
     /// </summary>
@@ -51,6 +68,13 @@ public static class BookTitleCleaner
             return title;
 
         var s = title;
+
+        // Word→PDF (Quartz) titles surface as "Microsoft Word - X.docx copy 5".
+        // Strip the export prefix, then the trailing extension, then the "copy"
+        // marker — in that order so each rule sees the tail it expects.
+        s = WordExportPrefix.Replace(s, string.Empty);
+        s = FileExtensionSuffix.Replace(s, string.Empty);
+        s = CopyVersionSuffix.Replace(s, string.Empty);
 
         // Strip leftover template placeholders before re-checking parens —
         // catches "X (for ${var})" → "X (for )" → trailing-paren rule.

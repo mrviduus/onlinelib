@@ -52,6 +52,44 @@ public class PdfChapterDetectorTests
     }
 
     [Fact]
+    public void DetectChapters_WordQuartzWorkbook_DetectsRealTitledChapters()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
+        Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
+
+        using var doc = PdfDocument.Open(fixturePath);
+        var chapters = PdfChapterDetector.DetectChapters(doc);
+
+        // TOC-anchored detection must beat the page-split fallback.
+        Assert.True(chapters.Count > 1, $"expected multiple chapters, got {chapters.Count}");
+
+        // Real section titles, never the "Pages 1–15" page-split labels.
+        Assert.All(chapters, c =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(c.Title));
+            Assert.DoesNotContain("Pages ", c.Title!, StringComparison.Ordinal);
+        });
+
+        // The book's actual sections surface (case-insensitive).
+        var titles = string.Join(" | ", chapters.Select(c => c.Title));
+        Assert.True(
+            titles.Contains("Urgent", StringComparison.OrdinalIgnoreCase)
+            || titles.Contains("Corneal", StringComparison.OrdinalIgnoreCase),
+            $"expected a real section title, got: {titles}");
+
+        // Ranges are ordered and in-bounds.
+        for (var i = 0; i < chapters.Count; i++)
+        {
+            Assert.True(chapters[i].StartPage >= 1);
+            Assert.True(chapters[i].EndPage <= doc.NumberOfPages);
+            Assert.True(chapters[i].EndPage >= chapters[i].StartPage);
+            if (i > 0)
+                Assert.True(chapters[i].StartPage > chapters[i - 1].StartPage);
+        }
+    }
+
+    [Fact]
     public void DetectChapters_PageSplit_TitlesContainPageRanges()
     {
         var pdfBytes = PdfFixtureGenerator.GenerateMultiPagePdf(20);

@@ -186,21 +186,26 @@ public class UserIngestionService
                 .ToListAsync(ct);
             db.UserChapters.RemoveRange(existingChapters);
 
-            // Create chapters
+            // Create chapters. Number saved chapters densely 1..N by their position
+            // in THIS loop, not by unit.OrderIndex — the original list has gaps after
+            // TOC/front-matter units are filtered out, which made the reader's Contents
+            // start at "2". The running counter feeds both ChapterNumber and the slug's
+            // order arg so slugs stay consistent with numbering.
             var qualityScores = new List<int>();
+            var savedChapterIndex = 0;
             foreach (var unit in result.Units)
             {
                 var html = SanitizeText(
                     Application.Common.ImageProcessingHelper.RewriteImageSrcs(unit.Html ?? string.Empty, imageMap));
-                var chapterTitle = SanitizeText(unit.Title ?? $"Chapter {unit.OrderIndex + 1}");
+                var chapterTitle = SanitizeText(unit.Title ?? $"Chapter {savedChapterIndex + 1}");
                 var score = ChapterContentQualityAnalyzer.Analyze(html).Score;
                 qualityScores.Add(score);
                 var chapter = new UserChapter
                 {
                     Id = Guid.NewGuid(),
                     UserBookId = job.UserBookId,
-                    ChapterNumber = unit.OrderIndex + 1,
-                    Slug = SlugGenerator.GenerateChapterSlug(chapterTitle, unit.OrderIndex),
+                    ChapterNumber = savedChapterIndex + 1,
+                    Slug = SlugGenerator.GenerateChapterSlug(chapterTitle, savedChapterIndex),
                     Title = chapterTitle,
                     Html = html,
                     PlainText = SanitizeText(unit.PlainText),
@@ -209,6 +214,7 @@ public class UserIngestionService
                     CreatedAt = DateTimeOffset.UtcNow
                 };
                 db.UserChapters.Add(chapter);
+                savedChapterIndex++;
             }
 
             if (qualityScores.Count > 0)

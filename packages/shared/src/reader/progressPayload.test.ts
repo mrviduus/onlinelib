@@ -89,6 +89,59 @@ describe('buildUserBookProgressPayload — percent clamping', () => {
   })
 })
 
+describe('buildUserBookProgressPayload — book-wide percent (Fix D)', () => {
+  // 10 equal chapters; halfway through chapter 2 (idx 1).
+  const chapters = Array.from({ length: 10 }, (_, i) => ({ slug: `ch${i + 1}`, wordCount: 100 }))
+
+  it('stores book-wide percent when chapters are supplied (not raw chapter %)', () => {
+    // (100 words before + 100 * 0.5) / 1000 = 0.15, NOT the raw 0.5.
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch2',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+      scrollOffset: 0,
+      chapters,
+    })
+    expect(p?.percent).toBeCloseTo(0.15, 5)
+  })
+
+  it('uses totalWordCount as the denominator when provided', () => {
+    // Same numerator (150) over an explicit 3000-word book → 0.05.
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch2',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+      scrollOffset: 0,
+      chapters,
+      totalWordCount: 3000,
+    })
+    expect(p?.percent).toBeCloseTo(0.05, 5)
+  })
+
+  it('falls back to raw chapter % when the chapter cannot be located', () => {
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'unknown',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.42,
+      scrollOffset: 0,
+      chapters,
+    })
+    expect(p?.percent).toBe(0.42)
+  })
+
+  it('keeps the within-chapter locator regardless of book-wide percent', () => {
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch2',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+      scrollOffset: 1234,
+      chapters,
+    })
+    expect(p?.locator).toBe('scroll:ch2:1234')
+    expect(p?.chapterSlug).toBe('ch2')
+  })
+})
+
 describe('buildUserBookProgressPayload — locator', () => {
   const base = { currentChapterSlug: 'ch1', fallbackChapterSlug: null, chapterProgress: 0.5 }
 

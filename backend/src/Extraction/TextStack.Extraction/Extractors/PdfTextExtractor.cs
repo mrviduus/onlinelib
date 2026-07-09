@@ -5,6 +5,8 @@ using TextStack.Extraction.TextProcessing.Processors;
 using TextStack.Extraction.Toc;
 using TextStack.Extraction.Utilities;
 using PDFtoImage;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using UglyToad.PdfPig;
 
 namespace TextStack.Extraction.Extractors;
@@ -383,6 +385,20 @@ public sealed class PdfTextExtractor : ITextExtractor
     /// Extracts images from a PDF page.
     /// Returns (all extracted images, inline positions for images above size threshold).
     /// </summary>
+    // Word→Quartz stacks the same figure as several overlapping XObjects at the
+    // same bounding box (base + soft-mask companions + duplicate layers). Two
+    // bbox corners within this many points count as "the same box".
+    private const double BoundingBoxTolerance = 2.0;
+    // An image whose box covers at least this fraction of BOTH page dimensions is
+    // a full-page background/scan, not an inline figure — keep it (cover
+    // candidate) but never inline it into the reading flow.
+    private const double FullPageCoverRatio = 0.9;
+    // Minimum rendered size (PDF points, ~1/72") for an image to be inlined.
+    // Word→Quartz scatters dozens of tiny transparent annotation labels
+    // (numbers/arrows, ~15–30pt) over diagrams; inlining them as standalone
+    // <img> is noise. Real figures are comfortably larger than this.
+    private const double MinInlineBoundingBoxPoints = 48.0;
+
     private static (List<ExtractedImage> Images, List<(string Path, double YPosition)> InlinePositions)
         ExtractPageImages(UglyToad.PdfPig.Content.Page page, int pageNumber, List<ExtractionWarning> warnings)
     {
@@ -391,14 +407,18 @@ public sealed class PdfTextExtractor : ITextExtractor
         try
         {
             var pageImages = page.GetImages().ToList();
-            for (var i = 0; i < pageImages.Count; i++)
+            // Collapse overlapping same-bbox stacks to a single representative so
+            // we don't emit the black base + empty soft-mask companion as two
+            // separate boxes. Keep the largest raw payload (the real base image).
+            var representatives = SelectBoundingBoxRepresentatives(pageImages);
+
+            foreach (var (i, img) in representatives)
             {
                 try
                 {
-                    var img = pageImages[i];
                     var rawBytes = img.RawBytes.ToArray();
 
-                    // Try raw bytes first — many PDF images are already JPEG/PNG
+                    // Try raw bytes first — many PDF images are already JPEG/PNG.
                     byte[] imageData;
                     string mimeType;
 
@@ -409,6 +429,15 @@ public sealed class PdfTextExtractor : ITextExtractor
                     }
                     else if (img.TryGetPng(out var pngBytes) && pngBytes.Length > 0)
                     {
+                        // TryGetPng composites the /SMask into the alpha channel
+                        // (verified: transparent figures decode with real alpha),
+                        // so figures render with transparency instead of a black
+                        // box. Drop the ones that composite to nothing — the
+                        // fully-transparent overlay boxes Quartz sprinkles around
+                        // diagrams — so we don't emit invisible <img> placeholders.
+                        if (IsDegeneratePng(pngBytes))
+                            continue;
+
                         imageData = pngBytes;
                         mimeType = "image/png";
                     }
@@ -429,7 +458,14 @@ public sealed class PdfTextExtractor : ITextExtractor
                         MimeType: mimeType,
                         IsCover: false));
 
-                    if (imageData.Length >= MinInlineImageBytes)
+                    // Inline only genuine figures: not a full-page background,
+                    // physically large enough to be content (not a scattered
+                    // annotation label), and above the byte-size floor.
+                    var bbox = img.BoundingBox;
+                    var isFullPage = IsFullPageImage(bbox, page.Width, page.Height);
+                    var isLargeEnough = bbox.Width >= MinInlineBoundingBoxPoints
+                                        && bbox.Height >= MinInlineBoundingBoxPoints;
+                    if (!isFullPage && isLargeEnough && imageData.Length >= MinInlineImageBytes)
                         inlinePositions.Add((path, yPosition));
                 }
                 catch (Exception ex)
@@ -447,6 +483,99 @@ public sealed class PdfTextExtractor : ITextExtractor
                 $"Failed to enumerate images on page {pageNumber}: {ex.Message}"));
         }
         return (extractedImages, inlinePositions);
+    }
+
+    /// <summary>
+    /// Groups a page's images by bounding box (within tolerance) and returns one
+    /// representative per group — the largest raw payload, which is the real base
+    /// layer rather than its thin soft-mask companion. Preserves the original
+    /// index so inline image paths stay stable/unique.
+    /// </summary>
+    private static List<(int Index, UglyToad.PdfPig.Content.IPdfImage Image)> SelectBoundingBoxRepresentatives(
+        List<UglyToad.PdfPig.Content.IPdfImage> images)
+    {
+        var groups = new List<List<(int Index, UglyToad.PdfPig.Content.IPdfImage Image)>>();
+
+        for (var i = 0; i < images.Count; i++)
+        {
+            var img = images[i];
+            var placed = false;
+            foreach (var group in groups)
+            {
+                if (SameBoundingBox(group[0].Image.BoundingBox, img.BoundingBox))
+                {
+                    group.Add((i, img));
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed)
+                groups.Add([(i, img)]);
+        }
+
+        return groups
+            .Select(g => g
+                .OrderByDescending(x => x.Image.RawBytes.Length)
+                .First())
+            .OrderBy(x => x.Index)
+            .ToList();
+    }
+
+    private static bool SameBoundingBox(
+        UglyToad.PdfPig.Core.PdfRectangle a, UglyToad.PdfPig.Core.PdfRectangle b)
+        => Math.Abs(a.Left - b.Left) <= BoundingBoxTolerance
+           && Math.Abs(a.Bottom - b.Bottom) <= BoundingBoxTolerance
+           && Math.Abs(a.Right - b.Right) <= BoundingBoxTolerance
+           && Math.Abs(a.Top - b.Top) <= BoundingBoxTolerance;
+
+    private static bool IsFullPageImage(
+        UglyToad.PdfPig.Core.PdfRectangle bbox, double pageWidth, double pageHeight)
+    {
+        if (pageWidth <= 0 || pageHeight <= 0)
+            return false;
+        return bbox.Width >= pageWidth * FullPageCoverRatio
+               && bbox.Height >= pageHeight * FullPageCoverRatio;
+    }
+
+    // How many pixels to probe per axis when checking a decoded PNG for
+    // degeneracy. Cheap constant-cost sample independent of image size.
+    private const int DegenerateSampleStride = 16;
+
+    /// <summary>
+    /// True when a decoded PNG carries no visible content: a 1×1 placeholder, or
+    /// every sampled pixel is fully transparent (the empty soft-mask overlay
+    /// boxes). Sampled sparsely so cost is bounded regardless of dimensions.
+    /// </summary>
+    internal static bool IsDegeneratePng(byte[] pngBytes)
+    {
+        try
+        {
+            using var image = Image.Load<Rgba32>(pngBytes);
+            if (image.Width <= 1 && image.Height <= 1)
+                return true;
+
+            var stepX = Math.Max(1, image.Width / DegenerateSampleStride);
+            var stepY = Math.Max(1, image.Height / DegenerateSampleStride);
+            byte maxAlpha = 0;
+            for (var y = 0; y < image.Height; y += stepY)
+            {
+                for (var x = 0; x < image.Width; x += stepX)
+                {
+                    var alpha = image[x, y].A;
+                    if (alpha > maxAlpha)
+                        maxAlpha = alpha;
+                    if (maxAlpha > 8)
+                        return false; // has visible content — not degenerate
+                }
+            }
+            return true; // all sampled pixels effectively transparent
+        }
+        catch
+        {
+            // If we can't decode it, don't treat it as degenerate — let the
+            // normal path keep it (a genuine PNG that ImageSharp choked on).
+            return false;
+        }
     }
 
     private static bool IsRecognizedImage(byte[] data)

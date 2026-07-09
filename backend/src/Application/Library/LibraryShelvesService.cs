@@ -112,16 +112,18 @@ public class LibraryShelvesService(IAppDbContext db)
 
         var saved = await savedQuery.Take(ShelfLimit * 2).ToListAsync(ct);
 
-        // Chapter-level percent → book-level percent (the "85% on chapter 2" fix).
-        var bookPctUploads = await ComputeUserBookPercentsAsync(
-            uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
+        // User books: ProgressPercent is already canonically book-wide (the reader
+        // writes it via computeBookProgress). Use it verbatim — same value the
+        // library card path (UserBookService) returns — so card and shelf agree.
+        // Editions still store a chapter-% + locator slug, so their book-% is
+        // recomputed from chapter word counts.
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
             saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.Progress)).ToList(), ct);
 
         var merged = uploads
             .Select(u =>
             {
-                var p = BookPct(bookPctUploads, u.Id, u.Progress);
+                var p = Math.Clamp(u.Progress, 0.0, 1.0);
                 return new LibraryShelfItemDto(
                     u.Id, "userbook", u.Title, u.Author, u.CoverPath, u.Slug, u.Language,
                     p, u.LastOpened, u.CreatedAt,
@@ -198,15 +200,14 @@ public class LibraryShelvesService(IAppDbContext db)
                     .Sum(c => (int?)c.WordCount ?? 0)
             }).Take(ShelfLimit * 2).ToListAsync(ct);
 
-        var bookPctUploads = await ComputeUserBookPercentsAsync(
-            uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
+        // User books store book-wide ProgressPercent verbatim (see GetContinueReadingAsync).
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
             saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.LatestProgress ?? 0)).ToList(), ct);
 
         return uploads
             .Select(u =>
             {
-                var p = BookPct(bookPctUploads, u.Id, u.Progress);
+                var p = Math.Clamp(u.Progress, 0.0, 1.0);
                 return new LibraryShelfItemDto(
                     u.Id, "userbook", u.Title, u.Author, u.CoverPath, u.Slug, u.Language,
                     p, u.LastOpened, u.CreatedAt,
@@ -288,8 +289,7 @@ public class LibraryShelvesService(IAppDbContext db)
                 TotalWordCount = (int?)totalWords
             }).Take(ShelfLimit * 4).ToListAsync(ct);
 
-        var bookPctUploads = await ComputeUserBookPercentsAsync(
-            uploads.Select(u => (u.Id, u.ProgressChapterSlug, u.Progress)).ToList(), ct);
+        // User books store book-wide ProgressPercent verbatim (see GetContinueReadingAsync).
         var bookPctSaved = await ComputeEditionBookPercentsAsync(
             saved.Select(s => (s.Id, s.CurrentChapterId, (string?)s.CurrentLocator, s.Progress)).ToList(), ct);
 
@@ -301,7 +301,7 @@ public class LibraryShelvesService(IAppDbContext db)
         }
 
         return uploads
-            .Select(u => (Item: u, Pct: BookPct(bookPctUploads, u.Id, u.Progress)))
+            .Select(u => (Item: u, Pct: Math.Clamp(u.Progress, 0.0, 1.0)))
             .Where(x => IsQuick(x.Item.TotalWordCount, x.Pct))
             .Select(x => new LibraryShelfItemDto(
                 x.Item.Id, "userbook", x.Item.Title, x.Item.Author, x.Item.CoverPath, x.Item.Slug, x.Item.Language,
@@ -442,42 +442,6 @@ public class LibraryShelvesService(IAppDbContext db)
         {
             return null;
         }
-    }
-
-    /// <summary>Batch chapter-%→book-% for user-uploaded books. Current chapter
-    /// located by slug; falls back to the synthesized "chapter-{n}" form the
-    /// reader uses when a user-chapter has no stored slug.</summary>
-    private async Task<Dictionary<Guid, double>> ComputeUserBookPercentsAsync(
-        IReadOnlyCollection<(Guid BookId, string? Slug, double ChapterPercent)> rows, CancellationToken ct)
-    {
-        var result = new Dictionary<Guid, double>();
-        if (rows.Count == 0) return result;
-
-        var bookIds = rows.Select(r => r.BookId).Distinct().ToList();
-        var chapters = await db.UserChapters
-            .Where(c => bookIds.Contains(c.UserBookId))
-            .Select(c => new { c.UserBookId, c.ChapterNumber, c.Slug, c.WordCount })
-            .ToListAsync(ct);
-        var byBook = chapters
-            .GroupBy(c => c.UserBookId)
-            .ToDictionary(g => g.Key, g => g.OrderBy(c => c.ChapterNumber).ToList());
-
-        foreach (var r in rows)
-        {
-            if (result.ContainsKey(r.BookId)) continue;
-            if (!byBook.TryGetValue(r.BookId, out var ordered) || ordered.Count == 0)
-            {
-                result[r.BookId] = Math.Clamp(r.ChapterPercent, 0.0, 1.0);
-                continue;
-            }
-            var idx = r.Slug != null ? ordered.FindIndex(c => c.Slug == r.Slug) : -1;
-            if (idx < 0 && r.Slug != null && r.Slug.StartsWith("chapter-")
-                && int.TryParse(r.Slug.AsSpan("chapter-".Length), out var n))
-                idx = ordered.FindIndex(c => c.ChapterNumber == n);
-            var words = ordered.Select(c => c.WordCount ?? 0).ToList();
-            result[r.BookId] = BookProgressCalculator.Compute(words, idx, r.ChapterPercent);
-        }
-        return result;
     }
 
     public static int? EstimateRemaining(int? totalWords, double progress, decimal pace)

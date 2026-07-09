@@ -35,6 +35,19 @@ public class BookTitleCleanerTests
     [InlineData("Some Book (   )", "Some Book")]
     // Trailing whitespace cleaned.
     [InlineData("Title (for )   ", "Title")]
+    // Word→PDF (Quartz) export titles: strip "Microsoft Word - " prefix,
+    // file extension, and the "copy" / version tail.
+    [InlineData("Microsoft Word - OSCE Tables 23+24 FINAL copy 5.3.23.docx", "OSCE Tables 23+24 FINAL")]
+    [InlineData("Microsoft Word - Report.docx", "Report")]
+    [InlineData("Microsoft Word - Report.doc", "Report")]
+    [InlineData("Notes.pdf", "Notes")]
+    [InlineData("Draft copy", "Draft")]
+    [InlineData("Draft copy 2", "Draft")]
+    [InlineData("Microsoft Word - Draft copy.docx", "Draft")]
+    // En-dash separator variant of the Word prefix.
+    [InlineData("Microsoft Word – Chapter Notes.docx", "Chapter Notes")]
+    // Preserve normal titles that merely contain the word "copy" mid-string.
+    [InlineData("The Copywriter Handbook", "The Copywriter Handbook")]
     public void Clean_VariousInputs_ReturnsExpected(string input, string expected)
     {
         Assert.Equal(expected, BookTitleCleaner.Clean(input));

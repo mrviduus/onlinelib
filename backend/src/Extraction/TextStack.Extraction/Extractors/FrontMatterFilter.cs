@@ -22,8 +22,19 @@ public static class FrontMatterFilter
     // A TOC entry line is "Chapter Title ... 47" — text + leader dots/ellipsis
     // + a page number at the end. The leader can be ASCII "....", a run of
     // spaced dots ". . . .", or "…" (U+2026, sometimes repeated).
-    private static readonly Regex TocLeaderLine = new(
+    internal static readonly Regex TocLeaderLine = new(
         @"(\.{3,}|(?:\.\s+){2,}\.|…(?:\s*…)*)\s*\d{1,4}\s*$",
+        RegexOptions.Compiled);
+
+    // Global form of the leader-line pattern: matches "Title <leaders> PageNum"
+    // anywhere so a whole flattened TOC blob (many entries glued into one
+    // paragraph, tab- or space-separated) can be split into its entries.
+    // Group 1 = the title text, group 2 = the printed page number. The title
+    // stops at the leader run; a leading tab (entry separator) is trimmed by
+    // the caller. Kept internal so PdfTocParser can reuse the exact same
+    // recognizer the drop-logic uses.
+    internal static readonly Regex TocEntryGlobal = new(
+        @"([^\t]+?)\s*(?:\.{3,}|(?:\.\s+){2,}\.|…(?:\s*…)*)\s*(\d{1,4})",
         RegexOptions.Compiled);
 
     // Back-matter titles that look like a TOC content-wise (leader dots + page

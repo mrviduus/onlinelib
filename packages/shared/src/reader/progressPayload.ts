@@ -16,7 +16,12 @@
  *   - Future: web-reader user-book save flow (when it exists)
  */
 
+import { computeBookProgress, type ChapterWithCount } from './bookProgress'
+
 export interface UserBookProgressPayload {
+  /** Book-wide reading progress (0..1). Canonical semantics of the stored
+   *  UserBook.ProgressPercent column — matches what the web reader writes and
+   *  what the library card + Continue-reading shelf read back verbatim. */
   percent: number
   chapterSlug: string
   locator: string
@@ -34,6 +39,14 @@ export interface UserBookProgressInputs {
    *  NaN/Infinity/negative/null at runtime — TypeScript doesn't see the
    *  WebView's untyped postMessage JSON boundary. */
   scrollOffset: number | null | undefined
+  /** Ordered chapter list (slug + wordCount) used to turn the within-chapter
+   *  scroll into a book-wide percent via computeBookProgress. When omitted (or
+   *  the current chapter can't be located) the builder falls back to the raw
+   *  chapter progress so it never stores nothing. */
+  chapters?: ChapterWithCount[]
+  /** Canonical book-wide word total (Σ chapter WordCount on the server). Passed
+   *  through to computeBookProgress so the denominator matches the server's. */
+  totalWordCount?: number
 }
 
 // Reasonable upper bound for a scroll offset (pixels). Real long-form
@@ -53,7 +66,14 @@ const MAX_SCROLL_OFFSET = 10_000_000
 export function buildUserBookProgressPayload(input: UserBookProgressInputs): UserBookProgressPayload | null {
   const slug = input.currentChapterSlug || input.fallbackChapterSlug
   if (!slug) return null
-  const safePercent = clampUnit(input.chapterProgress)
+  // `percent` is book-wide (canonical ProgressPercent semantics). Compute it from
+  // the chapter word counts when we have the chapter list; fall back to the raw
+  // chapter progress when we can't place the chapter (list missing / unknown slug).
+  const bookPct = input.chapters
+    ? computeBookProgress(input.chapters, slug, input.chapterProgress, input.totalWordCount)
+    : null
+  const safePercent = bookPct != null ? clampUnit(bookPct) : clampUnit(input.chapterProgress)
+  // Locator stays within-chapter (scroll restore) — unchanged.
   const safeOffset = clampScrollOffset(input.scrollOffset)
   return {
     percent: safePercent,

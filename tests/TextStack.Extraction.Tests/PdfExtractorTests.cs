@@ -133,6 +133,82 @@ public class PdfExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_WordQuartzWorkbook_NoBlackOrDuplicateBoxImages()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
+        Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
+
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(fixturePath);
+        var request = new ExtractionRequest { Content = stream, FileName = "kmk.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        // Inlined images = those actually referenced in chapter HTML.
+        var inlinedPaths = new HashSet<string>();
+        foreach (var unit in result.Units)
+        {
+            var idx = 0;
+            while ((idx = unit.Html.IndexOf("page-", idx, StringComparison.Ordinal)) >= 0)
+            {
+                var end = idx;
+                while (end < unit.Html.Length &&
+                       (char.IsLetterOrDigit(unit.Html[end]) || unit.Html[end] == '-'))
+                    end++;
+                inlinedPaths.Add(unit.Html[idx..end]);
+                idx = end;
+            }
+        }
+
+        // Soft-mask companion / stacked-duplicate suppression keeps the inline
+        // count modest — nowhere near the 153 raw XObjects in the source.
+        Assert.True(inlinedPaths.Count < 60,
+            $"too many inline images ({inlinedPaths.Count}) — dedup/full-page suppression failed");
+
+        // Every inlined image must decode and NOT be a solid black (or fully
+        // transparent) box.
+        var inlined = result.Images.Where(i => inlinedPaths.Contains(i.OriginalPath)).ToList();
+        Assert.NotEmpty(inlined);
+        foreach (var img in inlined)
+        {
+            using var image = SixLabors.ImageSharp.Image.Load<
+                SixLabors.ImageSharp.PixelFormats.Rgba32>(img.Data);
+
+            long visibleLuma = 0;
+            var visiblePixels = 0;
+            var totalPixels = 0;
+            var stepX = Math.Max(1, image.Width / 16);
+            var stepY = Math.Max(1, image.Height / 16);
+            for (var y = 0; y < image.Height; y += stepY)
+            {
+                for (var x = 0; x < image.Width; x += stepX)
+                {
+                    totalPixels++;
+                    var px = image[x, y];
+                    if (px.A <= 8) continue; // transparent — not "black"
+                    visiblePixels++;
+                    visibleLuma += (px.R + px.G + px.B) / 3;
+                }
+            }
+
+            // A real figure has some visible content.
+            Assert.True(visiblePixels > 0, $"{img.OriginalPath} is fully transparent");
+
+            // Solid black box = mostly opaque AND uniformly black. Transparent
+            // black text/label overlays (few opaque black glyph pixels over a
+            // transparent field) are legitimate and excluded from this check.
+            var opaqueFraction = (double)visiblePixels / totalPixels;
+            if (opaqueFraction >= 0.5)
+            {
+                var avgLuma = visibleLuma / visiblePixels;
+                Assert.True(avgLuma > 10,
+                    $"{img.OriginalPath} looks like a solid black box (avgLuma={avgLuma})");
+            }
+        }
+    }
+
+    [Fact]
     public async Task ExtractAsync_GeneratedPdf_FallsBackToPageSplitting()
     {
         var extractor = new PdfTextExtractor();
