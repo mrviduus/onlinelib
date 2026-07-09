@@ -214,12 +214,14 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // driven by URL chapter + intra-chapter scroll.
   const calculatedProgress = useMemo(() => {
     const chapters = chapterList?.map(c => ({ slug: c.identifier, wordCount: c.wordCount })) ?? []
-    // overlayScrollProgress is already clamped 0..1. Don't pass totalWordCount:
-    // the legacy inline formula used the chapter-list word sum as denominator,
-    // which is exactly computeBookProgress's fallback — passing a canonical
-    // total would diverge from that number.
-    return computeBookProgress(chapters, chapterIdentifier, overlayScrollProgress) ?? 0
-  }, [chapterList, chapterIdentifier, overlayScrollProgress])
+    // Denominator = canonical book-wide word total so the client's book-% matches
+    // the server's Σ chapter WordCount — the same value persisted verbatim into
+    // UserBook.ProgressPercent and read back by the library card + shelf. For user
+    // books that's book.totalWordCount; for public editions we let computeBookProgress
+    // fall back to the chapter-list sum, which already equals Σ Chapters.WordCount.
+    const totalWords = mode === 'userbook' ? (book?.totalWordCount || undefined) : undefined
+    return computeBookProgress(chapters, chapterIdentifier, overlayScrollProgress, totalWords) ?? 0
+  }, [chapterList, chapterIdentifier, overlayScrollProgress, mode, book?.totalWordCount])
 
   // Force 100% when book is completed
   const rawProgress = bookCompleted ? 1 : calculatedProgress

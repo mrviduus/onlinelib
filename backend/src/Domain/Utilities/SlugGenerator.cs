@@ -12,6 +12,17 @@ public static class SlugGenerator
             return string.Empty;
 
         var slug = title.ToLowerInvariant()
+            // Map unicode dash/hyphen variants to ASCII "-" BEFORE the
+            // letter-or-digit filter strips them — otherwise ranges fuse
+            // ("1–15" → "115" instead of "1-15"). Covers en-dash (U+2013),
+            // em-dash (U+2014), figure/horizontal/minus/hyphen variants.
+            .Replace('‐', '-')  // hyphen
+            .Replace('‑', '-')  // non-breaking hyphen
+            .Replace('‒', '-')  // figure dash
+            .Replace('–', '-')  // en dash
+            .Replace('—', '-')  // em dash
+            .Replace('―', '-')  // horizontal bar
+            .Replace('−', '-')  // minus sign
             .Replace(" ", "-")
             .Replace("'", "")
             .Replace("\"", "")

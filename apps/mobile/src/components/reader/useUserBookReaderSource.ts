@@ -113,6 +113,11 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
       fallbackChapterSlug: snap.chapterSlug,
       chapterProgress: snap.chapterPercent,
       scrollOffset: snap.scrollOffset,
+      // Store book-wide % (canonical ProgressPercent) — same semantics the web
+      // reader and library shelf use. computeBookProgress turns the within-chapter
+      // scroll into a book-wide value using the chapter word counts.
+      chapters,
+      totalWordCount: totalWordCountRef.current || undefined,
     })
     if (payload) {
       userBooksApi.updateUserBookProgress(bookId, payload)
@@ -121,7 +126,7 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     if (typeof snap.bookPercent === 'number') {
       saveUserBookLocalProgress(bookId, { bookPercent: snap.bookPercent, updatedAt: snap.updatedAt }).catch(() => {})
     }
-  }, [bookId])
+  }, [bookId, chapters])
 
   const loadPosition = useCallback(async (slug: string): Promise<SavedPosition> => {
     try {
