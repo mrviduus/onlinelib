@@ -8,7 +8,6 @@ import { useTranslation } from '../hooks/useTranslation'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { UploadDropZone } from '../components/library/UploadDropZone'
-import { LibraryShelves } from '../components/library/LibraryShelves'
 import { LibrarySidebar } from '../components/library/LibrarySidebar'
 import { useLibrarySource } from '../hooks/useLibrarySource'
 import { LibraryStatsHeader } from '../components/library/LibraryStatsHeader'
@@ -478,8 +477,6 @@ export function LibraryPage() {
         </header>
 
         {isAuthenticated && <LibraryStatsHeader />}
-
-        <LibraryShelves hasAnyContent={items.length > 0 || userBooks.length > 0} />
 
         <CollectionChips activeId={activeCollectionId} onSelect={onCollectionChange} />
 
