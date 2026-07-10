@@ -412,6 +412,9 @@ export interface UserBookDto {
   progressPercent: number | null
   progressUpdatedAt: string | null
   progressChapterSlug: string | null
+  /** True when the original upload is a PDF → the card can open "Original layout".
+   *  Absent on older payloads → false. */
+  hasOriginalPdf?: boolean
 }
 
 export interface UserBookChapterDto {
@@ -422,6 +425,8 @@ export interface UserBookChapterDto {
   wordCount: number | null
   prev: ChapterNav | null
   next: ChapterNav | null
+  /** 1-based PDF page where this chapter starts. Null for EPUBs / unknown. */
+  sourceStartPage?: number | null
 }
 
 // "Ask this book" (Phase 4 RAG, AI-025/026). Mirrors backend Contracts.Books.Ask*.

@@ -22,6 +22,9 @@ export interface ReaderChapterMeta {
   title: string
   chapterNumber?: number
   wordCount?: number | null
+  /** 1-based PDF page where this chapter starts (Original layout, ADR-012 S4c).
+   *  Drives TOC → page jumps. Null/undefined for EPUB / unknown. */
+  sourceStartPage?: number | null
 }
 
 /**
@@ -106,6 +109,41 @@ export interface ReaderRuntime {
   // "Ask this book" target — catalog edition or user-uploaded book (AI-027 P2).
   // Drives the Ask button visibility + which endpoint family the sheet hits.
   askTarget?: AskTarget
+
+  // --- Original-layout PDF (ADR-012 S4b) ------------------------------------
+  // Set by `useUserBookReaderSource` when the upload has a renderable PDF and
+  // reflow isn't force-selected. When true, the shell renders the pdf.js viewer
+  // WebView instead of the reflow HTML (one shell, branch inside). Absent/false
+  // for editions and reflow user-books.
+  original?: boolean
+  /** Absolute, Range-enabled URL of the original PDF (mobile injects the Bearer
+   *  into pdf.js httpHeaders — the URL carries no token). Null unless `original`. */
+  originalFileUrl?: string | null
+  /** 1-based page to open the PDF at — the current chapter's start page. When
+   *  set it WINS over the server resume page (the user chose this chapter). Null
+   *  → fall back to the server resume page, else page 1. */
+  originalInitialPage?: number | null
+  /** Server-persisted resume page (parsed from the `page:<N>` progress locator).
+   *  Used when the chapter carries no page — it loses to `originalInitialPage`.
+   *  Null when there is no server progress yet. (ADR-012 S4c) */
+  originalResumePage?: number | null
+  /** False while the server resume page is still being fetched — the initial
+   *  scroll waits for this so a cross-device open lands on the saved page, not
+   *  page 1. Ignored when `originalInitialPage` is set (chapter jump is instant). */
+  originalResumeReady?: boolean
+  /** Persist a PDF page position to server progress (page fraction → the same
+   *  ProgressPercent field the library card reads). Debounced by the source. The
+   *  shell calls this on the throttled `pdfPage` message; it never feeds the
+   *  word-based reading session. (ADR-012 S4c) */
+  persistPdfPage?: (page: number, numPages: number) => void
+  /** Toggle a page bookmark (`locator: page:<N>`, `chapterId: null`) for the
+   *  current PDF page. Original mode only. */
+  onTogglePageBookmark?: (page: number) => void
+  /** Whether the given 1-based page currently has a page bookmark. */
+  isPageBookmarked?: (page: number) => boolean
+  /** Drop out of Original layout into the reflow reader (ADR-012 S4c corrupt-PDF
+   *  fallback). No-op / undefined when the book has no reflow chapters. */
+  onForceReflow?: () => void
 }
 
 export type { ReaderShellChapter }

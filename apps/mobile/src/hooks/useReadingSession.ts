@@ -161,5 +161,16 @@ export function useReadingSession(config: SessionConfig) {
     resetAutoEndTimer()
   }, [resetAutoEndTimer])
 
-  return { updateProgress, sessionStartedAt: startTimeRef.current }
+  // Time-only activity ping for the Original-layout PDF reader (ADR-012 S4c).
+  // The PDF position is a PAGE fraction that must NOT feed into the word-based
+  // `wordsRead` computation, so it keeps the session/streak alive (activity +
+  // auto-end re-arm) WITHOUT touching startPercent/currentPercent. Mirrors web's
+  // `readingSession.recordActivity()`.
+  const recordActivity = useCallback(() => {
+    lastActivityRef.current = Date.now()
+    if (submittedRef.current) return
+    resetAutoEndTimer()
+  }, [resetAutoEndTimer])
+
+  return { updateProgress, recordActivity, sessionStartedAt: startTimeRef.current }
 }

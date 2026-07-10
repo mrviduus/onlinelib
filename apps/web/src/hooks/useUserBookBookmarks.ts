@@ -4,7 +4,7 @@ import {
   createUserBookBookmark,
   deleteUserBookBookmark,
 } from '../api/userBooks'
-import { parsePdfPageLocator } from '../lib/pdfProgress'
+import { parsePdfPageLocator } from '@textstack/shared'
 import type { Bookmark } from './useBookmarks'
 
 export function useUserBookBookmarks(bookId: string) {

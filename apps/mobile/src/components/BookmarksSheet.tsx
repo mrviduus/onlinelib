@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, FlatList } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { parsePdfPageLocator } from '@textstack/shared'
 import type { BookmarkDto } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
@@ -14,14 +15,19 @@ interface Props {
   bookmarks: BookmarkDto[]
   currentChapterSlug: string
   onNavigate: (chapterSlug: string) => void
+  /** Jump the Original-layout PDF to a 1-based page (page bookmarks). */
+  onNavigatePage?: (page: number) => void
   onDelete: (id: string) => void
   onToggleCurrent: () => void
   isCurrentBookmarked: boolean
+  /** Original-layout PDF mode — the "add" button bookmarks the current PAGE and
+   *  `page:<N>` bookmarks jump via `onNavigatePage`. */
+  original?: boolean
 }
 
 export function BookmarksSheet({
   visible, onClose, bookmarks, currentChapterSlug,
-  onNavigate, onDelete, onToggleCurrent, isCurrentBookmarked,
+  onNavigate, onNavigatePage, onDelete, onToggleCurrent, isCurrentBookmarked, original,
 }: Props) {
   const { colors } = useTheme()
 
@@ -50,7 +56,7 @@ export function BookmarksSheet({
               accessibilityState={{ selected: isCurrentBookmarked }}
             >
               <Text style={[styles.addBtnText, { color: colors.primary }]}>
-                {isCurrentBookmarked ? 'Remove Bookmark' : 'Bookmark This Chapter'}
+                {isCurrentBookmarked ? 'Remove Bookmark' : original ? 'Bookmark This Page' : 'Bookmark This Chapter'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -63,13 +69,19 @@ export function BookmarksSheet({
               keyExtractor={item => item.id}
               style={styles.list}
               renderItem={({ item }) => {
+                const page = parsePdfPageLocator(item.locator)
                 const slug = getSlugFromLocator(item.locator)
-                const isCurrent = slug === currentChapterSlug
+                const isCurrent = page == null && slug === currentChapterSlug
+                const go = () => {
+                  if (page != null) onNavigatePage?.(page)
+                  else onNavigate(slug)
+                  onClose()
+                }
                 return (
                   <View style={[styles.row, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity
                       style={styles.rowContent}
-                      onPress={() => { onNavigate(slug); onClose() }}
+                      onPress={go}
                       accessibilityRole="button"
                       accessibilityLabel={`Go to bookmark: ${item.title}`}
                       accessibilityState={{ selected: isCurrent }}
