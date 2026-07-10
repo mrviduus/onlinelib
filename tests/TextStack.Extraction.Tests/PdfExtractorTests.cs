@@ -102,8 +102,10 @@ public class PdfExtractorTests
     }
 
     [Fact]
-    public async Task ExtractAsync_PdfWithJpeg_ExtractsCoverImage()
+    public async Task ExtractAsync_PdfWithJpeg_DefaultOff_RendersCoverWithoutInlineImages()
     {
+        // ADR-012 S5a: inline-image extraction is OFF by default, but the cover
+        // must ALWAYS render (via RenderFirstPageAsCover), independent of the flag.
         var extractor = new PdfTextExtractor();
         var pdfBytes = PdfFixtureGenerator.GeneratePdfWithJpegImage(10);
         using var stream = new MemoryStream(pdfBytes);
@@ -111,15 +113,18 @@ public class PdfExtractorTests
 
         var result = await extractor.ExtractAsync(request);
 
+        // Cover populated from the rendered page-1, not the embedded image.
         Assert.NotNull(result.Metadata.CoverImage);
         Assert.NotEmpty(result.Metadata.CoverImage);
         Assert.Equal("image/jpeg", result.Metadata.CoverMimeType);
-        Assert.Contains(result.Images, img => img.IsCover);
+        // Flag off ⇒ no embedded inline images extracted at all.
+        Assert.Empty(result.Images);
     }
 
     [Fact]
-    public async Task ExtractAsync_PdfWithImages_HasImgTagsInHtml()
+    public async Task ExtractAsync_PdfWithImages_DefaultOff_HasNoImgTagsInHtml()
     {
+        // ADR-012 S5a: user-book default drops inline images — page = text only.
         var extractor = new PdfTextExtractor();
         var pdfBytes = PdfFixtureGenerator.GeneratePdfWithImagesOnMultiplePages(10);
         using var stream = new MemoryStream(pdfBytes);
@@ -128,13 +133,40 @@ public class PdfExtractorTests
         var result = await extractor.ExtractAsync(request);
 
         var allHtml = string.Join(" ", result.Units.Select(u => u.Html));
-        Assert.Contains("<img", allHtml);
-        Assert.Contains("page-1-img-0", allHtml);
+        Assert.DoesNotContain("<img", allHtml);
+        Assert.DoesNotContain("page-1-img-", allHtml);
+        Assert.Empty(result.Images);
     }
 
     [Fact]
-    public async Task ExtractAsync_WordQuartzWorkbook_NoBlackOrDuplicateBoxImages()
+    public async Task ExtractAsync_PdfWithImages_FlagOn_HasImgTagsInHtml()
     {
+        // ADR-012 S5a: admin-catalog reflow path opts in — inline figures preserved.
+        var extractor = new PdfTextExtractor();
+        var pdfBytes = PdfFixtureGenerator.GeneratePdfWithImagesOnMultiplePages(10);
+        using var stream = new MemoryStream(pdfBytes);
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "with-images.pdf",
+            Options = new ExtractionOptions { ExtractInlineImages = true }
+        };
+
+        var result = await extractor.ExtractAsync(request);
+
+        var allHtml = string.Join(" ", result.Units.Select(u => u.Html));
+        Assert.Contains("<img", allHtml);
+        Assert.Contains("page-1-img-0", allHtml);
+        Assert.NotEmpty(result.Images);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WordQuartzWorkbook_DefaultOff_ExtractsNoInlineImages()
+    {
+        // ADR-012 S5a repurpose of the #412 "no black/duplicate boxes" test:
+        // under the default-off flag the user-book path extracts NO inline images,
+        // so there can be no black/duplicate boxes to worry about. Assert the whole
+        // page = text-only: empty Images and no page-*-img-* refs in any unit HTML.
         var fixturePath = Path.Combine(
             AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
         Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
@@ -142,6 +174,34 @@ public class PdfExtractorTests
         var extractor = new PdfTextExtractor();
         await using var stream = File.OpenRead(fixturePath);
         var request = new ExtractionRequest { Content = stream, FileName = "kmk.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.Empty(result.Images);
+        // No inline <img> emitted (the only source of page-*-img-* refs).
+        Assert.All(result.Units, u =>
+        {
+            Assert.DoesNotContain("<img", u.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("-img-", u.Html, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WordQuartzWorkbook_FlagOn_NoBlackOrDuplicateBoxImages()
+    {
+        // Admin-catalog path (flag on) still guards against black/duplicate boxes.
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
+        Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
+
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(fixturePath);
+        var request = new ExtractionRequest
+        {
+            Content = stream,
+            FileName = "kmk.pdf",
+            Options = new ExtractionOptions { ExtractInlineImages = true }
+        };
 
         var result = await extractor.ExtractAsync(request);
 
