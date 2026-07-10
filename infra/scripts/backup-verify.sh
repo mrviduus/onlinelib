@@ -25,6 +25,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Reap leaked verify containers from prior killed/timed-out runs — they hold
+# ports + memory and can starve a fresh postgres into never becoming ready.
+LEAKED=$(docker ps -aq --filter "name=textstack_backup_verify_" 2>/dev/null || true)
+if [[ -n "$LEAKED" ]]; then
+  echo "[verify] removing $(echo "$LEAKED" | wc -l | tr -d ' ') leaked verify container(s) ..." >&2
+  docker rm -f $LEAKED >/dev/null 2>&1 || true
+fi
+
 echo "[verify] starting postgres on :$PORT ..."
 docker run -d --rm \
   --name "$CONTAINER" \
@@ -34,15 +42,38 @@ docker run -d --rm \
   -p "$PORT:5432" \
   pgvector/pgvector:pg16 >/dev/null  # prod schema uses CREATE EXTENSION vector (pgvector); vanilla postgres:16 fails restore
 
+# Dump why the throwaway postgres never came up. "did not become ready" alone
+# hides the real cause — almost always a full disk (initdb can't write its data
+# dir) or the container dying on start. Print the signal into the CI log.
+diagnose_startup_failure() {
+  echo "[verify] --- diagnostics: why postgres didn't start ---" >&2
+  echo "[verify] container state:" >&2
+  docker ps -a --filter "name=$CONTAINER" --format '  {{.Names}} {{.Status}}' >&2 2>&1 || true
+  echo "[verify] last container logs:" >&2
+  docker logs --tail 40 "$CONTAINER" 2>&1 | sed 's/^/  /' >&2 || true
+  echo "[verify] disk usage (a full disk is the usual cause):" >&2
+  df -h / /home 2>/dev/null | sed 's/^/  /' >&2 || true
+  echo "[verify] docker disk usage:" >&2
+  docker system df 2>/dev/null | sed 's/^/  /' >&2 || true
+  echo "[verify] -------------------------------------------------" >&2
+}
+
 echo "[verify] waiting for postgres to accept connections ..."
-for i in {1..30}; do
+for i in {1..60}; do
   if docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
     break
+  fi
+  # Bail early if the container has already exited — no point waiting 60s.
+  if [[ -z "$(docker ps -q --filter "name=$CONTAINER" 2>/dev/null)" ]]; then
+    echo "[verify] FAIL: verify container exited during startup" >&2
+    diagnose_startup_failure
+    exit 1
   fi
   sleep 1
 done
 if ! docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
-  echo "[verify] FAIL: postgres did not become ready" >&2
+  echo "[verify] FAIL: postgres did not become ready after 60s" >&2
+  diagnose_startup_failure
   exit 1
 fi
 
