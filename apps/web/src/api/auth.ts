@@ -82,10 +82,22 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   })
 }
 
-export async function refreshToken(): Promise<AuthResponse> {
-  return authFetch<AuthResponse>('/auth/refresh', {
-    method: 'POST',
-  })
+// Single-flight refresh. The reader fires many authenticated requests in
+// parallel (chapter, book, progress, bookmarks…), so when the access token
+// expires they all 401 at (nearly) the same instant and each would call
+// /auth/refresh. The server ROTATES the refresh token on every call — it
+// deletes the presented token and issues a new one — so only the first
+// concurrent refresh succeeds; the rest present the now-deleted token and get
+// 401, surfacing as a spurious "Unauthorized" mid-session (the session is
+// actually fine). Dedupe concurrent refreshes into one in-flight request:
+// every caller awaits the same promise, one rotation happens, one fresh cookie
+// is set, then all callers retry their original request.
+let refreshInFlight: Promise<AuthResponse> | null = null
+
+export function refreshToken(): Promise<AuthResponse> {
+  refreshInFlight ??= authFetch<AuthResponse>('/auth/refresh', { method: 'POST' })
+    .finally(() => { refreshInFlight = null })
+  return refreshInFlight
 }
 
 export async function logout(): Promise<void> {
