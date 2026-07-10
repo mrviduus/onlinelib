@@ -118,8 +118,17 @@ public static class DependencyInjection
                 sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.OpenAiLlmClient>>(),
                 sp.GetRequiredService<IConfiguration>()["OpenAI:RagAsk:Model"] ?? "gpt-4.1-mini"));
 
+        // ADR-012 S3: PDF vision→Markdown parse (pdf.parse) runs a full multimodal model (OpenAI:Pdf:Model,
+        // default gpt-4.1) — vision + faithful table transcription. Routed per-feature (Ai:Routes:pdf.parse
+        // → openai-pdf) so it never affects the text-only features. Mirrors the judge/rag registration.
+        services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>("openai-pdf-raw", (sp, key) =>
+            new global::TextStack.Ai.Llm.OpenAiLlmClient(
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.OpenAiLlmClient>>(),
+                sp.GetRequiredService<IConfiguration>()["OpenAI:Pdf:Model"] ?? "gpt-4.1"));
+
         // Decorated providers (keyed): TracingDecorator wraps each raw provider.
-        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge", "openai-explain", "openai-rag" })
+        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge", "openai-explain", "openai-rag", "openai-pdf" })
         {
             services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>(providerKey, (sp, key) =>
                 new global::TextStack.Ai.Llm.TracingDecorator(

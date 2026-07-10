@@ -86,6 +86,8 @@ builder.Services.AddSingleton<ITtsService, EdgeTtsService>();
 builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
 // Phase 4 RAG: sentence-aware chunker emits chapter_chunk rows during ingestion.
 builder.Services.AddAiRag();
+// ADR-012 S3: vision PDF→Markdown parser for user-book "Ask this book" indexing.
+builder.Services.AddSingleton<Application.Rag.IPdfVisionParser, Infrastructure.Rag.PdfVisionParser>();
 // Shared chunking service (ingestion + on-demand "Ask this book" index trigger).
 builder.Services.AddSingleton<Infrastructure.Rag.BookChunkingService>();
 builder.Services.AddSingleton<IngestionWorkerService>();

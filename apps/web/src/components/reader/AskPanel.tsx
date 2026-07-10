@@ -112,10 +112,16 @@ export function AskPanel({
                     <button
                       key={c.chunkId}
                       className="ask-panel__chip"
-                      title={c.preview}
+                      // PDF citations carry a section path — surface it as the tooltip;
+                      // otherwise fall back to the passage preview.
+                      title={c.sectionPath || c.preview}
                       onClick={() => onNavigateToCitation(c)}
                     >
-                      {t('reader.ask.citation', { ch: c.chapterOrd })}
+                      {c.sourcePage != null
+                        ? t('reader.ask.citationPage', { page: c.sourcePage })
+                        : c.chapterOrd != null
+                          ? t('reader.ask.citation', { ch: c.chapterOrd })
+                          : t('reader.ask.citationFallback')}
                     </button>
                   ))}
                 </div>

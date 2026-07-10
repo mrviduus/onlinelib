@@ -14,6 +14,8 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
     <PackageReference Include="SixLabors.ImageSharp" />
+    <!-- ADR-012 S3: render PDF pages → JPEG for the vision-RAG parser (same lib as extraction). -->
+    <PackageReference Include="PDFtoImage" />
     <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 

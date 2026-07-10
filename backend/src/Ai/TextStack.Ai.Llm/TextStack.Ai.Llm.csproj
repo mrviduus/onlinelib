@@ -8,6 +8,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ADR-012 S3: unit-test the multimodal BuildMessages seam (image content parts). -->
+    <InternalsVisibleTo Include="TextStack.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="OpenAI" />
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.Extensions.Http" />

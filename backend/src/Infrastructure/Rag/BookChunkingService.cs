@@ -1,4 +1,6 @@
+using Application.Rag;
 using Domain.Entities;
+using Domain.Enums;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,8 +13,17 @@ namespace Infrastructure.Rag;
 /// embedding, filled later by the embedding worker). Extracted from the ingestion path so the
 /// on-demand "Ask this book" index trigger (Phase 1) and ingestion share one chunking codepath.
 /// Lives in Infrastructure because it touches the <c>chapter_chunk</c> DbSet directly.
+///
+/// ADR-012 S3: for user-uploaded PDFs the chunks come from a vision-LLM Markdown parse
+/// (<see cref="IPdfVisionParser"/> + <see cref="MarkdownChunker"/>) instead of the deterministic,
+/// table-jumbling text — with page + section provenance. EPUB and any vision failure keep the
+/// deterministic sentence chunker over <c>UserChapter.PlainText</c>.
 /// </summary>
-public sealed class BookChunkingService(IChunker chunker, ILogger<BookChunkingService> logger)
+public sealed class BookChunkingService(
+    IChunker chunker,
+    MarkdownChunker markdownChunker,
+    IPdfVisionParser pdfVisionParser,
+    ILogger<BookChunkingService> logger)
 {
     /// <summary>
     /// Creates <see cref="ChapterChunk"/> rows for every chapter of <paramref name="editionId"/>
@@ -75,15 +86,30 @@ public sealed class BookChunkingService(IChunker chunker, ILogger<BookChunkingSe
                 return 0;
             }
 
-            var chapters = await db.UserChapters
-                .Where(c => c.UserBookId == userBookId)
-                .OrderBy(c => c.ChapterNumber)
-                .Select(c => new { c.Id, c.ChapterNumber, c.PlainText })
-                .ToListAsync(ct);
+            // ADR-012 S3: a user PDF is chunked from a vision-Markdown parse (faithful tables + page
+            // provenance). EPUB — and any vision failure — falls through to the deterministic path.
+            var file = await db.UserBookFiles
+                .Where(f => f.UserBookId == userBookId)
+                .OrderByDescending(f => f.UploadedAt)
+                .Select(f => new { f.Format, f.StoragePath })
+                .FirstOrDefaultAsync(ct);
 
-            var rows = BuildUserRows(
-                chunker, userBookId, ownerId,
-                chapters.Select(c => (c.Id, c.ChapterNumber, (string?)c.PlainText)));
+            var rows = file?.Format == BookFormat.Pdf
+                ? await BuildPdfRowsAsync(db, userBookId, ownerId, file.StoragePath, ct)
+                : null;
+
+            if (rows is null || rows.Count == 0)
+            {
+                var chapters = await db.UserChapters
+                    .Where(c => c.UserBookId == userBookId)
+                    .OrderBy(c => c.ChapterNumber)
+                    .Select(c => new { c.Id, c.ChapterNumber, c.PlainText })
+                    .ToListAsync(ct);
+
+                rows = BuildUserRows(
+                    chunker, userBookId, ownerId,
+                    chapters.Select(c => (c.Id, c.ChapterNumber, (string?)c.PlainText)));
+            }
 
             if (rows.Count > 0)
             {
@@ -138,6 +164,91 @@ public sealed class BookChunkingService(IChunker chunker, ILogger<BookChunkingSe
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// ADR-012 S3 PDF path: vision-parse the stored PDF → structure-aware Markdown chunks → rows attached
+    /// to the BOOK (UserBookId + UserId always set), each carrying its source page + section path. When
+    /// S2 chapter detection has run, a chunk whose page falls inside a chapter's [SourceStartPage,
+    /// SourceEndPage] is linked to that chapter; otherwise the chapter link stays null (best-effort — we
+    /// never trigger chapter detection here). Returns null on vision failure/empty so the caller falls
+    /// back to the deterministic chunker.
+    /// </summary>
+    private async Task<List<UserChapterChunk>?> BuildPdfRowsAsync(
+        AppDbContext db, Guid userBookId, Guid userId, string storagePath, CancellationToken ct)
+    {
+        var pages = await pdfVisionParser.ParseAsync(storagePath, ct);
+        if (pages.Count == 0)
+        {
+            logger.LogInformation(
+                "Vision parse yielded no pages for user book {UserBookId}; falling back to deterministic chunking",
+                userBookId);
+            return null;
+        }
+
+        var chunks = markdownChunker.Chunk(pages);
+        if (chunks.Count == 0)
+            return null;
+
+        var chapters = await db.UserChapters
+            .Where(c => c.UserBookId == userBookId && c.SourceStartPage != null && c.SourceEndPage != null)
+            .OrderBy(c => c.ChapterNumber)
+            .Select(c => new { c.Id, c.ChapterNumber, Start = c.SourceStartPage!.Value, End = c.SourceEndPage!.Value })
+            .ToListAsync(ct);
+
+        var ranges = chapters
+            .Select(c => (c.Id, c.ChapterNumber, c.Start, c.End))
+            .ToList();
+
+        return BuildUserRowsFromMarkdown(userBookId, userId, chunks, ranges);
+    }
+
+    /// <summary>
+    /// Pure mapping: structure-aware Markdown chunks → <see cref="UserChapterChunk"/> rows (null
+    /// embedding). Every row carries the owner (<paramref name="userId"/>) + book plus the chunk's
+    /// <c>SourcePage</c>/<c>SectionPath</c>. The (optional) chapter link + ChapterOrd come from the page
+    /// range lookup — null/0 when no chapter contains the page. Static + pure so the page→chapter mapping
+    /// is unit-testable without a DB. Char offsets are Markdown-local (never used for PDF navigation).
+    /// </summary>
+    public static List<UserChapterChunk> BuildUserRowsFromMarkdown(
+        Guid userBookId,
+        Guid userId,
+        IReadOnlyList<MarkdownChunk> chunks,
+        IReadOnlyList<(Guid Id, int ChapterNumber, int Start, int End)> chapters)
+    {
+        var rows = new List<UserChapterChunk>(chunks.Count);
+        foreach (var chunk in chunks)
+        {
+            var chapter = FindChapterForPage(chapters, chunk.SourcePage);
+            rows.Add(new UserChapterChunk
+            {
+                Id = Guid.NewGuid(),
+                UserBookId = userBookId,
+                UserChapterId = chapter?.Id,                      // null when unmapped (best-effort)
+                UserId = userId,
+                ChapterOrd = chapter?.ChapterNumber ?? 0,
+                Ord = chunk.Ord,
+                Text = chunk.Text,
+                TokenCount = chunk.TokenCount,
+                CharStart = chunk.CharStart,
+                CharEnd = chunk.CharEnd,
+                SourcePage = chunk.SourcePage,
+                SectionPath = chunk.SectionPath,
+                Embedding = null
+            });
+        }
+
+        return rows;
+    }
+
+    /// <summary>First chapter whose physical page range contains <paramref name="page"/>, or null.</summary>
+    private static (Guid Id, int ChapterNumber, int Start, int End)? FindChapterForPage(
+        IReadOnlyList<(Guid Id, int ChapterNumber, int Start, int End)> chapters, int page)
+    {
+        foreach (var c in chapters)
+            if (page >= c.Start && page <= c.End)
+                return c;
+        return null;
     }
 
     /// <summary>

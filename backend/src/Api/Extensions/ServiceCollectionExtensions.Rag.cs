@@ -17,6 +17,9 @@ public static partial class ServiceCollectionExtensions
         services.AddRagRetrieval(_ => () => new NpgsqlConnection(connectionString));
         // On-demand "Ask this book" index trigger (Phase 1): the chunker + shared chunking service.
         services.AddAiRag();
+        // ADR-012 S3: vision PDF→Markdown parser (renders pages + calls the pdf.parse LLM route).
+        // Singleton — its deps (storage, LLM gateway) are singletons; safe under the scoped chunker too.
+        services.AddSingleton<Application.Rag.IPdfVisionParser, Infrastructure.Rag.PdfVisionParser>();
         services.AddScoped<Infrastructure.Rag.BookChunkingService>();
         // Spoiler-safe context builder (AI-024): resolves lastRead + gates chunks + private corpus.
         services.AddScoped<Application.Rag.RagContextService>();
