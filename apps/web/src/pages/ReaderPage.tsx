@@ -36,7 +36,8 @@ import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
-import { getUserBooks, getUserBookFileUrl } from '../api/userBooks'
+import { getUserBooks, getUserBookFileUrl, getUserBookProgress } from '../api/userBooks'
+import { parsePdfPageLocator } from '../lib/pdfProgress'
 import { computeBookProgress } from '@textstack/shared'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
@@ -189,6 +190,27 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // no known page, in which case PdfOriginalView falls back to the resume page.
   const initialPdfPage = activeChapter?.sourceStartPage ?? null
   const pdfFileUrl = id ? getUserBookFileUrl(id) : ''
+
+  // Server resume page for the chapterless Original view (parsed from the
+  // "page:<N>" progress locator). Fetched once when Original is active; wins over
+  // localStorage but loses to a chapter's sourceStartPage. `resumeReady` gates
+  // the initial scroll so a cross-device open lands on the saved page.
+  const [pdfResumePage, setPdfResumePage] = useState<number | null>(null)
+  const [pdfResumeReady, setPdfResumeReady] = useState(false)
+  useEffect(() => {
+    if (!originalActive || !id) {
+      setPdfResumeReady(true)
+      return
+    }
+    let cancelled = false
+    setPdfResumeReady(false)
+    setPdfResumePage(null)
+    getUserBookProgress(id)
+      .then((p) => { if (!cancelled) setPdfResumePage(parsePdfPageLocator(p?.locator)) })
+      .catch(() => { /* offline → PdfOriginalView falls back to localStorage */ })
+      .finally(() => { if (!cancelled) setPdfResumeReady(true) })
+    return () => { cancelled = true }
+  }, [originalActive, id])
 
   const { publicProgress, userProgress, effectiveProgress, effectiveLoading, autoSaveInfo } =
     useReaderProgress({
@@ -632,6 +654,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   fileUrl={pdfFileUrl}
                   bookId={id!}
                   initialPage={initialPdfPage}
+                  resumePage={pdfResumePage}
+                  resumeReady={pdfResumeReady}
                   scrollToPage={pdfScrollTo}
                   // Time-only: keeps the reading session/streak alive without
                   // feeding page position into canonical word-based progress.

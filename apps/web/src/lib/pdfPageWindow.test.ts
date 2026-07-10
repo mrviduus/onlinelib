@@ -83,6 +83,19 @@ describe('resolveOpenPage', () => {
     expect(resolveOpenPage(null, null)).toBe(1)
     expect(resolveOpenPage(undefined, undefined)).toBe(1)
   })
+
+  it('precedence: chapter page > server resume > localStorage > 1', () => {
+    // chapter page wins over both resume sources
+    expect(resolveOpenPage(12, 40, 7)).toBe(12)
+    // no chapter → server resume page wins over localStorage
+    expect(resolveOpenPage(null, 40, 7)).toBe(40)
+    // no chapter, no server → localStorage
+    expect(resolveOpenPage(null, null, 7)).toBe(7)
+    // nothing → 1
+    expect(resolveOpenPage(null, null, null)).toBe(1)
+    // skips <1 candidates
+    expect(resolveOpenPage(0, 40, 7)).toBe(40)
+  })
 })
 
 describe('dimsReadyUpTo', () => {

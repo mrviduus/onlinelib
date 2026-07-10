@@ -362,7 +362,9 @@ export async function getUserBookProgress(bookId: string): Promise<UserBookProgr
 
 export async function saveUserBookProgress(
   bookId: string,
-  data: { chapterSlug: string; locator?: string; percent?: number; updatedAt?: string }
+  // chapterSlug is nullable — a chapterless PDF read in Original layout sends
+  // null with a "page:<N>" locator (ADR-012 S2).
+  data: { chapterSlug: string | null; locator?: string; percent?: number; updatedAt?: string }
 ): Promise<void> {
   await authFetch<void>(`/me/books/${bookId}/progress`, {
     method: 'PUT',
