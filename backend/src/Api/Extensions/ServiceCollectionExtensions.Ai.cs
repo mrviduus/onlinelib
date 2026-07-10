@@ -18,6 +18,7 @@ public static partial class ServiceCollectionExtensions
         services.AddSingleton<Application.Ai.EvalRegressionDetector>();
         services.AddSingleton<TextStack.Ai.EvalSuite.RagEvalRunner>();
         services.AddSingleton<TextStack.Ai.EvalSuite.UserBookRagEvalRunner>();
+        services.AddSingleton<TextStack.Ai.EvalSuite.PdfVisionEvalRunner>();
         services.AddSingleton<TextStack.Ai.EvalSuite.ToolCallEvalRunner>();
         services.AddSingleton<TextStack.Ai.EvalSuite.StudyBuddyEvalRunner>();
         services.AddSingleton<TextStack.Ai.EvalSuite.EnrichmentEvalRunner>();
