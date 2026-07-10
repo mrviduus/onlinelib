@@ -269,9 +269,11 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.RagStatus,
                 b.RagChunkCount,
                 b.RagEmbeddedCount,
+                HasOriginalPdf = b.BookFiles.Any(f => f.Format == BookFormat.Pdf),
                 Chapters = b.Chapters
                     .OrderBy(c => c.ChapterNumber)
-                    .Select(c => new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount))
+                    .Select(c => new UserChapterSummaryDto(
+                        c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount, c.SourceStartPage))
                     .ToList()
             })
             .FirstOrDefaultAsync(ct);
@@ -312,7 +314,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             book.CompletedAt,
             book.RagStatus.ToString(),
             book.RagChunkCount,
-            book.RagEmbeddedCount
+            book.RagEmbeddedCount,
+            book.HasOriginalPdf
         );
     }
 

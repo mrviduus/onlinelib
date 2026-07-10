@@ -265,7 +265,10 @@ public sealed class PdfTextExtractor : ITextExtractor
                     Html: html,
                     PlainText: plainText,
                     OrderIndex: chapterIdx,
-                    WordCount: wordCount));
+                    WordCount: wordCount,
+                    // Physical PDF page range for the "Original layout" reader jump.
+                    SourceStartPage: chapter.StartPage,
+                    SourceEndPage: Math.Min(chapter.EndPage, pageCount)));
             }
             catch (Exception ex)
             {

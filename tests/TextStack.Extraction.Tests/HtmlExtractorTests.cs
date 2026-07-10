@@ -36,6 +36,24 @@ public class HtmlExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_CleanArticle_UnitsHaveNullSourcePages()
+    {
+        // HTML/clip units carry no physical page range (PDF-only). Null lets the
+        // reader fall back to page 1 rather than attempting an invalid page jump.
+        var extractor = new HtmlTextExtractor();
+        var request = await RequestFromFixtureAsync();
+
+        var result = await extractor.ExtractAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(result.Units);
+        Assert.All(result.Units, u =>
+        {
+            Assert.Null(u.SourceStartPage);
+            Assert.Null(u.SourceEndPage);
+        });
+    }
+
+    [Fact]
     public async Task ExtractAsync_MultiSection_SplitsIntoMultipleUnits()
     {
         var extractor = new HtmlTextExtractor();
