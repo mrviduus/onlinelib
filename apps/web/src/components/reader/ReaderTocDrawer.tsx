@@ -33,6 +33,7 @@ interface Props {
   onClose: () => void
   onRemoveBookmark: (id: string) => void
   onChapterSelect?: (identifier: string) => void // For scroll mode: scroll to chapter instead of navigate
+  onBookmarkSelect?: (bookmark: Bookmark) => void // Original-layout PDF: jump to the bookmark's page instead of navigating
 }
 
 type Tab = 'contents' | 'bookmarks'
@@ -48,6 +49,7 @@ export function ReaderTocDrawer({
   onClose,
   onRemoveBookmark,
   onChapterSelect,
+  onBookmarkSelect,
 }: Props) {
   const containerRef = useFocusTrap(open)
   const [activeTab, setActiveTab] = useState<Tab>('contents')
@@ -131,11 +133,21 @@ export function ReaderTocDrawer({
             {bookmarks.map((bm) => (
               <li key={bm.id} className="reader-toc-drawer__bookmark-item">
                 <ChapterLink
-                  to={getChapterUrl(bm.chapterSlug)}
+                  to={bm.page != null ? '#' : getChapterUrl(bm.chapterSlug)}
                   className={`reader-toc-drawer__item ${bm.chapterSlug === currentChapterIdentifier ? 'active' : ''}`}
-                  onClick={onClose}
+                  onClick={(e) => {
+                    // Original-layout page bookmark: jump the PDF to its page
+                    // instead of routing to a (nonexistent) chapter URL.
+                    if (onBookmarkSelect && bm.page != null) {
+                      e.preventDefault()
+                      onBookmarkSelect(bm)
+                    }
+                    onClose()
+                  }}
                 >
-                  <span className="reader-toc-drawer__title">{bm.chapterTitle}</span>
+                  <span className="reader-toc-drawer__title">
+                    {bm.page != null ? `Page ${bm.page}` : bm.chapterTitle}
+                  </span>
                   <span className="reader-toc-drawer__date">{formatDate(bm.createdAt)}</span>
                 </ChapterLink>
                 <button

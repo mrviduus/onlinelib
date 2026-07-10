@@ -547,7 +547,9 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             .Select(b => new UserBookBookmarkDto(
                 b.Id,
                 b.ChapterId,
-                b.Chapter.Slug,
+                // Page bookmarks (chapterless PDF, ADR-012) have no chapter — don't deref
+                // the nav; return a null slug and let Locator ("page:N") be the anchor.
+                b.Chapter != null ? b.Chapter.Slug : null,
                 b.Locator,
                 b.Title,
                 b.CreatedAt
@@ -562,9 +564,19 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         if (book is null)
             return (null, "Book not found");
 
-        var chapter = await db.UserChapters.FirstOrDefaultAsync(c => c.UserBookId == bookId && c.Id == request.ChapterId, ct);
-        if (chapter is null)
-            return (null, "Chapter not found");
+        if (string.IsNullOrWhiteSpace(request.Locator))
+            return (null, "Locator is required");
+
+        // Chapter is optional: a page bookmark on a chapterless PDF ("Original layout",
+        // ADR-012) carries only a page Locator. When a ChapterId IS supplied it must resolve
+        // to a chapter of this book (the reflow/EPUB path).
+        UserChapter? chapter = null;
+        if (request.ChapterId is { } chapterId)
+        {
+            chapter = await db.UserChapters.FirstOrDefaultAsync(c => c.UserBookId == bookId && c.Id == chapterId, ct);
+            if (chapter is null)
+                return (null, "Chapter not found");
+        }
 
         var bookmark = new UserBookBookmark
         {
@@ -582,7 +594,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         return (new UserBookBookmarkDto(
             bookmark.Id,
             bookmark.ChapterId,
-            chapter.Slug,
+            chapter?.Slug,
             bookmark.Locator,
             bookmark.Title,
             bookmark.CreatedAt

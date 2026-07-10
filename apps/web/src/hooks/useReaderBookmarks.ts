@@ -20,6 +20,10 @@ export interface UseReaderBookmarksResult {
   getBookmarkForChapter: (chapterSlug: string) => Bookmark | undefined
   removeBookmark: (id: string) => void | Promise<unknown>
   addBookmark: (chapterSlug: string, chapterTitle: string) => Promise<unknown>
+  // Page bookmarks — userbook Original-layout PDF only. No-ops for public books.
+  addPageBookmark: (page: number) => Promise<unknown>
+  isPageBookmarked: (page: number) => boolean
+  getPageBookmark: (page: number) => Bookmark | undefined
 }
 
 export function useReaderBookmarks({
@@ -56,5 +60,9 @@ export function useReaderBookmarks({
     getBookmarkForChapter: active.getBookmarkForChapter,
     removeBookmark: active.removeBookmark,
     addBookmark,
+    // Page bookmarks live on the userbook hook (Original layout is userbook-only).
+    addPageBookmark: userBookmarks.addPageBookmark,
+    isPageBookmarked: userBookmarks.isPageBookmarked,
+    getPageBookmark: userBookmarks.getPageBookmark,
   }
 }

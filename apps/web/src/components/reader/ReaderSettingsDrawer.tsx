@@ -6,6 +6,13 @@ interface Props {
   settings: ReaderSettings
   onUpdate: (partial: Partial<ReaderSettings>) => void
   onClose: () => void
+  /**
+   * Original-layout PDF: typography controls (font size / line height / align /
+   * font) don't apply to a pixel-perfect PDF canvas — the PDF toolbar owns
+   * zoom + dim. Hide them, keep the rows that still act on selection/session
+   * (theme, TTS speed, inline translations, reading stats).
+   */
+  originalMode?: boolean
 }
 
 const themes: { value: Theme; label: string; bg: string }[] = [
@@ -30,7 +37,7 @@ const lineHeights = [1.5, 1.65, 1.8]
 
 const ttsSpeeds = [0.75, 1.0, 1.25, 1.5, 2.0]
 
-export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Props) {
+export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose, originalMode = false }: Props) {
   const containerRef = useFocusTrap(open)
 
   if (!open) return null
@@ -48,6 +55,8 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
           </button>
         </div>
 
+        {!originalMode && (
+        <>
         <div className="reader-settings-drawer__section">
           <label>Font Size</label>
           <div className="reader-settings-drawer__font-size">
@@ -96,6 +105,8 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
             ))}
           </div>
         </div>
+        </>
+        )}
 
         <div className="reader-settings-drawer__section">
           <label>Theme</label>
@@ -112,6 +123,7 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
           </div>
         </div>
 
+        {!originalMode && (
         <div className="reader-settings-drawer__section">
           <label>Font</label>
           <div className="reader-settings-drawer__options">
@@ -127,6 +139,7 @@ export function ReaderSettingsDrawer({ open, settings, onUpdate, onClose }: Prop
             ))}
           </div>
         </div>
+        )}
 
         <div className="reader-settings-drawer__section">
           <label>TTS Speed</label>

@@ -44,6 +44,11 @@ interface PdfOriginalViewProps {
   /** TOC-driven jump. Nonce lets the same page be re-targeted. */
   scrollToPage: { page: number; nonce: number } | null
   /**
+   * Fired (deduped) whenever the top-visible page changes. Lets the reader track
+   * the current page for the top-bar page-bookmark toggle + page bookmarks.
+   */
+  onPageChange?: (page: number) => void
+  /**
    * Fired (throttled) on genuine reading scroll so the reader can keep the
    * reading SESSION alive (time / streak / goals). Deliberately time-only — we
    * never feed a page-based percent into word-based server progress.
@@ -90,6 +95,7 @@ export default function PdfOriginalView({
   resumePage = null,
   resumeReady = true,
   scrollToPage,
+  onPageChange,
   onActivity,
   onLoadError,
 }: PdfOriginalViewProps) {
@@ -110,6 +116,8 @@ export default function PdfOriginalView({
   const numPagesRef = useRef(numPages)
   const lastActivityRef = useRef(0)
   const onActivityRef = useRef(onActivity)
+  const onPageChangeRef = useRef(onPageChange)
+  const lastReportedPageRef = useRef<number | null>(null)
   const prevPdfRef = useRef<typeof pdf>(null)
   const reloadTargetRef = useRef<number | null>(null)
 
@@ -126,6 +134,10 @@ export default function PdfOriginalView({
   }, [onActivity])
 
   useEffect(() => {
+    onPageChangeRef.current = onPageChange
+  }, [onPageChange])
+
+  useEffect(() => {
     numPagesRef.current = numPages
   }, [numPages])
 
@@ -137,6 +149,16 @@ export default function PdfOriginalView({
   )
 
   const currentPage = useMemo(() => topVisiblePage(visible, openPage), [visible, openPage])
+
+  // Surface the current page to the reader (deduped) once real pages are on
+  // screen. Gated on visible.size so the initial openPage guess doesn't fire
+  // before the IntersectionObserver has reported anything.
+  useEffect(() => {
+    if (!visible.size) return
+    if (lastReportedPageRef.current === currentPage) return
+    lastReportedPageRef.current = currentPage
+    onPageChangeRef.current?.(currentPage)
+  }, [currentPage, visible.size])
 
   // --- Load every page's unscaled viewport up front (cheap metadata) so
   // placeholder heights are stable and scroll height doesn't jump. ---

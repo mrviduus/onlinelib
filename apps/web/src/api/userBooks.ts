@@ -376,7 +376,9 @@ export async function saveUserBookProgress(
 // Bookmark API
 export interface UserBookBookmark {
   id: string
-  chapterId: string
+  // Nullable: a chapterless PDF read in Original layout stores a page bookmark
+  // (`chapterId: null`, `locator: "page:<N>"`).
+  chapterId: string | null
   chapterSlug: string | null
   locator: string
   title: string | null
@@ -389,7 +391,8 @@ export async function getUserBookBookmarks(bookId: string): Promise<UserBookBook
 
 export async function createUserBookBookmark(
   bookId: string,
-  data: { chapterId: string; locator: string; title?: string }
+  // chapterId is nullable — Original-layout page bookmarks send null + "page:<N>".
+  data: { chapterId: string | null; locator: string; title?: string }
 ): Promise<UserBookBookmark> {
   return authFetch<UserBookBookmark>(`/me/books/${bookId}/bookmarks`, {
     method: 'POST',

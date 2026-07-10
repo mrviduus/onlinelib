@@ -12,6 +12,7 @@ interface Props {
   sourceDomain?: string | null // hostname of sourceUrl (sans www), shown as the link label
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
   showAsk?: boolean // catalog editions only — user uploads aren't chunked for RAG
+  showSearch?: boolean // hidden in Original-layout PDF (no page-aware search yet)
   onAskClick?: () => void
   onSearchClick: () => void
   onTocClick: () => void
@@ -30,6 +31,7 @@ export function ReaderTopBar({
   sourceDomain,
   useLocalizedLink = true,
   showAsk = false,
+  showSearch = true,
   onAskClick,
   onSearchClick,
   onTocClick,
@@ -78,12 +80,14 @@ export function ReaderTopBar({
 
       <div className="reader-top-bar__right">
         <span className="reader-top-bar__progress">{Math.round(progress * 100)}%</span>
-        <button onClick={onSearchClick} className="reader-top-bar__btn" title="Search in chapter">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-        </button>
+        {showSearch && (
+          <button onClick={onSearchClick} className="reader-top-bar__btn" title="Search in chapter">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </button>
+        )}
         <button onClick={onBookmarkClick} className="reader-top-bar__btn" title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />

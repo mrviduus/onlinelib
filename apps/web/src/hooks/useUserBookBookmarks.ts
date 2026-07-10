@@ -4,6 +4,7 @@ import {
   createUserBookBookmark,
   deleteUserBookBookmark,
 } from '../api/userBooks'
+import { parsePdfPageLocator } from '../lib/pdfProgress'
 import type { Bookmark } from './useBookmarks'
 
 export function useUserBookBookmarks(bookId: string) {
@@ -29,7 +30,8 @@ export function useUserBookBookmarks(bookId: string) {
             bookId,
             chapterSlug: b.chapterSlug || b.locator.replace('chapter:', ''),
             chapterTitle: b.title || '',
-            chapterId: b.chapterId,
+            chapterId: b.chapterId ?? undefined,
+            page: parsePdfPageLocator(b.locator),
             createdAt: new Date(b.createdAt).getTime(),
           }))
         )
@@ -69,7 +71,7 @@ export function useUserBookBookmarks(bookId: string) {
           bookId,
           chapterSlug: serverBookmark.chapterSlug || slug,
           chapterTitle: serverBookmark.title || title,
-          chapterId: serverBookmark.chapterId,
+          chapterId: serverBookmark.chapterId ?? undefined,
           createdAt: new Date(serverBookmark.createdAt).getTime(),
         }
 
@@ -80,6 +82,54 @@ export function useUserBookBookmarks(bookId: string) {
       }
     },
     [bookId, bookmarks]
+  )
+
+  // --- Page bookmarks (Original-layout PDF). A chapterless PDF has no chapter to
+  // key on, so the bookmark is anchored to a 1-based page via `locator: page:<N>`
+  // and `chapterId: null` (backend contract). Kept parallel to the chapter API so
+  // the same drawer + top-bar toggle can drive either. ---
+  const addPageBookmark = useCallback(
+    async (page: number) => {
+      if (!bookId || !Number.isFinite(page) || page < 1) return null
+
+      const existing = bookmarks.find((b) => b.page === page)
+      if (existing) return existing
+
+      try {
+        const title = `Page ${page}`
+        const serverBookmark = await createUserBookBookmark(bookId, {
+          chapterId: null,
+          locator: `page:${page}`,
+          title,
+        })
+
+        const bookmark: Bookmark = {
+          id: serverBookmark.id,
+          bookId,
+          chapterSlug: '',
+          chapterTitle: serverBookmark.title || title,
+          chapterId: serverBookmark.chapterId ?? undefined,
+          page: parsePdfPageLocator(serverBookmark.locator) ?? page,
+          createdAt: new Date(serverBookmark.createdAt).getTime(),
+        }
+
+        setBookmarks((prev) => [bookmark, ...prev])
+        return bookmark
+      } catch {
+        return null
+      }
+    },
+    [bookId, bookmarks]
+  )
+
+  const isPageBookmarked = useCallback(
+    (page: number) => bookmarks.some((b) => b.page === page),
+    [bookmarks]
+  )
+
+  const getPageBookmark = useCallback(
+    (page: number) => bookmarks.find((b) => b.page === page),
+    [bookmarks]
   )
 
   const removeBookmark = useCallback(
@@ -114,6 +164,9 @@ export function useUserBookBookmarks(bookId: string) {
     bookmarks,
     loading,
     addBookmark,
+    addPageBookmark,
+    isPageBookmarked,
+    getPageBookmark,
     removeBookmark,
     isBookmarked,
     getBookmarkForChapter,
