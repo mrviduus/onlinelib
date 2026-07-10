@@ -18,11 +18,22 @@ export interface UserBookDetailResponse {
   totalWordCount: number | null
   status: string
   errorMessage: string | null
-  chapters: { id: string; chapterNumber: number; slug: string | null; title: string; wordCount: number | null }[]
+  chapters: {
+    id: string
+    chapterNumber: number
+    slug: string | null
+    title: string
+    wordCount: number | null
+    /** 1-based PDF page where this chapter starts. Null for EPUBs / unknown. */
+    sourceStartPage?: number | null
+  }[]
   toc: { title: string; chapterNumber: number | null; children: any[] | null }[] | null
   createdAt: string
   updatedAt: string
   completedAt: string | null
+  /** True when the original upload is a PDF that can be rendered in the opt-in
+   *  "Original layout" view. Absent on older payloads → false. */
+  hasOriginalPdf?: boolean
 }
 
 export function getUserBook(id: string) {
@@ -82,4 +93,14 @@ export function unmarkUserBookComplete(id: string) {
 
 export function cancelUserBook(id: string) {
   return authFetch<void>(`/me/books/${id}/cancel`, { method: 'POST' })
+}
+
+/**
+ * Absolute URL of the original uploaded PDF (Range-enabled) for the Original-layout
+ * viewer. Platform-agnostic: takes `apiBase` explicitly because mobile has no cookies —
+ * it injects the Bearer via pdf.js `httpHeaders`, while web uses the cookie-based
+ * `getUserBookFileUrl` in `apps/web`. Returns `${apiBase}/me/books/${id}/file`.
+ */
+export function getUserBookFileUrl(id: string, apiBase: string): string {
+  return `${apiBase}/me/books/${id}/file`
 }

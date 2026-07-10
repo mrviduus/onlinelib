@@ -37,7 +37,13 @@ let refreshPromise: Promise<string | null> | null = null
  */
 let authFailureLatched = false
 
-async function getAccessToken(): Promise<string | null> {
+/**
+ * Read the current Bearer access token. Exported so a future PDF WebView bootstrap
+ * (ADR-012 S4b) can inject it into pdf.js `httpHeaders` — mobile has no cookies, so
+ * the Original-layout viewer authenticates the file fetch via this token. Behavior
+ * (and the shared client's single-flight refresh via `onUnauthorized`) is unchanged.
+ */
+export async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync('access_token')
 }
 

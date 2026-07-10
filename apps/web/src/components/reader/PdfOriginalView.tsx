@@ -9,9 +9,9 @@ import {
   dimsReadyUpTo,
   resolveOpenPage,
   topVisiblePage,
-} from '../../lib/pdfPageWindow'
+  buildPdfProgressPayload,
+} from '@textstack/shared'
 import { readPdfPage, writePdfPage } from '../../lib/originalLayoutPref'
-import { buildPdfProgressPayload } from '../../lib/pdfProgress'
 import { saveUserBookProgress } from '../../api/userBooks'
 import '../../styles/pdfOriginal.css'
 
