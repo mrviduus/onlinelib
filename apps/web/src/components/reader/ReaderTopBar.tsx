@@ -13,9 +13,6 @@ interface Props {
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
   showAsk?: boolean // catalog editions only — user uploads aren't chunked for RAG
   onAskClick?: () => void
-  showOriginalToggle?: boolean // user-uploaded PDFs only
-  originalActive?: boolean
-  onToggleOriginal?: () => void
   onSearchClick: () => void
   onTocClick: () => void
   onSettingsClick: () => void
@@ -34,9 +31,6 @@ export function ReaderTopBar({
   useLocalizedLink = true,
   showAsk = false,
   onAskClick,
-  showOriginalToggle = false,
-  originalActive = false,
-  onToggleOriginal,
   onSearchClick,
   onTocClick,
   onSettingsClick,
@@ -108,22 +102,6 @@ export function ReaderTopBar({
             <circle cx="10" cy="18" r="2" fill="currentColor" />
           </svg>
         </button>
-        {/* Original-layout toggle sits before Ask and only renders for
-            user-uploaded PDFs, so it never shifts the positional indices the
-            reader e2e tests rely on (search=0, bookmark=1, toc=2, settings=3). */}
-        {showOriginalToggle && (
-          <button
-            onClick={onToggleOriginal}
-            className={`reader-top-bar__btn${originalActive ? ' reader-top-bar__btn--active' : ''}`}
-            title={originalActive ? 'Switch to reflow text' : 'View original PDF layout'}
-            aria-pressed={originalActive}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={originalActive ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-              <rect x="4" y="3" width="16" height="18" rx="2" />
-              <path d="M8 7h8M8 11h8M8 15h5" stroke={originalActive ? 'var(--reader-surface, #fff)' : 'currentColor'} />
-            </svg>
-          </button>
-        )}
         {/* Ask is appended LAST so it doesn't shift the positional indices that
             the reader e2e tests use (search=0, bookmark=1, toc=2, settings=3). */}
         {showAsk && (

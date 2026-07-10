@@ -95,10 +95,23 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
   const isFailed = book.status === 'Failed'
   const isStuck = isProcessing && elapsed > 30
 
+  // Readability is DERIVED (ADR-012): a PDF opens in Original layout the instant
+  // its file exists, regardless of extraction status. So Processing/Failed on a
+  // PDF is NOT a blocker — the card stays a live link.
+  const hasOriginalPdf = !!book.hasOriginalPdf
+  const readable = isReady || hasOriginalPdf
+
   const targetSlug = excerptChapterSlug || progress?.chapterSlug
-  const baseDestination = isReady
-    ? (targetSlug ? `/${language}/library/my/${book.id}/read/${targetSlug}` : `/${language}/library/my/${book.id}`)
-    : '#'
+  const readerBase = `/${language}/library/my/${book.id}`
+  const baseDestination = !readable
+    ? '#'
+    : targetSlug
+      ? `${readerBase}/read/${targetSlug}`      // resume a known chapter/progress
+      : hasOriginalPdf
+        ? `${readerBase}/read`                   // chapterless Original (instant read)
+        : isReady
+          ? readerBase                            // EPUB, no progress → detail page
+          : '#'
   const destination = excerpt && excerptQuery && isReady
     ? `${baseDestination}?find=${encodeURIComponent(excerptQuery)}`
     : baseDestination
@@ -132,8 +145,8 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
       <div className="user-book-card__cover-wrap">
         <Link
           to={destination}
-          className={`user-book-card__cover ${!isReady ? 'user-book-card__cover--disabled' : ''}`}
-          onClick={(e) => !isReady && e.preventDefault()}
+          className={`user-book-card__cover ${!readable ? 'user-book-card__cover--disabled' : ''}`}
+          onClick={(e) => !readable && e.preventDefault()}
         >
           {book.coverPath ? (
             <img
@@ -161,12 +174,19 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
 
         <div className="user-book-card__badges">
           {isProcessing && (
-            <BookStatusBadge
-              variant="processing"
-              title={`${formatElapsed(elapsed)}${isStuck ? ' — possible issue' : ''}`}
-            />
+            hasOriginalPdf ? (
+              // Readable PDF still extracting — quiet "Indexing…" hint, not a blocker.
+              <BookStatusBadge variant="indexing" title={t('library.badge.indexingHint')} />
+            ) : (
+              <BookStatusBadge
+                variant="processing"
+                title={`${formatElapsed(elapsed)}${isStuck ? ' — possible issue' : ''}`}
+              />
+            )
           )}
-          {isFailed && (
+          {/* Failed extraction on a readable PDF is NOT scary — the book still
+              opens in Original; only text features (search/TOC/chat) are gone. */}
+          {isFailed && !hasOriginalPdf && (
             <BookStatusBadge
               variant="failed"
               title={book.errorMessage || 'Tap to retry'}
@@ -260,7 +280,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
                 </span>
               )
             })()}
-            {isFailed && book.errorMessage && (
+            {isFailed && !hasOriginalPdf && book.errorMessage && (
               <span className="user-book-card__error" title={book.errorMessage}>
                 {book.errorMessage.length > 40
                   ? book.errorMessage.slice(0, 40) + '...'

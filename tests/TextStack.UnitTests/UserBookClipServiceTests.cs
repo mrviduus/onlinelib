@@ -195,6 +195,38 @@ public class UserBookClipServiceTests
         Assert.Empty(h.UserBookFiles);
     }
 
+    // S1a: a PDF upload is readable instantly (file stored at upload), so the
+    // upload response carries HasOriginalPdf=true derived from the known format.
+    [Fact]
+    public async Task UploadAsync_PdfFile_ResponseHasOriginalPdfTrue()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        using var stream = new MemoryStream("%PDF-1.7"u8.ToArray());
+
+        var (response, error) = await h.Service.UploadAsync(
+            user.Id, stream, "book.pdf", title: null, language: "en", CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.NotNull(response);
+        Assert.True(response!.HasOriginalPdf);
+    }
+
+    [Fact]
+    public async Task UploadAsync_EpubFile_ResponseHasOriginalPdfFalse()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        using var stream = new MemoryStream("epub-bytes"u8.ToArray());
+
+        var (response, error) = await h.Service.UploadAsync(
+            user.Id, stream, "book.epub", title: null, language: "en", CancellationToken.None);
+
+        Assert.Null(error);
+        Assert.NotNull(response);
+        Assert.False(response!.HasOriginalPdf);
+    }
+
     [Fact]
     public async Task SetReadAsync_ForeignBook_ReturnsErrorNotSilentSuccess()
     {

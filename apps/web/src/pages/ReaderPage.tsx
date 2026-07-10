@@ -11,6 +11,7 @@ import { useInBookSearch } from '../hooks/useInBookSearch'
 import { useLibrary } from '../hooks/useLibrary'
 import { useReaderKeyboard } from '../hooks/useReaderKeyboard'
 import { useImmersiveMode } from '../hooks/useImmersiveMode'
+import { useTranslation } from '../hooks/useTranslation'
 import { SeoHead } from '../components/SeoHead'
 import { LocalizedLink } from '../components/LocalizedLink'
 import { Toast } from '../components/Toast'
@@ -36,7 +37,6 @@ import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import { getUserBooks, getUserBookFileUrl } from '../api/userBooks'
-import { readOriginalLayout, writeOriginalLayout } from '../lib/originalLayoutPref'
 import { computeBookProgress } from '@textstack/shared'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
@@ -64,6 +64,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const { isAuthenticated, openAuthModal, ensureSession } = useAuth()
   const { language, getLocalizedPath } = useLanguage()
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const { chapter, book, publicChapter, publicBook, loading, error } = useReaderChapter({
@@ -97,16 +98,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [studyBuddyPassage, setStudyBuddyPassage] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
 
-  // Original-layout (pixel-perfect PDF) opt-in — remembered per book. Only
-  // meaningful for user-uploaded PDFs; reflow stays the default.
-  const [originalLayout, setOriginalLayout] = useState(() => (id ? readOriginalLayout(id) : false))
-  const toggleOriginalLayout = useCallback(() => {
-    setOriginalLayout(prev => {
-      const next = !prev
-      if (id) writeOriginalLayout(id, next)
-      return next
-    })
-  }, [id])
+  // Original layout (pixel-perfect PDF) is the DEFAULT for user-uploaded PDFs
+  // (ADR-012 — instant read, no toggle). `forceReflow` is set only by the
+  // PDF.js load-error fallback to drop into the reflow reader when chapters exist.
+  const [forceReflow, setForceReflow] = useState(false)
+  // Corrupt/unopenable PDF with no chapters to fall back to → dedicated screen.
+  const [pdfUnopenable, setPdfUnopenable] = useState(false)
   // TOC clicks in Original mode scroll the PDF to a page instead of routing.
   const [pdfScrollTo, setPdfScrollTo] = useState<{ page: number; nonce: number } | null>(null)
 
@@ -183,9 +180,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const activeChapter = book?.chapters.find(c => c.identifier === activeChapterIdentifier)
 
   // Original-layout availability + active flag. Only user-uploaded PDFs qualify;
-  // catalog/EPUB never show the toggle.
+  // catalog/EPUB never use it. Original is the DEFAULT — reflow only wins after
+  // a PDF.js load error (forceReflow), and only when a chapter exists.
   const hasOriginalPdf = mode === 'userbook' && !!book?.hasOriginalPdf
-  const originalActive = hasOriginalPdf && originalLayout
+  const originalActive = hasOriginalPdf && !forceReflow
   // Open at the current chapter's PDF page — this WINS over the localStorage
   // resume page (the user navigated to this chapter). Null when the chapter has
   // no known page, in which case PdfOriginalView falls back to the resume page.
@@ -416,6 +414,24 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return `/${language}/library/my/${id}/read/${identifier}`
   }, [mode, bookSlug, id, language, getLocalizedPath])
 
+  // PDF.js hard-failed to open the original (NOT the internal 401 reload, which
+  // PdfOriginalView handles itself). Fall back to reflow when chapters exist;
+  // otherwise show the dedicated "Couldn't open this PDF" screen.
+  const handlePdfLoadError = useCallback(() => {
+    const chapters = book?.chapters ?? []
+    if (chapter || chapters.length > 0) {
+      setForceReflow(true)
+      // If currently chapterless, route to a chapter so reflow has content.
+      if (!chapter && chapters.length > 0) {
+        const continueSlug = userProgress.savedProgress?.chapterSlug
+        const target = continueSlug ?? chapters[0].identifier
+        navigate(getChapterUrl(target), { replace: true })
+      }
+    } else {
+      setPdfUnopenable(true)
+    }
+  }, [book?.chapters, chapter, userProgress.savedProgress, navigate, getChapterUrl])
+
   // RAG "Ask this book" target (AI-027). P1: catalog editions. P2: user uploads — on-demand
   // indexing via the owner-scoped `/me/books/{id}/...` endpoints, no spoiler gate. The target
   // carries the kind + seeded index state/counts so the panel routes to the right endpoints.
@@ -520,7 +536,26 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     )
   }
 
-  if (error || !chapter || !book) {
+  // Corrupt/unopenable PDF with no chapters to fall back to (S1b) — a dedicated
+  // screen, NOT the generic chapter-error, offering re-upload / retry.
+  if (pdfUnopenable && book) {
+    return (
+      <div className="reader-page">
+        <SeoHead title={t('reader.originalLayout.cantOpenTitle')} noindex />
+        <div className="reader-error">
+          <h2>{t('reader.originalLayout.cantOpenTitle')}</h2>
+          <p>{t('reader.originalLayout.cantOpenBody')}</p>
+          <Link to={`/${language}/library/my/${id}`} className="reader-error__home-link">
+            {t('reader.originalLayout.cantOpenCta')}
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Error only when the book itself is missing, OR reflow genuinely needs a
+  // chapter it doesn't have. A chapterless Original-layout PDF renders fine.
+  if (error || !book || (!chapter && !originalActive)) {
     const errorBackUrl = mode === 'public' ? '/' : `/${language}/library/my/${id}`
     const errorBackText = mode === 'public' ? 'Back to Home' : 'Back to Book'
     const ErrorLink = mode === 'public' ? LocalizedLink : Link
@@ -538,8 +573,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     )
   }
 
-  const seoTitle = `${chapter.title} — ${book.title}`
-  const seoDescription = `Read ${chapter.title} from ${book.title} online | TextStack Reader`
+  const seoTitle = `${chapter?.title ?? book.title} — ${book.title}`
+  const seoDescription = `Read ${chapter?.title ?? book.title} from ${book.title} online | TextStack Reader`
 
   const immersiveClass = immersiveMode ? 'immersive-mode' : ''
 
@@ -550,7 +585,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       <ReaderTopBar
         visible={!immersiveMode}
         title={book.title}
-        chapterTitle={activeChapter?.title || chapter.title}
+        chapterTitle={activeChapter?.title || chapter?.title || book.title}
         progress={overallProgress}
         isBookmarked={isBookmarked(activeChapterIdentifier)}
         backUrl={backUrl}
@@ -559,9 +594,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         useLocalizedLink={mode === 'public'}
         showAsk={!!askTarget}
         onAskClick={() => setAskOpen(true)}
-        showOriginalToggle={hasOriginalPdf}
-        originalActive={originalActive}
-        onToggleOriginal={toggleOriginalLayout}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -604,9 +636,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   // Time-only: keeps the reading session/streak alive without
                   // feeding page position into canonical word-based progress.
                   onActivity={() => readingSession.recordActivity()}
+                  onLoadError={handlePdfLoadError}
                 />
               </Suspense>
-            ) : (
+            ) : chapter && (
+              // `chapter && …` narrows chapter to non-null — reflow only renders
+              // when the gate above has guaranteed a chapter exists.
               <>
                 <ReaderSection
                   chapterId={chapter.id}
@@ -648,7 +683,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       )}
 
       <ReaderFooterNav
-        chapterTitle={activeChapter?.title || chapter.title}
+        chapterTitle={activeChapter?.title || chapter?.title || book.title}
         overallProgress={overallProgress}
         currentChapterIndex={currentChapterIndex}
         totalChapters={totalChapters}

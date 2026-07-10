@@ -28,6 +28,9 @@ export interface UserBook {
   isClip?: boolean
   isRead?: boolean
   readAt?: string | null
+  /** True when the original upload is a PDF → the card can open "Original layout"
+   *  instantly. Absent on older payloads → false. */
+  hasOriginalPdf?: boolean
 }
 
 export interface UserChapterSummary {
@@ -88,6 +91,9 @@ export interface UploadResponse {
   userBookId: string
   jobId: string
   status: string
+  /** True the instant a PDF lands (file stored at upload) → redirect can open
+   *  "Original layout" before extraction finishes. Absent on older payloads → false. */
+  hasOriginalPdf?: boolean
 }
 
 export interface StorageQuota {

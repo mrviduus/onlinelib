@@ -282,7 +282,10 @@
       "dim": "Dim",
       "dimToggle": "Invert / dim page",
       "sessionExpired": "Your session expired. Reload to keep reading the original pages.",
-      "reload": "Reload"
+      "reload": "Reload",
+      "cantOpenTitle": "Couldn't open this PDF",
+      "cantOpenBody": "We couldn't display the original file, and there's no extracted text to fall back to. Try re-uploading the book, or re-run processing.",
+      "cantOpenCta": "Back to book"
     },
     "explanationPopup": {
       "loading": "Thinking…",
@@ -606,6 +609,8 @@
     },
     "badge": {
       "processing": "Processing…",
+      "indexing": "Indexing…",
+      "indexingHint": "Indexing text for search, contents and chat — you can read the original now.",
       "failed": "Failed",
       "new": "New",
       "finished": "Read"
