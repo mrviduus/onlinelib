@@ -27,6 +27,26 @@ public class EpubExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_ValidEpub_UnitsHaveNullSourcePages()
+    {
+        // Physical PDF page range is a PDF-only concept. EPUB units MUST leave
+        // SourceStartPage/EndPage null — the reader relies on null to fall back
+        // to page 1 (no "Original layout" jump for reflowable formats).
+        var extractor = new EpubTextExtractor();
+        await using var stream = File.OpenRead(FixturePath);
+        var request = new ExtractionRequest { Content = stream, FileName = "minimal.epub" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.NotEmpty(result.Units);
+        Assert.All(result.Units, u =>
+        {
+            Assert.Null(u.SourceStartPage);
+            Assert.Null(u.SourceEndPage);
+        });
+    }
+
+    [Fact]
     public async Task ExtractAsync_InvalidStream_NeverThrows()
     {
         var extractor = new EpubTextExtractor();

@@ -4,8 +4,10 @@ using Application.Common.Interfaces;
 using Application.Export;
 using Application.UserBooks;
 using Contracts.UserBooks;
+using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 
 namespace Api.Endpoints;
 
@@ -35,6 +37,7 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/bookmarks", CreateBookmark).WithName("CreateUserBookBookmark");
         group.MapDelete("/{id:guid}/bookmarks/{bookmarkId:guid}", DeleteBookmark).WithName("DeleteUserBookBookmark");
         group.MapGet("/{id:guid}/assets/{assetId:guid}", GetAsset).WithName("GetUserBookAsset");
+        group.MapGet("/{id:guid}/file", GetOriginalFile).WithName("GetUserBookOriginalFile");
         group.MapPost("/{id:guid}/complete", MarkComplete).WithName("MarkUserBookComplete");
         group.MapDelete("/{id:guid}/complete", UnmarkComplete).WithName("UnmarkUserBookComplete");
         group.MapPost("/{id:guid}/retry", RetryBook).WithName("RetryUserBook");
@@ -478,6 +481,52 @@ public static class UserBooksEndpoints
             return Results.NotFound();
 
         return Results.File(stream, contentType);
+    }
+
+    /// <summary>
+    /// Streams the original PDF upload with HTTP Range support so the reader's
+    /// "Original layout" view can render it with PDF.js (which issues ranged
+    /// requests). Owner-scoped; 404 for non-owner, taken-down, missing-on-disk,
+    /// or a book with no PDF original (e.g. an EPUB upload). The physical-path
+    /// <see cref="Results.File(string, string?, string?, DateTimeOffset?, EntityTagHeaderValue?, bool)"/>
+    /// overload emits Accept-Ranges/ETag and serves 206 Partial Content for ranges.
+    /// </summary>
+    private static async Task<IResult> GetOriginalFile(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        IFileStorageService storage,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var file = await db.UserBookFiles
+            .Where(f => f.UserBookId == id
+                        && f.Format == BookFormat.Pdf
+                        && f.UserBook.UserId == userId.Value
+                        && f.UserBook.TakedownAt == null)
+            .OrderByDescending(f => f.UploadedAt)
+            .Select(f => new { f.StoragePath, f.UploadedAt, f.Sha256 })
+            .FirstOrDefaultAsync(ct);
+
+        if (file is null) return Results.NotFound();
+
+        var fullPath = storage.GetFullPath(file.StoragePath);
+        if (!File.Exists(fullPath)) return Results.NotFound();
+
+        // ETag from the content hash when available → clients can revalidate cheaply.
+        var etag = string.IsNullOrEmpty(file.Sha256)
+            ? null
+            : new EntityTagHeaderValue($"\"{file.Sha256}\"");
+
+        return Results.File(
+            fullPath,
+            contentType: "application/pdf",
+            lastModified: file.UploadedAt,
+            entityTag: etag,
+            enableRangeProcessing: true);
     }
 
     private static async Task<IResult> MarkComplete(

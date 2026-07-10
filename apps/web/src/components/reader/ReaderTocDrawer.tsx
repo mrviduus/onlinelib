@@ -18,6 +18,8 @@ export interface TocChapter {
   title: string
   chapterNumber: number
   wordCount?: number | null
+  /** 1-based PDF page where the chapter starts (Original-layout scroll target). */
+  sourceStartPage?: number | null
 }
 
 interface Props {

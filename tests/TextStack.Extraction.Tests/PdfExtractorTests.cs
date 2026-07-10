@@ -209,6 +209,102 @@ public class PdfExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_GeneratedPdf_PopulatesSourcePageRange()
+    {
+        var extractor = new PdfTextExtractor();
+        var pdfBytes = PdfFixtureGenerator.GenerateMultiPagePdf(30);
+        using var stream = new MemoryStream(pdfBytes);
+        var request = new ExtractionRequest { Content = stream, FileName = "generated.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        // Every PDF unit must carry a 1-based physical page range for the
+        // "Original layout" reader jump. 30 pages / 15-per-split = 2 chapters:
+        // pages 1-15 and 16-30.
+        Assert.All(result.Units, u =>
+        {
+            Assert.NotNull(u.SourceStartPage);
+            Assert.NotNull(u.SourceEndPage);
+            Assert.True(u.SourceStartPage >= 1);
+            Assert.True(u.SourceEndPage >= u.SourceStartPage);
+        });
+        Assert.Equal(1, result.Units[0].SourceStartPage);
+        Assert.Equal(15, result.Units[0].SourceEndPage);
+        Assert.Equal(16, result.Units[1].SourceStartPage);
+        Assert.Equal(30, result.Units[1].SourceEndPage);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_GeneratedPdf_SourceEndPageClampedToPageCount()
+    {
+        // The unit builder clamps each chapter's end via Math.Min(chapter.EndPage,
+        // pageCount) so a detected range can never point past the last processed
+        // page (which would break the reader's page jump). 30-page doc → the final
+        // unit must end exactly at page 30, and NO unit may exceed it.
+        const int pages = 30;
+        var extractor = new PdfTextExtractor();
+        var pdfBytes = PdfFixtureGenerator.GenerateMultiPagePdf(pages);
+        using var stream = new MemoryStream(pdfBytes);
+        var request = new ExtractionRequest { Content = stream, FileName = "generated.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.All(result.Units, u => Assert.True(
+            u.SourceEndPage <= pages,
+            $"SourceEndPage {u.SourceEndPage} overflowed page count {pages}"));
+        Assert.Equal(pages, result.Units.Max(u => u.SourceEndPage));
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WordQuartzWorkbook_SourceEndPageNeverExceedsDocumentPages()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
+        Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
+
+        int documentPages;
+        using (var doc = UglyToad.PdfPig.PdfDocument.Open(fixturePath))
+            documentPages = doc.NumberOfPages;
+
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(fixturePath);
+        var request = new ExtractionRequest { Content = stream, FileName = "kmk.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        // Real bookmarked book: the clamp must hold against actual document pages.
+        Assert.All(result.Units, u =>
+        {
+            Assert.NotNull(u.SourceEndPage);
+            Assert.True(u.SourceEndPage <= documentPages,
+                $"SourceEndPage {u.SourceEndPage} exceeded document pages {documentPages}");
+            Assert.True(u.SourceStartPage <= u.SourceEndPage);
+        });
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WordQuartzWorkbook_UnitsHaveSourceStartPage()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "KMK Optometry OSCE E-Workbook.pdf");
+        Assert.SkipWhen(!File.Exists(fixturePath), "KMK OSCE workbook fixture not present");
+
+        var extractor = new PdfTextExtractor();
+        await using var stream = File.OpenRead(fixturePath);
+        var request = new ExtractionRequest { Content = stream, FileName = "kmk.pdf" };
+
+        var result = await extractor.ExtractAsync(request);
+
+        Assert.NotEmpty(result.Units);
+        // Real-world PDF: chapter→page map must be present & monotonically ordered.
+        Assert.All(result.Units, u =>
+        {
+            Assert.NotNull(u.SourceStartPage);
+            Assert.True(u.SourceStartPage >= 1);
+        });
+    }
+
+    [Fact]
     public async Task ExtractAsync_GeneratedPdf_FallsBackToPageSplitting()
     {
         var extractor = new PdfTextExtractor();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -35,10 +35,15 @@ import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
-import { getUserBooks } from '../api/userBooks'
+import { getUserBooks, getUserBookFileUrl } from '../api/userBooks'
+import { readOriginalLayout, writeOriginalLayout } from '../lib/originalLayoutPref'
 import { computeBookProgress } from '@textstack/shared'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
+
+// pdfjs is heavy — load the Original-layout view (and its pdfjs chunk) only when
+// a user actually opts in for a userbook PDF.
+const PdfOriginalView = lazy(() => import('../components/reader/PdfOriginalView'))
 
 export type { ReaderMode } from '../hooks/useReaderChapter'
 
@@ -91,6 +96,19 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [askOpen, setAskOpen] = useState(false)
   const [studyBuddyPassage, setStudyBuddyPassage] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+
+  // Original-layout (pixel-perfect PDF) opt-in — remembered per book. Only
+  // meaningful for user-uploaded PDFs; reflow stays the default.
+  const [originalLayout, setOriginalLayout] = useState(() => (id ? readOriginalLayout(id) : false))
+  const toggleOriginalLayout = useCallback(() => {
+    setOriginalLayout(prev => {
+      const next = !prev
+      if (id) writeOriginalLayout(id, next)
+      return next
+    })
+  }, [id])
+  // TOC clicks in Original mode scroll the PDF to a page instead of routing.
+  const [pdfScrollTo, setPdfScrollTo] = useState<{ page: number; nonce: number } | null>(null)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
   const [scrollToHighlightId] = useState(() => new URLSearchParams(window.location.search).get('highlight'))
@@ -163,6 +181,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const activeChapterIdentifier = chapterIdentifier || ''
   const activeChapter = book?.chapters.find(c => c.identifier === activeChapterIdentifier)
+
+  // Original-layout availability + active flag. Only user-uploaded PDFs qualify;
+  // catalog/EPUB never show the toggle.
+  const hasOriginalPdf = mode === 'userbook' && !!book?.hasOriginalPdf
+  const originalActive = hasOriginalPdf && originalLayout
+  // Open at the current chapter's PDF page — this WINS over the localStorage
+  // resume page (the user navigated to this chapter). Null when the chapter has
+  // no known page, in which case PdfOriginalView falls back to the resume page.
+  const initialPdfPage = activeChapter?.sourceStartPage ?? null
+  const pdfFileUrl = id ? getUserBookFileUrl(id) : ''
 
   const { publicProgress, userProgress, effectiveProgress, effectiveLoading, autoSaveInfo } =
     useReaderProgress({
@@ -531,6 +559,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         useLocalizedLink={mode === 'public'}
         showAsk={!!askTarget}
         onAskClick={() => setAskOpen(true)}
+        showOriginalToggle={hasOriginalPdf}
+        originalActive={originalActive}
+        onToggleOriginal={toggleOriginalLayout}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -557,28 +588,48 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           showInlineTranslations={settings.showInlineTranslations}
           scrollToHighlightId={scrollToHighlightId}
           onStudyBuddy={studyBuddyEditionId ? setStudyBuddyPassage : undefined}
+          liveActionsOnly={originalActive}
         >
           <div ref={scrollContainerRef}>
-            <ReaderSection
-              chapterId={chapter.id}
-              chapterIndex={chapter.chapterNumber}
-              html={chapter.html}
-              settings={settings}
-              onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
-            />
-            <ReaderNav
-              chapterTitle={chapter.title}
-              // Positional 1-based index — catalog chapterNumber is 0-based
-              // (0..N-1) but user-books are 1-based, so it's unreliable for
-              // display. Mirror ReaderFooterNav's currentChapterIndex + 1.
-              chapterNumber={currentChapterIndex >= 0 ? currentChapterIndex + 1 : null}
-              totalChapters={totalChapters || null}
-              chapterProgress={overlayScrollProgress}
-              onPrev={chapter.prev ? () => { flushProgress(); navigate(getChapterUrl(chapter.prev!.identifier)) } : null}
-              onNext={chapter.next ? () => { flushProgress(); navigate(getChapterUrl(chapter.next!.identifier)) } : null}
-            />
+            {originalActive ? (
+              // Text layers render inside scrollContainerRef, so the same
+              // useTextSelection pipeline (translate/explain/TTS/vocab) works
+              // over the PDF text with no changes to the selection components.
+              <Suspense fallback={<div className="pdf-original__loading">Loading original pages…</div>}>
+                <PdfOriginalView
+                  fileUrl={pdfFileUrl}
+                  bookId={id!}
+                  initialPage={initialPdfPage}
+                  scrollToPage={pdfScrollTo}
+                  // Time-only: keeps the reading session/streak alive without
+                  // feeding page position into canonical word-based progress.
+                  onActivity={() => readingSession.recordActivity()}
+                />
+              </Suspense>
+            ) : (
+              <>
+                <ReaderSection
+                  chapterId={chapter.id}
+                  chapterIndex={chapter.chapterNumber}
+                  html={chapter.html}
+                  settings={settings}
+                  onTap={() => { readingSession.recordActivity(); showImmersiveBars() }}
+                />
+                <ReaderNav
+                  chapterTitle={chapter.title}
+                  // Positional 1-based index — catalog chapterNumber is 0-based
+                  // (0..N-1) but user-books are 1-based, so it's unreliable for
+                  // display. Mirror ReaderFooterNav's currentChapterIndex + 1.
+                  chapterNumber={currentChapterIndex >= 0 ? currentChapterIndex + 1 : null}
+                  totalChapters={totalChapters || null}
+                  chapterProgress={overlayScrollProgress}
+                  onPrev={chapter.prev ? () => { flushProgress(); navigate(getChapterUrl(chapter.prev!.identifier)) } : null}
+                  onNext={chapter.next ? () => { flushProgress(); navigate(getChapterUrl(chapter.next!.identifier)) } : null}
+                />
+              </>
+            )}
           </div>
-          {searchOpen && (
+          {searchOpen && !originalActive && (
             <SearchOverlayLayer
               containerRef={scrollContainerRef}
               query={searchQuery}
@@ -614,6 +665,12 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         onClose={() => setTocOpen(false)}
         onRemoveBookmark={removeBookmark}
         onChapterSelect={(identifier) => {
+          if (originalActive) {
+            // Original mode: scroll the PDF to the chapter's page instead of routing.
+            const ch = book.chapters.find(c => c.identifier === identifier)
+            setPdfScrollTo({ page: ch?.sourceStartPage ?? 1, nonce: Date.now() })
+            return
+          }
           navigate(getChapterUrl(identifier) + '?direct=1')
         }}
       />

@@ -39,6 +39,13 @@ interface ReaderHighlightsProps {
   showInlineTranslations?: boolean
   /** Open the Study Buddy panel for a highlighted passage (AI-038b). Catalog editions only. */
   onStudyBuddy?: (passage: string) => void
+  /**
+   * Original-layout PDF mode: keep the live selection actions (translate /
+   * explain / TTS / copy / vocab-save) but drop persistent visual layers —
+   * highlight-overlay + vocab-underline can't map ranges onto a pdf.js text
+   * layer, so they're reflow-only. Also hides the Highlight button.
+   */
+  liveActionsOnly?: boolean
   children: React.ReactNode
 }
 
@@ -70,6 +77,7 @@ export function ReaderHighlights({
   scrollToHighlightId,
   showInlineTranslations = false,
   onStudyBuddy,
+  liveActionsOnly = false,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
@@ -451,18 +459,24 @@ export function ReaderHighlights({
     >
       {children}
 
-      <HighlightOverlayLayer
-        highlights={highlights}
-        containerRef={containerRef}
-        onHighlightClick={handleHighlightClick}
-      />
+      {/* Persistent visual layers are reflow-only — they can't project ranges
+          onto a pdf.js text layer, so skip them in Original-layout mode. */}
+      {!liveActionsOnly && (
+        <>
+          <HighlightOverlayLayer
+            highlights={highlights}
+            containerRef={containerRef}
+            onHighlightClick={handleHighlightClick}
+          />
 
-      <VocabOverlayLayer
-        containerRef={containerRef}
-        vocabMap={vocabMap}
-        showInlineTranslations={showInlineTranslations}
-        activeBubble={bubble ? { word: bubble.word, translation: bubble.translation } : null}
-      />
+          <VocabOverlayLayer
+            containerRef={containerRef}
+            vocabMap={vocabMap}
+            showInlineTranslations={showInlineTranslations}
+            activeBubble={bubble ? { word: bubble.word, translation: bubble.translation } : null}
+          />
+        </>
+      )}
 
       {/* Multi-word selection → full highlights toolbar */}
       {hasSelection && !isSingleWord && !translationPopup.show && !explainPopup.show && (
@@ -470,6 +484,7 @@ export function ReaderHighlights({
           rect={selection.rect}
           text={selection.text}
           containerRef={containerRef}
+          hideHighlight={liveActionsOnly}
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
           onExplain={handleExplain}

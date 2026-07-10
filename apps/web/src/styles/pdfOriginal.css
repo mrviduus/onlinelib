@@ -1,0 +1,190 @@
+/* Original-layout PDF view (opt-in for user-uploaded books).
+ * Scrolls INTERNALLY (its own overflow container) so it never feeds the
+ * reader's window-scroll progress pipeline — PDF page position is resume-only. */
+
+.pdf-original {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--reader-bg, #f4f4f5);
+}
+
+.pdf-original__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--reader-surface, #fff);
+  border-bottom: 1px solid var(--reader-border, #e4e4e7);
+  color: var(--reader-fg, #18181b);
+  font-size: 14px;
+  /* clears the fixed reader top bar */
+  margin-top: env(safe-area-inset-top, 0);
+}
+
+.pdf-original__toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.pdf-original__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--reader-border, #e4e4e7);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.pdf-original__btn:hover {
+  background: var(--reader-hover, rgba(0, 0, 0, 0.05));
+}
+
+.pdf-original__btn--active {
+  background: var(--reader-accent, #2563eb);
+  border-color: var(--reader-accent, #2563eb);
+  color: #fff;
+}
+
+.pdf-original__page-input {
+  width: 48px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--reader-border, #e4e4e7);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  font-size: 13px;
+}
+
+.pdf-original__page-count {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-original__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fef3c7;
+  color: #92400e;
+  border-bottom: 1px solid #fcd34d;
+  font-size: 14px;
+}
+
+.pdf-original__scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 0 64px;
+}
+
+.pdf-original__pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pdf-original__error,
+.pdf-original__loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: var(--reader-fg, #18181b);
+  text-align: center;
+}
+
+/* One page: canvas + transparent text layer, exact same box. */
+.pdf-page {
+  position: relative;
+  background: #fff; /* paper-white, always — the whole point is fidelity */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.pdf-page__canvas {
+  display: block;
+}
+
+/* Optional in-view dim/invert — canvas only, so the selectable text layer
+ * (and its selection highlight color) stays untouched. Default OFF. */
+.pdf-page--invert .pdf-page__canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.pdf-page__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+/* --- Standard pdf.js text-layer styles (mirrored from web/pdf_viewer.css) ---
+ * Transparent, absolutely-positioned spans overlaid on the canvas; text is
+ * selectable so the reader's translate/explain/vocab/TTS actions work over it. */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 1;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer span[role='img'] {
+  user-select: none;
+  cursor: default;
+}
+
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.textLayer.selecting .endOfContent {
+  top: 0;
+}
