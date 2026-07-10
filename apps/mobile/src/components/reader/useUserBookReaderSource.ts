@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
-import { userBooksApi, parseScrollLocator, buildUserBookProgressPayload } from '@textstack/shared'
+import { userBooksApi, parseScrollLocator, buildUserBookProgressPayload, buildPdfProgressPayload, parsePdfPageLocator } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { API_URL } from '../../lib/api'
 import { saveUserBookLocalProgress } from '../../lib/progressStorage'
@@ -58,6 +58,15 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
   // sourceStartPage per chapter drives the open page when a chapter is chosen.
   const [hasOriginalPdf, setHasOriginalPdf] = useState(false)
   const sourceStartPageBySlugRef = useRef<Record<string, number>>({})
+  // S4c — corrupt-PDF fallback: flip out of Original layout into the reflow
+  // reader (only offered when the book has reflow chapters).
+  const [forceReflow, setForceReflow] = useState(false)
+  // S4c — server resume page for the chapterless Original view (parsed from the
+  // `page:<N>` progress locator). Fetched once the book is known to be a PDF;
+  // it loses to a chapter's sourceStartPage, wins over nothing (mobile has no
+  // local page cache). `pdfResumeReady` gates the initial scroll.
+  const [pdfResumePage, setPdfResumePage] = useState<number | null>(null)
+  const [pdfResumeReady, setPdfResumeReady] = useState(false)
 
   useEffect(() => { userBookIdRef.current = bookId || null }, [bookId])
 
@@ -101,12 +110,14 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
       const pageBySlug: Record<string, number> = {}
       const mapped: ReaderChapterMeta[] = b.chapters.map(ch => {
         const slug = ch.slug || `chapter-${ch.chapterNumber}`
-        if (typeof ch.sourceStartPage === 'number' && ch.sourceStartPage >= 1) pageBySlug[slug] = ch.sourceStartPage
+        const startPage = typeof ch.sourceStartPage === 'number' && ch.sourceStartPage >= 1 ? ch.sourceStartPage : null
+        if (startPage) pageBySlug[slug] = startPage
         return {
           slug,
           title: ch.title,
           chapterNumber: ch.chapterNumber,
           wordCount: typeof ch.wordCount === 'number' && ch.wordCount > 0 ? ch.wordCount : 0,
+          sourceStartPage: startPage,
         }
       })
       sourceStartPageBySlugRef.current = pageBySlug
@@ -180,6 +191,89 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     }
   }, [bookId, injectJs])
 
+  // --- S4c: Original-layout PDF server resume page. Fetched once the book is
+  // known to be a PDF; parsed from the `page:<N>` progress locator. ---
+  useEffect(() => {
+    if (!hasOriginalPdf || !bookId) { setPdfResumeReady(true); return }
+    let cancelled = false
+    setPdfResumeReady(false)
+    setPdfResumePage(null)
+    userBooksApi.getUserBookProgress(bookId)
+      .then(p => { if (!cancelled) setPdfResumePage(parsePdfPageLocator(p?.locator)) })
+      .catch(() => { /* offline → falls back to chapter page / page 1 */ })
+      .finally(() => { if (!cancelled) setPdfResumeReady(true) })
+    return () => { cancelled = true }
+  }, [hasOriginalPdf, bookId])
+
+  // --- S4c: page-based progress persistence for the Original view. A PDF page
+  // fraction lands in the SAME ProgressPercent field the reflow reader writes
+  // (buildPdfProgressPayload) so the library card shows one number and resume
+  // works cross-device. Debounced (~2s) so we don't PUT on every page tick, and
+  // NEVER fed into the word-based reading session. ---
+  const PDF_PROGRESS_DEBOUNCE_MS = 2000
+  const pdfServerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pdfPendingRef = useRef<{ page: number; numPages: number } | null>(null)
+
+  const flushPdfProgress = useCallback(() => {
+    if (pdfServerTimerRef.current) { clearTimeout(pdfServerTimerRef.current); pdfServerTimerRef.current = null }
+    const pending = pdfPendingRef.current
+    if (!pending || !bookId || pending.numPages < 1) return
+    pdfPendingRef.current = null
+    const payload = buildPdfProgressPayload(pending.page, pending.numPages)
+    userBooksApi.updateUserBookProgress(bookId, payload)
+      .catch(e => { if (__DEV__) console.warn('[user-book-pdf-progress] PUT failed:', e) })
+    // Local book-% cache so ContinueReadingCard renders the same "% of book" UX
+    // as reflow books (page fraction === book fraction for a chapterless PDF).
+    saveUserBookLocalProgress(bookId, { bookPercent: payload.percent, updatedAt: Date.now() }).catch(() => {})
+  }, [bookId])
+
+  const persistPdfPage = useCallback((page: number, numPages: number) => {
+    pdfPendingRef.current = { page, numPages }
+    if (pdfServerTimerRef.current) clearTimeout(pdfServerTimerRef.current)
+    pdfServerTimerRef.current = setTimeout(flushPdfProgress, PDF_PROGRESS_DEBOUNCE_MS)
+  }, [flushPdfProgress])
+
+  // Flush the last pending page on unmount / book switch so the reader close
+  // doesn't drop the final position.
+  useEffect(() => () => { flushPdfProgress() }, [flushPdfProgress])
+
+  // --- S4c: page bookmarks. A chapterless PDF has no chapter to key on, so the
+  // bookmark anchors to a 1-based page via `locator: page:<N>` + `chapterId: null`
+  // (backend supports the nullable FK). Optimistic add/remove with rollback. ---
+  const togglePageBookmark = useCallback(async (page: number) => {
+    if (!bookId || !Number.isFinite(page) || page < 1) return
+    const existing = bookmarks.find(b => parsePdfPageLocator(b.locator) === page)
+    if (existing) {
+      setBookmarks(prev => prev.filter(b => b.id !== existing.id))
+      try {
+        await userBooksApi.deleteUserBookBookmark(bookId, existing.id)
+      } catch (e) {
+        console.warn('Delete user-book page bookmark failed:', e)
+        setBookmarks(prev => (prev.some(b => b.id === existing.id) ? prev : [...prev, existing]))
+        showToast({ message: 'Could not remove bookmark. Try again.', variant: 'error' })
+      }
+    } else {
+      try {
+        const bm = await userBooksApi.createUserBookBookmark(bookId, {
+          chapterId: null,
+          locator: `page:${page}`,
+          title: `Page ${page}`,
+        })
+        setBookmarks(prev => [...prev, bm])
+      } catch (e) {
+        console.warn('Create user-book page bookmark failed:', e)
+        showToast({ message: 'Could not add bookmark. Try again.', variant: 'error' })
+      }
+    }
+  }, [bookId, bookmarks, showToast])
+
+  const isPageBookmarked = useCallback(
+    (page: number) => bookmarks.some(b => parsePdfPageLocator(b.locator) === page),
+    [bookmarks],
+  )
+
+  const onForceReflow = useCallback(() => setForceReflow(true), [])
+
   const toggleBookmark = useCallback(async (slug: string) => {
     if (!bookId || !slug || !chapter) return
     const existing = bookmarks.find(b => bookmarkSlug(b) === slug)
@@ -251,10 +345,17 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     onDeleteBookmark: deleteBookmark,
     bookmarkChapterSlug: bookmarkSlug,
     askTarget: bookId ? { kind: 'userbook', id: bookId } : undefined,
-    // ADR-012 S4b — render the ORIGINAL PDF pixel-perfect when the upload has
-    // one. No forceReflow toggle yet (S4c adds the "read as text" switch).
-    original: hasOriginalPdf,
+    // ADR-012 S4b/S4c — render the ORIGINAL PDF pixel-perfect when the upload
+    // has one, unless a corrupt-PDF fallback dropped us into reflow.
+    original: hasOriginalPdf && !forceReflow,
     originalFileUrl: hasOriginalPdf && bookId ? userBooksApi.getUserBookFileUrl(bookId, API_URL) : null,
     originalInitialPage: sourceStartPageBySlugRef.current[chapterSlug] ?? null,
+    originalResumePage: pdfResumePage,
+    originalResumeReady: pdfResumeReady,
+    persistPdfPage,
+    onTogglePageBookmark: togglePageBookmark,
+    isPageBookmarked,
+    // Only offer "read as text" when reflow chapters exist to fall back to.
+    onForceReflow: chapters.length > 0 ? onForceReflow : undefined,
   }
 }

@@ -63,7 +63,10 @@ export function getUserBookProgress(bookId: string) {
   return authFetch<{ chapterSlug: string | null; locator: string | null; percent: number | null; updatedAt: string | null }>(`/me/books/${bookId}/progress`)
 }
 
-export function updateUserBookProgress(bookId: string, data: { chapterSlug: string; locator?: string; percent?: number }) {
+// chapterSlug is nullable — a chapterless PDF read in Original layout (ADR-012)
+// persists a `page:<N>` locator with `chapterSlug: null` into the SAME progress
+// row the reflow reader writes (see buildPdfProgressPayload).
+export function updateUserBookProgress(bookId: string, data: { chapterSlug: string | null; locator?: string; percent?: number; updatedAt?: string }) {
   return authFetch<void>(`/me/books/${bookId}/progress`, jsonBody('PUT', data))
 }
 
@@ -71,7 +74,9 @@ export function getUserBookBookmarks(bookId: string) {
   return authFetch<BookmarkDto[]>(`/me/books/${bookId}/bookmarks`)
 }
 
-export function createUserBookBookmark(bookId: string, data: { chapterId: string; locator: string; title?: string }) {
+// chapterId is nullable — an Original-layout PDF page bookmark (ADR-012 S4c)
+// anchors to a `page:<N>` locator with no chapter.
+export function createUserBookBookmark(bookId: string, data: { chapterId: string | null; locator: string; title?: string }) {
   return authFetch<BookmarkDto>(`/me/books/${bookId}/bookmarks`, jsonBody('POST', data))
 }
 

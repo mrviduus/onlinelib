@@ -3,7 +3,7 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress, citationChapterSlug, makeSnippet } from '@textstack/shared'
+import { t, computeBookProgress, citationChapterSlug, makeSnippet, resolveOpenPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
@@ -35,6 +35,7 @@ import { TocSheet } from '../TocSheet'
 import { ReaderStatsWidget } from '../ReaderStatsWidget'
 import { ReaderTapCoachmark } from './ReaderTapCoachmark'
 import { ReaderTopBar } from './ReaderTopBar'
+import { PdfReaderChrome } from './PdfReaderChrome'
 import { Ionicons } from '@expo/vector-icons'
 import { fonts } from '../../theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -75,7 +76,7 @@ export interface ReaderShellProps {
    *  Public passes its chapterSlug; user-book historically passed undefined. */
   htmlChapterSlug?: string
   bookTitle: string | null
-  chapters: { slug: string; title: string; chapterNumber?: number; wordCount?: number | null }[]
+  chapters: { slug: string; title: string; chapterNumber?: number; wordCount?: number | null; sourceStartPage?: number | null }[]
   chaptersLoading: boolean
 
   // Progress/session machinery — refs created by the route (its progress + session
@@ -124,8 +125,25 @@ export interface ReaderShellProps {
   original?: boolean
   /** Range-enabled URL of the original PDF (Bearer injected into pdf.js, not the URL). */
   originalFileUrl?: string | null
-  /** 1-based page to open the PDF at (chapter start page). Null → page 1. */
+  /** 1-based page to open the PDF at (chapter start page). Wins over the server
+   *  resume page. Null → use the server resume page, else page 1. */
   originalInitialPage?: number | null
+  /** Server-persisted resume page (parsed from the `page:<N>` locator). Used
+   *  when the chapter carries no page. (ADR-012 S4c) */
+  originalResumePage?: number | null
+  /** False while the server resume page is still loading — the initial jump waits
+   *  on this (ignored when `originalInitialPage` is set). */
+  originalResumeReady?: boolean
+  /** Persist a PDF page position to server progress (debounced by the source).
+   *  Never feeds the word-based reading session. */
+  persistPdfPage?: (page: number, numPages: number) => void
+  /** Toggle a page bookmark for the current PDF page (original mode). */
+  onTogglePageBookmark?: (page: number) => void
+  /** Whether a given 1-based page has a page bookmark. */
+  isPageBookmarked?: (page: number) => boolean
+  /** Drop into the reflow reader on a corrupt PDF. Undefined when no reflow
+   *  chapters exist (→ hard error). */
+  onForceReflow?: () => void
 }
 
 /**
@@ -149,6 +167,8 @@ export function ReaderShell(props: ReaderShellProps) {
     bookmarks, onToggleCurrentBookmark, onDeleteBookmark, bookmarkChapterSlug,
     bookTitleRef, wordCount, explainBookId, askTarget,
     original, originalFileUrl, originalInitialPage,
+    originalResumePage, originalResumeReady, persistPdfPage,
+    onTogglePageBookmark, isPageBookmarked, onForceReflow,
   } = props
 
   const router = useRouter()
@@ -186,6 +206,15 @@ export function ReaderShell(props: ReaderShellProps) {
   const [pdfReloadNonce, setPdfReloadNonce] = useState(0)
   const currentPdfPageRef = useRef<number | null>(null)
   const pdfInitialPageRef = useRef<number | null>(originalInitialPage ?? null)
+  // S4c — top-visible page + page count for the PDF chrome + page-bookmark
+  // state. Kept in React state (not just the ref) so the chrome + bookmark icon
+  // re-render as the user scrolls.
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(originalInitialPage ?? 1)
+  const [pdfNumPages, setPdfNumPages] = useState(0)
+  // S4c — corrupt / unreadable PDF surfaced by the viewer (pdfLoadError).
+  const [pdfError, setPdfError] = useState(false)
+  const pdfReadyRef = useRef(false)
+  const pdfInitialJumpDoneRef = useRef(false)
 
   useEffect(() => {
     if (!original) return
@@ -202,7 +231,7 @@ export function ReaderShell(props: ReaderShellProps) {
   const footerHeight = 60 + insets.bottom
 
   // Reading session — keyed by whichever catalog id the source carries.
-  const { updateProgress: updateSessionProgress, sessionStartedAt } = useReadingSession({
+  const { updateProgress: updateSessionProgress, recordActivity: recordSessionActivity, sessionStartedAt } = useReadingSession({
     editionId: source.kind === 'edition' ? source.id : null,
     userBookId: source.kind === 'userbook' ? source.id : null,
     wordCount,
@@ -296,6 +325,30 @@ export function ReaderShell(props: ReaderShellProps) {
     showToast,
   })
 
+  // Inbound bridge to the pdf.js viewer — TOC jumps, page-input jumps, and the
+  // server-resume initial jump all route through `window.scrollToPage(n)`.
+  const scrollPdfToPage = useCallback((page: number) => {
+    injectJs(`window.scrollToPage && window.scrollToPage(${Math.max(1, Math.floor(page))})`)
+  }, [injectJs])
+
+  // Initial page resolution for the Original PDF. The chapter start page (if the
+  // user opened a specific chapter) is applied by the viewer bootstrap
+  // (`initialPage`), so here we only handle the SERVER resume page — and only
+  // once the doc is ready AND the resume fetch has resolved. Chapter page always
+  // wins (precedence: chapter sourceStartPage > server page > page 1).
+  const maybeInitialPdfJump = useCallback(() => {
+    if (!original || !pdfReadyRef.current || pdfInitialJumpDoneRef.current) return
+    if (originalInitialPage != null) { pdfInitialJumpDoneRef.current = true; return }
+    if (!originalResumeReady) return
+    pdfInitialJumpDoneRef.current = true
+    const target = resolveOpenPage(originalResumePage)
+    if (target > 1) scrollPdfToPage(target)
+  }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage])
+
+  // Run the deferred initial jump once the async server resume page arrives
+  // after the viewer was already ready.
+  useEffect(() => { maybeInitialPdfJump() }, [maybeInitialPdfJump])
+
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data)
@@ -309,6 +362,9 @@ export function ReaderShell(props: ReaderShellProps) {
       if (data.type === 'tap') {
         toggleBars()
       } else if (data.type === 'scrollDir') {
+        // Original PDF has no word-based 'progress' message, so genuine scroll
+        // is the session's activity signal (time-only — never a page percent).
+        if (original) recordSessionActivity()
         if (data.dir === 'up') showBars()
         else if (data.dir === 'down') hideBars()
       } else if (data.type === 'progress') {
@@ -343,11 +399,28 @@ export function ReaderShell(props: ReaderShellProps) {
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
         }
       } else if (data.type === 'pdfReady') {
-        // numPages known — S4c maps TOC pages + wires page bookmarks. No-op here.
+        // Document opened — record page count, clear any prior error, and run
+        // the deferred server-resume initial jump if the fetch already resolved.
+        if (typeof data.numPages === 'number') setPdfNumPages(data.numPages)
+        pdfReadyRef.current = true
+        setPdfError(false)
+        maybeInitialPdfJump()
       } else if (data.type === 'pdfPage') {
-        // Top-visible page (throttled). Track it so an auth-expired reload can
-        // restore it. Deliberately NOT fed into word-based progress (S4c).
-        if (typeof data.page === 'number') currentPdfPageRef.current = data.page
+        // Top-visible page (throttled). Track it (auth-expired reload restore +
+        // chrome + page-bookmark state), persist page-based progress (debounced,
+        // NOT word-based), and keep the reading session alive on time.
+        if (typeof data.page === 'number') {
+          currentPdfPageRef.current = data.page
+          setPdfCurrentPage(data.page)
+          recordSessionActivity()
+          if (typeof data.numPages === 'number') {
+            setPdfNumPages(data.numPages)
+            // Gate persistence until the initial (chapter/server-resume) jump has
+            // settled — otherwise a transient page-1 report during a slow server
+            // resume fetch could overwrite the saved page.
+            if (pdfInitialJumpDoneRef.current) persistPdfPage?.(data.page, data.numPages)
+          }
+        }
       } else if (data.type === 'pdfAuthExpired') {
         // Silent recovery: remember the page, refresh the token (shared
         // single-flight), then rebuild the viewer source with the fresh token.
@@ -359,14 +432,17 @@ export function ReaderShell(props: ReaderShellProps) {
           }
         })
       } else if (data.type === 'pdfLoadError') {
-        // Corrupt / unreadable PDF UX is S4c — for S4b just surface it in dev.
+        // Corrupt / unreadable PDF (NOT the 401 reload path). Surface the reader
+        // error state → "open as text" (if reflow chapters exist) or hard error.
         if (__DEV__) console.warn('[reader] pdf load error:', data.message)
+        setPdfError(true)
       }
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
   }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
-      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics])
+      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics,
+      original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -400,7 +476,27 @@ export function ReaderShell(props: ReaderShellProps) {
     }
   }
   const activeChapter = chapters.find(c => c.slug === activeSlug)
-  const isCurrentBookmarked = bookmarks.some(b => bookmarkChapterSlug(b) === activeSlug)
+  // Original PDF: the "current" bookmark is the top-visible PAGE, not a chapter.
+  const isCurrentBookmarked = original
+    ? (isPageBookmarked?.(pdfCurrentPage) ?? false)
+    : bookmarks.some(b => bookmarkChapterSlug(b) === activeSlug)
+
+  // TOC selection: original mode scrolls the PDF to the chapter's start page
+  // instead of routing to a chapter (mirrors web ReaderPage onChapterSelect).
+  const handleTocSelect = (slug: string) => {
+    if (original) {
+      const ch = chapters.find(c => c.slug === slug)
+      scrollPdfToPage(ch?.sourceStartPage ?? 1)
+      return
+    }
+    navigateChapter(slug)
+  }
+
+  // Bookmark toggle target differs by mode: current PDF page vs active chapter.
+  const toggleCurrentBookmark = () => {
+    if (original) onTogglePageBookmark?.(pdfCurrentPage)
+    else onToggleCurrentBookmark(activeSlug)
+  }
   const isMultiWord = !!(selection && selection.mode === 'drag' && selection.text.includes(' '))
   const currentChapterIndex = chapters.findIndex(c => c.slug === activeSlug)
   const totalChapters = chapters.length
@@ -587,6 +683,20 @@ export function ReaderShell(props: ReaderShellProps) {
           />
         )}
 
+        {original ? (
+          <PdfReaderChrome
+            barBg={barBg}
+            barText={barText}
+            borderColor={barText + '15'}
+            barsAnim={barsAnim}
+            footerTranslateY={footerTranslateY}
+            barsVisible={barsVisible}
+            bottomInset={insets.bottom}
+            currentPage={pdfCurrentPage}
+            numPages={pdfNumPages}
+            onJumpToPage={scrollPdfToPage}
+          />
+        ) : (
         <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${bookProgress != null ? Math.round(bookProgress * 100) : 0}%`, backgroundColor: barText + '40' }]} />
@@ -629,6 +739,7 @@ export function ReaderShell(props: ReaderShellProps) {
             </TouchableOpacity>
           </View>
         </Animated.View>
+        )}
 
         <ReaderTapCoachmark />
 
@@ -653,9 +764,11 @@ export function ReaderShell(props: ReaderShellProps) {
           bookmarks={bookmarks}
           currentChapterSlug={activeSlug || ''}
           onNavigate={navigateChapter}
+          onNavigatePage={scrollPdfToPage}
           onDelete={onDeleteBookmark}
-          onToggleCurrent={() => onToggleCurrentBookmark(activeSlug)}
+          onToggleCurrent={toggleCurrentBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
+          original={original}
         />
 
         <TranslationSheet
@@ -691,7 +804,7 @@ export function ReaderShell(props: ReaderShellProps) {
           chapters={chapters.map(c => ({ slug: c.slug, title: c.title, chapterNumber: c.chapterNumber }))}
           currentChapterSlug={activeSlug || ''}
           bookmarks={bookmarks.map(b => ({ chapterSlug: bookmarkChapterSlug(b), title: b.title || undefined }))}
-          onNavigate={navigateChapter}
+          onNavigate={handleTocSelect}
           onClose={() => setTocOpen(false)}
           loading={chaptersLoading}
         />
@@ -721,6 +834,26 @@ export function ReaderShell(props: ReaderShellProps) {
             if (hl) await removeHighlight(hl.id)
           }}
         />
+
+        {original && pdfError && (
+          <View style={[styles.pdfErrorOverlay, { backgroundColor: resolvedTheme.backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+            <Ionicons name="alert-circle-outline" size={48} color={barText + '99'} />
+            <Text style={[styles.pdfErrorTitle, { color: barText }]}>Couldn't open this PDF</Text>
+            <Text style={[styles.pdfErrorBody, { color: barText + '99' }]}>
+              {onForceReflow
+                ? 'The original file could not be displayed. You can read the extracted text version instead.'
+                : 'The original file could not be displayed, and there is no text version to fall back to.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.pdfErrorBtn, { backgroundColor: '#C4704B' }]}
+              onPress={() => { if (onForceReflow) { setPdfError(false); onForceReflow() } else { handleExit() } }}
+              accessibilityRole="button"
+              accessibilityLabel={onForceReflow ? 'Read as text' : 'Go back'}
+            >
+              <Text style={styles.pdfErrorBtnText}>{onForceReflow ? 'Read as text' : 'Go back'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {exitSummary && (
           <View style={styles.exitSummaryOverlay}>
@@ -777,6 +910,18 @@ const styles = StyleSheet.create({
   footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
+  pdfErrorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 8,
+  },
+  pdfErrorTitle: { fontFamily: fonts.serifBold, fontSize: 20, marginTop: 12, textAlign: 'center' },
+  pdfErrorBody: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 20 },
+  pdfErrorBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
+  pdfErrorBtnText: { fontFamily: fonts.sansMedium, fontSize: 15, color: '#fff' },
   exitSummaryOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 200,

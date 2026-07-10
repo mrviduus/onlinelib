@@ -91,6 +91,12 @@ export function Reader({ runtime }: { runtime: ReaderRuntime }) {
       original={runtime.original}
       originalFileUrl={runtime.originalFileUrl}
       originalInitialPage={runtime.originalInitialPage}
+      originalResumePage={runtime.originalResumePage}
+      originalResumeReady={runtime.originalResumeReady}
+      persistPdfPage={runtime.persistPdfPage}
+      onTogglePageBookmark={runtime.onTogglePageBookmark}
+      isPageBookmarked={runtime.isPageBookmarked}
+      onForceReflow={runtime.onForceReflow}
     />
   )
 }
