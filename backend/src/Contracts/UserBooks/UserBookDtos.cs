@@ -111,9 +111,12 @@ public record UpsertUserBookProgressRequest(
     DateTimeOffset? UpdatedAt
 );
 
+// ChapterId/ChapterSlug are nullable: PDFs opened in "Original layout" (ADR-012) are
+// chapterless — a page bookmark anchors on Locator ("page:N") with no chapter. Reflow/EPUB
+// bookmarks still carry a chapter (backward compatible).
 public record UserBookBookmarkDto(
     Guid Id,
-    Guid ChapterId,
+    Guid? ChapterId,
     string? ChapterSlug,
     string Locator,
     string? Title,
@@ -121,7 +124,7 @@ public record UserBookBookmarkDto(
 );
 
 public record CreateUserBookBookmarkRequest(
-    Guid ChapterId,
+    Guid? ChapterId,
     string Locator,
     string? Title
 );

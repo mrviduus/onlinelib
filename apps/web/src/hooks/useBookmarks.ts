@@ -13,6 +13,11 @@ export interface Bookmark {
   chapterSlug: string
   chapterTitle: string
   chapterId?: string // For server sync
+  /**
+   * 1-based PDF page for an Original-layout page bookmark (locator `page:<N>`).
+   * Null/undefined for ordinary chapter bookmarks.
+   */
+  page?: number | null
   createdAt: number
 }
 

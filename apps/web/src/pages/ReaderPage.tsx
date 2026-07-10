@@ -108,6 +108,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [pdfUnopenable, setPdfUnopenable] = useState(false)
   // TOC clicks in Original mode scroll the PDF to a page instead of routing.
   const [pdfScrollTo, setPdfScrollTo] = useState<{ page: number; nonce: number } | null>(null)
+  // Current top-visible PDF page (Original mode) — drives the top-bar page
+  // bookmark toggle + page bookmark creation.
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
   const [scrollToHighlightId] = useState(() => new URLSearchParams(window.location.search).get('highlight'))
@@ -116,8 +119,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
 
   const { settings, update } = useReaderSettings()
 
-  const { bookmarks, addBookmark, removeBookmark, isBookmarked, getBookmarkForChapter } =
-    useReaderBookmarks({
+  const {
+    bookmarks,
+    addBookmark,
+    removeBookmark,
+    isBookmarked,
+    getBookmarkForChapter,
+    addPageBookmark,
+    isPageBookmarked,
+    getPageBookmark,
+  } = useReaderBookmarks({
       mode,
       bookSlug,
       userBookId: id,
@@ -609,27 +620,44 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const seoDescription = `Read ${chapter?.title ?? book.title} from ${book.title} online | TextStack Reader`
 
   const immersiveClass = immersiveMode ? 'immersive-mode' : ''
+  // Original-layout PDF: the reveal-on-scroll immersive path can never fire (the
+  // PDF scrolls internally), so pin the reader chrome. The class offsets the PDF
+  // view below the fixed top bar and overrides the immersive hide (reader.css).
+  const originalClass = originalActive ? 'reader-page--original' : ''
 
   return (
-    <div className={`reader-page ${immersiveClass}`}>
+    <div className={`reader-page ${immersiveClass} ${originalClass}`}>
       <SeoHead title={seoTitle} description={seoDescription} noindex />
       <a href="#reader-content" className="skip-link">Skip to content</a>
       <ReaderTopBar
-        visible={!immersiveMode}
+        // Original mode pins the bar visible — the immersive reveal can't fire
+        // (PDF scrolls internally, window scroll never moves). reader.css also
+        // overrides the immersive !important hide for .reader-page--original.
+        visible={!immersiveMode || originalActive}
         title={book.title}
         chapterTitle={activeChapter?.title || chapter?.title || book.title}
         progress={overallProgress}
-        isBookmarked={isBookmarked(activeChapterIdentifier)}
+        isBookmarked={originalActive ? isPageBookmarked(pdfCurrentPage) : isBookmarked(activeChapterIdentifier)}
         backUrl={backUrl}
         sourceUrl={mode === 'userbook' ? clipSourceUrl : null}
         sourceDomain={mode === 'userbook' ? sourceDomain(clipSourceUrl) : null}
         useLocalizedLink={mode === 'public'}
         showAsk={!!askTarget}
+        // In-chapter search is reflow-DOM based; the PDF canvas has no page-aware
+        // search yet, so hide the button rather than open a no-op (follow-up).
+        showSearch={!originalActive}
         onAskClick={() => setAskOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onBookmarkClick={() => {
+          if (originalActive) {
+            // Toggle a bookmark on the CURRENT PDF page.
+            const existing = getPageBookmark(pdfCurrentPage)
+            if (existing) removeBookmark(existing.id)
+            else addPageBookmark(pdfCurrentPage)
+            return
+          }
           const bookmark = getBookmarkForChapter(activeChapterIdentifier)
           if (bookmark) {
             removeBookmark(bookmark.id)
@@ -667,6 +695,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   resumePage={pdfResumePage}
                   resumeReady={pdfResumeReady}
                   scrollToPage={pdfScrollTo}
+                  onPageChange={setPdfCurrentPage}
                   // Time-only: keeps the reading session/streak alive without
                   // feeding page position into canonical word-based progress.
                   onActivity={() => readingSession.recordActivity()}
@@ -733,6 +762,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         useLocalizedLink={mode === 'public'}
         onClose={() => setTocOpen(false)}
         onRemoveBookmark={removeBookmark}
+        onBookmarkSelect={originalActive ? (bm) => {
+          if (bm.page != null) setPdfScrollTo({ page: bm.page, nonce: Date.now() })
+        } : undefined}
         onChapterSelect={(identifier) => {
           if (originalActive) {
             // Original mode: scroll the PDF to the chapter's page instead of routing.
@@ -749,6 +781,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         settings={settings}
         onUpdate={update}
         onClose={() => setSettingsOpen(false)}
+        originalMode={originalActive}
       />
 
       {askTarget && (

@@ -853,6 +853,23 @@ html[data-theme="dark"] .reader-search-drawer__context mark {
   pointer-events: none;
 }
 
+/* Original-layout PDF: the reveal-on-scroll immersive path can never fire (the
+   PDF scrolls in its own container, window scroll never moves), so keep the top
+   bar pinned even if the auto-hide timer flipped immersive on. Higher specificity
+   than the rule above so it wins the !important battle. */
+.reader-page--original.immersive-mode .reader-top-bar {
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+/* Offset the internally-scrolling PDF view below the fixed 56px top bar so the
+   PDF toolbar (Fit/zoom/page/Dim) sits under the reader bar, not behind it. */
+.reader-page--original .pdf-original {
+  height: calc(100dvh - 56px);
+  margin-top: 56px;
+}
+
 .immersive-mode .reader-footer {
   transform: translateY(100%) !important;
   opacity: 0 !important;

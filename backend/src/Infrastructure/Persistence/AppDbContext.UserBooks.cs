@@ -85,7 +85,10 @@ public partial class AppDbContext
             e.Property(x => x.Locator).HasMaxLength(1000);
             e.Property(x => x.Title).HasMaxLength(500);
             e.HasOne(x => x.UserBook).WithMany().HasForeignKey(x => x.UserBookId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.Cascade);
+            // Nullable chapter FK: page bookmarks on chapterless PDFs (ADR-012) have no
+            // chapter. SetNull so deleting a chapter demotes its bookmarks to page anchors
+            // rather than cascading them away.
+            e.HasOne(x => x.Chapter).WithMany().HasForeignKey(x => x.ChapterId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // BookQualityJob — tracks Phase 3 content-quality cleanup runs.
