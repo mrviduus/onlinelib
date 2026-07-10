@@ -102,11 +102,7 @@ export default function PdfOriginalView({
     [bookId, initialPage],
   )
 
-  const currentPage = topVisiblePage(visible, openPage)
-  const currentPageRef = useRef(currentPage)
-  useEffect(() => {
-    currentPageRef.current = currentPage
-  }, [currentPage])
+  const currentPage = useMemo(() => topVisiblePage(visible, openPage), [visible, openPage])
 
   // --- Load every page's unscaled viewport up front (cheap metadata) so
   // placeholder heights are stable and scroll height doesn't jump. ---
@@ -115,20 +111,22 @@ export default function PdfOriginalView({
     let cancelled = false
     setPageDims(new Array(pdf.numPages).fill(undefined))
     ;(async () => {
+      // Accumulate locally and flush in chunks — one setState per page would
+      // re-render the whole page list N times (O(n²) reconciliation on load).
+      const dims: (PageDim | undefined)[] = new Array(pdf.numPages).fill(undefined)
+      const flush = () => { if (!cancelled) setPageDims(dims.slice()) }
       for (let i = 1; i <= pdf.numPages; i++) {
         try {
           const page = await pdf.getPage(i)
           if (cancelled) return
           const vp = page.getViewport({ scale: 1 })
-          setPageDims((prev) => {
-            const next = prev.slice()
-            next[i - 1] = { w: vp.width, h: vp.height }
-            return next
-          })
+          dims[i - 1] = { w: vp.width, h: vp.height }
+          if (i % 20 === 0) flush() // periodic so early placeholders firm up
         } catch {
           if (cancelled) return
         }
       }
+      flush()
     })()
     return () => {
       cancelled = true
@@ -179,20 +177,28 @@ export default function PdfOriginalView({
     }
   }, [numPages])
 
-  const registerPage = useCallback(
-    (pn: number) => (el: HTMLElement | null) => {
-      const map = pageEls.current
-      const prev = map.get(pn)
-      if (prev && observerRef.current) observerRef.current.unobserve(prev)
-      if (el) {
-        map.set(pn, el)
-        observerRef.current?.observe(el)
-      } else {
-        map.delete(pn)
+  // Cache one registrar per page so its identity is STABLE across renders —
+  // otherwise a fresh ref callback each render makes React unobserve/observe on
+  // every scroll frame and defeats PdfPage's React.memo.
+  const registrarsRef = useRef<Map<number, (el: HTMLElement | null) => void>>(new Map())
+  const registerPage = useCallback((pn: number) => {
+    let fn = registrarsRef.current.get(pn)
+    if (!fn) {
+      fn = (el: HTMLElement | null) => {
+        const map = pageEls.current
+        const prev = map.get(pn)
+        if (prev && observerRef.current) observerRef.current.unobserve(prev)
+        if (el) {
+          map.set(pn, el)
+          observerRef.current?.observe(el)
+        } else {
+          map.delete(pn)
+        }
       }
-    },
-    [],
-  )
+      registrarsRef.current.set(pn, fn)
+    }
+    return fn
+  }, [])
 
   const scrollToPageEl = useCallback((pn: number) => {
     const el = pageEls.current.get(pn)
@@ -289,7 +295,7 @@ export default function PdfOriginalView({
   }, [])
 
   const handleReload = useCallback(async () => {
-    reloadTargetRef.current = currentPageRef.current
+    reloadTargetRef.current = currentPage
     setSessionExpired(false)
     try {
       await refreshToken()
@@ -297,7 +303,7 @@ export default function PdfOriginalView({
       /* range requests re-auth via the fresh cookie; ignore refresh failures */
     }
     setReloadToken((n) => n + 1)
-  }, [])
+  }, [currentPage])
 
   const handleFitWidth = () => setZoom(1)
   const handleZoomIn = () => setZoom((z) => Math.min(4, z * 1.2))

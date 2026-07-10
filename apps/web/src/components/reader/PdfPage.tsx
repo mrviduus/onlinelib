@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
 
 interface PdfPageProps {
@@ -34,7 +34,7 @@ function isCancel(err: unknown): boolean {
  * the detached backing bitmap. The effect cleanup also cancels any in-flight
  * render/text-layer task so nothing keeps drawing into a removed node.
  */
-export function PdfPage({
+function PdfPageImpl({
   pdf,
   pageNumber,
   scale,
@@ -142,13 +142,12 @@ export function PdfPage({
   // Free on unmount.
   useEffect(() => () => freeCanvas(), [])
 
-  const active = render || keep
+  // render (±1 ring) is always a subset of keep (±2), so `render || keep` === keep.
+  const active = keep
 
   return (
     <div
-      ref={(el) => {
-        registerRef(el)
-      }}
+      ref={registerRef}
       data-page={pageNumber}
       className={`pdf-page${invert ? ' pdf-page--invert' : ''}`}
       style={{ width: cssWidth, height: cssHeight }}
@@ -166,3 +165,7 @@ export function PdfPage({
     </div>
   )
 }
+
+// memo: the parent re-renders on every scroll tick (visible-set state), but only
+// the 2-3 pages whose render/keep flags actually changed need to re-render.
+export const PdfPage = memo(PdfPageImpl)
