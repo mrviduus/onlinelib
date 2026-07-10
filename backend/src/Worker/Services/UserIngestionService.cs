@@ -109,7 +109,9 @@ public class UserIngestionService
                 Content = fileStream,
                 FileName = job.UserBookFile.OriginalFileName,
                 ContentLength = fileStream.Length,
-                Options = ExtractionOptions.Default
+                // User PDFs render pixel-perfect via PDF.js + vision RAG, so drop
+                // extracted inline images (ADR-012 S5a). Explicit for readable intent.
+                Options = new ExtractionOptions { ExtractInlineImages = false }
             };
 
             // Extract content

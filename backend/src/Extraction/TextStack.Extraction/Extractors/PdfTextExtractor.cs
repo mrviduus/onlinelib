@@ -57,7 +57,8 @@ public sealed class PdfTextExtractor : ITextExtractor
                 request.Content.CopyTo(copy);
                 pdfBytes = copy.ToArray();
             }
-            return Task.FromResult(ExtractFromDocument(document, pdfBytes, warnings, ct));
+            return Task.FromResult(ExtractFromDocument(
+                document, pdfBytes, request.Options.ExtractInlineImages, warnings, ct));
         }
         catch (Exception ex)
         {
@@ -79,7 +80,8 @@ public sealed class PdfTextExtractor : ITextExtractor
     }
 
     private static ExtractionResult ExtractFromDocument(
-        PdfDocument document, byte[] pdfBytes, List<ExtractionWarning> warnings, CancellationToken ct)
+        PdfDocument document, byte[] pdfBytes, bool extractInlineImages,
+        List<ExtractionWarning> warnings, CancellationToken ct)
     {
         var pageCount = document.NumberOfPages;
         if (pageCount == 0)
@@ -173,19 +175,32 @@ public sealed class PdfTextExtractor : ITextExtractor
                         var page = document.GetPage(p);
                         var textElements = PdfPageTextExtractor.ExtractPage(page);
 
-                        // Extract images and create inline elements
-                        var (pageImages, inlinePositions) = ExtractPageImages(page, p, warnings);
-                        allImages.AddRange(pageImages);
+                        // Inline-image extraction is gated (ADR-012 S5a). User PDFs
+                        // render pixel-perfect via PDF.js and RAG re-renders pages via
+                        // vision, so extracted chapter <img> are dead weight there
+                        // (flag off = text-only page). The admin-catalog reflow path
+                        // sets the flag true to keep its inline figures. The cover is
+                        // unaffected — always rendered below via RenderFirstPageAsCover.
+                        List<PdfTextElement> merged;
+                        if (extractInlineImages)
+                        {
+                            var (pageImages, inlinePositions) = ExtractPageImages(page, p, warnings);
+                            allImages.AddRange(pageImages);
 
-                        var imageElements = inlinePositions
-                            .Select(pi => new PdfTextElement(
-                                TextElementType.Image, pi.Path, false, false, pi.YPosition))
-                            .ToList();
+                            var imageElements = inlinePositions
+                                .Select(pi => new PdfTextElement(
+                                    TextElementType.Image, pi.Path, false, false, pi.YPosition))
+                                .ToList();
 
-                        // Merge text + images, sort by Y descending (top of page first)
-                        var merged = textElements.Concat(imageElements)
-                            .OrderByDescending(e => e.YPosition)
-                            .ToList();
+                            // Merge text + images, sort by Y descending (top of page first)
+                            merged = textElements.Concat(imageElements)
+                                .OrderByDescending(e => e.YPosition)
+                                .ToList();
+                        }
+                        else
+                        {
+                            merged = textElements;
+                        }
 
                         if (merged.Count > 0)
                             pageElements.Add((p, merged));

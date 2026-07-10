@@ -138,7 +138,9 @@ public class IngestionWorkerService
                 Content = fileStream,
                 FileName = job.BookFile.OriginalFileName,
                 ContentLength = fileStream.Length,
-                Options = ExtractionOptions.Default
+                // Admin catalog PDFs render via reflow and need their inline
+                // figures (ADR-012 S5a — gate, don't delete).
+                Options = new ExtractionOptions { ExtractInlineImages = true }
             };
 
             // Extraction span
