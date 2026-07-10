@@ -64,16 +64,17 @@ export function clampPage(page: number, numPages: number): number {
 }
 
 /**
- * The chapter's start page (initialPage) wins when set — the user chose "open
- * this chapter's page". The persisted resume page is only a fallback (e.g. the
- * chapter carried no sourceStartPage). Defaults to page 1.
+ * First candidate page that is a real 1-based page (>= 1) wins; anything
+ * null/undefined/<1 is skipped. Callers pass candidates in PRECEDENCE order —
+ * for the PDF reader that is: chapter start page (user chose this chapter) >
+ * server resume page > localStorage resume page. Defaults to page 1.
  */
 export function resolveOpenPage(
-  initialPage: number | null | undefined,
-  resumePage: number | null | undefined,
+  ...candidates: (number | null | undefined)[]
 ): number {
-  if (initialPage != null && initialPage >= 1) return Math.floor(initialPage)
-  if (resumePage != null && resumePage >= 1) return Math.floor(resumePage)
+  for (const c of candidates) {
+    if (c != null && c >= 1) return Math.floor(c)
+  }
   return 1
 }
 

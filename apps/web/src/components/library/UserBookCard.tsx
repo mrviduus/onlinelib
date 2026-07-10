@@ -162,7 +162,9 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             className={book.coverPath ? 'hidden' : ''}
           />
 
-          {isReady && !book.completedAt && percent > 0 && (
+          {/* readable = isReady || hasOriginalPdf → a PDF still Processing/Failed
+              (per S1) can render page-% too, not just fully-extracted books. */}
+          {readable && !book.completedAt && percent > 0 && (
             <div className="user-book-card__progress-bar">
               <div
                 className="user-book-card__progress-fill"
@@ -210,7 +212,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             to={destination}
             className="user-book-card__title"
             title={book.title}
-            onClick={(e) => !isReady && e.preventDefault()}
+            onClick={(e) => !readable && e.preventDefault()}
           >
             {book.title}
           </Link>
@@ -259,7 +261,7 @@ export function UserBookCard({ book, onDelete, onRetry, onCancel, onUpdate, prog
             {isReady && book.completedAt && (
               <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>
             )}
-            {isReady && !book.completedAt && percent > 0 && (
+            {readable && !book.completedAt && percent > 0 && (
               <span className="user-book-card__progress-text">{Math.round(percent * 100)}% read</span>
             )}
             {isReady && !book.completedAt && book.chapterCount > 0 && percent === 0 && (

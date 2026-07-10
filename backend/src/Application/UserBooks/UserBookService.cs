@@ -490,7 +490,10 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             .Select(b => new { b.ProgressChapterSlug, b.ProgressLocator, b.ProgressPercent, b.ProgressUpdatedAt })
             .FirstOrDefaultAsync(ct);
 
-        if (book is null || book.ProgressChapterSlug is null)
+        // Page-based (PDF "Original layout", ADR-012) progress has no chapter — the
+        // position lives in ProgressLocator ("page:N"). So progress exists when EITHER
+        // a chapter slug OR a locator is recorded; only a truly empty row 404s.
+        if (book is null || (book.ProgressChapterSlug is null && book.ProgressLocator is null))
             return null;
 
         return new UserBookProgressDto(

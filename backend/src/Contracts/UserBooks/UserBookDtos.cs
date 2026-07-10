@@ -101,8 +101,11 @@ public record UserBookProgressDto(
     DateTimeOffset? UpdatedAt
 );
 
+// ChapterSlug is nullable: PDFs opened in "Original layout" (ADR-012) have no
+// chapter — their position is a PAGE carried in Locator ("page:N"). Reflow/EPUB
+// callers still send a chapter slug (backward compatible).
 public record UpsertUserBookProgressRequest(
-    string ChapterSlug,
+    string? ChapterSlug,
     string? Locator,
     double? Percent,
     DateTimeOffset? UpdatedAt

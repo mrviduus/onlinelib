@@ -11,6 +11,8 @@ import {
   topVisiblePage,
 } from '../../lib/pdfPageWindow'
 import { readPdfPage, writePdfPage } from '../../lib/originalLayoutPref'
+import { buildPdfProgressPayload } from '../../lib/pdfProgress'
+import { saveUserBookProgress } from '../../api/userBooks'
 import '../../styles/pdfOriginal.css'
 
 interface PageDim {
@@ -27,6 +29,18 @@ interface PdfOriginalViewProps {
    * the chapter carries no page, in which case the resume page is used.
    */
   initialPage: number | null
+  /**
+   * Server-persisted resume page (parsed from the `page:<N>` progress locator).
+   * Used when the chapter carries no page — it WINS over the localStorage resume
+   * page (cross-device). Null when there is no server progress yet.
+   */
+  resumePage?: number | null
+  /**
+   * False while the server resume page is still being fetched. The initial
+   * scroll waits for this so a cross-device open lands on the server page rather
+   * than page 1. Ignored when `initialPage` is set (chapter jump is instant).
+   */
+  resumeReady?: boolean
   /** TOC-driven jump. Nonce lets the same page be re-targeted. */
   scrollToPage: { page: number; nonce: number } | null
   /**
@@ -48,6 +62,7 @@ const MAX_SCALE = 5
 const FALLBACK_DIM: PageDim = { w: 612, h: 792 } // US Letter @72dpi
 const ACTIVITY_THROTTLE_MS = 1500
 const SCROLL_SUPPRESS_MS = 250
+const SERVER_PROGRESS_DEBOUNCE_MS = 2000
 
 /** 401/403-ish rejection from a lazy Range request after the token expired. */
 function isAuthError(err: unknown): boolean {
@@ -60,9 +75,11 @@ function isAuthError(err: unknown): boolean {
 /**
  * Renders a user book's ORIGINAL PDF pixel-perfect (canvas + selectable text
  * layer) as an opt-in alternative to the reflow reader. Whole book = one
- * document. Scrolls internally so PDF page position never touches the reader's
- * word-based server progress; page position is persisted to localStorage for
- * resume only.
+ * document. Scrolls internally; the page position is persisted BOTH to
+ * localStorage (instant resume) and to server progress as a page fraction
+ * (ADR-012 S2) so the library card shows a % and resume works cross-device. It
+ * never mixes with the reflow reader's word-based percent — a chapterless PDF
+ * simply owns the same ProgressPercent field via a page-based fraction.
  *
  * Default export — imported via React.lazy so pdfjs is a separate async chunk.
  */
@@ -70,6 +87,8 @@ export default function PdfOriginalView({
   fileUrl,
   bookId,
   initialPage,
+  resumePage = null,
+  resumeReady = true,
   scrollToPage,
   onActivity,
   onLoadError,
@@ -86,6 +105,9 @@ export default function PdfOriginalView({
   const suppressIntentUntilRef = useRef(0)
   const pendingTargetRef = useRef<number | null>(null)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const serverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPageRef = useRef<number | null>(null)
+  const numPagesRef = useRef(numPages)
   const lastActivityRef = useRef(0)
   const onActivityRef = useRef(onActivity)
   const prevPdfRef = useRef<typeof pdf>(null)
@@ -103,10 +125,15 @@ export default function PdfOriginalView({
     onActivityRef.current = onActivity
   }, [onActivity])
 
-  // The chapter's page wins over the persisted resume page (see prop doc).
+  useEffect(() => {
+    numPagesRef.current = numPages
+  }, [numPages])
+
+  // Precedence: chapter page (user chose it) > server resume page > localStorage
+  // resume page > 1. resolveOpenPage takes the first real (>=1) candidate.
   const openPage = useMemo(
-    () => resolveOpenPage(initialPage, readPdfPage(bookId)),
-    [bookId, initialPage],
+    () => resolveOpenPage(initialPage, resumePage, readPdfPage(bookId)),
+    [bookId, initialPage, resumePage],
   )
 
   const currentPage = useMemo(() => topVisiblePage(visible, openPage), [visible, openPage])
@@ -249,12 +276,16 @@ export default function PdfOriginalView({
     return () => el.removeEventListener('scroll', onScroll)
   }, [pdf])
 
-  // --- Initial scroll to the open page (once the document is ready). ---
+  // --- Initial scroll to the open page (once the document is ready). When the
+  // chapter carries no page we wait for the server resume answer (resumeReady)
+  // so a cross-device open lands on the saved page, not page 1. A chapter jump
+  // (initialPage set) never waits — it's authoritative and instant. ---
   useEffect(() => {
     if (!pdf || didInitialScrollRef.current) return
+    if (initialPage == null && !resumeReady) return
     didInitialScrollRef.current = true
     requestAnimationFrame(() => jumpToPage(openPage))
-  }, [pdf, openPage, jumpToPage])
+  }, [pdf, openPage, initialPage, resumeReady, jumpToPage])
 
   // --- One-shot correction for ANY pending jump: re-align once placeholder
   // heights above the target have streamed in and the user hasn't scrolled. ---
@@ -287,15 +318,56 @@ export default function PdfOriginalView({
     prevPdfRef.current = pdf
   }, [pdf, jumpToPage])
 
-  // --- Persist current page for resume (debounced; never touches server progress). ---
+  // Flush the latest page position to server progress (page fraction → the same
+  // ProgressPercent field the library card reads). Idempotent upsert; failures
+  // are logged only so reading is never interrupted. Reused for the debounce
+  // timer, tab-hide, and unmount.
+  const flushServerProgress = useCallback(() => {
+    if (serverTimerRef.current) {
+      clearTimeout(serverTimerRef.current)
+      serverTimerRef.current = null
+    }
+    const page = pendingPageRef.current
+    const np = numPagesRef.current
+    if (page == null || !bookId || np < 1) return
+    pendingPageRef.current = null
+    saveUserBookProgress(bookId, buildPdfProgressPayload(page, np)).catch((err) => {
+      console.warn('[progress] pdf save failed', err)
+    })
+  }, [bookId])
+
+  // --- Persist current page for resume: localStorage (instant, offline-safe)
+  // plus server progress (debounced ~2s) so the library card shows a % and
+  // resume works cross-device. Both write the SAME page — no double-counting. ---
   useEffect(() => {
     if (!visible.size) return
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
     persistTimerRef.current = setTimeout(() => writePdfPage(bookId, currentPage), 500)
+
+    pendingPageRef.current = currentPage
+    if (serverTimerRef.current) clearTimeout(serverTimerRef.current)
+    serverTimerRef.current = setTimeout(flushServerProgress, SERVER_PROGRESS_DEBOUNCE_MS)
+
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
     }
-  }, [currentPage, visible.size, bookId])
+  }, [currentPage, visible.size, bookId, flushServerProgress])
+
+  // --- Flush pending server progress on tab-hide + unmount (mirrors the reflow
+  // reader) so the last page isn't lost when the reader closes. ---
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushServerProgress()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('beforeunload', flushServerProgress)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('beforeunload', flushServerProgress)
+      flushServerProgress()
+      if (serverTimerRef.current) clearTimeout(serverTimerRef.current)
+    }
+  }, [flushServerProgress])
 
   // Surface a hard document-load failure (corrupt / unreadable PDF, or an
   // unrecoverable error after usePdfDocument's one retry) to the parent so it
