@@ -1,7 +1,9 @@
 # ADR-012: PDF books — original-first display, parsing decoupled & lazy for AI
 
 ## Status
-Proposed
+Accepted — shipped 2026-07-10. S1 #419, S2 #420, S3 #421 (+ eval gate #422),
+S4 (mobile) #424, S5a #426. S5b (figure-caption RAG) deferred behind a real
+"what's on the diagram" miss signal.
 
 ## Date
 2026-07-10
