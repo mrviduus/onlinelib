@@ -20,18 +20,28 @@ PG_USER="verify"
 PG_DB="verify"
 PG_PASS="verify"
 
+# -v removes the container's ANONYMOUS volume too. postgres declares an
+# anonymous VOLUME at /var/lib/postgresql/data, so every run that reaches
+# `docker rm -f` (a killed/timed-out run where --rm never fired) otherwise
+# leaks a full pgdata volume. 34 days of daily backups leaked 156 GB of these
+# and filled the docker data-root — which then broke the very backup that
+# creates them. `docker rm -fv` reaps the volume with the container.
 cleanup() {
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker rm -fv "$CONTAINER" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-# Reap leaked verify containers from prior killed/timed-out runs — they hold
-# ports + memory and can starve a fresh postgres into never becoming ready.
+# Reap leaked verify containers (and their orphaned pgdata volumes) from prior
+# killed/timed-out runs — they hold ports + memory + disk and can starve a
+# fresh postgres into never becoming ready.
 LEAKED=$(docker ps -aq --filter "name=textstack_backup_verify_" 2>/dev/null || true)
 if [[ -n "$LEAKED" ]]; then
   echo "[verify] removing $(echo "$LEAKED" | wc -l | tr -d ' ') leaked verify container(s) ..." >&2
-  docker rm -f $LEAKED >/dev/null 2>&1 || true
+  docker rm -fv $LEAKED >/dev/null 2>&1 || true
 fi
+# Belt-and-suspenders: drop any dangling anonymous volumes orphaned before this
+# fix (or by an OOM-killed `docker rm`). Named volumes are untouched by prune.
+docker volume prune -f >/dev/null 2>&1 || true
 
 echo "[verify] starting postgres on :$PORT ..."
 docker run -d --rm \
