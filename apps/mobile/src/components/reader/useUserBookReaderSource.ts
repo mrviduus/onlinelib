@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
 import { userBooksApi, parseScrollLocator, buildUserBookProgressPayload } from '@textstack/shared'
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
+import { API_URL } from '../../lib/api'
 import { saveUserBookLocalProgress } from '../../lib/progressStorage'
 import { useReaderPersistence } from '../../hooks/useReaderPersistence'
 import { trackBookOpened } from '../../lib/analytics'
@@ -53,6 +54,10 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
   const [chapters, setChapters] = useState<ReaderChapterMeta[]>([])
   const [chaptersLoading, setChaptersLoading] = useState(true)
   const [bookTitle, setBookTitle] = useState<string | null>(null)
+  // ADR-012 S4b — Original-layout PDF. `hasOriginalPdf` gates the pdf.js viewer;
+  // sourceStartPage per chapter drives the open page when a chapter is chosen.
+  const [hasOriginalPdf, setHasOriginalPdf] = useState(false)
+  const sourceStartPageBySlugRef = useRef<Record<string, number>>({})
 
   useEffect(() => { userBookIdRef.current = bookId || null }, [bookId])
 
@@ -92,12 +97,19 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     userBooksApi.getUserBook(bookId).then(b => {
       bookTitleRef.current = b.title || null
       setBookTitle(b.title || null)
-      const mapped: ReaderChapterMeta[] = b.chapters.map(ch => ({
-        slug: ch.slug || `chapter-${ch.chapterNumber}`,
-        title: ch.title,
-        chapterNumber: ch.chapterNumber,
-        wordCount: typeof ch.wordCount === 'number' && ch.wordCount > 0 ? ch.wordCount : 0,
-      }))
+      setHasOriginalPdf(b.hasOriginalPdf === true)
+      const pageBySlug: Record<string, number> = {}
+      const mapped: ReaderChapterMeta[] = b.chapters.map(ch => {
+        const slug = ch.slug || `chapter-${ch.chapterNumber}`
+        if (typeof ch.sourceStartPage === 'number' && ch.sourceStartPage >= 1) pageBySlug[slug] = ch.sourceStartPage
+        return {
+          slug,
+          title: ch.title,
+          chapterNumber: ch.chapterNumber,
+          wordCount: typeof ch.wordCount === 'number' && ch.wordCount > 0 ? ch.wordCount : 0,
+        }
+      })
+      sourceStartPageBySlugRef.current = pageBySlug
       setChapters(mapped)
       const summed = mapped.reduce((s, c) => s + (c.wordCount || 0), 0)
       totalWordCountRef.current = (typeof b.totalWordCount === 'number' && b.totalWordCount > 0) ? b.totalWordCount : summed
@@ -239,5 +251,10 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     onDeleteBookmark: deleteBookmark,
     bookmarkChapterSlug: bookmarkSlug,
     askTarget: bookId ? { kind: 'userbook', id: bookId } : undefined,
+    // ADR-012 S4b — render the ORIGINAL PDF pixel-perfect when the upload has
+    // one. No forceReflow toggle yet (S4c adds the "read as text" switch).
+    original: hasOriginalPdf,
+    originalFileUrl: hasOriginalPdf && bookId ? userBooksApi.getUserBookFileUrl(bookId, API_URL) : null,
+    originalInitialPage: sourceStartPageBySlugRef.current[chapterSlug] ?? null,
   }
 }

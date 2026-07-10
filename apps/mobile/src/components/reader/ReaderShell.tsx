@@ -5,7 +5,8 @@ import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
 import { t, computeBookProgress, citationChapterSlug, makeSnippet } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
-import { buildReaderHtml } from '../../lib/readerHtml'
+import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
+import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
 import { useReaderBars } from '../../hooks/useReaderBars'
@@ -116,6 +117,15 @@ export interface ReaderShellProps {
   /** "Ask this book" target — catalog edition OR user-uploaded book (AI-027 P2).
    *  Drives the Ask button visibility and which endpoint family the sheet hits. */
   askTarget?: AskTarget
+
+  /** ADR-012 S4b — render the ORIGINAL PDF (pdf.js viewer) instead of the reflow
+   *  HTML. Same shell, one branch: the WebView source swaps and the reflow-only
+   *  scroll/progress/infinite-scroll message branches go inert. */
+  original?: boolean
+  /** Range-enabled URL of the original PDF (Bearer injected into pdf.js, not the URL). */
+  originalFileUrl?: string | null
+  /** 1-based page to open the PDF at (chapter start page). Null → page 1. */
+  originalInitialPage?: number | null
 }
 
 /**
@@ -138,6 +148,7 @@ export function ReaderShell(props: ReaderShellProps) {
     onChapterLoaded, onRequestNextChapter, onNavigateChapter,
     bookmarks, onToggleCurrentBookmark, onDeleteBookmark, bookmarkChapterSlug,
     bookTitleRef, wordCount, explainBookId, askTarget,
+    original, originalFileUrl, originalInitialPage,
   } = props
 
   const router = useRouter()
@@ -164,6 +175,28 @@ export function ReaderShell(props: ReaderShellProps) {
   const [visibleChapterSlug, setVisibleChapterSlug] = useState<string | null>(null)
 
   const sessionWordCountRef = useRef(0)
+
+  // --- ADR-012 S4b: Original-layout PDF viewer state ------------------------
+  // The Bearer token is fetched once and injected into pdf.js httpHeaders via
+  // the viewer HTML. On a mid-read Range 401 the WebView posts `pdfAuthExpired`
+  // → we refresh (shared single-flight) and rebuild the source (nonce bump)
+  // restoring the current page — no visible banner (mobile UX).
+  const [pdfToken, setPdfToken] = useState<string | null>(null)
+  const [pdfTokenReady, setPdfTokenReady] = useState(false)
+  const [pdfReloadNonce, setPdfReloadNonce] = useState(0)
+  const currentPdfPageRef = useRef<number | null>(null)
+  const pdfInitialPageRef = useRef<number | null>(originalInitialPage ?? null)
+
+  useEffect(() => {
+    if (!original) return
+    let cancelled = false
+    getAccessToken().then(tok => {
+      if (cancelled) return
+      setPdfToken(tok)
+      setPdfTokenReady(true)
+    })
+    return () => { cancelled = true }
+  }, [original])
 
   const topBarHeight = 56 + insets.top
   const footerHeight = 60 + insets.bottom
@@ -309,6 +342,25 @@ export function ReaderShell(props: ReaderShellProps) {
         if (nextId !== null && !data.text.includes(' ')) {
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
         }
+      } else if (data.type === 'pdfReady') {
+        // numPages known — S4c maps TOC pages + wires page bookmarks. No-op here.
+      } else if (data.type === 'pdfPage') {
+        // Top-visible page (throttled). Track it so an auth-expired reload can
+        // restore it. Deliberately NOT fed into word-based progress (S4c).
+        if (typeof data.page === 'number') currentPdfPageRef.current = data.page
+      } else if (data.type === 'pdfAuthExpired') {
+        // Silent recovery: remember the page, refresh the token (shared
+        // single-flight), then rebuild the viewer source with the fresh token.
+        pdfInitialPageRef.current = currentPdfPageRef.current ?? pdfInitialPageRef.current
+        onUnauthorized().then(tok => {
+          if (tok) {
+            setPdfToken(tok)
+            setPdfReloadNonce(n => n + 1)
+          }
+        })
+      } else if (data.type === 'pdfLoadError') {
+        // Corrupt / unreadable PDF UX is S4c — for S4b just surface it in dev.
+        if (__DEV__) console.warn('[reader] pdf load error:', data.message)
       }
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
@@ -367,10 +419,12 @@ export function ReaderShell(props: ReaderShellProps) {
   }, [selection, chapter.id, createHighlight, updateSettings])
 
   // Sync inline translations setting to the WebView — was missing on the
-  // user-book reader, so the gloss never showed there (now shared).
+  // user-book reader, so the gloss never showed there (now shared). Skipped in
+  // the PDF viewer (no reflow vocab layer to toggle — S5 paints over the PDF).
   useEffect(() => {
+    if (original) return
     injectJs(`setShowInlineTranslations(${settings.showInlineTranslations})`)
-  }, [settings.showInlineTranslations, injectJs])
+  }, [settings.showInlineTranslations, injectJs, original])
 
   // Recompute book-wide progress once chapters/wordCount land — early
   // 'progress' messages fire before the chapter list resolves.
@@ -394,7 +448,39 @@ export function ReaderShell(props: ReaderShellProps) {
     [chapter.html, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign,
      resolvedTheme.backgroundColor, resolvedTheme.textColor, htmlChapterSlug, insets.top, insets.bottom, overlayV2],
   )
-  const webViewSource = useMemo(() => ({ html }), [html])
+
+  // ADR-012 S4b — the Original-layout PDF document. Rebuilt when the token
+  // refreshes (nonce) so a silent 401 recovery reloads at the tracked page.
+  const pdfHtml = useMemo(() => {
+    if (!original || !originalFileUrl) return ''
+    return buildPdfViewerHtml(originalFileUrl, pdfToken, {
+      theme: {
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        fontFamily: resolvedFontFamily,
+        textAlign: settings.textAlign,
+        backgroundColor: resolvedTheme.backgroundColor,
+        textColor: resolvedTheme.textColor,
+      },
+      initialPage: pdfInitialPageRef.current ?? originalInitialPage ?? null,
+      safeArea: { top: insets.top, bottom: insets.bottom },
+    })
+    // pdfReloadNonce intentionally in deps — it forces a rebuild on token refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [original, originalFileUrl, pdfToken, pdfReloadNonce, originalInitialPage,
+      resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom])
+
+  // baseUrl = API origin so pdf.js lazy Range requests are same-origin (the
+  // Bearer travels in httpHeaders, no CORS preflight). Reflow uses inline html.
+  const webViewSource = useMemo(() => {
+    if (original) {
+      if (!pdfTokenReady) {
+        return { html: `<!DOCTYPE html><html><body style="background:${resolvedTheme.backgroundColor};margin:0"></body></html>` }
+      }
+      return { html: pdfHtml, baseUrl: API_URL }
+    }
+    return { html }
+  }, [original, pdfTokenReady, pdfHtml, html, resolvedTheme.backgroundColor])
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
@@ -410,6 +496,11 @@ export function ReaderShell(props: ReaderShellProps) {
           style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
           onMessage={handleMessage}
           onLoadEnd={() => {
+            // PDF viewer: reflow injections (highlight paint / vocab marks /
+            // inline-translation toggle / scroll-restore) don't apply — the
+            // pdf.js controller owns render + initial page. S5 paints anchors
+            // onto the PDF text layer.
+            if (original) return
             for (const h of highlightsRef.current) {
               injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
             }
@@ -439,6 +530,9 @@ export function ReaderShell(props: ReaderShellProps) {
           onShouldStartLoadWithRequest={(req) => {
             const { url, navigationType } = req
             if (url === 'about:blank' || url.startsWith('data:') || url.startsWith('file:')) return true
+            // PDF viewer: permit the same-origin base document load (baseUrl =
+            // API origin) so pdf.js can stream lazy Range requests. Not a click.
+            if (original && navigationType !== 'click' && url.startsWith(API_URL)) return true
             if (navigationType === 'click' && (url.startsWith('http://') || url.startsWith('https://'))) {
               Linking.openURL(url).catch(() => {})
               return false

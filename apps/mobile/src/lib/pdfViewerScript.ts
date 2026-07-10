@@ -1,0 +1,8 @@
+// Re-export of the auto-generated PDF viewer bundle. The real source is
+// apps/web/scripts/pdfViewer/entry.ts (+ the pdf.js legacy worker); bundling is
+// done by apps/web/scripts/build-mobile-pdf.mjs and committed to
+// pdfViewerScript.generated.ts so Metro/Expo can import it without a build step.
+//
+// To change the Original-layout PDF viewer, edit the entry + run:
+//   pnpm -C apps/web build:mobile-pdf
+export { PDF_VIEWER_SCRIPT } from './pdfViewerScript.generated'

@@ -57,7 +57,14 @@ async function handleTerminalAuthFailure(): Promise<void> {
   }
 }
 
-async function onUnauthorized(): Promise<string | null> {
+/**
+ * Single-flight token refresh. Exported so the Original-layout PDF viewer
+ * (ADR-012 S4b) can recover from a mid-read Range 401: the WebView posts
+ * `pdfAuthExpired`, RN calls this to refresh, then rebuilds the viewer source
+ * with the fresh Bearer token (no visible banner). Shares the same in-flight
+ * promise as the shared API client so concurrent 401s don't rotate twice.
+ */
+export async function onUnauthorized(): Promise<string | null> {
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {

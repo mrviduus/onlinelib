@@ -106,6 +106,19 @@ export interface ReaderRuntime {
   // "Ask this book" target — catalog edition or user-uploaded book (AI-027 P2).
   // Drives the Ask button visibility + which endpoint family the sheet hits.
   askTarget?: AskTarget
+
+  // --- Original-layout PDF (ADR-012 S4b) ------------------------------------
+  // Set by `useUserBookReaderSource` when the upload has a renderable PDF and
+  // reflow isn't force-selected. When true, the shell renders the pdf.js viewer
+  // WebView instead of the reflow HTML (one shell, branch inside). Absent/false
+  // for editions and reflow user-books.
+  original?: boolean
+  /** Absolute, Range-enabled URL of the original PDF (mobile injects the Bearer
+   *  into pdf.js httpHeaders — the URL carries no token). Null unless `original`. */
+  originalFileUrl?: string | null
+  /** 1-based page to open the PDF at — the current chapter's start page (S4c
+   *  wires server resume). Null → page 1. */
+  originalInitialPage?: number | null
 }
 
 export type { ReaderShellChapter }
