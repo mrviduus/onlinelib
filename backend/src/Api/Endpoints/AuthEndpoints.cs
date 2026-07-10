@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Api.Extensions;
 using Api.Mapping;
 using Application.Auth;
@@ -265,12 +266,20 @@ public static class AuthEndpoints
             .GetRequiredService<IWebHostEnvironment>()
             .IsDevelopment();
 
+        // Cookie lifetime must track the refresh-token TTL (JwtSettings), else the
+        // browser drops the cookie before the token expires and the user is logged
+        // out early despite a still-valid refresh token. Both are re-set on every
+        // /auth/refresh, so an active user's window slides forward.
+        var refreshTtlDays = httpContext.RequestServices
+            .GetRequiredService<IOptions<JwtSettings>>()
+            .Value.RefreshTokenExpiryDays;
+
         var options = new CookieOptions
         {
             HttpOnly = true,
             Secure = isProduction,
             SameSite = SameSiteMode.Lax,
-            MaxAge = TimeSpan.FromDays(30),
+            MaxAge = TimeSpan.FromDays(refreshTtlDays),
             Path = "/"
         };
 
