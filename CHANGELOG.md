@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Auth — longer sessions: refresh-token TTL 30 → 365 days — backend (2026-07-09)
+
+Raised the signed-in session window so users stay logged in until they explicitly log out (or are inactive a full year) rather than being dropped after 30 days. `Jwt:RefreshTokenExpiryDays` 30 → **365** in `appsettings.json` (drives the refresh-token row `ExpiresAt`), and `SetAuthCookies` now sets the auth-cookie `MaxAge` from that same `JwtSettings` value instead of a hardcoded `TimeSpan.FromDays(30)` — otherwise the browser would drop the cookie at 30 days even though the token is valid for a year. Both the token and the cookie are re-issued on every `/auth/refresh`, so an active reader's window slides forward continuously; combined with the single-flight refresh fix (separate PR), an active user effectively never gets logged out. Guest sessions unchanged (`GuestRefreshTokenExpiryDays` stays 30 to bound abandoned-account DB rows). Note: the admin "Session settings" DB knob only affects the *admin* cookie MaxAge — regular-user token TTL is driven by `JwtSettings` (appsettings), so this is the effective lever. `dotnet build` green.
+
 ### Library — drop the shelf carousels, book grid to the top — web (2026-07-09)
 
 Removed the `LibraryShelves` carousel block (Continue reading, Recently added, Quick reads, Finished this month) from the library page — the shelves were buggy and low-value, and pushed the actual book list below the fold. The unified book grid/list (sort · search · status tabs · cards) now sits directly under the stats header, so opening the library lands you on your books. One-line change in `apps/web/src/pages/LibraryPage.tsx` (drop `<LibraryShelves>` + its import); the grid's own empty-state (`EmptyState`/`UploadDropZone`) covers the no-books case the shelves block used to handle. The `/library/shelf/:shelfId` "View all" route + `LibraryShelvesService`/`useLibraryShelves` stay intact (reachable by direct URL) — no backend change, trivially reversible. `tsc` clean, `vite build` green, browser-checked (shelves gone, no "Continue reading"/"Recently added" text, grid renders at top, 0 console errors).
