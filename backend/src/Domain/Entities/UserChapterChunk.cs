@@ -16,8 +16,12 @@ public class UserChapterChunk
     /// <summary>Owning user book.</summary>
     public Guid UserBookId { get; set; }
 
-    /// <summary>Source chapter within the user book.</summary>
-    public Guid UserChapterId { get; set; }
+    /// <summary>
+    /// Source chapter within the user book. NULLABLE since ADR-012 S3: vision-parsed PDF chunks are
+    /// attached to the book, and only mapped to a chapter when a chapter's physical page range contains
+    /// the chunk's <see cref="SourcePage"/>. Null when S2 chapter detection hasn't run (best-effort).
+    /// </summary>
+    public Guid? UserChapterId { get; set; }
 
     /// <summary>
     /// Denormalized owner id (copied from the book's <see cref="UserBook.UserId"/>). Lets retrieval
@@ -52,6 +56,20 @@ public class UserChapterChunk
 
     /// <summary>End offset of this chunk in the chapter's plain_text (exclusive).</summary>
     public int CharEnd { get; set; }
+
+    /// <summary>
+    /// ADR-012 S3: the 1-based physical PDF page this chunk starts on (from the vision parse). Null for
+    /// EPUB/deterministic chunks. Drives the "p. {n}" chat citation and the jump-to-page in the Original
+    /// viewer.
+    /// </summary>
+    public int? SourcePage { get; set; }
+
+    /// <summary>
+    /// ADR-012 S3: the Markdown heading breadcrumb this chunk falls under
+    /// ("2. Orbit › Infectious › Preseptal Cellulitis"), or null at document root / for EPUB chunks.
+    /// Surfaced in the citation for context.
+    /// </summary>
+    public string? SectionPath { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

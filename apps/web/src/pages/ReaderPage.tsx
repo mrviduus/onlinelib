@@ -23,6 +23,7 @@ import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
 import { AskPanel } from '../components/reader/AskPanel'
 import { StudyBuddyPanel } from '../components/reader/StudyBuddyPanel'
 import type { AskCitation, AskTarget } from '../api/ask'
+import { resolveCitationJump } from './readerCitationJump'
 import { scrollToCitation } from '../lib/citationScroll'
 import { ReaderTocDrawer } from '../components/reader/ReaderTocDrawer'
 import { ReaderSearchDrawer } from '../components/reader/ReaderSearchDrawer'
@@ -480,6 +481,15 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const studyBuddyEditionId = mode === 'public' ? publicBook?.id : undefined
   const pendingCitationRef = useRef<AskCitation | null>(null)
   const handleNavigateToCitation = useCallback((c: AskCitation) => {
+    // Original PDF mode: a page-anchored citation jumps the pixel-perfect viewer to
+    // its source page (ADR-012 S3c) instead of scrolling the reflow DOM. PDF chunks
+    // are not chapter-anchored, so the reflow path below can't locate them.
+    const jump = resolveCitationJump(c, originalActive)
+    if (jump.kind === 'pdf') {
+      setAskOpen(false)
+      setPdfScrollTo({ page: jump.page, nonce: Date.now() })
+      return
+    }
     const target = chapterList?.find(ch => ch.chapterNumber === c.chapterOrd)
     setAskOpen(false)
     if (!target) return
@@ -491,7 +501,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       pendingCitationRef.current = c
       navigate(getChapterUrl(target.identifier))
     }
-  }, [chapterList, activeChapterIdentifier, getChapterUrl, navigate])
+  }, [chapterList, activeChapterIdentifier, getChapterUrl, navigate, originalActive])
 
   // Consume a pending citation once its chapter has navigated in and rendered. Runs after
   // scroll-restore (slight delay) so an explicit citation jump wins over position restore.

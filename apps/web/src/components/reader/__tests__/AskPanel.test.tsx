@@ -1,8 +1,22 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 
+// Resolve the two citation label templates so chips render real text ("p. 12" / "ch.4");
+// every other key returns its bare key (existing assertions unaffected).
+const CITATION_TEMPLATES: Record<string, string> = {
+  'reader.ask.citation': 'ch.{{ch}}',
+  'reader.ask.citationPage': 'p. {{page}}',
+}
 vi.mock('../../../hooks/useTranslation', () => ({
-  useTranslation: () => ({ t: (k: string) => k, language: 'en' }),
+  useTranslation: () => ({
+    t: (k: string, params?: Record<string, unknown>) => {
+      const template = CITATION_TEMPLATES[k] ?? k
+      return params
+        ? template.replace(/\{\{(\w+)\}\}/g, (_, p) => String(params[p]))
+        : template
+    },
+    language: 'en',
+  }),
 }))
 vi.mock('../../../hooks/useFocusTrap', () => ({ useFocusTrap: () => ({ current: null }) }))
 
@@ -102,6 +116,23 @@ describe('AskPanel', () => {
 
     render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
     const chip = screen.getByTitle('snippet')
+    fireEvent.click(chip)
+
+    expect(onNavigateToCitation).toHaveBeenCalledWith(citation)
+  })
+
+  it('labels a PDF citation with its page number and uses sectionPath as the tooltip', () => {
+    const citation = {
+      marker: 1, chunkId: 'c1', chapterId: null, chapterOrd: null,
+      charStart: 0, charEnd: 1, preview: 'snippet',
+      sourcePage: 12, sectionPath: 'Chapter 3 › Methods',
+    }
+    askState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
+    const onNavigateToCitation = vi.fn()
+
+    render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
+    const chip = screen.getByText('p. 12')
+    expect(chip.getAttribute('title')).toBe('Chapter 3 › Methods')
     fireEvent.click(chip)
 
     expect(onNavigateToCitation).toHaveBeenCalledWith(citation)

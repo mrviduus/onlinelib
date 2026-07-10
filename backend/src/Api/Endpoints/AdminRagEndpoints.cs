@@ -229,7 +229,10 @@ public static class AdminRagEndpoints
     }
 
     private static RagChunkDto ToDto(RetrievedChunk c) => new(
-        c.ChunkId, c.ChapterId, c.ChapterOrd, c.Ord, Math.Round(c.Score, 4), c.CharStart, c.CharEnd, Preview(c.Text));
+        // Admin debug runs over catalog editions where chapter_id is always present; Guid.Empty guards
+        // the (unreachable here) nullable vision-PDF case rather than widening the debug DTO.
+        c.ChunkId, c.ChapterId ?? Guid.Empty, c.ChapterOrd, c.Ord, Math.Round(c.Score, 4),
+        c.CharStart, c.CharEnd, Preview(c.Text));
 
     private static string Preview(string text) =>
         text.Length <= PreviewChars ? text : text[..PreviewChars] + "…";

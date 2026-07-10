@@ -13,6 +13,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiRag(this IServiceCollection services)
     {
         services.AddSingleton<IChunker, Chunker>();
+        // Structure-aware chunker for vision-parsed PDF Markdown (ADR-012 S3). Singleton for the same
+        // reason as the sentence chunker — the tiktoken vocab loads once and is reused.
+        services.AddSingleton<MarkdownChunker>();
         return services;
     }
 

@@ -136,8 +136,11 @@ public static class AskSse
     }
 
     private static AskCitation ToCitation(AskCitationSource c) =>
-        new(c.Marker, c.Chunk.ChunkId, c.Chunk.ChapterId, c.Chunk.ChapterOrd,
-            c.Chunk.CharStart, c.Chunk.CharEnd, Preview(c.Chunk.Text));
+        new(c.Marker, c.Chunk.ChunkId, c.Chunk.ChapterId,
+            // Null out chapter ord for an unanchored (vision-PDF) citation so clients don't render "ch.0".
+            c.Chunk.ChapterId is null ? null : c.Chunk.ChapterOrd,
+            c.Chunk.CharStart, c.Chunk.CharEnd, Preview(c.Chunk.Text),
+            c.Chunk.SourcePage, c.Chunk.SectionPath);
 
     private static string Preview(string text) =>
         text.Length <= PreviewChars ? text : text[..PreviewChars] + "…";

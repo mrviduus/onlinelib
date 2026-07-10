@@ -160,4 +160,74 @@ public class BookChunkingServiceTests
 
         Assert.Empty(rows);
     }
+
+    // ----- ADR-012 S3: vision-PDF Markdown chunks → rows (page→chapter mapping + provenance) -----
+
+    private static MarkdownChunk Md(int ord, string text, int page, string? section) =>
+        new(ord, text, TokenCount: 5, CharStart: ord * 10, CharEnd: ord * 10 + text.Length, page, section);
+
+    [Fact]
+    public void BuildUserRowsFromMarkdown_PageInsideChapterRange_LinksThatChapter()
+    {
+        var userBookId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var ch2 = Guid.NewGuid();
+        var chapters = new List<(Guid Id, int ChapterNumber, int Start, int End)>
+        {
+            (Guid.NewGuid(), 1, 1, 5),
+            (ch2, 2, 6, 10),
+        };
+
+        var rows = BookChunkingService.BuildUserRowsFromMarkdown(
+            userBookId, userId, [Md(0, "on page 7", page: 7, section: "Orbit › Infectious")], chapters);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(ch2, row.UserChapterId);       // page 7 ∈ [6,10] → chapter 2
+        Assert.Equal(2, row.ChapterOrd);
+        Assert.Equal(7, row.SourcePage);
+        Assert.Equal("Orbit › Infectious", row.SectionPath);
+        Assert.Equal(userId, row.UserId);
+        Assert.Equal(userBookId, row.UserBookId);
+        Assert.Null(row.Embedding);
+    }
+
+    [Fact]
+    public void BuildUserRowsFromMarkdown_PageOutsideAnyChapter_LeavesChapterNull()
+    {
+        var chapters = new List<(Guid Id, int ChapterNumber, int Start, int End)>
+        {
+            (Guid.NewGuid(), 1, 1, 5),
+        };
+
+        var rows = BookChunkingService.BuildUserRowsFromMarkdown(
+            Guid.NewGuid(), Guid.NewGuid(), [Md(0, "page 42", page: 42, section: null)], chapters);
+
+        var row = Assert.Single(rows);
+        Assert.Null(row.UserChapterId);             // best-effort — no chapter contains page 42
+        Assert.Equal(0, row.ChapterOrd);
+        Assert.Equal(42, row.SourcePage);
+        Assert.Null(row.SectionPath);
+    }
+
+    [Fact]
+    public void BuildUserRowsFromMarkdown_NoChapters_AllRowsUnanchoredButCarryProvenance()
+    {
+        var rows = BookChunkingService.BuildUserRowsFromMarkdown(
+            Guid.NewGuid(), Guid.NewGuid(),
+            [Md(0, "a", 1, "S1"), Md(1, "b", 2, "S2")],
+            chapters: []);
+
+        Assert.All(rows, r => Assert.Null(r.UserChapterId));
+        Assert.Equal([1, 2], rows.Select(r => r.SourcePage).ToList());
+        Assert.Equal([0, 1], rows.Select(r => r.Ord).ToList());
+    }
+
+    [Fact]
+    public void BuildUserRowsFromMarkdown_EmptyChunks_ProducesNoRows()
+    {
+        var rows = BookChunkingService.BuildUserRowsFromMarkdown(
+            Guid.NewGuid(), Guid.NewGuid(), [], chapters: []);
+
+        Assert.Empty(rows);
+    }
 }

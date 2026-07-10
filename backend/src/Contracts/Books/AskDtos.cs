@@ -24,15 +24,20 @@ public record AskRequest(
 /// <summary>
 /// A cited source for an answer. <see cref="Marker"/> is the <c>[n]</c> number in the answer text;
 /// <see cref="ChapterOrd"/> + offsets deep-link the citation back into the reader.
+/// ADR-012 S3: <see cref="ChapterId"/>/<see cref="ChapterOrd"/> are nullable — a vision-parsed PDF
+/// citation may not be chapter-anchored; it jumps via <see cref="SourcePage"/> into the Original viewer
+/// instead, and <see cref="SectionPath"/> is the human-readable heading breadcrumb.
 /// </summary>
 public record AskCitation(
     int Marker,
     Guid ChunkId,
-    Guid ChapterId,
-    int ChapterOrd,
+    Guid? ChapterId,
+    int? ChapterOrd,
     int CharStart,
     int CharEnd,
-    string Preview);
+    string Preview,
+    int? SourcePage = null,
+    string? SectionPath = null);
 
 /// <summary>
 /// "Ask this book" answer. <see cref="Insufficient"/> is true when the user hasn't read enough to

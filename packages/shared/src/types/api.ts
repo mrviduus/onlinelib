@@ -428,11 +428,17 @@ export interface UserBookChapterDto {
 export interface AskCitation {
   marker: number
   chunkId: string
+  // Nullable at runtime for PDF citations that aren't chapter-anchored (ADR-012 S3b).
+  // Typed non-null here for mobile back-compat; consumers must null-guard.
   chapterId: string
   chapterOrd: number
   charStart: number
   charEnd: number
   preview: string
+  // Vision-RAG / PDF citations (ADR-012 S3): the source page to jump the Original
+  // PDF viewer to, and an optional human-readable section path for tooltips.
+  sourcePage?: number | null
+  sectionPath?: string | null
 }
 
 export interface AskResponse {

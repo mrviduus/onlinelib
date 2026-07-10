@@ -142,7 +142,8 @@ public sealed class RagService : IRagService
                 var r = byId[f.Item];
                 // Score is the RRF fusion score (not cosine) — see RetrievedChunk.Score.
                 return new RetrievedChunk(
-                    r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, f.Score);
+                    r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, f.Score,
+                    r.SourcePage, r.SectionPath);
             })
             .ToList();
     }
@@ -152,13 +153,19 @@ public sealed class RagService : IRagService
     private sealed class Row
     {
         public Guid ChunkId { get; init; }
-        public Guid ChapterId { get; init; }
+        // Nullable: user_chapter_id can be null for vision-PDF chunks (ADR-012 S3); catalog chapter_id
+        // is always present (maps into the nullable fine).
+        public Guid? ChapterId { get; init; }
         public int ChapterOrd { get; init; }
         public int Ord { get; init; }
         public string Text { get; init; } = string.Empty;
         public int CharStart { get; init; }
         public int CharEnd { get; init; }
         public double Score { get; init; }
+        // ADR-012 S3 provenance — only SELECTed by the user-book SQL; null for catalog rows (Dapper
+        // leaves unmapped columns default).
+        public int? SourcePage { get; init; }
+        public string? SectionPath { get; init; }
     }
 
     /// <summary>
@@ -179,6 +186,8 @@ public sealed class RagService : IRagService
                    text            AS Text,
                    char_start      AS CharStart,
                    char_end        AS CharEnd,
+                   source_page     AS SourcePage,
+                   section_path    AS SectionPath,
                    1 - (embedding <=> CAST(@q AS vector)) AS Score
             FROM user_chapter_chunk
             WHERE user_id = @userId
@@ -197,6 +206,8 @@ public sealed class RagService : IRagService
                    text            AS Text,
                    char_start      AS CharStart,
                    char_end        AS CharEnd,
+                   source_page     AS SourcePage,
+                   section_path    AS SectionPath,
                    ts_rank_cd(search_vector, tsq) AS Score
             FROM user_chapter_chunk, websearch_to_tsquery('english', @query) AS tsq
             WHERE user_id = @userId

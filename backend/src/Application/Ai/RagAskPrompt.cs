@@ -42,8 +42,24 @@ public static class RagAskPrompt
         sb.Append("Numbered excerpts from the part of the book the reader has reached " +
                   "(cite these as [n] for any book fact):\n");
         for (var i = 0; i < chunks.Count; i++)
-            sb.Append('[').Append(i + 1).Append("] (ch.").Append(chunks[i].ChapterOrd).Append(") ")
-              .Append(chunks[i].Text).Append('\n');
+        {
+            var c = chunks[i];
+            sb.Append('[').Append(i + 1).Append("] ");
+            // ADR-012 S3: vision-PDF chunks carry a physical page (+ optional section path) — header the
+            // excerpt with it so the model naturally says "p. 17"; otherwise fall back to the chapter ord.
+            if (c.SourcePage is { } page)
+            {
+                sb.Append("(p.").Append(page);
+                if (!string.IsNullOrWhiteSpace(c.SectionPath))
+                    sb.Append(" · ").Append(c.SectionPath);
+                sb.Append(") ");
+            }
+            else
+            {
+                sb.Append("(ch.").Append(c.ChapterOrd).Append(") ");
+            }
+            sb.Append(c.Text).Append('\n');
+        }
 
         if (notes.Count > 0)
         {

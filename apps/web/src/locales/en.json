@@ -218,6 +218,8 @@
       "signIn": "Sign in to ask questions about this book.",
       "signInCta": "Sign in",
       "citation": "ch.{{ch}}",
+      "citationPage": "p. {{page}}",
+      "citationFallback": "source",
       "prepareCopy": "One-time setup so you can ask about this book.",
       "prepareCta": "Prepare this book for questions",
       "preparing": "Preparing this book… {{done}}/{{total}}",

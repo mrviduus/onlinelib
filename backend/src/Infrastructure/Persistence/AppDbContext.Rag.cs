@@ -55,7 +55,8 @@ public partial class AppDbContext
 
         // Phase 2: user-uploaded book chunks (table `user_chapter_chunk`). Isolated from
         // `chapter_chunk` (NOT polymorphic) and carries a denormalized user_id so retrieval can
-        // hard-filter per user. Deleting a user book OR a user chapter cascades the chunks away.
+        // hard-filter per user. Deleting a user book cascades the chunks away; deleting a chapter
+        // NULLs the (now optional) chapter link (ADR-012 S3 — vision-PDF chunks live at book level).
         modelBuilder.Entity<UserChapterChunk>(e =>
         {
             e.ToTable("user_chapter_chunk");
@@ -83,10 +84,12 @@ public partial class AppDbContext
                 .HasForeignKey(x => x.UserBookId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Optional chapter link (ADR-012 S3): a vision-PDF chunk may not map to any chapter, so the
+            // FK is nullable and deleting a chapter SETs it NULL rather than cascading the chunk away.
             e.HasOne(x => x.UserChapter)
                 .WithMany()
                 .HasForeignKey(x => x.UserChapterId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
