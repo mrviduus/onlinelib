@@ -4,7 +4,7 @@ import { emit } from '../../lib/telemetry/myBooksV2'
 import { useTranslation } from '../../hooks/useTranslation'
 
 interface UploadFormProps {
-  onUploadComplete: (newBookId?: string) => void
+  onUploadComplete: (newBookId?: string, hasOriginalPdf?: boolean) => void
   initialFile?: File
   queueLabel?: string
 }
@@ -34,7 +34,7 @@ export function UploadForm({ onUploadComplete, initialFile, queueLabel }: Upload
       })
       const newBookId = result?.userBookId
       emit('upload.completed', { durationMs: Date.now() - startedAt, sizeBytes: file.size })
-      onUploadComplete(newBookId)
+      onUploadComplete(newBookId, result?.hasOriginalPdf)
       getStorageQuota().then(setQuota).catch(() => {})
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed'

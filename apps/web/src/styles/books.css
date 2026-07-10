@@ -4608,6 +4608,14 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   color: #dc2626;
 }
 
+/* Quiet indexing hint — the PDF already reads in Original layout. */
+.user-book-detail__status--indexing {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 14px;
+}
+
 .user-book-detail__spinner {
   width: 20px;
   height: 20px;
@@ -7270,6 +7278,13 @@ html.dark .book-hero__read-btn--secondary {
 .book-status-badge--processing {
   background: hsl(35, 95%, 50%);
   animation: badge-pulse 1.6s ease-in-out infinite;
+}
+
+/* Quiet "Indexing…" — the PDF already reads in Original layout, so this is a
+   background hint (muted, no pulse), not a blocking status. */
+.book-status-badge--indexing {
+  background: rgba(30, 41, 59, 0.72);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .book-status-badge--failed {

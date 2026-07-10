@@ -23,7 +23,10 @@ public record UserBookListDto(
     string? SourceUrl,
     bool IsClip,
     bool IsRead,
-    DateTimeOffset? ReadAt
+    DateTimeOffset? ReadAt,
+    // True when the book has a stored PDF original → the library card can open
+    // "Original layout" instantly, before extraction finishes.
+    bool HasOriginalPdf
 );
 
 public record AcceptSuggestedTagsRequest(string[] Accepted);
@@ -79,7 +82,9 @@ public record UserChapterNavDto(int ChapterNumber, string? Slug, string Title);
 
 public record TocEntryDto(string Title, int? ChapterNumber, IReadOnlyList<TocEntryDto>? Children);
 
-public record UploadUserBookResponse(Guid UserBookId, Guid JobId, string Status);
+// HasOriginalPdf lets the upload redirect open a PDF into "Original layout"
+// immediately — the file is stored at upload, so it is true the instant a PDF lands.
+public record UploadUserBookResponse(Guid UserBookId, Guid JobId, string Status, bool HasOriginalPdf);
 
 /// <summary>
 /// "Send to TextStack" web clip — the extension sends already-clean (Readability) article HTML.

@@ -10,6 +10,7 @@ import { ShareButtons } from '../components/ShareButtons'
 import { BookStatsSection } from '../components/library/BookStatsSection'
 import { emitDataChanges } from '../lib/dataEvents'
 import { AddToCollectionButton } from '../components/library/AddToCollectionButton'
+import { useTranslation } from '../hooks/useTranslation'
 
 interface SavedProgress {
   chapterSlug?: string
@@ -23,6 +24,7 @@ export function UserBookDetailPage() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const { language } = useLanguage()
+  const { t } = useTranslation()
   const [book, setBook] = useState<UserBookDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -176,6 +178,18 @@ export function UserBookDetailPage() {
   const isReady = book.status === 'Ready'
   const isProcessing = book.status === 'Processing'
   const isFailed = book.status === 'Failed'
+  // Readability is DERIVED (ADR-012): a PDF opens in Original layout regardless
+  // of extraction status, so Processing/Failed must not block or scare.
+  const hasOriginalPdf = !!book.hasOriginalPdf
+  const canRead = hasOriginalPdf || (isReady && book.chapters.length > 0)
+  const readerBase = `/${language}/library/my/${book.id}`
+  const readHref = continueReadingSlug
+    ? `${readerBase}/read/${continueReadingSlug}`
+    : hasOriginalPdf
+      ? `${readerBase}/read` // chapterless Original (instant read)
+      : book.chapters.length > 0
+        ? `${readerBase}/read/${book.chapters[0].slug || book.chapters[0].chapterNumber}`
+        : `${readerBase}/read`
 
   return (
     <>
@@ -223,14 +237,22 @@ export function UserBookDetailPage() {
             )}
           </div>
 
-          {isProcessing && (
+          {/* A readable PDF is never blocked: while it indexes we show a quiet
+              hint, and a failed extraction is NOT a scary block (ADR-012). */}
+          {isProcessing && !hasOriginalPdf && (
             <div className="user-book-detail__status user-book-detail__status--processing">
               <span className="user-book-detail__spinner" />
               Processing... This may take a few minutes.
             </div>
           )}
 
-          {isFailed && (
+          {isProcessing && hasOriginalPdf && (
+            <div className="user-book-detail__status user-book-detail__status--indexing">
+              {t('library.badge.indexingHint')}
+            </div>
+          )}
+
+          {isFailed && !hasOriginalPdf && (
             <div className="user-book-detail__status user-book-detail__status--failed">
               <strong>Processing Failed</strong>
               {book.errorMessage && <p>{book.errorMessage}</p>}
@@ -247,9 +269,9 @@ export function UserBookDetailPage() {
           )}
 
           <div className="user-book-detail__actions">
-            {isReady && book.chapters.length > 0 && (
+            {canRead && (
               <Link
-                to={`/${language}/library/my/${book.id}/read/${continueReadingSlug || book.chapters[0].slug || book.chapters[0].chapterNumber}`}
+                to={readHref}
                 className="user-book-detail__read-btn"
               >
                 {continueReadingSlug ? 'Continue Reading' : 'Start Reading'}

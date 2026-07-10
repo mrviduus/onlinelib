@@ -1,6 +1,6 @@
 import { useTranslation } from '../../hooks/useTranslation'
 
-export type BookStatusVariant = 'processing' | 'failed' | 'new' | 'finished'
+export type BookStatusVariant = 'processing' | 'indexing' | 'failed' | 'new' | 'finished'
 
 interface BookStatusBadgeProps {
   variant: BookStatusVariant

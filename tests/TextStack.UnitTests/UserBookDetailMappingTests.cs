@@ -121,6 +121,32 @@ public class UserBookDetailMappingTests
     }
 
     [Fact]
+    public async Task GetBooksAsync_PdfOriginal_ListDtoHasOriginalPdfTrue()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        SeedBook(h, userId, Guid.NewGuid(), BookFormat.Pdf, (1, 1));
+
+        var list = await h.Service.GetBooksAsync(userId, CancellationToken.None);
+
+        var dto = Assert.Single(list);
+        Assert.True(dto.HasOriginalPdf);
+    }
+
+    [Fact]
+    public async Task GetBooksAsync_EpubOriginal_ListDtoHasOriginalPdfFalse()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        SeedBook(h, userId, Guid.NewGuid(), BookFormat.Epub, (1, null));
+
+        var list = await h.Service.GetBooksAsync(userId, CancellationToken.None);
+
+        var dto = Assert.Single(list);
+        Assert.False(dto.HasOriginalPdf);
+    }
+
+    [Fact]
     public async Task GetBookAsync_PdfChapters_PropagateSourceStartPage()
     {
         var h = new Harness();

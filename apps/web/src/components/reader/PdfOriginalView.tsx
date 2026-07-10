@@ -35,6 +35,12 @@ interface PdfOriginalViewProps {
    * never feed a page-based percent into word-based server progress.
    */
   onActivity?: () => void
+  /**
+   * Fired when pdf.js hard-fails to open the document (corrupt / unreadable) —
+   * NOT the internal 401 session-expired path, which reloads in place. Lets the
+   * reader fall back to reflow (if chapters exist) or a "can't open" screen.
+   */
+  onLoadError?: (message: string) => void
 }
 
 const MIN_SCALE = 0.2
@@ -66,6 +72,7 @@ export default function PdfOriginalView({
   initialPage,
   scrollToPage,
   onActivity,
+  onLoadError,
 }: PdfOriginalViewProps) {
   const [reloadToken, setReloadToken] = useState(0)
   const { pdf, numPages, loading, error } = usePdfDocument(fileUrl, reloadToken)
@@ -289,6 +296,21 @@ export default function PdfOriginalView({
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
     }
   }, [currentPage, visible.size, bookId])
+
+  // Surface a hard document-load failure (corrupt / unreadable PDF, or an
+  // unrecoverable error after usePdfDocument's one retry) to the parent so it
+  // can fall back to reflow or show a "can't open" screen. The per-page 401
+  // recovery below (sessionExpired banner) is separate and untouched.
+  const loadErrorFiredRef = useRef(false)
+  useEffect(() => {
+    if (!error) {
+      loadErrorFiredRef.current = false
+      return
+    }
+    if (loadErrorFiredRef.current) return
+    loadErrorFiredRef.current = true
+    onLoadError?.(error)
+  }, [error, onLoadError])
 
   const handlePageError = useCallback((err: unknown) => {
     if (isAuthError(err)) setSessionExpired(true)

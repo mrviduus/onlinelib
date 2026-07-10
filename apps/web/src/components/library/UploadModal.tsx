@@ -136,7 +136,7 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
 
   // Step 1 of 2 done: file uploaded. If queue: kick the next file into the
   // form. Otherwise transition to Processing and start polling.
-  const handleUploaded = (newBookId?: string) => {
+  const handleUploaded = (newBookId?: string, hasOriginalPdf?: boolean) => {
     processedRef.current += 1
 
     if (pendingQueue.length > 0) {
@@ -152,6 +152,16 @@ export function UploadModal({ open, onClose, initialFile, queue }: UploadModalPr
       broadcastChange()
       onClose()
       navigate(getLocalizedPath('/library?tab=uploads'))
+      return
+    }
+
+    // Instant read (ADR-012): a PDF's file is stored at upload, so it opens in
+    // Original layout immediately — skip the processing modal and drop straight
+    // into the reader. EPUBs still parse-then-reflow via the processing flow.
+    if (hasOriginalPdf) {
+      broadcastChange()
+      onClose()
+      navigate(getLocalizedPath(`/library/my/${newBookId}/read`))
       return
     }
 

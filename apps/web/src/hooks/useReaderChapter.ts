@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApi } from './useApi'
 import { useNetworkRecovery } from './useNetworkRecovery'
 import { getUserBook, getUserBookChapter } from '../api/userBooks'
+import { ApiError } from '../api/client'
 import { getCachedChapter, cacheChapter } from '../lib/offlineDb'
 import { InvalidContentTypeError } from '../lib/fetchWithRetry'
 import type { Chapter, BookDetail, RagIndexStatus } from '../types/api'
@@ -74,11 +75,13 @@ export function useReaderChapter({
 
   useEffect(() => {
     if (mode === 'public' && (!bookSlug || !chapterSlug)) return
-    if (mode === 'userbook' && (!userBookId || !userChapterSlug || !isAuthenticated)) return
+    // Chapterless is valid for userbooks: an Original-layout PDF opens before
+    // (or without) any chapter, so the slug is optional here.
+    if (mode === 'userbook' && (!userBookId || !isAuthenticated)) return
 
     const fetchKey = mode === 'public'
       ? `public:${bookSlug}:${chapterSlug}`
-      : `userbook:${userBookId}:${userChapterSlug}`
+      : `userbook:${userBookId}:${userChapterSlug ?? ''}`
     // Already loaded — skip so an isAuthenticated flip (guest creation) doesn't
     // reset state and drop popups mid-interaction.
     if (fetchedKeyRef.current === fetchKey) return
@@ -183,14 +186,32 @@ export function useReaderChapter({
           cacheChapter(bk.id, ch).catch(() => {})
           fetchedKeyRef.current = fetchKey
         } else {
-          const [bk, ch] = await Promise.all([
-            getUserBook(userBookId!),
-            getUserBookChapter(userBookId!, userChapterSlug!),
-          ])
+          // Fetch the book first — its hasOriginalPdf decides whether a missing
+          // chapter is fatal. A chapterless/indexing PDF opens in Original with
+          // no chapter at all.
+          const bk = await getUserBook(userBookId!)
+          if (cancelled) return
+
+          let ch: Awaited<ReturnType<typeof getUserBookChapter>> | null = null
+          if (userChapterSlug) {
+            try {
+              ch = await getUserBookChapter(userBookId!, userChapterSlug)
+            } catch (chErr) {
+              // Chapter not found yet (extraction still running or never produced
+              // chapters). Swallow ONLY when the original PDF is readable — Original
+              // layout opens without a chapter. EPUB / non-PDF 404 stays fatal.
+              const status = chErr instanceof ApiError ? chErr.status : undefined
+              if (status === 404 && bk.hasOriginalPdf) {
+                ch = null
+              } else {
+                throw chErr
+              }
+            }
+          }
 
           if (cancelled) return
 
-          setChapter({
+          setChapter(ch ? {
             id: ch.id,
             chapterNumber: ch.chapterNumber,
             identifier: ch.slug || userChapterSlug!,
@@ -199,7 +220,7 @@ export function useReaderChapter({
             wordCount: ch.wordCount,
             prev: ch.previous ? { identifier: ch.previous.slug || String(ch.previous.chapterNumber), title: ch.previous.title } : null,
             next: ch.next ? { identifier: ch.next.slug || String(ch.next.chapterNumber), title: ch.next.title } : null,
-          })
+          } : null)
           setBook({
             id: bk.id,
             title: bk.title,

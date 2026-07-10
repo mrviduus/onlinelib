@@ -1,26 +1,9 @@
-// Per-book "Original layout" opt-in, remembered in localStorage.
-// Reflow stays the default; Original mode is only offered for user-uploaded
-// books that carry an original PDF (mode==='userbook' && hasOriginalPdf).
+// Resume-only PDF page position for the Original-layout view, remembered in
+// localStorage. NOT synced to server progress (word-based). The old per-book
+// "Original layout" opt-in was removed in ADR-012 — Original is now the default
+// for user-uploaded PDFs, so there's no layout preference to persist.
 
-const LAYOUT_KEY = (bookId: string) => `reader.originalLayout.${bookId}`
 const PAGE_KEY = (bookId: string) => `reader.pdfPage.${bookId}`
-
-export function readOriginalLayout(bookId: string): boolean {
-  try {
-    return localStorage.getItem(LAYOUT_KEY(bookId)) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function writeOriginalLayout(bookId: string, on: boolean): void {
-  try {
-    if (on) localStorage.setItem(LAYOUT_KEY(bookId), '1')
-    else localStorage.removeItem(LAYOUT_KEY(bookId))
-  } catch {
-    /* private mode / quota — best effort */
-  }
-}
 
 /** Resume-only PDF page position. NOT synced to server progress. */
 export function readPdfPage(bookId: string): number | null {

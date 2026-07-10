@@ -151,7 +151,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         db.UserIngestionJobs.Add(job);
         await db.SaveChangesAsync(ct);
 
-        return (new UploadUserBookResponse(userBookId, job.Id, UserBookStatus.Processing.ToString()), null);
+        return (new UploadUserBookResponse(
+            userBookId, job.Id, UserBookStatus.Processing.ToString(), format == BookFormat.Pdf), null);
     }
 
     /// <summary>
@@ -197,7 +198,9 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.SourceUrl,
                 b.IsClip,
                 b.IsRead,
-                b.ReadAt
+                b.ReadAt,
+                // Correlated EXISTS — folds to SQL, no Include needed.
+                HasOriginalPdf = b.BookFiles.Any(f => f.Format == BookFormat.Pdf)
             })
             .ToListAsync(ct);
 
@@ -224,7 +227,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             b.SourceUrl,
             b.IsClip,
             b.IsRead,
-            b.ReadAt
+            b.ReadAt,
+            b.HasOriginalPdf
         )).ToList();
     }
 

@@ -76,7 +76,7 @@ function LanguageRoutes() {
 
   // Hide header on reader pages (have their own top bar)
   const isReaderPage = /^\/[a-z]{2}\/books\/[^/]+\/[^/]+$/.test(location.pathname)
-  const isUserBookReaderPage = /^\/[a-z]{2}\/library\/my\/[^/]+\/read\/[^/]+$/.test(location.pathname)
+  const isUserBookReaderPage = /^\/[a-z]{2}\/library\/my\/[^/]+\/read(\/[^/]+)?$/.test(location.pathname)
 
   return (
     <LanguageProvider>
@@ -112,6 +112,9 @@ function LanguageRoutes() {
           <Route path="/highlights" element={<HighlightsPage />} />
           <Route path="/highlights/review" element={<HighlightReviewPage />} />
           <Route path="/library/my/:id" element={<UserBookDetailPage />} />
+          {/* Chapterless Original-layout route — a PDF opens instantly here before
+              extraction produces chapters (ADR-012). */}
+          <Route path="/library/my/:id/read" element={<ReaderPage mode="userbook" />} />
           <Route path="/library/my/:id/read/:chapterSlug" element={<ReaderPage mode="userbook" />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/sitemap" element={<SitemapPage />} />
