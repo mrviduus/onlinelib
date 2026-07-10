@@ -12,6 +12,14 @@ public class UserChapter
     public int? WordCount { get; set; }
 
     /// <summary>
+    /// 1-based physical PDF page range this chapter spans in the original upload
+    /// (null for EPUB/HTML sources or legacy books not re-ingested). Powers the
+    /// reader's "Original layout" PDF view chapter→page jump.
+    /// </summary>
+    public int? SourceStartPage { get; set; }
+    public int? SourceEndPage { get; set; }
+
+    /// <summary>
     /// Deterministic extraction-quality score 0-100 (see ChapterContentQualityAnalyzer).
     /// Null = not yet analyzed. Below the flag threshold → candidate for LLM cleanup.
     /// </summary>

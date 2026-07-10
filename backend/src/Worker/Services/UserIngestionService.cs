@@ -211,6 +211,9 @@ public class UserIngestionService
                     PlainText = SanitizeText(unit.PlainText),
                     WordCount = unit.WordCount,
                     ContentQualityScore = score,
+                    // Physical PDF page range (null for EPUB/HTML) for the "Original layout" reader jump.
+                    SourceStartPage = unit.SourceStartPage,
+                    SourceEndPage = unit.SourceEndPage,
                     CreatedAt = DateTimeOffset.UtcNow
                 };
                 db.UserChapters.Add(chapter);

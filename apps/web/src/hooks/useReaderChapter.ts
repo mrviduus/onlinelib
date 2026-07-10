@@ -29,6 +29,8 @@ export interface NormalizedBook {
   ragStatus?: RagIndexStatus
   ragChunkCount?: number
   ragEmbeddedCount?: number
+  /** User-uploaded PDF that supports the opt-in Original-layout view. */
+  hasOriginalPdf?: boolean
 }
 
 interface Params {
@@ -205,12 +207,14 @@ export function useReaderChapter({
             ragStatus: bk.ragStatus,
             ragChunkCount: bk.ragChunkCount,
             ragEmbeddedCount: bk.ragEmbeddedCount,
+            hasOriginalPdf: bk.hasOriginalPdf,
             chapters: bk.chapters.map(c => ({
               id: c.id,
               identifier: c.slug || String(c.chapterNumber),
               title: c.title,
               chapterNumber: c.chapterNumber,
               wordCount: c.wordCount,
+              sourceStartPage: c.sourceStartPage ?? null,
             })),
           })
           fetchedKeyRef.current = fetchKey

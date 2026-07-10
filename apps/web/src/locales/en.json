@@ -271,6 +271,19 @@
       "listen": "Listen to pronunciation",
       "copy": "Copy selected text"
     },
+    "originalLayout": {
+      "loading": "Loading original pages…",
+      "error": "Could not load the original PDF. Switch off \"Original layout\" to keep reading.",
+      "fit": "Fit",
+      "fitWidth": "Fit width",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "goToPage": "Go to page",
+      "dim": "Dim",
+      "dimToggle": "Invert / dim page",
+      "sessionExpired": "Your session expired. Reload to keep reading the original pages.",
+      "reload": "Reload"
+    },
     "explanationPopup": {
       "loading": "Thinking…",
       "title": "Explanation",

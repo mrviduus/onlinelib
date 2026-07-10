@@ -14,6 +14,7 @@ public class MetadataService(IAppDbContext db)
     {
         var book = await db.UserBooks
             .Include(b => b.Chapters)
+            .Include(b => b.BookFiles)
             .FirstOrDefaultAsync(b => b.Id == bookId && b.UserId == userId, ct);
 
         if (book is null) return (null, "Book not found");
@@ -46,10 +47,11 @@ public class MetadataService(IAppDbContext db)
             book.CoverPath, book.Genre, book.PublishedYear, book.TotalWordCount,
             book.Status.ToString(), book.ErrorMessage,
             book.Chapters.OrderBy(c => c.ChapterNumber).Select(c =>
-                new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount)).ToList(),
+                new UserChapterSummaryDto(c.Id, c.ChapterNumber, c.Slug, c.Title, c.WordCount, c.SourceStartPage)).ToList(),
             null,
             book.CreatedAt, book.UpdatedAt, book.CompletedAt,
-            book.RagStatus.ToString(), book.RagChunkCount, book.RagEmbeddedCount);
+            book.RagStatus.ToString(), book.RagChunkCount, book.RagEmbeddedCount,
+            book.BookFiles.Any(f => f.Format == Domain.Enums.BookFormat.Pdf));
 
         return (dto, null);
     }

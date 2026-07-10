@@ -36,6 +36,8 @@ export interface UserChapterSummary {
   slug: string | null
   title: string
   wordCount: number | null
+  /** 1-based PDF page where this chapter starts. Null for EPUBs / unknown. */
+  sourceStartPage?: number | null
 }
 
 export interface TocEntry {
@@ -66,6 +68,9 @@ export interface UserBookDetail {
   ragStatus?: RagIndexStatus
   ragChunkCount?: number
   ragEmbeddedCount?: number
+  /** True when the original upload is a PDF that can be rendered pixel-perfect
+   *  in the opt-in "Original layout" view. Absent on older payloads → false. */
+  hasOriginalPdf?: boolean
 }
 
 export interface UserChapter {
@@ -211,6 +216,14 @@ export async function updateUserBookMetadata(
 export function getUserBookCoverUrl(coverPath: string | null | undefined): string | undefined {
   if (!coverPath) return undefined
   return `${API_BASE}/storage/${coverPath}`
+}
+
+/**
+ * URL of the original uploaded PDF (Range-enabled) for the Original-layout view.
+ * Cookie-authed same-origin; pass to pdf.js via `getDocument({ url, withCredentials: true })`.
+ */
+export function getUserBookFileUrl(id: string): string {
+  return `${API_BASE}/me/books/${id}/file`
 }
 
 // Tags API

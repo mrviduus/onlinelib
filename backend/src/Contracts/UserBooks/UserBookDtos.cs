@@ -49,7 +49,9 @@ public record UserBookDetailDto(
     // Phase 2 on-demand RAG index state (mirrors the catalog BookDetailDto).
     string RagStatus,
     int RagChunkCount,
-    int RagEmbeddedCount
+    int RagEmbeddedCount,
+    // True when the book has a stored PDF original → enables the reader's "Original layout" view.
+    bool HasOriginalPdf
 );
 
 public record UserChapterSummaryDto(
@@ -57,7 +59,9 @@ public record UserChapterSummaryDto(
     int ChapterNumber,
     string? Slug,
     string Title,
-    int? WordCount
+    int? WordCount,
+    // 1-based physical PDF page where this chapter begins (null when unknown / non-PDF).
+    int? SourceStartPage
 );
 
 public record UserChapterDto(

@@ -13,6 +13,8 @@ interface SelectionToolbarProps {
   rect: DOMRect | null
   text: string
   containerRef: React.RefObject<HTMLElement | null>
+  /** Original-layout PDF mode: highlights are reflow-only, so hide the color swatches. */
+  hideHighlight?: boolean
   onHighlight: (color: HighlightColor) => void
   onTranslate?: () => void
   onExplain?: () => void
@@ -25,6 +27,7 @@ export function SelectionToolbar({
   rect,
   text,
   containerRef,
+  hideHighlight = false,
   onHighlight,
   onTranslate,
   onExplain,
@@ -90,24 +93,28 @@ export function SelectionToolbar({
         visibility: position ? 'visible' : 'hidden',
       }}
     >
-      <div className="selection-toolbar__colors">
-        {HIGHLIGHT_COLORS.map(({ color, labelKey, hex }) => {
-          const label = t(labelKey)
-          return (
-            <button
-              key={color}
-              className="selection-toolbar__color"
-              style={{ background: hex }}
-              onMouseDown={(e) => e.preventDefault()}
-              onTouchStart={(e) => e.preventDefault()}
-              onClick={() => onHighlight(color)}
-              title={label}
-              aria-label={label}
-            />
-          )
-        })}
-      </div>
-      <div className="selection-toolbar__divider" />
+      {!hideHighlight && (
+        <>
+          <div className="selection-toolbar__colors">
+            {HIGHLIGHT_COLORS.map(({ color, labelKey, hex }) => {
+              const label = t(labelKey)
+              return (
+                <button
+                  key={color}
+                  className="selection-toolbar__color"
+                  style={{ background: hex }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => e.preventDefault()}
+                  onClick={() => onHighlight(color)}
+                  title={label}
+                  aria-label={label}
+                />
+              )
+            })}
+          </div>
+          <div className="selection-toolbar__divider" />
+        </>
+      )}
       {onTranslate && (
         <button
           className="selection-toolbar__action"
