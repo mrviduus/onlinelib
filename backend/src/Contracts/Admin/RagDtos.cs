@@ -72,3 +72,28 @@ public record UserBookRagEvalDto(
     IReadOnlyList<UserBookProbeDto> Probes,
     IReadOnlyList<UserBookBehaviorDto> Behavior,
     string? Note);
+
+/// <summary>One transcribed page's outcome in the PDF vision-RAG eval (ADR-012 S3): the fidelity judge
+/// score (1–5) and whether its golden table survived structure-aware chunking whole.</summary>
+public record PdfVisionPageDto(int Page, bool Transcribed, double JudgeScore, bool TableSurvived);
+
+/// <summary>One Q&amp;A's outcome: the answer-fidelity judge score (1–5), whether the answer cited the
+/// expected page, the page(s) it did cite, and whether the Ask path declined for lack of context.</summary>
+public record PdfVisionQaDto(
+    string Question, int ExpectedPage, double AnswerScore, bool CitedExpectedPage, IReadOnlyList<int> CitedPages, bool Insufficient);
+
+/// <summary>
+/// Result of the PDF vision-RAG eval (ADR-012 S3) — the four DoD axes: transcription fidelity (≥4.0),
+/// answer fidelity (≥4.0), page-citation fraction (≥0.8), table-structure survival (=1.0) — plus per-page
+/// and per-question detail. <see cref="Note"/> is set only on the empty-transcription short-circuit.
+/// </summary>
+public record PdfVisionEvalDto(
+    double Transcription,
+    double Answer,
+    double Citation,
+    double TableStructure,
+    int PageN,
+    int QaN,
+    IReadOnlyList<PdfVisionPageDto> Pages,
+    IReadOnlyList<PdfVisionQaDto> Questions,
+    string? Note);

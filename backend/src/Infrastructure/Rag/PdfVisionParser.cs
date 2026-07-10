@@ -32,18 +32,6 @@ public sealed class PdfVisionParser(
 
     private const int RenderDpi = 150;
 
-    /// <summary>A dense page of Markdown is well under this; padded by the client's reasoning reserve.</summary>
-    private const int MaxOutputTokens = 4096;
-
-    private const string SystemPrompt =
-        "You transcribe a single scanned book/document page to clean GitHub-flavored Markdown. " +
-        "Render tables as Markdown tables, preserve headings (with #), lists and reading order. " +
-        "Output ONLY the page's Markdown — no commentary, no explanation, and do NOT wrap the whole " +
-        "output in a ``` code fence.";
-
-    private const string UserPrompt =
-        "Transcribe this page to clean GitHub-flavored Markdown.";
-
     public async Task<IReadOnlyList<PdfPageMarkdown>> ParseAsync(string storagePath, CancellationToken ct)
     {
         var pdfBytes = await LoadAsync(storagePath, ct);
@@ -172,9 +160,9 @@ public sealed class PdfVisionParser(
     private async Task<string> TranscribeAsync(byte[] jpeg, CancellationToken ct)
     {
         var request = new LlmRequest(
-            SystemPrompt: SystemPrompt,
-            Messages: [new LlmMessage("user", UserPrompt, Images: [new LlmImage(jpeg, "image/jpeg")])],
-            MaxOutputTokens: MaxOutputTokens,
+            SystemPrompt: PdfVisionPrompt.SystemPrompt,
+            Messages: [new LlmMessage("user", PdfVisionPrompt.UserPrompt, Images: [new LlmImage(jpeg, "image/jpeg")])],
+            MaxOutputTokens: PdfVisionPrompt.MaxOutputTokens,
             FeatureTag: FeatureTag);
 
         var response = await llm.CompleteAsync(request, ct);
