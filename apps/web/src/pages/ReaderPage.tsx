@@ -645,6 +645,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         // In-chapter search is reflow-DOM based; the PDF canvas has no page-aware
         // search yet, so hide the button rather than open a no-op (follow-up).
         showSearch={!originalActive}
+        // Original PDF has no word-based progress (session is time-only → 0%);
+        // the footer page indicator (N / total) is the real progress. Hide the % here.
+        showProgress={!originalActive}
         onAskClick={() => setAskOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         onTocClick={() => setTocOpen(true)}
