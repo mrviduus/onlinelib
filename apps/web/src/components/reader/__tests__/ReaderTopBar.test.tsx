@@ -51,6 +51,15 @@ describe('ReaderTopBar — Original-layout PDF adaptations', () => {
     expect(container.querySelectorAll('.reader-top-bar__btn').length).toBe(3)
   })
 
+  it('shows the % by default but hides it when showProgress is false (Original PDF)', () => {
+    // Default: word-based % renders.
+    const shown = renderBar()
+    expect(shown.container.querySelector('.reader-top-bar__progress')?.textContent).toBe('50%')
+    // Original PDF (time-only session → 0%): hidden; the footer page indicator is the real progress.
+    const hidden = renderBar({ showProgress: false })
+    expect(hidden.container.querySelector('.reader-top-bar__progress')).toBeNull()
+  })
+
   it('stays visible (translateY(0)) when visible is pinned true in Original', () => {
     const { container } = renderBar({ visible: true })
     const header = container.querySelector('.reader-top-bar') as HTMLElement

@@ -13,6 +13,7 @@ interface Props {
   useLocalizedLink?: boolean // true for public books (uses LocalizedLink), false for user books (uses Link)
   showAsk?: boolean // catalog editions only — user uploads aren't chunked for RAG
   showSearch?: boolean // hidden in Original-layout PDF (no page-aware search yet)
+  showProgress?: boolean // hidden in Original-layout PDF — word-based % reads 0; the page indicator (N/total) is the real progress
   onAskClick?: () => void
   onSearchClick: () => void
   onTocClick: () => void
@@ -32,6 +33,7 @@ export function ReaderTopBar({
   useLocalizedLink = true,
   showAsk = false,
   showSearch = true,
+  showProgress = true,
   onAskClick,
   onSearchClick,
   onTocClick,
@@ -79,7 +81,7 @@ export function ReaderTopBar({
       </div>
 
       <div className="reader-top-bar__right">
-        <span className="reader-top-bar__progress">{Math.round(progress * 100)}%</span>
+        {showProgress && <span className="reader-top-bar__progress">{Math.round(progress * 100)}%</span>}
         {showSearch && (
           <button onClick={onSearchClick} className="reader-top-bar__btn" title="Search in chapter">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
