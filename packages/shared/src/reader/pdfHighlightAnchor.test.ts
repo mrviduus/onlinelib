@@ -75,6 +75,28 @@ describe('buildPdfAnchor', () => {
     const a = buildPdfAnchor(1, pageRect, [{ left: 150, top: 260, width: 80, height: 20 }], 0, 't')
     expect(a.rects[0]).toEqual({ x: 50, y: 60, w: 80, h: 20 })
   })
+
+  // Boundary coverage for the center-filter (`cx <= right && cy <= bottom`) and
+  // the size threshold (`w > 0.5 && h > 0.5`). pageRect right = 500, bottom = 800.
+  it('keeps a rect whose center sits EXACTLY on the right/bottom edge (<=)', () => {
+    // left 460 + w 80 → cx 500 === right; top 760 + h 80 → cy 800 === bottom.
+    const a = buildPdfAnchor(1, pageRect, [{ left: 460, top: 760, width: 80, height: 80 }], 1, 'edge')
+    expect(a.rects).toHaveLength(1)
+  })
+
+  it('drops a rect whose center is 1px past the right/bottom edge', () => {
+    const pastRight = buildPdfAnchor(1, pageRect, [{ left: 461, top: 760, width: 80, height: 80 }], 1, 'x')
+    expect(pastRight.rects).toHaveLength(0) // cx 501 > 500
+    const pastBottom = buildPdfAnchor(1, pageRect, [{ left: 460, top: 761, width: 80, height: 80 }], 1, 'x')
+    expect(pastBottom.rects).toHaveLength(0) // cy 801 > 800
+  })
+
+  it('drops a rect at the size threshold (w/h must be strictly > 0.5)', () => {
+    const atThreshold = buildPdfAnchor(1, pageRect, [{ left: 150, top: 260, width: 0.5, height: 20 }], 1, 'x')
+    expect(atThreshold.rects).toHaveLength(0) // 0.5 is not > 0.5
+    const overThreshold = buildPdfAnchor(1, pageRect, [{ left: 150, top: 260, width: 0.6, height: 0.6 }], 1, 'x')
+    expect(overThreshold.rects).toHaveLength(1) // 0.6 > 0.5 and center inside
+  })
 })
 
 describe('isPdfAnchor', () => {

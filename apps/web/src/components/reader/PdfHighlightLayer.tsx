@@ -27,10 +27,47 @@ interface Props {
   highlights: StoredHighlight[]
   scale: number
   invert?: boolean
-  onHighlightClick?: (highlight: StoredHighlight, rect: DOMRect) => void
 }
 
-export function PdfHighlightLayer({ page, highlights, scale, invert, onHighlightClick }: Props) {
+/** Minimal client box for hit-testing (DOMRect is a superset, so it passes). */
+export interface HlHitBox {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/**
+ * Point-in-rect hit-test for the click-to-edit path (M2). The rects are
+ * `pointer-events: none` so text selection works over a highlight; on a plain
+ * click PdfOriginalView collects the painted `.pdf-hl-rect` boxes and asks this
+ * which highlight sits under the point. Iterates last→first so the topmost
+ * (last-painted) rect wins on overlap. Returns the matched hit (carrying its
+ * DOMRect) or null.
+ */
+export function hitTestHighlightRects<T extends { box: HlHitBox }>(
+  hits: T[],
+  x: number,
+  y: number,
+): T | null {
+  for (let i = hits.length - 1; i >= 0; i--) {
+    const b = hits[i].box
+    if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return hits[i]
+  }
+  return null
+}
+
+/**
+ * True when a live, non-empty text selection exists — the SelectionToolbar owns
+ * that gesture, so click-to-edit must stand down (a drag-select ends with a
+ * `click` too). Collapsed / whitespace-only selections are treated as "no
+ * selection" so a plain click on a highlight still opens the editor.
+ */
+export function hasActiveSelection(sel: Selection | null): boolean {
+  return !!sel && !sel.isCollapsed && sel.toString().trim().length > 0
+}
+
+export function PdfHighlightLayer({ page, highlights, scale, invert }: Props) {
   const pageHls = highlights.filter((h) => isPdfAnchor(h.anchor) && h.anchor.page === page)
   if (pageHls.length === 0) return null
 
@@ -53,10 +90,9 @@ export function PdfHighlightLayer({ page, highlights, scale, invert, onHighlight
                 width: box.width,
                 height: box.height,
                 background: COLOR_MAP[h.color],
-              }}
-              onClick={(e) => {
-                e.stopPropagation()
-                onHighlightClick?.(h, (e.currentTarget as HTMLElement).getBoundingClientRect())
+                // Explicit (belt-and-suspenders over the CSS) so a selection can
+                // always start/drag over a highlight — edit is via hit-testing.
+                pointerEvents: 'none',
               }}
             />
           )

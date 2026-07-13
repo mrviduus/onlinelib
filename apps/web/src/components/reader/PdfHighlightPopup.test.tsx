@@ -77,4 +77,31 @@ describe('PdfHighlightPopup', () => {
     const { container } = renderPopup({ rect: null })
     expect(container.querySelector('.pdf-hl-popup')).toBeNull()
   })
+
+  it('does not save the note when it is unchanged (L5 — recolor + dismiss)', () => {
+    // Highlight already has a note; the user only recolors, then click-outside
+    // dismisses. The note is identical → no redundant onNoteSave PUT.
+    const onNoteSave = vi.fn()
+    renderPopup({ onNoteSave, highlight: highlight({ noteText: 'kept note' }) })
+    fireEvent.mouseDown(document.body)
+    expect(onNoteSave).not.toHaveBeenCalled()
+  })
+
+  it('does not save when a note-less highlight is dismissed untouched (L5)', () => {
+    const onNoteSave = vi.fn()
+    renderPopup({ onNoteSave })
+    fireEvent.click(document.querySelector('.note-editor__save')!)
+    expect(onNoteSave).not.toHaveBeenCalled()
+  })
+
+  it('still saves when the note text actually changed', () => {
+    const onNoteSave = vi.fn()
+    const { container, getByText } = renderPopup({
+      onNoteSave,
+      highlight: highlight({ noteText: 'old' }),
+    })
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: 'new' } })
+    fireEvent.click(getByText('reader.noteEditor.save'))
+    expect(onNoteSave).toHaveBeenCalledWith('new')
+  })
 })

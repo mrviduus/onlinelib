@@ -257,6 +257,49 @@ public class HighlightsEndpointTests : IClassFixture<LiveApiFixture>, IClassFixt
     }
 
     [Fact]
+    public async Task CreateHighlight_UserBookNotOwnedByCaller_Returns404AndNotCreated()
+    {
+        // Ownership must still hold on the chapterless PDF path: a UserBookId the caller does not
+        // own (here a random id) must be rejected before any highlight is created.
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
+
+        var foreignBookId = Guid.NewGuid();
+        var req = _auth.CreateRequest(HttpMethod.Post, "/me/highlights");
+        req.Content = JsonContent.Create(new
+        {
+            userBookId = foreignBookId,
+            anchorJson = PdfAnchorJson,
+            color = "yellow",
+            selectedText = "real books"
+        });
+        var resp = await _auth.Client.SendAsync(req, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateHighlight_UserBookReflowAnchorWithoutChapter_Returns400()
+    {
+        // L3 fix: a non-PDF (reflow text-offset) anchor with a null UserChapterId is an orphan that
+        // never paints and misroutes — it must be rejected, unlike a chapterless PDF page anchor.
+        Assert.SkipUnless(_auth.IsAuthenticated, "test auth unavailable");
+        var bookId = await SeedUserBookIdAsync();
+        Assert.SkipWhen(bookId is null, "clip seed unavailable");
+
+        const string reflowAnchor =
+            """{"v":1,"prefix":"real ","exact":"books","suffix":".","startOffset":0,"endOffset":5}""";
+        var req = _auth.CreateRequest(HttpMethod.Post, "/me/highlights");
+        req.Content = JsonContent.Create(new
+        {
+            userBookId = bookId,
+            anchorJson = reflowAnchor,
+            color = "yellow",
+            selectedText = "books"
+        });
+        var resp = await _auth.Client.SendAsync(req, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
     public async Task CreateHighlight_EditionWithoutChapter_StillReturns400()
     {
         // The edition/catalog branch is EPUB/reflow — chapter stays required. Unchanged by S-a.

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Api.Extensions;
 using Api.Mapping;
 using Api.Sites;
@@ -247,6 +248,13 @@ public static class HighlightsEndpoints
                     .FirstOrDefaultAsync(ct);
                 if (userChapter == null) return Results.NotFound("User chapter not found");
             }
+            else if (!IsPdfAnchor(request.AnchorJson))
+            {
+                // A null chapter is only legitimate for a chapterless PDF page anchor. A reflow
+                // text-anchor with no chapter would be an orphan that never paints and misroutes,
+                // so reject it here.
+                return Results.BadRequest("UserChapterId required for non-PDF user book highlights");
+            }
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -272,6 +280,26 @@ public static class HighlightsEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Created($"/me/highlights/{highlight.Id}", highlight.ToDto());
+    }
+
+    // A PDF page anchor is the opaque JSON {v,kind:"pdf",page,rects,exact}. We treat the anchor as
+    // a PDF anchor iff it parses as a JSON object with a top-level "kind":"pdf" marker. The anchor
+    // otherwise stays opaque — we do not deserialize it into a strict schema.
+    private static bool IsPdfAnchor(string? anchorJson)
+    {
+        if (string.IsNullOrWhiteSpace(anchorJson)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(anchorJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("kind", out var kind)
+                && kind.ValueKind == JsonValueKind.String
+                && kind.GetString() == "pdf";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static async Task<IResult> UpdateHighlight(

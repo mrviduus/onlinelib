@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
-import { PdfHighlightLayer } from './PdfHighlightLayer'
+import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
+import { PdfHighlightLayer, hitTestHighlightRects, hasActiveSelection } from './PdfHighlightLayer'
 import type { StoredHighlight } from '../../lib/offlineDb'
 import type { PdfAnchor } from '@textstack/shared'
 
@@ -71,15 +71,12 @@ describe('PdfHighlightLayer', () => {
     expect(container.querySelector('.pdf-hl-layer')).toBeNull()
   })
 
-  it('fires onHighlightClick with the highlight', () => {
-    const onClick = vi.fn()
+  it('paints rects as pointer-events:none so a selection can start over them (M2)', () => {
     const h = pdfHighlight('a', 1, [{ x: 1, y: 1, w: 10, h: 5 }])
-    const { container } = render(
-      <PdfHighlightLayer page={1} highlights={[h]} scale={1} onHighlightClick={onClick} />,
-    )
-    fireEvent.click(container.querySelector('.pdf-hl-rect')!)
-    expect(onClick).toHaveBeenCalledTimes(1)
-    expect(onClick.mock.calls[0][0]).toBe(h)
+    const { container } = render(<PdfHighlightLayer page={1} highlights={[h]} scale={1} />)
+    const rect = container.querySelector<HTMLElement>('.pdf-hl-rect')!
+    expect(rect.style.pointerEvents).toBe('none')
+    expect(rect.dataset.highlightId).toBe('a')
   })
 
   it('applies the invert modifier class in dim mode', () => {
@@ -88,5 +85,50 @@ describe('PdfHighlightLayer', () => {
       <PdfHighlightLayer page={1} highlights={[h]} scale={1} invert />,
     )
     expect(container.querySelector('.pdf-hl-layer--invert')).not.toBeNull()
+  })
+})
+
+describe('hitTestHighlightRects (M2 click-to-edit)', () => {
+  const hits = [
+    { id: 'a', box: { left: 0, top: 0, right: 100, bottom: 20 } },
+    { id: 'b', box: { left: 0, top: 30, right: 100, bottom: 50 } },
+  ]
+
+  it('resolves a point inside a rect to the right highlight', () => {
+    expect(hitTestHighlightRects(hits, 50, 10)?.id).toBe('a')
+    expect(hitTestHighlightRects(hits, 50, 40)?.id).toBe('b')
+  })
+
+  it('returns null when the point is in no rect', () => {
+    expect(hitTestHighlightRects(hits, 50, 25)).toBeNull()
+    expect(hitTestHighlightRects(hits, 200, 10)).toBeNull()
+  })
+
+  it('includes the rect edges (>=/<=)', () => {
+    expect(hitTestHighlightRects(hits, 0, 0)?.id).toBe('a')
+    expect(hitTestHighlightRects(hits, 100, 20)?.id).toBe('a')
+  })
+
+  it('returns the topmost (last-painted) rect on overlap', () => {
+    const overlap = [
+      { id: 'under', box: { left: 0, top: 0, right: 100, bottom: 100 } },
+      { id: 'over', box: { left: 0, top: 0, right: 100, bottom: 100 } },
+    ]
+    expect(hitTestHighlightRects(overlap, 50, 50)?.id).toBe('over')
+  })
+})
+
+describe('hasActiveSelection (M2 selection guard)', () => {
+  const sel = (isCollapsed: boolean, text: string) =>
+    ({ isCollapsed, toString: () => text }) as unknown as Selection
+
+  it('is false for null / collapsed / whitespace-only selections', () => {
+    expect(hasActiveSelection(null)).toBe(false)
+    expect(hasActiveSelection(sel(true, ''))).toBe(false)
+    expect(hasActiveSelection(sel(false, '   '))).toBe(false)
+  })
+
+  it('is true for a live non-empty selection (so click-to-edit stands down)', () => {
+    expect(hasActiveSelection(sel(false, 'picked text'))).toBe(true)
   })
 })

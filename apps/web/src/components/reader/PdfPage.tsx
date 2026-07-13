@@ -21,8 +21,6 @@ interface PdfPageProps {
   onLoadError?: (err: unknown) => void
   /** Persistent highlights across the whole book — the layer filters to this page. */
   highlights?: StoredHighlight[]
-  /** Click a painted highlight → open the edit popup. */
-  onHighlightClick?: (highlight: StoredHighlight, rect: DOMRect) => void
 }
 
 /** pdfjs cancel/abort exceptions are expected on scroll/scale churn — ignore them. */
@@ -52,7 +50,6 @@ function PdfPageImpl({
   registerRef,
   onLoadError,
   highlights,
-  onHighlightClick,
 }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
@@ -172,7 +169,6 @@ function PdfPageImpl({
               highlights={highlights}
               scale={scale}
               invert={invert}
-              onHighlightClick={onHighlightClick}
             />
           )}
         </>

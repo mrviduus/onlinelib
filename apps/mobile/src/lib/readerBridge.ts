@@ -407,6 +407,22 @@ export const READER_SELECTION_BRIDGE = `
       // open the highlight editor twice.
       if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
 
+      // PDF persistent-highlight tap (M2/L4). The rects are pointer-events:none
+      // (so a drag starting over a highlight still selects text), which means
+      // e.target is never the rect and closest('.pdf-hl-rect') can't match — so
+      // the PDF viewer exposes a geometric hit-test. A plain tap resolving to a
+      // highlight opens the RN edit modal and MUST early-return so it does NOT
+      // also post 'tap' (toggle bars) or get swallowed by wordRangeAtPoint.
+      // No-op in the reflow reader (global is undefined there).
+      if (typeof window.__pdfHighlightAtPoint === 'function') {
+        var _hlId = null;
+        try { _hlId = window.__pdfHighlightAtPoint(tx, ty); } catch (e) {}
+        if (_hlId) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'highlightTap', highlightId: _hlId }));
+          return;
+        }
+      }
+
       // Quick tap on a word does nothing now (word action requires a hold).
       // If the tap landed on a word, swallow it so a brush can't toggle bars.
       if (wordRangeAtPoint(tx, ty)) return;

@@ -69,9 +69,12 @@ export function PdfHighlightPopup({
 
   const handleSaveNote = useCallback(() => {
     const trimmed = noteText.trim()
-    onNoteSave(trimmed || null)
+    // Only PUT when the note actually changed. Recoloring then dismissing (or a
+    // click-outside) must NOT fire a redundant note save — that churns the
+    // highlight version and can flash the pre-recolor color back for a frame.
+    if (trimmed !== (highlight.noteText ?? '')) onNoteSave(trimmed || null)
     onClose()
-  }, [noteText, onNoteSave, onClose])
+  }, [noteText, onNoteSave, onClose, highlight.noteText])
 
   // Close (persisting the note) on click-outside.
   useEffect(() => {

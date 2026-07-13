@@ -229,13 +229,11 @@ function main(): void {
         div.style.width = box.width + 'px'
         div.style.height = box.height + 'px'
         div.style.background = HL_COLOR_MAP[h.color] || HL_COLOR_MAP.yellow
-        // A tap on a rect → RN opens the edit/recolor/delete modal.
-        div.addEventListener('click', (function (id: string) {
-          return function (e: Event) {
-            e.stopPropagation()
-            post({ type: 'highlightTap', highlightId: id })
-          }
-        })(h.id))
+        // M2: the rect is pointer-events:none (CSS) so a drag STARTING over an
+        // existing highlight still hits the text layer beneath and can
+        // (re)select. Tap-to-edit is restored via the geometric hit-test in
+        // `__pdfHighlightAtPoint` (consumed by the shared bridge's touchend) —
+        // no per-rect click handler (which needed pointer-events:auto).
         layer.appendChild(div)
       }
     }
@@ -508,6 +506,28 @@ function main(): void {
   ) => {
     pdfHighlights = Array.isArray(list) ? list : []
     repaintAllHighlights()
+  }
+
+  // M2 hit-test: return the highlightId of the painted rect under a viewport
+  // point, or null. Because the rects are pointer-events:none (so selection
+  // works over them), they are excluded from `document.elementsFromPoint`, so
+  // we test the live rect geometry directly. Consumed by the shared selection
+  // bridge's touchend: a plain tap that resolves to a highlight opens the RN
+  // edit modal (recolor/delete) INSTEAD of toggling the immersive bars (L4).
+  // Reverse order → topmost-painted rect wins on overlap.
+  ;(window as unknown as { __pdfHighlightAtPoint: (x: number, y: number) => string | null }).__pdfHighlightAtPoint = (
+    x: number,
+    y: number,
+  ) => {
+    const rects = document.querySelectorAll('.pdf-hl-rect')
+    for (let i = rects.length - 1; i >= 0; i--) {
+      const el = rects[i] as HTMLElement
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return el.dataset.highlightId || null
+      }
+    }
+    return null
   }
 
   // Inbound: RN commits a highlight for the CURRENT selection (user tapped the

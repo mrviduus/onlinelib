@@ -191,10 +191,12 @@
 
 /* --- Persistent PDF highlights (ADR "PDF highlights" S-b) ---
  * One layer per rendered page, filling the page box (same coord space as the
- * text layer). The container is click-through; only the tinted rects capture
- * clicks (→ edit popup). z-index 2 sits above the text layer (z1) so a highlight
- * is clickable. v1 limitation: starting a NEW selection exactly over an existing
- * highlight is blocked by its rect — select in the gaps instead. */
+ * text layer). The layer AND its rects are fully click-through
+ * (`pointer-events: none`) so a text selection can start/drag anywhere —
+ * including directly over an existing highlight. Click-to-edit is restored via
+ * point-in-rect hit-testing on the pages container (see PdfOriginalView), which
+ * runs only when there is no active text selection. z-index 2 keeps the tint
+ * painted above the text layer (z1). */
 .pdf-hl-layer {
   position: absolute;
   inset: 0;
@@ -204,8 +206,9 @@
 
 .pdf-hl-rect {
   position: absolute;
-  pointer-events: auto;
-  cursor: pointer;
+  /* none → clicks/selection pass through to the text layer beneath; edit is
+     restored by hit-testing in PdfOriginalView, not by the rect itself. */
+  pointer-events: none;
   border-radius: 2px;
   /* Marker feel on the paper-white scan; keeps glyphs legible underneath. */
   mix-blend-mode: multiply;

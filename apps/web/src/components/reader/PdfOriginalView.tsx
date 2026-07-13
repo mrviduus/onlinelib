@@ -4,6 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { refreshToken } from '../../api/auth'
 import { PdfPage } from './PdfPage'
 import { PdfHighlightPopup } from './PdfHighlightPopup'
+import { hitTestHighlightRects, hasActiveSelection } from './PdfHighlightLayer'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import {
   clampPage,
@@ -441,9 +442,27 @@ export default function PdfOriginalView({
     setReloadToken((n) => n + 1)
   }, [currentPage])
 
-  const handleHighlightClick = useCallback((highlight: StoredHighlight, rect: DOMRect) => {
-    setEditHl({ highlight, rect })
-  }, [])
+  // Click-to-edit via hit-testing (M2). The highlight rects are
+  // `pointer-events: none` so a selection can start/drag over them; on a plain
+  // click (no active selection) we find the topmost painted `.pdf-hl-rect` under
+  // the point and open its edit popup. A drag-select ends with a click too, so
+  // the active-selection guard hands that gesture to the SelectionToolbar.
+  const handlePagesClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!(onHighlightUpdate || onHighlightDelete)) return
+      if (hasActiveSelection(window.getSelection())) return
+      const root = scrollRef.current
+      if (!root) return
+      const hits = Array.from(root.querySelectorAll<HTMLElement>('.pdf-hl-rect'))
+        .map((el) => ({ id: el.dataset.highlightId ?? '', box: el.getBoundingClientRect() }))
+        .filter((h) => h.id)
+      const hit = hitTestHighlightRects(hits, e.clientX, e.clientY)
+      if (!hit) return
+      const highlight = highlights?.find((h) => h.id === hit.id)
+      if (highlight) setEditHl({ highlight, rect: hit.box })
+    },
+    [highlights, onHighlightUpdate, onHighlightDelete],
+  )
 
   // Reflect live edits (recolor) while the popup stays open — resolve the freshest
   // copy from the highlights array by id, falling back to the captured snapshot.
@@ -518,8 +537,10 @@ export default function PdfOriginalView({
       ) : (
         <div className="pdf-original__scroll" ref={scrollRef}>
           {/* data-scale is read by computePdfAnchorFromRange to convert a live
-              selection's client rects into unscaled page-relative anchor coords. */}
-          <div className="pdf-original__pages" data-scale={scale}>
+              selection's client rects into unscaled page-relative anchor coords.
+              onClick hit-tests the painted (pointer-events:none) highlight rects
+              for click-to-edit — see handlePagesClick. */}
+          <div className="pdf-original__pages" data-scale={scale} onClick={handlePagesClick}>
             {pdf &&
               Array.from({ length: numPages }, (_, i) => {
                 const pn = i + 1
@@ -538,7 +559,6 @@ export default function PdfOriginalView({
                     registerRef={registerPage(pn)}
                     onLoadError={handlePageError}
                     highlights={highlights}
-                    onHighlightClick={onHighlightUpdate || onHighlightDelete ? handleHighlightClick : undefined}
                   />
                 )
               })}

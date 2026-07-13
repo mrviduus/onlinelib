@@ -1165,15 +1165,18 @@ export function buildPdfViewerHtml(fileUrl: string, token: string | null, option
     ::selection { background: rgba(37,99,235,0.3); }
 
     /* Persistent PDF highlights (ADR "PDF highlights" S-c) — one layer per
-     * rendered page over the text layer. Container is click-through; only the
-     * tinted rects capture taps (→ edit modal). z-index 2 sits above the text
-     * layer (z1). Multiply gives the marker feel on the white scan while
-     * keeping glyphs legible. Mirror of web pdfOriginal.css .pdf-hl-*. */
+     * rendered page over the text layer. Both the layer AND the tinted rects
+     * are click-through (pointer-events:none) so a long-press/drag STARTING
+     * over an existing highlight still hits the text layer beneath and can
+     * (re)select — M2 mobile parity. Tap-to-edit is restored via a geometric
+     * hit-test (__pdfHighlightAtPoint) instead of the rect's own click handler.
+     * z-index 2 sits above the text layer (z1). Multiply gives the marker feel
+     * on the white scan while keeping glyphs legible. Mirror of web
+     * pdfOriginal.css .pdf-hl-* (post-M2). */
     .pdf-hl-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
     .pdf-hl-rect {
       position: absolute;
-      pointer-events: auto;
-      cursor: pointer;
+      pointer-events: none;
       border-radius: 2px;
       mix-blend-mode: multiply;
     }
