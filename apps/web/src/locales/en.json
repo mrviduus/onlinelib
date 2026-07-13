@@ -530,6 +530,11 @@
     "responseHeading": "Response Time",
     "responseBody": "TextStack Reader is a passion project maintained by a small team. We read every message and will do our best to respond promptly, but please allow a few days for a reply."
   },
+  "userBook": {
+    "enriching": "Generating book details…",
+    "enrichFailed": "Couldn't generate details",
+    "enrichRetry": "Retry"
+  },
   "library": {
     "title": "My Library",
     "signInPrompt": "Sign in to save books to your library and track your reading progress.",
