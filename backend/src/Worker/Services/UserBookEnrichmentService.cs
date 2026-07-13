@@ -35,6 +35,19 @@ public class UserBookEnrichmentService(
         var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == bookId, ct);
         if (book is null) return;
 
+        // Nothing to fill → skip the (paid) agent run entirely. Uses the SAME emptiness semantics as the
+        // merge/persistence guard (IsNullOrEmpty for Genre/Description, == null for the int? Year). This kills
+        // two findings: (a) repeated POST /enrich on a fully-populated book no longer spins a paid OpenAI agent
+        // run each time; (b) a transient agent error on a re-enrich of a complete book no longer demotes it to
+        // Failed. 'manual' books with all fields present short-circuit here too (the merge would no-op anyway).
+        if (!NeedsEnrichment(book))
+        {
+            book.MetadataEnrichmentStatus = MetadataEnrichmentStatus.Completed;
+            book.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
         try
         {
             await ApplyEnrichmentAsync(db, book, ct);
@@ -59,6 +72,16 @@ public class UserBookEnrichmentService(
             }
         }
     }
+
+    /// <summary>
+    /// True when at least one target field the merge could fill is still empty (Genre or Description empty, or
+    /// Year null). Same emptiness semantics as the persistence guard so a book the merge would no-op on is never
+    /// handed to the agent.
+    /// </summary>
+    private static bool NeedsEnrichment(UserBook book) =>
+        string.IsNullOrEmpty(book.Genre)
+        || book.PublishedYear == null
+        || string.IsNullOrEmpty(book.Description);
 
     /// <summary>
     /// The extracted ingestion enrichment body: cross-checked/calibrated agent metadata (Ollama fallback

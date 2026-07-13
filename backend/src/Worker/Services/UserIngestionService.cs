@@ -316,6 +316,11 @@ public class UserIngestionService
                         book.SuggestedTags = tags;
                         book.SuggestedTagsAt = DateTimeOffset.UtcNow;
                         book.UpdatedAt = DateTimeOffset.UtcNow;
+                        // Status-safety here relies on EF issuing a column-granular UPDATE (only the modified
+                        // columns above — never MetadataEnrichmentStatus). This runs on a SEPARATE DbContext,
+                        // concurrently with the enrichment task that owns the enrichment-status column. A future
+                        // switch to a full-entity update (UpdateRange / raw UPDATE that writes all columns) on
+                        // this path would clobber whatever enrichment status the other task has written.
                         await bgDb.SaveChangesAsync(CancellationToken.None);
                     }
                     catch (HttpRequestException ex)

@@ -101,6 +101,20 @@ public static partial class ServiceCollectionExtensions
                     QueueLimit = 0,
                 });
             });
+            // Metadata re-enrich (POST /me/books/{id}/enrich) — a cheap idempotent re-trigger that just flips
+            // the book back to Pending, but each incomplete-book run spins a paid EnrichmentAgent (several LLM
+            // calls) on the worker. A modest per-IP cap blocks scripted re-trigger loops while staying out of
+            // the way of a human re-running enrichment on a handful of books.
+            options.AddPolicy("enrich", httpContext =>
+            {
+                var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = 5,
+                    QueueLimit = 0,
+                });
+            });
             // TTS synthesis — per-IP cap. Generous enough for bursty vocab-review /
             // reader-tap usage (~2/s average, tolerates ~20-req bursts via window
             // timing), but blocks scripted abuse hammering the upstream Bing WS.

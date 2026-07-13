@@ -31,6 +31,10 @@ export function UserBookDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
   const [enriching, setEnriching] = useState(false)
+  // Local, dismissible error for the enrich-retry action only. Kept SEPARATE
+  // from the page-level `error` so a benign retry rejection (e.g. the sweep
+  // already re-claimed the row → 400) never tears down the whole detail page.
+  const [enrichError, setEnrichError] = useState<string | null>(null)
   // Inline two-stage confirm — mirrors VocabularyPage's delete pattern.
   // First click flips the icon button into a red "Confirm?" pill; a second
   // click within 3 s actually deletes. Avoids the browser-native confirm()
@@ -108,7 +112,17 @@ export function UserBookDetailPage() {
   useEffect(() => {
     const s = book?.metadataEnrichmentStatus
     if (s !== 'Pending' && s !== 'Running') return
+    // Cap the poll so a down worker can't leave us refetching forever. ~24
+    // ticks × 5 s ≈ 2 min, then we give up (the badge keeps showing
+    // "Generating…"); revisiting the page re-arms this effect and restarts it.
+    let ticks = 0
+    const MAX_TICKS = 24
     const interval = setInterval(() => {
+      if (ticks >= MAX_TICKS) {
+        clearInterval(interval)
+        return
+      }
+      ticks += 1
       getUserBook(id!)
         .then(setBook)
         .catch(() => {})
@@ -264,21 +278,50 @@ export function UserBookDetailPage() {
                 onClick={async () => {
                   if (!id || enriching) return
                   setEnriching(true)
+                  setEnrichError(null)
                   // Optimistic: flip to Pending so the spinner shows immediately
                   // and the enrichment poll effect starts refetching.
                   setBook((prev) => (prev ? { ...prev, metadataEnrichmentStatus: 'Pending' } : prev))
                   try {
                     await enrichUserBook(id)
                   } catch (err) {
-                    // Roll back to Failed so the user can retry again.
-                    setBook((prev) => (prev ? { ...prev, metadataEnrichmentStatus: 'Failed' } : prev))
-                    setError(err instanceof Error ? err.message : 'Failed to generate details')
+                    // The POST may have reached the server (row is now Pending)
+                    // even though the response failed — blindly rolling back to
+                    // Failed would halt the poll while the server enriches. So
+                    // reconcile with the server's TRUE status via a refetch, and
+                    // surface a LOCAL, dismissible error (never the page-level
+                    // `error`, which renders a full-page "Book Not Found").
+                    getUserBook(id)
+                      .then(setBook)
+                      .catch(() => {
+                        // Refetch failed too — keep status at Pending so the poll
+                        // keeps reconciling rather than forcing a stuck Failed.
+                        setBook((prev) => (prev ? { ...prev, metadataEnrichmentStatus: 'Pending' } : prev))
+                      })
+                    setEnrichError(err instanceof Error ? err.message : 'Failed to generate details')
                   } finally {
                     setEnriching(false)
                   }
                 }}
               >
                 {t('userBook.enrichRetry')}
+              </button>
+            </div>
+          )}
+
+          {/* Local retry error — subtle, dismissible, and NEVER the page-level
+              `error` (which renders a full-page "Book Not Found"). Clears on the
+              next retry attempt / on success. */}
+          {enrichError && (
+            <div className="user-book-detail__enrich user-book-detail__enrich--failed" role="status">
+              <span>{enrichError}</span>
+              <button
+                type="button"
+                className="user-book-detail__enrich-retry"
+                onClick={() => setEnrichError(null)}
+                aria-label="Dismiss"
+              >
+                {t('common.dismiss')}
               </button>
             </div>
           )}

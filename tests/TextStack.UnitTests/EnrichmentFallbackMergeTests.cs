@@ -82,6 +82,22 @@ public class EnrichmentFallbackMergeTests
         Assert.Equal(0.7, merged.Confidence);
     }
 
+    [Fact]
+    public void MergeWithFallback_AgentEmptyStringGenre_OllamaFillsGenre()
+    {
+        // Regression: an agent-returned empty-string genre must be treated as a gap (IsNullOrEmpty, not == null)
+        // so the fallback genre is used instead of persisting a blank genre.
+        var agent = Agent(genre: "", year: 1897, description: "Agent desc", confidence: 0.9);
+        var fallback = Ollama(genre: "Fiction", year: 2000, description: "Ollama desc");
+
+        var merged = EnrichmentAgentMetadataGenerator.MergeWithFallback(agent, fallback, needsDescription: true);
+
+        Assert.Equal("Fiction", merged.Genre);  // "" is a gap → Ollama fills it
+        Assert.Equal(1897, merged.PublishedYear); // agent wins
+        Assert.Equal("Agent desc", merged.Description); // agent wins
+        Assert.Null(merged.Confidence);          // a field came from Ollama → confidence nulled
+    }
+
     // ---- ApplyFallbackAsync (gate + null-safe seam) ----
 
     [Fact]
@@ -113,6 +129,25 @@ public class EnrichmentFallbackMergeTests
         Assert.Same(agent, result);
         Assert.Null(result.Genre);
         Assert.Equal(0.0, result.Confidence);
+    }
+
+    [Fact]
+    public async Task ApplyFallbackAsync_FallbackThrows_ReturnsAgentUnchanged()
+    {
+        // Ollama throws mid-call → must NOT propagate (outer catch would double-call + write false Failed).
+        // Return the agent's partial result unchanged and surface the error via the onFallbackError callback.
+        var agent = Agent(genre: null, year: 1897, description: "Partial.", confidence: 0.5);
+        Exception? reported = null;
+
+        var result = await EnrichmentAgentMetadataGenerator.ApplyFallbackAsync(
+            agent, needsDescription: true,
+            _ => throw new InvalidOperationException("Ollama down"),
+            CancellationToken.None,
+            ex => reported = ex);
+
+        Assert.Same(agent, result);
+        Assert.Equal(1897, result.PublishedYear);
+        Assert.IsType<InvalidOperationException>(reported);
     }
 
     [Fact]

@@ -66,7 +66,8 @@ public sealed class EnrichmentAgentMetadataGenerator(
             // no description was ever generated. Fill the still-null gaps from the Ollama single-shot.
             return await ApplyFallbackAsync(
                 agentResult, needsDescription,
-                c => fallback.GenerateAsync(title, author, needsDescription, c), ct);
+                c => fallback.GenerateAsync(title, author, needsDescription, c), ct,
+                ex => logger.LogWarning(ex, "Ollama gap-fill fallback threw for book {Book}; keeping agent result", bookId));
         }
         catch (AgentBudgetExhaustedException ex)
         {
@@ -96,22 +97,37 @@ public sealed class EnrichmentAgentMetadataGenerator(
     /// </summary>
     public static bool HasGaps(BookMetadataResult agent, bool needsDescription) =>
         (needsDescription && string.IsNullOrEmpty(agent.Description))
-        || agent.Genre == null
+        || string.IsNullOrEmpty(agent.Genre)
         || agent.PublishedYear == null;
 
     /// <summary>
     /// The full success-path gap-fill decision as one testable seam: if the agent left no gap, return it
-    /// as-is (fallback never invoked). Otherwise fetch the Ollama single-shot; if it is null (Ollama down)
-    /// return the agent's result unchanged — no crash — else merge field-wise.
+    /// as-is (fallback never invoked). Otherwise fetch the Ollama single-shot; if it is null (Ollama down) OR
+    /// it THROWS, return the agent's result unchanged — no crash. A throwing fallback here must NOT propagate:
+    /// the outer catch in <see cref="EnrichAsync"/> would log "agent failed", write a Failed agent_run, call
+    /// the fallback a SECOND time, and could discard the agent's good partial result. On gaps present and a
+    /// non-null fallback, merge field-wise.
     /// </summary>
     public static async Task<BookMetadataResult> ApplyFallbackAsync(
         BookMetadataResult agent,
         bool needsDescription,
         Func<CancellationToken, Task<BookMetadataResult?>> fallbackFactory,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<Exception>? onFallbackError = null)
     {
         if (!HasGaps(agent, needsDescription)) return agent;
-        var fb = await fallbackFactory(ct);
+        BookMetadataResult? fb;
+        try
+        {
+            fb = await fallbackFactory(ct);
+        }
+        catch (Exception ex)
+        {
+            // Fallback threw (Ollama unreachable/timeout mid-call) → keep the agent's partial result, same as
+            // the null case. Do not let it cascade to the outer catch (double-call + false Failed).
+            onFallbackError?.Invoke(ex);
+            return agent;
+        }
         return fb is null ? agent : MergeWithFallback(agent, fb, needsDescription);
     }
 
@@ -125,7 +141,7 @@ public sealed class EnrichmentAgentMetadataGenerator(
     public static BookMetadataResult MergeWithFallback(
         BookMetadataResult agent, BookMetadataResult fallback, bool needsDescription)
     {
-        var genreFilled = agent.Genre == null && fallback.Genre != null;
+        var genreFilled = string.IsNullOrEmpty(agent.Genre) && !string.IsNullOrEmpty(fallback.Genre);
         var yearFilled = agent.PublishedYear == null && fallback.PublishedYear != null;
         var descriptionFilled = needsDescription
             && string.IsNullOrEmpty(agent.Description)

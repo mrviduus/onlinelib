@@ -41,7 +41,8 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/complete", MarkComplete).WithName("MarkUserBookComplete");
         group.MapDelete("/{id:guid}/complete", UnmarkComplete).WithName("UnmarkUserBookComplete");
         group.MapPost("/{id:guid}/retry", RetryBook).WithName("RetryUserBook");
-        group.MapPost("/{id:guid}/enrich", EnrichBook).WithName("EnrichUserBook");
+        group.MapPost("/{id:guid}/enrich", EnrichBook).WithName("EnrichUserBook")
+            .RequireRateLimiting("enrich");
         group.MapPost("/{id:guid}/cancel", CancelBook).WithName("CancelUserBook");
         group.MapGet("/{id:guid}/export/epub", ExportEpub).WithName("ExportUserBookEpub");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
