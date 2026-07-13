@@ -51,6 +51,13 @@ public class UserBook
     public double? MetadataConfidence { get; set; }
     public string? MetadataProvenanceJson { get; set; }
 
+    // Visible enrichment lifecycle (enrichment-reliability). NotStarted = pre-feature backlog (badge
+    // hidden). Pending set on ingestion-Ready + on re-enrich; the worker atomically claims → Running
+    // (stamping MetadataEnrichmentAt for dead-process/stale detection) → Completed (even if nothing
+    // was filled) or Failed. Separate from Status/SeoSource (extraction / user-edit guard).
+    public MetadataEnrichmentStatus MetadataEnrichmentStatus { get; set; } = MetadataEnrichmentStatus.NotStarted;
+    public DateTimeOffset? MetadataEnrichmentAt { get; set; }
+
     // User-defined tags (slice 12) — Postgres text[] with GIN index, max 20 enforced server-side
     public string[] Tags { get; set; } = [];
 

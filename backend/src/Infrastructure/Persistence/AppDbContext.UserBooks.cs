@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -31,6 +32,11 @@ public partial class AppDbContext
             // Enrichment agent provenance (AI-Agent-1): calibrated confidence + per-field source map.
             e.Property(x => x.MetadataConfidence).HasColumnType("double precision");
             e.Property(x => x.MetadataProvenanceJson).HasColumnType("jsonb");
+            // Visible enrichment lifecycle. Stored as int (enum→int convention); NotStarted=0 default so
+            // the pre-feature backlog stays badge-hidden. MetadataEnrichmentAt stamps the Running claim.
+            e.Property(x => x.MetadataEnrichmentStatus)
+                .HasConversion<int>()
+                .HasDefaultValue(MetadataEnrichmentStatus.NotStarted);
             e.Property(x => x.Tags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
             e.HasIndex(x => x.Tags).HasMethod("gin");
             e.Property(x => x.SuggestedTags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");

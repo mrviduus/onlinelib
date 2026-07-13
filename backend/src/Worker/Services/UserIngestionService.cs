@@ -19,7 +19,7 @@ public class UserIngestionService
     private readonly IFileStorageService _storage;
     private readonly IExtractorRegistry _extractorRegistry;
     private readonly IImageOptimizer _imageOptimizer;
-    private readonly IBookMetadataGenerator _metadataGenerator;
+    private readonly UserBookEnrichmentService _enrichmentService;
     private readonly ITagSuggestionGenerator _tagGenerator;
     private readonly ILogger<UserIngestionService> _logger;
 
@@ -28,7 +28,7 @@ public class UserIngestionService
         IFileStorageService storage,
         IExtractorRegistry extractorRegistry,
         IImageOptimizer imageOptimizer,
-        IBookMetadataGenerator metadataGenerator,
+        UserBookEnrichmentService enrichmentService,
         ITagSuggestionGenerator tagGenerator,
         ILogger<UserIngestionService> logger)
     {
@@ -36,7 +36,7 @@ public class UserIngestionService
         _storage = storage;
         _extractorRegistry = extractorRegistry;
         _imageOptimizer = imageOptimizer;
-        _metadataGenerator = metadataGenerator;
+        _enrichmentService = enrichmentService;
         _tagGenerator = tagGenerator;
         _logger = logger;
     }
@@ -261,8 +261,11 @@ public class UserIngestionService
                 });
             }
 
-            // Mark success
+            // Mark success + enqueue enrichment. Pending is set in the SAME save as Ready so the sweep
+            // (or the inline-kick below) can atomically claim it — visible status from the first moment.
             job.UserBook.Status = UserBookStatus.Ready;
+            job.UserBook.MetadataEnrichmentStatus = MetadataEnrichmentStatus.Pending;
+            job.UserBook.MetadataEnrichmentAt = null;
             job.UserBook.UpdatedAt = DateTimeOffset.UtcNow;
             job.Status = JobStatus.Succeeded;
             job.UnitsCount = result.Units.Count;
@@ -271,7 +274,6 @@ public class UserIngestionService
 
             await db.SaveChangesAsync(ct);
 
-            // Fire-and-forget: enrich metadata via LLM (genre, year, description)
             var bookId = job.UserBookId;
             var bookTitle = job.UserBook.Title;
             var bookAuthor = job.UserBook.Author;
@@ -279,57 +281,11 @@ public class UserIngestionService
             var bookUserId = job.UserBook.UserId;
             var firstChapterExcerpt = result.Units.FirstOrDefault()?.PlainText;
             var bookHasTags = job.UserBook.Tags.Length > 0;
-            var needsDesc = string.IsNullOrEmpty(job.UserBook.Description);
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    // AI-Agent-1: tool-using, cross-checked, calibrated enrichment (Open Library cross-check),
-                    // with the opening excerpt for genre/tone cues. Falls back to Ollama internally on
-                    // agent error / budget exhaustion, so this returns best-effort metadata either way.
-                    var meta = await _metadataGenerator.EnrichAsync(
-                        bookId, bookTitle, bookAuthor, firstChapterExcerpt, needsDesc, CancellationToken.None);
 
-                    if (meta is null) return;
-
-                    await using var bgDb = await _dbFactory.CreateDbContextAsync(CancellationToken.None);
-                    var book = await bgDb.UserBooks.FirstOrDefaultAsync(
-                        b => b.Id == bookId, CancellationToken.None);
-                    if (book is null) return;
-
-                    // Never overwrite user-edited ('manual') metadata — mirrors the SEO backfill guard.
-                    if (string.Equals(book.SeoSource, "manual", StringComparison.OrdinalIgnoreCase)) return;
-
-                    var changed = false;
-                    if (meta.Genre != null && string.IsNullOrEmpty(book.Genre))
-                    { book.Genre = meta.Genre; changed = true; }
-                    if (meta.PublishedYear != null && book.PublishedYear == null)
-                    { book.PublishedYear = meta.PublishedYear; changed = true; }
-                    if (meta.Description != null && string.IsNullOrEmpty(book.Description))
-                    { book.Description = meta.Description; changed = true; }
-
-                    if (changed)
-                    {
-                        // Persist provenance/confidence from the agent path (null on the Ollama fallback).
-                        if (meta.Confidence is not null) book.MetadataConfidence = meta.Confidence;
-                        if (meta.ProvenanceJson is not null) book.MetadataProvenanceJson = meta.ProvenanceJson;
-                        book.UpdatedAt = DateTimeOffset.UtcNow;
-                        await bgDb.SaveChangesAsync(CancellationToken.None);
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogWarning(ex, "Ollama unavailable for book metadata enrichment {BookId}", bookId);
-                }
-                catch (TaskCanceledException)
-                {
-                    _logger.LogWarning("Ollama timeout for book metadata enrichment {BookId}", bookId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to enrich book metadata {BookId}", bookId);
-                }
-            });
+            // Fire-and-forget metadata enrichment (genre, year, description) through the shared executor.
+            // The atomic Pending → Running claim inside makes this immediate kick safe against the sweep
+            // grabbing the same row; enrichment always lands on a terminal status (Completed / Failed).
+            _ = Task.Run(() => _enrichmentService.EnrichAsync(bookId, CancellationToken.None));
 
             // Fire-and-forget: AI auto-tags via Ollama (slice 17). Skip if user already tagged.
             if (!bookHasTags)
