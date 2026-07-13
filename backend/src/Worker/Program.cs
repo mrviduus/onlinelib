@@ -91,8 +91,14 @@ builder.Services.AddSingleton<Application.Rag.IPdfVisionParser, Infrastructure.R
 // Shared chunking service (ingestion + on-demand "Ask this book" index trigger).
 builder.Services.AddSingleton<Infrastructure.Rag.BookChunkingService>();
 builder.Services.AddSingleton<IngestionWorkerService>();
+// Enrichment-reliability: shared executor (atomic claim + terminal status) used by the ingestion
+// inline-kick and the sweep worker below. Singleton — depends only on the DbContext factory + the
+// singleton IBookMetadataGenerator.
+builder.Services.AddSingleton<UserBookEnrichmentService>();
 builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();
+// Sweep: drains Pending (API re-enrich reaches the worker here) + reclaims stale Running rows.
+builder.Services.AddHostedService<MetadataEnrichmentWorker>();
 builder.Services.AddHostedService<PodcastWorker>();
 // Phase 4 RAG: fills chapter_chunk.embedding for chunks the chunker left null.
 builder.Services.AddHostedService<ChapterEmbeddingWorker>();

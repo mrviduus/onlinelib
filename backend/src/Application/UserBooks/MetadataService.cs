@@ -51,7 +51,8 @@ public class MetadataService(IAppDbContext db)
             null,
             book.CreatedAt, book.UpdatedAt, book.CompletedAt,
             book.RagStatus.ToString(), book.RagChunkCount, book.RagEmbeddedCount,
-            book.BookFiles.Any(f => f.Format == Domain.Enums.BookFormat.Pdf));
+            book.BookFiles.Any(f => f.Format == Domain.Enums.BookFormat.Pdf),
+            book.MetadataEnrichmentStatus.ToString());
 
         return (dto, null);
     }

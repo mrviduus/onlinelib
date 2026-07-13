@@ -54,12 +54,20 @@ public sealed class EnrichmentAgentMetadataGenerator(
                 "Enrichment agent book={Book} confidence={Conf:0.00} tools={Tools} genre={Genre} year={Year}",
                 bookId, r.OverallConfidence, outcome.ToolCallsCount, r.Genre.Value, r.Year.Value);
 
-            return new BookMetadataResult(
+            var agentResult = new BookMetadataResult(
                 r.Genre.Value,
                 r.Year.Value,
                 r.Description.Value,
                 r.OverallConfidence,
                 r.ToProvenanceJson());
+
+            // Success-with-gaps: the agent can honestly return null genre/year/description (confidence
+            // ~0.00) for niche books absent from Open Library. The catch-only fallback never fired, so
+            // no description was ever generated. Fill the still-null gaps from the Ollama single-shot.
+            return await ApplyFallbackAsync(
+                agentResult, needsDescription,
+                c => fallback.GenerateAsync(title, author, needsDescription, c), ct,
+                ex => logger.LogWarning(ex, "Ollama gap-fill fallback threw for book {Book}; keeping agent result", bookId));
         }
         catch (AgentBudgetExhaustedException ex)
         {
@@ -80,6 +88,73 @@ public sealed class EnrichmentAgentMetadataGenerator(
             logger.LogWarning(ex, "Enrichment agent failed for book {Book}; falling back to Ollama", bookId);
             return await fallback.GenerateAsync(title, author, needsDescription, ct);
         }
+    }
+
+    /// <summary>
+    /// True when the agent left a gap the Ollama fallback should try to fill: a missing Genre or Year, or —
+    /// only when the caller asked for one — a missing Description. Gates the (network) fallback call so a
+    /// fully-committed agent result never triggers a redundant Ollama round-trip.
+    /// </summary>
+    public static bool HasGaps(BookMetadataResult agent, bool needsDescription) =>
+        (needsDescription && string.IsNullOrEmpty(agent.Description))
+        || string.IsNullOrEmpty(agent.Genre)
+        || agent.PublishedYear == null;
+
+    /// <summary>
+    /// The full success-path gap-fill decision as one testable seam: if the agent left no gap, return it
+    /// as-is (fallback never invoked). Otherwise fetch the Ollama single-shot; if it is null (Ollama down) OR
+    /// it THROWS, return the agent's result unchanged — no crash. A throwing fallback here must NOT propagate:
+    /// the outer catch in <see cref="EnrichAsync"/> would log "agent failed", write a Failed agent_run, call
+    /// the fallback a SECOND time, and could discard the agent's good partial result. On gaps present and a
+    /// non-null fallback, merge field-wise.
+    /// </summary>
+    public static async Task<BookMetadataResult> ApplyFallbackAsync(
+        BookMetadataResult agent,
+        bool needsDescription,
+        Func<CancellationToken, Task<BookMetadataResult?>> fallbackFactory,
+        CancellationToken ct,
+        Action<Exception>? onFallbackError = null)
+    {
+        if (!HasGaps(agent, needsDescription)) return agent;
+        BookMetadataResult? fb;
+        try
+        {
+            fb = await fallbackFactory(ct);
+        }
+        catch (Exception ex)
+        {
+            // Fallback threw (Ollama unreachable/timeout mid-call) → keep the agent's partial result, same as
+            // the null case. Do not let it cascade to the outer catch (double-call + false Failed).
+            onFallbackError?.Invoke(ex);
+            return agent;
+        }
+        return fb is null ? agent : MergeWithFallback(agent, fb, needsDescription);
+    }
+
+    /// <summary>
+    /// Merges the agent result with the Ollama fallback field-wise: the agent's non-null value always wins;
+    /// Ollama fills only the still-null gaps (Genre, Year, and Description when needed). If ANY field was
+    /// sourced from the fallback, <see cref="BookMetadataResult.Confidence"/> is returned null — the agent's
+    /// 0.00 does not describe an Ollama-sourced value, and the worker's <c>if (meta.Confidence is not null)</c>
+    /// guard then leaves the confidence column untouched. Provenance stays the agent's JSON as-is (v1).
+    /// </summary>
+    public static BookMetadataResult MergeWithFallback(
+        BookMetadataResult agent, BookMetadataResult fallback, bool needsDescription)
+    {
+        var genreFilled = string.IsNullOrEmpty(agent.Genre) && !string.IsNullOrEmpty(fallback.Genre);
+        var yearFilled = agent.PublishedYear == null && fallback.PublishedYear != null;
+        var descriptionFilled = needsDescription
+            && string.IsNullOrEmpty(agent.Description)
+            && !string.IsNullOrEmpty(fallback.Description);
+
+        var anyFilled = genreFilled || yearFilled || descriptionFilled;
+
+        return new BookMetadataResult(
+            genreFilled ? fallback.Genre : agent.Genre,
+            yearFilled ? fallback.PublishedYear : agent.PublishedYear,
+            descriptionFilled ? fallback.Description : agent.Description,
+            anyFilled ? null : agent.Confidence,
+            agent.ProvenanceJson);
     }
 
     private static async Task PersistAsync(

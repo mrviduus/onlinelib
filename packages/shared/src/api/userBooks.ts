@@ -34,6 +34,10 @@ export interface UserBookDetailResponse {
   /** True when the original upload is a PDF that can be rendered in the opt-in
    *  "Original layout" view. Absent on older payloads → false. */
   hasOriginalPdf?: boolean
+  /** LLM metadata enrichment lifecycle (genre/year/description generation).
+   *  "NotStarted" | "Pending" | "Running" | "Completed" | "Failed".
+   *  Absent on older payloads → treat as no enrichment in flight. */
+  metadataEnrichmentStatus?: string
 }
 
 export function getUserBook(id: string) {

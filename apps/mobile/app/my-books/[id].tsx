@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
+import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -24,6 +25,7 @@ export default function UserBookDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [enriching, setEnriching] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmountedRef = useRef(false)
@@ -120,6 +122,21 @@ export default function UserBookDetailScreen() {
       }
     }
   }, [book?.status, id, showToast])
+
+  // Auto-refresh while metadata enrichment is in flight. The status poll above
+  // stops at 'ready' (before enrichment runs), so this covers the Pending/Running
+  // window — the worker can't reach the device, so we poll until a terminal
+  // state (Completed/Failed) and then stop. Mirrors the web detail page.
+  useEffect(() => {
+    const s = book?.metadataEnrichmentStatus
+    if (!id || (s !== 'Pending' && s !== 'Running')) return
+    const interval = setInterval(() => {
+      userBooksApi.getUserBook(id)
+        .then(b => { if (!unmountedRef.current) setBook(b) })
+        .catch(err => console.warn('enrichment poll failed:', err))
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [book?.metadataEnrichmentStatus, id])
 
   const isReady = book?.status.toLowerCase() === 'ready'
   const isFailed = book?.status.toLowerCase() === 'failed'
@@ -283,6 +300,47 @@ export default function UserBookDetailScreen() {
         {book.description && (
           <View style={styles.descSection}>
             <Text style={[styles.descText, { color: colors.textSecondary }]}>{book.description}</Text>
+          </View>
+        )}
+
+        {/* Metadata-enrichment status. Only surfaced while work is in flight
+            (Pending/Running) or after a failure — Completed/NotStarted/undefined
+            render nothing so we don't nag on old rows. Mirrors the web badge. */}
+        {(book.metadataEnrichmentStatus === 'Pending' || book.metadataEnrichmentStatus === 'Running') && (
+          <View style={styles.enrichRow}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text style={[styles.enrichText, { color: colors.textSecondary }]}>Generating book details…</Text>
+          </View>
+        )}
+
+        {book.metadataEnrichmentStatus === 'Failed' && (
+          <View style={styles.enrichRow}>
+            <Text style={[styles.enrichText, { color: colors.textSecondary }]}>Couldn't generate details</Text>
+            <TouchableOpacity
+              disabled={enriching}
+              onPress={async () => {
+                if (!id || enriching) return
+                setEnriching(true)
+                const prevStatus = book.metadataEnrichmentStatus
+                // Optimistic: flip to Pending so the spinner shows immediately
+                // and the enrichment poll effect starts refetching.
+                setBook(prev => (prev ? { ...prev, metadataEnrichmentStatus: 'Pending' } : prev))
+                try {
+                  await enrichUserBook(id)
+                } catch (err) {
+                  console.warn('enrichUserBook failed:', err)
+                  // Roll back to Failed so the user can retry again.
+                  setBook(prev => (prev ? { ...prev, metadataEnrichmentStatus: prevStatus } : prev))
+                  showToast({ message: "Couldn't generate details", variant: 'error', duration: 2400 })
+                } finally {
+                  setEnriching(false)
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry generating book details"
+            >
+              <Text style={[styles.enrichRetry, { color: colors.primary }]}>Retry</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -483,6 +541,9 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   descSection: { paddingHorizontal: 16, marginBottom: 12 },
   descText: { fontSize: 13, fontFamily: fonts.sans, lineHeight: 20 },
+  enrichRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
+  enrichText: { fontSize: 13, fontFamily: fonts.sans },
+  enrichRetry: { fontSize: 13, fontFamily: fonts.sansMedium },
   progressSection: { paddingHorizontal: 16, marginBottom: 12 },
   progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 3 },

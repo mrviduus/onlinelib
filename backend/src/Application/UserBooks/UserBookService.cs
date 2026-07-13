@@ -273,6 +273,7 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
                 b.RagStatus,
                 b.RagChunkCount,
                 b.RagEmbeddedCount,
+                b.MetadataEnrichmentStatus,
                 HasOriginalPdf = b.BookFiles.Any(f => f.Format == BookFormat.Pdf),
                 Chapters = b.Chapters
                     .OrderBy(c => c.ChapterNumber)
@@ -319,7 +320,8 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
             book.RagStatus.ToString(),
             book.RagChunkCount,
             book.RagEmbeddedCount,
-            book.HasOriginalPdf
+            book.HasOriginalPdf,
+            book.MetadataEnrichmentStatus.ToString()
         );
     }
 

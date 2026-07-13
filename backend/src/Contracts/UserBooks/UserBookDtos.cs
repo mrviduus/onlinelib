@@ -54,7 +54,9 @@ public record UserBookDetailDto(
     int RagChunkCount,
     int RagEmbeddedCount,
     // True when the book has a stored PDF original → enables the reader's "Original layout" view.
-    bool HasOriginalPdf
+    bool HasOriginalPdf,
+    // Visible enrichment lifecycle: NotStarted|Pending|Running|Completed|Failed (detail-only).
+    string MetadataEnrichmentStatus
 );
 
 public record UserChapterSummaryDto(

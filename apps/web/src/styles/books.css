@@ -4625,6 +4625,47 @@ html.dark .add-to-collection-button--icon[aria-label]::after {
   animation: spin 1s linear infinite;
 }
 
+.user-book-detail__spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-color: rgba(100, 116, 139, 0.35);
+  border-top-color: #64748b;
+}
+
+/* Subtle, non-alarming inline metadata-enrichment status near the title. */
+.user-book-detail__enrich {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.user-book-detail__enrich--running {
+  color: var(--color-text-secondary, #64748b);
+}
+
+.user-book-detail__enrich--failed {
+  color: #b45309;
+}
+
+.user-book-detail__enrich-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.user-book-detail__enrich-retry:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .user-book-detail__actions {
   display: flex;
   gap: 12px;

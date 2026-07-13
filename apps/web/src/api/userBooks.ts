@@ -74,6 +74,10 @@ export interface UserBookDetail {
   /** True when the original upload is a PDF that can be rendered pixel-perfect
    *  in the opt-in "Original layout" view. Absent on older payloads → false. */
   hasOriginalPdf?: boolean
+  /** LLM metadata enrichment lifecycle (genre/year/description generation).
+   *  "NotStarted" | "Pending" | "Running" | "Completed" | "Failed".
+   *  Absent on older payloads → treat as no enrichment in flight. */
+  metadataEnrichmentStatus?: string
 }
 
 export interface UserChapter {
@@ -181,6 +185,12 @@ export async function deleteUserBook(id: string): Promise<void> {
 
 export async function retryUserBook(id: string): Promise<void> {
   await authFetch<void>(`/me/books/${id}/retry`, { method: 'POST' })
+}
+
+// Re-fire LLM metadata enrichment (genre/year/description). Backend sets status
+// to Pending and returns 202. Owner-scoped; 404 if not yours.
+export async function enrichUserBook(id: string): Promise<void> {
+  await authFetch<void>(`/me/books/${id}/enrich`, { method: 'POST' })
 }
 
 export async function cancelUserBook(id: string): Promise<void> {

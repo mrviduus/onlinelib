@@ -41,6 +41,8 @@ public static class UserBooksEndpoints
         group.MapPost("/{id:guid}/complete", MarkComplete).WithName("MarkUserBookComplete");
         group.MapDelete("/{id:guid}/complete", UnmarkComplete).WithName("UnmarkUserBookComplete");
         group.MapPost("/{id:guid}/retry", RetryBook).WithName("RetryUserBook");
+        group.MapPost("/{id:guid}/enrich", EnrichBook).WithName("EnrichUserBook")
+            .RequireRateLimiting("enrich");
         group.MapPost("/{id:guid}/cancel", CancelBook).WithName("CancelUserBook");
         group.MapGet("/{id:guid}/export/epub", ExportEpub).WithName("ExportUserBookEpub");
         group.MapDelete("/{id:guid}", DeleteBook).WithName("DeleteUserBook");
@@ -580,6 +582,36 @@ public static class UserBooksEndpoints
             return Results.BadRequest(new { error });
 
         return Results.Ok(new { status = "Processing" });
+    }
+
+    // Re-enrich metadata WITHOUT re-extracting chapters (that is /retry). Just flips the book back to
+    // Pending; the worker's MetadataEnrichmentWorker sweep claims and runs it. Allowed on 'manual' books
+    // (harmless — the executor's merge guard no-ops on user-edited fields).
+    private static async Task<IResult> EnrichBook(
+        Guid id,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId == null) return Results.Unauthorized();
+
+        var book = await db.UserBooks.FirstOrDefaultAsync(b => b.UserId == userId.Value && b.Id == id, ct);
+        if (book is null) return Results.NotFound();
+
+        if (book.Status != UserBookStatus.Ready)
+            return Results.BadRequest(new { error = "Book is not ready" });
+
+        if (book.MetadataEnrichmentStatus is MetadataEnrichmentStatus.Pending or MetadataEnrichmentStatus.Running)
+            return Results.BadRequest(new { error = "Enrichment already in progress" });
+
+        book.MetadataEnrichmentStatus = MetadataEnrichmentStatus.Pending;
+        book.MetadataEnrichmentAt = null;
+        book.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Accepted(value: new { status = "Pending" });
     }
 
     private static async Task<IResult> CancelBook(

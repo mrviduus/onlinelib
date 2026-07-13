@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { getUserBook, deleteUserBook, retryUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBookDetail } from '../api/userBooks'
+import { getUserBook, deleteUserBook, retryUserBook, enrichUserBook, markUserBookComplete, unmarkUserBookComplete, getUserBookCoverUrl, type UserBookDetail } from '../api/userBooks'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { stringToColor } from '../utils/colors'
@@ -30,6 +30,11 @@ export function UserBookDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
+  const [enriching, setEnriching] = useState(false)
+  // Local, dismissible error for the enrich-retry action only. Kept SEPARATE
+  // from the page-level `error` so a benign retry rejection (e.g. the sweep
+  // already re-claimed the row → 400) never tears down the whole detail page.
+  const [enrichError, setEnrichError] = useState<string | null>(null)
   // Inline two-stage confirm — mirrors VocabularyPage's delete pattern.
   // First click flips the icon button into a red "Confirm?" pill; a second
   // click within 3 s actually deletes. Avoids the browser-native confirm()
@@ -99,6 +104,31 @@ export function UserBookDetailPage() {
     }, 5000)
     return () => clearInterval(interval)
   }, [book?.status, id])
+
+  // Auto-refresh while metadata enrichment is in flight. The existing poll above
+  // stops at Ready (before enrichment runs), so this covers the Pending/Running
+  // window — the worker can't reach the browser, so we poll until a terminal
+  // state (Completed/Failed) and then stop.
+  useEffect(() => {
+    const s = book?.metadataEnrichmentStatus
+    if (s !== 'Pending' && s !== 'Running') return
+    // Cap the poll so a down worker can't leave us refetching forever. ~24
+    // ticks × 5 s ≈ 2 min, then we give up (the badge keeps showing
+    // "Generating…"); revisiting the page re-arms this effect and restarts it.
+    let ticks = 0
+    const MAX_TICKS = 24
+    const interval = setInterval(() => {
+      if (ticks >= MAX_TICKS) {
+        clearInterval(interval)
+        return
+      }
+      ticks += 1
+      getUserBook(id!)
+        .then(setBook)
+        .catch(() => {})
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [book?.metadataEnrichmentStatus, id])
 
   const handleDelete = async () => {
     if (!id || deleting) return
@@ -225,6 +255,75 @@ export function UserBookDetailPage() {
 
           {book.description && (
             <p className="user-book-detail__description">{book.description}</p>
+          )}
+
+          {/* Visible metadata-enrichment status. Only surfaced while work is in
+              flight (Pending/Running) or after a failure — Completed/NotStarted/
+              undefined render nothing so we don't nag on old rows or genuinely
+              undescribable books. */}
+          {(book.metadataEnrichmentStatus === 'Pending' || book.metadataEnrichmentStatus === 'Running') && (
+            <div className="user-book-detail__enrich user-book-detail__enrich--running">
+              <span className="user-book-detail__spinner user-book-detail__spinner--sm" />
+              <span>{t('userBook.enriching')}</span>
+            </div>
+          )}
+
+          {book.metadataEnrichmentStatus === 'Failed' && (
+            <div className="user-book-detail__enrich user-book-detail__enrich--failed">
+              <span>{t('userBook.enrichFailed')}</span>
+              <button
+                type="button"
+                className="user-book-detail__enrich-retry"
+                disabled={enriching}
+                onClick={async () => {
+                  if (!id || enriching) return
+                  setEnriching(true)
+                  setEnrichError(null)
+                  // Optimistic: flip to Pending so the spinner shows immediately
+                  // and the enrichment poll effect starts refetching.
+                  setBook((prev) => (prev ? { ...prev, metadataEnrichmentStatus: 'Pending' } : prev))
+                  try {
+                    await enrichUserBook(id)
+                  } catch (err) {
+                    // The POST may have reached the server (row is now Pending)
+                    // even though the response failed — blindly rolling back to
+                    // Failed would halt the poll while the server enriches. So
+                    // reconcile with the server's TRUE status via a refetch, and
+                    // surface a LOCAL, dismissible error (never the page-level
+                    // `error`, which renders a full-page "Book Not Found").
+                    getUserBook(id)
+                      .then(setBook)
+                      .catch(() => {
+                        // Refetch failed too — keep status at Pending so the poll
+                        // keeps reconciling rather than forcing a stuck Failed.
+                        setBook((prev) => (prev ? { ...prev, metadataEnrichmentStatus: 'Pending' } : prev))
+                      })
+                    setEnrichError(err instanceof Error ? err.message : 'Failed to generate details')
+                  } finally {
+                    setEnriching(false)
+                  }
+                }}
+              >
+                {t('userBook.enrichRetry')}
+              </button>
+            </div>
+          )}
+
+          {/* Local retry error — subtle, dismissible, and NEVER the page-level
+              `error` (which renders a full-page "Book Not Found"). Clears on the
+              next retry attempt / on success. */}
+          {enrichError && (
+            <div className="user-book-detail__enrich user-book-detail__enrich--failed" role="status">
+              <span>{enrichError}</span>
+              <button
+                type="button"
+                className="user-book-detail__enrich-retry"
+                onClick={() => setEnrichError(null)}
+                aria-label="Dismiss"
+              >
+                {t('common.dismiss')}
+              </button>
+            </div>
           )}
 
           <div className="user-book-detail__meta">
