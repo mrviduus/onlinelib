@@ -112,7 +112,9 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
     } else if (h.userBookId && h.userChapterSlug) {
       navigate(getLocalizedPath(`/library/my/${h.userBookId}/read/${h.userChapterSlug}?direct=1&highlight=${h.id}`))
     } else if (h.userBookId) {
-      navigate(getLocalizedPath(`/library/my/${h.userBookId}`))
+      // Chapterless (Original-layout PDF) highlight — no userChapterSlug. Open the
+      // PDF reader; ReaderPage reads ?highlight and scrolls to the anchor's page.
+      navigate(getLocalizedPath(`/library/my/${h.userBookId}/read?direct=1&highlight=${h.id}`))
     }
   }
 

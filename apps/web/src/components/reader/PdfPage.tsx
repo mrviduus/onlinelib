@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef } from 'react'
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
+import { PdfHighlightLayer } from './PdfHighlightLayer'
+import type { StoredHighlight } from '../../lib/offlineDb'
 
 interface PdfPageProps {
   pdf: PDFDocumentProxy
@@ -17,6 +19,10 @@ interface PdfPageProps {
   registerRef: (el: HTMLElement | null) => void
   /** Surfaced so the view can show a recoverable "session expired" state. */
   onLoadError?: (err: unknown) => void
+  /** Persistent highlights across the whole book — the layer filters to this page. */
+  highlights?: StoredHighlight[]
+  /** Click a painted highlight → open the edit popup. */
+  onHighlightClick?: (highlight: StoredHighlight, rect: DOMRect) => void
 }
 
 /** pdfjs cancel/abort exceptions are expected on scroll/scale churn — ignore them. */
@@ -45,6 +51,8 @@ function PdfPageImpl({
   cssHeight,
   registerRef,
   onLoadError,
+  highlights,
+  onHighlightClick,
 }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
@@ -158,6 +166,15 @@ function PdfPageImpl({
         <>
           <canvas ref={canvasRef} className="pdf-page__canvas" />
           <div ref={textRef} className="textLayer" />
+          {highlights && highlights.length > 0 && (
+            <PdfHighlightLayer
+              page={pageNumber}
+              highlights={highlights}
+              scale={scale}
+              invert={invert}
+              onHighlightClick={onHighlightClick}
+            />
+          )}
         </>
       ) : (
         <div className="pdf-page__placeholder">{pageNumber}</div>

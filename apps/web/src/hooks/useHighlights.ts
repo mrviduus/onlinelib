@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { isPdfAnchor } from '@textstack/shared'
 import {
   type StoredHighlight,
-  type TextAnchor,
+  type HighlightAnchor,
   type HighlightColor,
   getHighlightsForEdition,
   getHighlightsForUserBook,
@@ -73,7 +74,7 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
             chapterId: sh.chapterId || '',
             userBookId: sh.userBookId || undefined,
             userChapterId: sh.userChapterId || undefined,
-            anchor: JSON.parse(sh.anchorJson) as TextAnchor,
+            anchor: JSON.parse(sh.anchorJson) as HighlightAnchor,
             color: sh.color as HighlightColor,
             selectedText: sh.selectedText,
             noteText: sh.noteText ?? undefined,
@@ -117,17 +118,22 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
 
   const addHighlight = useCallback(
     async (
-      anchor: TextAnchor,
+      anchor: HighlightAnchor,
       color: HighlightColor,
       selectedText: string
     ): Promise<StoredHighlight> => {
       const now = Date.now()
+      // PDF (Original-layout) anchors are chapterless — no chapterId /
+      // userChapterId (backend S-a accepts null). Reflow anchors carry a
+      // chapter-relative TextAnchor.
+      const isPdf = isPdfAnchor(anchor)
+      const chapterId = isPdf ? '' : anchor.chapterId
       const highlight: StoredHighlight = {
         id: generateId(),
         editionId: isUserBook ? '' : bookId,
-        chapterId: anchor.chapterId,
+        chapterId,
         userBookId: isUserBook ? bookId : undefined,
-        userChapterId: isUserBook ? anchor.chapterId : undefined,
+        userChapterId: isUserBook && !isPdf ? chapterId : undefined,
         anchor,
         color,
         selectedText,
@@ -144,14 +150,15 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
             isUserBook
               ? {
                   userBookId: bookId,
-                  userChapterId: anchor.chapterId,
+                  // Omit userChapterId for PDF highlights (chapterless).
+                  userChapterId: isPdf ? undefined : chapterId,
                   anchorJson: JSON.stringify(anchor),
                   color,
                   selectedText,
                 }
               : {
                   editionId: bookId,
-                  chapterId: anchor.chapterId,
+                  chapterId,
                   anchorJson: JSON.stringify(anchor),
                   color,
                   selectedText,
@@ -240,6 +247,9 @@ export function useHighlights(editionId?: string, userBookId?: string, options?:
   const getHighlightsForRange = useCallback(
     (startOffset: number, endOffset: number): StoredHighlight[] => {
       return highlights.filter((h) => {
+        // PDF (quad-rect) anchors have no text offsets — they're never located
+        // by range overlap. Skip so they don't corrupt reflow range queries.
+        if (isPdfAnchor(h.anchor)) return false
         const hStart = h.anchor.startOffset
         const hEnd = h.anchor.endOffset
         // Check if ranges overlap

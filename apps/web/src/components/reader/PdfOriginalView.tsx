@@ -3,6 +3,8 @@ import { usePdfDocument } from '../../hooks/usePdfDocument'
 import { useTranslation } from '../../hooks/useTranslation'
 import { refreshToken } from '../../api/auth'
 import { PdfPage } from './PdfPage'
+import { PdfHighlightPopup } from './PdfHighlightPopup'
+import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import {
   clampPage,
   computePageRings,
@@ -60,6 +62,19 @@ interface PdfOriginalViewProps {
    * reader fall back to reflow (if chapters exist) or a "can't open" screen.
    */
   onLoadError?: (message: string) => void
+  /**
+   * Persistent text highlights for this book (lifted to ReaderPage so create —
+   * owned by the single SelectionToolbar in ReaderHighlights — and paint/edit
+   * share one hook). The view paints them per page + owns the edit popup.
+   */
+  highlights?: StoredHighlight[]
+  /** Recolor / note edit — forwarded to the lifted highlights hook. */
+  onHighlightUpdate?: (
+    id: string,
+    updates: { color?: HighlightColor; noteText?: string | null },
+  ) => void | Promise<unknown>
+  /** Delete — forwarded to the lifted highlights hook. */
+  onHighlightDelete?: (id: string) => void | Promise<unknown>
 }
 
 const MIN_SCALE = 0.2
@@ -98,6 +113,9 @@ export default function PdfOriginalView({
   onPageChange,
   onActivity,
   onLoadError,
+  highlights,
+  onHighlightUpdate,
+  onHighlightDelete,
 }: PdfOriginalViewProps) {
   const [reloadToken, setReloadToken] = useState(0)
   const { pdf, numPages, loading, error } = usePdfDocument(fileUrl, reloadToken)
@@ -128,6 +146,8 @@ export default function PdfOriginalView({
   const [invert, setInvert] = useState(false)
   const [pageInput, setPageInput] = useState('')
   const [sessionExpired, setSessionExpired] = useState(false)
+  // Highlight edit popup (recolor / note / delete). Rect captured at click time.
+  const [editHl, setEditHl] = useState<{ highlight: StoredHighlight; rect: DOMRect } | null>(null)
 
   useEffect(() => {
     onActivityRef.current = onActivity
@@ -421,6 +441,16 @@ export default function PdfOriginalView({
     setReloadToken((n) => n + 1)
   }, [currentPage])
 
+  const handleHighlightClick = useCallback((highlight: StoredHighlight, rect: DOMRect) => {
+    setEditHl({ highlight, rect })
+  }, [])
+
+  // Reflect live edits (recolor) while the popup stays open — resolve the freshest
+  // copy from the highlights array by id, falling back to the captured snapshot.
+  const activeEditHl = editHl
+    ? (highlights?.find((h) => h.id === editHl.highlight.id) ?? editHl.highlight)
+    : null
+
   const handleFitWidth = () => setZoom(1)
   const handleZoomIn = () => setZoom((z) => Math.min(4, z * 1.2))
   const handleZoomOut = () => setZoom((z) => Math.max(0.25, z / 1.2))
@@ -487,7 +517,9 @@ export default function PdfOriginalView({
         <div className="pdf-original__loading">{t('reader.originalLayout.loading')}</div>
       ) : (
         <div className="pdf-original__scroll" ref={scrollRef}>
-          <div className="pdf-original__pages">
+          {/* data-scale is read by computePdfAnchorFromRange to convert a live
+              selection's client rects into unscaled page-relative anchor coords. */}
+          <div className="pdf-original__pages" data-scale={scale}>
             {pdf &&
               Array.from({ length: numPages }, (_, i) => {
                 const pn = i + 1
@@ -505,11 +537,28 @@ export default function PdfOriginalView({
                     cssHeight={Math.round(dim.h * scale)}
                     registerRef={registerPage(pn)}
                     onLoadError={handlePageError}
+                    highlights={highlights}
+                    onHighlightClick={onHighlightUpdate || onHighlightDelete ? handleHighlightClick : undefined}
                   />
                 )
               })}
           </div>
         </div>
+      )}
+
+      {activeEditHl && editHl && (
+        <PdfHighlightPopup
+          highlight={activeEditHl}
+          rect={editHl.rect}
+          containerRef={scrollRef}
+          onRecolor={(color) => onHighlightUpdate?.(activeEditHl.id, { color })}
+          onNoteSave={(noteText) => onHighlightUpdate?.(activeEditHl.id, { noteText })}
+          onDelete={() => {
+            onHighlightDelete?.(activeEditHl.id)
+            setEditHl(null)
+          }}
+          onClose={() => setEditHl(null)}
+        />
       )}
     </div>
   )
