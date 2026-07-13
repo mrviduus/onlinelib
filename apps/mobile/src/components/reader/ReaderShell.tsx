@@ -277,6 +277,8 @@ export function ReaderShell(props: ReaderShellProps) {
     editingHighlight,
     setEditingHighlight,
     create: createHighlight,
+    createPdf: createPdfHighlight,
+    repaintPdf,
     saveNote: saveHighlightNote,
     updateColor: updateHighlightColor,
     remove: removeHighlight,
@@ -289,7 +291,13 @@ export function ReaderShell(props: ReaderShellProps) {
     chapterId: chapter.id,
     injectJs,
     showToast,
+    original,
   })
+
+  // Original PDF: the color the user picked in the toolbar, held while the
+  // bundled viewer resolves the anchor for the current selection and posts
+  // `pdfHighlightCreate` back. Read by the message handler at persist time.
+  const pendingPdfColorRef = useRef<string>(settings.lastHighlightColor)
 
   const notifyWordSaved = useCallback(() => {
     sessionWordCountRef.current += 1
@@ -398,6 +406,14 @@ export function ReaderShell(props: ReaderShellProps) {
         if (nextId !== null && !data.text.includes(' ')) {
           toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
         }
+      } else if (data.type === 'pdfHighlightCreate') {
+        // Original PDF: the viewer resolved a quad-rect anchor for the current
+        // selection. Persist it (chapterless userbook highlight) with the color
+        // the user picked in the toolbar; the hook re-pushes the set to repaint.
+        const anchor = data.anchor
+        if (anchor && Array.isArray(anchor.rects) && anchor.rects.length > 0) {
+          void createPdfHighlight({ color: pendingPdfColorRef.current, anchor, selectedText: anchor.exact || '' })
+        }
       } else if (data.type === 'pdfReady') {
         // Document opened — record page count, clear any prior error, and run
         // the deferred server-resume initial jump if the fetch already resolved.
@@ -405,6 +421,8 @@ export function ReaderShell(props: ReaderShellProps) {
         pdfReadyRef.current = true
         setPdfError(false)
         maybeInitialPdfJump()
+        // Viewer is up — (re)push any highlights loaded before it was ready.
+        repaintPdf()
       } else if (data.type === 'pdfPage') {
         // Top-visible page (throttled). Track it (auth-expired reload restore +
         // chrome + page-bookmark state), persist page-based progress (debounced,
@@ -442,7 +460,7 @@ export function ReaderShell(props: ReaderShellProps) {
     }
   }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
       setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics,
-      original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage])
+      original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage, createPdfHighlight, repaintPdf])
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -507,12 +525,22 @@ export function ReaderShell(props: ReaderShellProps) {
 
   const handleHighlight = useCallback(async (color: string) => {
     if (!selection) return
-    await createHighlight({ color, selection, chapter: { id: chapter.id } })
     if (color === 'yellow' || color === 'green' || color === 'pink' || color === 'blue') {
       updateSettings({ lastHighlightColor: color })
     }
+    // Original PDF: RN can't reach the WebView's DOM Range, so the bundled
+    // viewer resolves the quad-rect anchor from the live selection and posts
+    // `pdfHighlightCreate` back (mirrors web computePdfAnchorFromRange at commit
+    // time). Stash the color; the message handler persists with it.
+    if (original) {
+      pendingPdfColorRef.current = color
+      injectJs('window.__pdfCreateHighlight && window.__pdfCreateHighlight()')
+      setSelection(null)
+      return
+    }
+    await createHighlight({ color, selection, chapter: { id: chapter.id } })
     setSelection(null)
-  }, [selection, chapter.id, createHighlight, updateSettings])
+  }, [selection, chapter.id, createHighlight, updateSettings, original, injectJs])
 
   // Sync inline translations setting to the WebView — was missing on the
   // user-book reader, so the gloss never showed there (now shared). Skipped in
@@ -592,11 +620,12 @@ export function ReaderShell(props: ReaderShellProps) {
           style={[styles.webview, { backgroundColor: resolvedTheme.backgroundColor }]}
           onMessage={handleMessage}
           onLoadEnd={() => {
-            // PDF viewer: reflow injections (highlight paint / vocab marks /
-            // inline-translation toggle / scroll-restore) don't apply — the
-            // pdf.js controller owns render + initial page. S5 paints anchors
-            // onto the PDF text layer.
-            if (original) return
+            // PDF viewer: reflow injections (vocab marks / inline-translation
+            // toggle / scroll-restore) don't apply — the pdf.js controller owns
+            // render + initial page. Persistent highlights DO paint over the
+            // PDF text layer: re-push the set now that the (possibly reloaded)
+            // document is up. pdfReady also re-pushes once pdf.js opens the doc.
+            if (original) { repaintPdf(); return }
             for (const h of highlightsRef.current) {
               injectJs(`renderHighlight(${JSON.stringify(h.id)}, ${JSON.stringify(h.anchorJson)}, ${JSON.stringify(h.color)}, ${JSON.stringify(h.selectedText)})`)
             }
