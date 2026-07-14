@@ -239,6 +239,7 @@ app.MapAskEndpoints();
 app.MapBookIndexEndpoints();
 app.MapUserBookAskEndpoints();
 app.MapUserBookIndexEndpoints();
+app.MapBookChatEndpoints();
 app.MapStudyBuddyEndpoints();
 app.MapLibrarianEndpoints();
 app.MapTutorEndpoints();
