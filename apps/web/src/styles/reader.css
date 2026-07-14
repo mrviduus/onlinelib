@@ -2221,6 +2221,98 @@ html[data-theme="dark"] .vocab-translation-overlay__item {
   padding: 4px;
   cursor: pointer;
 }
+.ask-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ask-panel__spoiler {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--reader-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ask-panel__spoiler input {
+  cursor: pointer;
+  margin: 0;
+}
+.ask-panel__spoiler--subtle {
+  opacity: 0.6;
+}
+.ask-panel__clear {
+  background: none;
+  border: none;
+  color: var(--reader-secondary);
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex;
+}
+.ask-panel__clear:hover {
+  color: var(--reader-text);
+}
+.ask-panel__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ask-panel__skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--reader-border);
+  opacity: 0.6;
+  animation: ask-panel-pulse 1.4s ease-in-out infinite;
+}
+.ask-panel__skeleton-line:nth-child(2) { width: 85%; }
+.ask-panel__skeleton-line:nth-child(3) { width: 60%; }
+@keyframes ask-panel-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+.ask-panel__quote {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+  background: var(--reader-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.ask-panel__quote-bar {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--reader-secondary);
+}
+.ask-panel__quote-text {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--reader-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ask-panel__quote-detach {
+  background: none;
+  border: none;
+  color: var(--reader-secondary);
+  padding: 2px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+.ask-panel__quote-detach:hover {
+  color: var(--reader-text);
+}
 .ask-panel__history {
   flex: 1 1 auto;
   overflow-y: auto;

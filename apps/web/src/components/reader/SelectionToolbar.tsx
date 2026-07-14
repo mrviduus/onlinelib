@@ -145,8 +145,8 @@ export function SelectionToolbar({
           onMouseDown={(e) => e.preventDefault()}
           onTouchStart={(e) => e.preventDefault()}
           onClick={onStudyBuddy}
-          title={t('reader.selectionToolbar.studyBuddy')}
-          aria-label={t('reader.selectionToolbar.studyBuddy')}
+          title={t('reader.selectionToolbar.askAboutThis')}
+          aria-label={t('reader.selectionToolbar.askAboutThis')}
         >
           <StudyBuddyIcon />
         </button>
