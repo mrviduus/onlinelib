@@ -188,3 +188,55 @@
 .textLayer.selecting .endOfContent {
   top: 0;
 }
+
+/* --- Persistent PDF highlights (ADR "PDF highlights" S-b) ---
+ * One layer per rendered page, filling the page box (same coord space as the
+ * text layer). The layer AND its rects are fully click-through
+ * (`pointer-events: none`) so a text selection can start/drag anywhere —
+ * including directly over an existing highlight. Click-to-edit is restored via
+ * point-in-rect hit-testing on the pages container (see PdfOriginalView), which
+ * runs only when there is no active text selection. z-index 2 keeps the tint
+ * painted above the text layer (z1). */
+.pdf-hl-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pdf-hl-rect {
+  position: absolute;
+  /* none → clicks/selection pass through to the text layer beneath; edit is
+     restored by hit-testing in PdfOriginalView, not by the rect itself. */
+  pointer-events: none;
+  border-radius: 2px;
+  /* Marker feel on the paper-white scan; keeps glyphs legible underneath. */
+  mix-blend-mode: multiply;
+}
+
+/* Dim/invert mode: the canvas is CSS-inverted (dark scan). Multiply would crush
+ * the tint to near-black — drop the blend so the translucent pastel stays
+ * visible on the darkened page. */
+.pdf-hl-layer--invert .pdf-hl-rect {
+  mix-blend-mode: normal;
+}
+
+/* Color swatch row in the PDF highlight edit popup. */
+.pdf-hl-popup__swatches {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px 0;
+}
+
+.pdf-hl-popup__swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pdf-hl-popup__swatch--active {
+  border-color: var(--reader-fg, #18181b);
+}

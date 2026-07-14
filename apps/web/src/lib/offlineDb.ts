@@ -1,4 +1,5 @@
 import type { Chapter, ChapterNav } from '../types/api'
+import { isPdfAnchor, type PdfAnchor } from '@textstack/shared'
 
 export interface CachedChapter {
   key: string // `${editionId}:${chapterSlug}`
@@ -31,13 +32,17 @@ export interface TextAnchor {
   chapterId: string
 }
 
+// Reflow highlights carry a text-offset TextAnchor; Original-layout PDF
+// highlights carry a quad-rect PdfAnchor (discriminated by `kind:"pdf"`).
+export type HighlightAnchor = TextAnchor | PdfAnchor
+
 export interface StoredHighlight {
   id: string
   editionId: string
   chapterId: string
   userBookId?: string
   userChapterId?: string
-  anchor: TextAnchor
+  anchor: HighlightAnchor
   color: HighlightColor
   selectedText: string
   noteText?: string
@@ -378,7 +383,11 @@ export async function getHighlightsForChapter(
 
     request.onsuccess = () => {
       const highlights = request.result as StoredHighlight[]
-      highlights.sort((a, b) => a.anchor.startOffset - b.anchor.startOffset)
+      // PDF anchors have no startOffset — sort them first (offset 0) so the
+      // reflow ordering is undisturbed. (PDF highlights are chapterless, so
+      // this chapter-scoped query rarely returns them.)
+      const off = (h: StoredHighlight) => (isPdfAnchor(h.anchor) ? 0 : h.anchor.startOffset)
+      highlights.sort((a, b) => off(a) - off(b))
       resolve(highlights)
     }
     request.onerror = () => reject(request.error)

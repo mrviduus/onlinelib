@@ -1,4 +1,5 @@
-import type { TextAnchor } from './offlineDb'
+import { isPdfAnchor } from '@textstack/shared'
+import type { TextAnchor, HighlightAnchor } from './offlineDb'
 
 const CONTEXT_LENGTH = 30
 
@@ -114,9 +115,14 @@ export function createTextAnchor(
  * search would match at the wrong absolute offset.
  */
 export function findTextByAnchor(
-  anchor: TextAnchor,
+  anchor: HighlightAnchor,
   container: HTMLElement
 ): Range | null {
+  // PDF (quad-rect) anchors can't be re-located by text over a pdf.js text
+  // layer — they're painted from stored rects, never re-anchored via `exact`.
+  // Guard so reflow consumers skip them instead of fuzzy-matching the display
+  // text into the wrong place.
+  if (isPdfAnchor(anchor)) return null
   for (const scope of chapterScopes(container)) {
     const range = findTextInScope(anchor, scope)
     if (range) return range
@@ -312,7 +318,7 @@ function similarity(a: string, b: string): number {
  * Get the bounding rectangles for a highlight anchor
  */
 export function getHighlightRects(
-  anchor: TextAnchor,
+  anchor: HighlightAnchor,
   container: HTMLElement
 ): DOMRect[] {
   const range = findTextByAnchor(anchor, container)

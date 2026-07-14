@@ -34,6 +34,11 @@ import {
   clampPage,
   dimsReadyUpTo,
 } from '../../../../packages/shared/src/reader/pdfPageWindow'
+import {
+  buildPdfAnchor,
+  paintRect,
+  type PdfAnchor,
+} from '../../../../packages/shared/src/reader/pdfHighlightAnchor'
 
 interface PdfBootstrap {
   url: string
@@ -53,11 +58,28 @@ interface PageState {
   drawnScale: number | null
   renderTask: { cancel: () => void; promise: Promise<void> } | null
   textLayer: { cancel: () => void } | null
+  hlLayer: HTMLDivElement | null
+}
+
+/** A persistent highlight pushed in from RN (`window.__setPdfHighlights`). */
+interface PdfHighlight {
+  id: string
+  color: string
+  anchor: PdfAnchor
 }
 
 const FALLBACK_DIM: PageDim = { w: 612, h: 792 } // US Letter @72dpi
 const HORIZONTAL_PAD = 24
 const PAGE_REPORT_THROTTLE_MS = 200
+
+// Same pastel palette as the reflow overlay + web PdfHighlightLayer COLOR_MAP,
+// as rgba so `mix-blend-mode: multiply` reads the alpha over the white scan.
+const HL_COLOR_MAP: Record<string, string> = {
+  yellow: 'rgba(254, 240, 138, 0.5)',
+  green: 'rgba(187, 247, 208, 0.5)',
+  pink: 'rgba(251, 207, 232, 0.5)',
+  blue: 'rgba(191, 219, 254, 0.5)',
+}
 
 function post(msg: Record<string, unknown>): void {
   try {
@@ -122,6 +144,9 @@ function main(): void {
   const pageDims: (PageDim | undefined)[] = []
   const states = new Map<number, PageState>()
   const visible = new Set<number>()
+  // Persistent highlights pushed in from RN. Painted per-page over the text
+  // layer; page-relative + unscaled so they survive scale / virtualization.
+  let pdfHighlights: PdfHighlight[] = []
   let observer: IntersectionObserver | null = null
   let didInitialScroll = false
   let pendingTarget: number | null = null
@@ -165,9 +190,100 @@ function main(): void {
       if (st.textDiv.parentNode) st.textDiv.parentNode.removeChild(st.textDiv)
       st.textDiv = null
     }
+    if (st.hlLayer) {
+      if (st.hlLayer.parentNode) st.hlLayer.parentNode.removeChild(st.hlLayer)
+      st.hlLayer = null
+    }
     st.drawnScale = null
     const ph = st.el.querySelector('.pdf-page__placeholder') as HTMLElement | null
     if (ph) ph.style.display = ''
+  }
+
+  // --- Persistent PDF highlights (ADR "PDF highlights" S-c) ----------------
+  // Paint one positioned <div> per stored quad-rect over the text layer, tinted
+  // by color. Rects are page-relative + unscaled (scale=1 viewport space); the
+  // shared `paintRect` scales them to the live render scale — identical math to
+  // the web PdfHighlightLayer, so web + mobile paint pixel-for-pixel the same.
+
+  /** Repaint one page's highlight layer from `pdfHighlights` at the live scale. */
+  function paintPageHighlights(pn: number, st: PageState): void {
+    if (st.hlLayer) {
+      if (st.hlLayer.parentNode) st.hlLayer.parentNode.removeChild(st.hlLayer)
+      st.hlLayer = null
+    }
+    const pageHls = pdfHighlights.filter(
+      (h) => h.anchor && h.anchor.page === pn && h.anchor.rects && h.anchor.rects.length > 0,
+    )
+    if (pageHls.length === 0) return
+    const layer = document.createElement('div')
+    layer.className = 'pdf-hl-layer'
+    for (let hi = 0; hi < pageHls.length; hi++) {
+      const h = pageHls[hi]
+      for (let i = 0; i < h.anchor.rects.length; i++) {
+        const box = paintRect(h.anchor.rects[i], scale)
+        const div = document.createElement('div')
+        div.className = 'pdf-hl-rect'
+        div.dataset.highlightId = h.id
+        div.style.left = box.left + 'px'
+        div.style.top = box.top + 'px'
+        div.style.width = box.width + 'px'
+        div.style.height = box.height + 'px'
+        div.style.background = HL_COLOR_MAP[h.color] || HL_COLOR_MAP.yellow
+        // M2: the rect is pointer-events:none (CSS) so a drag STARTING over an
+        // existing highlight still hits the text layer beneath and can
+        // (re)select. Tap-to-edit is restored via the geometric hit-test in
+        // `__pdfHighlightAtPoint` (consumed by the shared bridge's touchend) —
+        // no per-rect click handler (which needed pointer-events:auto).
+        layer.appendChild(div)
+      }
+    }
+    st.el.appendChild(layer)
+    st.hlLayer = layer
+  }
+
+  /** Repaint every drawn page (undrawn pages repaint when drawPage finishes). */
+  function repaintAllHighlights(): void {
+    states.forEach((st, pn) => {
+      if (st.drawnScale !== null) paintPageHighlights(pn, st)
+    })
+  }
+
+  /** Nearest ancestor (inclusive) that is a `.pdf-page[data-page]`. */
+  function findPageEl(node: Node | null): HTMLElement | null {
+    let cur: Node | null = node
+    while (cur) {
+      if (cur.nodeType === 1) {
+        const el = cur as HTMLElement
+        if (el.classList && el.classList.contains('pdf-page') && el.dataset.page) return el
+      }
+      cur = cur.parentNode
+    }
+    return null
+  }
+
+  /**
+   * Build a PdfAnchor from the current live selection over the pdf.js text
+   * layer. Mirrors web `computePdfAnchorFromRange` — walks to the start page,
+   * uses the controller's tracked `scale`, and hands raw client rects to the
+   * shared `buildPdfAnchor`. Returns null when the selection isn't inside a
+   * rendered page or yields no in-page rects.
+   */
+  function computeAnchorFromRange(range: Range): PdfAnchor | null {
+    const pageEl = findPageEl(range.startContainer)
+    if (!pageEl) return null
+    const page = Number(pageEl.dataset.page)
+    if (!page) return null
+    const pageRect = pageEl.getBoundingClientRect()
+    const clientRects = Array.from(range.getClientRects())
+    const exact = range.toString()
+    const anchor = buildPdfAnchor(
+      page,
+      { left: pageRect.left, top: pageRect.top, width: pageRect.width, height: pageRect.height },
+      clientRects,
+      scale,
+      exact,
+    )
+    return anchor.rects.length > 0 ? anchor : null
   }
 
   async function drawPage(pn: number, st: PageState): Promise<void> {
@@ -217,6 +333,10 @@ function main(): void {
       await tl.render()
       if (states.get(pn) !== st) return
       st.drawnScale = scale
+      // Paint any persistent highlights for this page now that the text layer
+      // (their coord reference) exists. Re-mount / redraw repaints from the
+      // pushed list, so scroll-away → scroll-back stays correct.
+      paintPageHighlights(pn, st)
     } catch (err) {
       if (isCancel(err)) return
       if (isAuthError(err)) {
@@ -283,7 +403,7 @@ function main(): void {
       ph.textContent = String(pn)
       el.appendChild(ph)
       frag.appendChild(el)
-      states.set(pn, { el, canvas: null, textDiv: null, drawnScale: null, renderTask: null, textLayer: null })
+      states.set(pn, { el, canvas: null, textDiv: null, drawnScale: null, renderTask: null, textLayer: null, hlLayer: null })
     }
     pagesEl.appendChild(frag)
   }
@@ -375,6 +495,55 @@ function main(): void {
     else {
       // Not ready yet — remember it as the open target.
       pendingTarget = n
+    }
+  }
+
+  // Inbound: RN pushes the current PDF highlight list (load + after
+  // create/recolor/delete). We store it and repaint every drawn page; pages
+  // that mount later paint from this list in drawPage.
+  ;(window as unknown as { __setPdfHighlights: (list: PdfHighlight[]) => void }).__setPdfHighlights = (
+    list: PdfHighlight[],
+  ) => {
+    pdfHighlights = Array.isArray(list) ? list : []
+    repaintAllHighlights()
+  }
+
+  // M2 hit-test: return the highlightId of the painted rect under a viewport
+  // point, or null. Because the rects are pointer-events:none (so selection
+  // works over them), they are excluded from `document.elementsFromPoint`, so
+  // we test the live rect geometry directly. Consumed by the shared selection
+  // bridge's touchend: a plain tap that resolves to a highlight opens the RN
+  // edit modal (recolor/delete) INSTEAD of toggling the immersive bars (L4).
+  // Reverse order → topmost-painted rect wins on overlap.
+  ;(window as unknown as { __pdfHighlightAtPoint: (x: number, y: number) => string | null }).__pdfHighlightAtPoint = (
+    x: number,
+    y: number,
+  ) => {
+    const rects = document.querySelectorAll('.pdf-hl-rect')
+    for (let i = rects.length - 1; i >= 0; i--) {
+      const el = rects[i] as HTMLElement
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return el.dataset.highlightId || null
+      }
+    }
+    return null
+  }
+
+  // Inbound: RN commits a highlight for the CURRENT selection (user tapped the
+  // toolbar Highlight button; color is chosen RN-side). We resolve the anchor
+  // from the live selection and post it back for persistence, then drop the
+  // native selection so the new highlight isn't left visibly selected.
+  ;(window as unknown as { __pdfCreateHighlight: () => void }).__pdfCreateHighlight = () => {
+    try {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return
+      const range = sel.getRangeAt(0)
+      const anchor = computeAnchorFromRange(range)
+      if (anchor && anchor.rects.length > 0) post({ type: 'pdfHighlightCreate', anchor })
+      try { sel.removeAllRanges() } catch { /* noop */ }
+    } catch (e) {
+      console.warn('[pdf] create highlight failed', (e as Error)?.message)
     }
   }
 

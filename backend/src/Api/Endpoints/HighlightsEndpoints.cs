@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Api.Extensions;
 using Api.Mapping;
 using Api.Sites;
@@ -225,19 +226,35 @@ public static class HighlightsEndpoints
         }
         else
         {
-            if (!request.UserChapterId.HasValue)
-                return Results.BadRequest("UserChapterId required for user book highlights");
+            // User books may be reflowed (EPUB → UserChapters) or original-first PDFs (chapterless,
+            // page-anchored). A null UserChapterId is therefore valid: it means a PDF page highlight
+            // whose location lives entirely inside the opaque AnchorJson ({v,kind:"pdf",page,rects,exact}).
+            // We still require book ownership + a color + an anchor; the chapter FK stays null (SetNull).
+            if (string.IsNullOrWhiteSpace(request.Color))
+                return Results.BadRequest("Color required");
+            if (string.IsNullOrWhiteSpace(request.AnchorJson))
+                return Results.BadRequest("AnchorJson required");
 
             var userBook = await db.UserBooks
                 .Where(b => b.Id == request.UserBookId!.Value && b.UserId == userId.Value)
                 .FirstOrDefaultAsync(ct);
             if (userBook == null) return Results.NotFound("User book not found");
 
-            var userChapterId = request.UserChapterId!.Value;
-            var userChapter = await db.UserChapters
-                .Where(c => c.Id == userChapterId && c.UserBookId == request.UserBookId!.Value)
-                .FirstOrDefaultAsync(ct);
-            if (userChapter == null) return Results.NotFound("User chapter not found");
+            if (request.UserChapterId.HasValue)
+            {
+                var userChapterId = request.UserChapterId.Value;
+                var userChapter = await db.UserChapters
+                    .Where(c => c.Id == userChapterId && c.UserBookId == request.UserBookId!.Value)
+                    .FirstOrDefaultAsync(ct);
+                if (userChapter == null) return Results.NotFound("User chapter not found");
+            }
+            else if (!IsPdfAnchor(request.AnchorJson))
+            {
+                // A null chapter is only legitimate for a chapterless PDF page anchor. A reflow
+                // text-anchor with no chapter would be an orphan that never paints and misroutes,
+                // so reject it here.
+                return Results.BadRequest("UserChapterId required for non-PDF user book highlights");
+            }
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -263,6 +280,26 @@ public static class HighlightsEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Created($"/me/highlights/{highlight.Id}", highlight.ToDto());
+    }
+
+    // A PDF page anchor is the opaque JSON {v,kind:"pdf",page,rects,exact}. We treat the anchor as
+    // a PDF anchor iff it parses as a JSON object with a top-level "kind":"pdf" marker. The anchor
+    // otherwise stays opaque — we do not deserialize it into a strict schema.
+    private static bool IsPdfAnchor(string? anchorJson)
+    {
+        if (string.IsNullOrWhiteSpace(anchorJson)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(anchorJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("kind", out var kind)
+                && kind.ValueKind == JsonValueKind.String
+                && kind.GetString() == "pdf";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static async Task<IResult> UpdateHighlight(

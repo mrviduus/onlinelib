@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTextAnchor, findTextByAnchor } from './textAnchor'
-import type { TextAnchor } from './offlineDb'
+import type { TextAnchor, HighlightAnchor } from './offlineDb'
 
 describe('textAnchor', () => {
   let container: HTMLElement
@@ -199,6 +199,21 @@ describe('textAnchor', () => {
       expect(range).not.toBeNull()
       expect(range!.toString()).toBe('test')
       // Should find the first "test" based on context
+    })
+
+    it('returns null for a PDF (kind:pdf) anchor instead of fuzzy-matching exact (M1)', () => {
+      // The display text is present in the container, so a naive fuzzy match on
+      // `exact` WOULD mis-anchor a chapterless PDF highlight into the reflow DOM.
+      // The isPdfAnchor guard must short-circuit to null.
+      container.innerHTML = '<p>the quick brown fox jumps</p>'
+      const pdfAnchor = {
+        v: 1,
+        kind: 'pdf',
+        page: 2,
+        rects: [{ x: 10, y: 20, w: 30, h: 8 }],
+        exact: 'quick',
+      } as unknown as HighlightAnchor
+      expect(findTextByAnchor(pdfAnchor, container)).toBeNull()
     })
   })
 

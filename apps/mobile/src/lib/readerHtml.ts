@@ -1098,9 +1098,11 @@ export interface PdfViewerHtmlOptions {
  *
  * Auth: the token is handed to pdf.js via `httpHeaders` INSIDE the controller (not
  * embedded in the URL) — the WebView must be mounted with `baseUrl` set to the API
- * origin so the lazy Range requests are same-origin (no CORS preflight). Highlight /
- * vocab PAINTING over the PDF text layer is deferred to S5; selection ACTIONS
- * (translate / explain / vocab / TTS) + highlight CREATION are live via the bridge.
+ * origin so the lazy Range requests are same-origin (no CORS preflight). Persistent
+ * highlight CREATE + PAINT over the PDF text layer are live (ADR "PDF highlights"
+ * S-c) via the bundled viewer's `__setPdfHighlights` / `__pdfCreateHighlight`;
+ * vocab underline PAINTING over the PDF text layer is still deferred. Selection
+ * ACTIONS (translate / explain / vocab / TTS) run via the shared bridge.
  */
 export function buildPdfViewerHtml(fileUrl: string, token: string | null, options: PdfViewerHtmlOptions = {}): string {
   const theme = options.theme ?? defaultTheme
@@ -1161,6 +1163,23 @@ export function buildPdfViewerHtml(fileUrl: string, token: string | null, option
       transform-origin: 0% 0%;
     }
     ::selection { background: rgba(37,99,235,0.3); }
+
+    /* Persistent PDF highlights (ADR "PDF highlights" S-c) — one layer per
+     * rendered page over the text layer. Both the layer AND the tinted rects
+     * are click-through (pointer-events:none) so a long-press/drag STARTING
+     * over an existing highlight still hits the text layer beneath and can
+     * (re)select — M2 mobile parity. Tap-to-edit is restored via a geometric
+     * hit-test (__pdfHighlightAtPoint) instead of the rect's own click handler.
+     * z-index 2 sits above the text layer (z1). Multiply gives the marker feel
+     * on the white scan while keeping glyphs legible. Mirror of web
+     * pdfOriginal.css .pdf-hl-* (post-M2). */
+    .pdf-hl-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .pdf-hl-rect {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 2px;
+      mix-blend-mode: multiply;
+    }
 
     /* Tap pulse animation — reused by the shared bridge's word-tap feedback. */
     @keyframes tap-pulse {

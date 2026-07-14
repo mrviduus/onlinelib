@@ -14,6 +14,8 @@ import { extractSentence } from '../../lib/sentenceExtractor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
 import type { HighlightColor } from '../../lib/offlineDb'
+import type { PdfAnchor } from '@textstack/shared'
+import { computePdfAnchorFromRange } from '../../lib/pdfHighlightAnchor'
 import { SelectionToolbar } from './SelectionToolbar'
 import { HighlightOverlayLayer } from './HighlightOverlayLayer'
 import { VocabOverlayLayer } from './VocabOverlayLayer'
@@ -46,6 +48,13 @@ interface ReaderHighlightsProps {
    * layer, so they're reflow-only. Also hides the Highlight button.
    */
   liveActionsOnly?: boolean
+  /**
+   * Original-layout PDF create seam. When set, the Highlight button is shown and
+   * "Highlight" builds a quad-rect PdfAnchor from the live selection (over the
+   * pdf.js text layer) and hands it up — the persistent paint/edit lives in the
+   * PDF subtree, not the reflow overlay. Absent → the reflow highlight path.
+   */
+  onPdfHighlight?: (anchor: PdfAnchor, text: string, color: HighlightColor) => void | Promise<unknown>
   children: React.ReactNode
 }
 
@@ -78,6 +87,7 @@ export function ReaderHighlights({
   showInlineTranslations = false,
   onStudyBuddy,
   liveActionsOnly = false,
+  onPdfHighlight,
   children,
 }: ReaderHighlightsProps) {
   const { nativeLanguage, setNativeLanguage, hasConfirmedLanguage } = useNativeLanguage()
@@ -423,11 +433,22 @@ export function ReaderHighlights({
   // --- Selection toolbar ---
   const handleHighlight = useCallback(
     async (color: HighlightColor) => {
+      // Original-layout PDF: build a quad-rect anchor from the selection over the
+      // pdf.js text layer and hand it up; the PDF subtree paints + persists it.
+      if (onPdfHighlight) {
+        if (selection.range) {
+          const anchor = computePdfAnchorFromRange(selection.range, containerRef.current)
+          if (anchor) await onPdfHighlight(anchor, selection.text, color)
+        }
+        clearSelection()
+        translationPopup.close()
+        return
+      }
       await createHighlightFromSelection(selection.range, selection.text, color)
       clearSelection()
       translationPopup.close()
     },
-    [selection.range, selection.text, createHighlightFromSelection, clearSelection, translationPopup],
+    [selection.range, selection.text, createHighlightFromSelection, clearSelection, translationPopup, onPdfHighlight, containerRef],
   )
 
   const handleCopy = useCallback(() => {
@@ -484,7 +505,10 @@ export function ReaderHighlights({
           rect={selection.rect}
           text={selection.text}
           containerRef={containerRef}
-          hideHighlight={liveActionsOnly}
+          // Un-hide the Highlight button in Original mode: PDF highlights persist
+          // via the onPdfHighlight seam. Only truly reflow-less/live surfaces
+          // (liveActionsOnly without a PDF create seam) still hide it.
+          hideHighlight={liveActionsOnly && !onPdfHighlight}
           onHighlight={handleHighlight}
           onTranslate={handleTranslate}
           onExplain={handleExplain}
