@@ -1,6 +1,17 @@
-import { useState, useCallback, useEffect } from 'react'
-import { translate as translateApi, getLanguages, type LanguageInfo } from '../api/translation'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { translate as translateApi, type LanguageInfo } from '../api/translation'
+import { LANGUAGES } from '../data/languages'
 import { getCachedTranslation, cacheTranslation, clearOldTranslations } from '../lib/offlineDb'
+
+// Full native-language catalogue → the {code,name} shape TranslationPopup's
+// <select> renders. OpenAI translates any language, so the reader is no longer
+// capped at the backend's legacy 16-item /translate/languages list (that
+// endpoint stays live but unused). englishName matches the popup's label render
+// (a native <select> can't show flags).
+const TRANSLATION_LANGUAGES: LanguageInfo[] = LANGUAGES.map((l) => ({
+  code: l.code,
+  name: l.englishName,
+}))
 
 interface TranslationState {
   translatedText: string | null
@@ -21,38 +32,14 @@ export function useTextTranslation(options?: UseTextTranslationOptions) {
     isLoading: false,
     error: null,
   })
-  const [languages, setLanguages] = useState<LanguageInfo[]>([])
+  // Language list is now synchronous from the full catalogue — no fetch.
+  const languages = useMemo<LanguageInfo[]>(() => TRANSLATION_LANGUAGES, [])
   const [sourceLang, setSourceLang] = useState(defaultSourceLang)
   const [targetLang, setTargetLang] = useState(defaultTargetLang || defaultSourceLang)
 
-  // Fetch available languages on mount
+  // Clear old cached translations periodically.
   useEffect(() => {
-    let cancelled = false
-
-    getLanguages()
-      .then((langs) => {
-        if (!cancelled) setLanguages(langs)
-      })
-      .catch(() => {
-        // Use fallback languages if fetch fails
-        if (!cancelled) {
-          setLanguages([
-            { code: 'en', name: 'English' },
-            { code: 'ru', name: 'Russian' },
-            { code: 'de', name: 'German' },
-            { code: 'fr', name: 'French' },
-            { code: 'es', name: 'Spanish' },
-            { code: 'pl', name: 'Polish' },
-          ])
-        }
-      })
-
-    // Clear old translations periodically
     clearOldTranslations().catch(() => {})
-
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   const translate = useCallback(

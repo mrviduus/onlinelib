@@ -26,6 +26,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { ReaderSettingsDrawer } from '../ReaderSettingsDrawer'
 import { BookmarksSheet } from '../BookmarksSheet'
+import { HighlightsSheet } from '../HighlightsSheet'
 import { SelectionActionBar } from '../SelectionActionBar'
 import { TranslationSheet } from '../TranslationSheet'
 import { ExplanationSheet } from '../ExplanationSheet'
@@ -186,6 +187,7 @@ export function ReaderShell(props: ReaderShellProps) {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
+  const [highlightsOpen, setHighlightsOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
@@ -683,6 +685,7 @@ export function ReaderShell(props: ReaderShellProps) {
           onExit={handleExit}
           onAskPress={() => setAskOpen(true)}
           onBookmarksPress={() => setBookmarksOpen(true)}
+          onHighlightsPress={() => setHighlightsOpen(true)}
           onTocPress={() => setTocOpen(true)}
           onSettingsPress={() => setSettingsOpen(true)}
         />
@@ -798,6 +801,15 @@ export function ReaderShell(props: ReaderShellProps) {
           onToggleCurrent={toggleCurrentBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
           original={original}
+        />
+
+        <HighlightsSheet
+          visible={highlightsOpen}
+          onClose={() => setHighlightsOpen(false)}
+          highlights={highlightsRef.current}
+          currentChapterSlug={activeSlug || ''}
+          onNavigate={navigateChapter}
+          onNavigatePage={scrollPdfToPage}
         />
 
         <TranslationSheet

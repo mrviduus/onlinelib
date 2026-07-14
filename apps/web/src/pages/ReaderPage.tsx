@@ -40,7 +40,7 @@ import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import { getUserBooks, getUserBookFileUrl, getUserBookProgress } from '../api/userBooks'
 import { parsePdfPageLocator, computeBookProgress, isPdfAnchor, type PdfAnchor } from '@textstack/shared'
 import { useHighlights } from '../hooks/useHighlights'
-import type { HighlightColor } from '../lib/offlineDb'
+import type { HighlightColor, StoredHighlight } from '../lib/offlineDb'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
 import '../styles/micro-practice.css'
 
@@ -204,28 +204,43 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const initialPdfPage = activeChapter?.sourceStartPage ?? null
   const pdfFileUrl = id ? getUserBookFileUrl(id) : ''
 
-  // Lifted highlights hook for the Original-layout PDF case only (userBookId
-  // gated on originalActive so it stays inert for reflow / catalog reads — the
-  // reflow reader owns its own instance inside ReaderHighlights). ReaderPage is
-  // the common parent of the SelectionToolbar (create) and the PDF subtree
-  // (paint + edit), so a single hook keeps them in sync.
-  const pdfHighlights = useHighlights(undefined, originalActive ? id : undefined, { isAuthenticated })
+  // Single hoisted highlights hook for the whole reader — shared by the reflow
+  // path (down into ReaderHighlights → useHighlightEdit as props), the PDF
+  // Original-layout subtree (paint + edit), the SelectionToolbar (create), and
+  // the TOC drawer's Highlights tab. One useHighlights instance = one IndexedDB
+  // + server load (previously PDF mode double-loaded: here + inside ReaderHighlights).
+  const highlightsApi = useHighlights(
+    mode === 'userbook' ? undefined : book?.id,
+    mode === 'userbook' ? id : undefined,
+    { isAuthenticated },
+  )
   const handlePdfHighlight = useCallback(
     (anchor: PdfAnchor, text: string, color: HighlightColor) =>
-      pdfHighlights.addHighlight(anchor, color, text),
-    [pdfHighlights],
+      highlightsApi.addHighlight(anchor, color, text),
+    [highlightsApi],
   )
+
+  // Drawer Highlights-tab jump: nonce-driven so re-selecting the same reflow
+  // highlight re-fires (mirrors the pdfScrollTo nonce pattern for PDF pages).
+  const [scrollToHl, setScrollToHl] = useState<{ id: string; nonce: number } | null>(null)
+  const handleHighlightJump = useCallback((h: StoredHighlight) => {
+    if (isPdfAnchor(h.anchor)) {
+      setPdfScrollTo({ page: h.anchor.page, nonce: Date.now() })
+    } else {
+      setScrollToHl({ id: h.id, nonce: Date.now() })
+    }
+  }, [])
 
   // Deep-link: when opened with ?highlight=<id> on a PDF, scroll the viewer to
   // the highlight's stored page once the highlights have loaded.
   const pdfScrolledToHlRef = useRef(false)
   useEffect(() => {
     if (!originalActive || !scrollToHighlightId || pdfScrolledToHlRef.current) return
-    const h = pdfHighlights.highlights.find((x) => x.id === scrollToHighlightId)
+    const h = highlightsApi.highlights.find((x) => x.id === scrollToHighlightId)
     if (!h || !isPdfAnchor(h.anchor)) return
     pdfScrolledToHlRef.current = true
     setPdfScrollTo({ page: h.anchor.page, nonce: Date.now() })
-  }, [originalActive, scrollToHighlightId, pdfHighlights.highlights])
+  }, [originalActive, scrollToHighlightId, highlightsApi.highlights])
 
   // Server resume page for the chapterless Original view (parsed from the
   // "page:<N>" progress locator). Fetched once when Original is active; wins over
@@ -706,6 +721,11 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           ttsSpeed={settings.ttsSpeed}
           showInlineTranslations={settings.showInlineTranslations}
           scrollToHighlightId={scrollToHighlightId}
+          scrollToHl={scrollToHl}
+          highlights={highlightsApi.highlights}
+          addHighlight={highlightsApi.addHighlight}
+          updateHighlight={highlightsApi.updateHighlight}
+          removeHighlight={highlightsApi.removeHighlight}
           onStudyBuddy={studyBuddyEditionId ? setStudyBuddyPassage : undefined}
           liveActionsOnly={originalActive}
           onPdfHighlight={originalActive ? handlePdfHighlight : undefined}
@@ -728,9 +748,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   // feeding page position into canonical word-based progress.
                   onActivity={() => readingSession.recordActivity()}
                   onLoadError={handlePdfLoadError}
-                  highlights={pdfHighlights.highlights}
-                  onHighlightUpdate={pdfHighlights.updateHighlight}
-                  onHighlightDelete={pdfHighlights.removeHighlight}
+                  highlights={highlightsApi.highlights}
+                  onHighlightUpdate={highlightsApi.updateHighlight}
+                  onHighlightDelete={highlightsApi.removeHighlight}
                 />
               </Suspense>
             ) : chapter && (
@@ -788,11 +808,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
         chapters={book.chapters}
         currentChapterIdentifier={activeChapterIdentifier}
         bookmarks={bookmarks}
+        highlights={highlightsApi.highlights}
         autoSave={autoSaveInfo}
         getChapterUrl={getChapterUrl}
         useLocalizedLink={mode === 'public'}
         onClose={() => setTocOpen(false)}
         onRemoveBookmark={removeBookmark}
+        onHighlightSelect={(h) => { handleHighlightJump(h); setTocOpen(false) }}
         onBookmarkSelect={originalActive ? (bm) => {
           if (bm.page != null) setPdfScrollTo({ page: bm.page, nonce: Date.now() })
         } : undefined}

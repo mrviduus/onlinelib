@@ -19,6 +19,7 @@ type Props = {
   onExit: () => void
   onAskPress: () => void
   onBookmarksPress: () => void
+  onHighlightsPress: () => void
   onTocPress: () => void
   onSettingsPress: () => void
 }
@@ -45,6 +46,7 @@ export function ReaderTopBar({
   onExit,
   onAskPress,
   onBookmarksPress,
+  onHighlightsPress,
   onTocPress,
   onSettingsPress,
 }: Props) {
@@ -82,6 +84,11 @@ export function ReaderTopBar({
         {isAuthenticated && (
           <TouchableOpacity onPress={onBookmarksPress} style={styles.iconBtn}>
             <Ionicons name={isCurrentBookmarked ? 'bookmark' : 'bookmark-outline'} size={20} color={barText} />
+          </TouchableOpacity>
+        )}
+        {isAuthenticated && (
+          <TouchableOpacity onPress={onHighlightsPress} style={styles.iconBtn} accessibilityLabel="Highlights">
+            <Ionicons name="color-wand-outline" size={20} color={barText} />
           </TouchableOpacity>
         )}
         {hasChapters && (

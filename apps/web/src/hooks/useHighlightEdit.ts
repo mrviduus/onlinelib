@@ -1,15 +1,25 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
-import { useHighlights } from './useHighlights'
 import { findTextByAnchor, createTextAnchor } from '../lib/textAnchor'
-import type { HighlightColor, StoredHighlight } from '../lib/offlineDb'
+import type { HighlightAnchor, HighlightColor, StoredHighlight } from '../lib/offlineDb'
+
+/** Repeatable drawer jump: same id re-fires when the nonce changes. */
+export interface ScrollToHighlight {
+  id: string
+  nonce: number
+}
 
 interface UseHighlightEditOptions {
-  editionId?: string
-  userBookId?: string
+  // Highlights + mutators are hoisted to ReaderPage and passed in, so the reader
+  // owns a single useHighlights instance (shared with the PDF paint path).
+  highlights: StoredHighlight[]
+  addHighlight: (anchor: HighlightAnchor, color: HighlightColor, selectedText: string) => Promise<StoredHighlight>
+  updateHighlight: (id: string, updates: { color?: HighlightColor; noteText?: string | null }) => Promise<StoredHighlight | null>
+  removeHighlight: (id: string) => Promise<void>
   chapterId: string
   containerRef: RefObject<HTMLElement | null>
-  isAuthenticated?: boolean
   scrollToHighlightId?: string | null
+  /** Nonce-driven jump from the TOC drawer's Highlights tab (reflow only). */
+  scrollToHl?: ScrollToHighlight | null
   onAfterCreate?: () => void
 }
 
@@ -29,36 +39,52 @@ export interface UseHighlightEditResult {
 }
 
 export function useHighlightEdit({
-  editionId,
-  userBookId,
+  highlights,
+  addHighlight,
+  updateHighlight,
+  removeHighlight,
   chapterId,
   containerRef,
-  isAuthenticated,
   scrollToHighlightId,
+  scrollToHl,
   onAfterCreate,
 }: UseHighlightEditOptions): UseHighlightEditResult {
-  const { highlights, addHighlight, updateHighlight, removeHighlight } = useHighlights(
-    userBookId ? undefined : editionId,
-    userBookId,
-    { isAuthenticated },
+  // Locate a reflow highlight by its text anchor and center it in the viewport.
+  // Shared by the URL-mount one-shot and the drawer's nonce-driven jump.
+  const scrollToHighlightById = useCallback(
+    (id: string) => {
+      const target = highlights.find((h) => h.id === id)
+      if (!target || !containerRef.current) return
+      requestAnimationFrame(() => {
+        const range = findTextByAnchor(target.anchor, containerRef.current!)
+        if (!range) return
+        const rect = range.getBoundingClientRect()
+        if (rect.width === 0 && rect.height === 0) return
+        const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
+        window.scrollTo({ top: targetY, behavior: 'smooth' })
+      })
+    },
+    [highlights, containerRef],
   )
 
+  // URL deep-link (?highlight=<id>): one-shot on mount once highlights load.
   const scrolledRef = useRef(false)
   useEffect(() => {
     if (!scrollToHighlightId || scrolledRef.current) return
     if (highlights.length === 0 || !containerRef.current) return
-    const target = highlights.find((h) => h.id === scrollToHighlightId)
-    if (!target) return
+    if (!highlights.some((h) => h.id === scrollToHighlightId)) return
     scrolledRef.current = true
-    requestAnimationFrame(() => {
-      const range = findTextByAnchor(target.anchor, containerRef.current!)
-      if (!range) return
-      const rect = range.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) return
-      const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
-      window.scrollTo({ top: targetY, behavior: 'smooth' })
-    })
-  }, [scrollToHighlightId, highlights, containerRef])
+    scrollToHighlightById(scrollToHighlightId)
+  }, [scrollToHighlightId, highlights, containerRef, scrollToHighlightById])
+
+  // Drawer jump: nonce-driven so re-selecting the same highlight re-fires.
+  const lastNonceRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!scrollToHl) return
+    if (lastNonceRef.current === scrollToHl.nonce) return
+    lastNonceRef.current = scrollToHl.nonce
+    scrollToHighlightById(scrollToHl.id)
+  }, [scrollToHl, scrollToHighlightById])
 
   const [editingHighlight, setEditingHighlight] = useState<StoredHighlight | null>(null)
   const [editingRect, setEditingRect] = useState<DOMRect | null>(null)

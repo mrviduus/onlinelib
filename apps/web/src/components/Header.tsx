@@ -65,6 +65,16 @@ export function Header() {
               {t('nav.vocabulary')}
             </LocalizedLink>
           )}
+          {isAuthenticated && (
+            <LocalizedLink
+              to="/highlights"
+              className="site-header__nav-link"
+              title={t('nav.highlights')}
+              onClick={() => emit('header.click', { item: 'highlights' })}
+            >
+              {t('nav.highlights')}
+            </LocalizedLink>
+          )}
           {!isAuthenticated && (
             <LocalizedLink
               to="/about"
