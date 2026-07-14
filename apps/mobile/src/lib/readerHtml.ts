@@ -235,6 +235,28 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       } catch (e) {}
     };
 
+    // Scroll to a saved highlight (M2): the Highlights sheet resolves a reflow
+    // highlight's anchor to its DOM range and centers it — WITHOUT navigating
+    // the chapter, so the reader's scroll position/progress is preserved. The
+    // highlight is already painted its color, so no flash is needed. Reuses the
+    // same anchor→range builder as renderHighlight (hoisted, same script scope).
+    window.__textstackScrollToHighlight = function(anchor) {
+      try {
+        var anchorObj = null;
+        if (typeof anchor === 'string') {
+          try { anchorObj = JSON.parse(anchor); } catch (e) { anchorObj = { exact: anchor }; }
+        } else if (anchor && typeof anchor === 'object') {
+          anchorObj = anchor;
+        }
+        if (!anchorObj) return;
+        var range = hlBuildRange(anchorObj);
+        if (!range) return;
+        var rect = range.getBoundingClientRect();
+        var top = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      } catch (e) {}
+    };
+
     window.addEventListener('load', function() {
       console.log('[diag] load event — ua:', navigator.userAgent.slice(0, 80));
       window.ReactNativeWebView.postMessage(JSON.stringify({

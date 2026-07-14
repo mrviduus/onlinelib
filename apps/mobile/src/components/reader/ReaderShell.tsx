@@ -482,6 +482,12 @@ export function ReaderShell(props: ReaderShellProps) {
   const scrollToCitation = (snippet: string, charStart: number) =>
     injectJs(`window.__textstackScrollToCitation && window.__textstackScrollToCitation(${JSON.stringify(snippet)}, ${charStart})`)
 
+  // M2: scroll the reflow WebView to a saved highlight (no chapter navigation →
+  // reading position preserved). The Highlights sheet's list is always the
+  // current chapter, so the anchor resolves in the live DOM.
+  const scrollToHighlight = (anchorJson: string) =>
+    injectJs(`window.__textstackScrollToHighlight && window.__textstackScrollToHighlight(${JSON.stringify(anchorJson)})`)
+
   const activeSlug = visibleChapterSlug ?? chapterSlug
   // Same chapter → scroll now; other chapter → navigate, then onLoadEnd injects once it renders.
   const handleCitation = (c: AskCitation) => {
@@ -809,6 +815,7 @@ export function ReaderShell(props: ReaderShellProps) {
           highlights={highlightsRef.current}
           currentChapterSlug={activeSlug || ''}
           onNavigate={navigateChapter}
+          onScrollToHighlight={scrollToHighlight}
           onNavigatePage={scrollPdfToPage}
         />
 

@@ -72,8 +72,12 @@ interface Props {
   highlights: PublicHighlight[]
   /** Chapter slug reflow highlights jump to (the loaded set is current-chapter). */
   currentChapterSlug: string
-  /** Reflow jump — same handler bookmarks use. */
+  /** Reflow jump — same handler bookmarks use. Fallback when scroll-to isn't wired. */
   onNavigate: (chapterSlug: string) => void
+  /** Reflow in-chapter scroll to the highlight's DOM range (M2). Preferred over
+   *  onNavigate: the loaded set is the current chapter, so this centers the
+   *  highlight WITHOUT resetting the reader's scroll position/progress. */
+  onScrollToHighlight?: (anchorJson: string) => void
   /** Original-layout PDF jump to a 1-based page — same handler page bookmarks use. */
   onNavigatePage?: (page: number) => void
 }
@@ -86,7 +90,7 @@ interface Props {
  * current chapter for reflow, book-wide PDF anchors for the Original PDF reader.
  */
 export function HighlightsSheet({
-  visible, onClose, highlights, currentChapterSlug, onNavigate, onNavigatePage,
+  visible, onClose, highlights, currentChapterSlug, onNavigate, onScrollToHighlight, onNavigatePage,
 }: Props) {
   const { colors } = useTheme()
   const data = sortHighlights(highlights)
@@ -120,8 +124,17 @@ export function HighlightsSheet({
               renderItem={({ item }) => {
                 const page = pdfPageOf(item)
                 const go = () => {
-                  if (page != null) onNavigatePage?.(page)
-                  else onNavigate(currentChapterSlug)
+                  if (page != null) {
+                    // PDF: jump to the highlight's page.
+                    onNavigatePage?.(page)
+                  } else if (onScrollToHighlight) {
+                    // Reflow: scroll to it in-place (M2) — the list is the
+                    // current chapter, so this never resets reading position.
+                    onScrollToHighlight(item.anchorJson)
+                  } else {
+                    // Fallback (scroll-to not wired): navigate to the chapter.
+                    onNavigate(currentChapterSlug)
+                  }
                   onClose()
                 }
                 const fill = COLOR_FILL[item.color] || COLOR_FILL.yellow

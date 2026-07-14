@@ -3,8 +3,10 @@ import { renderHook, act } from '@testing-library/react'
 
 // Mock text anchoring: findTextByAnchor returns a fake range; createTextAnchor a stub.
 const fakeRange = { getBoundingClientRect: () => ({ top: 100, height: 20, width: 50 }) }
-const findTextByAnchor = vi.fn(() => fakeRange)
-const createTextAnchor = vi.fn(() => ({
+// Rest-param signatures so the passthrough spread below type-checks; the closure
+// keeps access lazy (vi.mock factories are hoisted above these declarations).
+const findTextByAnchor = vi.fn((..._a: unknown[]) => fakeRange)
+const createTextAnchor = vi.fn((..._a: unknown[]) => ({
   prefix: '', exact: 'x', suffix: '', startOffset: 0, endOffset: 1, chapterId: 'c1',
 }))
 vi.mock('../../lib/textAnchor', () => ({
@@ -113,5 +115,24 @@ describe('useHighlightEdit — nonce-driven drawer jump', () => {
       }),
     )
     expect(findTextByAnchor).not.toHaveBeenCalled()
+  })
+
+  it('navigates to the highlight chapter when the anchor is not mounted (miss)', () => {
+    // findTextByAnchor misses → highlight lives in an unmounted chapter.
+    findTextByAnchor.mockReturnValueOnce(null as unknown as typeof fakeRange)
+    const onNavigateToHighlight = vi.fn()
+    const containerRef = makeContainer()
+    const { unmount } = renderHook(() =>
+      useHighlightEdit({
+        highlights: [hl('a')],
+        addHighlight, updateHighlight, removeHighlight,
+        chapterId: 'c1', containerRef,
+        scrollToHl: { id: 'a', nonce: 1 },
+        onNavigateToHighlight,
+      }),
+    )
+    expect(onNavigateToHighlight).toHaveBeenCalledTimes(1)
+    expect(onNavigateToHighlight.mock.calls[0][0].id).toBe('a')
+    unmount() // clears the pending retry poll
   })
 })

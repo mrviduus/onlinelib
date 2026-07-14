@@ -38,7 +38,7 @@ import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
 import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import { getUserBooks, getUserBookFileUrl, getUserBookProgress } from '../api/userBooks'
-import { parsePdfPageLocator, computeBookProgress, isPdfAnchor, type PdfAnchor } from '@textstack/shared'
+import { parsePdfPageLocator, computeBookProgress, clampPage, isPdfAnchor, type PdfAnchor } from '@textstack/shared'
 import { useHighlights } from '../hooks/useHighlights'
 import type { HighlightColor, StoredHighlight } from '../lib/offlineDb'
 import { sourceDomain } from '../components/library/ReadLaterShelf'
@@ -112,6 +112,9 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   // Current top-visible PDF page (Original mode) — drives the top-bar page
   // bookmark toggle + page bookmark creation.
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  // Page count of the loaded Original PDF (0 until pdf.js reports it). Used to
+  // clamp highlight/deep-link page jumps against a stale/corrupt anchor.
+  const [pdfNumPages, setPdfNumPages] = useState(0)
 
   // Highlight ID from URL — scroll to this highlight after chapter loads
   const [scrollToHighlightId] = useState(() => new URLSearchParams(window.location.search).get('highlight'))
@@ -225,11 +228,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [scrollToHl, setScrollToHl] = useState<{ id: string; nonce: number } | null>(null)
   const handleHighlightJump = useCallback((h: StoredHighlight) => {
     if (isPdfAnchor(h.anchor)) {
-      setPdfScrollTo({ page: h.anchor.page, nonce: Date.now() })
+      // Clamp against a stale/corrupt anchor page so a drawer/deep-link jump
+      // can't target a page the document doesn't have (viewer also clamps).
+      setPdfScrollTo({ page: clampPage(h.anchor.page, pdfNumPages), nonce: Date.now() })
     } else {
       setScrollToHl({ id: h.id, nonce: Date.now() })
     }
-  }, [])
+  }, [pdfNumPages])
 
   // Deep-link: when opened with ?highlight=<id> on a PDF, scroll the viewer to
   // the highlight's stored page once the highlights have loaded.
@@ -239,8 +244,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     const h = highlightsApi.highlights.find((x) => x.id === scrollToHighlightId)
     if (!h || !isPdfAnchor(h.anchor)) return
     pdfScrolledToHlRef.current = true
-    setPdfScrollTo({ page: h.anchor.page, nonce: Date.now() })
-  }, [originalActive, scrollToHighlightId, highlightsApi.highlights])
+    setPdfScrollTo({ page: clampPage(h.anchor.page, pdfNumPages), nonce: Date.now() })
+  }, [originalActive, scrollToHighlightId, highlightsApi.highlights, pdfNumPages])
 
   // Server resume page for the chapterless Original view (parsed from the
   // "page:<N>" progress locator). Fetched once when Original is active; wins over
@@ -487,6 +492,16 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     return `/${language}/library/my/${id}/read/${identifier}`
   }, [mode, bookSlug, id, language, getLocalizedPath])
 
+  // Drawer jump to a reflow highlight in a chapter the reader hasn't mounted
+  // (one-chapter-at-a-time). Resolve its chapter id → slug and route there;
+  // useHighlightEdit re-runs the scroll once the new chapter's DOM lands.
+  const handleHighlightNavigate = useCallback((h: StoredHighlight) => {
+    const target = book?.chapters.find(c => c.id === h.chapterId)
+    if (!target || target.identifier === activeChapterIdentifier) return
+    flushProgress()
+    navigate(getChapterUrl(target.identifier))
+  }, [book?.chapters, activeChapterIdentifier, flushProgress, navigate, getChapterUrl])
+
   // PDF.js hard-failed to open the original (NOT the internal 401 reload, which
   // PdfOriginalView handles itself). Fall back to reflow when chapters exist;
   // otherwise show the dedicated "Couldn't open this PDF" screen.
@@ -722,6 +737,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           showInlineTranslations={settings.showInlineTranslations}
           scrollToHighlightId={scrollToHighlightId}
           scrollToHl={scrollToHl}
+          onNavigateToHighlight={handleHighlightNavigate}
           highlights={highlightsApi.highlights}
           addHighlight={highlightsApi.addHighlight}
           updateHighlight={highlightsApi.updateHighlight}
@@ -744,6 +760,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
                   resumeReady={pdfResumeReady}
                   scrollToPage={pdfScrollTo}
                   onPageChange={setPdfCurrentPage}
+                  onNumPages={setPdfNumPages}
                   // Time-only: keeps the reading session/streak alive without
                   // feeding page position into canonical word-based progress.
                   onActivity={() => readingSession.recordActivity()}

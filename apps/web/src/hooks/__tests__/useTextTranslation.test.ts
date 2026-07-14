@@ -9,7 +9,9 @@ vi.mock('../../lib/offlineDb', () => ({
 }))
 
 // Ensure the hook does NOT call the backend languages endpoint anymore.
-const getLanguages = vi.fn(() => Promise.reject(new Error('should not be called')))
+// Rest-param signature so the passthrough spread type-checks; the closure keeps
+// access lazy (vi.mock factories are hoisted above this declaration).
+const getLanguages = vi.fn((..._a: unknown[]) => Promise.reject(new Error('should not be called')))
 vi.mock('../../api/translation', () => ({
   translate: vi.fn(),
   getLanguages: (...args: unknown[]) => getLanguages(...args),

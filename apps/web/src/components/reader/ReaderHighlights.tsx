@@ -40,6 +40,8 @@ interface ReaderHighlightsProps {
   scrollToHighlightId?: string | null
   /** Nonce-driven jump from the TOC drawer's Highlights tab (reflow highlights). */
   scrollToHl?: ScrollToHighlight | null
+  /** Route to a reflow highlight's chapter when a drawer jump lands off-screen. */
+  onNavigateToHighlight?: (highlight: StoredHighlight) => void
   showInlineTranslations?: boolean
   // Highlights list + mutators are hoisted to ReaderPage (single useHighlights
   // instance, shared with the PDF paint path). Passed down instead of the old
@@ -93,6 +95,7 @@ export function ReaderHighlights({
   ttsSpeed = 1.0,
   scrollToHighlightId,
   scrollToHl,
+  onNavigateToHighlight,
   showInlineTranslations = false,
   highlights,
   addHighlight,
@@ -390,6 +393,7 @@ export function ReaderHighlights({
     containerRef,
     scrollToHighlightId,
     scrollToHl,
+    onNavigateToHighlight,
   })
 
   // --- TTS ---
