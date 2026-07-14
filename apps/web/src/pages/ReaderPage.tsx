@@ -20,8 +20,7 @@ import { ReaderSection } from '../components/reader/ReaderSection'
 import { ReaderNav } from '../components/reader/ReaderNav'
 import { ReaderFooterNav } from '../components/reader/ReaderFooterNav'
 import { ReaderSettingsDrawer } from '../components/reader/ReaderSettingsDrawer'
-import { AskPanel } from '../components/reader/AskPanel'
-import { StudyBuddyPanel } from '../components/reader/StudyBuddyPanel'
+import { AskPanel, type AskPrefill } from '../components/reader/AskPanel'
 import type { AskCitation, AskTarget } from '../api/ask'
 import { resolveCitationJump } from './readerCitationJump'
 import { scrollToCitation } from '../lib/citationScroll'
@@ -98,7 +97,8 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
-  const [studyBuddyPassage, setStudyBuddyPassage] = useState<string | null>(null)
+  // "Ask about this": a reader-selection passage attached to the chat composer as a quote card.
+  const [askPrefill, setAskPrefill] = useState<AskPrefill | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Original layout (pixel-perfect PDF) is the DEFAULT for user-uploaded PDFs
@@ -542,8 +542,13 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           }
         : undefined
 
-  // StudyBuddy stays catalog-only (P1 behavior preserved); it has its own panel + endpoints.
-  const studyBuddyEditionId = mode === 'public' ? publicBook?.id : undefined
+  // "Ask about this" (Study Buddy merged into chat): open the chat panel with the selected passage
+  // attached as a quote card. Available wherever chat is (any resolved askTarget), not catalog-only.
+  const handleAskAboutThis = useCallback((passage: string) => {
+    setAskPrefill({ text: passage, nonce: Date.now() })
+    setAskOpen(true)
+  }, [])
+
   const pendingCitationRef = useRef<AskCitation | null>(null)
   const handleNavigateToCitation = useCallback((c: AskCitation) => {
     // Original PDF mode: a page-anchored citation jumps the pixel-perfect viewer to
@@ -742,7 +747,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           addHighlight={highlightsApi.addHighlight}
           updateHighlight={highlightsApi.updateHighlight}
           removeHighlight={highlightsApi.removeHighlight}
-          onStudyBuddy={studyBuddyEditionId ? setStudyBuddyPassage : undefined}
+          onStudyBuddy={askTarget ? handleAskAboutThis : undefined}
           liveActionsOnly={originalActive}
           onPdfHighlight={originalActive ? handlePdfHighlight : undefined}
         >
@@ -859,22 +864,11 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           open={askOpen}
           askTarget={askTarget}
           currentChapterId={activeChapter?.id}
+          prefill={askPrefill}
           isAuthenticated={isAuthenticated}
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}
           onClose={() => setAskOpen(false)}
-        />
-      )}
-
-      {studyBuddyEditionId && studyBuddyPassage && (
-        <StudyBuddyPanel
-          open
-          editionId={studyBuddyEditionId}
-          passage={studyBuddyPassage}
-          chapterNumber={activeChapter?.chapterNumber ?? null}
-          isAuthenticated={isAuthenticated}
-          onSignIn={openAuthModal}
-          onClose={() => setStudyBuddyPassage(null)}
         />
       )}
 

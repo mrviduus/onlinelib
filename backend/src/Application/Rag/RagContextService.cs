@@ -60,6 +60,22 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
     }
 
     /// <summary>
+    /// Ungated context build for the persistent Book Chat when the spoiler gate is toggled OFF: retrieves
+    /// over the WHOLE edition (<c>maxChapterOrd: null</c>) and includes the user's highlights/notes from
+    /// every chapter. Reuses the same retrieval + private-corpus helpers as <see cref="BuildAsync"/> — only
+    /// the chapter cap is lifted. <see cref="RagContext.LastReadOrd"/> is still the user's furthest-read
+    /// chapter (for the client's progress display), resolved but not used to gate.
+    /// </summary>
+    public async Task<RagContext> BuildUngatedAsync(
+        Guid userId, Guid siteId, Guid editionId, string query, int k, CancellationToken ct)
+    {
+        var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: null, ct);
+        var notes = await GetPrivateNotesAsync(userId, siteId, editionId, int.MaxValue, ct);
+        var lastRead = await ResolveLastReadOrdAsync(userId, siteId, editionId, ct) ?? 0;
+        return new RagContext(chunks, notes, lastRead);
+    }
+
+    /// <summary>
     /// The gate ordinal: the larger of the persisted high-water mark and the currently-open chapter's
     /// ordinal. Each input is null when absent (no progress row / chapter not in this edition); the
     /// result is null only when BOTH are null. A present <c>0</c> is a real read chapter (catalog

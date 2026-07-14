@@ -67,6 +67,8 @@ public interface IAppDbContext
     DbSet<TutorSession> TutorSessions { get; }
     DbSet<DriftCentroid> DriftCentroids { get; }
     DbSet<PodcastGenerationJob> PodcastGenerationJobs { get; }
+    DbSet<BookConversation> BookConversations { get; }
+    DbSet<ConversationMessage> ConversationMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 

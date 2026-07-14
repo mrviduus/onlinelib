@@ -20,12 +20,21 @@ vi.mock('../../../hooks/useTranslation', () => ({
 }))
 vi.mock('../../../hooks/useFocusTrap', () => ({ useFocusTrap: () => ({ current: null }) }))
 
-const { askState, useAskSpy } = vi.hoisted(() => ({
-  askState: { history: [] as unknown[], isLoading: false, error: null as string | null, ask: vi.fn() },
-  useAskSpy: vi.fn(),
+const { chatState, useBookChatSpy } = vi.hoisted(() => ({
+  chatState: {
+    history: [] as unknown[],
+    isLoading: false,
+    error: null as string | null,
+    ask: vi.fn(),
+    historyLoading: false,
+    spoilerGateEnabled: false,
+    setSpoilerGate: vi.fn(),
+    clearChat: vi.fn(),
+  },
+  useBookChatSpy: vi.fn(),
 }))
-vi.mock('../../../hooks/useAsk', () => ({
-  useAsk: (...args: unknown[]) => { useAskSpy(...args); return askState },
+vi.mock('../../../hooks/useBookChat', () => ({
+  useBookChat: (...args: unknown[]) => { useBookChatSpy(...args); return chatState },
 }))
 
 const { ragState, useRagIndexSpy } = vi.hoisted(() => ({
@@ -51,14 +60,21 @@ const baseProps = {
 
 afterEach(() => {
   cleanup()
-  askState.history = []
-  askState.ask = vi.fn()
+  chatState.history = []
+  chatState.ask = vi.fn()
+  chatState.isLoading = false
+  chatState.error = null
+  chatState.historyLoading = false
+  chatState.spoilerGateEnabled = false
+  chatState.setSpoilerGate = vi.fn()
+  chatState.clearChat = vi.fn()
   ragState.status = 'Ready'
   ragState.chunkCount = 0
   ragState.embeddedCount = 0
   ragState.prepare = vi.fn()
-  useAskSpy.mockReset()
+  useBookChatSpy.mockReset()
   useRagIndexSpy.mockReset()
+  vi.restoreAllMocks()
 })
 
 describe('AskPanel', () => {
@@ -72,6 +88,29 @@ describe('AskPanel', () => {
   it('shows the composer when authenticated', () => {
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
     expect(screen.getByPlaceholderText('reader.ask.placeholder')).toBeTruthy()
+  })
+
+  it('gates the chat load on open && isAuthenticated', () => {
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(useBookChatSpy).toHaveBeenCalledWith(editionTarget, undefined, true)
+  })
+
+  it('renders a loading skeleton while history loads', () => {
+    chatState.historyLoading = true
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.getByLabelText('reader.ask.loadingHistory')).toBeTruthy()
+    // Starters/empty hidden while loading.
+    expect(screen.queryByText('reader.ask.startersTitle')).toBeNull()
+  })
+
+  it('renders persisted history turns on load', () => {
+    chatState.history = [
+      { question: 'q1', answer: 'a1', citations: [], insufficient: false, streaming: false },
+      { question: 'q2', answer: 'a2', citations: [], insufficient: false, streaming: false },
+    ]
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.getByText('q1')).toBeTruthy()
+    expect(screen.getByText('a2')).toBeTruthy()
   })
 
   it('shows the prepare CTA when not indexed (not the read-enough message)', () => {
@@ -102,16 +141,16 @@ describe('AskPanel', () => {
     expect(prepare).toHaveBeenCalled()
   })
 
-  it('threads a userbook askTarget through to both hooks (AI-027 P2)', () => {
+  it('threads a userbook askTarget through to both hooks', () => {
     const userTarget: AskTarget = { kind: 'userbook', id: 'ub-1', ragStatus: 'NotIndexed' }
     render(<AskPanel {...baseProps} askTarget={userTarget} isAuthenticated={true} />)
     expect(useRagIndexSpy).toHaveBeenCalledWith(userTarget)
-    expect(useAskSpy).toHaveBeenCalledWith(userTarget, undefined)
+    expect(useBookChatSpy).toHaveBeenCalledWith(userTarget, undefined, true)
   })
 
   it('renders a citation chip and navigates on click', () => {
     const citation = { marker: 1, chunkId: 'c1', chapterId: 'ch1', chapterOrd: 4, charStart: 0, charEnd: 1, preview: 'snippet' }
-    askState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
+    chatState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
     const onNavigateToCitation = vi.fn()
 
     render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
@@ -127,7 +166,7 @@ describe('AskPanel', () => {
       charStart: 0, charEnd: 1, preview: 'snippet',
       sourcePage: 12, sectionPath: 'Chapter 3 › Methods',
     }
-    askState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
+    chatState.history = [{ question: 'q', answer: 'a [1]', citations: [citation], insufficient: false, streaming: false }]
     const onNavigateToCitation = vi.fn()
 
     render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
@@ -139,10 +178,10 @@ describe('AskPanel', () => {
   })
 
   it('shows starter questions on an empty, Ready thread and submits one on click', () => {
-    askState.history = []
+    chatState.history = []
     ragState.status = 'Ready'
     const ask = vi.fn()
-    askState.ask = ask
+    chatState.ask = ask
 
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
 
@@ -153,16 +192,73 @@ describe('AskPanel', () => {
   })
 
   it('hides starters once the thread has a turn', () => {
-    askState.history = [{ question: 'q', answer: 'a', citations: [], insufficient: false, streaming: false }]
+    chatState.history = [{ question: 'q', answer: 'a', citations: [], insufficient: false, streaming: false }]
     ragState.status = 'Ready'
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
     expect(screen.queryByText('reader.ask.startersTitle')).toBeNull()
   })
 
   it('does not show starters until the index is Ready', () => {
-    askState.history = []
+    chatState.history = []
     ragState.status = 'NotIndexed'
     render(<AskPanel {...baseProps} isAuthenticated={true} />)
     expect(screen.queryByText('reader.ask.startersTitle')).toBeNull()
+  })
+
+  it('toggles the spoiler gate (optimistic PATCH via the hook)', () => {
+    const setSpoilerGate = vi.fn()
+    chatState.setSpoilerGate = setSpoilerGate
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    const toggle = screen.getByRole('checkbox')
+    fireEvent.click(toggle)
+    expect(setSpoilerGate).toHaveBeenCalledWith(true)
+  })
+
+  it('clears the chat after confirmation', () => {
+    chatState.history = [{ question: 'q', answer: 'a', citations: [], insufficient: false, streaming: false }]
+    const clearChat = vi.fn()
+    chatState.clearChat = clearChat
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    fireEvent.click(screen.getByLabelText('reader.ask.clearChat'))
+    expect(clearChat).toHaveBeenCalled()
+  })
+
+  it('does not clear when the confirm is dismissed', () => {
+    chatState.history = [{ question: 'q', answer: 'a', citations: [], insufficient: false, streaming: false }]
+    const clearChat = vi.fn()
+    chatState.clearChat = clearChat
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    fireEvent.click(screen.getByLabelText('reader.ask.clearChat'))
+    expect(clearChat).not.toHaveBeenCalled()
+  })
+
+  it('attaches a selection prefill as a quote card and sends it as a quoted question', () => {
+    const ask = vi.fn()
+    chatState.ask = ask
+    const { rerender } = render(
+      <AskPanel {...baseProps} isAuthenticated={true} prefill={null} />,
+    )
+    // Attach the passage.
+    rerender(<AskPanel {...baseProps} isAuthenticated={true} prefill={{ text: 'the whale', nonce: 1 }} />)
+    expect(screen.getByText('the whale')).toBeTruthy()
+
+    // Type a question and send — outgoing content prepends the blockquote.
+    fireEvent.change(screen.getByPlaceholderText('reader.ask.placeholder'), { target: { value: 'what is this?' } })
+    fireEvent.click(screen.getByText('reader.ask.send'))
+    expect(ask).toHaveBeenCalledWith('> the whale\n\nwhat is this?')
+  })
+
+  it('renders a persisted quoted user turn as a quote card + question text', () => {
+    chatState.history = [
+      { question: '> the whale\n\nwhat is this?', answer: 'A symbol.', citations: [], insufficient: false, streaming: false },
+    ]
+    render(<AskPanel {...baseProps} isAuthenticated={true} />)
+    expect(screen.getByText('the whale')).toBeTruthy()
+    expect(screen.getByText('what is this?')).toBeTruthy()
+    expect(screen.getByText('A symbol.')).toBeTruthy()
   })
 })

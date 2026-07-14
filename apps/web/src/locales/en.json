@@ -231,7 +231,13 @@
         "characters": "Who are the main characters?",
         "keyIdea": "Explain the key idea so far",
         "attention": "What should I pay attention to?"
-      }
+      },
+      "spoilerToggle": "Spoiler-safe",
+      "spoilerTooltip": "Answers only use chapters you've read",
+      "clearChat": "Clear chat",
+      "clearConfirm": "Clear this chat? This can't be undone.",
+      "loadingHistory": "Loading chat…",
+      "detachQuote": "Remove quoted passage"
     },
     "studyBuddy": {
       "title": "Help me understand this",
@@ -270,6 +276,7 @@
       "translate": "Translate selected text",
       "explain": "Explain in context",
       "studyBuddy": "Help me understand this",
+      "askAboutThis": "Ask about this",
       "listen": "Listen to pronunciation",
       "copy": "Copy selected text"
     },

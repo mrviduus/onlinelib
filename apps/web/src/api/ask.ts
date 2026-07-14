@@ -1,6 +1,6 @@
 import { authFetch } from './client'
 import type { AskResponse, AskCitation, AskTurnDto } from '@textstack/shared'
-import { postSse } from '../lib/sse'
+import { postSse, type SseEvent } from '../lib/sse'
 import type { RagIndexState, RagIndexStatus } from '../types/api'
 
 export type { AskResponse, AskCitation, AskTurnDto } from '@textstack/shared'
@@ -19,11 +19,36 @@ export interface AskDone {
   insufficient: boolean
 }
 
-interface AskStreamCallbacks {
+export interface AskStreamCallbacks {
   onDelta: (fragment: string) => void
   onDone: (done: AskDone) => void
   onError: (message: string) => void
   signal?: AbortSignal
+}
+
+/**
+ * Builds the per-event handler for an ask-style SSE stream (`delta` → text fragment, `done` →
+ * citations/insufficient JSON, `error` → message). Single-sourced so both the classic in-memory
+ * ask ({@link askStream}) and persistent book-chat (`sendChatMessage`) parse the identical wire
+ * format. Respects `signal` so aborted streams stop dispatching.
+ */
+export function makeAskSseHandler({ onDelta, onDone, onError, signal }: AskStreamCallbacks) {
+  return (e: SseEvent) => {
+    if (signal?.aborted) return
+    if (e.event === 'delta') onDelta(e.data)
+    else if (e.event === 'done') {
+      try {
+        const parsed = JSON.parse(e.data) as Partial<AskDone>
+        onDone({
+          citations: parsed.citations ?? [],
+          lastReadOrd: parsed.lastReadOrd ?? 0,
+          insufficient: Boolean(parsed.insufficient),
+        })
+      } catch {
+        onDone({ citations: [], lastReadOrd: 0, insufficient: false })
+      }
+    } else if (e.event === 'error') onError(e.data || 'Ask failed')
+  }
 }
 
 /**
@@ -49,27 +74,7 @@ export function askStream(
     history: history.slice(-MAX_HISTORY_TURNS),
     ...(currentChapterId ? { currentChapterId } : {}),
   }
-  return postSse(
-    url,
-    body,
-    e => {
-      if (signal?.aborted) return
-      if (e.event === 'delta') onDelta(e.data)
-      else if (e.event === 'done') {
-        try {
-          const parsed = JSON.parse(e.data) as Partial<AskDone>
-          onDone({
-            citations: parsed.citations ?? [],
-            lastReadOrd: parsed.lastReadOrd ?? 0,
-            insufficient: Boolean(parsed.insufficient),
-          })
-        } catch {
-          onDone({ citations: [], lastReadOrd: 0, insufficient: false })
-        }
-      } else if (e.event === 'error') onError(e.data || 'Ask failed')
-    },
-    signal,
-  )
+  return postSse(url, body, makeAskSseHandler({ onDelta, onDone, onError, signal }), signal)
 }
 
 /**

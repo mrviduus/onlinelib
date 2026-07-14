@@ -28,9 +28,17 @@ public static class AskSse
     /// <summary>Projects the service answer onto the public JSON contract (citations → previews).</summary>
     public static AskResponse ToResponse(AskAnswer answer)
     {
-        var citations = answer.Citations.Select(ToCitation).ToList();
+        var citations = ToCitations(answer.Citations);
         return new AskResponse(answer.Answer, citations, answer.LastReadOrd, answer.Insufficient);
     }
+
+    /// <summary>
+    /// Projects resolved citation sources onto the public <see cref="AskCitation"/> DTO shape (with
+    /// previews). Shared so the persistent Book Chat can store the SAME shape the live SSE/JSON paths
+    /// return, keeping citation jumps identical across a stream and a reload.
+    /// </summary>
+    public static List<AskCitation> ToCitations(IReadOnlyList<AskCitationSource> citations)
+        => citations.Select(ToCitation).ToList();
 
     /// <summary>
     /// SSE response over a service <see cref="AskStreamItem"/> stream. Disables proxy buffering, then

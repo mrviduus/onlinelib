@@ -110,6 +110,8 @@ public partial class AppDbContext : DbContext, IAppDbContext
     public DbSet<TutorSession> TutorSessions => Set<TutorSession>();
     public DbSet<DriftCentroid> DriftCentroids => Set<DriftCentroid>();
     public DbSet<PodcastGenerationJob> PodcastGenerationJobs => Set<PodcastGenerationJob>();
+    public DbSet<BookConversation> BookConversations => Set<BookConversation>();
+    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
 
     // Phase 4 RAG. Intentionally not on IAppDbContext — retrieval uses raw Npgsql.
     public DbSet<ChapterChunk> ChapterChunks => Set<ChapterChunk>();
@@ -135,6 +137,7 @@ public partial class AppDbContext : DbContext, IAppDbContext
         ConfigureAi(modelBuilder);
         ConfigureAgents(modelBuilder);
         ConfigurePodcasts(modelBuilder);
+        ConfigureBookChat(modelBuilder);
         ConfigureRag(modelBuilder);
     }
 
