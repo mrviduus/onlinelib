@@ -39,8 +39,10 @@ public class RagIndexingWorker(
     // Re-trigger latency for the (cheap) claim query. The chunk itself is DETACHED (Task.Run) and bounded
     // to one concurrent parse by _parseSlot, so this loop stays responsive even mid-parse (QA #3).
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
-    // An Indexing row untouched for this long means the process that claimed it died mid-chunk.
-    private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(15);
+    // An Indexing row untouched for this long means the process that claimed it died mid-chunk. Shared with
+    // RagIndexingService via RagIndexLogic.StaleWindow so the "parse timeout < stale window" invariant rests
+    // on ONE value (F2) — the parse timeout is clamped beneath this same constant.
+    private static readonly TimeSpan StaleAfter = Application.Rag.RagIndexLogic.StaleWindow;
 
     // Bounds paid vision spend to ONE parse at a time across BOTH corpora and keeps the detached chunk
     // off the sweep loop. Wait(0) is non-blocking: a busy slot ⇒ skip starting another this cycle.
@@ -105,48 +107,63 @@ public class RagIndexingWorker(
         if (!_parseSlot.Wait(0))
             return;
 
-        // We now OWN the slot; it MUST be released on every path — synchronously if nothing is queued,
-        // or in the detached task's finally if we dispatch one.
-        Guid? userBookId;
-        await using (var db = await dbFactory.CreateDbContextAsync(ct))
+        // We now OWN the slot; it MUST be released on every path. The drain-and-dispatch body below is
+        // wrapped in try/finally so the slot is released whenever a parse is NOT successfully dispatched —
+        // covering BOTH the nothing-queued path AND an exception from any awaited DB call (connection reset,
+        // command timeout, pool exhaustion, Postgres restart). Without this a throw here would leak the slot
+        // (count stuck at 0), wedging every future cycle at Wait(0)==false — a silent worker wedge, the exact
+        // bug this sweep exists to kill. The dispatched path sets `dispatched = true` and returns; its slot is
+        // released by DispatchDetached's own finally instead. Net: exactly one Release per Wait(0)==true.
+        var dispatched = false;
+        try
         {
-            userBookId = await db.UserBooks
-                .Where(b => b.RagStatus == Domain.Enums.RagIndexStatus.Indexing
-                            && b.RagChunkCount == 0
-                            && b.RagIndexingStartedAt == null)
-                .OrderBy(b => b.UpdatedAt)
-                .Select(b => (Guid?)b.Id)
-                .FirstOrDefaultAsync(ct);
-        }
+            Guid? userBookId;
+            await using (var db = await dbFactory.CreateDbContextAsync(ct))
+            {
+                userBookId = await db.UserBooks
+                    .Where(b => b.RagStatus == Domain.Enums.RagIndexStatus.Indexing
+                                && b.RagChunkCount == 0
+                                && b.RagIndexingStartedAt == null)
+                    .OrderBy(b => b.UpdatedAt)
+                    .Select(b => (Guid?)b.Id)
+                    .FirstOrDefaultAsync(ct);
+            }
 
-        if (userBookId is not null)
+            if (userBookId is not null)
+            {
+                DispatchDetached(
+                    () => indexingService.IndexUserBookAsync(userBookId.Value, ct), $"user book {userBookId}");
+                dispatched = true;
+                return; // slot released by the detached task
+            }
+
+            Guid? editionId;
+            await using (var db = await dbFactory.CreateDbContextAsync(ct))
+            {
+                editionId = await db.Editions
+                    .Where(e => e.RagStatus == Domain.Enums.RagIndexStatus.Indexing
+                                && e.RagChunkCount == 0
+                                && e.RagIndexingStartedAt == null)
+                    .OrderBy(e => e.UpdatedAt)
+                    .Select(e => (Guid?)e.Id)
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            if (editionId is not null)
+            {
+                DispatchDetached(
+                    () => indexingService.IndexEditionAsync(editionId.Value, ct), $"edition {editionId}");
+                dispatched = true;
+                return; // slot released by the detached task
+            }
+        }
+        finally
         {
-            DispatchDetached(
-                () => indexingService.IndexUserBookAsync(userBookId.Value, ct), $"user book {userBookId}");
-            return; // slot released by the detached task
+            // Nothing dispatched (nothing queued OR an awaited DB call threw) — release the slot so the next
+            // cycle can claim it. The dispatched path skips this (its task's finally owns the Release).
+            if (!dispatched)
+                _parseSlot.Release();
         }
-
-        Guid? editionId;
-        await using (var db = await dbFactory.CreateDbContextAsync(ct))
-        {
-            editionId = await db.Editions
-                .Where(e => e.RagStatus == Domain.Enums.RagIndexStatus.Indexing
-                            && e.RagChunkCount == 0
-                            && e.RagIndexingStartedAt == null)
-                .OrderBy(e => e.UpdatedAt)
-                .Select(e => (Guid?)e.Id)
-                .FirstOrDefaultAsync(ct);
-        }
-
-        if (editionId is not null)
-        {
-            DispatchDetached(
-                () => indexingService.IndexEditionAsync(editionId.Value, ct), $"edition {editionId}");
-            return; // slot released by the detached task
-        }
-
-        // Nothing queued — release the slot so the next cycle can claim it.
-        _parseSlot.Release();
     }
 
     // Runs one index attempt OFF the sweep loop (QA #3) so a slow/hung vision parse can't block the next

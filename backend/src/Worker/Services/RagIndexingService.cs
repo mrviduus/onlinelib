@@ -32,12 +32,26 @@ public class RagIndexingService(
     ILogger<RagIndexingService> logger)
 {
     // QA #3: hard cap on a single vision parse so a hung OpenAI/vision call can't run forever. Read once
-    // (matches how Ai:Pdf:MaxParsePages is read in PdfVisionParser). MUST stay < the sweep's 15-min
-    // StaleAfter — the timeout terminates a live-but-slow parse to Failed HERE, before the stale sweep
-    // would reclaim it (avoids the stale-vs-live race). RagIndexLogic.ResolveParseTimeout floors a bad
-    // config back to the 12-min default so the cap can never be accidentally disabled.
-    private readonly TimeSpan _parseTimeout =
-        RagIndexLogic.ResolveParseTimeout(config.GetValue("Ai:Pdf:ParseTimeoutMinutes", 12));
+    // (matches how Ai:Pdf:MaxParsePages is read in PdfVisionParser). MUST stay < the sweep's stale window
+    // (RagIndexLogic.StaleWindow) — the timeout terminates a live-but-slow parse to Failed HERE, before the
+    // stale sweep would reclaim it (avoids the stale-vs-live race). ResolveParseTimeout floors a non-positive
+    // config to the 12-min default AND clamps an over-large one beneath the stale window (F2), so the cap can
+    // never be accidentally disabled OR pushed past the stale sweep. ResolveParseTimeoutWithWarning logs once
+    // (at construction) when a configured value was clamped, so a misconfig is visible in logs, not silent.
+    private readonly TimeSpan _parseTimeout = ResolveParseTimeoutWithWarning(config, logger);
+
+    private static TimeSpan ResolveParseTimeoutWithWarning(IConfiguration config, ILogger<RagIndexingService> logger)
+    {
+        var configuredMinutes = config.GetValue("Ai:Pdf:ParseTimeoutMinutes", 12);
+        var resolved = RagIndexLogic.ResolveParseTimeout(configuredMinutes);
+        if (RagIndexLogic.ParseTimeoutWasClamped(configuredMinutes))
+            logger.LogWarning(
+                "Ai:Pdf:ParseTimeoutMinutes={Configured} exceeds the {Cap}-min cap (must stay under the "
+                + "{Stale}-min stale window); clamped to {Resolved}",
+                configuredMinutes, RagIndexLogic.MaxParseTimeout.TotalMinutes,
+                RagIndexLogic.StaleWindow.TotalMinutes, resolved);
+        return resolved;
+    }
 
     /// <summary>Index one USER book by id. No-op if it is not currently claimable (queued).</summary>
     public async Task IndexUserBookAsync(Guid bookId, CancellationToken ct)

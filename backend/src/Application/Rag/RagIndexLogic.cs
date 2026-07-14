@@ -92,18 +92,51 @@ public static class RagIndexLogic
         => IsReady(embeddedCount, chunkCount) ? RagIndexStatus.Ready : RagIndexStatus.Indexing;
 
     /// <summary>
-    /// Default hard cap on a single vision parse (QA #3). Deliberately &lt; the sweep's 15-min
-    /// <c>StaleAfter</c> so a live-but-slow parse is terminated to <see cref="RagIndexStatus.Failed"/>
-    /// by its own timeout token BEFORE the stale sweep would reclaim it — avoiding the stale-vs-live race.
+    /// The single source of truth for the sweep's stale-reclaim window: an <c>Indexing</c> row untouched
+    /// for this long means the process that claimed it died mid-chunk (see <see cref="IsStaleIndexing"/>).
+    /// <see cref="RagIndexingWorker"/>'s <c>StaleAfter</c> references THIS constant, and
+    /// <see cref="ResolveParseTimeout"/> clamps the parse timeout beneath it, so the load-bearing
+    /// "timeout &lt; stale window" invariant rests on ONE value rather than two that can drift apart.
+    /// </summary>
+    public static readonly TimeSpan StaleWindow = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Default hard cap on a single vision parse (QA #3). Deliberately &lt; <see cref="StaleWindow"/> so a
+    /// live-but-slow parse is terminated to <see cref="RagIndexStatus.Failed"/> by its own timeout token
+    /// BEFORE the stale sweep would reclaim it — avoiding the stale-vs-live race.
     /// </summary>
     public static readonly TimeSpan DefaultParseTimeout = TimeSpan.FromMinutes(12);
 
     /// <summary>
+    /// The largest per-parse timeout we will ever honor: strictly under <see cref="StaleWindow"/> (by 1 min)
+    /// so a live parse always self-terminates before the stale sweep can reclaim it. A configured value above
+    /// this is CAPPED (see <see cref="ResolveParseTimeout"/>), not honored — otherwise a misconfig like
+    /// <c>Ai:Pdf:ParseTimeoutMinutes=20</c> would let the 15-min stale sweep kill live parses again.
+    /// </summary>
+    public static readonly TimeSpan MaxParseTimeout = StaleWindow - TimeSpan.FromMinutes(1);
+
+    /// <summary>
     /// Resolve the per-parse hard timeout from the configured <c>Ai:Pdf:ParseTimeoutMinutes</c> value.
-    /// A non-positive (missing / misconfigured) value falls back to <see cref="DefaultParseTimeout"/> so a
-    /// bad config can never disable the cap (which would re-open the forever-hung parse QA #3 fixes).
-    /// The caller is responsible for keeping this under the 15-min stale window.
+    /// <list type="bullet">
+    ///   <item>A non-positive (missing / misconfigured) value falls back to <see cref="DefaultParseTimeout"/>
+    ///   so a bad config can never disable the cap (which would re-open the forever-hung parse QA #3 fixes).</item>
+    ///   <item>A value at or above <see cref="MaxParseTimeout"/> is CLAMPED down to it, so the
+    ///   timeout-&lt;-stale-window invariant holds regardless of config. The caller
+    ///   (<c>RagIndexingService</c>) logs a warning when a configured value exceeded the cap.</item>
+    /// </list>
     /// </summary>
     public static TimeSpan ResolveParseTimeout(int configuredMinutes)
-        => configuredMinutes > 0 ? TimeSpan.FromMinutes(configuredMinutes) : DefaultParseTimeout;
+    {
+        if (configuredMinutes <= 0)
+            return DefaultParseTimeout;
+        var requested = TimeSpan.FromMinutes(configuredMinutes);
+        return requested > MaxParseTimeout ? MaxParseTimeout : requested;
+    }
+
+    /// <summary>
+    /// True when a positive configured value would be clamped by <see cref="ResolveParseTimeout"/> — used
+    /// by the caller to emit a one-time warning that the misconfigured timeout was capped, not honored.
+    /// </summary>
+    public static bool ParseTimeoutWasClamped(int configuredMinutes)
+        => configuredMinutes > 0 && TimeSpan.FromMinutes(configuredMinutes) > MaxParseTimeout;
 }
