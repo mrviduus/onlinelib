@@ -54,27 +54,48 @@ public class RagIndexingService(
 
             var chunkCount = await chunking.ChunkUserBookAsync(db, bookId, ct);
 
-            var book = await db.UserBooks.FirstOrDefaultAsync(b => b.Id == bookId, ct);
-            if (book is null) return; // deleted mid-run
-
             if (RagIndexLogicIsTerminalFailure(chunkCount))
             {
-                book.RagStatus = RagIndexStatus.Failed;
-                book.RagChunkCount = 0;
-                book.RagEmbeddedCount = 0;
-                book.RagError = "No chapters to index";
-                book.RagIndexedAt = null;
-            }
-            else
-            {
-                // Leave status Indexing — the embedding worker fills the vectors and flips it Ready.
-                book.RagChunkCount = chunkCount;
-                book.RagEmbeddedCount = 0;
-                book.RagError = null;
-                book.RagIndexedAt = null;
+                // Fix #8: the chunker swallows an OperationCanceledException on worker shutdown and
+                // returns 0 — indistinguishable from a genuinely empty book by the count alone. If the
+                // run's ct is cancelled this is a shutdown, not an empty book: write a retry-able error
+                // (or, if that also fails, the stale sweep reclaims it) instead of the misleading
+                // "No chapters to index" that would mask a re-runnable book as permanently empty.
+                if (ct.IsCancellationRequested)
+                {
+                    await FailUserBookAsync(bookId, "indexing interrupted, retry");
+                    return;
+                }
+
+                await FailUserBookAsync(bookId, "No chapters to index");
+                return;
             }
 
-            await db.SaveChangesAsync(ct);
+            // Fix #2 + #4: guarded, recomputing final stamp. `AND rag_status = 1` re-asserts the row is
+            // still Indexing — a stale-sweep (single-worker model; the sweep/claim assumes ONE Worker
+            // instance) could have flipped it Failed mid-parse, and writing chunk_count>0 onto a Failed
+            // row would strand it (embedder ignores Failed). rag_embedded_count is recomputed from the
+            // actual chunk rows (NOT hardcoded 0) because the embedder can race ahead of this stamp; and
+            // if every chunk is already embedded we flip straight to Ready (mirrors the embedder's flip)
+            // so no stranded Indexing remains. rowcount 0 ⇒ we lost the row → do nothing.
+            var stamped = await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE user_books b
+                SET rag_chunk_count = {chunkCount},
+                    rag_embedded_count = sub.embedded,
+                    rag_error = NULL,
+                    rag_status = CASE WHEN sub.embedded = {chunkCount} THEN 2 ELSE 1 END,
+                    rag_indexed_at = CASE WHEN sub.embedded = {chunkCount} THEN now() ELSE NULL END
+                FROM (
+                    SELECT count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded
+                    FROM user_chapter_chunk
+                    WHERE user_book_id = {bookId}
+                ) sub
+                WHERE b.id = {bookId} AND b.rag_status = 1;
+                """, ct);
+
+            if (stamped == 0)
+                logger.LogWarning(
+                    "RAG indexing lost the row for user book {BookId} (no longer Indexing); skipping stamp", bookId);
         }
         catch (Exception ex)
         {
@@ -105,26 +126,41 @@ public class RagIndexingService(
 
             var chunkCount = await chunking.ChunkEditionAsync(db, editionId, ct);
 
-            var edition = await db.Editions.FirstOrDefaultAsync(e => e.Id == editionId, ct);
-            if (edition is null) return;
-
             if (RagIndexLogicIsTerminalFailure(chunkCount))
             {
-                edition.RagStatus = RagIndexStatus.Failed;
-                edition.RagChunkCount = 0;
-                edition.RagEmbeddedCount = 0;
-                edition.RagError = "No chapters to index";
-                edition.RagIndexedAt = null;
-            }
-            else
-            {
-                edition.RagChunkCount = chunkCount;
-                edition.RagEmbeddedCount = 0;
-                edition.RagError = null;
-                edition.RagIndexedAt = null;
+                // Fix #8: distinguish a shutdown-cancellation (retry-able) from a genuinely empty edition.
+                if (ct.IsCancellationRequested)
+                {
+                    await FailEditionAsync(editionId, "indexing interrupted, retry");
+                    return;
+                }
+
+                await FailEditionAsync(editionId, "No chapters to index");
+                return;
             }
 
-            await db.SaveChangesAsync(ct);
+            // Fix #2 + #4: guarded, recomputing final stamp (see IndexUserBookAsync for the rationale —
+            // single-worker sweep/claim model). `AND rag_status = 1` guards against a stale-sweep flip;
+            // rag_embedded_count is recomputed from the chunk rows and the row flips Ready if already fully
+            // embedded. rowcount 0 ⇒ lost the row → do nothing.
+            var stamped = await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE editions e
+                SET rag_chunk_count = {chunkCount},
+                    rag_embedded_count = sub.embedded,
+                    rag_error = NULL,
+                    rag_status = CASE WHEN sub.embedded = {chunkCount} THEN 2 ELSE 1 END,
+                    rag_indexed_at = CASE WHEN sub.embedded = {chunkCount} THEN now() ELSE NULL END
+                FROM (
+                    SELECT count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded
+                    FROM chapter_chunk
+                    WHERE edition_id = {editionId}
+                ) sub
+                WHERE e.id = {editionId} AND e.rag_status = 1;
+                """, ct);
+
+            if (stamped == 0)
+                logger.LogWarning(
+                    "RAG indexing lost the row for edition {EditionId} (no longer Indexing); skipping stamp", editionId);
         }
         catch (Exception ex)
         {

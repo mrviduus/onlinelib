@@ -77,4 +77,17 @@ public static class RagIndexLogic
     /// </summary>
     public static bool IsTerminalFailureAfterChunking(int chunkCount)
         => chunkCount == 0;
+
+    /// <summary>
+    /// The status the executor stamps after a NON-empty chunk run (chunkCount &gt; 0), given how many of
+    /// those chunks are ALREADY embedded. Normally none are, so the row stays <see cref="RagIndexStatus.Indexing"/>
+    /// for the embedding worker to drain. But the embedder can race ahead and fill some (or all) chunks
+    /// before the executor stamps <c>rag_chunk_count</c>; if it already embedded every chunk we must flip
+    /// straight to <see cref="RagIndexStatus.Ready"/> here (mirroring the embedder's own Ready predicate,
+    /// <see cref="IsReady"/>) — otherwise no un-embedded chunk remains to re-trigger that flip and the row
+    /// strands Indexing forever. Blind-resetting <c>embedded_count</c> to 0 would hit the same trap, so the
+    /// executor recomputes it from the actual chunk rows and feeds it here.
+    /// </summary>
+    public static RagIndexStatus ResolveStatusAfterChunking(int chunkCount, int embeddedCount)
+        => IsReady(embeddedCount, chunkCount) ? RagIndexStatus.Ready : RagIndexStatus.Indexing;
 }

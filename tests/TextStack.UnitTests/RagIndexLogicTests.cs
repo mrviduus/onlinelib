@@ -146,4 +146,22 @@ public class RagIndexLogicTests
     [Fact]
     public void IsTerminalFailureAfterChunking_HasChunks_ReturnsFalse()
         => Assert.False(RagIndexLogic.IsTerminalFailureAfterChunking(3));
+
+    // ---- ResolveStatusAfterChunking (#4): don't blind-reset embedded_count; flip Ready if already full ----
+
+    // Normal case: the embedder hasn't touched the fresh chunks yet (0 embedded) → stay Indexing so it drains.
+    [Fact]
+    public void ResolveStatusAfterChunking_NoneEmbedded_ReturnsIndexing()
+        => Assert.Equal(RagIndexStatus.Indexing, RagIndexLogic.ResolveStatusAfterChunking(chunkCount: 8, embeddedCount: 0));
+
+    // Race: the embedder filled some but not all before the stamp → still Indexing (it drains the rest).
+    [Fact]
+    public void ResolveStatusAfterChunking_PartiallyEmbedded_ReturnsIndexing()
+        => Assert.Equal(RagIndexStatus.Indexing, RagIndexLogic.ResolveStatusAfterChunking(chunkCount: 8, embeddedCount: 3));
+
+    // Race won fully: every chunk already embedded before the stamp → flip Ready HERE (no NULL chunk
+    // remains to re-trigger the embedder's flip, so leaving it Indexing would strand forever). Mirrors IsReady.
+    [Fact]
+    public void ResolveStatusAfterChunking_AllEmbedded_ReturnsReady()
+        => Assert.Equal(RagIndexStatus.Ready, RagIndexLogic.ResolveStatusAfterChunking(chunkCount: 8, embeddedCount: 8));
 }
