@@ -1,15 +1,40 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
-import { useHighlights } from './useHighlights'
+import { isPdfAnchor } from '@textstack/shared'
 import { findTextByAnchor, createTextAnchor } from '../lib/textAnchor'
-import type { HighlightColor, StoredHighlight } from '../lib/offlineDb'
+import type { HighlightAnchor, HighlightColor, StoredHighlight } from '../lib/offlineDb'
+
+/** Repeatable drawer jump: same id re-fires when the nonce changes. */
+export interface ScrollToHighlight {
+  id: string
+  nonce: number
+}
+
+// The web reflow reader renders ONE chapter at a time, so a drawer jump to a
+// highlight in a not-mounted chapter can't be located immediately. After
+// navigating to its chapter we poll until its async-loaded DOM contains the
+// anchor (mirrors the ?highlight= URL mount-jump), then land the scroll.
+const JUMP_RETRY_MS = 120
+const JUMP_MAX_RETRIES = 40
 
 interface UseHighlightEditOptions {
-  editionId?: string
-  userBookId?: string
+  // Highlights + mutators are hoisted to ReaderPage and passed in, so the reader
+  // owns a single useHighlights instance (shared with the PDF paint path).
+  highlights: StoredHighlight[]
+  addHighlight: (anchor: HighlightAnchor, color: HighlightColor, selectedText: string) => Promise<StoredHighlight>
+  updateHighlight: (id: string, updates: { color?: HighlightColor; noteText?: string | null }) => Promise<StoredHighlight | null>
+  removeHighlight: (id: string) => Promise<void>
   chapterId: string
   containerRef: RefObject<HTMLElement | null>
-  isAuthenticated?: boolean
   scrollToHighlightId?: string | null
+  /** Nonce-driven jump from the TOC drawer's Highlights tab (reflow only). */
+  scrollToHl?: ScrollToHighlight | null
+  /**
+   * Route to a reflow highlight's chapter when a drawer jump misses (its chapter
+   * isn't the mounted one). The web reader renders one chapter at a time, so the
+   * book-wide drawer list can target an off-screen chapter — without this the tap
+   * is a dead no-op. Called only on a reflow miss; PDF jumps never reach here.
+   */
+  onNavigateToHighlight?: (highlight: StoredHighlight) => void
   onAfterCreate?: () => void
 }
 
@@ -29,36 +54,94 @@ export interface UseHighlightEditResult {
 }
 
 export function useHighlightEdit({
-  editionId,
-  userBookId,
+  highlights,
+  addHighlight,
+  updateHighlight,
+  removeHighlight,
   chapterId,
   containerRef,
-  isAuthenticated,
   scrollToHighlightId,
+  scrollToHl,
+  onNavigateToHighlight,
   onAfterCreate,
 }: UseHighlightEditOptions): UseHighlightEditResult {
-  const { highlights, addHighlight, updateHighlight, removeHighlight } = useHighlights(
-    userBookId ? undefined : editionId,
-    userBookId,
-    { isAuthenticated },
+  // Pending post-navigation retry poll for a cross-chapter drawer jump.
+  const jumpRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearJumpRetry = useCallback(() => {
+    if (jumpRetryTimerRef.current) {
+      clearTimeout(jumpRetryTimerRef.current)
+      jumpRetryTimerRef.current = null
+    }
+  }, [])
+
+  // Locate a highlight's text anchor and center it. Returns false when the text
+  // isn't in the mounted DOM yet (chapter not rendered / still loading) so the
+  // caller can navigate + retry. A located-but-zero-size range counts as done.
+  const tryScrollToTarget = useCallback(
+    (target: StoredHighlight): boolean => {
+      if (!containerRef.current) return false
+      const range = findTextByAnchor(target.anchor, containerRef.current)
+      if (!range) return false
+      const rect = range.getBoundingClientRect()
+      if (rect.width !== 0 || rect.height !== 0) {
+        const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
+        window.scrollTo({ top: targetY, behavior: 'smooth' })
+      }
+      return true
+    },
+    [containerRef],
   )
 
+  // Locate a reflow highlight by its text anchor and center it in the viewport.
+  // Shared by the URL-mount one-shot and the drawer's nonce-driven jump. On a
+  // miss (the highlight lives in a chapter the reader hasn't mounted) route to
+  // that chapter, then poll until its async-loaded DOM contains the anchor.
+  const scrollToHighlightById = useCallback(
+    (id: string) => {
+      const target = highlights.find((h) => h.id === id)
+      if (!target || !containerRef.current) return
+      clearJumpRetry()
+      requestAnimationFrame(() => {
+        if (tryScrollToTarget(target)) return
+        // PDF anchors jump via the pixel-perfect viewer's page path in
+        // ReaderPage, so only reflow highlights should reach the nav fallback.
+        if (isPdfAnchor(target.anchor) || !onNavigateToHighlight) return
+        onNavigateToHighlight(target)
+        let tries = 0
+        const retry = () => {
+          if (tryScrollToTarget(target) || ++tries >= JUMP_MAX_RETRIES) {
+            jumpRetryTimerRef.current = null
+            return
+          }
+          jumpRetryTimerRef.current = setTimeout(retry, JUMP_RETRY_MS)
+        }
+        jumpRetryTimerRef.current = setTimeout(retry, JUMP_RETRY_MS)
+      })
+    },
+    [highlights, containerRef, onNavigateToHighlight, tryScrollToTarget, clearJumpRetry],
+  )
+
+  // Drop any pending retry poll on unmount.
+  useEffect(() => clearJumpRetry, [clearJumpRetry])
+
+  // URL deep-link (?highlight=<id>): one-shot on mount once highlights load.
   const scrolledRef = useRef(false)
   useEffect(() => {
     if (!scrollToHighlightId || scrolledRef.current) return
     if (highlights.length === 0 || !containerRef.current) return
-    const target = highlights.find((h) => h.id === scrollToHighlightId)
-    if (!target) return
+    if (!highlights.some((h) => h.id === scrollToHighlightId)) return
     scrolledRef.current = true
-    requestAnimationFrame(() => {
-      const range = findTextByAnchor(target.anchor, containerRef.current!)
-      if (!range) return
-      const rect = range.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) return
-      const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2
-      window.scrollTo({ top: targetY, behavior: 'smooth' })
-    })
-  }, [scrollToHighlightId, highlights, containerRef])
+    scrollToHighlightById(scrollToHighlightId)
+  }, [scrollToHighlightId, highlights, containerRef, scrollToHighlightById])
+
+  // Drawer jump: nonce-driven so re-selecting the same highlight re-fires.
+  const lastNonceRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!scrollToHl) return
+    if (lastNonceRef.current === scrollToHl.nonce) return
+    lastNonceRef.current = scrollToHl.nonce
+    scrollToHighlightById(scrollToHl.id)
+  }, [scrollToHl, scrollToHighlightById])
 
   const [editingHighlight, setEditingHighlight] = useState<StoredHighlight | null>(null)
   const [editingRect, setEditingRect] = useState<DOMRect | null>(null)

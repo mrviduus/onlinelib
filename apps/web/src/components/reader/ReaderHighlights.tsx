@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
 import { useTextSelection } from '../../hooks/useTextSelection'
-import { useHighlightEdit } from '../../hooks/useHighlightEdit'
+import { useHighlightEdit, type ScrollToHighlight } from '../../hooks/useHighlightEdit'
 import { useTranslationPopup } from '../../hooks/useTranslationPopup'
 import { useExplainPopup } from '../../hooks/useExplainPopup'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
@@ -13,7 +13,7 @@ import { updateWord, promoteLookup } from '../../api/vocabulary'
 import { extractSentence } from '../../lib/sentenceExtractor'
 import { tokenizeVocabWords, normalizeVocabKey, extractWordFromRange } from '../../lib/vocabKey'
 import { fetchWordBubble } from '../../lib/wordBubbleFetch'
-import type { HighlightColor } from '../../lib/offlineDb'
+import type { HighlightAnchor, HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import type { PdfAnchor } from '@textstack/shared'
 import { computePdfAnchorFromRange } from '../../lib/pdfHighlightAnchor'
 import { SelectionToolbar } from './SelectionToolbar'
@@ -38,7 +38,18 @@ interface ReaderHighlightsProps {
   userBookId?: string
   ttsSpeed?: number
   scrollToHighlightId?: string | null
+  /** Nonce-driven jump from the TOC drawer's Highlights tab (reflow highlights). */
+  scrollToHl?: ScrollToHighlight | null
+  /** Route to a reflow highlight's chapter when a drawer jump lands off-screen. */
+  onNavigateToHighlight?: (highlight: StoredHighlight) => void
   showInlineTranslations?: boolean
+  // Highlights list + mutators are hoisted to ReaderPage (single useHighlights
+  // instance, shared with the PDF paint path). Passed down instead of the old
+  // internal useHighlights inside useHighlightEdit — kills the PDF-mode double load.
+  highlights: StoredHighlight[]
+  addHighlight: (anchor: HighlightAnchor, color: HighlightColor, selectedText: string) => Promise<StoredHighlight>
+  updateHighlight: (id: string, updates: { color?: HighlightColor; noteText?: string | null }) => Promise<StoredHighlight | null>
+  removeHighlight: (id: string) => Promise<void>
   /** Open the Study Buddy panel for a highlighted passage (AI-038b). Catalog editions only. */
   onStudyBuddy?: (passage: string) => void
   /**
@@ -78,13 +89,18 @@ export function ReaderHighlights({
   editionId,
   chapterId,
   containerRef,
-  isAuthenticated: _isAuthenticated,
   bookLanguage = 'en',
   bookTitle,
   userBookId,
   ttsSpeed = 1.0,
   scrollToHighlightId,
+  scrollToHl,
+  onNavigateToHighlight,
   showInlineTranslations = false,
+  highlights,
+  addHighlight,
+  updateHighlight,
+  removeHighlight,
   onStudyBuddy,
   liveActionsOnly = false,
   onPdfHighlight,
@@ -358,9 +374,9 @@ export function ReaderHighlights({
     }
   }, [lookupState, addAnywayBusy, t, closeBubble, recordSavedWord])
 
-  // --- Highlights (CRUD + note editor + scroll-to deep link) ---
+  // --- Highlights (note editor + scroll-to deep link) — list + mutators hoisted
+  // to ReaderPage and passed in; this hook owns only the editing/scroll UI state. ---
   const {
-    highlights,
     editingHighlight,
     editingRect,
     handleHighlightClick,
@@ -369,12 +385,15 @@ export function ReaderHighlights({
     handleHighlightDelete,
     createHighlightFromSelection,
   } = useHighlightEdit({
-    editionId,
-    userBookId,
+    highlights,
+    addHighlight,
+    updateHighlight,
+    removeHighlight,
     chapterId,
     containerRef,
-    isAuthenticated: _isAuthenticated,
     scrollToHighlightId,
+    scrollToHl,
+    onNavigateToHighlight,
   })
 
   // --- TTS ---

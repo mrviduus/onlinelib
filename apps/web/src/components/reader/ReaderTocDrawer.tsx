@@ -1,8 +1,39 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { isPdfAnchor } from '@textstack/shared'
 import { LocalizedLink } from '../LocalizedLink'
 import type { Bookmark } from '../../hooks/useBookmarks'
+import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useTranslation } from '../../hooks/useTranslation'
+
+// Swatch fill per highlight color — mirrors HighlightOverlayLayer's palette via
+// the same CSS vars so light/dark/sepia themes stay in sync.
+const SWATCH_COLOR: Record<HighlightColor, string> = {
+  yellow: 'var(--reader-overlay-hl-yellow, rgba(254, 240, 138, 0.5))',
+  green: 'var(--reader-overlay-hl-green, rgba(187, 247, 208, 0.5))',
+  pink: 'var(--reader-overlay-hl-pink, rgba(251, 207, 232, 0.5))',
+  blue: 'var(--reader-overlay-hl-blue, rgba(191, 219, 254, 0.5))',
+}
+
+/** Sort by reading position: reflow → text offset; PDF → page then rect y;
+ *  mixed/unknown → newest first. A book is normally all-reflow or all-PDF. */
+export function sortHighlightsByPosition(highlights: StoredHighlight[]): StoredHighlight[] {
+  return [...highlights].sort((a, b) => {
+    const aa = a.anchor
+    const ba = b.anchor
+    if (isPdfAnchor(aa) && isPdfAnchor(ba)) {
+      if (aa.page !== ba.page) return aa.page - ba.page
+      const ay = aa.rects.length ? Math.min(...aa.rects.map((r) => r.y)) : 0
+      const by = ba.rects.length ? Math.min(...ba.rects.map((r) => r.y)) : 0
+      return ay - by
+    }
+    if (!isPdfAnchor(aa) && !isPdfAnchor(ba)) {
+      return aa.startOffset - ba.startOffset
+    }
+    return b.createdAt - a.createdAt
+  })
+}
 
 export interface AutoSaveInfo {
   chapterSlug: string
@@ -27,6 +58,7 @@ interface Props {
   chapters: TocChapter[]
   currentChapterIdentifier: string
   bookmarks: Bookmark[]
+  highlights?: StoredHighlight[]
   autoSave?: AutoSaveInfo | null
   getChapterUrl: (identifier: string) => string
   useLocalizedLink?: boolean // true for public, false for user books
@@ -34,15 +66,17 @@ interface Props {
   onRemoveBookmark: (id: string) => void
   onChapterSelect?: (identifier: string) => void // For scroll mode: scroll to chapter instead of navigate
   onBookmarkSelect?: (bookmark: Bookmark) => void // Original-layout PDF: jump to the bookmark's page instead of navigating
+  onHighlightSelect?: (highlight: StoredHighlight) => void // Highlights tab: jump to the highlight (navigation-only)
 }
 
-type Tab = 'contents' | 'bookmarks'
+type Tab = 'contents' | 'bookmarks' | 'highlights'
 
 export function ReaderTocDrawer({
   open,
   chapters,
   currentChapterIdentifier,
   bookmarks,
+  highlights = [],
   autoSave,
   getChapterUrl,
   useLocalizedLink = true,
@@ -50,13 +84,16 @@ export function ReaderTocDrawer({
   onRemoveBookmark,
   onChapterSelect,
   onBookmarkSelect,
+  onHighlightSelect,
 }: Props) {
   const containerRef = useFocusTrap(open)
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('contents')
 
   if (!open) return null
 
   const ChapterLink = useLocalizedLink ? LocalizedLink : Link
+  const sortedHighlights = sortHighlightsByPosition(highlights)
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString(undefined, {
@@ -82,6 +119,12 @@ export function ReaderTocDrawer({
               onClick={() => setActiveTab('bookmarks')}
             >
               Bookmarks {bookmarks.length > 0 && `(${bookmarks.length})`}
+            </button>
+            <button
+              className={`reader-toc-drawer__tab ${activeTab === 'highlights' ? 'active' : ''}`}
+              onClick={() => setActiveTab('highlights')}
+            >
+              {t('reader.toc.highlightsTab')} {highlights.length > 0 && `(${highlights.length})`}
             </button>
           </div>
           <button onClick={onClose} className="reader-toc-drawer__close">
@@ -168,6 +211,42 @@ export function ReaderTocDrawer({
             {!autoSave && bookmarks.length === 0 && (
               <li className="reader-toc-drawer__empty">
                 No bookmarks yet. Tap the bookmark icon while reading to save your place.
+              </li>
+            )}
+          </ul>
+        )}
+
+        {activeTab === 'highlights' && (
+          <ul className="reader-toc-drawer__list">
+            {sortedHighlights.map((h) => (
+              <li key={h.id} className="reader-toc-drawer__bookmark-item">
+                <button
+                  type="button"
+                  className="reader-toc-drawer__item reader-toc-drawer__hl-item"
+                  onClick={() => {
+                    onHighlightSelect?.(h)
+                    onClose()
+                  }}
+                >
+                  <span
+                    className="reader-toc-drawer__hl-swatch"
+                    style={{ backgroundColor: SWATCH_COLOR[h.color] }}
+                    aria-hidden="true"
+                  />
+                  <span className="reader-toc-drawer__hl-body">
+                    <span className="reader-toc-drawer__hl-text">
+                      {h.selectedText || h.anchor.exact}
+                    </span>
+                    {h.noteText && (
+                      <span className="reader-toc-drawer__hl-note">{h.noteText}</span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {highlights.length === 0 && (
+              <li className="reader-toc-drawer__empty">
+                {t('reader.toc.highlightsEmpty')}
               </li>
             )}
           </ul>

@@ -26,6 +26,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
 import { ReaderSettingsDrawer } from '../ReaderSettingsDrawer'
 import { BookmarksSheet } from '../BookmarksSheet'
+import { HighlightsSheet } from '../HighlightsSheet'
 import { SelectionActionBar } from '../SelectionActionBar'
 import { TranslationSheet } from '../TranslationSheet'
 import { ExplanationSheet } from '../ExplanationSheet'
@@ -186,6 +187,7 @@ export function ReaderShell(props: ReaderShellProps) {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
+  const [highlightsOpen, setHighlightsOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
@@ -480,6 +482,12 @@ export function ReaderShell(props: ReaderShellProps) {
   const scrollToCitation = (snippet: string, charStart: number) =>
     injectJs(`window.__textstackScrollToCitation && window.__textstackScrollToCitation(${JSON.stringify(snippet)}, ${charStart})`)
 
+  // M2: scroll the reflow WebView to a saved highlight (no chapter navigation →
+  // reading position preserved). The Highlights sheet's list is always the
+  // current chapter, so the anchor resolves in the live DOM.
+  const scrollToHighlight = (anchorJson: string) =>
+    injectJs(`window.__textstackScrollToHighlight && window.__textstackScrollToHighlight(${JSON.stringify(anchorJson)})`)
+
   const activeSlug = visibleChapterSlug ?? chapterSlug
   // Same chapter → scroll now; other chapter → navigate, then onLoadEnd injects once it renders.
   const handleCitation = (c: AskCitation) => {
@@ -683,6 +691,7 @@ export function ReaderShell(props: ReaderShellProps) {
           onExit={handleExit}
           onAskPress={() => setAskOpen(true)}
           onBookmarksPress={() => setBookmarksOpen(true)}
+          onHighlightsPress={() => setHighlightsOpen(true)}
           onTocPress={() => setTocOpen(true)}
           onSettingsPress={() => setSettingsOpen(true)}
         />
@@ -798,6 +807,16 @@ export function ReaderShell(props: ReaderShellProps) {
           onToggleCurrent={toggleCurrentBookmark}
           isCurrentBookmarked={isCurrentBookmarked}
           original={original}
+        />
+
+        <HighlightsSheet
+          visible={highlightsOpen}
+          onClose={() => setHighlightsOpen(false)}
+          highlights={highlightsRef.current}
+          currentChapterSlug={activeSlug || ''}
+          onNavigate={navigateChapter}
+          onScrollToHighlight={scrollToHighlight}
+          onNavigatePage={scrollPdfToPage}
         />
 
         <TranslationSheet

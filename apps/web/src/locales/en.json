@@ -305,6 +305,10 @@
     "highlight": {
       "colors": "Highlight color"
     },
+    "toc": {
+      "highlightsTab": "Highlights",
+      "highlightsEmpty": "No highlights yet. Select text while reading to highlight it."
+    },
     "image": {
       "close": "Close image",
       "zoomIn": "Zoom in",

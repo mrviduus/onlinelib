@@ -51,6 +51,8 @@ interface PdfOriginalViewProps {
    * the current page for the top-bar page-bookmark toggle + page bookmarks.
    */
   onPageChange?: (page: number) => void
+  /** Fired when pdf.js reports the document's page count. Lets the reader clamp page jumps. */
+  onNumPages?: (numPages: number) => void
   /**
    * Fired (throttled) on genuine reading scroll so the reader can keep the
    * reading SESSION alive (time / streak / goals). Deliberately time-only — we
@@ -112,6 +114,7 @@ export default function PdfOriginalView({
   resumeReady = true,
   scrollToPage,
   onPageChange,
+  onNumPages,
   onActivity,
   onLoadError,
   highlights,
@@ -160,6 +163,15 @@ export default function PdfOriginalView({
 
   useEffect(() => {
     numPagesRef.current = numPages
+  }, [numPages])
+
+  // Surface the page count so the reader can clamp page jumps at the source.
+  const onNumPagesRef = useRef(onNumPages)
+  useEffect(() => {
+    onNumPagesRef.current = onNumPages
+  }, [onNumPages])
+  useEffect(() => {
+    if (numPages > 0) onNumPagesRef.current?.(numPages)
   }, [numPages])
 
   // Precedence: chapter page (user chose it) > server resume page > localStorage
