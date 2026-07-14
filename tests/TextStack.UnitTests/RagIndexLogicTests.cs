@@ -61,4 +61,89 @@ public class RagIndexLogicTests
     [Fact]
     public void IsReady_EmbeddedExceedsChunkCount_ReturnsFalse()
         => Assert.False(RagIndexLogic.IsReady(embeddedCount: 13, chunkCount: 12));
+
+    // ---- IsQueuedForIndexing: the row the endpoint claimed, waiting for the Worker to chunk ----
+
+    // Indexing + zero chunks + no started stamp = queued; the sweep + executor atomic claim mirror this.
+    [Fact]
+    public void IsQueuedForIndexing_IndexingZeroChunksNoStamp_ReturnsTrue()
+        => Assert.True(RagIndexLogic.IsQueuedForIndexing(RagIndexStatus.Indexing, chunkCount: 0, indexingStartedAt: null));
+
+    // A started stamp means someone already claimed it (in-flight) — not queued.
+    [Fact]
+    public void IsQueuedForIndexing_HasStartedStamp_ReturnsFalse()
+        => Assert.False(RagIndexLogic.IsQueuedForIndexing(
+            RagIndexStatus.Indexing, chunkCount: 0, indexingStartedAt: DateTimeOffset.UtcNow));
+
+    // Chunks already exist (embedding in progress) — never re-queue.
+    [Fact]
+    public void IsQueuedForIndexing_HasChunks_ReturnsFalse()
+        => Assert.False(RagIndexLogic.IsQueuedForIndexing(RagIndexStatus.Indexing, chunkCount: 5, indexingStartedAt: null));
+
+    [Theory]
+    [InlineData(RagIndexStatus.NotIndexed)]
+    [InlineData(RagIndexStatus.Ready)]
+    [InlineData(RagIndexStatus.Failed)]
+    public void IsQueuedForIndexing_NonIndexingStatus_ReturnsFalse(RagIndexStatus status)
+        => Assert.False(RagIndexLogic.IsQueuedForIndexing(status, chunkCount: 0, indexingStartedAt: null));
+
+    // ---- IsStaleIndexing: dead-process recovery → terminal Failed ----
+
+    private static readonly TimeSpan Stale = TimeSpan.FromMinutes(15);
+
+    // Indexing + zero chunks + started stamp older than the window = the claiming process died → stale.
+    [Fact]
+    public void IsStaleIndexing_OldStamp_ReturnsTrue()
+    {
+        var now = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var started = now - TimeSpan.FromMinutes(16);
+        Assert.True(RagIndexLogic.IsStaleIndexing(RagIndexStatus.Indexing, 0, started, now, Stale));
+    }
+
+    // Still inside the window — a legitimately long vision parse, not stale.
+    [Fact]
+    public void IsStaleIndexing_RecentStamp_ReturnsFalse()
+    {
+        var now = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var started = now - TimeSpan.FromMinutes(5);
+        Assert.False(RagIndexLogic.IsStaleIndexing(RagIndexStatus.Indexing, 0, started, now, Stale));
+    }
+
+    // Never claimed (no stamp) → not stale (it's queued, handled by the drain path instead).
+    [Fact]
+    public void IsStaleIndexing_NoStamp_ReturnsFalse()
+    {
+        var now = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        Assert.False(RagIndexLogic.IsStaleIndexing(RagIndexStatus.Indexing, 0, null, now, Stale));
+    }
+
+    // Already has chunks (embedding in progress) → not a dead index attempt.
+    [Fact]
+    public void IsStaleIndexing_HasChunks_ReturnsFalse()
+    {
+        var now = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var started = now - TimeSpan.FromMinutes(30);
+        Assert.False(RagIndexLogic.IsStaleIndexing(RagIndexStatus.Indexing, 7, started, now, Stale));
+    }
+
+    [Theory]
+    [InlineData(RagIndexStatus.NotIndexed)]
+    [InlineData(RagIndexStatus.Ready)]
+    [InlineData(RagIndexStatus.Failed)]
+    public void IsStaleIndexing_NonIndexingStatus_ReturnsFalse(RagIndexStatus status)
+    {
+        var now = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var started = now - TimeSpan.FromMinutes(30);
+        Assert.False(RagIndexLogic.IsStaleIndexing(status, 0, started, now, Stale));
+    }
+
+    // ---- IsTerminalFailureAfterChunking: no chunks produced → terminal Failed ----
+
+    [Fact]
+    public void IsTerminalFailureAfterChunking_ZeroChunks_ReturnsTrue()
+        => Assert.True(RagIndexLogic.IsTerminalFailureAfterChunking(0));
+
+    [Fact]
+    public void IsTerminalFailureAfterChunking_HasChunks_ReturnsFalse()
+        => Assert.False(RagIndexLogic.IsTerminalFailureAfterChunking(3));
 }

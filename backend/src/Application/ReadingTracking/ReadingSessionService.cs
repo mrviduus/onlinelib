@@ -21,9 +21,30 @@ namespace Application.ReadingTracking;
 /// </summary>
 public class ReadingSessionService(IAppDbContext db, ILogger<ReadingSessionService> logger)
 {
-    public async Task<SubmitSessionResponse> SubmitAsync(
+    /// <summary>
+    /// Returns null when the referenced book is GONE (the user re-uploaded → the old user_book/edition
+    /// row was deleted): the caller maps null → 404 so the client prunes the stale queued session instead
+    /// of retrying forever. Otherwise returns the (idempotent) submit result.
+    /// </summary>
+    public async Task<SubmitSessionResponse?> SubmitAsync(
         Guid userId, Guid siteId, SubmitSessionRequest request, CancellationToken ct)
     {
+        // Existence pre-check: a session for a deleted user_book/edition would hit the FK and Npgsql
+        // would raise 23503 → an unhandled DbUpdateException → 500, and the client's offline queue
+        // resubmits forever (500-flood). Signal "gone" (null → 404) so the client drops the item. The
+        // user_book check is owner-scoped and skips taken-down books (their FK row is also unusable).
+        if (request.UserBookId != null)
+        {
+            var liveBook = await db.UserBooks.AnyAsync(
+                b => b.Id == request.UserBookId && b.UserId == userId && b.TakedownAt == null, ct);
+            if (!liveBook) return null;
+        }
+        else if (request.EditionId != null)
+        {
+            var liveEdition = await db.Editions.AnyAsync(e => e.Id == request.EditionId, ct);
+            if (!liveEdition) return null;
+        }
+
         // Pre-check the unique-by-(user, user_book, started_at) constraint
         // for user-book sessions. The DB constraint is the source of truth
         // and the catch below still covers a race; this just keeps the
@@ -69,6 +90,15 @@ public class ReadingSessionService(IAppDbContext db, ILogger<ReadingSessionServi
             // between our pre-check and SaveChanges. The first one won; we
             // ack idempotently.
             return new SubmitSessionResponse(session.Id, []);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23503" })
+        {
+            // Belt-and-suspenders for the delete-between-check-and-insert race: the referenced
+            // user_book/edition was removed after our existence pre-check but before this insert. The
+            // FK (23503) is caught here — Debug-logged, benign ack (no 500). The row was NOT inserted,
+            // so skip the achievement check.
+            logger.LogDebug(ex, "Reading session insert hit FK 23503 (referenced book gone mid-insert)");
+            return new SubmitSessionResponse(Guid.Empty, []);
         }
 
         // Achievement check is best-effort — never fail the session submit because of it.
