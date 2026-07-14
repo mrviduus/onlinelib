@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { submitSession, type SubmitSessionResponse } from '../api/readingTracking'
+import { ApiError } from '../api/client'
 import { trackReadingSessionEnd } from '../lib/analytics'
 
 const PENDING_SESSIONS_KEY = 'reading.pendingSessions'
@@ -217,7 +218,12 @@ async function flushPendingSessions() {
       try {
         await submitSession(session)
         // Success or duplicate — either way, done
-      } catch {
+      } catch (err) {
+        // 404 = the referenced book was deleted/re-uploaded (old id gone). The
+        // session can never succeed, so prune it permanently instead of re-queuing
+        // — otherwise it retries forever and floods the endpoint. Transient errors
+        // (network / 5xx) fall through to `failed` and are retried next flush.
+        if (err instanceof ApiError && err.status === 404) continue
         failed.push(session)
       }
     }

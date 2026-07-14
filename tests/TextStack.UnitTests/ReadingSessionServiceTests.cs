@@ -23,6 +23,8 @@ public class ReadingSessionServiceTests
         public List<UserAchievement> Achievements { get; } = [];
         public List<ReadingGoal> Goals { get; } = [];
         public List<VocabularyReview> Reviews { get; } = [];
+        public List<UserBook> Books { get; } = [];
+        public List<Edition> Editions { get; } = [];
         public int SaveCalls { get; private set; }
         public Mock<IAppDbContext> Db { get; } = new();
         public Mock<ILogger<ReadingSessionService>> Logger { get; } = new();
@@ -38,6 +40,8 @@ public class ReadingSessionServiceTests
             Db.Setup(x => x.UserAchievements).Returns(() => FakeSet(Achievements).Object);
             Db.Setup(x => x.ReadingGoals).Returns(() => FakeSet(Goals).Object);
             Db.Setup(x => x.VocabularyReviews).Returns(() => FakeSet(Reviews).Object);
+            Db.Setup(x => x.UserBooks).Returns(() => FakeSet(Books).Object);
+            Db.Setup(x => x.Editions).Returns(() => FakeSet(Editions).Object);
             Db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() =>
                 {
@@ -47,6 +51,36 @@ public class ReadingSessionServiceTests
                     return 1;
                 });
             Service = new ReadingSessionService(Db.Object, Logger.Object);
+        }
+
+        // Seed a live edition / owned user-book so the SubmitAsync existence pre-check passes.
+        public Guid SeedEdition()
+        {
+            var id = Guid.NewGuid();
+            Editions.Add(new Edition
+            {
+                Id = id,
+                WorkId = Guid.NewGuid(),
+                SiteId = Guid.NewGuid(),
+                Language = "en",
+                Slug = "ed-" + id.ToString("N")[..8],
+                Title = "Test Edition",
+            });
+            return id;
+        }
+
+        public Guid SeedUserBook(Guid userId)
+        {
+            var id = Guid.NewGuid();
+            Books.Add(new UserBook
+            {
+                Id = id,
+                UserId = userId,
+                Title = "Test Book",
+                Slug = "ub-" + id.ToString("N")[..8],
+                Language = "en",
+            });
+            return id;
         }
     }
 
@@ -106,10 +140,11 @@ public class ReadingSessionServiceTests
         var userId = Guid.NewGuid();
         var siteId = Guid.NewGuid();
         var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
-        var req = EditionReq(Guid.NewGuid(), started, started.AddMinutes(5));
+        var req = EditionReq(h.SeedEdition(), started, started.AddMinutes(5));
 
         var r = await h.Service.SubmitAsync(userId, siteId, req, CancellationToken.None);
 
+        Assert.NotNull(r);
         Assert.NotEqual(Guid.Empty, r.SessionId);
         Assert.Contains("first_session", r.NewAchievements);   // only unlocks if session already persisted
         Assert.Equal(new[] { "first_session" }, r.NewAchievements.ToArray());
@@ -125,12 +160,13 @@ public class ReadingSessionServiceTests
         var h = new Harness();
         var userId = Guid.NewGuid();
         var siteId = Guid.NewGuid();
-        var userBookId = Guid.NewGuid();
+        var userBookId = h.SeedUserBook(userId);
         var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
         h.Sessions.Add(SeedSession(userId, editionId: null, userBookId: userBookId, started: started));
 
         var r = await h.Service.SubmitAsync(userId, siteId, UserBookReq(userBookId, started, started.AddMinutes(5)), CancellationToken.None);
 
+        Assert.NotNull(r);
         Assert.Equal(Guid.Empty, r.SessionId);                 // pre-check → Guid.Empty (asymmetry vs race)
         Assert.Empty(r.NewAchievements);
         Assert.Single(h.Sessions);                             // no new row
@@ -144,13 +180,15 @@ public class ReadingSessionServiceTests
         var h = new Harness();
         var userId = Guid.NewGuid();
         var siteId = Guid.NewGuid();
-        var editionId = Guid.NewGuid();
+        var editionId = h.SeedEdition();
         var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
         var req = EditionReq(editionId, started, started.AddMinutes(5));
 
         var r1 = await h.Service.SubmitAsync(userId, siteId, req, CancellationToken.None);
         var r2 = await h.Service.SubmitAsync(userId, siteId, req, CancellationToken.None);
 
+        Assert.NotNull(r1);
+        Assert.NotNull(r2);
         Assert.NotEqual(Guid.Empty, r1.SessionId);
         Assert.NotEqual(Guid.Empty, r2.SessionId);
         Assert.NotEqual(r1.SessionId, r2.SessionId);
@@ -165,11 +203,13 @@ public class ReadingSessionServiceTests
         var userId = Guid.NewGuid();
         var siteId = Guid.NewGuid();
         var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
+        var editionId = h.SeedEdition();
         // Make the achievement phase blow up (checker's first read is _db.UserAchievements).
         h.Db.Setup(x => x.UserAchievements).Throws(new InvalidOperationException("boom"));
 
-        var r = await h.Service.SubmitAsync(userId, siteId, EditionReq(Guid.NewGuid(), started, started.AddMinutes(5)), CancellationToken.None);
+        var r = await h.Service.SubmitAsync(userId, siteId, EditionReq(editionId, started, started.AddMinutes(5)), CancellationToken.None);
 
+        Assert.NotNull(r);
         Assert.Equal(h.Sessions[0].Id, r.SessionId);           // session was saved (step 7 ran before the throw)
         Assert.Empty(r.NewAchievements);                       // stays [] on swallow
         Assert.Single(h.Sessions);
@@ -194,8 +234,9 @@ public class ReadingSessionServiceTests
         var inner = new Npgsql.PostgresException("duplicate key", "ERROR", "ERROR", "23505");
         h.ThrowOnSaveCall = new DbUpdateException("unique violation", inner);
 
-        var r = await h.Service.SubmitAsync(userId, siteId, EditionReq(Guid.NewGuid(), started, started.AddMinutes(5)), CancellationToken.None);
+        var r = await h.Service.SubmitAsync(userId, siteId, EditionReq(h.SeedEdition(), started, started.AddMinutes(5)), CancellationToken.None);
 
+        Assert.NotNull(r);
         Assert.NotEqual(Guid.Empty, r.SessionId);              // race → session.Id (asymmetry vs pre-check Guid.Empty)
         Assert.Equal(h.Sessions[0].Id, r.SessionId);
         Assert.Empty(r.NewAchievements);
@@ -212,6 +253,77 @@ public class ReadingSessionServiceTests
         h.ThrowOnSaveCall = new InvalidOperationException("db down");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => h.Service.SubmitAsync(userId, siteId, EditionReq(Guid.NewGuid(), started, started.AddMinutes(5)), CancellationToken.None));
+            () => h.Service.SubmitAsync(userId, siteId, EditionReq(h.SeedEdition(), started, started.AddMinutes(5)), CancellationToken.None));
+    }
+
+    // ── Existence guard: referenced user_book gone (re-upload) → null (caller maps to 404) ────────
+    [Fact]
+    public async Task SubmitAsync_UserBookMissing_ReturnsNull_NoInsert()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
+        // No SeedUserBook → the referenced book does not exist (deleted after re-upload).
+        var req = UserBookReq(Guid.NewGuid(), started, started.AddMinutes(5));
+
+        var r = await h.Service.SubmitAsync(userId, siteId, req, CancellationToken.None);
+
+        Assert.Null(r);                                        // "gone" signal → 404 at the endpoint
+        Assert.Empty(h.Sessions);                              // nothing inserted
+        h.Db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── Existence guard: a user_book owned by SOMEONE ELSE is treated as gone for this user ───────
+    [Fact]
+    public async Task SubmitAsync_UserBookOwnedByAnotherUser_ReturnsNull()
+    {
+        var h = new Harness();
+        var owner = Guid.NewGuid();
+        var otherUser = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
+        var bookId = h.SeedUserBook(owner);                    // owned by `owner`, not `otherUser`
+
+        var r = await h.Service.SubmitAsync(otherUser, siteId, UserBookReq(bookId, started, started.AddMinutes(5)), CancellationToken.None);
+
+        Assert.Null(r);
+        Assert.Empty(h.Sessions);
+    }
+
+    // ── Existence guard: referenced edition gone → null ──────────────────────────────────────────
+    [Fact]
+    public async Task SubmitAsync_EditionMissing_ReturnsNull_NoInsert()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
+        var req = EditionReq(Guid.NewGuid(), started, started.AddMinutes(5));   // never seeded
+
+        var r = await h.Service.SubmitAsync(userId, siteId, req, CancellationToken.None);
+
+        Assert.Null(r);
+        Assert.Empty(h.Sessions);
+        h.Db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── Belt-and-suspenders: FK 23503 on SaveChanges (delete-between-check-and-insert) → benign ack ─
+    [Fact]
+    public async Task SubmitAsync_SaveThrows23503_ReturnsBenignAck_NoRethrow()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        var started = new DateTimeOffset(2025, 3, 15, 12, 0, 0, TimeSpan.Zero);
+        var editionId = h.SeedEdition();                       // passes the pre-check
+        var inner = new Npgsql.PostgresException("fk violation", "ERROR", "ERROR", "23503");
+        h.ThrowOnSaveCall = new DbUpdateException("fk violation", inner);
+
+        var r = await h.Service.SubmitAsync(userId, siteId, EditionReq(editionId, started, started.AddMinutes(5)), CancellationToken.None);
+
+        Assert.NotNull(r);                                     // benign ack, not a 500
+        Assert.Equal(Guid.Empty, r.SessionId);                 // row was NOT inserted
+        Assert.Empty(r.NewAchievements);
     }
 }

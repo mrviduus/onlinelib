@@ -53,6 +53,10 @@ public class Edition : ISiteScoped
     public DateTimeOffset? RagIndexedAt { get; set; }
     public string? RagError { get; set; }
 
+    // Stamped by the worker's atomic indexing claim (Indexing + chunk_count=0 + started_at IS NULL →
+    // now()); the dead-process/stale detector for the reliability sweep. See UserBook for details.
+    public DateTimeOffset? RagIndexingStartedAt { get; set; }
+
     public Work Work { get; set; } = null!;
     public Site Site { get; set; } = null!;
     public Edition? SourceEdition { get; set; }

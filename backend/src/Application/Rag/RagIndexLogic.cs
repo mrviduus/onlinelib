@@ -41,4 +41,53 @@ public static class RagIndexLogic
     /// </summary>
     public static bool IsReady(int embeddedCount, int chunkCount)
         => chunkCount > 0 && embeddedCount == chunkCount;
+
+    /// <summary>
+    /// A row is QUEUED for the worker to chunk when the endpoint has claimed it
+    /// (<see cref="RagIndexStatus.Indexing"/>) but no chunking has run yet: zero chunks AND no
+    /// indexing-started stamp. The worker's sweep selects these; its per-row atomic claim
+    /// (<c>SET rag_indexing_started_at = now() WHERE rag_status = 1 AND rag_chunk_count = 0 AND
+    /// rag_indexing_started_at IS NULL</c>) mirrors exactly this predicate, so the loser of a double
+    /// pick sees rowcount 0. The chunk_count guard keeps an already-chunked (embedding-in-progress)
+    /// row from being re-queued.
+    /// </summary>
+    public static bool IsQueuedForIndexing(RagIndexStatus status, int chunkCount, DateTimeOffset? indexingStartedAt)
+        => status == RagIndexStatus.Indexing && chunkCount == 0 && indexingStartedAt is null;
+
+    /// <summary>
+    /// A row is STALE (its claiming process died mid-chunk) when it is still
+    /// <see cref="RagIndexStatus.Indexing"/> with zero chunks but its indexing-started stamp is older
+    /// than <paramref name="staleAfter"/>. The sweep flips these to a terminal
+    /// <see cref="RagIndexStatus.Failed"/> — it does NOT auto-requeue (a large vision parse is real paid
+    /// spend; the user re-triggers deliberately). This is the core "no forever-Indexing dead end" fix.
+    /// </summary>
+    public static bool IsStaleIndexing(
+        RagIndexStatus status, int chunkCount, DateTimeOffset? indexingStartedAt,
+        DateTimeOffset now, TimeSpan staleAfter)
+        => status == RagIndexStatus.Indexing
+           && chunkCount == 0
+           && indexingStartedAt is not null
+           && indexingStartedAt < now - staleAfter;
+
+    /// <summary>
+    /// After the executor has run the chunker, the index attempt is a TERMINAL FAILURE when it produced
+    /// no chunks (nothing to embed → the embedder can never flip it Ready). The executor sets
+    /// <see cref="RagIndexStatus.Failed"/> with an error; a positive count leaves the row Indexing for
+    /// the embedder to complete.
+    /// </summary>
+    public static bool IsTerminalFailureAfterChunking(int chunkCount)
+        => chunkCount == 0;
+
+    /// <summary>
+    /// The status the executor stamps after a NON-empty chunk run (chunkCount &gt; 0), given how many of
+    /// those chunks are ALREADY embedded. Normally none are, so the row stays <see cref="RagIndexStatus.Indexing"/>
+    /// for the embedding worker to drain. But the embedder can race ahead and fill some (or all) chunks
+    /// before the executor stamps <c>rag_chunk_count</c>; if it already embedded every chunk we must flip
+    /// straight to <see cref="RagIndexStatus.Ready"/> here (mirroring the embedder's own Ready predicate,
+    /// <see cref="IsReady"/>) — otherwise no un-embedded chunk remains to re-trigger that flip and the row
+    /// strands Indexing forever. Blind-resetting <c>embedded_count</c> to 0 would hit the same trap, so the
+    /// executor recomputes it from the actual chunk rows and feeds it here.
+    /// </summary>
+    public static RagIndexStatus ResolveStatusAfterChunking(int chunkCount, int embeddedCount)
+        => IsReady(embeddedCount, chunkCount) ? RagIndexStatus.Ready : RagIndexStatus.Indexing;
 }

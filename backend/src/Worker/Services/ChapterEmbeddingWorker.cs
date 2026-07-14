@@ -206,6 +206,7 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
 
     private async Task EmbedUserPerItemAsync(IEmbeddingService embedder, List<UserChapterChunk> batch, CancellationToken ct)
     {
+        var poisonedBooks = new HashSet<Guid>();
         foreach (var chunk in batch)
         {
             try
@@ -215,9 +216,17 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
             catch (Exception ex)
             {
                 _poisonedUser.Add(chunk.Id);
+                poisonedBooks.Add(chunk.UserBookId);
                 _logger.LogWarning(ex, "Failed to embed user chunk {ChunkId}; parked for this process lifetime.", chunk.Id);
             }
         }
+
+        // Fix #1: a permanently-un-embeddable chunk keeps embedded_count < chunk_count forever, so the
+        // Indexing → Ready flip never fires and the book strands "Indexing" (the stale sweep only
+        // recovers chunk_count==0 rows, so it can't rescue this). Mark the owning book Failed so it
+        // stops showing Indexing and becomes re-triggerable.
+        foreach (var bookId in poisonedBooks)
+            await MarkUserBookEmbedFailedAsync(bookId);
     }
 
     /// <summary>Assigns a batch of vectors onto user chunks by position (order-preserving).</summary>
@@ -305,6 +314,7 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
 
     private async Task EmbedPerItemAsync(IEmbeddingService embedder, List<ChapterChunk> batch, CancellationToken ct)
     {
+        var poisonedEditions = new HashSet<Guid>();
         foreach (var chunk in batch)
         {
             try
@@ -314,9 +324,16 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
             catch (Exception ex)
             {
                 _poisoned.Add(chunk.Id);
+                poisonedEditions.Add(chunk.EditionId);
                 _logger.LogWarning(ex, "Failed to embed chunk {ChunkId}; parked for this process lifetime.", chunk.Id);
             }
         }
+
+        // Fix #1 (catalog analog): a permanently-un-embeddable chunk strands the edition "Indexing"
+        // forever (embedded_count can never reach chunk_count; stale sweep can't rescue chunk_count>0).
+        // Mark it Failed so it stops showing Indexing and becomes re-triggerable.
+        foreach (var editionId in poisonedEditions)
+            await MarkEditionEmbedFailedAsync(editionId);
     }
 
     /// <summary>Assigns a batch of vectors onto chunks by position (order-preserving).</summary>
@@ -326,6 +343,48 @@ public sealed class ChapterEmbeddingWorker : BackgroundService
             throw new InvalidOperationException($"Embedding count {vectors.Count} != chunk count {chunks.Count}");
         for (var i = 0; i < chunks.Count; i++)
             chunks[i].Embedding = vectors[i];
+    }
+
+    /// <summary>
+    /// Fix #1: flip an edition whose chunk the embedder gave up on (poisoned) to a terminal
+    /// <c>Failed(3)</c> with an <c>rag_error</c>, so it stops surfacing "Indexing" forever and the user
+    /// can re-trigger. Guarded on <c>rag_status = 1</c> so we never clobber a Ready/NotIndexed row.
+    /// Fresh context + <see cref="CancellationToken.None"/> (own transaction, independent of the batch
+    /// save). Best-effort: a hiccup here is logged, never stalls the embedding loop.
+    /// </summary>
+    private async Task MarkEditionEmbedFailedAsync(Guid editionId)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(CancellationToken.None);
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE editions
+                SET rag_status = 3, rag_error = 'embedding failed for a chunk', rag_indexed_at = NULL
+                WHERE id = {editionId} AND rag_status = 1;
+                """, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to mark edition {EditionId} Failed after embed poison.", editionId);
+        }
+    }
+
+    /// <summary>User-book analog of <see cref="MarkEditionEmbedFailedAsync"/> (Fix #1).</summary>
+    private async Task MarkUserBookEmbedFailedAsync(Guid userBookId)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(CancellationToken.None);
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE user_books
+                SET rag_status = 3, rag_error = 'embedding failed for a chunk', rag_indexed_at = NULL
+                WHERE id = {userBookId} AND rag_status = 1;
+                """, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to mark user book {UserBookId} Failed after embed poison.", userBookId);
+        }
     }
 
     private bool HasOpenAiKey()

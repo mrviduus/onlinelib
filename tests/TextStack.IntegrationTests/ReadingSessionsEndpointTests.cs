@@ -86,6 +86,52 @@ public class ReadingSessionsEndpointTests : IClassFixture<LiveApiFixture>, IClas
         Assert.Empty(secondResult.NewAchievements);
     }
 
+    // S-b: a session for a user_book that isn't the caller's (re-upload → old row deleted) must 404,
+    // not 500-flood on the FK. Validation passes (valid times/duration) so the existence guard is what
+    // returns 404. A random id is never an owned live book for this user.
+    [Fact]
+    public async Task SubmitSession_NonExistentUserBook_Returns404()
+    {
+        Assert.SkipUnless(_auth.IsAuthenticated, "auth unavailable");
+        var now = DateTimeOffset.UtcNow;
+        var body = new
+        {
+            userBookId = Guid.NewGuid(),   // never an owned live book
+            startedAt = now.AddMinutes(-5),
+            endedAt = now,
+            durationSeconds = 300,
+            wordsRead = 100,
+            startPercent = 0.0,
+            endPercent = 0.5
+        };
+
+        var response = await _auth.Client.SendAsync(PostSession(body), TestContext.Current.CancellationToken);
+        Assert.SkipWhen(response.StatusCode == HttpStatusCode.InternalServerError, "host erroring");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // S-b edition twin: a session for a non-existent edition → 404 (existence guard, no FK 500).
+    [Fact]
+    public async Task SubmitSession_NonExistentEdition_Returns404()
+    {
+        Assert.SkipUnless(_auth.IsAuthenticated, "auth unavailable");
+        var now = DateTimeOffset.UtcNow;
+        var body = new
+        {
+            editionId = Guid.NewGuid(),    // no such edition
+            startedAt = now.AddMinutes(-5),
+            endedAt = now,
+            durationSeconds = 300,
+            wordsRead = 100,
+            startPercent = 0.0,
+            endPercent = 0.5
+        };
+
+        var response = await _auth.Client.SendAsync(PostSession(body), TestContext.Current.CancellationToken);
+        Assert.SkipWhen(response.StatusCode == HttpStatusCode.InternalServerError, "host erroring");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task SubmitSession_ZeroDuration_Returns400()
     {

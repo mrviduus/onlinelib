@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -13,9 +14,11 @@ using Pgvector;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714065847_AddRagIndexingStartedAt")]
+    partial class AddRagIndexingStartedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1101,10 +1104,6 @@ namespace Infrastructure.Migrations
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Embedding"), "hnsw");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Embedding"), new[] { "vector_cosine_ops" });
-
-                    b.HasIndex("RagIndexingStartedAt")
-                        .HasDatabaseName("ix_editions_rag_indexing_started_at")
-                        .HasFilter("rag_status = 1");
 
                     b.HasIndex("SiteId")
                         .HasDatabaseName("ix_editions_site_id");
@@ -3222,10 +3221,6 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_user_books");
-
-                    b.HasIndex("RagIndexingStartedAt")
-                        .HasDatabaseName("ix_user_books_rag_indexing_started_at")
-                        .HasFilter("rag_status = 1");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_user_books_status");

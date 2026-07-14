@@ -63,6 +63,9 @@ public partial class AppDbContext
             e.Property(x => x.RagStatus).HasConversion<int>().HasDefaultValue(RagIndexStatus.NotIndexed);
             e.Property(x => x.RagChunkCount).HasDefaultValue(0);
             e.Property(x => x.RagEmbeddedCount).HasDefaultValue(0);
+            // Fix #6: partial index so the RagIndexingWorker's 30s stale-sweep / drain scans
+            // (WHERE rag_status = 1 ...) don't seq-scan every editions row every cycle.
+            e.HasIndex(x => x.RagIndexingStartedAt).HasFilter("rag_status = 1");
 
             // AI-054: mean-pool edition embedding. Same float[] <-> pgvector vector(1536)
             // conversion as ChapterChunk.Embedding (see AppDbContext.Rag.cs). Nullable —

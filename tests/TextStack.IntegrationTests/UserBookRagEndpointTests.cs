@@ -140,6 +140,37 @@ public class UserBookRagEndpointTests : IClassFixture<LiveApiFixture>, IClassFix
         Assert.True(status.EmbeddedCount >= 0);
     }
 
+    // S-a: the claim returns 202 IMMEDIATELY with chunkCount 0 — chunking is deferred to the Worker
+    // (no minutes-long vision parse in the HTTP request). A freshly-seeded clip is NotIndexed, so its
+    // first POST is a fresh claim (202). The body is stamped from the claim, not from any chunking.
+    [Fact]
+    public async Task PostIndex_FreshOwnedBook_Returns202WithZeroChunks_ChunkingDeferred()
+    {
+        Assert.SkipUnless(_auth.IsAuthenticated, "auth unavailable");
+        var bookId = await SeedOwnedBookAsync();
+        Assert.SkipWhen(bookId is null, "could not seed an owned user book");
+
+        var request = _auth.CreateRequest(HttpMethod.Post, $"/me/books/{bookId}/index");
+        var response = await _auth.Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.SkipWhen(IntegrationSkip.Unavailable(response), "endpoint unavailable (404/500)");
+        // A fresh (NotIndexed) book yields a 202 claim; if a prior worker cycle already advanced it we
+        // tolerate 200 rather than flake, but the fresh path is the one under test.
+        Assert.True(
+            response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK,
+            $"expected 202 or 200, got {(int)response.StatusCode}");
+
+        var status = await response.Content.ReadFromJsonAsync<IndexStatus>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(status);
+        if (response.StatusCode == HttpStatusCode.Accepted)
+        {
+            Assert.Equal("Indexing", status!.Status);
+            Assert.Equal(0, status.ChunkCount);       // proves no chunking ran in-request
+            Assert.Equal(0, status.EmbeddedCount);
+        }
+    }
+
     [Fact]
     public async Task GetIndex_OwnedBook_ReturnsStatusShape()
     {

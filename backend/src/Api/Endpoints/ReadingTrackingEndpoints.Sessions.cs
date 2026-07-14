@@ -35,7 +35,12 @@ public static partial class ReadingTrackingEndpoints
         if (elapsed < request.DurationSeconds)
             return Results.BadRequest("EndedAt - StartedAt must be >= DurationSeconds");
 
-        return Results.Ok(await sessionService.SubmitAsync(userId.Value, siteId, request, ct));
+        // null ⇒ the referenced user_book/edition was deleted (user re-uploaded). Return 404 so the
+        // client prunes the stale queued session instead of resubmitting forever (FK-23503 500-flood).
+        var result = await sessionService.SubmitAsync(userId.Value, siteId, request, ct);
+        return result is null
+            ? Results.NotFound("Referenced book no longer exists")
+            : Results.Ok(result);
     }
 
     private static async Task<IResult> GetSessions(

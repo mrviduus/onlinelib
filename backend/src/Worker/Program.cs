@@ -99,6 +99,12 @@ builder.Services.AddSingleton<UserIngestionService>();
 builder.Services.AddHostedService<IngestionWorker>();
 // Sweep: drains Pending (API re-enrich reaches the worker here) + reclaims stale Running rows.
 builder.Services.AddHostedService<MetadataEnrichmentWorker>();
+// RAG-indexing reliability: on-demand "Ask this book" chunking runs OFF the HTTP path here. The
+// executor (atomic claim + terminal Failed) + the sweep (drain queued / reclaim stale → Failed) mirror
+// the enrichment pair above. Singleton executor — depends only on the DbContext factory + the
+// singleton BookChunkingService.
+builder.Services.AddSingleton<RagIndexingService>();
+builder.Services.AddHostedService<RagIndexingWorker>();
 builder.Services.AddHostedService<PodcastWorker>();
 // Phase 4 RAG: fills chapter_chunk.embedding for chunks the chunker left null.
 builder.Services.AddHostedService<ChapterEmbeddingWorker>();
