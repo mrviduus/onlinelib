@@ -164,4 +164,29 @@ public class RagIndexLogicTests
     [Fact]
     public void ResolveStatusAfterChunking_AllEmbedded_ReturnsReady()
         => Assert.Equal(RagIndexStatus.Ready, RagIndexLogic.ResolveStatusAfterChunking(chunkCount: 8, embeddedCount: 8));
+
+    // ---- ResolveParseTimeout (QA #3): hard cap on one vision parse; bad config can't disable it ----
+
+    [Fact]
+    public void ResolveParseTimeout_PositiveMinutes_ReturnsThatDuration()
+        => Assert.Equal(TimeSpan.FromMinutes(8), RagIndexLogic.ResolveParseTimeout(8));
+
+    [Fact]
+    public void ResolveParseTimeout_DefaultConfigValue_ReturnsTwelveMinutes()
+        => Assert.Equal(TimeSpan.FromMinutes(12), RagIndexLogic.ResolveParseTimeout(12));
+
+    // A missing / misconfigured (non-positive) value must fall back to the default — never 0/negative,
+    // which would fire the timeout instantly (or never) and re-open the forever-hung parse QA #3 fixes.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void ResolveParseTimeout_NonPositive_FallsBackToDefault(int configured)
+        => Assert.Equal(RagIndexLogic.DefaultParseTimeout, RagIndexLogic.ResolveParseTimeout(configured));
+
+    // Load-bearing ordering invariant: the parse timeout MUST be strictly less than the sweep's 15-min
+    // StaleAfter (RagIndexingWorker.StaleAfter) so a live-but-slow parse is failed by its own timeout
+    // BEFORE the stale sweep would reclaim it — no stale-vs-live race.
+    [Fact]
+    public void DefaultParseTimeout_IsLessThanStaleWindow()
+        => Assert.True(RagIndexLogic.DefaultParseTimeout < TimeSpan.FromMinutes(15));
 }

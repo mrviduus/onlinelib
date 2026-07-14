@@ -90,4 +90,20 @@ public static class RagIndexLogic
     /// </summary>
     public static RagIndexStatus ResolveStatusAfterChunking(int chunkCount, int embeddedCount)
         => IsReady(embeddedCount, chunkCount) ? RagIndexStatus.Ready : RagIndexStatus.Indexing;
+
+    /// <summary>
+    /// Default hard cap on a single vision parse (QA #3). Deliberately &lt; the sweep's 15-min
+    /// <c>StaleAfter</c> so a live-but-slow parse is terminated to <see cref="RagIndexStatus.Failed"/>
+    /// by its own timeout token BEFORE the stale sweep would reclaim it — avoiding the stale-vs-live race.
+    /// </summary>
+    public static readonly TimeSpan DefaultParseTimeout = TimeSpan.FromMinutes(12);
+
+    /// <summary>
+    /// Resolve the per-parse hard timeout from the configured <c>Ai:Pdf:ParseTimeoutMinutes</c> value.
+    /// A non-positive (missing / misconfigured) value falls back to <see cref="DefaultParseTimeout"/> so a
+    /// bad config can never disable the cap (which would re-open the forever-hung parse QA #3 fixes).
+    /// The caller is responsible for keeping this under the 15-min stale window.
+    /// </summary>
+    public static TimeSpan ResolveParseTimeout(int configuredMinutes)
+        => configuredMinutes > 0 ? TimeSpan.FromMinutes(configuredMinutes) : DefaultParseTimeout;
 }

@@ -1,7 +1,9 @@
+using Application.Rag;
 using Domain.Enums;
 using Infrastructure.Persistence;
 using Infrastructure.Rag;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Worker.Services;
@@ -26,8 +28,17 @@ namespace Worker.Services;
 public class RagIndexingService(
     IDbContextFactory<AppDbContext> dbFactory,
     BookChunkingService chunking,
+    IConfiguration config,
     ILogger<RagIndexingService> logger)
 {
+    // QA #3: hard cap on a single vision parse so a hung OpenAI/vision call can't run forever. Read once
+    // (matches how Ai:Pdf:MaxParsePages is read in PdfVisionParser). MUST stay < the sweep's 15-min
+    // StaleAfter — the timeout terminates a live-but-slow parse to Failed HERE, before the stale sweep
+    // would reclaim it (avoids the stale-vs-live race). RagIndexLogic.ResolveParseTimeout floors a bad
+    // config back to the 12-min default so the cap can never be accidentally disabled.
+    private readonly TimeSpan _parseTimeout =
+        RagIndexLogic.ResolveParseTimeout(config.GetValue("Ai:Pdf:ParseTimeoutMinutes", 12));
+
     /// <summary>Index one USER book by id. No-op if it is not currently claimable (queued).</summary>
     public async Task IndexUserBookAsync(Guid bookId, CancellationToken ct)
     {
@@ -52,15 +63,37 @@ public class RagIndexingService(
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM user_chapter_chunk WHERE user_book_id = {bookId};", ct);
 
-            var chunkCount = await chunking.ChunkUserBookAsync(db, bookId, ct);
+            // QA #3: bound the parse with a linked timeout token. When it fires, the chunker's ct is
+            // cancelled → it either throws (caught below) or swallows-and-returns 0 (disambiguated below).
+            using var parseCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            parseCts.CancelAfter(_parseTimeout);
+
+            int chunkCount;
+            try
+            {
+                chunkCount = await chunking.ChunkUserBookAsync(db, bookId, parseCts.Token);
+            }
+            catch (OperationCanceledException) when (parseCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                // Timeout fired (NOT worker shutdown): terminal Failed, retry-able. Fresh-context write.
+                await FailUserBookAsync(bookId, "indexing timed out, retry");
+                return;
+            }
 
             if (RagIndexLogicIsTerminalFailure(chunkCount))
             {
-                // Fix #8: the chunker swallows an OperationCanceledException on worker shutdown and
-                // returns 0 — indistinguishable from a genuinely empty book by the count alone. If the
-                // run's ct is cancelled this is a shutdown, not an empty book: write a retry-able error
-                // (or, if that also fails, the stale sweep reclaims it) instead of the misleading
-                // "No chapters to index" that would mask a re-runnable book as permanently empty.
+                // The chunker swallows an OperationCanceledException and returns 0 — indistinguishable
+                // from a genuinely empty book by the count alone. Disambiguate before the "empty" write:
+                //   - parse timeout fired (QA #3): retry-able "timed out" (checked first — on shutdown
+                //     BOTH tokens are cancelled, so timeout-only means parseCts && !ct).
+                //   - Fix #8: worker shutdown (ct cancelled): retry-able "interrupted", not empty.
+                //   - otherwise: genuinely no chapters.
+                if (parseCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                {
+                    await FailUserBookAsync(bookId, "indexing timed out, retry");
+                    return;
+                }
+
                 if (ct.IsCancellationRequested)
                 {
                     await FailUserBookAsync(bookId, "indexing interrupted, retry");
@@ -124,11 +157,31 @@ public class RagIndexingService(
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM chapter_chunk WHERE edition_id = {editionId};", ct);
 
-            var chunkCount = await chunking.ChunkEditionAsync(db, editionId, ct);
+            // QA #3: bound the parse with a linked timeout token (see IndexUserBookAsync for the rationale).
+            using var parseCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            parseCts.CancelAfter(_parseTimeout);
+
+            int chunkCount;
+            try
+            {
+                chunkCount = await chunking.ChunkEditionAsync(db, editionId, parseCts.Token);
+            }
+            catch (OperationCanceledException) when (parseCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                await FailEditionAsync(editionId, "indexing timed out, retry");
+                return;
+            }
 
             if (RagIndexLogicIsTerminalFailure(chunkCount))
             {
-                // Fix #8: distinguish a shutdown-cancellation (retry-able) from a genuinely empty edition.
+                // Disambiguate a swallowed-cancellation 0 (see IndexUserBookAsync): timeout (QA #3) →
+                // "timed out"; Fix #8 shutdown → "interrupted"; else genuinely empty edition.
+                if (parseCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                {
+                    await FailEditionAsync(editionId, "indexing timed out, retry");
+                    return;
+                }
+
                 if (ct.IsCancellationRequested)
                 {
                     await FailEditionAsync(editionId, "indexing interrupted, retry");
