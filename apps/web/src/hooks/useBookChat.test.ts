@@ -152,4 +152,35 @@ describe('useBookChat', () => {
     const { result } = renderHook(() => useBookChat(edition))
     await waitFor(() => expect(result.current.error).toBe('auth'))
   })
+
+  it('aborts the in-flight stream and resets loading when disabled mid-stream', async () => {
+    mockGet.mockResolvedValueOnce(conversation())
+    let capturedSignal: AbortSignal | undefined
+    // Never-resolving send simulates an open SSE stream so isLoading stays true until abort.
+    mockSend.mockImplementationOnce(
+      (_id: string, _q: string, _c: string | undefined, cb: Callbacks) => {
+        capturedSignal = cb.signal
+        return new Promise<void>(() => {})
+      },
+    )
+    const { result, rerender } = renderHook(
+      ({ en }) => useBookChat(edition, undefined, en),
+      { initialProps: { en: true } },
+    )
+    await waitFor(() => expect(result.current.historyLoading).toBe(false))
+
+    act(() => {
+      void result.current.ask('why?')
+    })
+    await waitFor(() => expect(result.current.isLoading).toBe(true))
+    expect(capturedSignal?.aborted).toBe(false)
+    expect(result.current.history).toHaveLength(1) // optimistic user turn appended
+
+    // Panel closes: enabled → false while the stream is still open.
+    rerender({ en: false })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(capturedSignal?.aborted).toBe(true)
+    // Optimistic turn is intentionally kept (reopening reloads server history).
+    expect(result.current.history).toHaveLength(1)
+  })
 })

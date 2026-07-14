@@ -111,7 +111,8 @@ namespace Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "ix_conversation_message_conversation_id_ord",
                 table: "conversation_message",
-                columns: new[] { "conversation_id", "ord" });
+                columns: new[] { "conversation_id", "ord" },
+                unique: true);
         }
 
         /// <inheritdoc />

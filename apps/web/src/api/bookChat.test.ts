@@ -19,8 +19,23 @@ describe('bookChat quote encoding', () => {
     expect(parseQuotedContent('just a question')).toEqual({ quote: null, text: 'just a question' })
   })
 
-  it('handles a quote with an empty trailing question', () => {
-    const content = composeQuotedQuestion('passage', '')
-    expect(parseQuotedContent(content)).toEqual({ quote: 'passage', text: '' })
+  it('treats a legit ">"-leading question as plain text, not an empty quote card', () => {
+    // No blank-line separator + no question remainder → must NOT become an empty quote card.
+    expect(parseQuotedContent('> 5 means greater')).toEqual({ quote: null, text: '> 5 means greater' })
+  })
+
+  it('treats a blockquote with an empty trailing question as plain text', () => {
+    const content = composeQuotedQuestion('passage', '') // '> passage\n\n'
+    expect(parseQuotedContent(content)).toEqual({ quote: null, text: content })
+  })
+
+  it('parses a real composed quote+question into a card', () => {
+    const content = composeQuotedQuestion('the whale', 'what is this?')
+    expect(parseQuotedContent(content)).toEqual({ quote: 'the whale', text: 'what is this?' })
+  })
+
+  it('parses a multi-line composed quote into a card', () => {
+    const content = composeQuotedQuestion('line one\nline two', 'explain')
+    expect(parseQuotedContent(content)).toEqual({ quote: 'line one\nline two', text: 'explain' })
   })
 })

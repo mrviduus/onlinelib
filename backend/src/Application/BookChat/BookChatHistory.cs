@@ -72,6 +72,52 @@ public static class BookChatHistory
     /// <summary>Truncates a freshly-generated summary to <see cref="MaxSummaryChars"/>.</summary>
     public static string CapSummary(string summary)
         => summary.Length <= MaxSummaryChars ? summary : summary[..MaxSummaryChars];
+
+    /// <summary>
+    /// Whether flipping the spoiler gate should drop the distilled memory (rolling summary + watermark).
+    /// True ONLY on a false→true transition: while the gate was off the user may have asked ahead, and
+    /// those ahead-of-progress turns get folded into <c>Summary</c>; re-enabling the gate would otherwise
+    /// leak that summarized spoiler back into gated history. The raw messages stay — only the distilled
+    /// memory is dropped, and the summarizer rebuilds it from the (now-gated) turns later. Toggling OFF
+    /// (true→false) or a no-op needs nothing. Pure.
+    /// </summary>
+    public static bool ShouldClearSummaryOnGateChange(bool wasEnabled, bool nowEnabled)
+        => !wasEnabled && nowEnabled;
+
+    /// <summary>
+    /// Decides what to do with a streamed assistant turn once the tee stops, from the count of streamed
+    /// answer characters and whether the upstream stream faulted (LLM error item or the enumerator threw).
+    /// <list type="bullet">
+    /// <item><b>DeleteUserTurn</b> — nothing streamed: a bare user row with no answer pollutes the next
+    /// ask's history and renders blank, so the just-persisted user turn is removed. Applies whether or not
+    /// it faulted (a clean zero-delta completion is treated the same).</item>
+    /// <item><b>PersistTruncated</b> — some text then a fault: persist the fragment with an interrupted
+    /// marker so a reload doesn't present a truncated answer as complete.</item>
+    /// <item><b>Persist</b> — some text, clean completion: persist verbatim.</item>
+    /// </list>
+    /// Pure.
+    /// </summary>
+    public static ChatPersistAction ResolvePersistAction(int streamedChars, bool faulted)
+        => streamedChars <= 0
+            ? ChatPersistAction.DeleteUserTurn
+            : faulted ? ChatPersistAction.PersistTruncated : ChatPersistAction.Persist;
+
+    /// <summary>Marker appended to a persisted answer that was cut off mid-stream by a fault.</summary>
+    public const string TruncationMarker = "\n\n[answer interrupted]";
+}
+
+/// <summary>What the streaming tee does with the assistant turn when the stream stops (see
+/// <see cref="BookChatHistory.ResolvePersistAction"/>).</summary>
+public enum ChatPersistAction
+{
+    /// <summary>Persist the streamed answer as-is (clean completion).</summary>
+    Persist,
+
+    /// <summary>Persist the partial answer with a truncation marker (faulted mid-stream).</summary>
+    PersistTruncated,
+
+    /// <summary>Delete the orphaned user turn (nothing streamed).</summary>
+    DeleteUserTurn,
 }
 
 /// <summary>Canonical role strings shared by the chat persistence + history assembly.</summary>

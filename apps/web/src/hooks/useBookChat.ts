@@ -73,29 +73,40 @@ export function useBookChat(
   const loadKey = enabled && target ? `${target.kind}:${target.id}` : null
   useEffect(() => {
     if (!loadKey || !target) return
-    let cancelled = false
+    const ctrl = new AbortController()
     setHistoryLoading(true)
     setError(null)
-    getBookChat(target)
+    getBookChat(target, ctrl.signal)
       .then(conv => {
-        if (cancelled) return
+        if (ctrl.signal.aborted) return
         setConversationId(conv.conversationId)
         setSpoilerGateEnabled(conv.spoilerGateEnabled)
         setHistory(messagesToTurns(conv.messages))
       })
       .catch(err => {
-        if (cancelled) return
+        if (ctrl.signal.aborted) return
         if (err instanceof ApiError && err.status === 401) setError('auth')
         else setError(err instanceof Error ? err.message : 'Failed to load chat')
       })
       .finally(() => {
-        if (!cancelled) setHistoryLoading(false)
+        if (!ctrl.signal.aborted) setHistoryLoading(false)
       })
-    return () => {
-      cancelled = true
-    }
+    // Aborts the in-flight GET when the panel closes (loadKey → null) or the book switches.
+    return () => ctrl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target is stable per loadKey
   }, [loadKey])
+
+  // Panel closed mid-stream: ReaderPage keeps AskPanel mounted with open=false, so aborting only on
+  // unmount would leave a send/stream running. When `enabled` flips false, abort the in-flight
+  // send/stream (the history GET is already aborted via loadKey→null cleanup) and settle loading
+  // flags. The optimistic user turn is intentionally KEPT — reopening re-fires the load effect,
+  // which replaces local history with the server's persisted copy, so no rollback is needed.
+  useEffect(() => {
+    if (enabled) return
+    abortRef.current?.abort()
+    setIsLoading(false)
+    setHistoryLoading(false)
+  }, [enabled])
 
   /** Append a fragment to the last (streaming) turn's answer. */
   const appendDelta = useCallback((fragment: string) => {

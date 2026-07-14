@@ -949,6 +949,7 @@ namespace Infrastructure.Migrations
                         .HasName("pk_conversation_message");
 
                     b.HasIndex("ConversationId", "Ord")
+                        .IsUnique()
                         .HasDatabaseName("ix_conversation_message_conversation_id_ord");
 
                     b.ToTable("conversation_message", (string)null);

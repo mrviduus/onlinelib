@@ -142,4 +142,52 @@ public class BookChatHistoryTests
         var huge = new string('x', BookChatHistory.MaxSummaryChars + 100);
         Assert.Equal(BookChatHistory.MaxSummaryChars, BookChatHistory.CapSummary(huge).Length);
     }
+
+    // ---- spoiler-gate summary-clear transition (Fix 3: leak-by-memory) ----
+
+    [Fact]
+    public void ShouldClearSummaryOnGateChange_FalseToTrue_Clears()
+        => Assert.True(BookChatHistory.ShouldClearSummaryOnGateChange(wasEnabled: false, nowEnabled: true));
+
+    [Fact]
+    public void ShouldClearSummaryOnGateChange_TrueToFalse_NoClear()
+        => Assert.False(BookChatHistory.ShouldClearSummaryOnGateChange(wasEnabled: true, nowEnabled: false));
+
+    [Fact]
+    public void ShouldClearSummaryOnGateChange_TrueToTrue_NoClear()
+        => Assert.False(BookChatHistory.ShouldClearSummaryOnGateChange(wasEnabled: true, nowEnabled: true));
+
+    [Fact]
+    public void ShouldClearSummaryOnGateChange_FalseToFalse_NoClear()
+        => Assert.False(BookChatHistory.ShouldClearSummaryOnGateChange(wasEnabled: false, nowEnabled: false));
+
+    // ---- streamed-turn persist action (Fix 4/5: orphan delete + truncation marker) ----
+
+    [Fact]
+    public void ResolvePersistAction_TextAndCleanCompletion_Persist()
+        => Assert.Equal(
+            ChatPersistAction.Persist,
+            BookChatHistory.ResolvePersistAction(streamedChars: 42, faulted: false));
+
+    [Fact]
+    public void ResolvePersistAction_TextThenFault_PersistTruncated()
+        => Assert.Equal(
+            ChatPersistAction.PersistTruncated,
+            BookChatHistory.ResolvePersistAction(streamedChars: 42, faulted: true));
+
+    [Fact]
+    public void ResolvePersistAction_ZeroTextAndFault_DeleteUserTurn()
+        => Assert.Equal(
+            ChatPersistAction.DeleteUserTurn,
+            BookChatHistory.ResolvePersistAction(streamedChars: 0, faulted: true));
+
+    [Fact]
+    public void ResolvePersistAction_ZeroTextCleanCompletion_DeleteUserTurn()
+        => Assert.Equal(
+            ChatPersistAction.DeleteUserTurn,
+            BookChatHistory.ResolvePersistAction(streamedChars: 0, faulted: false));
+
+    [Fact]
+    public void TruncationMarker_IsAppendedForm()
+        => Assert.Contains("interrupted", BookChatHistory.TruncationMarker);
 }

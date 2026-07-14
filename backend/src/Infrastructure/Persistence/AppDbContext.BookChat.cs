@@ -69,7 +69,9 @@ public partial class AppDbContext
             e.ToTable("conversation_message");
 
             // Hot query: a conversation's turns in order (history load + next-ord computation).
-            e.HasIndex(x => new { x.ConversationId, x.Ord });
+            // UNIQUE so two concurrent POSTs can't both claim the same ord (data-corruption guard):
+            // the loser gets a 23505 and PostMessage recomputes maxOrd + retries.
+            e.HasIndex(x => new { x.ConversationId, x.Ord }).IsUnique();
 
             e.Property(x => x.Role).HasMaxLength(16);
             e.Property(x => x.Content).HasColumnType("text");

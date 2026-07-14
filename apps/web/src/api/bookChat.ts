@@ -46,11 +46,15 @@ export function composeQuotedQuestion(passage: string, question: string): string
 
 /**
  * Inverse of {@link composeQuotedQuestion}: splits a user message into its leading blockquote
- * (rendered as a styled quote card) and the remaining question text. Returns `quote: null` when the
- * message has no leading `>` block.
+ * (rendered as a styled quote card) and the remaining question text. Only treats a message as a
+ * quote card when it matches the EXACT shape {@link composeQuotedQuestion} emits — one-or-more
+ * leading `> `-prefixed lines, a single BLANK separator line, then a NON-EMPTY question remainder.
+ * Anything else (a plain `> 5 means greater`, or a blockquote with no question) is returned as-is
+ * plain text so a legitimate `>`-leading question isn't hijacked into an empty quote card.
  */
 export function parseQuotedContent(content: string): { quote: string | null; text: string } {
-  if (!content.startsWith('>')) return { quote: null, text: content }
+  const plain = { quote: null, text: content }
+  if (!content.startsWith('>')) return plain
   const lines = content.split('\n')
   const quoteLines: string[] = []
   let i = 0
@@ -60,8 +64,11 @@ export function parseQuotedContent(content: string): { quote: string | null; tex
     else if (line === '>') quoteLines.push('')
     else break
   }
-  if (i < lines.length && lines[i] === '') i++ // drop the single blank separator
-  return { quote: quoteLines.join('\n'), text: lines.slice(i).join('\n') }
+  // Require: at least one quote line, a blank-line separator, and a non-empty question remainder.
+  if (quoteLines.length === 0 || lines[i] !== '') return plain
+  const text = lines.slice(i + 1).join('\n')
+  if (text === '') return plain
+  return { quote: quoteLines.join('\n'), text }
 }
 
 /** Query fragment selecting the catalog edition vs the user-uploaded book. */

@@ -31,7 +31,9 @@ public static class BookChatEndpoints
     public static void MapBookChatEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/me/chat").WithTags("Book Chat");
-        group.MapGet("", GetConversation);
+        // GET is upsert-on-read (it can INSERT a conversation row), so it carries the chat's own per-IP
+        // limiter ("rag.ask", 30/min) rather than staying unthrottled — same family as the POST below.
+        group.MapGet("", GetConversation).RequireRateLimiting("rag.ask");
         group.MapPost("/{conversationId:guid}/messages", PostMessage).RequireRateLimiting("rag.ask");
         group.MapPatch("/{conversationId:guid}", ToggleGate);
         group.MapDelete("/{conversationId:guid}/messages", ClearMessages);
@@ -61,7 +63,20 @@ public static class BookChatEndpoints
         {
             conversation = NewConversation(userId.Value, httpContext.GetSiteId(), editionId, userBookId);
             db.BookConversations.Add(conversation);
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // Two simultaneous first-GETs both tried to create the (one-per-user+book) conversation;
+                // the filtered-unique index rejected the loser. Drop our pending insert (Remove on an
+                // Added entity detaches it) and re-read the row the winner committed, instead of 500ing.
+                db.BookConversations.Remove(conversation);
+                var existing = await LoadConversationAsync(db, userId.Value, editionId, userBookId, ct);
+                if (existing is null) throw;
+                conversation = existing;
+            }
         }
 
         var messages = await db.ConversationMessages
@@ -160,28 +175,47 @@ public static class BookChatEndpoints
         if (chunks.Count == 0)
             return InsufficientResult(httpContext, ask, request.Question, noteTexts, lastReadOrd, logger);
 
-        // Persist the user turn (next ord), then assemble server-owned history from summary + recent turns.
-        var maxOrd = await db.ConversationMessages
-            .Where(m => m.ConversationId == conversation.Id)
-            .Select(m => (int?)m.Ord)
-            .MaxAsync(ct);
-        var userOrd = BookChatHistory.NextOrd(maxOrd);
-        var assistantOrd = userOrd + 1;
-
+        // Assemble server-owned history from PRIOR turns before persisting this question (so the new
+        // question isn't double-counted — the ask seam appends it separately).
         var recentTurns = await LoadRecentTurnsAsync(db, conversation.Id, ct);
 
         var now = DateTimeOffset.UtcNow;
-        db.ConversationMessages.Add(new ConversationMessage
+        var userMessage = new ConversationMessage
         {
             Id = Guid.NewGuid(),
             ConversationId = conversation.Id,
-            Ord = userOrd,
             Role = ConversationMessage.RoleUser,
             Content = request.Question,
             CreatedAt = now,
-        });
+        };
+        db.ConversationMessages.Add(userMessage);
         conversation.UpdatedAt = now;
-        await db.SaveChangesAsync(ct);
+
+        // Persist the user turn at the next ord. Two concurrent POSTs can compute the same next ord; the
+        // UNIQUE (conversation_id, ord) index then rejects the loser with 23505 instead of silently
+        // duplicating the ord — recompute maxOrd + retry (bounded) so both turns land at distinct ords.
+        int userOrd;
+        const int maxOrdAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            var maxOrd = await db.ConversationMessages
+                .Where(m => m.ConversationId == conversation.Id)
+                .Select(m => (int?)m.Ord)
+                .MaxAsync(ct);
+            userOrd = BookChatHistory.NextOrd(maxOrd);
+            userMessage.Ord = userOrd;
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                break;
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex) && attempt < maxOrdAttempts)
+            {
+                logger.LogDebug(
+                    "Book Chat user-turn ord {Ord} collided (attempt {Attempt}); recomputing", userOrd, attempt);
+            }
+        }
+        var assistantOrd = userOrd + 1;
 
         var history = BookChatHistory.BuildHistory(conversation.Summary, recentTurns);
 
@@ -193,7 +227,7 @@ public static class BookChatEndpoints
                 httpContext,
                 ct2 => TeeAndPersistAsync(
                     ask.StreamAsync(request.Question, chunks, noteTexts, history, lastReadOrd, ct2),
-                    scopeFactory, logger, conversation.Id, assistantOrd, ct2),
+                    scopeFactory, logger, conversation.Id, userOrd, assistantOrd, ct2),
                 logger);
         }
 
@@ -231,6 +265,17 @@ public static class BookChatEndpoints
         var conversation = await db.BookConversations
             .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId.Value, ct);
         if (conversation is null) return Results.NotFound("Conversation not found");
+
+        // Turning the gate back ON (false→true): while it was off the user could ask ahead of their
+        // reading, and those spoiler turns get folded into the rolling Summary. Re-gating would otherwise
+        // re-inject that distilled spoiler into gated history — so drop the summary + watermark here. The
+        // raw messages stay; the summarizer rebuilds memory from the (now-gated) turns later.
+        if (BookChatHistory.ShouldClearSummaryOnGateChange(
+                conversation.SpoilerGateEnabled, request.SpoilerGateEnabled))
+        {
+            conversation.Summary = null;
+            conversation.SummarizedThroughOrd = 0;
+        }
 
         conversation.SpoilerGateEnabled = request.SpoilerGateEnabled;
         conversation.UpdatedAt = DateTimeOffset.UtcNow;
@@ -368,36 +413,96 @@ public static class BookChatEndpoints
 
     /// <summary>
     /// Relays the ask stream verbatim (unchanged SSE wire format) while accumulating the answer text +
-    /// terminal citations, then — on normal completion OR client disconnect — best-effort persists the
-    /// assistant turn in a fresh DI scope (the request scope may already be gone). Persists only when some
-    /// text streamed; a pure failure (empty text) leaves just the user turn recorded.
+    /// terminal citations, then decides the persist action from what streamed (see
+    /// <see cref="BookChatHistory.ResolvePersistAction"/>) in a fresh DI scope (the request scope may be
+    /// gone): a clean answer is persisted verbatim; a fault after some text is persisted with a truncation
+    /// marker; nothing streamed deletes the already-persisted user turn so it doesn't render blank + poison
+    /// the next ask's history. Never persists the insufficient case (that path short-circuits earlier and
+    /// never records the user turn).
     /// </summary>
     private static async IAsyncEnumerable<Application.Rag.AskStreamItem> TeeAndPersistAsync(
         IAsyncEnumerable<Application.Rag.AskStreamItem> inner,
         IServiceScopeFactory scopeFactory,
         ILogger logger,
         Guid conversationId,
+        int userOrd,
         int assistantOrd,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         var text = new StringBuilder();
         string? citationsJson = null;
+        var faulted = false;
+        var completed = false;
         try
         {
             await foreach (var item in inner.WithCancellation(ct))
             {
+                if (item.Error is { Length: > 0 })
+                    faulted = true; // upstream surfaced an LLM/provider failure as a terminal error item
                 if (item.TextDelta is { Length: > 0 } fragment)
                     text.Append(fragment);
                 if (item.Terminal is { } terminal && !terminal.Insufficient)
                     citationsJson = SerializeCitations(AskSse.ToCitations(terminal.Citations));
                 yield return item;
             }
+            completed = true;
         }
         finally
         {
-            if (text.Length > 0)
-                QueueAssistantPersist(scopeFactory, logger, conversationId, assistantOrd, text.ToString(), citationsJson);
+            // Faulted if the upstream reported an error item OR the enumerator threw before a clean drain
+            // (e.g. client disconnect mid-stream cancels the LLM → the answer is genuinely partial). A
+            // completed drain with no error item is a normal finish.
+            faulted |= !completed;
+            DispatchPersist(
+                BookChatHistory.ResolvePersistAction(text.Length, faulted),
+                scopeFactory, logger, conversationId, userOrd, assistantOrd, text.ToString(), citationsJson);
         }
+    }
+
+    /// <summary>Routes the resolved persist action to the right fresh-scope background task.</summary>
+    private static void DispatchPersist(
+        ChatPersistAction action, IServiceScopeFactory scopeFactory, ILogger logger,
+        Guid conversationId, int userOrd, int assistantOrd, string text, string? citationsJson)
+    {
+        switch (action)
+        {
+            case ChatPersistAction.Persist:
+                QueueAssistantPersist(scopeFactory, logger, conversationId, assistantOrd, text, citationsJson);
+                break;
+            case ChatPersistAction.PersistTruncated:
+                QueueAssistantPersist(
+                    scopeFactory, logger, conversationId, assistantOrd,
+                    text + BookChatHistory.TruncationMarker, citationsJson);
+                break;
+            case ChatPersistAction.DeleteUserTurn:
+                QueueDeleteUserTurn(scopeFactory, logger, conversationId, userOrd);
+                break;
+        }
+    }
+
+    /// <summary>Fire-and-forget: delete the orphaned user turn (fresh scope, best-effort) when the stream
+    /// produced no answer at all, so a lone user row doesn't render blank + pollute the next ask's history.</summary>
+    private static void QueueDeleteUserTurn(
+        IServiceScopeFactory scopeFactory, ILogger logger, Guid conversationId, int userOrd)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+                await db.ConversationMessages
+                    .Where(m => m.ConversationId == conversationId
+                                && m.Ord == userOrd && m.Role == ConversationMessage.RoleUser)
+                    .ExecuteDeleteAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex, "Book Chat orphan user-turn delete failed for {ConversationId} ord {Ord}",
+                    conversationId, userOrd);
+            }
+        });
     }
 
     /// <summary>Fire-and-forget: persist a streamed assistant turn (fresh scope) + run the summary trigger.</summary>
@@ -419,7 +524,21 @@ public static class BookChatEndpoints
                 var exists = await db.ConversationMessages
                     .AnyAsync(m => m.ConversationId == conversationId && m.Ord == assistantOrd, CancellationToken.None);
                 if (!exists)
-                    await PersistAssistantAsync(db, conversation, assistantOrd, content, citationsJson, CancellationToken.None);
+                {
+                    try
+                    {
+                        await PersistAssistantAsync(db, conversation, assistantOrd, content, citationsJson, CancellationToken.None);
+                    }
+                    catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+                    {
+                        // A concurrent writer claimed this assistant ord between the check and our insert
+                        // (the UNIQUE ord index caught it). The other turn is authoritative — lose cleanly
+                        // and let that winner run the summary trigger (bail rather than re-save our stale
+                        // still-Added entity, which would just 23505 again).
+                        logger.LogDebug("Book Chat assistant ord {Ord} already persisted concurrently", assistantOrd);
+                        return;
+                    }
+                }
 
                 await SummarizeIfDueAsync(scope.ServiceProvider, db, conversation, logger);
             }
@@ -496,6 +615,12 @@ public static class BookChatEndpoints
             logger.LogWarning(ex, "Book Chat summarize failed for {ConversationId}", conversation.Id);
         }
     }
+
+    // ---- helpers ----
+
+    /// <summary>True iff the update failed on a Postgres UNIQUE violation (SQLSTATE 23505).</summary>
+    private static bool IsUniqueViolation(DbUpdateException ex)
+        => ex.InnerException is Npgsql.PostgresException { SqlState: "23505" };
 
     // ---- citation (de)serialization ----
 
