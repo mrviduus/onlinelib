@@ -22,6 +22,15 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
         using var ms = new MemoryStream();
         await fileStream.CopyToAsync(ms, ct);
 
+        // Truncated-PDF guard: a multipart can be well-formed while the PDF inside is
+        // half-downloaded (valid %PDF- header, no startxref/%%EOF tail). Reject here so
+        // we never create a book row that's doomed to fail at ingestion. O(header+tail).
+        if (format == BookFormat.Pdf &&
+            !PdfUploadSanity.LooksLikeCompletePdf(ms.GetBuffer().AsSpan(0, (int)ms.Length)))
+        {
+            return (null, "This PDF looks incomplete or corrupted — if you just downloaded it, wait for the download to finish and try again.");
+        }
+
         return await CreateBookAsync(
             userId,
             content: ms,

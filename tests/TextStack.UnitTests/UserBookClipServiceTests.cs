@@ -197,12 +197,17 @@ public class UserBookClipServiceTests
 
     // S1a: a PDF upload is readable instantly (file stored at upload), so the
     // upload response carries HasOriginalPdf=true derived from the known format.
+    // A structurally complete minimal PDF: %PDF- header + startxref + %%EOF trailer.
+    // Uploads now run PdfUploadSanity.LooksLikeCompletePdf before creating a book row.
+    private static byte[] CompletePdfBytes() =>
+        "%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\nstartxref\n9\n%%EOF"u8.ToArray();
+
     [Fact]
     public async Task UploadAsync_PdfFile_ResponseHasOriginalPdfTrue()
     {
         var h = new Harness();
         var user = h.SeedUser();
-        using var stream = new MemoryStream("%PDF-1.7"u8.ToArray());
+        using var stream = new MemoryStream(CompletePdfBytes());
 
         var (response, error) = await h.Service.UploadAsync(
             user.Id, stream, "book.pdf", title: null, language: "en", CancellationToken.None);
@@ -210,6 +215,28 @@ public class UserBookClipServiceTests
         Assert.Null(error);
         Assert.NotNull(response);
         Assert.True(response!.HasOriginalPdf);
+    }
+
+    // Prod incident: a PDF uploaded while the browser was still downloading it — valid
+    // %PDF- header but no startxref/%%EOF tail. Must be rejected up front, no book/file rows.
+    [Fact]
+    public async Task UploadAsync_TruncatedPdf_RejectedNoBookRow()
+    {
+        var h = new Harness();
+        var user = h.SeedUser();
+        using var stream = new MemoryStream("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\n(no trailer here)"u8.ToArray());
+
+        var (response, error) = await h.Service.UploadAsync(
+            user.Id, stream, "book.pdf", title: null, language: "en", CancellationToken.None);
+
+        Assert.Null(response);
+        Assert.Equal(
+            "This PDF looks incomplete or corrupted — if you just downloaded it, wait for the download to finish and try again.",
+            error);
+        Assert.Empty(h.UserBooks);
+        Assert.Empty(h.UserBookFiles);
+        Assert.Empty(h.Jobs);
+        Assert.Equal(0, user.StorageUsedBytes);
     }
 
     [Fact]

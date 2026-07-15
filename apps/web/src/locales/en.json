@@ -842,6 +842,7 @@
       "browse": "or click to browse",
       "subtitle": "EPUB or PDF",
       "invalid": "Unsupported file. Use EPUB or PDF.",
+      "truncatedPdf": "This PDF looks incomplete or corrupted. If you just downloaded it, wait for the download to finish and pick it again.",
       "signinRequired": "Sign in to upload books",
       "signinAction": "Sign in"
     },
