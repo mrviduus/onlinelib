@@ -9,6 +9,7 @@ import { DEMO_BOOK } from '../../config/demoBook'
 import { MobileSearchOverlay } from '../Search'
 import { LocalizedLink } from '../LocalizedLink'
 import { uploadUserBook } from '../../api/userBooks'
+import { pdfFilePassesSanityCheck } from '../../lib/pdfUploadSanity'
 import { useContinueReading } from '../../hooks/useContinueReading'
 import { ContinueReadingCard } from './ContinueReadingCard'
 import { POPULAR_LANGUAGES, getLanguage, getFlagUrl } from '../../data/languages'
@@ -67,8 +68,14 @@ export function HeroSection() {
 
   const handleUpload = async (file: File) => {
     if (uploading) return
-    setUploading(true)
     setUploadError(null)
+    // Pre-upload sanity check: block a truncated PDF (picked mid-download)
+    // before spending the upload. Server also 400s it.
+    if (!(await pdfFilePassesSanityCheck(file))) {
+      setUploadError(t('upload.dropzone.truncatedPdf'))
+      return
+    }
+    setUploading(true)
     try {
       await ensureSession()
       const result = await uploadUserBook(file)

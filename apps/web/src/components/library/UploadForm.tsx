@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { uploadUserBook, getStorageQuota, type StorageQuota } from '../../api/userBooks'
 import { emit } from '../../lib/telemetry/myBooksV2'
+import { pdfFilePassesSanityCheck } from '../../lib/pdfUploadSanity'
 import { useTranslation } from '../../hooks/useTranslation'
 
 interface UploadFormProps {
@@ -24,6 +25,15 @@ export function UploadForm({ onUploadComplete, initialFile, queueLabel }: Upload
 
   const handleUpload = useCallback(async (file: File) => {
     setError(null)
+
+    // Pre-upload sanity check: a PDF picked mid-download is truncated and would
+    // fail ingestion. Block before spending the upload (server also 400s it).
+    if (!(await pdfFilePassesSanityCheck(file))) {
+      emit('upload.failed', { reason: 'truncated_pdf_client' })
+      setError(t('upload.dropzone.truncatedPdf'))
+      return
+    }
+
     setIsUploading(true)
     setUploadProgress(0)
     const startedAt = Date.now()
@@ -44,7 +54,7 @@ export function UploadForm({ onUploadComplete, initialFile, queueLabel }: Upload
       setIsUploading(false)
       setUploadProgress(0)
     }
-  }, [onUploadComplete])
+  }, [onUploadComplete, t])
 
   useEffect(() => {
     if (initialFile && initialFile !== lastInitialRef.current && !isUploading) {
