@@ -32,7 +32,7 @@ public sealed class RagService : IRagService
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-        Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+        Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
@@ -40,12 +40,14 @@ public sealed class RagService : IRagService
         return await RetrieveHybridAsync(
             query, k,
             BuildCatalogSql(),
+            includeSummaries ? BuildCatalogSummarySql() : null,
             withVector => new { q = withVector.Vector, query, editionId, pool = withVector.Pool, maxChapterOrd },
             ct);
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
@@ -53,6 +55,7 @@ public sealed class RagService : IRagService
         return await RetrieveHybridAsync(
             query, k,
             BuildUserBookSql(),
+            includeSummaries ? BuildUserBookSummarySql() : null,
             withVector => new { q = withVector.Vector, query, userId, userBookId, pool = withVector.Pool, maxChapterOrd },
             ct);
     }
@@ -63,9 +66,17 @@ public sealed class RagService : IRagService
     /// differ in table + WHERE filter (catalog edition vs isolated user book), supplied via
     /// <paramref name="sql"/> and <paramref name="parameters"/> — so RRF, the pgvector literal format,
     /// pool sizing, and the timeout stay identical between paths.
+    ///
+    /// When <paramref name="summarySql"/> is non-null (overview-class questions — see
+    /// <c>RagAskPrompt.IsOverviewQuestion</c>), a third statement fetches ALL of the book's precomputed
+    /// <c>is_summary</c> chunks (still gated + isolated by the same params) in the SAME round-trip; those
+    /// summary rows are then GUARANTEED into the result — merged ahead of the organic fused ranking
+    /// (<see cref="MergeSummariesFirst"/>) — so "summarize chapter N" always sees the whole-chapter digest
+    /// rather than relying on hybrid search to surface it. Summaries also participate organically in the
+    /// two hybrid retrievers, so the non-overview path (null summarySql) is byte-identical to before.
     /// </summary>
     private async Task<IReadOnlyList<RetrievedChunk>> RetrieveHybridAsync(
-        string query, int k, string sql,
+        string query, int k, string sql, string? summarySql,
         Func<(string Vector, int Pool), object> parameters, CancellationToken ct)
     {
         if (k <= 0)
@@ -75,21 +86,26 @@ public sealed class RagService : IRagService
         var vectorLiteral = FormatVector(queryVector);
         var pool = Math.Max(k, MinCandidatePool);
 
+        // Append the summary fetch as a third statement so it rides the same round-trip + timeout.
+        var fullSql = summarySql is null ? sql : sql + "\n\n" + summarySql;
+
         using var connection = _connectionFactory();
         using var multi = await connection.QueryMultipleAsync(
             new CommandDefinition(
-                sql,
+                fullSql,
                 parameters((vectorLiteral, pool)),
                 cancellationToken: ct,
                 commandTimeout: QueryTimeoutSeconds));
 
         var vectorRows = (await multi.ReadAsync<Row>()).ToList();
         var lexicalRows = (await multi.ReadAsync<Row>()).ToList();
+        var summaryRows = summarySql is null ? new List<Row>() : (await multi.ReadAsync<Row>()).ToList();
 
-        // Fuse the two rankings by chunk id (RRF), then materialize the top-k from either row set.
+        // Fuse the two rankings by chunk id (RRF), then materialize from either row set.
         var byId = new Dictionary<Guid, Row>();
         foreach (var r in vectorRows) byId[r.ChunkId] = r;
         foreach (var r in lexicalRows) byId.TryAdd(r.ChunkId, r);
+        foreach (var r in summaryRows) byId.TryAdd(r.ChunkId, r);
 
         var fused = RrfFusion.Fuse(new[]
         {
@@ -97,17 +113,50 @@ public sealed class RagService : IRagService
             lexicalRows.Select(r => r.ChunkId).ToList(),
         });
 
-        return fused
-            .Take(k)
-            .Select(f =>
+        // The organic top-k (unchanged for non-overview queries). When summaries were fetched, guarantee
+        // them into the result ahead of the organic ranking; both inputs are already deterministic.
+        var fusedIds = fused.Select(f => f.Item).ToList();
+        var scoreById = fused.ToDictionary(f => f.Item, f => f.Score);
+        var orderedIds = summarySql is null
+            ? fusedIds.Take(k).ToList()
+            : MergeSummariesFirst(fusedIds, summaryRows.Select(r => r.ChunkId).ToList(), k);
+
+        return orderedIds
+            .Select(id =>
             {
-                var r = byId[f.Item];
-                // Score is the RRF fusion score (not cosine) — see RetrievedChunk.Score.
+                var r = byId[id];
+                // Score is the RRF fusion score (not cosine) — see RetrievedChunk.Score. A guaranteed
+                // summary not present in the fused ranking gets 0 (it wasn't organically retrieved).
                 return new RetrievedChunk(
-                    r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd, f.Score,
-                    r.SourcePage, r.SectionPath);
+                    r.ChunkId, r.ChapterId, r.ChapterOrd, r.Ord, r.Text, r.CharStart, r.CharEnd,
+                    scoreById.GetValueOrDefault(id, 0.0), r.SourcePage, r.SectionPath);
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// Deterministic guaranteed-summary merge: the <paramref name="summaryIds"/> (already ordered by
+    /// <c>chapter_ord, id</c> from SQL) go FIRST, then the organic <paramref name="fusedOrder"/> ids fill
+    /// the remaining slots, deduped by id, capped to <paramref name="k"/>. Prepending guarantees the
+    /// whole-chapter summaries survive the top-k trim for an overview question (completeness &gt; a single
+    /// pinpoint excerpt); regular chunks still fill the rest. Pure so the ordering + dedup is unit-testable.
+    /// </summary>
+    public static List<Guid> MergeSummariesFirst(
+        IReadOnlyList<Guid> fusedOrder, IReadOnlyList<Guid> summaryIds, int k)
+    {
+        var result = new List<Guid>(Math.Max(0, k));
+        var seen = new HashSet<Guid>();
+        foreach (var id in summaryIds)
+        {
+            if (result.Count >= k) return result;
+            if (seen.Add(id)) result.Add(id);
+        }
+        foreach (var id in fusedOrder)
+        {
+            if (result.Count >= k) break;
+            if (seen.Add(id)) result.Add(id);
+        }
+        return result;
     }
 
     /// <summary>Dapper row — a sealed class with init props (the repo's proven mapping shape;
@@ -233,6 +282,54 @@ public sealed class RagService : IRagService
 
         return vectorSql + "\n\n" + lexicalSql;
     }
+
+    /// <summary>
+    /// Fetches ALL of a CATALOG edition's precomputed summary chunks (<c>is_summary</c>), spoiler-gated by
+    /// the SAME <c>@maxChapterOrd</c> as the hybrid retrievers (a summary of an unread chapter must not
+    /// leak). No embedding filter — a summary is guaranteed regardless of embedding progress. Deterministic
+    /// <c>ORDER BY chapter_ord, id</c> (few rows; the <c>id</c> tie-breaker matches the retrieval invariant).
+    /// <c>public static</c> so the <c>is_summary</c> filter + tie-breaker are unit-testable without pgvector.
+    /// </summary>
+    public static string BuildCatalogSummarySql() => """
+        SELECT id            AS ChunkId,
+               chapter_id    AS ChapterId,
+               chapter_ord   AS ChapterOrd,
+               ord           AS Ord,
+               text          AS Text,
+               char_start    AS CharStart,
+               char_end      AS CharEnd,
+               0::float8     AS Score
+        FROM chapter_chunk
+        WHERE edition_id = @editionId
+          AND is_summary
+          AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+        ORDER BY chapter_ord, id;
+        """;
+
+    /// <summary>
+    /// Fetches ALL of a USER book's precomputed summary chunks (<c>is_summary</c>), filtered on BOTH
+    /// <c>user_id</c> AND <c>user_book_id</c> (per-user isolation, same as the hybrid retrievers) plus the
+    /// optional <c>@maxChapterOrd</c> ceiling. No embedding filter. Deterministic
+    /// <c>ORDER BY chapter_ord, id</c>. <c>public static</c> so the isolation + tie-breaker are unit-testable.
+    /// </summary>
+    public static string BuildUserBookSummarySql() => """
+        SELECT id              AS ChunkId,
+               user_chapter_id AS ChapterId,
+               chapter_ord     AS ChapterOrd,
+               ord             AS Ord,
+               text            AS Text,
+               char_start      AS CharStart,
+               char_end        AS CharEnd,
+               source_page     AS SourcePage,
+               section_path    AS SectionPath,
+               0::float8       AS Score
+        FROM user_chapter_chunk
+        WHERE user_id = @userId
+          AND user_book_id = @userBookId
+          AND is_summary
+          AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+        ORDER BY chapter_ord, id;
+        """;
 
     /// <summary>
     /// Formats an embedding as a pgvector text literal <c>[v0,v1,…]</c> using invariant culture

@@ -54,15 +54,17 @@ public static class UserBookAskEndpoints
             return Results.Problem("Ask is not configured (no OpenAI key).", statusCode: 503);
         }
 
-        // Overview-class questions need broad section coverage → wider default k; explicit request.K wins.
-        var defaultK = RagAskPrompt.IsOverviewQuestion(request.Question) ? IRagService.OverviewK : IRagService.DefaultK;
+        // Overview-class questions need broad section coverage → wider default k AND the precomputed
+        // chapter summaries guaranteed into retrieval; explicit request.K still overrides k.
+        var isOverview = RagAskPrompt.IsOverviewQuestion(request.Question);
+        var defaultK = isOverview ? IRagService.OverviewK : IRagService.DefaultK;
         var k = request.K is > 0 ? request.K.Value : defaultK;
         var history = RagAskHistory.Clamp(request.History);
 
         try
         {
             // Ownership-scoped context build. Null => not this user's book (or taken down) → 404.
-            var ctx = await context.BuildAsync(userId.Value, id, request.Question, k, ct);
+            var ctx = await context.BuildAsync(userId.Value, id, request.Question, k, isOverview, ct);
             if (ctx is null) return Results.NotFound("Book not found");
 
             // Full-book retrieval (no gate), no private-notes corpus. lastReadOrd is 0 (unused for

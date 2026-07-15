@@ -1,3 +1,4 @@
+using Application.Ai;
 using Application.Rag;
 using Domain.Entities;
 using Domain.Enums;
@@ -23,6 +24,7 @@ public sealed class BookChunkingService(
     IChunker chunker,
     MarkdownChunker markdownChunker,
     IPdfVisionParser pdfVisionParser,
+    ChapterSummarizer summarizer,
     ILogger<BookChunkingService> logger)
 {
     /// <summary>
@@ -39,7 +41,7 @@ public sealed class BookChunkingService(
             var chapters = await db.Chapters
                 .Where(c => c.EditionId == editionId)
                 .OrderBy(c => c.ChapterNumber)
-                .Select(c => new { c.Id, c.ChapterNumber, c.PlainText })
+                .Select(c => new { c.Id, c.ChapterNumber, c.Title, c.PlainText })
                 .ToListAsync(ct);
 
             var rows = BuildRows(
@@ -54,7 +56,14 @@ public sealed class BookChunkingService(
                     "Created {Count} RAG chunks for edition {EditionId}", rows.Count, editionId);
             }
 
-            return rows.Count;
+            // "S2": one whole-chapter summary chunk per chapter (best-effort, additive, its own SaveChanges
+            // — never fails the run; the returned total includes summaries so the count stamp stays correct).
+            var summaryCount = await AppendEditionSummariesAsync(
+                db, editionId,
+                chapters.Select(c => (c.Id, c.ChapterNumber, c.Title, c.PlainText)).ToList(),
+                rows, ct);
+
+            return rows.Count + summaryCount;
         }
         catch (Exception ex)
         {
@@ -119,12 +128,190 @@ public sealed class BookChunkingService(
                     "Created {Count} RAG chunks for user book {UserBookId}", rows.Count, userBookId);
             }
 
-            return rows.Count;
+            // "S2": one whole-chapter summary chunk per chapter, ALWAYS sourced from UserChapter.PlainText
+            // (EPUB and PDF alike — independent of whether the body chunks came from the vision path).
+            // Best-effort + additive; the returned total includes summaries so the count stamp stays correct.
+            var summaryCount = await AppendUserBookSummariesAsync(db, userBookId, ownerId, rows, ct);
+
+            return rows.Count + summaryCount;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
                 "RAG chunking failed for user book {UserBookId}; chunks can be regenerated on retrigger", userBookId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// "S2" summary pass for a catalog edition: one <see cref="ChapterChunk"/> with <c>is_summary=true</c>
+    /// per non-empty chapter, text = <see cref="ChapterSummaryPrompt.BuildSummaryChunkText"/> over an LLM
+    /// digest of the chapter. Fully self-contained and NON-THROWING — a per-chapter LLM failure/timeout is
+    /// logged and skipped, and any wider failure returns 0 rather than bubbling into the caller's chunk
+    /// try/catch (which would strand the already-saved body chunks as "no chunks"). Its own SaveChanges, so
+    /// the body chunks are already durable. Returns the number of summary rows actually persisted.
+    /// </summary>
+    private async Task<int> AppendEditionSummariesAsync(
+        AppDbContext db, Guid editionId,
+        IReadOnlyList<(Guid Id, int Number, string Title, string PlainText)> chapters,
+        IReadOnlyList<ChapterChunk> bodyRows, CancellationToken ct)
+    {
+        try
+        {
+            // Summary ord = the chapter's body-chunk count (so it sorts after them within the chapter).
+            var ordByChapter = bodyRows
+                .GroupBy(r => r.ChapterId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var summaryRows = new List<ChapterChunk>();
+            var considered = 0;
+            foreach (var ch in chapters)
+            {
+                if (ct.IsCancellationRequested) break;
+                if (string.IsNullOrWhiteSpace(ch.PlainText)) continue;
+                if (considered >= ChapterSummaryPrompt.MaxChaptersToSummarize)
+                {
+                    logger.LogInformation(
+                        "Edition {EditionId} exceeds the {Cap}-chapter summary cap; summarizing the first {Cap} only",
+                        editionId, ChapterSummaryPrompt.MaxChaptersToSummarize,
+                        ChapterSummaryPrompt.MaxChaptersToSummarize);
+                    break;
+                }
+                considered++;
+
+                string summary;
+                try
+                {
+                    summary = await summarizer.SummarizeAsync(ch.PlainText, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex,
+                        "Chapter summary failed for edition {EditionId} chapter {ChapterNumber}; skipping (best-effort)",
+                        editionId, ch.Number);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(summary)) continue;
+
+                summaryRows.Add(new ChapterChunk
+                {
+                    Id = Guid.NewGuid(),
+                    EditionId = editionId,
+                    ChapterId = ch.Id,
+                    ChapterOrd = ch.Number,
+                    Ord = ordByChapter.GetValueOrDefault(ch.Id, 0),
+                    Text = ChapterSummaryPrompt.BuildSummaryChunkText(ch.Number, ch.Title, summary),
+                    TokenCount = 0,
+                    CharStart = 0,
+                    CharEnd = 0,
+                    IsSummary = true,
+                    Embedding = null
+                });
+            }
+
+            if (summaryRows.Count == 0) return 0;
+
+            db.ChapterChunks.AddRange(summaryRows);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Created {Count} chapter summaries for edition {EditionId}", summaryRows.Count, editionId);
+            return summaryRows.Count;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Summary pass failed for edition {EditionId}; indexing continues without summaries", editionId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// "S2" summary pass for a USER book: mirror of <see cref="AppendEditionSummariesAsync"/> over the
+    /// isolated <c>user_chapter_chunk</c> table. Summaries are ALWAYS sourced from
+    /// <see cref="UserChapter.PlainText"/> (EPUB and PDF alike, regardless of the body-chunk path); a PDF
+    /// chapter's summary carries the chapter's <see cref="UserChapter.SourceStartPage"/> so its citation
+    /// jumps to the chapter start. Non-throwing + additive like the edition pass. Returns rows persisted.
+    /// </summary>
+    private async Task<int> AppendUserBookSummariesAsync(
+        AppDbContext db, Guid userBookId, Guid userId,
+        IReadOnlyList<UserChapterChunk> bodyRows, CancellationToken ct)
+    {
+        try
+        {
+            var chapters = await db.UserChapters
+                .Where(c => c.UserBookId == userBookId)
+                .OrderBy(c => c.ChapterNumber)
+                .Select(c => new { c.Id, c.ChapterNumber, c.Title, c.PlainText, c.SourceStartPage })
+                .ToListAsync(ct);
+
+            var ordByChapter = bodyRows
+                .Where(r => r.UserChapterId != null)
+                .GroupBy(r => r.UserChapterId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var summaryRows = new List<UserChapterChunk>();
+            var considered = 0;
+            foreach (var ch in chapters)
+            {
+                if (ct.IsCancellationRequested) break;
+                if (string.IsNullOrWhiteSpace(ch.PlainText)) continue;
+                if (considered >= ChapterSummaryPrompt.MaxChaptersToSummarize)
+                {
+                    logger.LogInformation(
+                        "User book {UserBookId} exceeds the {Cap}-chapter summary cap; summarizing the first {Cap} only",
+                        userBookId, ChapterSummaryPrompt.MaxChaptersToSummarize,
+                        ChapterSummaryPrompt.MaxChaptersToSummarize);
+                    break;
+                }
+                considered++;
+
+                string summary;
+                try
+                {
+                    summary = await summarizer.SummarizeAsync(ch.PlainText, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex,
+                        "Chapter summary failed for user book {UserBookId} chapter {ChapterNumber}; skipping (best-effort)",
+                        userBookId, ch.ChapterNumber);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(summary)) continue;
+
+                summaryRows.Add(new UserChapterChunk
+                {
+                    Id = Guid.NewGuid(),
+                    UserBookId = userBookId,
+                    UserChapterId = ch.Id,
+                    UserId = userId,
+                    ChapterOrd = ch.ChapterNumber,
+                    Ord = ordByChapter.GetValueOrDefault(ch.Id, 0),
+                    Text = ChapterSummaryPrompt.BuildSummaryChunkText(ch.ChapterNumber, ch.Title, summary),
+                    TokenCount = 0,
+                    CharStart = 0,
+                    CharEnd = 0,
+                    SourcePage = ch.SourceStartPage,
+                    SectionPath = null,
+                    IsSummary = true,
+                    Embedding = null
+                });
+            }
+
+            if (summaryRows.Count == 0) return 0;
+
+            db.UserChapterChunks.AddRange(summaryRows);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Created {Count} chapter summaries for user book {UserBookId}", summaryRows.Count, userBookId);
+            return summaryRows.Count;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Summary pass failed for user book {UserBookId}; indexing continues without summaries", userBookId);
             return 0;
         }
     }

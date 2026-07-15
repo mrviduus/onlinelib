@@ -88,7 +88,10 @@ public sealed class RagAskService(RagContextService context, ILlmService llm) : 
         Guid userId, Guid siteId, Guid editionId, string question, int k,
         Guid? currentChapterId, IReadOnlyList<AskTurnDto> history, CancellationToken ct)
     {
-        var ctx = await context.BuildAsync(userId, siteId, editionId, question, k, currentChapterId, ct);
+        // Overview-class questions guarantee the book's precomputed chapter summaries into retrieval
+        // (RAG "S2"); derived here from the same deterministic detector the endpoint uses to widen k.
+        var includeSummaries = RagAskPrompt.IsOverviewQuestion(question);
+        var ctx = await context.BuildAsync(userId, siteId, editionId, question, k, currentChapterId, includeSummaries, ct);
         var noteTexts = ctx.Notes.Select(n => n.Text).ToList();
         return await AskFromChunksAsync(question, ctx.Chunks, noteTexts, history, ctx.LastReadOrd, ct);
     }

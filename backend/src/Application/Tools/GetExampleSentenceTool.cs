@@ -91,12 +91,12 @@ public sealed class GetExampleSentenceTool : ITool
                 IReadOnlyList<RetrievedChunk> chunks = [];
                 if (card.UserBookId is { } userBookId)
                 {
-                    chunks = await rag.RetrieveUserBookAsync(userId, userBookId, card.Word, 1, maxChapterOrd: null, ct);
+                    chunks = await rag.RetrieveUserBookAsync(userId, userBookId, card.Word, 1, maxChapterOrd: null, includeSummaries: false, ct);
                 }
                 else if (card.EditionId is { } editionId)
                 {
                     var gate = await ReadingProgressGate.ResolveLastReadOrdAsync(db, userId, editionId, ct);
-                    chunks = await rag.RetrieveAsync(editionId, card.Word, 1, maxChapterOrd: gate, ct);
+                    chunks = await rag.RetrieveAsync(editionId, card.Word, 1, maxChapterOrd: gate, includeSummaries: false, ct);
                 }
 
                 var top = chunks.FirstOrDefault();

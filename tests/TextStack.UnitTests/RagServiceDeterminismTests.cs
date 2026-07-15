@@ -42,4 +42,84 @@ public class RagServiceDeterminismTests
         { "catalog", RagService.BuildCatalogSql() },
         { "userbook", RagService.BuildUserBookSql() },
     };
+
+    // ---- "S2" summary-fetch SQL invariants -----------------------------------------------------------
+
+    /// <summary>
+    /// The summary-fetch statements (overview questions) MUST filter <c>is_summary</c> and carry the same
+    /// deterministic <c>chapter_ord, id</c> ordering — the <c>id</c> tie-breaker keeps the guaranteed-summary
+    /// merge reproducible, and the gate clause must still be present so an unread chapter's summary can't leak.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(SummarySqls))]
+    public void SummarySql_FiltersIsSummary_AndOrdersDeterministically(string name, string sql)
+    {
+        Assert.Contains("is_summary", sql);
+        Assert.Contains("@maxChapterOrd", sql); // spoiler gate preserved on summaries
+
+        // Single statement — its ORDER BY must end on the deterministic id tie-breaker.
+        var lastLine = sql.TrimEnd().Split('\n')[^1].TrimEnd().TrimEnd(';');
+        Assert.Equal("ORDER BY chapter_ord, id", lastLine);
+
+        Assert.NotNull(name);
+    }
+
+    /// <summary>The user-book summary fetch MUST stay per-user isolated (both filters), like its hybrid siblings.</summary>
+    [Fact]
+    public void UserBookSummarySql_FiltersBothUserAndBook()
+    {
+        var sql = RagService.BuildUserBookSummarySql();
+        Assert.Contains("user_id = @userId", sql);
+        Assert.Contains("user_book_id = @userBookId", sql);
+    }
+
+    public static TheoryData<string, string> SummarySqls() => new()
+    {
+        { "catalog", RagService.BuildCatalogSummarySql() },
+        { "userbook", RagService.BuildUserBookSummarySql() },
+    };
+
+    // ---- guaranteed-summary merge --------------------------------------------------------------------
+
+    [Fact]
+    public void MergeSummariesFirst_PrependsSummaries_ThenFusedFill_DedupedAndCapped()
+    {
+        var s1 = Guid.NewGuid();
+        var s2 = Guid.NewGuid();
+        var f1 = Guid.NewGuid();
+        var f2 = Guid.NewGuid();
+
+        // f1 also appears among the summaries (s1) — it must not be duplicated, and summaries lead.
+        var merged = RagService.MergeSummariesFirst(
+            fusedOrder: [s1, f1, f2],
+            summaryIds: [s1, s2],
+            k: 3);
+
+        Assert.Equal([s1, s2, f1], merged); // summaries first (order preserved), then fused fill, deduped, capped to k
+    }
+
+    [Fact]
+    public void MergeSummariesFirst_SummariesExceedK_TrimsToK_DropsFused()
+    {
+        var s1 = Guid.NewGuid();
+        var s2 = Guid.NewGuid();
+        var s3 = Guid.NewGuid();
+        var f1 = Guid.NewGuid();
+
+        var merged = RagService.MergeSummariesFirst([f1], [s1, s2, s3], k: 2);
+
+        Assert.Equal([s1, s2], merged);
+    }
+
+    [Fact]
+    public void MergeSummariesFirst_NoSummaries_IsPlainTopK()
+    {
+        var f1 = Guid.NewGuid();
+        var f2 = Guid.NewGuid();
+        var f3 = Guid.NewGuid();
+
+        var merged = RagService.MergeSummariesFirst([f1, f2, f3], [], k: 2);
+
+        Assert.Equal([f1, f2], merged);
+    }
 }

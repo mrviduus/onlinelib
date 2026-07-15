@@ -88,6 +88,10 @@ builder.Services.AddSingleton<IAudioAssembler, AudioAssembler>();
 builder.Services.AddAiRag();
 // ADR-012 S3: vision PDF→Markdown parser for user-book "Ask this book" indexing.
 builder.Services.AddSingleton<Application.Rag.IPdfVisionParser, Infrastructure.Rag.PdfVisionParser>();
+// Per-chapter summary generator ("S2"): nano route via FeatureTag "rag.summarize" (routed in
+// Worker appsettings — DefaultProvider is Ollama, so the tag MUST be routed to "openai"). Singleton:
+// depends only on the singleton ILlmService gateway, injected into the singleton chunking service.
+builder.Services.AddSingleton<Application.Rag.ChapterSummarizer>();
 // Shared chunking service (ingestion + on-demand "Ask this book" index trigger).
 builder.Services.AddSingleton<Infrastructure.Rag.BookChunkingService>();
 builder.Services.AddSingleton<IngestionWorkerService>();

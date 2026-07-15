@@ -40,6 +40,15 @@ public class ChapterChunk
     /// <summary>End offset of this chunk in the chapter's plain_text (exclusive).</summary>
     public int CharEnd { get; set; }
 
+    /// <summary>
+    /// True for a precomputed whole-chapter summary chunk (RAG "S2"): one LLM-written ~150-250 word
+    /// digest of the chapter, inserted alongside the sentence chunks so an overview-class ask
+    /// ("summarize chapter N") draws on a faithful whole-chapter unit instead of scattered excerpts.
+    /// Retrieved organically like any chunk; overview questions additionally guarantee these rows in
+    /// the candidate set (see <c>RagService.MergeSummariesFirst</c>). Defaults false for body chunks.
+    /// </summary>
+    public bool IsSummary { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Edition? Edition { get; set; }

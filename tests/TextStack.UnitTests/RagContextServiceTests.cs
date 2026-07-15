@@ -26,7 +26,7 @@ public class RagContextServiceTests
         public bool GateWasNullOnAnyCall { get; private set; }
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-            Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+            Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct)
         {
             Calls++;
             LastGate = maxChapterOrd;
@@ -35,7 +35,7 @@ public class RagContextServiceTests
         }
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<RetrievedChunk>>([]);
     }
 
@@ -90,7 +90,7 @@ public class RagContextServiceTests
         var svc = BuildService(rag, progress: [], chapters: []);
 
         var ctx = await svc.BuildAsync(
-            User, Site, Edition, "what happens?", 8, currentChapterId: null, TestContext.Current.CancellationToken);
+            User, Site, Edition, "what happens?", 8, currentChapterId: null, includeSummaries: false, TestContext.Current.CancellationToken);
 
         Assert.Empty(ctx.Chunks);
         Assert.Empty(ctx.Notes);
@@ -110,7 +110,7 @@ public class RagContextServiceTests
             chapters: [Chap(chapterId, Edition, ord: 0)]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "what happens?", 8, currentChapterId: null, TestContext.Current.CancellationToken);
+            User, Site, Edition, "what happens?", 8, currentChapterId: null, includeSummaries: false, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, rag.Calls);
         Assert.False(rag.GateWasNullOnAnyCall);
@@ -134,7 +134,7 @@ public class RagContextServiceTests
             ]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "spoil me", 8, currentChapterId: foreignChapter, TestContext.Current.CancellationToken);
+            User, Site, Edition, "spoil me", 8, currentChapterId: foreignChapter, includeSummaries: false, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, rag.Calls);
         // Peek-ahead defense: a chapter id from another edition must resolve to null and NOT push the gate.
@@ -157,7 +157,7 @@ public class RagContextServiceTests
             ]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "current chapter", 8, currentChapterId: openChapter, TestContext.Current.CancellationToken);
+            User, Site, Edition, "current chapter", 8, currentChapterId: openChapter, includeSummaries: false, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, rag.LastGate);
     }
