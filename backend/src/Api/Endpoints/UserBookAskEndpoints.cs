@@ -54,7 +54,9 @@ public static class UserBookAskEndpoints
             return Results.Problem("Ask is not configured (no OpenAI key).", statusCode: 503);
         }
 
-        var k = request.K is > 0 ? request.K.Value : IRagService.DefaultK;
+        // Overview-class questions need broad section coverage → wider default k; explicit request.K wins.
+        var defaultK = RagAskPrompt.IsOverviewQuestion(request.Question) ? IRagService.OverviewK : IRagService.DefaultK;
+        var k = request.K is > 0 ? request.K.Value : defaultK;
         var history = RagAskHistory.Clamp(request.History);
 
         try

@@ -75,8 +75,10 @@ public sealed class RagAskService(RagContextService context, ILlmService llm) : 
 {
     public const string FeatureTag = "rag.ask";
 
-    // Raised for conversational length (AI-028: companion tone, multi-sentence replies).
-    private const int MaxOutputTokens = 400;
+    // Headroom for tutor-style structured answers (headings, bullets, tables, code) that must not
+    // truncate mid-section. gpt-4.1 is non-reasoning so the provider's +512 reserve is pure output.
+    // Simple lookups still cost only what they emit — the cap is a ceiling, not a target.
+    private const int MaxOutputTokens = 4000;
 
     private const string InsufficientMessage =
         "I don't see enough of this book in what you've read so far to answer that yet. " +

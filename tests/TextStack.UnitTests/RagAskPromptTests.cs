@@ -88,6 +88,22 @@ public class RagAskPromptTests
     }
 
     [Fact]
+    public void BuildSystemPrompt_TutorRegister_EncouragesAdaptiveMarkdownStructure()
+    {
+        // The register moved from "keep it short, no markdown" (fiction companion) to study/tutor:
+        // markdown structure is ENCOURAGED for explain/summarize questions, while a simple lookup stays
+        // short. Lock in that the anti-markdown instruction is gone and structure guidance is present.
+        var system = RagAskPrompt.BuildSystemPrompt();
+
+        Assert.DoesNotContain("No markdown", system);
+        Assert.DoesNotContain("Keep replies short", system);
+        Assert.Contains("markdown", system, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("summarize", system, StringComparison.OrdinalIgnoreCase);
+        // Adaptive length: a simple lookup still stays brief.
+        Assert.Contains("2-4 sentences", system);
+    }
+
+    [Fact]
     public void ParseCitations_ExtractsDistinctInOrder()
         => Assert.Equal(new[] { 2, 1 }, RagAskPrompt.ParseCitations("see [2] and [1] and [2] again", 3));
 
@@ -100,4 +116,43 @@ public class RagAskPromptTests
     [InlineData("")]
     public void ParseCitations_NoMarkers_Empty(string answer)
         => Assert.Empty(RagAskPrompt.ParseCitations(answer, 5));
+
+    [Fact]
+    public void ParseCitations_MarkdownWrappedMarkers_StillParse()
+    {
+        // Tutor answers wrap markers in markdown — bold, headings, list items. The marker itself is
+        // untouched, so parsing must be unaffected.
+        const string answer = "## Summary\n- **The heap grows [2]** while the stack shrinks.\n1. Then `free()` runs [1].";
+        Assert.Equal(new[] { 2, 1 }, RagAskPrompt.ParseCitations(answer, 3));
+    }
+
+    [Theory]
+    [InlineData("Both hold [1, 2].", new[] { 1, 2 })]
+    [InlineData("Grouped [1;3] and single [2].", new[] { 1, 3, 2 })]
+    public void ParseCitations_GroupedMarkers_ExpandDistinctInOrder(string answer, int[] expected)
+        => Assert.Equal(expected, RagAskPrompt.ParseCitations(answer, 3));
+
+    [Fact]
+    public void ParseCitations_MarkdownLink_NotTreatedAsCitation()
+        // A markdown link "[see](url)" has non-digit bracket content → must not parse as a citation.
+        => Assert.Empty(RagAskPrompt.ParseCitations("check [the docs](http://x) here", 5));
+
+    [Theory]
+    [InlineData("Summarize chapter 5")]
+    [InlineData("give me an overview of the plot")]
+    [InlineData("what are the key points so far")]
+    [InlineData("what is chapter 3 about?")]
+    [InlineData("TL;DR please")]
+    [InlineData("о чём глава 2")]
+    public void IsOverviewQuestion_OverviewClass_True(string question)
+        => Assert.True(RagAskPrompt.IsOverviewQuestion(question));
+
+    [Theory]
+    [InlineData("Who killed the duke?")]
+    [InlineData("What does 'entropy' mean here?")]
+    [InlineData("Where does Anna go after the ball?")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void IsOverviewQuestion_PinpointOrEmpty_False(string? question)
+        => Assert.False(RagAskPrompt.IsOverviewQuestion(question));
 }

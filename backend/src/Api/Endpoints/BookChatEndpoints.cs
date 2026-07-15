@@ -133,7 +133,11 @@ public static class BookChatEndpoints
         }
 
         var siteId = httpContext.GetSiteId();
-        var k = IRagService.DefaultK;
+        // Overview-class questions ("summarize this chapter", "main idea") need broad section coverage,
+        // so widen retrieval for them; pinpoint questions keep the default k.
+        var k = Application.Ai.RagAskPrompt.IsOverviewQuestion(request.Question)
+            ? IRagService.OverviewK
+            : IRagService.DefaultK;
 
         // Resolve the RAG context exactly like the legacy ask endpoints, honoring the spoiler-gate toggle.
         IReadOnlyList<RetrievedChunk> chunks;

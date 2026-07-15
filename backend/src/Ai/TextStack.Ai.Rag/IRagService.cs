@@ -11,6 +11,14 @@ public interface IRagService
     const int DefaultK = 8;
 
     /// <summary>
+    /// Larger retrieval width for "overview-class" questions (summarize / main idea / what is chapter N
+    /// about — see <c>RagAskPrompt.IsOverviewQuestion</c>). Pointwise <see cref="DefaultK"/> under-covers a
+    /// whole-section ask (its lone citation lands on a TOC page); widening recall gives the model enough of
+    /// the section to synthesize a grounded summary. Cheap stop-gap ahead of per-chapter precomputed summaries.
+    /// </summary>
+    const int OverviewK = 20;
+
+    /// <summary>
     /// Returns the top <paramref name="k"/> chunks in <paramref name="editionId"/> for
     /// <paramref name="query"/>, ranked by fused (semantic + lexical) relevance. Returns empty for a
     /// blank query. The lexical branch can surface chunks that aren't embedded yet.

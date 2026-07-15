@@ -62,7 +62,10 @@ public static class AskEndpoints
             return Results.Problem("Ask is not configured (no OpenAI key).", statusCode: 503);
         }
 
-        var k = request.K is > 0 ? request.K.Value : IRagService.DefaultK;
+        // Overview-class questions ("summarize chapter 5", "main idea") need broad section coverage,
+        // so default to a wider k; an explicit request.K always wins.
+        var defaultK = RagAskPrompt.IsOverviewQuestion(request.Question) ? IRagService.OverviewK : IRagService.DefaultK;
+        var k = request.K is > 0 ? request.K.Value : defaultK;
         var history = RagAskHistory.Clamp(request.History);
 
         if (AskSse.WantsSse(httpContext))
