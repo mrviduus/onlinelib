@@ -37,47 +37,9 @@ public sealed class RagService : IRagService
         if (string.IsNullOrWhiteSpace(query))
             return [];
 
-        // Two retrievers in one round-trip over chapter_chunk, each spoiler-gated in its own WHERE
-        // (AI-024 — hard SQL filter, never a prompt instruction; null @maxChapterOrd = no gate):
-        //  1. Semantic — cosine NN over the embedding (skips not-yet-embedded chunks).
-        //  2. Lexical  — ts_rank_cd over the generated search_vector (no embedding required).
-        const string vectorSql = """
-            SELECT id            AS ChunkId,
-                   chapter_id    AS ChapterId,
-                   chapter_ord   AS ChapterOrd,
-                   ord           AS Ord,
-                   text          AS Text,
-                   char_start    AS CharStart,
-                   char_end      AS CharEnd,
-                   1 - (embedding <=> CAST(@q AS vector)) AS Score
-            FROM chapter_chunk
-            WHERE edition_id = @editionId
-              AND embedding IS NOT NULL
-              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
-            ORDER BY embedding <=> CAST(@q AS vector)
-            LIMIT @pool;
-            """;
-
-        const string lexicalSql = """
-            SELECT id            AS ChunkId,
-                   chapter_id    AS ChapterId,
-                   chapter_ord   AS ChapterOrd,
-                   ord           AS Ord,
-                   text          AS Text,
-                   char_start    AS CharStart,
-                   char_end      AS CharEnd,
-                   ts_rank_cd(search_vector, tsq) AS Score
-            FROM chapter_chunk, websearch_to_tsquery('english', @query) AS tsq
-            WHERE edition_id = @editionId
-              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
-              AND search_vector @@ tsq
-            ORDER BY Score DESC
-            LIMIT @pool;
-            """;
-
         return await RetrieveHybridAsync(
             query, k,
-            vectorSql + "\n\n" + lexicalSql,
+            BuildCatalogSql(),
             withVector => new { q = withVector.Vector, query, editionId, pool = withVector.Pool, maxChapterOrd },
             ct);
     }
@@ -169,6 +131,57 @@ public sealed class RagService : IRagService
     }
 
     /// <summary>
+    /// The two-statement hybrid SQL for CATALOG retrieval over <c>chapter_chunk</c>, spoiler-gated in
+    /// each WHERE (AI-024 — hard SQL filter, never a prompt instruction; null <c>@maxChapterOrd</c> =
+    /// no gate): (1) semantic — cosine NN over the embedding (skips not-yet-embedded chunks);
+    /// (2) lexical — <c>ts_rank_cd</c> over the generated <c>search_vector</c>.
+    /// Both ORDER BYs carry a deterministic <c>id</c> tie-breaker: <c>ts_rank_cd</c> ties are common
+    /// and float-distance ties happen on duplicate chunks — without it, tied rows at the LIMIT cutoff
+    /// swap between runs (heap-order dependent), changing the fused result. Safe here because both
+    /// queries are edition-filtered small scans (the secondary sort key would defeat an ANN index on a
+    /// whole-table scan — see HybridCatalogSearch/SimilarBooksService, deliberately left alone).
+    /// <c>public static</c> so the determinism invariant is unit-testable without pgvector.
+    /// </summary>
+    public static string BuildCatalogSql()
+    {
+        const string vectorSql = """
+            SELECT id            AS ChunkId,
+                   chapter_id    AS ChapterId,
+                   chapter_ord   AS ChapterOrd,
+                   ord           AS Ord,
+                   text          AS Text,
+                   char_start    AS CharStart,
+                   char_end      AS CharEnd,
+                   1 - (embedding <=> CAST(@q AS vector)) AS Score
+            FROM chapter_chunk
+            WHERE edition_id = @editionId
+              AND embedding IS NOT NULL
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+            ORDER BY embedding <=> CAST(@q AS vector), id
+            LIMIT @pool;
+            """;
+
+        const string lexicalSql = """
+            SELECT id            AS ChunkId,
+                   chapter_id    AS ChapterId,
+                   chapter_ord   AS ChapterOrd,
+                   ord           AS Ord,
+                   text          AS Text,
+                   char_start    AS CharStart,
+                   char_end      AS CharEnd,
+                   ts_rank_cd(search_vector, tsq) AS Score
+            FROM chapter_chunk, websearch_to_tsquery('english', @query) AS tsq
+            WHERE edition_id = @editionId
+              AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+              AND search_vector @@ tsq
+            ORDER BY Score DESC, id
+            LIMIT @pool;
+            """;
+
+        return vectorSql + "\n\n" + lexicalSql;
+    }
+
+    /// <summary>
     /// The two-statement hybrid SQL for USER-book retrieval over the isolated <c>user_chapter_chunk</c>
     /// table. Both retrievers (vector NN + lexical FTS) filter on BOTH <c>user_id</c> AND
     /// <c>user_book_id</c> — a user must NEVER retrieve another user's chunks (per-user isolation,
@@ -194,7 +207,7 @@ public sealed class RagService : IRagService
               AND user_book_id = @userBookId
               AND embedding IS NOT NULL
               AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
-            ORDER BY embedding <=> CAST(@q AS vector)
+            ORDER BY embedding <=> CAST(@q AS vector), id
             LIMIT @pool;
             """;
 
@@ -214,7 +227,7 @@ public sealed class RagService : IRagService
               AND user_book_id = @userBookId
               AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
               AND search_vector @@ tsq
-            ORDER BY Score DESC
+            ORDER BY Score DESC, id
             LIMIT @pool;
             """;
 
