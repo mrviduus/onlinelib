@@ -39,7 +39,7 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
     /// </summary>
     public async Task<RagContext> BuildAsync(
         Guid userId, Guid siteId, Guid editionId, string query, int k,
-        Guid? currentChapterId, bool includeSummaries, CancellationToken ct)
+        Guid? currentChapterId, SummarySpec summaries, CancellationToken ct)
     {
         var persistedLastRead = await ResolveLastReadOrdAsync(userId, siteId, editionId, ct);
         var currentOrd = await ResolveCurrentChapterOrdAsync(editionId, currentChapterId, ct);
@@ -54,7 +54,7 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
         if (lastRead is null)
             return new RagContext([], [], 0);
 
-        var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: lastRead, includeSummaries, ct);
+        var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: lastRead, summaries, ct);
         var notes = await GetPrivateNotesAsync(userId, siteId, editionId, lastRead.Value, ct);
         return new RagContext(chunks, notes, lastRead.Value);
     }
@@ -67,9 +67,9 @@ public sealed class RagContextService(IAppDbContext db, IRagService rag)
     /// chapter (for the client's progress display), resolved but not used to gate.
     /// </summary>
     public async Task<RagContext> BuildUngatedAsync(
-        Guid userId, Guid siteId, Guid editionId, string query, int k, bool includeSummaries, CancellationToken ct)
+        Guid userId, Guid siteId, Guid editionId, string query, int k, SummarySpec summaries, CancellationToken ct)
     {
-        var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: null, includeSummaries, ct);
+        var chunks = await rag.RetrieveAsync(editionId, query, k, maxChapterOrd: null, summaries, ct);
         var notes = await GetPrivateNotesAsync(userId, siteId, editionId, int.MaxValue, ct);
         var lastRead = await ResolveLastReadOrdAsync(userId, siteId, editionId, ct) ?? 0;
         return new RagContext(chunks, notes, lastRead);

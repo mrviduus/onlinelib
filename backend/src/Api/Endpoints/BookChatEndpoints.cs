@@ -135,8 +135,8 @@ public static class BookChatEndpoints
         var siteId = httpContext.GetSiteId();
         // Overview-class questions ("summarize this chapter", "main idea") need broad section coverage,
         // so widen retrieval AND guarantee the precomputed chapter summaries in; pinpoint questions keep k.
-        var isOverview = Application.Ai.RagAskPrompt.IsOverviewQuestion(request.Question);
-        var k = isOverview ? IRagService.OverviewK : IRagService.DefaultK;
+        var summaries = Application.Ai.RagAskPrompt.ResolveSummarySpec(request.Question);
+        var k = summaries.Include ? IRagService.OverviewK : IRagService.DefaultK;
 
         // Resolve the RAG context exactly like the legacy ask endpoints, honoring the spoiler-gate toggle.
         IReadOnlyList<RetrievedChunk> chunks;
@@ -147,8 +147,8 @@ public static class BookChatEndpoints
             if (conversation.EditionId is { } editionId)
             {
                 var ctx = conversation.SpoilerGateEnabled
-                    ? await catalogContext!.BuildAsync(userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, isOverview, ct)
-                    : await catalogContext!.BuildUngatedAsync(userId.Value, siteId, editionId, request.Question, k, isOverview, ct);
+                    ? await catalogContext!.BuildAsync(userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, summaries, ct)
+                    : await catalogContext!.BuildUngatedAsync(userId.Value, siteId, editionId, request.Question, k, summaries, ct);
                 chunks = ctx.Chunks;
                 noteTexts = ctx.Notes.Select(n => n.Text).ToList();
                 lastReadOrd = ctx.LastReadOrd;
@@ -156,7 +156,7 @@ public static class BookChatEndpoints
             else
             {
                 // User book: full-book retrieval (no gate — it's the user's own document) + their highlights.
-                var ctx = await userBookContext!.BuildAsync(userId.Value, conversation.UserBookId!.Value, request.Question, k, isOverview, ct);
+                var ctx = await userBookContext!.BuildAsync(userId.Value, conversation.UserBookId!.Value, request.Question, k, summaries, ct);
                 if (ctx is null) return Results.NotFound("Book not found");
                 chunks = ctx.Chunks;
                 noteTexts = ctx.Notes.Select(n => n.Text).ToList();

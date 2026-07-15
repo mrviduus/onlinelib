@@ -133,4 +133,37 @@ public static class RagAskPrompt
         @"tl;?dr|what('?s| is| are| does)?.{0,40}\bchapter\b.{0,20}\babout\b|" +
         @"what.{0,40}\bchapter\b.{0,20}\bcover\b|о ч[её]м глава|краткое содержание|основн(ая|ые) (мысль|иде)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Extracts the chapter number an overview question names ("chapter 5", "ch. 5", "ch 5", "глава 5"),
+    /// or null when the question doesn't name one ("summarize the book", "main idea"). The number is the
+    /// reader's BOOK numbering — the retrieval pipeline maps it leniently to <c>chapter_ord</c>
+    /// (see <c>RagService.SelectSummaryIds</c>) because ord is 0-based for catalog books and 1-based for
+    /// user uploads. Pure + case-insensitive so it's unit-tested. Only the first named chapter is returned;
+    /// an out-of-int-range run of digits yields null (never throws).
+    /// </summary>
+    public static int? TryParseTargetChapter(string? question)
+    {
+        if (string.IsNullOrWhiteSpace(question))
+            return null;
+        var m = ChapterNumberMarker.Match(question);
+        return m.Success && int.TryParse(m.Groups[1].Value, out var n) ? n : null;
+    }
+
+    // "chapter"/"chapter."/"chap"/"ch"/"ch." + optional dot/colon, or the Russian "глав…", then digits.
+    // Single capture group across both language alternatives so the caller reads one group.
+    private static readonly Regex ChapterNumberMarker = new(
+        @"(?:(?:chapters?|chap|ch)\.?\s*:?|глав[аеуы])\s*(\d{1,4})",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// The retrieval summary policy for a question: <see cref="SummarySpec.None"/> for a pinpoint question,
+    /// <see cref="SummarySpec.Target"/> (narrowed to the named chapter) or <see cref="SummarySpec.All"/>
+    /// (overview with no named chapter) otherwise. Centralizes the two deterministic detectors so every
+    /// ask/chat entry point derives the same policy. Pure.
+    /// </summary>
+    public static SummarySpec ResolveSummarySpec(string? question)
+        => IsOverviewQuestion(question)
+            ? SummarySpec.Target(TryParseTargetChapter(question))
+            : SummarySpec.None;
 }

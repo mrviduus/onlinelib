@@ -177,7 +177,7 @@ public static class AdminRagEndpoints
             return unavailable;
 
         var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
-        var chunks = await rag.RetrieveAsync(editionId, q, limit, maxChapterOrd, includeSummaries: false, ct);
+        var chunks = await rag.RetrieveAsync(editionId, q, limit, maxChapterOrd, SummarySpec.None, ct);
 
         return Results.Ok(chunks.Select(ToDto).ToList());
     }
@@ -201,7 +201,7 @@ public static class AdminRagEndpoints
 
         var siteId = httpContext.GetSiteId();
         var limit = Math.Clamp(k ?? IRagService.DefaultK, 1, MaxK);
-        var ctx = await ctxService.BuildAsync(userId, siteId, editionId, q, limit, currentChapterId: null, includeSummaries: false, ct);
+        var ctx = await ctxService.BuildAsync(userId, siteId, editionId, q, limit, currentChapterId: null, SummarySpec.None, ct);
 
         return Results.Ok(new RagContextDto(
             ctx.LastReadOrd,

@@ -220,6 +220,14 @@ public sealed class BookChunkingService(
         }
         catch (Exception ex)
         {
+            // Deadlock guard: a failed summary SaveChanges leaves the summary rows tracked as Added on the
+            // SHARED caller db. The catalog ingestion path (IngestionService) calls db.SaveChangesAsync
+            // AGAIN later (the edition status stamp) — that flush would resurrect these orphaned summary
+            // rows, pushing physical chapter_chunk rows past rag_chunk_count so the embedder's Ready
+            // predicate (embedded == chunk_count) can never hold → the edition is pinned Indexing forever
+            // (the stale sweep only rescues chunk_count == 0). Detach them so the count we returned (0
+            // summaries persisted) can never be contradicted by a later caller flush.
+            DetachAddedSummaries<ChapterChunk>(db);
             logger.LogWarning(ex,
                 "Summary pass failed for edition {EditionId}; indexing continues without summaries", editionId);
             return 0;
@@ -310,9 +318,31 @@ public sealed class BookChunkingService(
         }
         catch (Exception ex)
         {
+            // Same deadlock guard as the edition pass (see AppendEditionSummariesAsync): detach the
+            // still-Added summary rows so a later shared-db flush can't resurrect what we reported as not
+            // persisted and strand the book Indexing.
+            DetachAddedSummaries<UserChapterChunk>(db);
             logger.LogWarning(ex,
                 "Summary pass failed for user book {UserBookId}; indexing continues without summaries", userBookId);
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// Removes any still-tracked-Added <b>summary</b> rows of <typeparamref name="T"/> from the shared
+    /// caller context's change tracker, so a subsequent <c>SaveChangesAsync</c> by the caller cannot flush
+    /// summary rows whose own save failed. Only <c>IsSummary</c> rows are detached — body chunks were
+    /// already persisted (Unchanged) before the summary pass runs, so this never touches them. The
+    /// <c>.ToList()</c> materializes before mutating the tracker (can't edit the live enumeration).
+    /// </summary>
+    private static void DetachAddedSummaries<T>(AppDbContext db) where T : class
+    {
+        foreach (var entry in db.ChangeTracker.Entries<T>()
+                     .Where(e => e.State == EntityState.Added
+                                 && e.Entity is ChapterChunk { IsSummary: true } or UserChapterChunk { IsSummary: true })
+                     .ToList())
+        {
+            entry.State = EntityState.Detached;
         }
     }
 

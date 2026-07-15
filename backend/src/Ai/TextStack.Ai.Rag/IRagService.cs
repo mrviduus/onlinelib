@@ -27,14 +27,16 @@ public interface IRagService
     /// Spoiler gate (AI-024): if set, only chunks with <c>chapter_ord ≤ maxChapterOrd</c> are
     /// returned (chapters the user has read). Null disables the gate.
     /// </param>
-    /// <param name="includeSummaries">
-    /// Overview-class questions ("summarize chapter N", "main idea") set this true so the book's
-    /// precomputed <c>is_summary</c> chunks (RAG "S2") are GUARANTEED into the result (still gated by
-    /// <paramref name="maxChapterOrd"/>), not left to chance in hybrid search. Default false leaves
-    /// pinpoint retrieval unchanged (summaries remain retrievable organically).
+    /// <param name="summaries">
+    /// Overview-class questions ("summarize chapter N", "main idea") pass
+    /// <see cref="SummarySpec.All"/> / <see cref="SummarySpec.Target"/> so the book's precomputed
+    /// <c>is_summary</c> chunks (RAG "S2") are GUARANTEED into the result (still gated by
+    /// <paramref name="maxChapterOrd"/>) — capped at <c>k/2</c>, and narrowed to a single chapter when the
+    /// question named one. <see cref="SummarySpec.None"/> (default) leaves pinpoint retrieval unchanged
+    /// (summaries remain retrievable organically).
     /// </param>
     Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-        Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct);
+        Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct);
 
     /// <summary>
     /// Phase 2: hybrid retrieval over a USER-uploaded book's chunks (isolated <c>user_chapter_chunk</c>
@@ -45,6 +47,6 @@ public interface IRagService
     /// <paramref name="maxChapterOrd"/> = null for full-book retrieval.
     /// </summary>
     Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries,
+        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries,
         CancellationToken ct);
 }

@@ -56,15 +56,15 @@ public static class UserBookAskEndpoints
 
         // Overview-class questions need broad section coverage → wider default k AND the precomputed
         // chapter summaries guaranteed into retrieval; explicit request.K still overrides k.
-        var isOverview = RagAskPrompt.IsOverviewQuestion(request.Question);
-        var defaultK = isOverview ? IRagService.OverviewK : IRagService.DefaultK;
+        var summaries = RagAskPrompt.ResolveSummarySpec(request.Question);
+        var defaultK = summaries.Include ? IRagService.OverviewK : IRagService.DefaultK;
         var k = request.K is > 0 ? request.K.Value : defaultK;
         var history = RagAskHistory.Clamp(request.History);
 
         try
         {
             // Ownership-scoped context build. Null => not this user's book (or taken down) → 404.
-            var ctx = await context.BuildAsync(userId.Value, id, request.Question, k, isOverview, ct);
+            var ctx = await context.BuildAsync(userId.Value, id, request.Question, k, summaries, ct);
             if (ctx is null) return Results.NotFound("Book not found");
 
             // Full-book retrieval (no gate), no private-notes corpus. lastReadOrd is 0 (unused for

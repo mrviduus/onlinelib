@@ -24,18 +24,20 @@ public class RagContextServiceTests
         public int Calls { get; private set; }
         public int? LastGate { get; private set; }
         public bool GateWasNullOnAnyCall { get; private set; }
+        public SummarySpec LastSummaries { get; private set; }
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-            Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct)
+            Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct)
         {
             Calls++;
             LastGate = maxChapterOrd;
+            LastSummaries = summaries;
             if (maxChapterOrd is null) GateWasNullOnAnyCall = true;
             return Task.FromResult<IReadOnlyList<RetrievedChunk>>([]);
         }
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct) =>
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<RetrievedChunk>>([]);
     }
 
@@ -90,7 +92,7 @@ public class RagContextServiceTests
         var svc = BuildService(rag, progress: [], chapters: []);
 
         var ctx = await svc.BuildAsync(
-            User, Site, Edition, "what happens?", 8, currentChapterId: null, includeSummaries: false, TestContext.Current.CancellationToken);
+            User, Site, Edition, "what happens?", 8, currentChapterId: null, summaries: SummarySpec.None, TestContext.Current.CancellationToken);
 
         Assert.Empty(ctx.Chunks);
         Assert.Empty(ctx.Notes);
@@ -110,7 +112,7 @@ public class RagContextServiceTests
             chapters: [Chap(chapterId, Edition, ord: 0)]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "what happens?", 8, currentChapterId: null, includeSummaries: false, TestContext.Current.CancellationToken);
+            User, Site, Edition, "what happens?", 8, currentChapterId: null, summaries: SummarySpec.None, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, rag.Calls);
         Assert.False(rag.GateWasNullOnAnyCall);
@@ -134,7 +136,7 @@ public class RagContextServiceTests
             ]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "spoil me", 8, currentChapterId: foreignChapter, includeSummaries: false, TestContext.Current.CancellationToken);
+            User, Site, Edition, "spoil me", 8, currentChapterId: foreignChapter, summaries: SummarySpec.None, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, rag.Calls);
         // Peek-ahead defense: a chapter id from another edition must resolve to null and NOT push the gate.
@@ -157,9 +159,30 @@ public class RagContextServiceTests
             ]);
 
         await svc.BuildAsync(
-            User, Site, Edition, "current chapter", 8, currentChapterId: openChapter, includeSummaries: false, TestContext.Current.CancellationToken);
+            User, Site, Edition, "current chapter", 8, currentChapterId: openChapter, summaries: SummarySpec.None, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, rag.LastGate);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ForwardsSummarySpecToRetrieve_Unchanged()
+    {
+        // Fix #4: the resolved SummarySpec (overview + named chapter) must reach IRagService verbatim so
+        // the guaranteed-summary merge runs; the context service must not silently drop or rewrite it.
+        var chapterId = Guid.NewGuid();
+        var rag = new RagSpy();
+        var svc = BuildService(
+            rag,
+            progress: [Progress(chapterId, maxOrd: 5)],
+            chapters: [Chap(chapterId, Edition, ord: 5)]);
+
+        var spec = SummarySpec.Target(5);
+        await svc.BuildAsync(
+            User, Site, Edition, "summarize chapter 5", 20, currentChapterId: null, summaries: spec,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, rag.Calls);
+        Assert.Equal(spec, rag.LastSummaries);
     }
 
     [Fact]

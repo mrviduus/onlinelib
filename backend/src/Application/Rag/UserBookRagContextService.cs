@@ -32,7 +32,7 @@ public sealed class UserBookRagContextService(IAppDbContext db, IRagService rag)
     /// user's — the caller returns 404. An owned-but-unindexed book yields an empty chunk list.
     /// </summary>
     public async Task<UserBookRagContext?> BuildAsync(
-        Guid userId, Guid userBookId, string query, int k, bool includeSummaries, CancellationToken ct)
+        Guid userId, Guid userBookId, string query, int k, SummarySpec summaries, CancellationToken ct)
     {
         var owns = await db.UserBooks
             .AnyAsync(b => b.Id == userBookId && b.UserId == userId && b.TakedownAt == null, ct);
@@ -41,7 +41,7 @@ public sealed class UserBookRagContextService(IAppDbContext db, IRagService rag)
 
         // Full-book retrieval (no gate). The SQL itself also filters user_id + user_book_id, so even a
         // mismatched id can't surface another user's chunks.
-        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, query, k, maxChapterOrd: null, includeSummaries, ct);
+        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, query, k, maxChapterOrd: null, summaries, ct);
         var notes = await GetPrivateNotesAsync(userId, userBookId, ct);
         return new UserBookRagContext(chunks, notes);
     }

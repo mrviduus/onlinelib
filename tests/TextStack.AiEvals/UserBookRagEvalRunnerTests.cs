@@ -28,11 +28,11 @@ public class UserBookRagEvalRunnerTests
     private sealed class FakeUserBookRag(int count) : IRagService
     {
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-            Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct) =>
+            Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct)
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct)
         {
             Assert.Equal(UserId, userId);
             Assert.Equal(BookId, userBookId);

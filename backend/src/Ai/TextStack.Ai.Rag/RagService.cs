@@ -32,7 +32,7 @@ public sealed class RagService : IRagService
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-        Guid editionId, string query, int k, int? maxChapterOrd, bool includeSummaries, CancellationToken ct)
+        Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
@@ -40,13 +40,14 @@ public sealed class RagService : IRagService
         return await RetrieveHybridAsync(
             query, k,
             BuildCatalogSql(),
-            includeSummaries ? BuildCatalogSummarySql() : null,
+            summaries.Include ? BuildCatalogSummarySql() : null,
+            summaries.TargetChapterOrd,
             withVector => new { q = withVector.Vector, query, editionId, pool = withVector.Pool, maxChapterOrd },
             ct);
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, bool includeSummaries,
+        Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -55,7 +56,8 @@ public sealed class RagService : IRagService
         return await RetrieveHybridAsync(
             query, k,
             BuildUserBookSql(),
-            includeSummaries ? BuildUserBookSummarySql() : null,
+            summaries.Include ? BuildUserBookSummarySql() : null,
+            summaries.TargetChapterOrd,
             withVector => new { q = withVector.Vector, query, userId, userBookId, pool = withVector.Pool, maxChapterOrd },
             ct);
     }
@@ -72,11 +74,14 @@ public sealed class RagService : IRagService
     /// <c>is_summary</c> chunks (still gated + isolated by the same params) in the SAME round-trip; those
     /// summary rows are then GUARANTEED into the result — merged ahead of the organic fused ranking
     /// (<see cref="MergeSummariesFirst"/>) — so "summarize chapter N" always sees the whole-chapter digest
-    /// rather than relying on hybrid search to surface it. Summaries also participate organically in the
+    /// rather than relying on hybrid search to surface it. When <paramref name="summaryTargetChapterOrd"/>
+    /// is set (the question named a chapter) the fetched summaries are narrowed to that chapter
+    /// (<see cref="SelectSummaryIds"/>); otherwise at most <c>k/2</c> summaries are prepended so a
+    /// many-chapter book still returns organic body excerpts. Summaries also participate organically in the
     /// two hybrid retrievers, so the non-overview path (null summarySql) is byte-identical to before.
     /// </summary>
     private async Task<IReadOnlyList<RetrievedChunk>> RetrieveHybridAsync(
-        string query, int k, string sql, string? summarySql,
+        string query, int k, string sql, string? summarySql, int? summaryTargetChapterOrd,
         Func<(string Vector, int Pool), object> parameters, CancellationToken ct)
     {
         if (k <= 0)
@@ -114,12 +119,19 @@ public sealed class RagService : IRagService
         });
 
         // The organic top-k (unchanged for non-overview queries). When summaries were fetched, guarantee
-        // them into the result ahead of the organic ranking; both inputs are already deterministic.
+        // them into the result ahead of the organic ranking; both inputs are already deterministic. A named
+        // chapter narrows the guaranteed summaries to that chapter; otherwise they are capped at k/2 so a
+        // many-chapter book still leaves room for organic body excerpts.
         var fusedIds = fused.Select(f => f.Item).ToList();
         var scoreById = fused.ToDictionary(f => f.Item, f => f.Score);
         var orderedIds = summarySql is null
             ? fusedIds.Take(k).ToList()
-            : MergeSummariesFirst(fusedIds, summaryRows.Select(r => r.ChunkId).ToList(), k);
+            : MergeSummariesFirst(
+                fusedIds,
+                SelectSummaryIds(
+                    summaryRows.Select(r => (r.ChunkId, r.ChapterOrd)).ToList(), summaryTargetChapterOrd),
+                k,
+                maxSummaries: Math.Max(1, k / 2));
 
         return orderedIds
             .Select(id =>
@@ -135,21 +147,30 @@ public sealed class RagService : IRagService
     }
 
     /// <summary>
-    /// Deterministic guaranteed-summary merge: the <paramref name="summaryIds"/> (already ordered by
-    /// <c>chapter_ord, id</c> from SQL) go FIRST, then the organic <paramref name="fusedOrder"/> ids fill
-    /// the remaining slots, deduped by id, capped to <paramref name="k"/>. Prepending guarantees the
-    /// whole-chapter summaries survive the top-k trim for an overview question (completeness &gt; a single
-    /// pinpoint excerpt); regular chunks still fill the rest. Pure so the ordering + dedup is unit-testable.
+    /// Deterministic guaranteed-summary merge: up to <paramref name="maxSummaries"/> of the
+    /// <paramref name="summaryIds"/> (already ordered by <c>chapter_ord, id</c> from SQL) go FIRST, then the
+    /// organic <paramref name="fusedOrder"/> ids fill the remaining slots, deduped by id, capped to
+    /// <paramref name="k"/>. Prepending guarantees the whole-chapter summaries survive the top-k trim for an
+    /// overview question (completeness &gt; a single pinpoint excerpt); the <paramref name="maxSummaries"/>
+    /// cap (the caller passes <c>k/2</c>) stops a many-chapter book from crowding out every organic body
+    /// excerpt — a ≥20-chapter book must not return 20 summaries and zero body chunks. Pure so the ordering,
+    /// cap, and dedup are unit-testable.
     /// </summary>
     public static List<Guid> MergeSummariesFirst(
-        IReadOnlyList<Guid> fusedOrder, IReadOnlyList<Guid> summaryIds, int k)
+        IReadOnlyList<Guid> fusedOrder, IReadOnlyList<Guid> summaryIds, int k, int maxSummaries)
     {
         var result = new List<Guid>(Math.Max(0, k));
         var seen = new HashSet<Guid>();
+        var summariesTaken = 0;
         foreach (var id in summaryIds)
         {
             if (result.Count >= k) return result;
-            if (seen.Add(id)) result.Add(id);
+            if (summariesTaken >= maxSummaries) break; // leave room for organic body excerpts
+            if (seen.Add(id))
+            {
+                result.Add(id);
+                summariesTaken++;
+            }
         }
         foreach (var id in fusedOrder)
         {
@@ -157,6 +178,29 @@ public sealed class RagService : IRagService
             if (seen.Add(id)) result.Add(id);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Narrows the fetched summary rows to the ones that should be GUARANTEED into the result. With no
+    /// <paramref name="targetChapterOrd"/> (overview, no named chapter) every summary is eligible, in the
+    /// SQL <c>chapter_ord, id</c> order. When the question named "chapter N" only that chapter's summary is
+    /// kept — matched leniently against <c>chapter_ord ∈ {N, N-1}</c> because the pipeline's
+    /// <c>chapter_ord</c> is 0-based for the catalog (<c>Chapter.ChapterNumber = ch.Order</c>) but 1-based
+    /// for user books (<c>savedChapterIndex + 1</c>), so the reader's book-numbered "chapter 5" maps to
+    /// ord 4 (catalog) OR ord 5 (user book). The lenient match guarantees the right chapter's summary in
+    /// both corpora at the cost of at most one extra adjacent-chapter summary (harmless under the k/2 cap).
+    /// Pure so the ord-mapping choice is unit-testable.
+    /// </summary>
+    public static List<Guid> SelectSummaryIds(
+        IReadOnlyList<(Guid Id, int ChapterOrd)> summaries, int? targetChapterOrd)
+    {
+        if (targetChapterOrd is not { } n)
+            return summaries.Select(s => s.Id).ToList();
+
+        return summaries
+            .Where(s => s.ChapterOrd == n || s.ChapterOrd == n - 1)
+            .Select(s => s.Id)
+            .ToList();
     }
 
     /// <summary>Dapper row — a sealed class with init props (the repo's proven mapping shape;
@@ -284,11 +328,15 @@ public sealed class RagService : IRagService
     }
 
     /// <summary>
-    /// Fetches ALL of a CATALOG edition's precomputed summary chunks (<c>is_summary</c>), spoiler-gated by
-    /// the SAME <c>@maxChapterOrd</c> as the hybrid retrievers (a summary of an unread chapter must not
-    /// leak). No embedding filter — a summary is guaranteed regardless of embedding progress. Deterministic
-    /// <c>ORDER BY chapter_ord, id</c> (few rows; the <c>id</c> tie-breaker matches the retrieval invariant).
-    /// <c>public static</c> so the <c>is_summary</c> filter + tie-breaker are unit-testable without pgvector.
+    /// Fetches ALL of a CATALOG edition's precomputed summary chunks (<c>is_summary</c>), spoiler-gated
+    /// STRICTLY (<c>chapter_ord &lt; @maxChapterOrd</c>) — a hair tighter than the hybrid retrievers'
+    /// <c>&lt;=</c>. A whole-chapter summary distils the chapter's ending, so the reader who is only
+    /// mid-way through their frontier chapter must NOT be handed that chapter's digest (unlike a body
+    /// excerpt, which is a single passage, not the chapter's resolution). Accepted tradeoff: a
+    /// mid-final-chapter "summarize the book" omits the final chapter's summary. No embedding filter — a
+    /// summary is guaranteed regardless of embedding progress. Deterministic <c>ORDER BY chapter_ord, id</c>
+    /// (few rows; the <c>id</c> tie-breaker matches the retrieval invariant). <c>public static</c> so the
+    /// <c>is_summary</c> filter, strict gate, and tie-breaker are unit-testable without pgvector.
     /// </summary>
     public static string BuildCatalogSummarySql() => """
         SELECT id            AS ChunkId,
@@ -302,14 +350,17 @@ public sealed class RagService : IRagService
         FROM chapter_chunk
         WHERE edition_id = @editionId
           AND is_summary
-          AND (@maxChapterOrd::int IS NULL OR chapter_ord <= @maxChapterOrd::int)
+          AND (@maxChapterOrd::int IS NULL OR chapter_ord < @maxChapterOrd::int)
         ORDER BY chapter_ord, id;
         """;
 
     /// <summary>
     /// Fetches ALL of a USER book's precomputed summary chunks (<c>is_summary</c>), filtered on BOTH
     /// <c>user_id</c> AND <c>user_book_id</c> (per-user isolation, same as the hybrid retrievers) plus the
-    /// optional <c>@maxChapterOrd</c> ceiling. No embedding filter. Deterministic
+    /// optional <c>@maxChapterOrd</c> ceiling. Gate is <c>&lt;=</c> (NOT the catalog's strict <c>&lt;</c>):
+    /// a user book is the reader's own upload with no spoiler concern, and its callers pass
+    /// <c>@maxChapterOrd = NULL</c> (ungated full-book retrieval) anyway, so the ceiling is inert here — kept
+    /// <c>&lt;=</c> for symmetry with the user-book hybrid retrievers. No embedding filter. Deterministic
     /// <c>ORDER BY chapter_ord, id</c>. <c>public static</c> so the isolation + tie-breaker are unit-testable.
     /// </summary>
     public static string BuildUserBookSummarySql() => """

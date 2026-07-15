@@ -84,7 +84,7 @@ public sealed class UserBookRagEvalRunner(ILogger<UserBookRagEvalRunner> logger)
     {
         // Seed retrieval for a spread of chunks. Empty => un-embedded/empty book: short-circuit with NO
         // generator/judge LLM call (mirrors the catalog no-LLM-on-empty invariant).
-        var seed = await rag.RetrieveUserBookAsync(userId, userBookId, SeedQuery, probeCount, maxChapterOrd: null, includeSummaries: false, ct);
+        var seed = await rag.RetrieveUserBookAsync(userId, userBookId, SeedQuery, probeCount, maxChapterOrd: null, SummarySpec.None, ct);
         if (seed.Count == 0)
         {
             const string note = "No indexed chunks for this user book — not embedded yet (no LLM call made).";
@@ -118,7 +118,7 @@ public sealed class UserBookRagEvalRunner(ILogger<UserBookRagEvalRunner> logger)
         foreach (var question in questions)
         {
             ct.ThrowIfCancellationRequested();
-            var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, question, k, maxChapterOrd: null, includeSummaries: false, ct);
+            var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, question, k, maxChapterOrd: null, SummarySpec.None, ct);
             if (chunks.Count > 0)
                 probesWithChunks++;
             retrievedByQuestion.Add((question, chunks));
@@ -188,7 +188,7 @@ public sealed class UserBookRagEvalRunner(ILogger<UserBookRagEvalRunner> logger)
         IRagService rag, IRagAskService ask, Guid userId, Guid userBookId, int k, CancellationToken ct)
     {
         const string question = "hi";
-        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, question, k, maxChapterOrd: null, includeSummaries: false, ct);
+        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, question, k, maxChapterOrd: null, SummarySpec.None, ct);
         var answer = await ask.AskFromChunksAsync(question, chunks, [], [], lastReadOrd: int.MaxValue, ct);
 
         var nonEmpty = !string.IsNullOrWhiteSpace(answer.Answer);
@@ -210,7 +210,7 @@ public sealed class UserBookRagEvalRunner(ILogger<UserBookRagEvalRunner> logger)
     private static async Task<UserBookBehaviorCase> EvaluateOffBookAsync(
         IRagService rag, IRagAskService ask, ILlmService judge, Guid userId, Guid userBookId, int k, CancellationToken ct)
     {
-        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, OffBookQuestion, k, maxChapterOrd: null, includeSummaries: false, ct);
+        var chunks = await rag.RetrieveUserBookAsync(userId, userBookId, OffBookQuestion, k, maxChapterOrd: null, SummarySpec.None, ct);
         var answer = await ask.AskFromChunksAsync(OffBookQuestion, chunks, [], [], lastReadOrd: int.MaxValue, ct);
 
         if (answer.Insufficient)
