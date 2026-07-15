@@ -4,6 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation'
 import { useBookChat } from '../../hooks/useBookChat'
 import { useRagIndex } from '../../hooks/useRagIndex'
 import { composeQuotedQuestion, parseQuotedContent } from '../../api/bookChat'
+import { AskMarkdown } from './AskMarkdown'
 import type { AskCitation, AskTarget } from '../../api/ask'
 
 /** A passage attached to the composer via "Ask about this" (nonce forces re-attach on re-select). */
@@ -105,6 +106,15 @@ export function AskPanel({
   // is offered for consistency, default off); prominent for catalog books.
   const spoilerSubtle = askTarget.kind === 'userbook'
 
+  // Human-readable label for a citation ("p. 12" / "ch.4" / fallback) — shared by the chips
+  // below the answer and the inline [n] marker tooltips inside the rendered markdown.
+  const citationLabel = (c: AskCitation) =>
+    c.sourcePage != null
+      ? t('reader.ask.citationPage', { page: c.sourcePage })
+      : c.chapterOrd != null
+        ? t('reader.ask.citation', { ch: c.chapterOrd })
+        : t('reader.ask.citationFallback')
+
   // Suggested starter questions, shown only on an empty, Ready thread once history has loaded.
   const starterKeys = ['summary', 'characters', 'keyIdea', 'attention'] as const
   const showStarters =
@@ -184,10 +194,17 @@ export function AskPanel({
                   <div key={i} className="ask-panel__turn">
                     {parsed.quote && <QuoteCard text={parsed.quote} />}
                     {parsed.text && <p className="ask-panel__question">{parsed.text}</p>}
-                    <p className="ask-panel__answer">
-                      {turn.answer}
-                      {turn.streaming && <span className="ask-panel__cursor" aria-hidden="true" />}
-                    </p>
+                    {turn.answer && (
+                      <div className="ask-panel__answer">
+                        <AskMarkdown
+                          text={turn.answer}
+                          citations={turn.citations}
+                          onNavigateToCitation={onNavigateToCitation}
+                          citationTitle={citationLabel}
+                        />
+                        {turn.streaming && <span className="ask-panel__cursor" aria-hidden="true" />}
+                      </div>
+                    )}
                     {turn.streaming && !turn.answer && (
                       <div className="ask-panel__loading">
                         <span className="ask-panel__spinner" />
@@ -205,11 +222,7 @@ export function AskPanel({
                             title={c.sectionPath || c.preview}
                             onClick={() => onNavigateToCitation(c)}
                           >
-                            {c.sourcePage != null
-                              ? t('reader.ask.citationPage', { page: c.sourcePage })
-                              : c.chapterOrd != null
-                                ? t('reader.ask.citation', { ch: c.chapterOrd })
-                                : t('reader.ask.citationFallback')}
+                            {citationLabel(c)}
                           </button>
                         ))}
                       </div>
