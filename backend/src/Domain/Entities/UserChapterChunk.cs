@@ -71,6 +71,14 @@ public class UserChapterChunk
     /// </summary>
     public string? SectionPath { get; set; }
 
+    /// <summary>
+    /// True for a precomputed whole-chapter summary chunk (RAG "S2") — mirror of
+    /// <see cref="ChapterChunk.IsSummary"/> for the user corpus. Summaries are always sourced from the
+    /// chapter's <c>plain_text</c> (EPUB and PDF alike); a PDF chapter's summary carries the chapter's
+    /// <see cref="SourcePage"/> so its citation chip jumps to the chapter start. Defaults false.
+    /// </summary>
+    public bool IsSummary { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public UserBook? UserBook { get; set; }

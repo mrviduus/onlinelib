@@ -20,6 +20,9 @@ public static partial class ServiceCollectionExtensions
         // ADR-012 S3: vision PDF→Markdown parser (renders pages + calls the pdf.parse LLM route).
         // Singleton — its deps (storage, LLM gateway) are singletons; safe under the scoped chunker too.
         services.AddSingleton<Application.Rag.IPdfVisionParser, Infrastructure.Rag.PdfVisionParser>();
+        // Per-chapter summary generator ("S2"): nano route via FeatureTag "rag.summarize". Injected into
+        // the chunking service so an indexing run also emits one whole-chapter summary chunk per chapter.
+        services.AddScoped<Application.Rag.ChapterSummarizer>();
         services.AddScoped<Infrastructure.Rag.BookChunkingService>();
         // Spoiler-safe context builder (AI-024): resolves lastRead + gates chunks + private corpus.
         services.AddScoped<Application.Rag.RagContextService>();

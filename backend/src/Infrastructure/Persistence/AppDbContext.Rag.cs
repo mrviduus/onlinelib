@@ -32,6 +32,9 @@ public partial class AppDbContext
                     v => v == null ? null : new Vector(v),
                     v => v == null ? null : v.ToArray());
 
+            // RAG "S2": whole-chapter summary marker (defaults false for body chunks).
+            e.Property(x => x.IsSummary).HasDefaultValue(false);
+
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
             // Approximate-NN index for cosine similarity search (AI-022+).
@@ -41,6 +44,12 @@ public partial class AppDbContext
 
             // Ordered fetch of a chapter's chunks; covers the spoiler-gate edition scope.
             e.HasIndex(x => new { x.EditionId, x.ChapterId, x.Ord });
+
+            // Overview-question path fetches ALL of an edition's summary rows (guaranteed-in-candidate-set
+            // merge). Partial index over the handful of is_summary rows keeps that scan index-only.
+            e.HasIndex(x => new { x.EditionId, x.ChapterOrd })
+                .HasDatabaseName("ix_chapter_chunk_summary")
+                .HasFilter("is_summary");
 
             e.HasOne(x => x.Edition)
                 .WithMany()
@@ -67,6 +76,9 @@ public partial class AppDbContext
                     v => v == null ? null : new Vector(v),
                     v => v == null ? null : v.ToArray());
 
+            // RAG "S2": whole-chapter summary marker (defaults false for body chunks).
+            e.Property(x => x.IsSummary).HasDefaultValue(false);
+
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
             // Own HNSW index — cosine NN over the user chunks (independent of the catalog index).
@@ -78,6 +90,12 @@ public partial class AppDbContext
             e.HasIndex(x => new { x.UserId, x.UserBookId });
             // Ordered fetch of a chapter's chunks.
             e.HasIndex(x => new { x.UserBookId, x.UserChapterId, x.Ord });
+
+            // Overview-question path fetches ALL of a book's summary rows (guaranteed-in-candidate-set
+            // merge), still per-user isolated. Partial index over the handful of is_summary rows.
+            e.HasIndex(x => new { x.UserId, x.UserBookId, x.ChapterOrd })
+                .HasDatabaseName("ix_user_chapter_chunk_summary")
+                .HasFilter("is_summary");
 
             e.HasOne(x => x.UserBook)
                 .WithMany()

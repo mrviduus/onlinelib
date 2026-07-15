@@ -70,7 +70,7 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
         foreach (var g in retrievalGoldens)
         {
             ct.ThrowIfCancellationRequested();
-            var chunks = await rag.RetrieveAsync(editionId, g.Question, k, maxChapterOrd: null, ct);
+            var chunks = await rag.RetrieveAsync(editionId, g.Question, k, maxChapterOrd: null, SummarySpec.None, ct);
             recallCases.Add((chunks, g.ExpectedChapterOrd, g.ExpectedPhrases));
             recallDetail.Add(new RagRecallCase(
                 g.Question, g.ExpectedChapterOrd,
@@ -84,7 +84,7 @@ public sealed class RagEvalRunner(ILogger<RagEvalRunner> logger)
         foreach (var g in spoilerGoldens)
         {
             ct.ThrowIfCancellationRequested();
-            var chunks = await rag.RetrieveAsync(editionId, g.Question, k, maxChapterOrd: g.GateChapterOrd, ct);
+            var chunks = await rag.RetrieveAsync(editionId, g.Question, k, maxChapterOrd: g.GateChapterOrd, SummarySpec.None, ct);
             spoilerCases.Add((chunks, g.GateChapterOrd));
             spoilerDetail.Add(new RagSpoilerCase(
                 g.Question, g.GateChapterOrd, RetrievalMetrics.LeakCount(chunks, g.GateChapterOrd)));

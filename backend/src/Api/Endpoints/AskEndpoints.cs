@@ -63,15 +63,16 @@ public static class AskEndpoints
         }
 
         // Overview-class questions ("summarize chapter 5", "main idea") need broad section coverage,
-        // so default to a wider k; an explicit request.K always wins.
-        var defaultK = RagAskPrompt.IsOverviewQuestion(request.Question) ? IRagService.OverviewK : IRagService.DefaultK;
+        // so default to a wider k AND guarantee the precomputed chapter summaries into retrieval.
+        var summaries = RagAskPrompt.ResolveSummarySpec(request.Question);
+        var defaultK = summaries.Include ? IRagService.OverviewK : IRagService.DefaultK;
         var k = request.K is > 0 ? request.K.Value : defaultK;
         var history = RagAskHistory.Clamp(request.History);
 
         if (AskSse.WantsSse(httpContext))
         {
             // Build the spoiler-safe context first (the gate/retrieval), then stream the answer.
-            var ctx = await context.BuildAsync(userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, ct);
+            var ctx = await context.BuildAsync(userId.Value, siteId, editionId, request.Question, k, request.CurrentChapterId, summaries, ct);
             var noteTexts = ctx.Notes.Select(n => n.Text).ToList();
             return AskSse.Stream(
                 httpContext,

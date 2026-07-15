@@ -155,4 +155,49 @@ public class RagAskPromptTests
     [InlineData(null)]
     public void IsOverviewQuestion_PinpointOrEmpty_False(string? question)
         => Assert.False(RagAskPrompt.IsOverviewQuestion(question));
+
+    // ---- target-chapter parsing (Fix #6) -------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Summarize chapter 5", 5)]
+    [InlineData("summarize Chapter 12 please", 12)]
+    [InlineData("what is ch. 3 about?", 3)]
+    [InlineData("recap ch 7", 7)]
+    [InlineData("overview of chapter: 9", 9)]
+    [InlineData("о чём глава 2", 2)]
+    public void TryParseTargetChapter_NamedChapter_ReturnsNumber(string question, int expected)
+        => Assert.Equal(expected, RagAskPrompt.TryParseTargetChapter(question));
+
+    [Theory]
+    [InlineData("summarize the book")]
+    [InlineData("give me the main idea")]
+    [InlineData("what are the key points so far")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void TryParseTargetChapter_NoNamedChapter_ReturnsNull(string? question)
+        => Assert.Null(RagAskPrompt.TryParseTargetChapter(question));
+
+    [Fact]
+    public void ResolveSummarySpec_Pinpoint_IsNone()
+    {
+        var spec = RagAskPrompt.ResolveSummarySpec("Who killed the duke?");
+        Assert.False(spec.Include);
+        Assert.Null(spec.TargetChapterOrd);
+    }
+
+    [Fact]
+    public void ResolveSummarySpec_OverviewNoChapter_IncludesAllSummaries()
+    {
+        var spec = RagAskPrompt.ResolveSummarySpec("give me an overview of the plot");
+        Assert.True(spec.Include);
+        Assert.Null(spec.TargetChapterOrd); // All: every summary eligible, capped at k/2 downstream
+    }
+
+    [Fact]
+    public void ResolveSummarySpec_OverviewNamingChapter_TargetsThatChapter()
+    {
+        var spec = RagAskPrompt.ResolveSummarySpec("summarize chapter 5");
+        Assert.True(spec.Include);
+        Assert.Equal(5, spec.TargetChapterOrd);
+    }
 }

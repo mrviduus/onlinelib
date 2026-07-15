@@ -56,7 +56,7 @@ public sealed class SearchBookTool : ITool
             ? await ReadingProgressGate.ResolveLastReadOrdAsync(ctx.Services.GetRequiredService<IAppDbContext>(), userId, editionId, ct)
             : null;
 
-        var chunks = await rag.RetrieveAsync(editionId, query, TopK, maxChapterOrd: gate, ct);
+        var chunks = await rag.RetrieveAsync(editionId, query, TopK, maxChapterOrd: gate, SummarySpec.None, ct);
 
         var passages = chunks.Select(c =>
         {

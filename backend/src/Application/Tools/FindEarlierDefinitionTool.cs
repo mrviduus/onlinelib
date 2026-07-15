@@ -54,7 +54,7 @@ public sealed class FindEarlierDefinitionTool : ITool
             ? await ReadingProgressGate.ResolveLastReadOrdAsync(ctx.Services.GetRequiredService<IAppDbContext>(), userId, editionId, ct)
             : null;
 
-        var chunks = await rag.RetrieveAsync(editionId, term, CandidatePool, maxChapterOrd: gate, ct);
+        var chunks = await rag.RetrieveAsync(editionId, term, CandidatePool, maxChapterOrd: gate, SummarySpec.None, ct);
         // "Earlier" = the lowest-numbered chapter that matched (where the concept first appears).
         var earliest = chunks.OrderBy(c => c.ChapterOrd).ThenBy(c => c.Ord).FirstOrDefault();
 

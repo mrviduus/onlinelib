@@ -24,7 +24,7 @@ public class RagEvalRunnerTests
             new(Guid.NewGuid(), Guid.NewGuid(), ord, 0, text, 0, text.Length, 1.0);
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-            Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+            Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct)
         {
             if (maxChapterOrd is null)
             {
@@ -40,7 +40,7 @@ public class RagEvalRunnerTests
             Task.FromResult<IReadOnlyList<RetrievedChunk>>([c]);
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct) =>
             throw new NotSupportedException();
     }
 
@@ -48,7 +48,7 @@ public class RagEvalRunnerTests
     private sealed class LeakyRag : IRagService
     {
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveAsync(
-            Guid editionId, string query, int k, int? maxChapterOrd, CancellationToken ct)
+            Guid editionId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct)
         {
             // Gated queries MUST pass a non-null ceiling — assert the runner forwards it.
             var ord = (maxChapterOrd ?? 0) + 99; // wrong chapter for recall; past the gate for spoiler
@@ -57,7 +57,7 @@ public class RagEvalRunnerTests
         }
 
         public Task<IReadOnlyList<RetrievedChunk>> RetrieveUserBookAsync(
-            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, CancellationToken ct) =>
+            Guid userId, Guid userBookId, string query, int k, int? maxChapterOrd, SummarySpec summaries, CancellationToken ct) =>
             throw new NotSupportedException();
     }
 
