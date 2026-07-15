@@ -252,6 +252,27 @@ describe('AskPanel', () => {
     expect(ask).toHaveBeenCalledWith('> the whale\n\nwhat is this?')
   })
 
+  it('renders an assistant turn as markdown (heading + list) and links inline [n] markers', () => {
+    const citation = { marker: 1, chunkId: 'c1', chapterId: 'ch1', chapterOrd: 4, charStart: 0, charEnd: 1, preview: 'snippet' }
+    chatState.history = [
+      {
+        question: 'q',
+        answer: '## Summary\n\n- point one [1]\n- point two',
+        citations: [citation],
+        insufficient: false,
+        streaming: false,
+      },
+    ]
+    const onNavigateToCitation = vi.fn()
+    render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
+
+    expect(screen.getByRole('heading', { name: 'Summary' })).toBeTruthy()
+    expect(screen.getByText('point two')).toBeTruthy()
+    // Inline marker is clickable and shares the citation jump handler.
+    fireEvent.click(screen.getByRole('button', { name: '[1]' }))
+    expect(onNavigateToCitation).toHaveBeenCalledWith(citation)
+  })
+
   it('renders a persisted quoted user turn as a quote card + question text', () => {
     chatState.history = [
       { question: '> the whale\n\nwhat is this?', answer: 'A symbol.', citations: [], insufficient: false, streaming: false },
