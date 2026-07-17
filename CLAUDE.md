@@ -438,8 +438,10 @@ Test naming convention: `{MethodName}_{Scenario}_{ExpectedResult}`
 
 ```bash
 cd apps/mobile
-eas build -p android --profile production --auto-submit
+eas build -p android --profile production --auto-submit-with-profile internal
 ```
+
+(`--auto-submit` alone FAILS — eas.json has no `submit.production` profile, only `internal`/`closed`; the profile must be named. For JS-only changes prefer an OTA: `npx eas-cli update --branch production --platform android -m "<msg>"`. CI path: the `mobile-release.yml` workflow_dispatch — requires the repo secret `EXPO_TOKEN`, which is NOT currently set.)
 
 That single command builds the AAB and pushes it to Internal Testing. Service account key is stored in EAS-managed credentials (uploaded via `eas credentials -p android` or the web dashboard), so `eas submit` works from any machine or CI without a local key file. Local mirror at `apps/mobile/google-service-account.json` (gitignored) is a convenience backup, not required. Service account email: `eas-submit-textstack@orbital-heaven-496518-t5.iam.gserviceaccount.com`. Permission granted: "Release apps to testing tracks" for the TextStack app.
 

@@ -69,11 +69,11 @@ diagnose_startup_failure() {
 }
 
 echo "[verify] waiting for postgres to accept connections ..."
-for i in {1..60}; do
+for i in {1..120}; do
   if docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
     break
   fi
-  # Bail early if the container has already exited — no point waiting 60s.
+  # Bail early if the container has already exited — no point waiting 120s.
   if [[ -z "$(docker ps -q --filter "name=$CONTAINER" 2>/dev/null)" ]]; then
     echo "[verify] FAIL: verify container exited during startup" >&2
     diagnose_startup_failure
@@ -82,7 +82,7 @@ for i in {1..60}; do
   sleep 1
 done
 if ! docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
-  echo "[verify] FAIL: postgres did not become ready after 60s" >&2
+  echo "[verify] FAIL: postgres did not become ready after 120s" >&2
   diagnose_startup_failure
   exit 1
 fi
