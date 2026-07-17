@@ -30,7 +30,7 @@ import { HighlightsSheet } from '../HighlightsSheet'
 import { SelectionActionBar } from '../SelectionActionBar'
 import { TranslationSheet } from '../TranslationSheet'
 import { ExplanationSheet } from '../ExplanationSheet'
-import { AskSheet } from '../AskSheet'
+import { AskSheet, type AskPrefill } from '../AskSheet'
 import { HighlightNoteModal } from '../HighlightNoteModal'
 import { TocSheet } from '../TocSheet'
 import { ReaderStatsWidget } from '../ReaderStatsWidget'
@@ -191,6 +191,8 @@ export function ReaderShell(props: ReaderShellProps) {
   const [translateOpen, setTranslateOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
+  /** Passage attached to the Ask sheet via the selection toolbar's "Ask about this" action. */
+  const [askPrefill, setAskPrefill] = useState<AskPrefill | null>(null)
   const [tocOpen, setTocOpen] = useState(false)
   const [progress, setProgress] = useState(0)
   const [bookProgress, setBookProgress] = useState<number | null>(null)
@@ -714,6 +716,12 @@ export function ReaderShell(props: ReaderShellProps) {
             vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
             isAuthenticated={isAuthenticated}
             bottomOffset={footerHeight}
+            onAskAbout={askTarget && selection.text.trim() ? () => {
+              setAskPrefill({ text: selection.text.trim(), nonce: Date.now() })
+              setAskOpen(true)
+              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
+              setSelection(null)
+            } : undefined}
             onClose={() => {
               injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
               setSelection(null)
@@ -840,10 +848,12 @@ export function ReaderShell(props: ReaderShellProps) {
           <AskSheet
             visible={askOpen}
             target={askTarget}
+            currentChapterId={chapter.id}
+            prefill={askPrefill}
             isAuthenticated={isAuthenticated}
             onCitation={handleCitation}
             onSignIn={() => { setAskOpen(false); router.push('/(auth)/login') }}
-            onClose={() => setAskOpen(false)}
+            onClose={() => { setAskOpen(false); setAskPrefill(null) }}
           />
         )}
 
