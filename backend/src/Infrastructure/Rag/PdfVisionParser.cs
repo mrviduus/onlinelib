@@ -39,7 +39,7 @@ public sealed class PdfVisionParser(
             return [];
 
         var maxPages = config.GetValue("Ai:Pdf:MaxParsePages", 300);
-        var jpegs = RenderPages(pdfBytes, maxPages);
+        var jpegs = RenderPages(pdfBytes, maxPages, ct);
         if (jpegs.Count == 0)
             return [];
 
@@ -111,7 +111,7 @@ public sealed class PdfVisionParser(
     /// (0-based index, jpeg-bytes) pairs. A whole-document render failure returns an empty list; a single
     /// page's render failure skips that page.
     /// </summary>
-    private List<(int Index, byte[] Jpeg)> RenderPages(byte[] pdfBytes, int maxPages)
+    private List<(int Index, byte[] Jpeg)> RenderPages(byte[] pdfBytes, int maxPages, CancellationToken ct)
     {
         int pageCount;
         try
@@ -136,6 +136,10 @@ public sealed class PdfVisionParser(
         var jpegs = new List<(int, byte[])>(cap);
         for (var i = 0; i < cap; i++)
         {
+            // F3: honor the linked timeout/stale token here too — up to 300 sequential PDFium renders on a
+            // pathological PDF could otherwise spin past the timeout/stale window uninterrupted (the vision
+            // calls already observe ct). Throwing surfaces as an OperationCanceledException to the executor.
+            ct.ThrowIfCancellationRequested();
             try
             {
                 using var pdfStream = new MemoryStream(pdfBytes);

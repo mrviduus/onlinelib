@@ -89,7 +89,7 @@ public class RagIndexLogicTests
 
     // ---- IsStaleIndexing: dead-process recovery → terminal Failed ----
 
-    private static readonly TimeSpan Stale = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan Stale = RagIndexLogic.StaleWindow;
 
     // Indexing + zero chunks + started stamp older than the window = the claiming process died → stale.
     [Fact]
@@ -164,4 +164,46 @@ public class RagIndexLogicTests
     [Fact]
     public void ResolveStatusAfterChunking_AllEmbedded_ReturnsReady()
         => Assert.Equal(RagIndexStatus.Ready, RagIndexLogic.ResolveStatusAfterChunking(chunkCount: 8, embeddedCount: 8));
+
+    // ---- ResolveParseTimeout (QA #3): hard cap on one vision parse; bad config can't disable it ----
+
+    [Fact]
+    public void ResolveParseTimeout_PositiveMinutes_ReturnsThatDuration()
+        => Assert.Equal(TimeSpan.FromMinutes(8), RagIndexLogic.ResolveParseTimeout(8));
+
+    [Fact]
+    public void ResolveParseTimeout_DefaultConfigValue_ReturnsTwelveMinutes()
+        => Assert.Equal(TimeSpan.FromMinutes(12), RagIndexLogic.ResolveParseTimeout(12));
+
+    // A missing / misconfigured (non-positive) value must fall back to the default — never 0/negative,
+    // which would fire the timeout instantly (or never) and re-open the forever-hung parse QA #3 fixes.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void ResolveParseTimeout_NonPositive_FallsBackToDefault(int configured)
+        => Assert.Equal(RagIndexLogic.DefaultParseTimeout, RagIndexLogic.ResolveParseTimeout(configured));
+
+    // Load-bearing ordering invariant: the parse timeout MUST be strictly less than the sweep's stale
+    // window (RagIndexLogic.StaleWindow, shared with RagIndexingWorker.StaleAfter) so a live-but-slow parse
+    // is failed by its own timeout BEFORE the stale sweep would reclaim it — no stale-vs-live race. Asserting
+    // against the shared constant (F4) means lowering the window can't leave this green while the invariant
+    // silently breaks.
+    [Fact]
+    public void DefaultParseTimeout_IsLessThanStaleWindow()
+        => Assert.True(RagIndexLogic.DefaultParseTimeout < RagIndexLogic.StaleWindow);
+
+    // F2 misconfig (Finding 2): a configured value at/over the cap is CLAMPED beneath the stale window,
+    // not honored — otherwise the 15-min stale sweep would kill live parses again. 20 → MaxParseTimeout.
+    [Fact]
+    public void ResolveParseTimeout_ExceedsCap_ClampsBelowStaleWindow()
+    {
+        var resolved = RagIndexLogic.ResolveParseTimeout(20);
+        Assert.True(resolved <= RagIndexLogic.StaleWindow - TimeSpan.FromMinutes(1));
+        Assert.Equal(RagIndexLogic.MaxParseTimeout, resolved);
+    }
+
+    // A valid value comfortably under the window passes through untouched.
+    [Fact]
+    public void ResolveParseTimeout_UnderWindow_PassesThrough()
+        => Assert.Equal(TimeSpan.FromMinutes(10), RagIndexLogic.ResolveParseTimeout(10));
 }
