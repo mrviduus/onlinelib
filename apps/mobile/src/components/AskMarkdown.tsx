@@ -1,7 +1,8 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, memo, type ReactNode } from 'react'
 import { View, Text, ScrollView, StyleSheet, Platform, type TextStyle } from 'react-native'
 import { useTheme } from '../context/ThemeContext'
 import { fonts } from '../theme/typography'
+import { isTableSeparator } from '../lib/markdown'
 
 /**
  * Small self-contained markdown renderer for assistant chat answers (tutor-register gpt-4.1 output:
@@ -13,8 +14,8 @@ import { fonts } from '../theme/typography'
  *
  * Divergences vs web AskMarkdown: tables degrade to a horizontally-scrollable monospace block
  * (RN has no <table>); inline `[n]` citation markers render as plain text (the citation CHIPS below
- * the answer are the jump surface on mobile). Links render as coloured text (not tappable) — answers
- * are grounded in the book, external links are vanishingly rare.
+ * the answer are the jump surface on mobile). Links render as literal text (the inline pass has no
+ * link rule) — intended: answers are grounded in the book, external links are vanishingly rare.
  */
 
 const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
@@ -58,7 +59,7 @@ function renderInline(line: string, colors: InlineColors, keyPrefix: string): Re
 
 const HEADING_SIZE: Record<number, number> = { 1: 22, 2: 19, 3: 17, 4: 15, 5: 14, 6: 13 }
 
-export function AskMarkdown({ text }: { text: string }) {
+export const AskMarkdown = memo(function AskMarkdown({ text }: { text: string }) {
   const { colors } = useTheme()
   const inline: InlineColors = { text: colors.text, code: colors.primary, codeBg: colors.border + '66' }
   const blocks: ReactNode[] = []
@@ -106,9 +107,11 @@ export function AskMarkdown({ text }: { text: string }) {
       continue
     }
 
-    // Table: a header row of `| a | b |` immediately followed by a `---|---` separator. Degrade the
-    // whole contiguous pipe-run to a monospace, horizontally scrollable block (RN has no table).
-    if (line.includes('|') && i + 1 < lines.length && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes('-')) {
+    // Table: a header row of `| a | b |` immediately followed by a `---|---` separator. The separator
+    // MUST itself contain a pipe (see `isTableSeparator`) so a bare `---` thematic break after a
+    // pipe-containing paragraph doesn't get mis-read as a table. Degrade the whole contiguous pipe-run
+    // to a monospace, horizontally scrollable block (RN has no table).
+    if (line.includes('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
       const buf: string[] = []
       while (i < lines.length && lines[i].includes('|')) { buf.push(lines[i]); i++ }
       blocks.push(
@@ -177,7 +180,7 @@ export function AskMarkdown({ text }: { text: string }) {
   }
 
   return <View>{blocks}</View>
-}
+})
 
 const styles = StyleSheet.create({
   heading: { fontFamily: fonts.sansBold, marginTop: 10, marginBottom: 4 },

@@ -135,6 +135,9 @@ export function AskSheet({
   const lastChunkRef = useRef(-1)
   const mountedRef = useRef(true)
   const scrollRef = useRef<ScrollView>(null)
+  /** Turn count at the last scroll, so streaming deltas (which grow the last turn's answer but not the
+   *  count) scroll WITHOUT re-animating per token — only a new turn animates. */
+  const prevTurnCountRef = useRef(0)
 
   const stopPolling = useCallback(() => {
     if (timerRef.current) {
@@ -276,10 +279,14 @@ export function AskSheet({
 
   // Sheet closed mid-stream: abort the in-flight send. The optimistic user turn is intentionally
   // KEPT — reopening re-fires the load effect, which replaces local history with the server's copy.
+  // The composer draft (attached quote + typed input) is transient and does NOT survive close/reopen:
+  // the sheet stays mounted, so clear it here or a stale quote/draft would resurface on next open.
   useEffect(() => {
     if (visible) return
     abortRef.current?.abort()
     setLoading(false)
+    setQuote(null)
+    setInput('')
   }, [visible])
 
   // Attach a selected passage as a quote card when the reader hands one in.
@@ -288,9 +295,12 @@ export function AskSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.nonce])
 
-  // Auto-scroll to the newest turn.
+  // Auto-scroll to the newest turn. Animate only when the TURN COUNT changes; a long streamed answer
+  // grows the last turn in place, so those updates scroll non-animated (no per-token re-animation).
   useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: true })
+    const animated = history.length !== prevTurnCountRef.current
+    prevTurnCountRef.current = history.length
+    scrollRef.current?.scrollToEnd({ animated })
   }, [history, loading, historyLoading])
 
   const appendDelta = useCallback((fragment: string) => {
@@ -311,6 +321,12 @@ export function AskSheet({
       next[next.length - 1] = { ...last, ...patch, streaming: false }
       return next
     })
+  }, [])
+
+  /** Drops the optimistic user turn appended at send time — used on a hard failure so a dead
+   *  question-with-blank-answer doesn't linger next to the error banner (history reverts). */
+  const removeLastTurn = useCallback(() => {
+    setHistory(prev => prev.slice(0, -1))
   }, [])
 
   const ask = useCallback(async (rawQuestion: string) => {
@@ -354,22 +370,32 @@ export function AskSheet({
           finishTurn({ answer: res.answer, citations: res.citations, insufficient: res.insufficient })
         } catch (fallbackErr) {
           if (ctrl.signal.aborted) return
-          finishTurn({})
-          if (fallbackErr instanceof ApiError && fallbackErr.status === 503) setNotConfigured(true)
-          else if (isAuthError(fallbackErr)) setAuthExpired(true)
-          else setError(t('reader.ask.error'))
+          if (fallbackErr instanceof ApiError && fallbackErr.status === 503) {
+            finishTurn({})
+            setNotConfigured(true)
+          } else if (isAuthError(fallbackErr)) {
+            finishTurn({})
+            setAuthExpired(true)
+          } else {
+            // Hard failure: streaming unsupported AND the JSON fallback failed. Revert the optimistic
+            // turn so there's no ghost question with a blank answer beside the error banner.
+            removeLastTurn()
+            setError(t('reader.ask.error'))
+          }
         }
       } else if (err instanceof SseUnauthorizedError || isAuthError(err)) {
         finishTurn({})
         setAuthExpired(true)
       } else {
-        finishTurn({})
+        // Hard failure: a non-401 error that wasn't a streaming-unsupported signal, so no JSON
+        // fallback applies. Revert the optimistic turn alongside the error banner.
+        removeLastTurn()
         setError(t('reader.ask.error'))
       }
     } finally {
       if (abortRef.current === ctrl && mountedRef.current) setLoading(false)
     }
-  }, [target, conversationId, currentChapterId, loading, indexStatus, appendDelta, finishTurn, t])
+  }, [target, conversationId, currentChapterId, loading, indexStatus, appendDelta, finishTurn, removeLastTurn, t])
 
   const submit = useCallback(() => {
     const q = input.trim()
@@ -418,8 +444,10 @@ export function AskSheet({
   const ready = indexStatus === 'Ready'
   // Subtle for user uploads (no spoiler concern on your own document, but offered for consistency).
   const spoilerSubtle = target?.kind === 'userbook'
+  // Starters call `ask()` directly, bypassing the quote-compose path in `submit()`. Rather than
+  // re-plumb them, hide them while a quote is attached so a tap can never silently drop the quote.
   const showStarters =
-    authed && ready && history.length === 0 && !historyLoading && !loading
+    authed && ready && history.length === 0 && !historyLoading && !loading && !quote
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>

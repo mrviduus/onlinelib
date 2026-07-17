@@ -59,8 +59,18 @@ export async function postSse(
   if (!res.body) throw new SseUnsupportedError()
 
   const parser = createSseParser(onEvent)
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
+  // Guard the stream setup itself: an OK response whose body isn't a spec ReadableStream (no
+  // `getReader`), or a runtime with no `TextDecoder` global, can't be streamed. Rethrow as
+  // `SseUnsupportedError` so the caller degrades to `sendChatMessageJson` instead of dead-ending
+  // on a raw TypeError banner. (A failure DURING the read below is a genuine stream error, not this.)
+  let reader: ReadableStreamDefaultReader<Uint8Array>
+  let decoder: TextDecoder
+  try {
+    reader = res.body.getReader()
+    decoder = new TextDecoder()
+  } catch {
+    throw new SseUnsupportedError()
+  }
   try {
     while (true) {
       const { done, value } = await reader.read()
