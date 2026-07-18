@@ -399,7 +399,7 @@ Check for these issues:
 6. TINY_CHAPTER_CLUSTER: 3+ consecutive chapters each under 200 words (bad splits)
 7. MISSING_CONTENT: chapter has 0 or near-0 words
 
-For PLACEHOLDER_TITLE: suggest a better title based on the sample content. If content is too short, suggest based on chapter position (Introduction, Epilogue, etc).
+For PLACEHOLDER_TITLE: the fix MUST be "rename" with a suggestedTitle — NEVER "delete" (a bad title is not a reason to remove content). Suggest a better title based on the sample content. If content is too short, suggest based on chapter position (Introduction, Epilogue, etc).
 
 Output EXACTLY (no markdown, no commentary):
 
@@ -458,7 +458,10 @@ ISSUES_END") || {
   delete_nums=$(echo "$issues_json" | python3 -c "
 import sys, json
 issues = json.load(sys.stdin)
-nums = sorted([i['chapterNumber'] for i in issues if i.get('fix') == 'delete'], reverse=True)
+# Dedup: multiple issues can target the SAME chapter (e.g. FRAGMENT_CHAPTER +
+# PLACEHOLDER_TITLE both on ch.1). Without set(), the second delete lands on the
+# renumbered NEXT chapter and destroys real content (Ivan Ilyich lost ch. I).
+nums = sorted({i['chapterNumber'] for i in issues if i.get('fix') == 'delete'}, reverse=True)
 for n in nums:
     print(n)
 " 2>/dev/null)
