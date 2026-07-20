@@ -132,6 +132,14 @@ public static class InternalEndpoints
         return Results.Ok();
     }
 
+    /// <summary>
+    /// Safety rail for the quality pipeline's delete fix: it exists to drop
+    /// FRAGMENT/EMPTY chapters (title pages, blank stubs), never real content.
+    /// A substantial chapter must not be deletable through this path — the
+    /// Ivan-Ilyich incident deleted a 2 510-word chapter via a shifted number.
+    /// </summary>
+    internal const int QualityDeleteMaxWords = 300;
+
     private static async Task<IResult> DeleteEditionChapter(
         Guid id, int n, HttpContext ctx, IAppDbContext db, CancellationToken ct)
     {
@@ -139,6 +147,13 @@ public static class InternalEndpoints
 
         var ch = await db.Chapters.FirstOrDefaultAsync(c => c.EditionId == id && c.ChapterNumber == n, ct);
         if (ch is null) return Results.NotFound();
+
+        if (ch.WordCount is > QualityDeleteMaxWords)
+            return Results.Conflict(new
+            {
+                error = $"Refusing to delete chapter {n}: {ch.WordCount} words exceeds the " +
+                        $"quality-delete cap ({QualityDeleteMaxWords}). Substantial chapters are not deletable via the quality pipeline."
+            });
 
         db.Chapters.Remove(ch);
 
@@ -315,6 +330,13 @@ public static class InternalEndpoints
 
         var ch = await db.UserChapters.FirstOrDefaultAsync(c => c.UserBookId == id && c.ChapterNumber == n, ct);
         if (ch is null) return Results.NotFound();
+
+        if (ch.WordCount is > QualityDeleteMaxWords)
+            return Results.Conflict(new
+            {
+                error = $"Refusing to delete chapter {n}: {ch.WordCount} words exceeds the " +
+                        $"quality-delete cap ({QualityDeleteMaxWords}). Substantial chapters are not deletable via the quality pipeline."
+            });
 
         db.UserChapters.Remove(ch);
 
