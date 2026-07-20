@@ -41,6 +41,10 @@ interface SelectionActionBarProps {
   onMarkKnown?: () => void
   /** Remove the word from vocabulary — lets the user undo an accidental save. */
   onRemove?: () => void
+  /** "Ask about this" — opens the Book Chat with the selection attached as a quoted passage
+   *  (persistent chat, AI-027). Only wired when the reader has an ask target; shown for
+   *  multi-word passages (a single quoted word is redundant with the vocab actions). */
+  onAskAbout?: () => void
   isSpeaking?: boolean
   wordSaved?: boolean
   vocabStage?: number | null
@@ -79,6 +83,7 @@ export function SelectionActionBar({
   highlightColor = 'yellow',
   onMarkKnown,
   onRemove,
+  onAskAbout,
   isSpeaking,
   wordSaved,
   vocabStage,
@@ -208,6 +213,18 @@ export function SelectionActionBar({
         >
           <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.text} />
         </TouchableOpacity>
+
+        {/* "Ask about this" — quote the passage into the persistent Book Chat. Multi-word only. */}
+        {onAskAbout && isMultiWord && (
+          <TouchableOpacity
+            style={styles.btn}
+            onPress={onAskAbout}
+            accessibilityRole="button"
+            accessibilityLabel="Ask about this passage"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        )}
 
         {/* Per-word vocab affordances (save / mark known / stage badge) */}
         {isAuthenticated && !isMultiWord && (

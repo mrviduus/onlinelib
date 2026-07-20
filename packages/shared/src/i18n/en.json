@@ -597,7 +597,20 @@
       "retry": "Retry",
       "notConfigured": "Ask is not available right now.",
       "insufficient": "Not enough in the book to answer that.",
-      "error": "Could not get an answer"
+      "error": "Could not get an answer",
+      "spoilerToggle": "Spoiler-safe",
+      "clearChat": "Clear chat",
+      "clearConfirm": "Clear this chat? This can't be undone.",
+      "loadingHistory": "Loading chat…",
+      "detachQuote": "Remove quoted passage",
+      "askAboutThis": "Ask about this",
+      "startersTitle": "Try asking",
+      "starters": {
+        "summary": "Summarize what I've read so far",
+        "characters": "Who are the main characters?",
+        "keyIdea": "Explain the key idea so far",
+        "attention": "What should I pay attention to?"
+      }
     },
     "reviewNow": "Review Now",
     "later": "Later",
