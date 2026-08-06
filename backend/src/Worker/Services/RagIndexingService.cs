@@ -5,6 +5,7 @@ using Infrastructure.Rag;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using TextStack.Ai.Core;
 
 namespace Worker.Services;
 
@@ -69,6 +70,13 @@ public class RagIndexingService(
               AND rag_indexing_started_at IS NULL;
             """, ct);
         if (claimed == 0) return;
+
+        // Span opened AFTER the claim so a lost claim (the common no-op) emits nothing. Outcome
+        // defaults to "error", so every early return on a Fail* path is recorded as a failure.
+        using var trace = TraceScope
+            .Start("rag.index", "rag.index")
+            .SetTag("rag.kind", "user_book")
+            .SetTag("rag.book_id", bookId.ToString());
 
         try
         {
@@ -143,6 +151,10 @@ public class RagIndexingService(
             if (stamped == 0)
                 logger.LogWarning(
                     "RAG indexing lost the row for user book {BookId} (no longer Indexing); skipping stamp", bookId);
+            else
+                trace.Outcome = TraceScope.OutcomeCompleted;
+
+            trace.SetMeasure("rag.chunk_count", chunkCount);
         }
         catch (Exception ex)
         {
@@ -165,6 +177,11 @@ public class RagIndexingService(
               AND rag_indexing_started_at IS NULL;
             """, ct);
         if (claimed == 0) return;
+
+        using var trace = TraceScope
+            .Start("rag.index", "rag.index")
+            .SetTag("rag.kind", "edition")
+            .SetTag("rag.book_id", editionId.ToString());
 
         try
         {
@@ -228,6 +245,10 @@ public class RagIndexingService(
             if (stamped == 0)
                 logger.LogWarning(
                     "RAG indexing lost the row for edition {EditionId} (no longer Indexing); skipping stamp", editionId);
+            else
+                trace.Outcome = TraceScope.OutcomeCompleted;
+
+            trace.SetMeasure("rag.chunk_count", chunkCount);
         }
         catch (Exception ex)
         {
@@ -254,6 +275,8 @@ public class RagIndexingService(
         {
             logger.LogWarning(ex, "Failed to persist Failed RAG status for user book {BookId}", bookId);
         }
+
+        CaptureRagFailure("user_book", bookId, error);
     }
 
     private async Task FailEditionAsync(Guid editionId, string error)
@@ -271,6 +294,40 @@ public class RagIndexingService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to persist Failed RAG status for edition {EditionId}", editionId);
+        }
+
+        CaptureRagFailure("edition", editionId, error);
+    }
+
+    /// <summary>
+    /// One Sentry event per terminal <c>rag_status = 3</c>. This is the choke point both corpora
+    /// funnel through, so "Ask this book" never fails silently again.
+    ///
+    /// <c>"indexing interrupted, retry"</c> is deliberately NOT reported: it fires whenever a deploy
+    /// lands mid-index, which would page us on every release for a self-healing state (the sweep
+    /// re-queues it). The other three values are real failures. All four are fixed literals — no user
+    /// text can reach Sentry through <paramref name="error"/>.
+    /// </summary>
+    private static void CaptureRagFailure(string kind, Guid id, string error)
+    {
+        if (error == "indexing interrupted, retry")
+            return;
+
+        try
+        {
+            SentrySdk.CaptureMessage(
+                $"RAG indexing failed ({kind}): {error}",
+                scope =>
+                {
+                    scope.SetTag("rag.kind", kind);
+                    scope.SetTag("rag.book_id", id.ToString());
+                    scope.SetTag("rag.outcome", "failed");
+                },
+                SentryLevel.Error);
+        }
+        catch
+        {
+            // Reporting a failure must never cause one.
         }
     }
 

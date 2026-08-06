@@ -56,6 +56,16 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
         AgentInput input, AgentContext ctx, AgentLoopOptions options,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        // One span per agent run, for every agent (Enrichment / Librarian / Tutor / StudyBuddy /
+        // crews) — RunAsync delegates here, so this is the single seam. `using` is legal in an
+        // iterator and disposes on normal completion, `yield break`, a throw, AND consumer
+        // abandonment, so the outcome is always recorded. FeatureTag IS the agent identity in this
+        // codebase (bookmeta.agent / librarian.agent / tutor.agent) and is the same key Ai:Routes is
+        // indexed by, which makes the tag joinable with the routing config.
+        using var trace = TraceScope
+            .Start("agent.run", "ai.agent")
+            .SetTag("agent.name", input.FeatureTag);
+
         var sw = Stopwatch.StartNew();
         var steps = new List<AgentStep>();
         var messages = new List<LlmMessage> { new("user", input.UserGoal) };
@@ -64,6 +74,19 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
 
         int inputTokens = 0, outputTokens = 0;
         decimal cost = 0m;
+        string? modelId = null;
+
+        // Local so every terminal path (success, cost cap, MaxSteps) reports the same numbers the
+        // AgentRun row gets — no prompt or answer text, only counters.
+        void Measure(int iterations)
+        {
+            trace.SetTag("agent.model", modelId)
+                .SetMeasure("agent.iterations", iterations)
+                .SetMeasure("agent.tokens_in", inputTokens)
+                .SetMeasure("agent.tokens_out", outputTokens)
+                .SetMeasure("agent.cost_usd", (double)cost)
+                .SetMeasure("agent.duration_ms", sw.ElapsedMilliseconds);
+        }
 
         for (var iteration = 0; iteration < options.MaxSteps; iteration++)
         {
@@ -77,6 +100,7 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
             inputTokens += response.Usage.InputTokens;
             outputTokens += response.Usage.OutputTokens;
             cost += response.Usage.CostUsd;
+            modelId = response.ModelId;
 
             var llmStep = Step(iteration, "llm_response", SerializeResponse(response));
             steps.Add(llmStep);
@@ -86,6 +110,8 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
             if (response.ToolCalls.Count == 0)
             {
                 sw.Stop();
+                trace.Outcome = TraceScope.OutcomeCompleted;
+                Measure(iteration + 1);
                 yield return AgentEvent.Done(new AgentResult<string>(
                     response.Text, steps,
                     new AgentUsage(iteration + 1, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds)));
@@ -109,12 +135,18 @@ public sealed class AgentLoop(ILlmService llm, IToolRegistry tools, ToolDispatch
 
             // Cost cap is checked AFTER the step completes, so a useful partial transcript is kept.
             if (options.CostCapUsd is { } cap && cost >= cap)
+            {
+                trace.Outcome = TraceScope.OutcomeBudgetExhausted;
+                Measure(iteration + 1);
                 throw new AgentBudgetExhaustedException(
                     $"Agent cost cap ${cap} exceeded after {iteration + 1} iteration(s) (${cost}).",
                     steps,
                     new AgentUsage(iteration + 1, inputTokens, outputTokens, cost, (int)sw.ElapsedMilliseconds));
+            }
         }
 
+        trace.Outcome = TraceScope.OutcomeBudgetExhausted;
+        Measure(options.MaxSteps);
         throw new AgentBudgetExhaustedException(
             $"Agent reached MaxSteps={options.MaxSteps} without a final answer.",
             steps,

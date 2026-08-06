@@ -92,6 +92,16 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
+    <!-- Sentry (error tracking + AI-agent spans). 6.8.0 ships a first-class net10.0
+         TFM with zero package dependencies. We deliberately do NOT take
+         Sentry.OpenTelemetry: the OTel bridge is deprecated upstream and its
+         replacement (Sentry.OpenTelemetry.Exporter) ships spans through the OTel
+         SDK, so SentryOptions.BeforeSend never sees them — and our OTel spans carry
+         http.client_ip + full SQL (SetDbStatementForText), which must be scrubbed.
+         Sentry.Extensions.Logging comes in transitively via Sentry.AspNetCore. -->
+    <PackageVersion Include="Sentry" Version="6.8.0" />
+    <PackageVersion Include="Sentry.AspNetCore" Version="6.8.0" />
+    <PackageVersion Include="Sentry.Extensions.Logging" Version="6.8.0" />
     <!-- Security (override transitive for CVE fix) -->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.8" />
     <!-- Testing -->

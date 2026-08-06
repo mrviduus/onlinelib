@@ -2,4 +2,9 @@
   <PropertyGroup>
     <RootNamespace>TextStack.Ai.Core</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- TraceScope dual-writes one Activity (→ OTLP/Aspire) + one Sentry span. -->
+    <PackageReference Include="Sentry" />
+  </ItemGroup>
 </Project>

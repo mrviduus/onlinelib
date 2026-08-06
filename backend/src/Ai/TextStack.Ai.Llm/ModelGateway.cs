@@ -32,7 +32,8 @@ public sealed class ModelGateway(
     IModelRouteProvider routeProvider,
     ISpendTracker spendTracker,
     BudgetOptions budgetOptions,
-    ILogger<ModelGateway> logger) : ILlmService
+    ILogger<ModelGateway> logger,
+    IRouteAlarm? routeAlarm = null) : ILlmService
 {
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
     {
@@ -84,15 +85,9 @@ public sealed class ModelGateway(
 
     private ILlmService Route(string? featureTag)
     {
-        // Precedence: registry Primary (table-driven, set by admin promote/rollback) →
-        // config Ai:Routes:{feature} → Ai:DefaultProvider → "openai". The route provider
-        // is hot-path safe (cached, never throws → null on any failure), so a missing DB
-        // or empty registry transparently falls through to the config route below.
-        var registryKey = RegistryKey(featureTag);
-        var configKey = !string.IsNullOrWhiteSpace(featureTag)
-            ? config[$"Ai:Routes:{featureTag}"]
-            : null;
-        var key = registryKey ?? configKey ?? config["Ai:DefaultProvider"] ?? "openai";
+        var decision = ResolveRoute(featureTag);
+        var key = decision.Key;
+        var reason = decision.Reason;
 
         // A registry row may name a provider key with no keyed registration (e.g. a key
         // renamed in config but still recorded in `models`). That must NEVER throw — fall
@@ -102,11 +97,69 @@ public sealed class ModelGateway(
         {
             logger.LogWarning(
                 "Unknown provider key '{Key}' for feature '{Feature}'; falling back to config route", key, featureTag);
+            var configKey = ConfigRouteKey(featureTag);
             key = configKey ?? config["Ai:DefaultProvider"] ?? "openai";
+            // The guard re-resolves: landing on DefaultProvider here is genuinely a fallback.
+            reason = configKey is not null ? RouteReason.RouteMatched : RouteReason.DefaultFallback;
             svc = serviceProvider.GetRequiredKeyedService<ILlmService>(key);
         }
+
+        ReportRoute(featureTag, key, reason);
         return svc;
     }
+
+    /// <summary>
+    /// Publishes the resolved route to observability. The span attributes are the fix for the
+    /// 2026-07-14 silent-fallback incident: with <c>ai.task</c> + <c>ai.provider.resolved</c> +
+    /// <c>ai.provider.reason</c> on the span, "which model actually answered, and did anyone
+    /// choose it on purpose?" is answerable from a trace instead of from CPU graphs. The alarm
+    /// escalates the one case that is always a defect — an expensive task on a default fallback.
+    /// Never throws: observability may not break a real LLM call.
+    /// </summary>
+    private void ReportRoute(string? featureTag, string key, RouteReason reason)
+    {
+        try
+        {
+            var span = SentrySdk.GetSpan();
+            if (span is not null)
+            {
+                span.SetTag("ai.task", featureTag ?? "unknown");
+                span.SetTag("ai.provider.resolved", key);
+                span.SetTag("ai.provider.reason", RouteReasonNames.For(reason));
+            }
+
+            Activity.Current?.SetTag("ai.task", featureTag ?? "unknown");
+            Activity.Current?.SetTag("ai.provider.resolved", key);
+            Activity.Current?.SetTag("ai.provider.reason", RouteReasonNames.For(reason));
+
+            routeAlarm?.OnRouteResolved(featureTag, key, reason);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Route reporting failed for feature '{Feature}'", featureTag);
+        }
+    }
+
+    /// <summary>
+    /// The ONE place route precedence lives: registry Primary (table-driven, set by admin
+    /// promote/rollback) → config <c>Ai:Routes:{feature}</c> → <c>Ai:DefaultProvider</c> → "openai".
+    /// The route provider is hot-path safe (cached, never throws → null on any failure), so a missing
+    /// DB or empty registry transparently falls through to the config route. Returns the reason as a
+    /// by-product so callers can tell a deliberate route from a silent fallback — previously
+    /// indistinguishable, which is exactly how the pdf.parse → Ollama incident stayed invisible.
+    /// </summary>
+    private RouteDecision ResolveRoute(string? featureTag)
+    {
+        var matched = RegistryKey(featureTag) ?? ConfigRouteKey(featureTag);
+        return matched is not null
+            ? new RouteDecision(matched, RouteReason.RouteMatched)
+            : new RouteDecision(config["Ai:DefaultProvider"] ?? "openai", RouteReason.DefaultFallback);
+    }
+
+    private string? ConfigRouteKey(string? featureTag) =>
+        !string.IsNullOrWhiteSpace(featureTag) ? config[$"Ai:Routes:{featureTag}"] : null;
+
+    private readonly record struct RouteDecision(string Key, RouteReason Reason);
 
     /// <summary>
     /// Route resolution with cost-aware budget enforcement layered on top of the true primary
@@ -189,14 +242,7 @@ public sealed class ModelGateway(
     /// <summary>Resolved PRIMARY provider key for a feature (registry → config → default),
     /// mirroring <see cref="Route"/>'s precedence WITHOUT touching DI. Used to skip a
     /// shadow that now points at the same provider as the primary.</summary>
-    private string ResolvedPrimaryKey(string? featureTag)
-    {
-        var registryKey = RegistryKey(featureTag);
-        var configKey = !string.IsNullOrWhiteSpace(featureTag)
-            ? config[$"Ai:Routes:{featureTag}"]
-            : null;
-        return registryKey ?? configKey ?? config["Ai:DefaultProvider"] ?? "openai";
-    }
+    private string ResolvedPrimaryKey(string? featureTag) => ResolveRoute(featureTag).Key;
 
     /// <summary>Registry Primary key for a feature, defensively. The provider contract is
     /// never-throws, but we ALSO guard here so a misbehaving provider can never break a real

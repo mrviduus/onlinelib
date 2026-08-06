@@ -193,6 +193,12 @@ jobs:
         # the default compose file (that would break the ci/docker job).
         run: |
           cd $PROJECT_DIR
+          # Stamp the deployed commit into the images as SENTRY_RELEASE (build arg →
+          # ENV). Without a release Sentry can't do regression detection or tell you
+          # which deploy an issue started with. .dockerignore excludes .git, so the
+          # build arg is the only way in.
+          export GIT_SHA=$(git rev-parse --short HEAD)
+          echo "Deploying release $GIT_SHA"
           # --profile mcp brings up the remote MCP server (mcp-server) in prod.
           # It's profile-gated so CI's bare `compose up` (docker/e2e jobs) never
           # builds/runs it; prod opts in here. nginx /mcp is synced below.

@@ -1,0 +1,155 @@
+using System.Collections.Frozen;
+using Sentry;
+using TextStack.Ai.Llm;
+
+namespace Infrastructure.Telemetry;
+
+/// <summary>
+/// The privacy edge. Everything Sentry is about to send passes through here, and the rule is an
+/// ALLOWLIST, not a denylist: any tag or extra we did not explicitly bless is dropped or redacted.
+///
+/// Why an allowlist. This service handles book text, reader prompts and LLM responses. A denylist
+/// only stops the leaks somebody remembered to enumerate; a future contributor writing
+/// <c>span.SetTag("prompt", userText)</c> would sail straight through one. With an allowlist that tag
+/// dies at the edge whether or not the reviewer noticed it. The same reasoning is why we do NOT use
+/// Sentry's OpenTelemetry exporter: it ships spans through the OTel SDK, bypassing this hook entirely,
+/// while our OTel spans carry <c>http.client_ip</c> and full SQL text.
+/// </summary>
+public static class SentryScrubber
+{
+    /// <summary>Free text is truncated to this; the only free text we send is our own literals and
+    /// exception messages, and a provider error can echo part of a prompt back at us.</summary>
+    public const int MaxTextLength = 512;
+
+    public const string Redacted = "[redacted]";
+
+    public static readonly FrozenSet<string> AllowedTagKeys = new[]
+    {
+        // AI routing (the incident this integration exists for)
+        "ai.task", "ai.provider", "ai.provider.resolved", "ai.provider.reason", "ai.failure",
+        // Agent runs
+        "agent.name", "agent.model", "agent.outcome",
+        // RAG indexing
+        "rag.kind", "rag.book_id", "rag.outcome",
+        // Span bookkeeping + Sentry's own
+        "outcome", "environment", "release", "server_name", "transaction",
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    public static readonly FrozenSet<string> AllowedExtraKeys = new[]
+    {
+        "agent.iterations", "agent.tokens_in", "agent.tokens_out", "agent.cost_usd",
+        "agent.duration_ms", "rag.chunk_count",
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Headers that carry credentials. Dropped even though SendDefaultPii is already false.</summary>
+    private static readonly string[] SensitiveHeaderPrefixes = ["authorization", "cookie", "x-admin"];
+
+    /// <summary>
+    /// Exceptions the API deliberately maps to a 4xx. None of them can reach Sentry today — the
+    /// ExceptionMiddleware converts them without logging, and only its unexpected-exception fallback
+    /// calls LogError — but this keeps a future <c>LogError</c> on a validation path from turning
+    /// ordinary client mistakes into pages.
+    /// </summary>
+    private static readonly string[] DroppedExceptionTypes =
+    [
+        "NotFoundException", "ConflictException", "ValidationException", "DomainException",
+        "BudgetExceededException", "OperationCanceledException", "TaskCanceledException",
+    ];
+
+    public static SentryEvent? Scrub(SentryEvent e)
+    {
+        if (IsDroppedException(e))
+            return null;
+
+        // Identity: nothing about who the reader is.
+        e.User = new SentryUser();
+
+        if (e.Request is { } request)
+        {
+            request.Data = null;
+            request.Cookies = null;
+            request.QueryString = null;
+
+            foreach (var header in request.Headers.Keys.ToList())
+            {
+                if (SensitiveHeaderPrefixes.Any(p => header.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                    request.Headers.Remove(header);
+            }
+        }
+
+        foreach (var key in e.Tags.Keys.ToList())
+        {
+            if (!AllowedTagKeys.Contains(key))
+                e.UnsetTag(key);
+        }
+
+        // The SDK exposes Extra read-only with no removal API, so a disallowed key is neutralised by
+        // overwriting its VALUE — the payload is what matters, and the key alone carries no data.
+        foreach (var key in e.Extra.Keys.ToList())
+        {
+            if (!AllowedExtraKeys.Contains(key))
+                e.SetExtra(key, Redacted);
+        }
+
+        if (e.Message is { } message)
+            message.Formatted = Clean(message.Formatted);
+
+        if (e.SentryExceptions is not null)
+        {
+            foreach (var ex in e.SentryExceptions)
+                ex.Value = Clean(ex.Value);
+        }
+
+        return e;
+    }
+
+    /// <summary>Health probes are dropped outright — redundant with the sampler, but free.</summary>
+    public static SentryTransaction? ScrubTransaction(SentryTransaction transaction)
+    {
+        if (SentryBootstrap.IgnoredTransactionPaths.Any(p =>
+                transaction.Name.Contains(p, StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        foreach (var key in transaction.Tags.Keys.ToList())
+        {
+            if (!AllowedTagKeys.Contains(key))
+                transaction.UnsetTag(key);
+        }
+
+        return transaction;
+    }
+
+    /// <summary>
+    /// Breadcrumbs are auto-captured log lines, and this codebase logs book titles, file paths and
+    /// LLM diagnostics. Keep the shape (which operation, at what level) and redact the words. The
+    /// structured <c>data</c> bag is dropped wholesale — it is unbounded and unauditable.
+    /// (Breadcrumb is immutable and its timestamp-taking constructor is not public, so the rebuilt
+    /// crumb carries the send time rather than the original — a sub-second difference in ordering
+    /// context, worth it for a guaranteed-scrubbed payload.)
+    /// </summary>
+    public static Breadcrumb? ScrubBreadcrumb(Breadcrumb breadcrumb) =>
+        new(Clean(breadcrumb.Message) ?? string.Empty,
+            breadcrumb.Type,
+            data: null,
+            category: breadcrumb.Category,
+            level: breadcrumb.Level);
+
+    private static bool IsDroppedException(SentryEvent e)
+    {
+        if (e.Exception is { } ex && DroppedExceptionTypes.Contains(ex.GetType().Name))
+            return true;
+
+        return e.SentryExceptions?.Any(x =>
+            x.Type is { } type && DroppedExceptionTypes.Any(d => type.EndsWith(d, StringComparison.Ordinal))) == true;
+    }
+
+    /// <summary>Redacts emails/phones (reusing the same redactor that guards llm_traces) and truncates.</summary>
+    private static string? Clean(string? text)
+    {
+        var redacted = TraceRedactor.Redact(text);
+        if (redacted is null)
+            return null;
+
+        return redacted.Length <= MaxTextLength ? redacted : redacted[..MaxTextLength] + "…";
+    }
+}

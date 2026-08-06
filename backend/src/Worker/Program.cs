@@ -21,6 +21,9 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddTextStackTelemetry(builder.Configuration, "textstack-worker");
 builder.Logging.AddTelemetryLogging(builder.Configuration, "textstack-worker");
 
+// Sentry (no-op without SENTRY_DSN). Additive: the OTLP logging provider above is untouched.
+builder.Logging.AddTextStackSentry(builder.Configuration, builder.Environment.EnvironmentName);
+
 // Database
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5432;Database=books;Username=app;Password=changeme";

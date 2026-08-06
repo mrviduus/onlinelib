@@ -1,0 +1,152 @@
+using Domain.Exceptions;
+using Infrastructure.Telemetry;
+using Sentry;
+
+namespace TextStack.UnitTests;
+
+/// <summary>
+/// The privacy edge. TextStack handles book text, reader prompts and LLM responses, so the rule is
+/// an ALLOWLIST: anything not explicitly blessed is dropped or redacted before it leaves the
+/// process. These tests are the enforcement — a future `span.SetTag("prompt", userText)` must die
+/// here whether or not a reviewer noticed it.
+/// </summary>
+public class SentryScrubberTests
+{
+    private static SentryEvent EventWithTags(params (string Key, string Value)[] tags)
+    {
+        var e = new SentryEvent();
+        foreach (var (key, value) in tags)
+            e.SetTag(key, value);
+        return e;
+    }
+
+    [Fact]
+    public void Scrub_DropsTagsOutsideAllowlist()
+    {
+        var e = EventWithTags(("prompt", "the whole chapter text"), ("response", "the model answer"));
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.DoesNotContain("prompt", scrubbed.Tags.Keys);
+        Assert.DoesNotContain("response", scrubbed.Tags.Keys);
+    }
+
+    [Fact]
+    public void Scrub_KeepsAllowlistedAiTags()
+    {
+        var e = EventWithTags(
+            ("ai.task", "pdf.parse"),
+            ("ai.provider.resolved", "ollama"),
+            ("ai.provider.reason", "default_fallback"),
+            ("agent.name", "tutor.agent"),
+            ("rag.outcome", "failed"));
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.Equal("pdf.parse", scrubbed.Tags["ai.task"]);
+        Assert.Equal("ollama", scrubbed.Tags["ai.provider.resolved"]);
+        Assert.Equal("default_fallback", scrubbed.Tags["ai.provider.reason"]);
+        Assert.Equal("tutor.agent", scrubbed.Tags["agent.name"]);
+        Assert.Equal("failed", scrubbed.Tags["rag.outcome"]);
+    }
+
+    [Fact]
+    public void Scrub_RemovesUserIdentity()
+    {
+        var e = new SentryEvent
+        {
+            User = new SentryUser
+            {
+                Id = Guid.NewGuid().ToString(),
+                Email = "reader@example.com",
+                Username = "reader",
+                IpAddress = "203.0.113.7",
+            },
+        };
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.Null(scrubbed.User.Id);
+        Assert.Null(scrubbed.User.Email);
+        Assert.Null(scrubbed.User.Username);
+        Assert.Null(scrubbed.User.IpAddress);
+    }
+
+    [Fact]
+    public void Scrub_RedactsDisallowedExtras()
+    {
+        var e = new SentryEvent();
+        e.SetExtra("prompt", "chapter text the reader selected");
+        e.SetExtra("agent.tokens_in", 512);
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.Equal(SentryScrubber.Redacted, scrubbed.Extra["prompt"]);
+        Assert.Equal(512, scrubbed.Extra["agent.tokens_in"]);
+    }
+
+    // Note: SentryEvent.SentryExceptions is populated by the SDK's exception processor at capture
+    // time (before BeforeSend runs), not by the constructor — so these two exercise the same Clean()
+    // path through the message, which a unit test can populate.
+
+    [Fact]
+    public void Scrub_RedactsEmailInMessage()
+    {
+        var e = new SentryEvent { Message = new SentryMessage { Formatted = "failed for reader@example.com" } };
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.DoesNotContain("reader@example.com", scrubbed.Message!.Formatted);
+        Assert.Contains("[redacted-email]", scrubbed.Message.Formatted!);
+    }
+
+    [Fact]
+    public void Scrub_TruncatesLongText()
+    {
+        var e = new SentryEvent { Message = new SentryMessage { Formatted = new string('x', 5000) } };
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.True(scrubbed.Message!.Formatted!.Length <= SentryScrubber.MaxTextLength + 1);
+    }
+
+    /// <summary>
+    /// These are mapped to 4xx by ExceptionMiddleware with no logging, so they cannot reach Sentry
+    /// today — the filter exists so a LogError added on a validation path later doesn't turn ordinary
+    /// client mistakes into pages.
+    /// </summary>
+    [Fact]
+    public void Scrub_ClientErrorExceptions_ReturnNull()
+    {
+        Assert.Null(SentryScrubber.Scrub(new SentryEvent(new NotFoundException("Book", Guid.NewGuid()))));
+        Assert.Null(SentryScrubber.Scrub(new SentryEvent(new ValidationException("title", "is required"))));
+        Assert.Null(SentryScrubber.Scrub(new SentryEvent(new OperationCanceledException())));
+    }
+
+    [Fact]
+    public void Scrub_UnexpectedException_IsKept()
+    {
+        Assert.NotNull(SentryScrubber.Scrub(new SentryEvent(new InvalidOperationException("boom"))));
+    }
+
+    [Fact]
+    public void ScrubBreadcrumb_DropsStructuredDataAndRedactsMessage()
+    {
+        var crumb = new Breadcrumb(
+            "indexing book for reader@example.com",
+            "default",
+            new Dictionary<string, string> { ["title"] = "The Death of Ivan Ilyich" });
+
+        var scrubbed = SentryScrubber.ScrubBreadcrumb(crumb);
+
+        Assert.NotNull(scrubbed);
+        Assert.Null(scrubbed.Data);
+        Assert.DoesNotContain("reader@example.com", scrubbed.Message);
+    }
+}

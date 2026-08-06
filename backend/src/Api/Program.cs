@@ -17,9 +17,10 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Host-level configuration (Kestrel/multipart limits + OpenTelemetry).
+// Host-level configuration (Kestrel/multipart limits + OpenTelemetry + Sentry).
 builder.AddTextStackUploadLimits();
 builder.AddTextStackObservability();
+builder.AddTextStackSentry();
 
 builder.Services.AddTextStackCors(builder.Configuration);
 builder.Services.AddOpenApi();
@@ -210,6 +211,7 @@ app.MapAdminAutoPublishEndpoints();
 app.MapAdminSeoBackfillEndpoints();
 app.MapAdminLintEndpoints();
 app.MapAdminSettingsEndpoints();
+app.MapAdminDiagnosticsEndpoints();
 app.MapBooksEndpoints();
 app.MapPodcastEndpoints();
 app.MapSearchEndpoints();

@@ -65,6 +65,11 @@ public sealed class OllamaLlmClient : ILlmService
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Ollama returned {StatusCode}", response.StatusCode);
+                // The swallow below is load-bearing (callers expect an empty response, not an
+                // exception) — which is exactly why these failures are invisible in llm_traces:
+                // TracingDecorator only sees a successful, zero-token answer. Report them here.
+                LlmFailureAlarm.Capture(
+                    "ollama", request.FeatureTag, LlmFailureAlarm.ReasonHttpStatus);
                 return Empty();
             }
 
@@ -77,11 +82,13 @@ public sealed class OllamaLlmClient : ILlmService
         catch (TaskCanceledException)
         {
             _logger.LogWarning("Ollama request timed out after {Seconds}s", _timeoutSeconds);
+            LlmFailureAlarm.Capture("ollama", request.FeatureTag, LlmFailureAlarm.ReasonTimeout);
             return Empty();
         }
         catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex, "Ollama request failed");
+            LlmFailureAlarm.Capture("ollama", request.FeatureTag, LlmFailureAlarm.ReasonTransport, ex);
             return Empty();
         }
 
