@@ -149,4 +149,38 @@ public class SentryScrubberTests
         Assert.Null(scrubbed.Data);
         Assert.DoesNotContain("reader@example.com", scrubbed.Message);
     }
+
+    /// <summary>
+    /// Regression: first-run verification found `Executed DbCommand … SELECT …` in a real event's
+    /// breadcrumb trail. EF Core puts the SQL in the breadcrumb MESSAGE, so nulling `data` didn't
+    /// stop it — the same SetDbStatementForText leak we avoided by not using Sentry's OTel exporter.
+    /// </summary>
+    [Fact]
+    public void ScrubBreadcrumb_EfCoreCommand_ReturnsNull()
+    {
+        var crumb = new Breadcrumb(
+            "Executed DbCommand (1ms) [Parameters=[], CommandType='Text']\nSELECT m.feature_tag FROM models AS m",
+            "default",
+            category: "Microsoft.EntityFrameworkCore.Database.Command");
+
+        Assert.Null(SentryScrubber.ScrubBreadcrumb(crumb));
+    }
+
+    [Fact]
+    public void ScrubBreadcrumb_SqlInMessageWithoutEfCategory_ReturnsNull()
+    {
+        var crumb = new Breadcrumb("Executed DbCommand (3ms) SELECT * FROM user_books", "default");
+
+        Assert.Null(SentryScrubber.ScrubBreadcrumb(crumb));
+    }
+
+    [Fact]
+    public void ScrubBreadcrumb_ApplicationLogLine_IsKept()
+    {
+        var crumb = new Breadcrumb(
+            "Metadata backfill: enriching 38 user books", "default",
+            category: "Worker.Services.MetadataBackfillWorker");
+
+        Assert.NotNull(SentryScrubber.ScrubBreadcrumb(crumb));
+    }
 }

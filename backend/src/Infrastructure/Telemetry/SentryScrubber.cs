@@ -126,13 +126,31 @@ public static class SentryScrubber
     /// (Breadcrumb is immutable and its timestamp-taking constructor is not public, so the rebuilt
     /// crumb carries the send time rather than the original — a sub-second difference in ordering
     /// context, worth it for a guaranteed-scrubbed payload.)
+    ///
+    /// EF Core command breadcrumbs are dropped ENTIRELY, not redacted. Caught in first-run
+    /// verification: an event's breadcrumb trail carried <c>Executed DbCommand … SELECT …</c> with
+    /// the full SQL inline in the MESSAGE, so nulling <c>data</c> did not stop it. That is the same
+    /// class of leak (<c>SetDbStatementForText</c>) this integration deliberately avoided by not
+    /// using Sentry's OpenTelemetry exporter — it would have been inconsistent to let it back in
+    /// through the log pipeline. SQL is never worth its diagnostic value on a third-party service
+    /// when the database holds what people are reading.
     /// </summary>
-    public static Breadcrumb? ScrubBreadcrumb(Breadcrumb breadcrumb) =>
-        new(Clean(breadcrumb.Message) ?? string.Empty,
+    public static Breadcrumb? ScrubBreadcrumb(Breadcrumb breadcrumb)
+    {
+        if (IsDatabaseCommand(breadcrumb))
+            return null;
+
+        return new(Clean(breadcrumb.Message) ?? string.Empty,
             breadcrumb.Type,
             data: null,
             category: breadcrumb.Category,
             level: breadcrumb.Level);
+    }
+
+    /// <summary>True for EF Core command-log breadcrumbs, which carry SQL text in their message.</summary>
+    public static bool IsDatabaseCommand(Breadcrumb breadcrumb) =>
+        breadcrumb.Category?.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) == true
+        || breadcrumb.Message?.Contains("Executed DbCommand", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsDroppedException(SentryEvent e)
     {
