@@ -54,6 +54,11 @@ services:
     build:
       context: .
       dockerfile: backend/Docker/Api.Dockerfile
+      args:
+        # Becomes SENTRY_RELEASE inside the image — Sentry needs a release to do regression
+        # detection and "this broke with deploy X". .dockerignore excludes .git, so the SHA
+        # can only get in as a build arg. Empty locally = no release tag, still works.
+        GIT_SHA: "${GIT_SHA:-}"
     container_name: textstack_api_prod
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
@@ -78,6 +83,8 @@ services:
       Resend__FromEmail: ${RESEND_FROM_EMAIL:-noreply@textstack.app}
       Resend__AdminAlertEmail: ${ADMIN_ALERT_EMAIL:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      # Empty ⇒ Sentry never initializes (local dev, CI, forks are unchanged).
+      SENTRY_DSN: ${SENTRY_DSN:-}
     volumes:
       - ./data/storage:/storage
       - ./data/textstack:/data/textstack
@@ -109,6 +116,8 @@ services:
     build:
       context: .
       dockerfile: backend/Docker/Worker.Dockerfile
+      args:
+        GIT_SHA: "${GIT_SHA:-}"
     container_name: textstack_worker_prod
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
@@ -126,6 +135,7 @@ services:
       Ollama__BaseUrl: http://ollama:11434
       Ollama__Model: gemma4:e2b
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      SENTRY_DSN: ${SENTRY_DSN:-}
     volumes:
       - ./data/storage:/storage
     restart: always

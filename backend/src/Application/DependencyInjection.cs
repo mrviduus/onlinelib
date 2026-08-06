@@ -135,7 +135,8 @@ public static class DependencyInjection
                     sp.GetRequiredKeyedService<global::TextStack.Ai.Core.ILlmService>($"{key}-raw"),
                     sp.GetRequiredService<IServiceScopeFactory>(),
                     sp.GetRequiredService<global::TextStack.Ai.Llm.TracingOptions>(),
-                    sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>()));
+                    sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.TracingDecorator>>(),
+                    (string)key!));
         }
 
         // RegistryModelRouteProvider (below) + RollingSpendTracker depend on IMemoryCache.
@@ -184,6 +185,19 @@ public static class DependencyInjection
         // One-click promote / rollback of the primary model for a feature.
         services.AddScoped<Ai.ModelPromotionService>();
 
+        // Silent-fallback alarm (Sentry): an EXPENSIVE task resolving via Ai:DefaultProvider instead
+        // of an explicit route is the 2026-07-14 pdf.parse → Ollama incident. Throttled per
+        // (task, provider) so a 106-page PDF raises one event, not 106. Also sets the shared
+        // cooldown used by LlmFailureAlarm.
+        services.AddSingleton<global::TextStack.Ai.Llm.IRouteAlarm>(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+            var cooldown = TimeSpan.FromMinutes(
+                Math.Max(1, c.GetValue<int?>("Ai:RouteAlarm:CooldownMinutes") ?? 60));
+            global::TextStack.Ai.Llm.LlmFailureAlarm.Configure(cooldown);
+            return new global::TextStack.Ai.Llm.SentryRouteAlarm(c);
+        });
+
         // Default Core.ILlmService = the gateway (routes FeatureTag → decorated provider;
         // registry-first primary routing + optional fire-and-forget shadow routing per Ai:Shadow).
         services.AddSingleton<global::TextStack.Ai.Core.ILlmService>(sp =>
@@ -195,7 +209,8 @@ public static class DependencyInjection
                 sp.GetRequiredService<global::TextStack.Ai.Core.IModelRouteProvider>(),
                 sp.GetRequiredService<global::TextStack.Ai.Core.ISpendTracker>(),
                 sp.GetRequiredService<global::TextStack.Ai.Llm.BudgetOptions>(),
-                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ModelGateway>>()));
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ModelGateway>>(),
+                sp.GetService<global::TextStack.Ai.Llm.IRouteAlarm>()));
 
         // Embeddings (Phase 4 RAG). Single OpenAI provider; resolved lazily so a keyless
         // host still starts (the client throws on construction without a key).

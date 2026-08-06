@@ -13,6 +13,7 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="Sentry.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>

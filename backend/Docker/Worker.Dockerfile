@@ -92,5 +92,10 @@ RUN mkdir -p /app/apps/web && \
     test -d node_modules/puppeteer && \
     chown -R app:app /app
 
+# Sentry release. Declared last so a new SHA invalidates only this trivial layer,
+# not the .NET build or the ~150 MB puppeteer install above.
+ARG GIT_SHA=""
+ENV SENTRY_RELEASE=$GIT_SHA
+
 USER app
 ENTRYPOINT ["dotnet", "Worker.dll"]

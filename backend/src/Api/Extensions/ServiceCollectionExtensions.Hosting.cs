@@ -1,6 +1,8 @@
 using Infrastructure.Telemetry;
 using Microsoft.AspNetCore.Http.Features;
 using OpenTelemetry.Trace;
+using Sentry.AspNetCore;
+using Sentry.Extensibility;
 
 namespace Api.Extensions;
 
@@ -56,6 +58,36 @@ public static partial class ServiceCollectionExtensions
                 })
                 .AddHttpClientInstrumentation());
         builder.Logging.AddTelemetryLogging(builder.Configuration, "textstack-api");
+        return builder;
+    }
+
+    /// <summary>
+    /// Sentry for the API host. No-op when <c>SENTRY_DSN</c> is unset — we don't engage the SDK at
+    /// all (rather than initialising it with an empty DSN), so local dev, CI and forks are unchanged.
+    ///
+    /// Note the interaction with <c>ExceptionMiddleware</c>: it catches every exception and returns a
+    /// 500, so nothing ever propagates to Sentry's middleware. Unhandled errors reach Sentry through
+    /// its ILogger integration instead, via that middleware's
+    /// <c>logger.LogError(ex, "Unhandled exception")</c> — hence <c>MinimumEventLevel = Error</c>.
+    /// The typed domain exceptions it maps to 4xx are never logged, and are additionally dropped in
+    /// <see cref="SentryScrubber"/> in case that ever changes.
+    /// </summary>
+    public static WebApplicationBuilder AddTextStackSentry(this WebApplicationBuilder builder)
+    {
+        var settings = SentryBootstrap.Resolve(builder.Configuration, builder.Environment.EnvironmentName);
+        if (settings is null)
+            return builder;
+
+        builder.WebHost.UseSentry(options =>
+        {
+            settings.Apply(options);
+
+            // Never read a request body into an event: our uploads are books and our POST bodies are
+            // reader prompts — neither belongs in an error tracker.
+            options.MaxRequestBodySize = RequestSize.None;
+            options.MinimumEventLevel = LogLevel.Error;
+        });
+
         return builder;
     }
 }

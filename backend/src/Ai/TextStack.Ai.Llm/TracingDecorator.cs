@@ -23,7 +23,8 @@ public sealed class TracingDecorator(
     ILlmService inner,
     IServiceScopeFactory scopeFactory,
     TracingOptions options,
-    ILogger<TracingDecorator> logger) : ILlmService
+    ILogger<TracingDecorator> logger,
+    string providerKey = "unknown") : ILlmService
 {
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
     {
@@ -45,6 +46,9 @@ public sealed class TracingDecorator(
         {
             sw.Stop();
             TryPersist(BuildTrace(request, response: null, sw.ElapsedMilliseconds, error: ex.Message), isError: true);
+            // The one choke point every provider exception passes through (cancellation excluded
+            // above), so Sentry sees OpenAI outages/timeouts with the task + provider already tagged.
+            LlmFailureAlarm.Capture(providerKey, request.FeatureTag, LlmFailureAlarm.ReasonException, ex);
             throw;
         }
     }
@@ -85,6 +89,7 @@ public sealed class TracingDecorator(
                     BuildTrace(request, BuildStreamedResponse(text.ToString(), toolCalls, usage, modelId, traceId),
                         sw.ElapsedMilliseconds, error: ex.Message),
                     isError: true);
+                LlmFailureAlarm.Capture(providerKey, request.FeatureTag, LlmFailureAlarm.ReasonException, ex);
                 throw;
             }
 
