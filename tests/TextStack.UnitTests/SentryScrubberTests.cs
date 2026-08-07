@@ -174,6 +174,59 @@ public class SentryScrubberTests
         Assert.Null(SentryScrubber.ScrubBreadcrumb(crumb));
     }
 
+    /// <summary>
+    /// Regression from the FIRST production event this integration ever captured: dropping the EF
+    /// Core BREADCRUMB was not enough. EF logs a failed command at Error level, Sentry's ILogger
+    /// integration turns that into an EVENT, and the SQL rides in the event message — so
+    /// `INSERT INTO reading_progresses (id, chapter_id, …)` reached Sentry from PUT /me/progress.
+    /// </summary>
+    [Fact]
+    public void Scrub_EfCoreCommandEvent_ReturnsNull()
+    {
+        var e = new SentryEvent
+        {
+            Logger = "Microsoft.EntityFrameworkCore.Database.Command",
+            Message = new SentryMessage
+            {
+                Formatted = "Failed executing DbCommand (8ms) [Parameters=[@p0='?' (DbType = Guid)]]\n"
+                    + "INSERT INTO reading_progresses (id, chapter_id, edition_id) VALUES (@p0, @p1, @p2);",
+            },
+        };
+
+        Assert.Null(SentryScrubber.Scrub(e));
+    }
+
+    [Fact]
+    public void Scrub_DbCommandInMessageWithoutEfLogger_ReturnsNull()
+    {
+        var e = new SentryEvent
+        {
+            Message = new SentryMessage { Formatted = "Executed DbCommand (3ms) SELECT * FROM user_books" },
+        };
+
+        Assert.Null(SentryScrubber.Scrub(e));
+    }
+
+    /// <summary>
+    /// The signal must survive: the same failure is reported by ExceptionMiddleware as a
+    /// DbUpdateException — stack trace, SQLSTATE and constraint name, no SQL — and that event is kept.
+    /// </summary>
+    [Fact]
+    public void Scrub_DbUpdateExceptionFromMiddleware_IsKept()
+    {
+        var e = new SentryEvent(new InvalidOperationException(
+            "23505: duplicate key value violates unique constraint \"ix_reading_progresses_user_id_site_id_edition_id\""))
+        {
+            Logger = "Api.Middleware.ExceptionMiddleware",
+        };
+
+        var scrubbed = SentryScrubber.Scrub(e);
+
+        Assert.NotNull(scrubbed);
+        Assert.Contains("ix_reading_progresses", scrubbed.SentryExceptions?.FirstOrDefault()?.Value
+            ?? scrubbed.Exception!.Message);
+    }
+
     [Fact]
     public void ScrubBreadcrumb_ApplicationLogLine_IsKept()
     {

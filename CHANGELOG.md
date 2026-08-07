@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Observability — Sentry leaked SQL a second way: EF Core error EVENTS, not just breadcrumbs — backend — 2026-08-07
+
+Caught by the integration's own first day in production. Yesterday's PR (#445) found and fixed EF Core **breadcrumbs** carrying `Executed DbCommand … SELECT …` in their message; that fix was real but incomplete. EF Core also logs a *failed* command at **Error** level, and Sentry's `ILogger` integration turns any Error into an **event** — so the first live capture of the (separately real) `PUT /me/progress` failure arrived with `INSERT INTO reading_progresses (id, chapter_id, edition_id, locator, max_chapter_number, percent, site_id, updated_at, user_id) VALUES (@p0, …)` inline in the event message. Two distinct channels, one shared assumption: that nulling the structured `data` bag was where the SQL lived. It never was — EF interpolates the statement into the human-readable text on both paths.
+
+Scope of the exposure, stated precisely: **no parameter values ever left the process** — `EnableSensitiveDataLogging` is off, so EF renders `@p0` / `'?'`, and Npgsql itself writes "Detail redacted as it may contain sensitive data" on the inner `PostgresException`. What did leave was statement shape and schema (table and column names). No book text, no reader identity. Still a promise this integration explicitly made and broke, and schema disclosure to a third party is not free.
+
+Fix: `SentryScrubber.Scrub` now drops any event whose `Logger` starts with `Microsoft.EntityFrameworkCore`, plus a message probe for `Executed DbCommand` / `Failed executing DbCommand` so a re-categorised logger can't reopen the hole (`SentryScrubber.IsDatabaseCommandEvent`). **Dropping loses no signal**, which is what makes it the right call rather than a redaction exercise: the same failure is already reported by `ExceptionMiddleware` as a `DbUpdateException` carrying a full stack trace, the Npgsql SQLSTATE (`23505`) and the violated constraint name — everything needed to debug it, none of the SQL. A test locks that the middleware event survives while the EF command event dies.
+
+The generalisable lesson, and the reason this is worth a CHANGELOG entry rather than a quiet patch: **a scrubber written against one egress path will be bypassed by the next one.** The original design rejected Sentry's OpenTelemetry exporter precisely because it bypasses `BeforeSend` — then shipped with two log-pipeline channels doing the same thing from the inside. Unit tests were green throughout both, because they asserted the scrubber's behaviour on the input shape we imagined rather than on what the SDK actually assembles. Only reading a real captured event found either one.
+
+**1284 unit tests green** (3 new), build + `dotnet format --verify-no-changes` clean. No migration, no config, no behaviour change when `SENTRY_DSN` is unset.
+
 ### Reader — reading position was silently lost on concurrent saves (23505 upsert race) — backend — 2026-08-07
 
 Found by Sentry on its first day in production, which is the point of having installed it. `PUT /me/progress/{editionId}` was throwing `Npgsql.PostgresException: 23505: duplicate key value violates unique constraint "ix_reading_progresses_user_id_site_id_edition_id"` — ten times in four hours, from real readers, returning a 500 and **dropping the reader's position in the book**. Nothing crashed, no test failed, and the only prior symptom would have been a user saying "it forgot where I was".
