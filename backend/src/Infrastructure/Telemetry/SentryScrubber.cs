@@ -61,6 +61,9 @@ public static class SentryScrubber
         if (IsDroppedException(e))
             return null;
 
+        if (IsDatabaseCommandEvent(e))
+            return null;
+
         // Identity: nothing about who the reader is.
         e.User = new SentryUser();
 
@@ -149,8 +152,32 @@ public static class SentryScrubber
 
     /// <summary>True for EF Core command-log breadcrumbs, which carry SQL text in their message.</summary>
     public static bool IsDatabaseCommand(Breadcrumb breadcrumb) =>
-        breadcrumb.Category?.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) == true
-        || breadcrumb.Message?.Contains("Executed DbCommand", StringComparison.OrdinalIgnoreCase) == true;
+        breadcrumb.Category?.StartsWith(EfCommandLogger, StringComparison.OrdinalIgnoreCase) == true
+        || ContainsDbCommandLog(breadcrumb.Message);
+
+    /// <summary>
+    /// True for EF Core command-log EVENTS. Dropping the breadcrumb was not enough: EF Core logs a
+    /// failed command at <c>Error</c> level, and Sentry's ILogger integration turns any Error into an
+    /// event whose message carries the statement — so the first production event of
+    /// <c>PUT /me/progress</c> arrived with <c>INSERT INTO reading_progresses (id, chapter_id, …)</c>
+    /// inline. Parameter VALUES were never present (EnableSensitiveDataLogging is off, so EF renders
+    /// <c>@p0</c>/<c>'?'</c>), but statement and schema text still left the process, which is exactly
+    /// what this integration promised it would not do.
+    ///
+    /// Dropping loses no signal: the real failure is reported separately by ExceptionMiddleware as a
+    /// <c>DbUpdateException</c> with a full stack trace, the Npgsql SQLSTATE and the violated
+    /// constraint name — everything needed to debug, none of the SQL.
+    /// </summary>
+    public static bool IsDatabaseCommandEvent(SentryEvent e) =>
+        e.Logger?.StartsWith(EfCommandLogger, StringComparison.OrdinalIgnoreCase) == true
+        || ContainsDbCommandLog(e.Message?.Formatted)
+        || ContainsDbCommandLog(e.Message?.Message);
+
+    private const string EfCommandLogger = "Microsoft.EntityFrameworkCore";
+
+    private static bool ContainsDbCommandLog(string? text) =>
+        text?.Contains("Executed DbCommand", StringComparison.OrdinalIgnoreCase) == true
+        || text?.Contains("Failed executing DbCommand", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsDroppedException(SentryEvent e)
     {
