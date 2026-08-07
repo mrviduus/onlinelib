@@ -1,0 +1,135 @@
+using Api.Endpoints;
+using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+
+namespace TextStack.UnitTests;
+
+/// <summary>
+/// Reading-progress upsert. The endpoint reads then inserts with no concurrency control, and a
+/// single reader legitimately fires overlapping PUTs — the 30s session heartbeat, a sendBeacon on
+/// unload, an offline-queue flush, a second device. Both see no row, both INSERT, and the loser
+/// violated <c>ix_reading_progresses_user_id_site_id_edition_id</c> (23505): a 500 to the client and
+/// a silently lost reading position. Sentry caught it on its first day in production.
+///
+/// These lock the two pure seams the recovery path depends on.
+/// </summary>
+public class UpsertProgressTests
+{
+    private static Chapter ChapterAt(int number) => new()
+    {
+        Id = Guid.NewGuid(),
+        EditionId = Guid.NewGuid(),
+        ChapterNumber = number,
+        Slug = $"chapter-{number}",
+        Title = $"Chapter {number}",
+        Html = "<p>x</p>",
+        PlainText = "x",
+    };
+
+    private static ReadingProgress Progress(int? maxChapter, DateTimeOffset? updatedAt = null) => new()
+    {
+        Id = Guid.NewGuid(),
+        UserId = Guid.NewGuid(),
+        EditionId = Guid.NewGuid(),
+        ChapterId = Guid.NewGuid(),
+        Locator = "epubcfi(/6/2!/4/1)",
+        Percent = 0.1,
+        MaxChapterNumber = maxChapter,
+        UpdatedAt = updatedAt ?? DateTimeOffset.UnixEpoch,
+    };
+
+    private static UpsertProgressRequest Request(Guid chapterId, double percent = 0.5) =>
+        new(chapterId, "epubcfi(/6/4!/4/2)", percent, null);
+
+    [Fact]
+    public void ApplyProgressUpdate_CopiesClientFields()
+    {
+        var chapter = ChapterAt(3);
+        var target = Progress(maxChapter: 1);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(chapter.Id, 0.42), chapter);
+
+        Assert.Equal(chapter.Id, target.ChapterId);
+        Assert.Equal(0.42, target.Percent);
+        Assert.Equal("epubcfi(/6/4!/4/2)", target.Locator);
+    }
+
+    /// <summary>
+    /// The high-water mark feeds the RAG spoiler gate, so it must never move backwards — a reader
+    /// flipping back to chapter 1 must not re-expose chapter 30 as unread.
+    /// </summary>
+    [Fact]
+    public void ApplyProgressUpdate_EarlierChapter_KeepsHighWaterMark()
+    {
+        var target = Progress(maxChapter: 30);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(Guid.NewGuid()), ChapterAt(1));
+
+        Assert.Equal(30, target.MaxChapterNumber);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_LaterChapter_RaisesHighWaterMark()
+    {
+        var target = Progress(maxChapter: 3);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(Guid.NewGuid()), ChapterAt(9));
+
+        Assert.Equal(9, target.MaxChapterNumber);
+    }
+
+    /// <summary>NULL means "never recorded" — distinct from ordinal 0, a real 0-based first chapter.</summary>
+    [Fact]
+    public void ApplyProgressUpdate_NullHighWaterMark_SeedsFromChapter()
+    {
+        var target = Progress(maxChapter: null);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(Guid.NewGuid()), ChapterAt(0));
+
+        Assert.Equal(0, target.MaxChapterNumber);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_StampsUpdatedAt()
+    {
+        var before = DateTimeOffset.UtcNow;
+        var target = Progress(maxChapter: 1, updatedAt: DateTimeOffset.UnixEpoch);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(Guid.NewGuid()), ChapterAt(1));
+
+        Assert.True(target.UpdatedAt >= before);
+    }
+
+    /// <summary>
+    /// The recovery path must trigger on a unique violation and NOTHING else — matched on SQLSTATE
+    /// so it survives locale changes and constraint renames.
+    /// </summary>
+    [Fact]
+    public void IsUniqueViolation_UniqueViolation_True()
+    {
+        var ex = new DbUpdateException("save failed", new PostgresException(
+            "duplicate key value violates unique constraint", "ERROR", "ERROR",
+            PostgresErrorCodes.UniqueViolation));
+
+        Assert.True(UserDataEndpoints.IsUniqueViolation(ex));
+    }
+
+    [Fact]
+    public void IsUniqueViolation_ForeignKeyViolation_False()
+    {
+        var ex = new DbUpdateException("save failed", new PostgresException(
+            "insert violates foreign key constraint", "ERROR", "ERROR",
+            PostgresErrorCodes.ForeignKeyViolation));
+
+        Assert.False(UserDataEndpoints.IsUniqueViolation(ex));
+    }
+
+    [Fact]
+    public void IsUniqueViolation_NonPostgresInner_False()
+    {
+        var ex = new DbUpdateException("save failed", new InvalidOperationException("boom"));
+
+        Assert.False(UserDataEndpoints.IsUniqueViolation(ex));
+    }
+}

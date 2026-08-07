@@ -6,6 +6,7 @@ using Application.Common.Interfaces;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Api.Endpoints;
 
@@ -127,6 +128,8 @@ public static class UserDataEndpoints
             .Where(p => p.UserId == userId.Value && p.EditionId == editionId)
             .FirstOrDefaultAsync(ct);
 
+        ReadingProgress? inserted = null;
+
         if (existing != null)
         {
             // Update only if client timestamp is newer (conflict resolution)
@@ -144,16 +147,7 @@ public static class UserDataEndpoints
                 ));
             }
 
-            existing.ChapterId = request.ChapterId;
-            existing.Locator = request.Locator;
-            existing.Percent = request.Percent;
-            // High-water mark for the RAG spoiler gate — monotonic, never decreases. NULL means
-            // "never recorded" (distinct from ordinal 0, a real 0-based first chapter), so the first
-            // write seeds it rather than max-ing against an implied 0.
-            existing.MaxChapterNumber = existing.MaxChapterNumber.HasValue
-                ? Math.Max(existing.MaxChapterNumber.Value, chapter.ChapterNumber)
-                : chapter.ChapterNumber;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            ApplyProgressUpdate(existing, request, chapter);
         }
         else
         {
@@ -171,9 +165,44 @@ public static class UserDataEndpoints
             };
             db.ReadingProgresses.Add(progress);
             existing = progress;
+            inserted = progress;
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (inserted is not null && IsUniqueViolation(ex))
+        {
+            // Lost an insert race. The read-then-insert above has no concurrency control, and a
+            // single reader legitimately fires overlapping PUTs: the 30s session heartbeat, a
+            // sendBeacon on unload, an offline-queue flush, or a second device. Both requests see
+            // no row, both INSERT, and the loser violates
+            // ix_reading_progresses_user_id_site_id_edition_id (23505) — a 500 to the client and a
+            // silently lost reading position, which is how this surfaced in production.
+            //
+            // Recovery: detach our doomed insert, re-read the winner's row and merge into it, which
+            // is exactly the update path we would have taken had we lost the race by a millisecond
+            // more. The stale-write guard is re-applied against the WINNER's timestamp, so a late
+            // duplicate can still not move a reader backwards.
+            db.ReadingProgresses.Remove(inserted);
+
+            var winner = await db.ReadingProgresses
+                .Where(p => p.UserId == userId.Value && p.EditionId == editionId)
+                .FirstOrDefaultAsync(ct);
+
+            // A unique violation with no winning row is not the race we know how to recover from
+            // (e.g. the row was deleted between the failure and this read) — surface it.
+            if (winner == null) throw;
+
+            if (!request.UpdatedAt.HasValue || request.UpdatedAt.Value > winner.UpdatedAt)
+            {
+                ApplyProgressUpdate(winner, request, chapter);
+                await db.SaveChangesAsync(ct);
+            }
+
+            existing = winner;
+        }
 
         return Results.Ok(new ReadingProgressDto(
             existing.EditionId,
@@ -184,6 +213,32 @@ public static class UserDataEndpoints
             existing.UpdatedAt
         ));
     }
+
+    /// <summary>
+    /// Applies one client write onto an existing progress row. Shared by the normal update path and
+    /// the lost-insert-race recovery so the two can never drift.
+    /// </summary>
+    public static void ApplyProgressUpdate(
+        ReadingProgress target, UpsertProgressRequest request, Chapter chapter)
+    {
+        target.ChapterId = request.ChapterId;
+        target.Locator = request.Locator;
+        target.Percent = request.Percent;
+        // High-water mark for the RAG spoiler gate — monotonic, never decreases. NULL means
+        // "never recorded" (distinct from ordinal 0, a real 0-based first chapter), so the first
+        // write seeds it rather than max-ing against an implied 0.
+        target.MaxChapterNumber = target.MaxChapterNumber.HasValue
+            ? Math.Max(target.MaxChapterNumber.Value, chapter.ChapterNumber)
+            : chapter.ChapterNumber;
+        target.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// True for a Postgres unique-constraint violation (SQLSTATE 23505). Matched on the SQLSTATE
+    /// rather than the message so it survives locale and constraint renames.
+    /// </summary>
+    public static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static async Task<IResult> DeleteProgress(
         Guid editionId,
