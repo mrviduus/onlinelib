@@ -34,7 +34,9 @@ public class SentryBootstrapTests
 
         Assert.NotNull(settings);
         Assert.Equal("https://key@example.ingest.sentry.io/1", settings.Dsn);
-        Assert.Equal("Production", settings.Environment);
+        // No SENTRY_RELEASE here, so the environment is reported as unverified — see
+        // SentryEnvironmentTests for why a release-less "Production" claim is not trusted.
+        Assert.Equal(SentryBootstrap.UnverifiedProductionEnvironment, settings.Environment);
     }
 
     [Fact]
