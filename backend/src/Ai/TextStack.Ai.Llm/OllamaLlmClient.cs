@@ -20,11 +20,24 @@ public sealed class OllamaLlmClient : ILlmService
     private readonly string _baseUrl;
     private readonly string _model;
     private readonly int _timeoutSeconds;
+    private readonly IProviderHealth _health;
 
-    public OllamaLlmClient(IHttpClientFactory httpClientFactory, IConfiguration config, ILogger<OllamaLlmClient> logger)
+    /// <summary>The circuit key for this provider — must match the keyed DI registration.</summary>
+    public const string ProviderKey = AiProviderKeys.Ollama;
+
+    /// <param name="health">
+    /// Optional so the eval suite can keep constructing this client by hand (same precedent as
+    /// <c>ModelGateway</c>'s optional <c>IRouteAlarm</c>); absent ⇒ every call is allowed.
+    /// </param>
+    public OllamaLlmClient(
+        IHttpClientFactory httpClientFactory,
+        IConfiguration config,
+        ILogger<OllamaLlmClient> logger,
+        IProviderHealth? health = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _health = health ?? NullProviderHealth.Instance;
         _baseUrl = config["Ollama:BaseUrl"]
             ?? Environment.GetEnvironmentVariable("OLLAMA_BASE_URL")
             ?? "http://localhost:11434";
@@ -36,6 +49,18 @@ public sealed class OllamaLlmClient : ILlmService
 
     public async Task<LlmResponse> CompleteAsync(LlmRequest request, CancellationToken ct)
     {
+        var now = DateTimeOffset.UtcNow;
+
+        // Circuit open ⇒ return the same empty response the swallow paths below produce, but in
+        // microseconds instead of Ollama:TimeoutSeconds (90 s in both hosts). Callers cannot tell
+        // the difference; a dead provider simply stops costing wall-clock.
+        if (!_health.TryBeginCall(ProviderKey, now))
+        {
+            _logger.LogDebug(
+                "Ollama circuit open — skipping '{Feature}' without a call", request.FeatureTag);
+            return Empty();
+        }
+
         // /api/generate takes a single prompt. Concatenate system + messages
         // with a clear separator so the model treats them as role-split.
         var userPart = string.Join("\n\n", request.Messages.Select(m => m.Content));
@@ -70,8 +95,14 @@ public sealed class OllamaLlmClient : ILlmService
                 // TracingDecorator only sees a successful, zero-token answer. Report them here.
                 LlmFailureAlarm.Capture(
                     "ollama", request.FeatureTag, LlmFailureAlarm.ReasonHttpStatus);
+                // Deliberately does NOT trip the circuit: a non-2xx means Ollama is ALIVE and
+                // answering (typically a wrong Ollama:Model → 404). That fails in milliseconds and
+                // is fixed by one config edit — hiding it behind 30 minutes of silence would turn a
+                // visible, cheap error into an invisible one.
                 return Empty();
             }
+
+            _health.ReportSuccess(ProviderKey, DateTimeOffset.UtcNow);
 
             var result = await response.Content.ReadFromJsonAsync<OllamaResponse>(ct);
             var text = result?.Response?.Trim() ?? string.Empty;
@@ -83,12 +114,16 @@ public sealed class OllamaLlmClient : ILlmService
         {
             _logger.LogWarning("Ollama request timed out after {Seconds}s", _timeoutSeconds);
             LlmFailureAlarm.Capture("ollama", request.FeatureTag, LlmFailureAlarm.ReasonTimeout);
+            _health.ReportFailure(
+                ProviderKey, request.FeatureTag, LlmFailureAlarm.ReasonTimeout, DateTimeOffset.UtcNow);
             return Empty();
         }
         catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex, "Ollama request failed");
             LlmFailureAlarm.Capture("ollama", request.FeatureTag, LlmFailureAlarm.ReasonTransport, ex);
+            _health.ReportFailure(
+                ProviderKey, request.FeatureTag, LlmFailureAlarm.ReasonTransport, DateTimeOffset.UtcNow);
             return Empty();
         }
 

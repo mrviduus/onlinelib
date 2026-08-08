@@ -1,6 +1,8 @@
 using Application.Common.Interfaces;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using TextStack.Ai.Llm;
 
 namespace Worker.Services;
 
@@ -24,8 +26,13 @@ namespace Worker.Services;
 /// </remarks>
 public class MetadataBackfillWorker(
     IServiceScopeFactory scopeFactory,
+    IConfiguration config,
+    IProviderHealth health,
     ILogger<MetadataBackfillWorker> logger) : BackgroundService
 {
+    /// <summary>The feature tag this worker's enrichment calls carry (see BookMetadataGenerator).</summary>
+    public const string FeatureTag = "bookmeta";
+
     // Defer the run a bit so the rest of the system is up (Ollama may still
     // be loading the gemma4:e2b model into memory on a fresh deploy).
     private static readonly TimeSpan StartDelay = TimeSpan.FromMinutes(2);
@@ -40,6 +47,18 @@ public class MetadataBackfillWorker(
             await Task.Delay(StartDelay, stoppingToken);
         }
         catch (OperationCanceledException) { return; }
+
+        // Skip the whole run when the provider this work routes to is known-unreachable. Without
+        // this, an unreachable Ollama costs 50 × Ollama:TimeoutSeconds (90 s) of dead wall-clock on
+        // every worker start, and the candidate rows are re-selected identically on the next one.
+        var provider = AiRouteMap.ResolveProviderKey(config, FeatureTag);
+        if (!health.IsAvailable(provider, DateTimeOffset.UtcNow))
+        {
+            logger.LogInformation(
+                "Metadata backfill: skipped — provider '{Provider}' is unavailable; "
+                + "candidates stay queued and the next run picks them up", provider);
+            return;
+        }
 
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
@@ -75,6 +94,21 @@ public class MetadataBackfillWorker(
         foreach (var id in ids)
         {
             if (stoppingToken.IsCancellationRequested) break;
+
+            // Re-check per book, not just once up front. The startup probe opens the circuit with a
+            // 1-minute first rung while this worker only wakes at StartDelay (2 min), so by the time
+            // we get here the circuit is legitimately half-open and the batch is allowed to start.
+            // The half-open probe is the first book's real call; when it fails the circuit reopens,
+            // and this is what stops the remaining candidates instead of walking the whole list.
+            // Also covers the provider dying mid-run.
+            if (!health.IsAvailable(provider, DateTimeOffset.UtcNow))
+            {
+                logger.LogInformation(
+                    "Metadata backfill: aborting after {Ok} enriched / {Failed} failed — provider "
+                    + "'{Provider}' is unavailable; the remaining candidates stay queued", ok, failed, provider);
+                break;
+            }
+
             try
             {
                 using var bookScope = scopeFactory.CreateScope();

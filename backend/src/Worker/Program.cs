@@ -79,8 +79,10 @@ TextStack.Ai.Agents.ServiceCollectionExtensions.AddAiAgents(builder.Services);
 builder.Services.AddScoped<Application.Agents.EnrichmentAgent>();
 builder.Services.AddSingleton<BookMetadataGenerator>();
 builder.Services.AddSingleton<IBookMetadataGenerator, EnrichmentAgentMetadataGenerator>();
-// Startup observability: warn once if the agent is routed to OpenAI but has no key (silent Ollama fallback).
-builder.Services.AddHostedService<EnrichmentKeyCheck>();
+// Startup observability: probe EVERY provider the route table references, once, before any worker
+// loop starts — and open that provider's circuit if it is unreachable, so the loops skip instead of
+// hammering. Must stay FIRST among hosted services. Supersedes the old EnrichmentKeyCheck.
+builder.Services.AddHostedService<AiProviderReadinessCheck>();
 builder.Services.AddSingleton<ITagSuggestionGenerator, TagSuggestionGenerator>();
 builder.Services.AddScoped<IPodcastScriptBuilder, PodcastScriptBuilder>();
 // TTS + audio assembly for podcasts (Edge TTS is free; ffmpeg is in the Worker image).

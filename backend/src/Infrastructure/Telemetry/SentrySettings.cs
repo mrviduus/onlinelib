@@ -44,8 +44,36 @@ public static class SentryBootstrap
 
         var debug = configuration.GetValue<bool?>("Sentry:Debug") ?? false;
 
-        return new SentrySettings(dsn.Trim(), environmentName, rate, debug);
+        var release = configuration["SENTRY_RELEASE"]
+            ?? System.Environment.GetEnvironmentVariable("SENTRY_RELEASE");
+
+        return new SentrySettings(dsn.Trim(), ResolveEnvironmentName(environmentName, release), rate, debug);
     }
+
+    /// <summary>
+    /// The environment tag, with one guard: a process claiming <c>Production</c> that carries no
+    /// release is reported as <see cref="UnverifiedProductionEnvironment"/> instead.
+    ///
+    /// This exists because the tag lied once and cost real time. A developer machine running the
+    /// Worker with the production DSN and a local <c>.env</c> that says
+    /// <c>ASPNETCORE_ENVIRONMENT=Production</c> wrote events into the production Sentry project
+    /// tagged <c>environment: Production</c> — and they were later read, entirely reasonably, as a
+    /// production incident. <c>SENTRY_RELEASE</c> is the discriminator: it is set from the
+    /// <c>GIT_SHA</c> build arg in both Dockerfiles, so every CI-built image has one and no
+    /// <c>dotnet run</c> ever does. Real production is unaffected.
+    ///
+    /// Deliberately a rename, not a drop: an unverified event is still worth having, it just must
+    /// not masquerade. Filter it out in Sentry with <c>!environment:production-unverified</c>.
+    /// </summary>
+    public static string ResolveEnvironmentName(string environmentName, string? release)
+    {
+        var claimsProduction = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase);
+        return claimsProduction && string.IsNullOrWhiteSpace(release)
+            ? UnverifiedProductionEnvironment
+            : environmentName;
+    }
+
+    public const string UnverifiedProductionEnvironment = "production-unverified";
 
     /// <summary>Pure sampling decision, extracted so it is testable without a hub.</summary>
     public static double SampleRateFor(string? transactionName, string? operation, double baseRate)

@@ -87,6 +87,28 @@ public static class DependencyInjection
                 c.GetValue("Ai:Shadow:TimeoutSeconds", 15));
         });
 
+        // Per-provider circuit breaker. Registered BEFORE the keyed providers so OllamaLlmClient's
+        // optional IProviderHealth resolves. It never routes — it only decides whether a call to an
+        // already-chosen provider is worth attempting. Ai:ProviderHealth:Enabled=false is the kill
+        // switch and restores byte-for-byte the previous behaviour.
+        services.AddSingleton<global::TextStack.Ai.Llm.IProviderHealthAlarm>(sp =>
+            new global::TextStack.Ai.Llm.SentryProviderHealthAlarm(sp.GetRequiredService<IConfiguration>()));
+        services.AddSingleton<global::TextStack.Ai.Llm.IProviderHealth>(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+            if (!c.GetValue("Ai:ProviderHealth:Enabled", true))
+                return global::TextStack.Ai.Llm.NullProviderHealth.Instance;
+
+            var ladder = (c.GetSection("Ai:ProviderHealth:BackoffMinutes").Get<int[]>() ?? [1, 5, 30])
+                .Select(m => TimeSpan.FromMinutes(Math.Max(1, m)))
+                .ToArray();
+
+            return new global::TextStack.Ai.Llm.ProviderHealthRegistry(
+                sp.GetRequiredService<global::TextStack.Ai.Llm.IProviderHealthAlarm>(),
+                sp.GetRequiredService<ILogger<global::TextStack.Ai.Llm.ProviderHealthRegistry>>(),
+                ladder);
+        });
+
         // Raw providers (keyed) on Core.ILlmService.
         services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OpenAiLlmClient>("openai-raw");
         services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService, global::TextStack.Ai.Llm.OllamaLlmClient>("ollama-raw");
@@ -128,7 +150,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<IConfiguration>()["OpenAI:Pdf:Model"] ?? "gpt-4.1"));
 
         // Decorated providers (keyed): TracingDecorator wraps each raw provider.
-        foreach (var providerKey in new[] { "openai", "ollama", "openai-judge", "openai-explain", "openai-rag", "openai-pdf" })
+        foreach (var providerKey in global::TextStack.Ai.Llm.AiProviderKeys.Registered)
         {
             services.AddKeyedSingleton<global::TextStack.Ai.Core.ILlmService>(providerKey, (sp, key) =>
                 new global::TextStack.Ai.Llm.TracingDecorator(
