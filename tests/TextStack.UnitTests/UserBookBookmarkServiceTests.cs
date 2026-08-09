@@ -34,7 +34,7 @@ public class UserBookBookmarkServiceTests
                 .Callback(WireNavs)
                 .ReturnsAsync(0);
 
-            Service = new UserBookService(db.Object, new Mock<IFileStorageService>().Object);
+            Service = new UserBookService(db.Object, new Mock<IFileStorageService>().Object, TestEntitlements.Resolver);
         }
 
         public UserBook SeedBook(Guid userId)

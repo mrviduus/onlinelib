@@ -87,6 +87,47 @@ public static class DependencyInjection
                 c.GetValue("Ai:Shadow:TimeoutSeconds", 15));
         });
 
+        // Per-tier entitlements. Same hand-rolled-factory shape as Ai:Budgets below: a typo in
+        // configuration degrades to a safe default instead of throwing at startup, because a bad
+        // quota value must never be able to stop the whole product from booting.
+        services.AddSingleton(sp =>
+        {
+            var c = sp.GetRequiredService<IConfiguration>();
+
+            Entitlements.TierEntitlements ReadTier(IConfigurationSection s) =>
+                new(s.GetValue<long?>("StorageLimitBytes"), s.GetValue<int?>("MaxBooks"));
+
+            var def = ReadTier(c.GetSection("Entitlements:Default"));
+
+            // An unknown or misspelled tier key is SKIPPED, not thrown — that tier then inherits
+            // Default and uploads keep working.
+            var tiers = new Dictionary<string, Entitlements.TierEntitlements>(StringComparer.OrdinalIgnoreCase);
+            foreach (var section in c.GetSection("Entitlements:Tiers").GetChildren())
+            {
+                if (Enum.TryParse<global::Domain.Enums.UserTier>(section.Key, ignoreCase: true, out var tier))
+                    tiers[tier.ToString()] = ReadTier(section);
+            }
+
+            var staff = new HashSet<string>(
+                (c.GetSection("Entitlements:StaffEmails").Get<string[]>() ?? [])
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+
+            // Config may only LOWER the single-request ceiling — it is Cloudflare's, not ours.
+            var maxSingle = Math.Clamp(
+                c.GetValue<long?>("Entitlements:MaxSingleUploadBytes") ?? 80L * 1024 * 1024,
+                1L * 1024 * 1024,
+                Entitlements.EntitlementOptions.PlatformSingleRequestCeilingBytes);
+
+            var maxStorage = c.GetValue<long?>("Entitlements:MaxStorageLimitBytes") is { } m && m > 0
+                ? m
+                : 20L * 1024 * 1024 * 1024;
+
+            return new Entitlements.EntitlementOptions(def, tiers, staff, maxSingle, maxStorage);
+        });
+        services.AddSingleton<Entitlements.IEntitlementResolver, Entitlements.EntitlementResolver>();
+
         // Per-provider circuit breaker. Registered BEFORE the keyed providers so OllamaLlmClient's
         // optional IProviderHealth resolves. It never routes — it only decides whether a call to an
         // already-chosen provider is worth attempting. Ai:ProviderHealth:Enabled=false is the kill

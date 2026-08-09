@@ -27,7 +27,7 @@ public class UserBookProgressServiceTests
             db.Setup(x => x.UserBooks).Returns(() => FakeSet(UserBooks).Object);
             db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
-            Service = new UserBookService(db.Object, new Mock<IFileStorageService>().Object);
+            Service = new UserBookService(db.Object, new Mock<IFileStorageService>().Object, TestEntitlements.Resolver);
         }
 
         public UserBook SeedBook(Guid userId)
