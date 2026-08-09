@@ -42,7 +42,7 @@ public class UserBookClipServiceTests
             db.Setup(x => x.Chapters).Returns(() => FakeSet(Chapters).Object);
             db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
-            Service = new UserBookService(db.Object, Storage.Object);
+            Service = new UserBookService(db.Object, Storage.Object, TestEntitlements.Resolver);
         }
 
         public User SeedUser()
@@ -132,7 +132,7 @@ public class UserBookClipServiceTests
     {
         var h = new Harness();
         var user = h.SeedUser();
-        user.StorageUsedBytes = User.StorageLimitBytes; // already full
+        user.StorageUsedBytes = TestEntitlements.FreeStorageBytes; // already full
 
         var (response, error) = await h.Service.ClipAsync(user.Id, SampleClip(), CancellationToken.None);
 

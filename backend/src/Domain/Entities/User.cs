@@ -1,10 +1,9 @@
+using Domain.Enums;
+
 namespace Domain.Entities;
 
 public class User
 {
-    public const long StorageLimitBytes = 500 * 1024 * 1024; // 500MB
-    public const long GuestStorageLimitBytes = 50 * 1024 * 1024; // 50MB
-
     public Guid Id { get; set; }
     public required string Email { get; set; }
     public string? Name { get; set; }
@@ -14,6 +13,20 @@ public class User
     public string? AppleSubject { get; set; }
     public long StorageUsedBytes { get; set; }
     public bool IsGuest { get; set; }
+
+    /// <summary>
+    /// Entitlement tier. The limits it maps to live in <c>Entitlements:Tiers</c> config, never here —
+    /// resolve them through <c>IEntitlementResolver</c> rather than switching on this directly.
+    /// </summary>
+    public UserTier Tier { get; set; } = UserTier.Free;
+
+    /// <summary>
+    /// Per-user storage grant that wins over the tier. For genuine one-offs (a support gesture, a
+    /// beta tester) — not a substitute for creating a tier. Clamped to
+    /// <c>Entitlements:MaxStorageLimitBytes</c> on read, so a stray value here cannot hand out the
+    /// whole disk. Null = use the tier.
+    /// </summary>
+    public long? StorageLimitOverrideBytes { get; set; }
     public DateTimeOffset? LastActiveAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     /// <summary>BCP-47 language code for the user's native language (the one they already know).

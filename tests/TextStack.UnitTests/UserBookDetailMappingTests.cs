@@ -27,7 +27,7 @@ public class UserBookDetailMappingTests
             db.Setup(x => x.UserChapters).Returns(() => FakeSet(UserChapters).Object);
             db.Setup(x => x.UserBookFiles).Returns(() => FakeSet(UserBookFiles).Object);
             var storage = new Mock<IFileStorageService>();
-            Service = new UserBookService(db.Object, storage.Object);
+            Service = new UserBookService(db.Object, storage.Object, TestEntitlements.Resolver);
         }
     }
 

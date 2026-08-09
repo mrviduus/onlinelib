@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Application.Common.Interfaces;
+using Application.Entitlements;
 using Contracts.UserBooks;
 using Domain.Entities;
 using Domain.Enums;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.UserBooks;
 
-public class UserBookService(IAppDbContext db, IFileStorageService storage)
+public class UserBookService(IAppDbContext db, IFileStorageService storage, IEntitlementResolver entitlements)
 {
     public async Task<(UploadUserBookResponse? Response, string? Error)> UploadAsync(
         Guid userId, Stream fileStream, string fileName, string? title, string? language, CancellationToken ct)
@@ -87,15 +88,18 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
 
         var fileSize = content.Length;
 
-        var storageLimit = user.IsGuest ? User.GuestStorageLimitBytes : User.StorageLimitBytes;
-        if (user.StorageUsedBytes + fileSize > storageLimit)
-            return (null, $"Storage limit exceeded. Used: {user.StorageUsedBytes}, Limit: {storageLimit}");
+        var allowed = entitlements.Resolve(user);
 
-        if (user.IsGuest)
+        if (user.StorageUsedBytes + fileSize > allowed.StorageLimitBytes)
+            return (null, $"Storage limit exceeded. Used: {user.StorageUsedBytes}, Limit: {allowed.StorageLimitBytes}");
+
+        if (allowed.MaxBooks is { } maxBooks)
         {
-            var guestBookCount = await db.UserBooks.CountAsync(b => b.UserId == userId, ct);
-            if (guestBookCount >= 1)
-                return (null, "Guest accounts can upload 1 book. Sign up for more.");
+            var bookCount = await db.UserBooks.CountAsync(b => b.UserId == userId, ct);
+            if (bookCount >= maxBooks)
+                return (null, maxBooks == 1
+                    ? "Guest accounts can upload 1 book. Sign up for more."
+                    : $"Book limit reached ({maxBooks}).");
         }
 
         content.Position = 0;
@@ -479,19 +483,25 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage)
 
     public async Task<StorageQuotaDto> GetStorageQuotaAsync(Guid userId, CancellationToken ct)
     {
-        var user = await db.Users
-            .Where(u => u.Id == userId)
-            .Select(u => new { u.StorageUsedBytes, u.IsGuest })
-            .FirstOrDefaultAsync(ct);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        // An absent user resolves through the same path as a real one, so the quota endpoint can
+        // never disagree with what an upload would actually enforce.
+        var resolved = user is not null
+            ? entitlements.Resolve(user)
+            : entitlements.Resolve(new User { Email = string.Empty });
 
         var usedBytes = user?.StorageUsedBytes ?? 0;
-        var limit = user?.IsGuest == true ? User.GuestStorageLimitBytes : User.StorageLimitBytes;
+        var limit = resolved.StorageLimitBytes;
+        var percent = limit > 0 ? (double)usedBytes / limit * 100 : 0;
 
-        var percent = limit > 0
-            ? (double)usedBytes / limit * 100
+        var booksUsed = user is not null
+            ? await db.UserBooks.CountAsync(b => b.UserId == userId, ct)
             : 0;
 
-        return new StorageQuotaDto(usedBytes, limit, Math.Round(percent, 2));
+        return new StorageQuotaDto(
+            usedBytes, limit, Math.Round(percent, 2),
+            resolved.Tier.ToString(), resolved.MaxBooks, booksUsed, resolved.MaxSingleUploadBytes);
     }
 
     public async Task<UserBookProgressDto?> GetProgressAsync(Guid userId, Guid bookId, CancellationToken ct)

@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -24,6 +25,13 @@ public partial class AppDbContext
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.NativeLanguage).HasMaxLength(16);
             e.Property(x => x.IsGuest).HasDefaultValue(false);
+            // Stored as a string: readable in psql and immune to enum renumbering. House style for
+            // new enum columns (cf. AppDbContext.Ai.cs). No index — tier is only ever read via the
+            // already-loaded User row, never filtered on.
+            e.Property(x => x.Tier)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(UserTier.Free);
             e.HasIndex(x => new { x.IsGuest, x.LastActiveAt })
                 .HasFilter("is_guest = true")
                 .HasDatabaseName("ix_users_guest_cleanup");
