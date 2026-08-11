@@ -14,6 +14,19 @@ Free book library w/ Kindle-like reader. Upload EPUB/PDF → parse → SEO pages
 
 **CI/CD**: Push to `main` → auto-deploy. SSG rebuild: admin panel or `make rebuild-ssg`.
 
+## Where to write things down
+
+Four files, four jobs. Putting a write-up in the wrong one is how `CHANGELOG.md` reached 1804 lines.
+
+| File | Job |
+|------|-----|
+| `CHANGELOG.md` | **Index only.** One line per change, grouped by deploy date (CalVer). Never a paragraph. |
+| `docs/changelog-archive/<YYYY>-H<1\|2>.md` | The full write-up behind that line. Article source material. |
+| `docs/incidents/` | Postmortems for anything that broke production. Start from `_TEMPLATE.md`. |
+| `docs/STATUS.md` | Where the project is *now*: in flight, known-broken, deliberately-not-doing. |
+
+Load-bearing decisions still go to `docs/01-architecture/adr/`. Details: `.claude/commands/changelog.md`.
+
 ## Commands
 
 ```bash

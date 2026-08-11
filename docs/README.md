@@ -9,7 +9,10 @@ Free book library with Kindle-like reader. EPUB/PDF upload, parsing, SEO pages, 
 | Document | Description |
 |----------|-------------|
 | [CLAUDE.md](../CLAUDE.md) | AI assistant context (commands, key files, concepts) |
-| [CHANGELOG.md](../CHANGELOG.md) | Version history and recent changes |
+| [STATUS.md](STATUS.md) | **Where the project is right now** — in flight, known-broken, won't-do |
+| [CHANGELOG.md](../CHANGELOG.md) | Release index — one line per change, by deploy date |
+| [Incidents](incidents/README.md) | Postmortems: what broke, why it was invisible, what it taught |
+| [Changelog archive](changelog-archive/) | The full write-up behind every changelog line |
 | [Vision](00-vision/README.md) | Goals, principles, stack |
 | [Architecture](01-architecture/README.md) | System design |
 | [Database](02-system/database.md) | Schema, entities |
