@@ -1,5 +1,5 @@
 ---
-description: Create a PR with title, description, rollback plan, and auto-append to CHANGELOG.md. Detects slice number from branch/commits.
+description: Create a PR with title, description, rollback plan, a one-line CHANGELOG entry and its archive write-up. Detects slice number from branch/commits.
 argument-hint: (no args) or '<slice-number>' to override detection
 allowed-tools: Bash, Read, Edit, Grep, Glob
 ---
@@ -26,7 +26,7 @@ git status --short                               # any uncommitted?
 
 **Detect slice number:** look at commit messages for `my-books-v2 [NN]:` pattern. If `$ARGUMENTS` provided, use that. If neither — ask user.
 
-**Detect scope category** for changelog grouping (one of: `Library`, `Reader`, `Vocabulary`, `Mobile`, `Backend`, `Admin`, `Infra`, `Other`) by looking at most-touched paths.
+**Detect the Area** for the changelog line (one of: `Reader`, `Library`, `Vocabulary`, `Book Chat`, `Mobile`, `Users`, `Admin`, `SEO`, `Observability`, `Ops`, `Worker`, `AI quality`, `Infra`, `Docs`) by looking at most-touched paths.
 
 ## Step 2 — Read slice brief (if applicable)
 
@@ -82,38 +82,71 @@ Use this template (HEREDOC):
 <anything reviewer should know — gotchas, follow-ups, open questions>
 ```
 
-## Step 5 — Append to CHANGELOG.md
+## Step 5 — Write the changelog + archive entry
 
 **This is the part you must NEVER skip.**
 
-Read current `CHANGELOG.md`. Locate the `## [Unreleased]` section. Determine target subsection:
+The changelog is split across three files on purpose (see the header of `CHANGELOG.md`). Where a
+change is written depends on what it is — read this before typing anything:
 
-- If a subsection `### My Books v2 — UX (YYYY-MM-DD)` exists for **today's date** under `[Unreleased]`, append a bullet to it.
-- Otherwise, create a new subsection at the **top of `[Unreleased]`** (right under the heading).
+| What happened | Where it goes |
+|---|---|
+| Any merged change | **One line** in `CHANGELOG.md` |
+| That change needs more than one line | Full write-up in `docs/changelog-archive/<YYYY>-H<1\|2>.md` |
+| It broke production | Postmortem in `docs/incidents/`, from `_TEMPLATE.md` |
+| It changed a load-bearing decision | ADR in `docs/01-architecture/adr/` |
+| It finished or created open work | Update `docs/STATUS.md` in the same PR |
 
-Bullet format — blog-publishable, one line:
+### 5a — The line in `CHANGELOG.md`
+
+Under `## [Unreleased]`. **One line, hard limit.** No paragraph, no sub-bullets, no bold-headed
+"Root cause." blocks — those are exactly what pushed this file to 1800 lines and 379 KB, and they now
+live in the archive.
 
 ```markdown
-- **<Feature name>** ([`<short-sha>`](https://github.com/<repo>/commit/<sha>)) — <one-sentence what + one-sentence why-it-matters>. <Optional: behind flag `<flag.name>`.>
+- **<Area>** — <what changed, one clause> — <scope> · [details](docs/changelog-archive/2026-H2.md#<anchor>)
 ```
 
-Real example for slice 01:
+`<Area>`: Reader, Library, Vocabulary, Book Chat, Mobile, Users, Admin, SEO, Observability, Ops,
+Worker, AI quality, Infra, Docs. `<scope>`: `backend`, `web`, `mobile`, `infra`, or a combination.
+
+Add `· [**postmortem**](docs/incidents/<file>.md)` **before** the details link when one exists.
+
+If the change genuinely needs no write-up (a dependency bump, a typo), omit the details link entirely.
+Do not create an empty archive section to have something to point at.
+
+### 5b — The archive entry
+
+Append at the **top** of the current half-year file, `docs/changelog-archive/<YYYY>-H<1|2>.md`:
+
 ```markdown
-- **Persistent upload button in header** ([`28a377c`](https://github.com/.../commit/28a377c)) — `+` upload button now lives in the main header on every page; Cmd+U opens from anywhere. Cuts upload from 4 clicks to 1. Behind flag `myBooksV2.uploadButton`.
+<a id="<anchor>"></a>
+
+## <same text as the changelog line, without the links> — YYYY-MM-DD
+
+<the full write-up: what, why, what was ruled out, what it cost>
 ```
 
-If multiple commits in this PR, mention the PR number once it's created (placeholder `#TBD`, then update). Or use the merge commit SHA after PR is merged — out of scope of this command.
+`<anchor>` = `YYYY-MM-DD-` + the heading lowercased, non-alphanumerics collapsed to `-`, truncated to
+60 chars. Must match the link in `CHANGELOG.md` exactly — check it.
 
-**Date inside subsection** uses ISO format: `2026-04-26`. Get via `date +%Y-%m-%d`.
+This is where the article material goes. Write it as well as you would have written it in the old
+changelog; the only thing that changed is which file it lands in.
 
-**Use `Edit` tool** with `old_string` matching existing `## [Unreleased]` line (exact match including newline) and `new_string` being the same line + your new subsection block.
+**Date** in ISO format via `date +%Y-%m-%d`.
+
+### 5c — Release heading
+
+`## [Unreleased]` becomes `## [YYYY.MM.DD]` (CalVer, the deploy date) when the PR merges — deploy is
+automatic on merge to `main`. If a release section for today already exists, append to it and leave
+`[Unreleased]` empty with `_Nothing yet._`.
 
 ## Step 6 — Commit changelog
 
 If you edited CHANGELOG.md as part of this command (and it wasn't already committed):
 
 ```bash
-git add CHANGELOG.md
+git add CHANGELOG.md docs/changelog-archive docs/incidents docs/STATUS.md
 git commit -m "changelog: my-books-v2 [<NN>] <slice-title>"
 ```
 
@@ -144,7 +177,7 @@ Report:
 ```
 PR opened: <url>
 Title: <title>
-Changelog: appended to ## [Unreleased] / ### My Books v2 — UX (YYYY-MM-DD)
+Changelog: one line under ## [Unreleased] + write-up in docs/changelog-archive/<YYYY>-H<N>.md
 
 Next steps:
 - Request review (or self-review the diff one more time).
@@ -155,4 +188,4 @@ Next steps:
 
 - `gh` not authenticated → tell user to run `gh auth login`, do NOT auto-handle.
 - Push rejected (non-fast-forward) → STOP. Show user the conflict, do not force-push.
-- CHANGELOG.md edit conflict (file changed between read and edit) → re-read and retry once. If still conflicts → ask user.
+- CHANGELOG.md / archive edit conflict (file changed between read and edit) → re-read and retry once. If still conflicts → ask user.

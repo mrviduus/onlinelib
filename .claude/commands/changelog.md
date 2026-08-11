@@ -1,93 +1,108 @@
 ---
-description: Manually append a changelog entry. Use for fixes, hotfixes, or work that didn't go through /pr. Auto-formatted to match existing CHANGELOG.md style.
-argument-hint: <category> <one-line description>  e.g. "Reader: fix highlight pulse for list view"
-allowed-tools: Bash, Read, Edit
+description: Append a changelog entry outside the /pr flow. Enforces the one-line format and routes the write-up to the archive, an incident postmortem, or an ADR.
+argument-hint: <Area>: <one-line description>  e.g. "Reader: fix highlight pulse for list view"
+allowed-tools: Bash, Read, Edit, Write
 ---
 
-# /changelog — manual entry to CHANGELOG.md
+# /changelog — manual entry
 
-For when an entry needs to land in `CHANGELOG.md` outside the slice/PR flow:
-- Hotfix committed straight to main
-- Dependency bump
-- Refactor that doesn't justify its own subsection
-- Backporting from another branch
-- Anything that `/pr` would normally handle but you skipped it
+For when an entry must land outside the slice/PR flow: a hotfix straight to main, a dependency bump,
+a refactor too small for its own subsection, a backport, or a `/pr` you skipped.
+
+## Step 0 — Decide where it goes (do this first)
+
+The changelog is four files, and putting a thing in the wrong one is how the old 1804-line file
+happened. Route before you write:
+
+| What happened | Where it goes |
+|---|---|
+| Any merged change | **One line** in `CHANGELOG.md` — always |
+| It needs more than one line to explain | Full write-up in `docs/changelog-archive/<YYYY>-H<1\|2>.md`, linked from that line |
+| It broke production | Postmortem in `docs/incidents/` (copy `_TEMPLATE.md`), linked from that line |
+| It changed a load-bearing decision | ADR in `docs/01-architecture/adr/` |
+| It finished, or created, open work | Update `docs/STATUS.md` too |
+
+A dependency bump is one line and nothing else. An incident is one line **plus** a postmortem. Most
+features are one line plus an archive entry.
 
 ## Step 1 — Parse arguments
 
-Expected format: `<category>: <description>` or `<category> — <description>`.
+Expected: `<Area>: <description>` or `<Area> — <description>`. Without a separator, ask to rephrase.
 
-Categories (use existing CHANGELOG.md grouping):
-- Library
-- Reader
-- Vocabulary
-- Mobile
-- Backend
-- Admin
-- Infra
-- Docs
-- Other
+Areas: `Reader`, `Library`, `Vocabulary`, `Book Chat`, `Mobile`, `Users`, `Admin`, `SEO`,
+`Observability`, `Ops`, `Worker`, `AI quality`, `Extraction`, `Infra`, `Docs`.
 
-If `$ARGUMENTS` doesn't include a colon or dash separator, ask user to rephrase.
+## Step 2 — Write the line
 
-## Step 2 — Find or create subsection
-
-Read `CHANGELOG.md`. Locate `## [Unreleased]`. Today's date: `date +%Y-%m-%d`.
-
-Subsection rules:
-- If a subsection `### <Category> — <description-prefix> (YYYY-MM-DD)` already exists for today and category — append bullet there.
-- Otherwise create a new subsection at top of `[Unreleased]`:
-  ```markdown
-  ### <Category> (YYYY-MM-DD)
-  - <bullet>
-  ```
-- Match existing punctuation: dash `—` not hyphen, period at end of bullet sentences.
-
-## Step 3 — Get commit context
-
-```bash
-git log -1 --format="%h %s"   # latest commit on current branch
-```
-
-If a recent commit matches the description (substring), use its SHA in the bullet:
+Read `CHANGELOG.md`, find `## [Unreleased]`. Today: `date +%Y-%m-%d`.
 
 ```markdown
-- **<Short feature name>** (`<short-sha>`) — <description>.
+- **<Area>** — <what changed, one clause> — <scope> · [details](docs/changelog-archive/<YYYY>-H<N>.md#<anchor>)
 ```
 
-If no matching commit (entry is for unstaged/uncommitted work), omit the SHA — just the bullet text.
+`<scope>` is `backend`, `web`, `mobile`, `infra`, or a combination. Add
+`· [**postmortem**](docs/incidents/<file>.md)` **before** the details link when one exists. Omit the
+details link entirely if there is no write-up — never create an empty archive section just to link at it.
 
-## Step 4 — Edit CHANGELOG.md
+**One line.** If you are reaching for a second sentence, that sentence belongs in the archive.
 
-Use `Edit` tool. `old_string` should be the line `## [Unreleased]\n` (or first existing subsection under it for prepend). Be exact about whitespace.
+If `[Unreleased]` currently says `_Nothing yet._`, replace that line with your entry.
 
-After edit, show the user the resulting change:
+## Step 3 — Write the archive entry (unless it's a one-liner)
+
+Append at the **top** of `docs/changelog-archive/<YYYY>-H<1|2>.md` (H1 = Jan–Jun, H2 = Jul–Dec):
+
+```markdown
+<a id="<anchor>"></a>
+
+## <the line text, without links> — YYYY-MM-DD
+
+<the full write-up>
+```
+
+`<anchor>` = `YYYY-MM-DD-` + heading lowercased, non-alphanumerics collapsed to `-`, cut to 60 chars.
+It must match the link in `CHANGELOG.md` exactly.
+
+Write the archive entry as fully as the work deserves — root cause, what was ruled out, what it cost,
+what the misleading evidence looked like. **This is the article source material.** Nothing about the
+restructure asks for less detail; it asks for the detail to live one click away from the index.
+
+## Step 4 — Commit context
 
 ```bash
-git diff CHANGELOG.md
+git log -1 --format="%h %s"
 ```
 
-## Step 5 — Optionally commit
+If a recent commit matches the description, reference its short SHA in the archive entry (not in the
+one-line index — that line is for humans scanning, not for SHAs).
 
-Ask user: "Commit this changelog entry now? (y/n)"
+## Step 5 — Show the diff
 
-If yes:
 ```bash
-git add CHANGELOG.md
-git commit -m "changelog: <category> — <short description>"
+git diff CHANGELOG.md docs/changelog-archive docs/incidents docs/STATUS.md
 ```
 
-If no, leave it staged-or-not as the user has it.
+Verify the anchor link resolves: the `<a id="...">` in the archive must equal the `#...` in the line.
+
+## Step 6 — Optionally commit
+
+Ask: "Commit this changelog entry now? (y/n)". If yes:
+
+```bash
+git add CHANGELOG.md docs/changelog-archive docs/incidents docs/STATUS.md
+git commit -m "changelog: <area> — <short description>"
+```
 
 ## Examples
 
 ```
-/changelog Reader: fix highlight pulse for list view
-→ Adds bullet under ### Reader (2026-04-26) referencing latest commit if matches.
-
 /changelog Infra: bump pdfpig to 0.1.14
-→ Adds bullet under ### Infra (2026-04-26).
+→ One line under [Unreleased]. No archive entry, no details link. Done.
 
-/changelog Library: continue-reading shelf wheel-scroll passive listener fix
-→ Matches commit 6c58795, adds bullet with that SHA under ### Library (2026-04-26).
+/changelog Reader: fix highlight pulse for list view
+→ One line + a short archive entry explaining what was wrong.
+
+/changelog Ops: nightly backup filled the disk
+→ One line + docs/incidents/YYYY-MM-DD-*.md from _TEMPLATE.md + a row in incidents/README.md,
+  and the line carries a [**postmortem**] link.
 ```

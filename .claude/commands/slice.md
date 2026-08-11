@@ -20,7 +20,8 @@ Normalize `$ARGUMENTS` to `AI-0NN` (accept `AI-040`, `040`, `40`). In `PLAYBOOK-
 Read, in order:
 1. `CLAUDE.md` — stack, layering, conventions (skim if already in context).
 2. The task's **`## Phase N`** section in the playbook — Scope (in/out), Architecture additions, Data model, API surface, Eval criteria, **Definition of done**.
-3. `CHANGELOG.md` top — the house style + what already shipped in this phase.
+3. `CHANGELOG.md` top — the four-file split + what already shipped in this phase (details live in
+   `docs/changelog-archive/`).
 
 Check whether the task is already merged: `git log --oneline -20 | grep -i "AI-0NN"`. If merged, say so and stop.
 
@@ -60,7 +61,8 @@ If the playbook estimate is ≥1.5d or the change spans web+backend+mobile, **pr
 
 - **Branch first**: `git checkout main && git pull && git checkout -b ai-0NN-<short-kebab>`. Never commit on `main`.
 - Smallest change that fits existing patterns; reuse the named seam. Match surrounding code's idiom/comment density.
-- **Always update `CHANGELOG.md`** under `## [Unreleased]` (the owner writes an article from it).
+- **Always update `CHANGELOG.md`** under `## [Unreleased]` — **one line**, linking to the full write-up
+  in `docs/changelog-archive/<YYYY>-H<N>.md` (the owner writes articles from the archive entry).
 - Code-only PRs — exclude untracked planning docs (`ARCH-*`, `PLAYBOOK-*`, `ROADMAP-*`, `docs/blog/`).
 - Commit: `feat(<scope>): <summary> (AI-0NN)` (or `fix`/`refactor`/`ci`), body explaining the why, ending with:
   `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
