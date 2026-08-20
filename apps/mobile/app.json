@@ -57,6 +57,10 @@
             "DEFAULT"
           ]
         }
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -76,7 +80,30 @@
       ],
       "expo-font",
       "./plugins/with-adi-registration",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "microphonePermission": false,
+          "cameraPermission": false,
+          "photosPermission": "Allow TextStack to choose a photo for your profile picture."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 24
+          }
+        }
+      ]
     ],
     "developmentClient": {
       "silentLaunch": true
