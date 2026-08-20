@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name']
 // Lazy-loaded — requires native build
 let ImagePicker: typeof import('expo-image-picker') | null = null
 try { ImagePicker = require('expo-image-picker') } catch {}
@@ -348,16 +350,20 @@ export default function ProfileScreen() {
         <VocabReminderSettingsRow />
 
         {/* Info pages */}
-        {[
+        {([
           { label: 'About', icon: 'information-circle-outline' as const, route: '/about' },
           { label: 'Privacy', icon: 'shield-outline' as const, route: '/privacy' },
           { label: 'Terms', icon: 'document-text-outline' as const, route: '/terms' },
+          // Users upload their own books from this app, so rights holders need a
+          // route to the takedown process from inside it. The process itself is a
+          // web page, hence the external link rather than a route.
+          { label: 'Copyright / DMCA', icon: 'alert-circle-outline' as const, url: 'https://textstack.app/dmca' },
           { label: 'Contact', icon: 'mail-outline' as const, route: '/contact' },
-        ].map(item => (
+        ] as { label: string; icon: IoniconsName; route?: string; url?: string }[]).map(item => (
           <TouchableOpacity
-            key={item.route}
+            key={item.route ?? item.url}
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => router.push(item.route)}
+            onPress={() => (item.url ? Linking.openURL(item.url) : router.push(item.route!))}
             activeOpacity={0.7}
           >
             <Ionicons name={item.icon} size={20} color={colors.textSecondary} style={styles.menuIcon} />

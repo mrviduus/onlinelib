@@ -1,6 +1,6 @@
 # Status
 
-**Last updated: 2026-08-11.** Where the project actually is — not what it does (that's
+**Last updated: 2026-08-20.** Where the project actually is — not what it does (that's
 [`docs/README.md`](README.md)) and not what changed (that's [`CHANGELOG.md`](../CHANGELOG.md)).
 
 If you read one page before picking work back up, read this one. It exists because the changelog
@@ -29,7 +29,11 @@ answers "what happened" and nothing answered "what is half-finished right now".
   Cloudflare's per-request body cap with a bare `Upload failed: 413`. Plan:
   `~/.claude/plans/claude-code-task-shimmering-brook.md`.
 - **Play Store → production** — needs 12 testers × 14 days on the closed track. Closed track is a
-  draft with 0 testers.
+  draft with 0 testers, so the clock has not started. Code-side gates are done: submit profile,
+  permission hygiene + guard, honest privacy policy and Data Safety answers, delete-account
+  instructions per platform, and a runbook at [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md).
+  Still owner-only: promote build 20 to Closed, recruit 14 testers, publish the farewell OTA before
+  the fingerprint switch.
 - **Article** — Sentry write-up, draft on vasyl.blog; needs edits, image, publish, then a DEV cross-post.
 
 ## Known-broken / open follow-ups
@@ -49,6 +53,14 @@ someone's memory.
 - **`.env.bak*` on the server** — three untracked backups holding live secrets.
 - **`EXPO_TOKEN`** repo secret is not set, so the mobile CI build/submit path is unusable; releases go
   from a local machine.
+- **Two permission groups still requested and unjustified** — `FOREGROUND_SERVICE` +
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` from `expo-audio` (TTS is foreground-only), and 20 OEM
+  launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
+  badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
+  a device to settle.
+- **`runtimeVersion` is still `appVersion`**, pinned at `1.0.0` for every build. The farewell banner
+  is written and merged; the OTA that carries it has not been published, so the fingerprint switch
+  cannot land yet.
 
 ## Deliberately not doing
 

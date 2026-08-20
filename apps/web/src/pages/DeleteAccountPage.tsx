@@ -29,8 +29,18 @@ export function DeleteAccountPage() {
         </section>
 
         <section className="legal-page__section">
+          <h2>{t('deleteAccount.onWebHeading')}</h2>
+          <p>{t('deleteAccount.onWebBody')}</p>
+        </section>
+
+        <section className="legal-page__section">
           <h2>{t('deleteAccount.dataHeading')}</h2>
           <p>{t('deleteAccount.dataBody')}</p>
+        </section>
+
+        <section className="legal-page__section">
+          <h2>{t('deleteAccount.retentionHeading')}</h2>
+          <p>{t('deleteAccount.retentionBody')}</p>
         </section>
 
         <section className="legal-page__section">

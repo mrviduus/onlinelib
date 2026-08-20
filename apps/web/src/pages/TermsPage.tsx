@@ -66,6 +66,12 @@ export function TermsPage() {
       </section>
 
       <section className="legal-page__section">
+        <h2>{t('terms.aiHeading')}</h2>
+        <p>{t('terms.aiBody1')}</p>
+        <p>{t('terms.aiBody2')}</p>
+      </section>
+
+      <section className="legal-page__section">
         <h2>{t('terms.disclaimerHeading')}</h2>
         <p>{t('terms.disclaimerBody1')}</p>
         <p>{t('terms.disclaimerBody2')}</p>
