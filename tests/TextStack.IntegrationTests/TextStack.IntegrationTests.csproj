@@ -4,6 +4,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Security pin only, see Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />

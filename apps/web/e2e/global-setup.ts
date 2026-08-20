@@ -77,6 +77,17 @@ async function seedTestData(request: any) {
     }
   }
 
+  if (!testData.enBook) {
+    // Not thrown: an empty test database is an environment problem, not bad code,
+    // and failing here would take the @smoke gate — and therefore the deploy — down
+    // with it. getTestData() raises a precise error in the tests that actually need
+    // a book, which is where the failure belongs.
+    console.warn(
+      `No English book among ${items.length} discovered — book-dependent tests will ` +
+        'fail with an explicit message from getTestData().',
+    )
+  }
+
   fs.writeFileSync(TEST_DATA_PATH, JSON.stringify(testData, null, 2))
   console.log('Discovered test books:', testData)
 }
@@ -87,7 +98,12 @@ async function fetchBookDetail(request: any, slug: string) {
       headers: { Host: 'general.localhost' },
     })
     if (resp.ok()) return resp.json()
-  } catch {}
+    // Was a bare `catch {}` returning null, which became firstChapterSlug: '' and
+    // sent every reader test to a URL with an empty chapter segment.
+    console.warn(`GET /books/${slug} returned ${resp.status()} — chapter slugs will be empty`)
+  } catch (e) {
+    console.warn(`GET /books/${slug} threw:`, (e as Error).message)
+  }
   return null
 }
 

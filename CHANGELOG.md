@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Security** — two packages with high-severity advisories, one of them unused — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-20-security-two-packages-with-high-severity-advisories-one)
 - **CI** — 14 E2E tests removed, two of which could not fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-ci-14-e2e-tests-removed-two-of-which-could-not-fail)
 - **Web** — links rendered outside the language provider pointed at paths the router does not serve — web + infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-web-links-rendered-outside-the-language-provider-pointed)
 - **Mobile** — crash reporting, wired but dormant until a DSN is supplied — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-mobile-crash-reporting-wired-but-dormant-until-a-dsn-is-s)

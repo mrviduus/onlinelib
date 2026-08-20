@@ -5,6 +5,19 @@
   <ItemGroup>
     <!-- ASP.NET Core -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <!-- Referenced directly by Api and the integration tests ONLY to force a patched
+         version of a transitive dependency. Microsoft.AspNetCore.OpenApi 10.0.8
+         resolves Microsoft.OpenApi 2.0.0, which carries GHSA-v5pm-xwqc-g5wc (high):
+         circular schema references can terminate OpenAPI parsing. Vulnerable
+         >= 2.0.0-preview.11 through 2.7.4; patched in 2.7.5. Held on the 2.x line for
+         compatibility with AspNetCore.OpenApi 10.x.
+         No code imports it — drop the pin and the two PackageReferences once
+         AspNetCore.OpenApi ships a build that resolves 2.7.5 or later on its own.
+         (CentralPackageTransitivePinningEnabled would be the tidier mechanism, but it
+         pins every transitive package, and the central Npgsql entry is 9.0.3 while
+         Npgsql.EntityFrameworkCore.PostgreSQL 10.0.1 needs >= 10.0.2 — that turns the
+         build into NU1109 downgrade errors.) -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.14.14" />
     <!-- Entity Framework -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
@@ -103,7 +116,6 @@
     <PackageVersion Include="Sentry.AspNetCore" Version="6.8.0" />
     <PackageVersion Include="Sentry.Extensions.Logging" Version="6.8.0" />
     <!-- Security (override transitive for CVE fix) -->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.8" />
     <!-- Testing -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit.v3" Version="2.0.2" />
