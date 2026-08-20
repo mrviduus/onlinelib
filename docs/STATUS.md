@@ -61,6 +61,15 @@ someone's memory.
 - **`runtimeVersion` is still `appVersion`**, pinned at `1.0.0` for every build. The farewell banner
   is written and merged; the OTA that carries it has not been published, so the fingerprint switch
   cannot land yet.
+- **Play's Data Safety form still holds the pre-2026-08-20 answers**, which now contradict the
+  rewritten privacy policy. The correct answers are recorded verbatim in
+  [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md); submitting them is a manual
+  Play Console step. A form that disagrees with the policy is the worst of the three possible states.
+- **`llm_traces` grows without bound.** Not an oversight — the policy now says so plainly, and account
+  deletion anonymises rather than removes (`ON DELETE SET NULL`). But the table stores prompts and the
+  book excerpts sent as context, with no cleanup job, and this project has already lost a night to
+  [disk exhaustion](incidents/2026-07-10-backup-leaked-156gb.md). Worth a size check before it is worth
+  a retention job.
 
 ## Deliberately not doing
 
