@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **CI** — 14 E2E tests removed, two of which could not fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-ci-14-e2e-tests-removed-two-of-which-could-not-fail)
 - **Web** — links rendered outside the language provider pointed at paths the router does not serve — web + infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-web-links-rendered-outside-the-language-provider-pointed)
 - **Mobile** — crash reporting, wired but dormant until a DSN is supplied — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-mobile-crash-reporting-wired-but-dormant-until-a-dsn-is-s)
 - **CI** — E2E stops gating production on everything except smoke, and the Chrome download stops flaking deploys — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-ci-e2e-stops-gating-production-on-everything-except-smok)

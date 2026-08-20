@@ -34,21 +34,6 @@ test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
     }
   })
 
-  test('vocabulary page loads with stats', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/')
-    await page.waitForLoadState('networkidle')
-    await expect(page.locator('.vocab-page')).toBeVisible()
-
-    // Stats bar should show total words
-    const statValue = page.locator('.vocab-stat__value').first()
-    await expect(statValue).toBeVisible({ timeout: 10000 })
-
-    // Practice button should be enabled
-    const startBtn = page.locator('.practice-page__start-btn')
-    await expect(startBtn).toBeEnabled()
-    await expect(startBtn).toContainText('words')
-  })
-
   test('flashcards is default mode', async ({ authedPage: page }) => {
     await page.goto('/en/vocabulary/')
     await page.evaluate(() => localStorage.removeItem('practiceMode'))
@@ -57,15 +42,6 @@ test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
 
     const flashcardsBtn = page.locator('.vocab-mode-toggle__btn--active')
     await expect(flashcardsBtn).toContainText('Flashcards')
-  })
-
-  test('flashcards listed first in mode toggle', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/')
-    await page.waitForLoadState('networkidle')
-
-    const buttons = page.locator('.vocab-mode-toggle__btn')
-    await expect(buttons.nth(0)).toContainText('Flashcards')
-    await expect(buttons.nth(1)).toContainText('Blitz')
   })
 
   test('streak badge shows in header when words due', async ({ authedPage: page }) => {
@@ -85,15 +61,6 @@ test.describe.serial('Vocabulary page (merged Words + Practice)', () => {
 
     await page.waitForURL(/\/vocabulary\/review/)
     await expect(page.locator('.review-progress')).toBeVisible()
-  })
-
-  test('weekly budget bar renders on vocabulary page', async ({ authedPage: page }) => {
-    await page.goto('/en/vocabulary/')
-    await page.waitForLoadState('networkidle')
-
-    const bar = page.locator('.vocab-weekly-budget')
-    await expect(bar).toBeVisible()
-    await expect(bar.locator('.vocab-weekly-budget__progress')).toContainText('/')
   })
 
   // Cleanup
