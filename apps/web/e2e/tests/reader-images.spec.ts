@@ -45,19 +45,34 @@ test.describe('Inline images in reader', () => {
     const site = await siteResp.json()
     const siteId = site.siteId
 
-    // Get first available author
-    const authorsResp = await request.get(`${API_URL}/admin/authors?limit=1`, {
-      headers: { Host: 'general.localhost' },
-    })
-    const authors = await authorsResp.json()
-    const authorId = authors.items?.[0]?.id ?? ''
+    // Create the author and genre this spec needs rather than hoping the database
+    // already has some.
+    //
+    // The previous version read the first row of /admin/authors and fell back to
+    // `?? ''` when there was none — and a fresh CI database has none. The empty
+    // string then surfaced three steps later as
+    // `upload failed: 400 {"error":"At least one author is required"}`, which
+    // describes the symptom and not the cause. Same shape as the dead /site route
+    // above: a silent fallback converting a clear precondition into a confusing
+    // downstream error.
+    //
+    // POST /admin/authors is get-or-create (its response carries `isNew`), so this
+    // is safe to run against a warm volume as well as an empty one.
+    const createRef = async (kind: 'authors' | 'genres', name: string): Promise<string> => {
+      const resp = await request.post(`${API_URL}/admin/${kind}`, {
+        headers: { Host: 'general.localhost' },
+        data: { siteId, name },
+      })
+      if (!resp.ok()) {
+        throw new Error(`POST /admin/${kind} failed: ${resp.status()} ${await resp.text()}`)
+      }
+      const body = await resp.json()
+      if (!body.id) throw new Error(`POST /admin/${kind} returned no id: ${JSON.stringify(body)}`)
+      return body.id
+    }
 
-    // Get first available genre
-    const genresResp = await request.get(`${API_URL}/admin/genres?limit=1`, {
-      headers: { Host: 'general.localhost' },
-    })
-    const genres = await genresResp.json()
-    const genreId = genres.items?.[0]?.id ?? ''
+    const authorId = await createRef('authors', 'E2E Image Fixture Author')
+    const genreId = await createRef('genres', 'E2E Image Fixture Genre')
 
     // Upload test EPUB with image
     const epubPath = path.resolve(__dirname, '../fixtures/test-book-images.epub')
