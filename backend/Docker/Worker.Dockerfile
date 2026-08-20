@@ -80,17 +80,41 @@ COPY --from=build /app/publish .
 # whole install exits 1. Pinning to 24.x matches the version the web prerender
 # scripts were authored against.
 #
-# Retry loop covers transient Chromium-download flakiness (~150 MB from
-# googleapis.com). --silent dropped so the next break surfaces the real cause.
+# Two steps on purpose, because they fail for unrelated reasons and at unrelated
+# rates. `npm install` talks to the npm registry and is quick; the browser download
+# pulls ~150 MB of chrome-headless-shell from storage.googleapis.com and is the part
+# that actually flakes. Bundling them meant a CDN hiccup re-downloaded nothing and
+# re-ran everything, and the old loop — 3 attempts, 5s apart — covered about 15
+# seconds of outage. On 2026-08-20 Google served 504s for longer than that, all three
+# attempts burned inside the window, and a production deploy was blocked by it.
+#
+# Now: install with the download skipped, then fetch the browser in its own loop with
+# exponential backoff (10s, 20s, 40s, 80s, 160s ≈ 5 minutes of cover).
 RUN mkdir -p /app/apps/web && \
     cd /app/apps/web && \
     npm init -y && \
-    for i in 1 2 3; do \
-        npm install puppeteer@^24.36.0 && break || \
-        { echo "puppeteer install attempt $i failed, retrying..." >&2; sleep 5; }; \
-    done && \
-    test -d node_modules/puppeteer && \
-    chown -R app:app /app
+    PUPPETEER_SKIP_DOWNLOAD=true npm install puppeteer@^24.36.0 && \
+    test -d node_modules/puppeteer
+
+# Retry puppeteer's OWN installer — the exact thing that failed — rather than a
+# hand-picked `browsers install <name>`. puppeteer 24 downloads BOTH `chrome` and
+# `chrome-headless-shell`, and prerender.mjs calls launch({ headless: true }), which
+# resolves to full `chrome`; `chrome-headless-shell` is only used for
+# headless: 'shell'. Installing just the shell would leave SSG unable to launch a
+# browser at all — the same silent failure that kept SSG dead for five weeks.
+RUN cd /app/apps/web && \
+    delay=10; \
+    for i in 1 2 3 4 5; do \
+        node node_modules/puppeteer/install.mjs && break || \
+        { echo "puppeteer browser download attempt $i failed; retrying in ${delay}s" >&2; \
+          sleep "$delay"; delay=$((delay * 2)); }; \
+    done; \
+    # Fail loudly rather than ship an image whose SSG cannot launch a browser.
+    test -d "$PUPPETEER_CACHE_DIR/chrome" || \
+      { echo "FATAL: no chrome in $PUPPETEER_CACHE_DIR after 5 attempts" >&2; \
+        ls -la "$PUPPETEER_CACHE_DIR" 2>/dev/null; exit 1; }
+
+RUN chown -R app:app /app
 
 # Sentry release. Declared last so a new SHA invalidates only this trivial layer,
 # not the .NET build or the ~150 MB puppeteer install above.

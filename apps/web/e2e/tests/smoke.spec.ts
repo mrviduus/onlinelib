@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Smoke tests', () => {
+// @smoke — this file is the only part of the E2E suite that gates a production
+// deploy. Everything here must be cheap, deterministic, and about *wiring*: did the
+// page render at all, does the route resolve, is the API answering. Nothing that
+// needs a fixture, a login, or a timing assumption belongs in this file.
+//
+// The rest of the suite runs non-blocking on PRs and nightly against production.
+// Rationale in the E2E steps of .github/workflows/ci.yml.
+test.describe('Smoke tests @smoke', () => {
   test('home page loads', async ({ page }) => {
     await page.goto('/')
     await expect(page).toHaveTitle(/TextStack/)
