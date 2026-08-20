@@ -14,6 +14,16 @@ let adminAvailable = true
 
 test.describe('Inline images in reader', () => {
   test.beforeAll(async ({ browser }) => {
+    // Playwright gives a hook 30s by default, and this one cannot finish in that:
+    // it logs in, creates an author and a genre, uploads an EPUB, waits for the
+    // worker to ingest it — waitForIngestion alone allows 60s — and then publishes
+    // the edition. The default was never compatible with the work; it simply never
+    // showed, because the spec skipped on every CI run behind an admin 401.
+    //
+    // 150s = 60s ingestion + the six HTTP round trips around it + headroom for a
+    // cold worker on a fresh CI stack.
+    test.setTimeout(150_000)
+
     const ctx = await browser.newContext()
     const request = ctx.request
 
