@@ -20,7 +20,7 @@
     "inAppHeading": "Delete in the Android app",
     "inAppBody": "Open the Profile tab, scroll to \"Delete account\", and confirm. You will be asked to confirm twice, because the deletion cannot be undone.",
     "dataHeading": "What gets deleted",
-    "dataBody": "Deleting your account permanently removes your profile, uploaded books and their extracted text, highlights and notes, saved vocabulary, bookmarks, collections, reading progress, reading history and any files stored for you.",
+    "dataBody": "Deleting your account permanently removes your profile, uploaded books and their extracted text, highlights and notes, saved vocabulary, bookmarks, collections, reading progress and reading history, along with any files stored for you. This action cannot be undone.",
     "contactHeading": "Need help?",
     "contactBody": "If you can't access your account but want it deleted, contact us at",
     "onWebHeading": "Delete on the website",
