@@ -23,6 +23,8 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Reader** — the dyslexic font was a saved GitHub web page on both platforms, so the setting never worked — web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-19-reader-the-dyslexic-font-was-a-saved-github-web-page-on-bot)
+- **CI** — web unit tests and the whole mobile app were never checked by CI — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-19-ci-web-unit-tests-and-the-whole-mobile-app-were-never-check)
 - **Mobile** — Play production plumbing: a submit profile that exists, two permissions that shouldn't, and a guard — mobile + infra · [details](docs/changelog-archive/2026-H2.md#2026-08-19-mobile-play-production-plumbing-a-submit-profile-that-exi)
 - **Docs** — CHANGELOG split into an index, an archive and postmortems — docs · [details](docs/changelog-archive/2026-H2.md#2026-08-11-docs-changelog-split-into-an-index-an-archive-and-post)
 
