@@ -53,6 +53,6 @@ Free book library with Kindle-like reader. Upload EPUB/PDF → parse → SEO pag
 
 ## See Also
 
-- [Roadmap](roadmap.md) — MVP phases and checklist
+- [Roadmap](roadmap.md) — **historical** (frozen Jan 2025). Live status lives in [STATUS.md](../STATUS.md).
 - [Architecture](../01-architecture/README.md) — System design
 - [Database](../02-system/database.md) — Schema reference

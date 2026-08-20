@@ -1,9 +1,20 @@
-# Roadmap
+# Roadmap — historical
 
-## Current Focus
+> **This file is history, not a plan.** It was last true in **January 2025** and is kept
+> because the MVP record below is worth preserving. Everything under "Current Focus",
+> "Next Up" and "Future / Research" has either shipped, been superseded, or been
+> declined — annotations below say which.
+>
+> **For what is actually in flight, broken, or deliberately not being done, read
+> [`docs/STATUS.md`](../STATUS.md).** For what changed and when, read
+> [`CHANGELOG.md`](../../CHANGELOG.md).
 
-- [ ] **SEO Admin Dashboard** — visibility into SEO health, bulk description editing
-- [ ] **LLM Batch Processing** — auto-generate descriptions for ~1000 draft books
+## Current Focus *(as of Jan 2025 — both shipped)*
+
+- [x] **SEO Admin Dashboard** — shipped as the SEO Backfill admin page (coverage,
+      templates, jobs, settings) plus Auto Publish.
+- [x] **LLM Batch Processing** — shipped as the Auto Publish pipeline and the SEO
+      backfill job queue.
 
 ## Recently Completed (Jan 2025)
 
@@ -30,11 +41,12 @@
 - [x] Stats cards on authors/genres pages
 - [x] Published filter for sitemap
 
-## Completed (MVP - Dec 2024)
+## Completed (MVP — Dec 2024)
 
 - [x] Core library (upload EPUB/PDF → parse → serve)
 - [x] Kindle-like reader (settings, pagination, keyboard)
-- [x] Multisite (textstack.app + textstack.dev)
+- [x] Multisite (textstack.app + textstack.dev) — later collapsed to a single site on
+      purpose, see [ADR-007](../01-architecture/adr/)
 - [x] PostgreSQL full-text search + fuzzy matching
 - [x] Prerender SEO (dynamic rendering)
 - [x] Author/Genre pages with SEO
@@ -42,22 +54,26 @@
 - [x] User library + reading progress sync
 - [x] Bookmarks with auto-save
 
-## Next Up
+## Next Up *(as of Jan 2025)*
 
-- [ ] Search improvements (faceted, analytics)
-- [ ] Admin Author/Genre CRUD
-- [ ] Slug change redirects (301)
-- [ ] Notes feature (highlight + annotate)
+- [x] Search improvements — semantic/vector search shipped with the RAG work
+- [x] Admin Author/Genre CRUD — shipped
+- [ ] Slug change redirects (301) — never built, never missed
+- [x] Notes feature (highlight + annotate) — shipped, but as notes *on highlights*.
+      The separate `Note` entity from this line was built and then abandoned; no row
+      was ever written to it.
 
-## Future / Research
+## Future / Research *(as of Jan 2025 — mostly overtaken)*
 
-- [ ] Next.js SSG migration (alternative to prerender)
-- [ ] Service Worker for true PWA
-- [ ] Mobile app (React Native)
-- [ ] Eye/head tracking scroll
-- [ ] Vector/semantic search
-- [ ] Text-to-speech (TTS)
+- [ ] Next.js SSG migration — not done. The hand-rolled Puppeteer prerender in
+      `apps/web/scripts/prerender.mjs` is what runs.
+- [ ] Service Worker for true PWA — not done.
+- [x] Mobile app (React Native) — shipped. Expo app in `apps/mobile`, live on Play
+      Internal Testing.
+- [ ] Eye/head tracking scroll — not done, not planned.
+- [x] Vector/semantic search — shipped with pgvector and the RAG stack.
+- [x] Text-to-speech (TTS) — shipped via Edge TTS, web and mobile.
 
 ---
 
-*See [CHANGELOG.md](/CHANGELOG.md) for detailed version history.*
+*Live status: [`docs/STATUS.md`](../STATUS.md) · History: [`CHANGELOG.md`](../../CHANGELOG.md)*
