@@ -14,7 +14,7 @@ Turn a request into a **clean, minimal implementation plan** before code is writ
 - Prefer the smallest change that fits existing patterns. Reuse before you add. Name the existing seam you're extending (e.g. `ILlmService` gateway, `IToolRegistry`, `AgentLoop`).
 - Surface trade-offs explicitly; recommend one option, don't just survey.
 - Call out: data-model/migration impact, layering/dependency direction, DI wiring, observability (llm_trace/eval_run), spoiler-safety, multi-platform (web+mobile share `packages/`).
-- Decide what to split into small PRs (the project ships slice-by-slice; see `/slice`).
+- Decide what to split into small PRs (the project ships slice-by-slice).
 
 ## Output
 A concise plan: goal → key files/seams → step-by-step changes → test strategy → risks → **a short list of unresolved questions** (sacrifice grammar for brevity). For a real architectural decision, write an ADR-style note. Do NOT implement — hand the plan back.

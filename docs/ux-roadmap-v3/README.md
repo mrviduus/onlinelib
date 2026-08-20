@@ -147,7 +147,7 @@ If something tempts during execution: write it down for "v4 ideas", ship the v3 
 6. After merge: tick the slice in this README and move to the next.
 ```
 
-Use the slash commands in `.claude/commands/` — `/slice 01` reads the brief, `/check` runs gates, `/pr` opens PR + changelog.
+Use the slash commands in `.claude/commands/` — `/check` runs gates, `/pr` opens PR + changelog. (`/slice` was removed on 2026-08-20; point Claude at the brief file directly instead.)
 
 ---
 

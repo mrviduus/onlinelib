@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
+import { AppState, View } from 'react-native'
 import { Stack, useRouter, usePathname } from 'expo-router'
 import { trackAppResumedFromBackground } from '../src/lib/analytics'
 import { StatusBar } from 'expo-status-bar'
@@ -13,6 +13,7 @@ import { LanguageProvider } from '../src/context/LanguageContext'
 import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
 import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
+import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
 import { useAppFonts } from '../src/theme/fonts'
 
 SplashScreen.preventAutoHideAsync()
@@ -104,31 +105,37 @@ function AppContent() {
   const { isDark } = useTheme()
 
   return (
-    <>
+    // Wrapped rather than a fragment so LegacyRuntimeBanner can push the navigator
+    // down instead of covering a screen's own header. It renders null on every
+    // runtime except the frozen "1.0.0" one, so this costs an empty View.
+    <View style={{ flex: 1 }}>
       <ColdResetOnResume />
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)/login" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="book/[slug]" />
-        <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="vocabulary/review" />
-        <Stack.Screen name="stats/index" />
-        <Stack.Screen name="author/[slug]" />
-        <Stack.Screen name="genre/[slug]" />
-        <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="my-books/[id]" />
-        <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="highlights/index" />
-        <Stack.Screen name="highlights/review" />
-        <Stack.Screen name="about" />
-        <Stack.Screen name="privacy" />
-        <Stack.Screen name="terms" />
-        <Stack.Screen name="contact" />
-        <Stack.Screen name="books" />
-        <Stack.Screen name="authors" />
-      </Stack>
-    </>
+      <LegacyRuntimeBanner />
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(auth)/login" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="book/[slug]" />
+          <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="vocabulary/review" />
+          <Stack.Screen name="stats/index" />
+          <Stack.Screen name="author/[slug]" />
+          <Stack.Screen name="genre/[slug]" />
+          <Stack.Screen name="my-books/upload" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="my-books/[id]" />
+          <Stack.Screen name="my-books/read/[bookId]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="highlights/index" />
+          <Stack.Screen name="highlights/review" />
+          <Stack.Screen name="about" />
+          <Stack.Screen name="privacy" />
+          <Stack.Screen name="terms" />
+          <Stack.Screen name="contact" />
+          <Stack.Screen name="books" />
+          <Stack.Screen name="authors" />
+        </Stack>
+      </View>
+    </View>
   )
 }
 

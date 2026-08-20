@@ -39,7 +39,6 @@ phase/feature, tech-writer when the decision is worth recording.
 
 ## Slash commands (`.claude/commands/`)
 
-- `/slice` — cut a phase into small, shippable PRs.
 - `/pr` — open a PR (waits for CI by head-SHA, never merges red).
 - `/check` — pre-merge gate (build + tests + format).
 - `/changelog` — draft the CHANGELOG entry.
