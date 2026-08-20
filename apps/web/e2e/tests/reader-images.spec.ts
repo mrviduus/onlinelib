@@ -26,12 +26,24 @@ test.describe('Inline images in reader', () => {
       return
     }
 
-    // Get site info for siteId, author, genre
-    const siteResp = await request.get(`${API_URL}/site`, {
+    // Get site info for siteId, author, genre.
+    //
+    // This read `${API_URL}/site` and `site.id`, and both were wrong: the API exposes
+    // `/site/context` (and `/site/language`), and the payload field is `siteId`. The
+    // dead route returned an empty 404 body, so `.json()` threw "Unexpected end of
+    // JSON input" — a parse error pointing at the wrong line, several steps from the
+    // cause. Nobody noticed because admin login was failing in CI and this whole spec
+    // skipped on every run.
+    //
+    // Status checked explicitly so the next time a route moves, the failure says 404.
+    const siteResp = await request.get(`${API_URL}/site/context`, {
       headers: { Host: 'general.localhost' },
     })
+    if (!siteResp.ok()) {
+      throw new Error(`GET /site/context failed: ${siteResp.status()}`)
+    }
     const site = await siteResp.json()
-    const siteId = site.id
+    const siteId = site.siteId
 
     // Get first available author
     const authorsResp = await request.get(`${API_URL}/admin/authors?limit=1`, {

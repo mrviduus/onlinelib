@@ -76,7 +76,8 @@ export async function getEdition(request: APIRequestContext, editionId: string) 
 }
 
 export async function getSiteInfo(request: APIRequestContext) {
-  const resp = await request.get(`${API_URL}/site`, {
+  // `/site` has never existed — the API exposes `/site/context` and `/site/language`.
+  const resp = await request.get(`${API_URL}/site/context`, {
     headers: { Host: 'general.localhost' },
   })
   if (!resp.ok()) throw new Error(`getSite failed: ${resp.status()}`)
