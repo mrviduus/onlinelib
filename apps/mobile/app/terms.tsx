@@ -43,9 +43,27 @@ export default function TermsScreen() {
         <Text style={[styles.body, { color: colors.text }]}>{t('terms.ipBody1')}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{t('terms.ipBody2')}</Text>
 
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('terms.uploadsHeading')}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{t('terms.uploadsWarranty')}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{t('terms.uploadsIndemnify')}</Text>
+        {/* The DMCA process is a web page; users upload their own books from the app,
+            so the app has to be able to point rights holders at it. */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          <Text style={[styles.body, { color: colors.text }]}>{t('terms.uploadsDmcaBefore')}</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://textstack.app/dmca')}>
+            <Text style={[styles.body, { color: colors.primary }]}>{t('terms.uploadsDmcaLink')}</Text>
+          </TouchableOpacity>
+          <Text style={[styles.body, { color: colors.text }]}>{t('terms.uploadsDmcaAfter')}</Text>
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('terms.aiHeading')}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{t('terms.aiBody1')}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{t('terms.aiBody2')}</Text>
+
         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('terms.disclaimerHeading')}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{t('terms.disclaimerBody1')}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{t('terms.disclaimerBody2')}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{t('terms.liabilityCap')}</Text>
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('terms.changesHeading')}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{t('terms.changesBody')}</Text>

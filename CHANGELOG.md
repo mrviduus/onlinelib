@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Legal** — the privacy policy said data stayed in your browser and that nothing was shared; both were false — web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-legal-the-privacy-policy-said-data-stayed-in-your-browse)
 - **Mobile** — a farewell banner for the frozen `1.0.0` runtime, before the fingerprint switch strands it — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-mobile-a-farewell-banner-for-the-frozen-100-runtime-befor)
 - **Reader** — the dyslexic font was a saved GitHub web page on both platforms, so the setting never worked — web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-19-reader-the-dyslexic-font-was-a-saved-github-web-page-on-bot)
 - **CI** — web unit tests and the whole mobile app were never checked by CI — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-19-ci-web-unit-tests-and-the-whole-mobile-app-were-never-check)
