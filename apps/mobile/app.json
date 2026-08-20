@@ -103,6 +103,14 @@
             "minSdkVersion": 24
           }
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "pinnacle-jm",
+          "project": "textstack-mobile",
+          "disableAutoUpload": true
+        }
       ]
     ],
     "developmentClient": {

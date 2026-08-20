@@ -144,6 +144,60 @@ and the mobile screen map over it. Adding a section is one entry plus the string
 Bump `privacy.updated` / `terms.updated` whenever the text changes materially, and
 update the Data Safety table above in the same commit.
 
+## Crash reporting
+
+`@sentry/react-native` is wired but **dormant**. Two switches turn it on, and they
+belong in the same change.
+
+**1. Reporting.** Set `EXPO_PUBLIC_SENTRY_DSN` for the build. With it unset,
+`initSentry()` returns immediately, the SDK never initialises, and nothing is sent —
+the same contract the backend uses for `SENTRY_DSN`.
+
+Note the mechanic: Expo **inlines** `EXPO_PUBLIC_*` at bundle time. The DSN is baked
+into the JS bundle when the build or `eas update` runs, not read when the app starts.
+Setting it later needs a new build or a new update, not an environment change.
+
+Put it in the `production` (and `preview`) build profile's `env` block in `eas.json`,
+or as an EAS environment variable. A DSN in a client app is public by design — it is
+an ingest endpoint, not a credential — so it does not need to be a secret.
+
+Use a **separate Sentry project** from the backend (`textstack-mobile`), so mobile
+noise does not drown the API's issue stream, while both stay in the same organisation
+for cross-service tracing.
+
+**2. Symbolication.** `app.json` sets the Sentry plugin's `disableAutoUpload: true`.
+That is deliberate: source-map upload runs `sentry-cli` during the release build and
+**fails the whole build** when `SENTRY_AUTH_TOKEN` is absent — verified locally, the
+Gradle release task exits 1. No build should break on a missing secret.
+
+Without uploads, every production stack trace is minified Hermes bytecode offsets and
+the integration is decorative. So when you turn reporting on:
+
+```bash
+cd apps/mobile
+eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value <token>
+```
+
+then flip `disableAutoUpload` to `false` in the plugin options. For OTA updates the
+maps need a separate upload after `eas update` — the bundle changes without a build,
+so an OTA'd crash is unsymbolicated unless that step runs.
+
+**What is already handled.** `dist` is set from `Updates.updateId`, so "crashing on
+build 21" and "crashing on Tuesday's OTA" are distinguishable — without it a JS-only
+fix looks like it changed nothing. `sendDefaultPii: false`, no `Sentry.setUser`, and
+no Session Replay, which keeps crash data in the *not linked to identity* bucket on
+the Data Safety form. `src/lib/sentryScrub.ts` redacts `text`, `q`, `word`,
+`sentence`, `prompt` and `question` from every breadcrumb and request URL, because
+`/api/tts`, `/api/translate` and `/api/explain` all carry the passage being read in
+the query string, and shipping book text to a processor is a disclosure we have not
+made.
+
+**Data Safety consequence.** Turning this on adds two rows to the table above:
+*App info & performance → Crash logs* and *Diagnostics*, plus *Device or other IDs*
+for Sentry's installation id. All three are **Shared: Yes → Sentry**, since the DSN
+points at hosted `ingest.us.sentry.io` rather than a self-hosted instance. Keep them
+**not linked to identity** — that is what the configuration above buys.
+
 ## Release checklist
 
 1. `npm run typecheck && npm test` in `apps/mobile` (CI runs both).
@@ -155,3 +209,5 @@ update the Data Safety table above in the same commit.
    check that exists on the PDF.js Original viewer, which shipped without device
    verification (see `docs/changelog-archive/2026-H2.md`, ADR-012 S4).
 7. Production only: hold at 10%, watch vitals for 48h, then widen by hand.
+8. If Sentry is enabled: confirm a test event arrives **with a readable stack trace**.
+   Source maps are the part that silently does not work.

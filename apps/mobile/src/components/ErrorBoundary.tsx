@@ -2,6 +2,7 @@ import { Component } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import type { ReactNode, ErrorInfo } from 'react'
 import { colors } from '../theme/colors'
+import { Sentry } from '../lib/sentry'
 
 interface Props {
   children: ReactNode
@@ -21,6 +22,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, info.componentStack)
+    // Until now this line was the whole story: a user saw the fallback screen and
+    // nobody ever learned why. React errors caught here never reach Play Console's
+    // crash reporting either, since the app does not crash — it renders this.
+    // No-op when no DSN is configured.
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: info.componentStack } },
+    })
   }
 
   handleReset = () => {

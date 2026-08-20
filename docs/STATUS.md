@@ -18,7 +18,7 @@ answers "what happened" and nothing answered "what is half-finished right now".
 | **Reader** (web + mobile) | EPUB + PDF. PDFs are original-first ([ADR-012](01-architecture/adr/ADR-012-pdf-original-first-lazy-parse.md)), page-based progress, highlights, TTS, vocabulary SRS. |
 | **AI platform** | Phases 1–12 complete: RAG, agents (Enrichment / Tutor / Librarian), evals, shadow routing, cost-aware routing, drift detection. |
 | **Book Chat** | Streaming, persistent history, per-chapter summaries, page citations for PDFs. Web + mobile at parity. |
-| **Observability** | OpenTelemetry → Aspire, plus Sentry on API + Worker with LLM/provider-routing spans. |
+| **Observability** | OpenTelemetry → Aspire, plus Sentry on API + Worker with LLM/provider-routing spans. Mobile Sentry is wired but **dormant** — set `EXPO_PUBLIC_SENTRY_DSN` to arm it, see [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md). |
 | **Entitlements** | `UserTier { Guest, Free, Supporter, Staff }`, config-driven quotas. |
 | **SEO / SSG** | Prerendered pages, sitemap, IndexNow. **Repaired 2026-08-11 after five weeks dead** — see the [postmortem](incidents/2026-08-11-ssg-dead-five-weeks.md). |
 | **Mobile** | Android on Play Internal Testing; OTA updates via `expo-updates`. |
