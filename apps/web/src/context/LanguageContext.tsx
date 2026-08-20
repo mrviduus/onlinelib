@@ -12,12 +12,41 @@ interface LanguageContextValue {
   getLocalizedPath: (path: string) => string
 }
 
+/**
+ * Builds a language-prefixed path. Shared by the provider and the default context
+ * value so a consumer rendered OUTSIDE LanguageProvider still produces a working
+ * link instead of a bare, unprefixed one.
+ *
+ * That mattered: CookieBanner is mounted as a sibling of the routes (it must show on
+ * `/` too, and LanguageProvider only exists inside `/:lang/*`), so its "Privacy
+ * Policy" link resolved through the old identity fallback and pointed at `/privacy`
+ * — a path the router does not serve — while every other link on the page pointed at
+ * `/en/privacy/`. A consent banner is exactly where that link has to work.
+ */
+function buildLocalizedPath(path: string, language: SupportedLanguage): string {
+  const [pathname, query] = path.split('?')
+  const suffix = query ? `?${query}` : ''
+
+  if (pathname.startsWith(`/${language}`)) {
+    const normalized = pathname.endsWith('/') ? pathname : `${pathname}/`
+    return `${normalized}${suffix}`
+  }
+  const cleanPath = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const result = `/${language}${cleanPath}`
+  const normalized = result.endsWith('/') ? result : `${result}/`
+  return `${normalized}${suffix}`
+}
+
 const LanguageContext = createContext<LanguageContextValue>({
   language: DEFAULT_LANGUAGE,
   supportedLanguages: SUPPORTED_LANGUAGES,
   switchLanguage: () => {},
-  getLocalizedPath: (path) => path,
+  // Not the identity function. Outside the provider we still know the default
+  // language, and a prefixed path is right far more often than a bare one.
+  getLocalizedPath: (path) => buildLocalizedPath(path, DEFAULT_LANGUAGE),
 })
+
+export { buildLocalizedPath }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const { lang } = useParams<{ lang: string }>()
@@ -40,19 +69,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     navigate(newPath.endsWith('/') ? newPath : `${newPath}/`)
   }, [location.pathname, navigate])
 
-  const getLocalizedPath = useCallback((path: string) => {
-    const [pathname, query] = path.split('?')
-    const suffix = query ? `?${query}` : ''
-
-    if (pathname.startsWith(`/${language}`)) {
-      const normalized = pathname.endsWith('/') ? pathname : `${pathname}/`
-      return `${normalized}${suffix}`
-    }
-    const cleanPath = pathname.startsWith('/') ? pathname : `/${pathname}`
-    const result = `/${language}${cleanPath}`
-    const normalized = result.endsWith('/') ? result : `${result}/`
-    return `${normalized}${suffix}`
-  }, [language])
+  const getLocalizedPath = useCallback(
+    (path: string) => buildLocalizedPath(path, language),
+    [language],
+  )
 
   const value = useMemo(() => ({
     language,
