@@ -14,7 +14,7 @@ Make sure the right thing gets built, scoped well, for a real user.
 - **Scope**: smallest version that delivers value; what's explicitly OUT. Push back on gold-plating and on scope creep.
 - **Definition of Done / acceptance criteria**: concrete, testable, including eval gates where relevant (e.g. recall@8 ≥0.85, spoiler-leak = 0, judge ≥4/5, cost caps).
 - **Slice**: break a phase into independently shippable, reviewable PRs in a sensible order (de-risk first, visible value early). The project ships slice-by-slice.
-- **Prioritize**: sequence against the roadmap (`PLAYBOOK-ai-portfolio.md`, `ROADMAP-ai-portfolio.md`); flag dependencies, owner-only tasks (golden-set curation, prod runs), and launch blockers (e.g. Android Play launch).
+- **Prioritize**: sequence against `docs/STATUS.md` (what is in flight, known-broken, and deliberately not being done) and any live roadmap under `docs/`; flag dependencies, owner-only tasks (golden-set curation, prod runs), and launch blockers (e.g. Android Play launch).
 
 ## Output
 A short brief: problem → user/value → scope (in/out) → DoD/acceptance → PR slices → open questions. Terse. You decide *what* and *why*; engineers/architect decide *how*. Recommend, don't just enumerate.

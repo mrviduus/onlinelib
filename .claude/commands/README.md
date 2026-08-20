@@ -6,18 +6,18 @@ Project-level slash commands for the TextStack repo. Each command is a markdown 
 
 | Command | Purpose | When to use |
 |---------|---------|-------------|
-| `/slice <N>` | Start work on a roadmap slice. Reads brief, summarizes plan, asks for confirmation. | Beginning of any new slice from `docs/ux-roadmap/`. |
 | `/check` | Run all relevant tests/builds based on `git diff`. Concise pass/fail summary. | Before `/pr`. After any non-trivial change. |
 | `/pr` | Build PR title + body, append changelog entry, push, open PR via `gh`. | End of slice, after `/check` is green. |
 | `/changelog <category>: <text>` | Manually append a changelog entry. | Hotfix / dep bump / anything outside `/pr` flow. |
 
 ## Workflow — happy path
 
+`/slice` was removed on 2026-08-20 — it read a `PLAYBOOK-ai-portfolio.md` that never
+existed in git, and the AI-portfolio phases it was written for are complete. Point
+Claude at the brief directly instead: "read docs/ux-roadmap-v3/03-*.md and plan it".
+
 ```
-1. /slice 07
-   → reads docs/ux-roadmap/07-sort-options.md
-   → summarizes acceptance criteria
-   → asks "go?"
+1. read the slice brief (e.g. docs/ux-roadmap-v3/03-library-sidebar-source-filter.md)
 
 2. work on the slice with Claude Code as usual
 
@@ -33,7 +33,7 @@ Project-level slash commands for the TextStack repo. Each command is a markdown 
    → commits CHANGELOG.md change
    → pushes and opens PR via gh
 
-5. After PR merged, manually tick checkbox in docs/ux-roadmap/README.md
+5. After PR merged, manually tick the checkbox in the roadmap README
 ```
 
 ## Workflow — outside slices
