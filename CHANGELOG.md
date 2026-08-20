@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Mobile** — crash reporting, wired but dormant until a DSN is supplied — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-mobile-crash-reporting-wired-but-dormant-until-a-dsn-is-s)
 - **CI** — E2E stops gating production on everything except smoke, and the Chrome download stops flaking deploys — infra · [details](docs/changelog-archive/2026-H2.md#2026-08-20-ci-e2e-stops-gating-production-on-everything-except-smok)
 - **Legal** — the privacy policy said data stayed in your browser and that nothing was shared; both were false — web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-legal-the-privacy-policy-said-data-stayed-in-your-browse)
 - **Mobile** — a farewell banner for the frozen `1.0.0` runtime, before the fingerprint switch strands it — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-20-mobile-a-farewell-banner-for-the-frozen-100-runtime-befor)

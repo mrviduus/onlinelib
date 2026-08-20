@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { setupApi } from '../src/lib/api'
+import { Sentry, initSentry } from '../src/lib/sentry'
 import { AuthProvider } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
@@ -17,6 +18,10 @@ import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
 import { useAppFonts } from '../src/theme/fonts'
 
 SplashScreen.preventAutoHideAsync()
+
+// Before anything else, so an error during provider setup is still reported.
+// Completely inert without EXPO_PUBLIC_SENTRY_DSN.
+initSentry()
 
 setupApi()
 
@@ -139,7 +144,7 @@ function AppContent() {
   )
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useAppFonts()
 
   useEffect(() => {
@@ -184,3 +189,7 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   )
 }
+
+// Sentry.wrap adds the touch/navigation breadcrumbs and native crash context that
+// make a report readable. It is a pass-through when the SDK was never initialised.
+export default Sentry.wrap(RootLayout)
