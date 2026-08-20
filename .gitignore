@@ -131,3 +131,16 @@ docs/fixes/
 # Build / release artifact packages
 textstack-*-submission-package.*
 textstack-v*-build*.apk
+
+# Codex CLI mirrors of the .claude/ config. Generated locally, never committed —
+# .agents/skills/* are byte-identical to .claude/skills/*, and AGENTS.md is CLAUDE.md
+# with Claude→Codex substitutions. Keeping them untracked means they cannot drift into
+# the repo as a second, staler source of truth. Regenerate from CLAUDE.md when needed.
+/.agents/
+/.codex/
+/AGENTS.md
+
+# Test fixture books dropped at the repo root. Sample PDFs/EPUBs belong in /data
+# (already ignored); this keeps a stray 20 MB book one `git add -A` further away.
+/*.pdf
+/*.epub

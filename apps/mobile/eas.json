@@ -46,6 +46,14 @@
         "releaseStatus": "completed",
         "changesNotSentForReview": false
       }
+    },
+    "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "inProgress",
+        "rollout": 0.1,
+        "changesNotSentForReview": false
+      }
     }
   }
 }
