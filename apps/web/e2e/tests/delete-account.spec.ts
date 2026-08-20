@@ -148,15 +148,22 @@ test.describe('Public delete-account info page', () => {
       page.getByRole('heading', { name: 'Delete your account', level: 1 }),
     ).toBeVisible()
 
-    // Key sections from en.json deleteAccount.*
-    await expect(page.getByRole('heading', { name: 'Delete in the app' })).toBeVisible()
+    // Key sections from en.json deleteAccount.*. Play requires the deletion URL to
+    // show a route that works on the platform the reviewer is holding, so the
+    // per-platform headings are load-bearing, not cosmetic.
+    await expect(page.getByRole('heading', { name: 'Delete in the Android app' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Delete on the website' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'What gets deleted' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Timing and what remains' })).toBeVisible()
 
     // Irreversibility copy must be present.
     await expect(page.getByText('This action cannot be undone.')).toBeVisible()
-    // Enumerates deleted data so users know the blast radius.
-    await expect(
-      page.getByText(/highlights and notes, saved vocabulary, reading progress/i),
-    ).toBeVisible()
+    await expect(page.getByText(/no waiting period and no recovery window/i)).toBeVisible()
+    // Enumerates deleted data so users know the blast radius. Matched term by term
+    // rather than as one contiguous phrase — pinning the exact sequence made an
+    // accurate copy edit read as a break.
+    for (const item of [/uploaded books/i, /highlights and notes/i, /saved vocabulary/i, /reading progress/i]) {
+      await expect(page.getByText(item).first()).toBeVisible()
+    }
   })
 })
