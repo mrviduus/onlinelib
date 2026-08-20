@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // Smoke-test for the mobile WebView bundle. Loads the auto-generated
 // IIFE into JSDOM, then exercises the runtime surface readerHtml.ts uses.
 //
@@ -5,8 +7,14 @@
 // that exposes a different shape than the mobile injected JS expects.
 // Doesn't replace device verification but blocks PRs that ship a broken
 // regenerate.
+//
+// Lived in apps/web until 2026-08-19, importing across the app boundary via
+// ../../../mobile/. That worked locally and broke the moment web's suite was wired
+// into CI: resolving a .ts file under apps/mobile makes Vite parse
+// apps/mobile/tsconfig.json, which extends expo/tsconfig.base — a module the web job
+// never installs. The test belongs next to the artifact it checks.
 import { describe, it, expect, beforeEach } from 'vitest'
-import { READER_OVERLAY_SCRIPT } from '../../../mobile/src/lib/readerOverlayScript.generated'
+import { READER_OVERLAY_SCRIPT } from './readerOverlayScript.generated'
 
 // Lookup helper. The mobileBootstrap module declares the canonical shape on
 // window.__TSOverlayer; we shape-test from that global without duplicating
