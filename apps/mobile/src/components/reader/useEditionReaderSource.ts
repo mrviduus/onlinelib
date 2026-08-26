@@ -92,7 +92,13 @@ export function useEditionReaderSource({
     readingProgressApi.updateProgress(id, {
       chapterId: snap.chapterId,
       chapterSlug: snap.chapterSlug,
-      progress: snap.chapterPercent,
+      // Book-wide, matching ReadingProgress.Percent's declared unit. This used
+      // to send the chapter fraction — which hits 1.0 at the bottom of every
+      // chapter — while web sent a book fraction into the same column.
+      // `bookPercent` is null only before the chapter list resolves; the
+      // chapter fraction is a strictly better guess than nothing there.
+      progress: snap.bookPercent ?? snap.chapterPercent,
+      scrollOffset: snap.scrollOffset,
     }).catch((e) => { console.warn('[progress] save failed', e) })
   }, [isAuthenticated])
 
@@ -111,10 +117,16 @@ export function useEditionReaderSource({
       }
     } catch {}
     // Cross-device fallback — only when local had nothing.
-    if (percent == null && offset == null && isAuthenticated && id) {
+    //
+    // Position comes from the LOCATOR, never from the percent: the stored
+    // percent spans the whole book, so applying it as a within-chapter scroll
+    // fraction would drop the reader at 42% of the current chapter for a book
+    // they are 42% through. The locator is chapter-scoped and exact.
+    if (offset == null && isAuthenticated && id) {
       try {
         const server = await readingProgressApi.getProgress(id)
-        if (server && server.chapterSlug === slug && typeof server.percent === 'number') percent = server.percent
+        const parsed = parseScrollLocator(server?.locator)
+        if (parsed && parsed.slug === slug && parsed.offset > 0) offset = parsed.offset
       } catch {}
     }
     // Only restore a mid-chapter percent (skip ~start/~end → leave at top).

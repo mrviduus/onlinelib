@@ -407,7 +407,6 @@ export function ReaderShell(props: ReaderShellProps) {
         progressRef.current = data.progress
         if (typeof data.scrollY === 'number') scrollOffsetRef.current = data.scrollY
         setProgress(data.progress)
-        updateSessionProgress(data.progress)
         if (data.chapterSlug) {
           currentChapterSlugRef.current = data.chapterSlug
           setVisibleChapterSlug(data.chapterSlug)
@@ -416,6 +415,14 @@ export function ReaderShell(props: ReaderShellProps) {
         const bp = computeBookProgress(chapters, activeSlugForCalc, data.progress, totalWordCountRef.current)
         bookProgressRef.current = bp
         setBookProgress(bp)
+        // The reading session wants BOOK progress, and it must be computed
+        // before we report it — this used to pass the chapter fraction from two
+        // lines above. `ReadingSession.EndPercent >= 0.99` is how the server
+        // decides a book was finished, so every chapter a mobile reader
+        // completed minted a book-completion and unlocked reading achievements
+        // early. `wordsRead` is derived from the same delta against the
+        // whole-book word count, so it was inflated by the same mistake.
+        updateSessionProgress(bp ?? data.progress)
         bumpProgress()
       } else if (data.type === 'loaded') {
         onChapterLoaded()

@@ -542,7 +542,14 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage, IEnt
 
         book.ProgressChapterSlug = request.ChapterSlug;
         book.ProgressLocator = request.Locator;
-        book.ProgressPercent = request.Percent;
+        // A null Percent means "I know where the reader is, but not how far
+        // through the book" — the client could not compute a book-wide value
+        // because the chapter list had not resolved (every save made offline,
+        // and the first saves of a cold open). Keep the last known good percent
+        // rather than nulling the column, and never let the client substitute a
+        // chapter fraction, which reaches 1.0 at the bottom of every chapter.
+        if (request.Percent.HasValue)
+            book.ProgressPercent = request.Percent;
         book.ProgressUpdatedAt = request.UpdatedAt ?? DateTimeOffset.UtcNow;
 
         if (request.Percent is >= 0.99)

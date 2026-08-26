@@ -114,15 +114,14 @@ describe('rankContinueReading', () => {
     expect(ranked[0]).toMatchObject({ type: 'edition', slug: 'moby-dick' })
   })
 
-  it('keeps the book you are reading when a chapter percent reaches 1.0', () => {
-    // The regression this rule exists for: finishing any chapter used to remove
-    // the book from both the resume hero and the rail.
-    const ranked = rankContinueReading(inputs({
+  it('drops a finished book now that the percent spans the whole book', () => {
+    // While the column held two different units this had to keep a server 1.0 in
+    // the list, because a mobile chapter fraction reached 1.0 at the bottom of
+    // every chapter. With one unit, 1.0 means finished.
+    expect(rankContinueReading(inputs({
       library: [lib()],
       serverProgress: [srvProg({ percent: 1 })],
-    }))
-    expect(ranked).toHaveLength(1)
-    expect(ranked[0].percent).toBeLessThanOrEqual(1)
+    }))).toHaveLength(0)
   })
 
   it('excludes user books that are not ready', () => {

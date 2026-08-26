@@ -127,36 +127,30 @@ function pickCatalog(
   const serverMs = parseEpochMs(server?.updatedAt)
   const localMs = local?.updatedAt ?? 0
 
+  // Both sources are now book-wide. `ReadingProgress.Percent` carried no declared
+  // unit for most of its life — mobile wrote a chapter fraction, web a book
+  // fraction — so this function used to track which convention a value came from
+  // and refuse to treat a server 1.0 as finished. That flag is gone with the
+  // ambiguity; see the migration that cleared the mixed-unit rows.
   let percent: number | null = null
   let chapterSlug: string | null = null
   let updatedAtMs = 0
-  // Whether `percent` is known to span the whole book. `ReadingProgress.Percent`
-  // is written as a CHAPTER fraction by mobile and a BOOK fraction by web, so a
-  // value straight off the server is ambiguous. Only a locally cached
-  // `bookPercent` is unambiguous.
-  let isBookWide = false
 
   if (localMs > serverMs && local) {
-    // Local is newer — user just read offline. Prefer bookPercent if
-    // reader wrote it; fall back to chapter percent for legacy entries.
-    if (typeof local.bookPercent === 'number') {
-      percent = local.bookPercent
-      isBookWide = true
-    } else {
-      percent = local.percent
-    }
+    // Local is newer — user just read offline. `bookPercent` is the cached
+    // book-wide value; `percent` is the within-chapter scroll fraction kept for
+    // resume, and is not a substitute for it.
+    percent = typeof local.bookPercent === 'number' ? local.bookPercent : null
     chapterSlug = local.chapterSlug
     updatedAtMs = localMs
   } else if (server && server.percent != null) {
     percent = server.percent
     chapterSlug = server.chapterSlug
     updatedAtMs = serverMs
-    // Multi-device case: server's latest came from the web (chapter % only),
-    // but our local cache may have a freshly-written bookPercent for the
-    // same chapter that we'd rather show.
+    // Multi-device: our local cache may hold a fresher book-wide value for the
+    // same chapter than the server round-trip has delivered.
     if (local && local.chapterSlug === server.chapterSlug && typeof local.bookPercent === 'number') {
       percent = local.bookPercent
-      isBookWide = true
     }
   }
 
@@ -166,20 +160,15 @@ function pickCatalog(
   // → NaN, producing picks with NaN timestamps that broke "best of two"
   // comparisons downstream.
   if (percent == null || !Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return null
-  // Drop a finished book — but only when the percent is genuinely book-wide.
-  // A server-supplied percent hits exactly 1.0 at the bottom of ANY chapter
-  // when it was written by mobile, which made the book you are actively
-  // reading vanish from Continue Reading every time you finished a chapter.
-  // A finished book lingering in the list is a far smaller error than the
-  // current book disappearing at the exact moment you want to resume it.
-  if (isBookWide && percent >= 1) return null
+  // A finished book leaves the list. This is now safe to apply unconditionally:
+  // the value spans the whole book, so 1.0 means finished rather than "reached
+  // the bottom of some chapter".
+  if (percent >= 1) return null
   return {
     type: 'edition',
     slug: item.slug,
     title: item.title,
     coverPath: item.coverPath,
-    // Clamped for display: an ambiguous 1.0 must not render as "100% complete"
-    // on a book the reader is a fifth of the way through.
     percent: Math.max(0, Math.min(1, percent)),
     chapterSlug,
     updatedAtMs,

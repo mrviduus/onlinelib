@@ -24,8 +24,21 @@ public class UserBook
     // Reading progress
     public string? ProgressChapterSlug { get; set; }
     public string? ProgressLocator { get; set; }
+
+    /// <summary>
+    /// Progress across the WHOLE BOOK, 0..1 — not within the current chapter.
+    /// Canonicalised in PR #412 after the library card and the Continue-reading
+    /// shelf disagreed about the same book; the shelf was re-adding prior-chapter
+    /// words to a value that already counted them. Same unit as
+    /// <see cref="ReadingProgress.Percent"/>.
+    /// </summary>
     public double? ProgressPercent { get; set; }
+
     public DateTimeOffset? ProgressUpdatedAt { get; set; }
+
+    /// <summary>Set once <see cref="ProgressPercent"/> crosses 0.99, or by an
+    /// explicit mark-as-finished. The presence of this is the answer to "is it
+    /// finished?" — not a threshold comparison at the call site.</summary>
     public DateTimeOffset? CompletedAt { get; set; }
 
     // Takedown (DMCA / admin action) — soft-blocks access while keeping record for audit
