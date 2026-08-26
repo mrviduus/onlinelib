@@ -382,6 +382,19 @@
       "new": "+ New collection",
       "newPlaceholder": "Collection name…",
       "add": "Add"
+    },
+    "resume": {
+      "continue": "Continue",
+      "start": "Start reading",
+      "percentComplete": "{percent}% complete",
+      "jumpBackIn": "Jump back in",
+      "a11yResume": "Continue reading {title}, {percent} percent complete"
+    },
+    "firstBook": {
+      "title": "Your reader is ready",
+      "copy": "Add a book you already want to finish. Tap any word while you read to translate it and save it to your vocabulary.",
+      "upload": "Upload a book",
+      "browse": "Or browse free classics"
     }
   },
   "addMenu": {

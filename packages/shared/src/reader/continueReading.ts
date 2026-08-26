@@ -77,27 +77,46 @@ const LOCAL_BOOKPERCENT_GRACE_MS = 60_000
  *     window (LOCAL_BOOKPERCENT_GRACE_MS).
  */
 export function pickContinueReadingBook(input: ContinueReadingInputs): ContinueReadingPick | null {
+  return rankContinueReading(input)[0] ?? null
+}
+
+/**
+ * Every in-progress book, most recently active first.
+ *
+ * Same merge semantics as `pickContinueReadingBook` — which is now just
+ * `rank(...)[0]` — so the resume hero and the rail behind it can never
+ * disagree about which book is "current".
+ *
+ * This exists because `LibraryShelfItem` (the `/me/library/shelves`
+ * payload) carries no `chapterSlug`, so a shelf tap structurally cannot
+ * resume at the right chapter — it can only open a detail page. The data
+ * needed for a real resume link already lives in `ReadingProgressDto`
+ * and `UserBookDto`; this function just stops throwing away everything
+ * but the winner.
+ *
+ * Ties keep input order (library before user books) — `Array#sort` is
+ * stable, which matches the previous strictly-greater-than comparison.
+ */
+export function rankContinueReading(input: ContinueReadingInputs): ContinueReadingPick[] {
   const { library, serverProgress, userBooks, localCatalogMap, localUserBookMap } = input
 
   // Index server progress by editionId for O(1) lookup.
   const progressMap = new Map<string, ReadingProgressDto>()
   for (const p of serverProgress) progressMap.set(p.editionId, p)
 
-  let best: ContinueReadingPick | null = null
+  const picks: ContinueReadingPick[] = []
 
   for (const item of library) {
     const pick = pickCatalog(item, progressMap.get(item.editionId), localCatalogMap.get(item.editionId))
-    if (!pick) continue
-    if (!best || pick.updatedAtMs > best.updatedAtMs) best = pick
+    if (pick) picks.push(pick)
   }
 
   for (const ub of userBooks) {
     const pick = pickUserBook(ub, localUserBookMap.get(ub.id))
-    if (!pick) continue
-    if (!best || pick.updatedAtMs > best.updatedAtMs) best = pick
+    if (pick) picks.push(pick)
   }
 
-  return best
+  return picks.sort((a, b) => b.updatedAtMs - a.updatedAtMs)
 }
 
 function pickCatalog(

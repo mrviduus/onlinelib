@@ -1,59 +1,28 @@
-import { View, Text, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useTheme } from '../../context/ThemeContext'
+import { View } from 'react-native'
 import { useLanguage } from '../../context/LanguageContext'
-import { fonts } from '../../theme/typography'
 import { useLibraryShelves } from '../../hooks/useLibraryShelves'
 import { LibraryShelf } from './LibraryShelf'
-import { PressableScale } from '../ui/PressableScale'
 
-interface Props {
-  hasAnyContent: boolean
-}
-
-export function LibraryShelves({ hasAnyContent }: Props) {
-  const { colors } = useTheme()
+export function LibraryShelves() {
   const { t } = useLanguage()
-  const router = useRouter()
   const { shelves, loading, error } = useLibraryShelves()
 
   if (loading && !shelves) return null
   if (error || !shelves) return null
 
+  // `continueReading` is intentionally absent: it is rendered above this
+  // component as the resume hero + rail, which link into the reader at the
+  // right chapter. This shelf could only ever open a detail page, so showing
+  // both meant the same books twice on one screen, one copy of them worse.
   const allEmpty =
-    shelves.continueReading.length === 0 &&
     shelves.recentlyAdded.length === 0 &&
     shelves.quickReads.length === 0 &&
     shelves.finishedThisMonth.length === 0
-
-  if (allEmpty && !hasAnyContent) {
-    return (
-      <View style={styles.empty}>
-        <Text style={styles.icon}>📚</Text>
-        <Text style={[styles.title, { color: colors.text }]}>{t('library.shelves.empty.title')}</Text>
-        <Text style={[styles.copy, { color: colors.textSecondary }]}>{t('library.shelves.empty.copy')}</Text>
-        <PressableScale
-          accessibilityRole="button"
-          onPress={() => router.push('/' as never)}
-          style={[styles.cta, { borderColor: colors.primary }]}
-        >
-          <Text style={[styles.ctaText, { color: colors.primary }]}>{t('library.shelves.empty.browseCatalog')}</Text>
-        </PressableScale>
-      </View>
-    )
-  }
 
   if (allEmpty) return null
 
   return (
     <View>
-      <LibraryShelf
-        shelfId="continueReading"
-        title={t('library.shelves.continueReading.title')}
-        subtitle={t('library.shelves.continueReading.subtitle')}
-        items={shelves.continueReading}
-        viewAllHref="/library/shelf/continueReading"
-      />
       <LibraryShelf
         shelfId="recentlyAdded"
         title={t('library.shelves.recentlyAdded.title')}
@@ -77,12 +46,3 @@ export function LibraryShelves({ hasAnyContent }: Props) {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
-  icon: { fontSize: 48, marginBottom: 8 },
-  title: { fontFamily: fonts.serifBold, fontSize: 18, marginBottom: 6 },
-  copy: { fontFamily: fonts.sans, fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 19 },
-  cta: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 8 },
-  ctaText: { fontFamily: fonts.sansMedium, fontSize: 13 },
-})
