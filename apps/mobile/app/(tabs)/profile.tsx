@@ -16,6 +16,7 @@ import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLan
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
+import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
 import { deleteAccount } from '../../src/lib/api'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
@@ -241,6 +242,10 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.menu}>
+        {/* Upload space lives here rather than mid-list on Library, where it
+            was an unlabelled bar between the upload button and the search box. */}
+        <StorageQuotaRow />
+
         {MENU_ITEMS.map(item => (
           <TouchableOpacity
             key={item.route}
@@ -374,7 +379,10 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={[styles.menuItem, { borderBottomColor: 'transparent', marginTop: 24 }]}
-          onPress={signOut}
+          // Leave for the front door afterwards. Staying put would drop the
+          // user on Profile's own signed-out state, and Library — the first
+          // tab — is now a sign-in wall for them; `/` routes a guest to Discover.
+          onPress={async () => { await signOut(); router.replace('/') }}
           activeOpacity={0.7}
         >
           <Ionicons name="log-out-outline" size={20} color={colors.error} style={styles.menuIcon} />

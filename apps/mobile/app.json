@@ -72,12 +72,6 @@
       "expo-image",
       "expo-sqlite",
       "@react-native-google-signin/google-signin",
-      [
-        "expo-dev-launcher",
-        {
-          "launchModeExperimental": "most-recent"
-        }
-      ],
       "expo-font",
       "./plugins/with-adi-registration",
       [

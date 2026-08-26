@@ -90,64 +90,6 @@
     },
     "seo": {
       "content": "TextStack is a language learning platform built around reading. The catalog features thousands of classic and public-domain books. As you read, you can look up words, save them to your vocabulary, and review with spaced repetition. Track reading stats, set goals, and grow your fluency — all in a calm, distraction-free environment."
-    },
-    "greeting": {
-      "morning": "Good morning",
-      "afternoon": "Good afternoon",
-      "evening": "Good evening",
-      "night": "Good evening",
-      "morningReady": "Your morning read is ready",
-      "afternoonReady": "A quiet afternoon read",
-      "eveningReady": "Wind down with a chapter",
-      "nightReady": "One last chapter before bed"
-    },
-    "tabs": {
-      "forYou": "For you",
-      "continue": "Continue",
-      "recents": "Recents"
-    },
-    "quickActions": {
-      "title": "Add to your library",
-      "browse": "Browse catalog",
-      "browseSub": "Classics & public domain",
-      "upload": "Upload a book",
-      "uploadSub": "EPUB, PDF",
-      "pasteLink": "Paste a link",
-      "pasteLinkSub": "URL or Gutenberg ID",
-      "scanText": "Scan text",
-      "scanTextSub": "Coming soon",
-      "comingSoon": "Coming soon",
-      "pasteUrlTitle": "Paste a link",
-      "pasteUrlPrompt": "Project Gutenberg URL or book ID",
-      "pasteUrlComingSoon": "URL import is coming soon — for now, upload an EPUB from Project Gutenberg directly."
-    },
-    "sections": {
-      "continueReading": "Pick up where you left off",
-      "forYou": "For you",
-      "recents": "Recently read",
-      "popularNow": "Popular now"
-    },
-    "empty": {
-      "forYou": "Open your first book and we'll start recommending.",
-      "continue": "Nothing in progress yet. Start a book from the catalog.",
-      "recents": "Books you read will show up here.",
-      "browseBooks": "Browse books"
-    },
-    "vocabCard": {
-      "label": "Vocabulary",
-      "emptyTitle": "Start your vocabulary",
-      "emptySubline": "Tap a word while reading to save it and begin practicing.",
-      "learnMoreCta": "Learn more",
-      "dueTitleOne": "1 word ready to review",
-      "dueTitleMany": "{count} words ready to review",
-      "savedTitleOne": "1 word saved",
-      "savedTitleMany": "{count} words saved",
-      "sublineStreak": "{saved} saved · {streak}-day streak",
-      "sublineMastered": "{saved} saved · {mastered} mastered",
-      "sublineNothingDue": "Nothing due. Check back later.",
-      "sublineMasteredKeepUp": "{mastered} mastered — keep it up.",
-      "reviewCta": "Review",
-      "openCta": "Open"
     }
   },
   "common": {
@@ -170,7 +112,6 @@
     "browseBooks": "Browse all books",
     "aboutTextStack": "About TextStack",
     "read": "Read",
-    "home": "Home",
     "discover": "Discover",
     "profile": "Profile"
   },
@@ -404,6 +345,10 @@
       "grid": "Grid",
       "list": "List",
       "done": "Done"
+    },
+    "storage": {
+      "label": "Upload space",
+      "nearlyFull": "Almost full — delete a book to free up space"
     }
   },
   "addMenu": {
