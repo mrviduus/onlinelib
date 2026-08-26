@@ -63,26 +63,23 @@ describe('pickContinueReadingBook — empty / no-data inputs', () => {
     })).toBeNull()
   })
 
-  it('excludes a catalog book only when the 100% is known to be book-wide', () => {
-    // `ReadingProgress.Percent` is written as a CHAPTER fraction by mobile and
-    // a BOOK fraction by web, so a bare 1.0 off the server is ambiguous — and
-    // a chapter fraction hits exactly 1.0 at the bottom of EVERY chapter. The
-    // old rule dropped the book there, so finishing chapter 5 of 40 made the
-    // book you are actively reading vanish from Continue Reading.
-    const serverOnly = pickContinueReadingBook({
+  it('excludes a finished catalog book, from either source', () => {
+    // `ReadingProgress.Percent` now spans the whole book from every writer, so
+    // 1.0 means finished. It used to be a chapter fraction from mobile and a
+    // book fraction from web, which forced this function to track the source
+    // and refuse to trust a server 1.0 — a chapter fraction reaches 1.0 at the
+    // bottom of every chapter.
+    expect(pickContinueReadingBook({
       library: [lib()], serverProgress: [srvProg({ percent: 1 })], userBooks: [],
       localCatalogMap: emptyLocal, localUserBookMap: emptyUb,
-    })
-    expect(serverOnly).not.toBeNull()
-    expect(serverOnly?.slug).toBe('dracula')
+    })).toBeNull()
 
-    // A locally cached bookPercent IS unambiguous — that one is finished.
-    const localBookWide = new Map<string, LocalProgressLite>([
+    const localFinished = new Map<string, LocalProgressLite>([
       ['ed-1', { chapterSlug: 'chapter-1', percent: 1, bookPercent: 1, updatedAt: Date.parse('2026-05-02T10:00:00Z') }],
     ])
     expect(pickContinueReadingBook({
       library: [lib()], serverProgress: [srvProg({ percent: 0.3 })], userBooks: [],
-      localCatalogMap: localBookWide, localUserBookMap: emptyUb,
+      localCatalogMap: localFinished, localUserBookMap: emptyUb,
     })).toBeNull()
   })
 
@@ -140,19 +137,22 @@ describe('pickContinueReadingBook — catalog books', () => {
     expect(r?.chapterSlug).toBe('chapter-2')
   })
 
-  it('prefers local.percent when bookPercent missing (legacy entry)', () => {
+  it('never substitutes the chapter fraction when the cached book percent is missing', () => {
+    // `local.percent` is the within-chapter scroll fraction kept for resume. It
+    // used to be shown as the book percent whenever `bookPercent` was absent,
+    // which is how a book a fifth read could display "60% complete". A cache
+    // entry with no book-wide value simply has nothing to show.
     const local: LocalProgressLite = {
       chapterSlug: 'chapter-2', percent: 0.6,
       updatedAt: Date.parse('2026-05-02T10:00:00Z'),
     }
-    const r = pickContinueReadingBook({
+    expect(pickContinueReadingBook({
       library: [lib()],
       serverProgress: [srvProg({ percent: 0.3 })],
       userBooks: [],
       localCatalogMap: new Map([['ed-1', local]]),
       localUserBookMap: emptyUb,
-    })
-    expect(r?.percent).toBeCloseTo(0.6)
+    })).toBeNull()
   })
 
   it('prefers server when server is newer AND local chapter differs (web moved on)', () => {
