@@ -309,7 +309,7 @@ export default function HomeScreen() {
         onBrowse={() => router.push('/(tabs)/search')}
         onUpload={() =>
           router.push(
-            isAuthenticated ? '/my-books/upload' : '/auth/login',
+            isAuthenticated ? '/my-books/upload' : '/(auth)/login',
           )
         }
         // onPasteLink / onScan left undefined — the grid surfaces

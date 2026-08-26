@@ -7,14 +7,10 @@ import type { LibraryShelfItem } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { fonts } from '../../theme/typography'
 import { PressableScale } from '../ui/PressableScale'
+import { shelfItemRoute } from '../../lib/bookRoutes'
 
 const COVER_W = 110
 const COVER_RATIO = 1.5
-
-function itemRoute(it: LibraryShelfItem): string {
-  if (it.type === 'userbook') return `/my-books/${it.id}`
-  return `/books/${it.slug ?? ''}`
-}
 
 interface Props {
   shelfId: 'continueReading' | 'recentlyAdded' | 'quickReads' | 'finishedThisMonth'
@@ -65,7 +61,7 @@ export function LibraryShelf({ shelfId, title, subtitle, items, viewAllHref }: P
             <PressableScale
               key={`${it.type}-${it.id}`}
               style={{ width: COVER_W }}
-              onPress={() => router.push(itemRoute(it) as never)}
+              onPress={() => router.push(shelfItemRoute(it) as never)}
               accessibilityRole="button"
               accessibilityLabel={it.title}
             >

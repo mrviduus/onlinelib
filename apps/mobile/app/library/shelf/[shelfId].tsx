@@ -4,11 +4,12 @@ import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getStorageUrl } from '@textstack/shared'
-import type { LibraryShelfItem, LibraryShelves } from '@textstack/shared'
+import type { LibraryShelves } from '@textstack/shared'
 import { useTheme } from '../../../src/context/ThemeContext'
 import { useLanguage } from '../../../src/context/LanguageContext'
 import { fonts } from '../../../src/theme/typography'
 import { useLibraryShelves } from '../../../src/hooks/useLibraryShelves'
+import { shelfItemRoute } from '../../../src/lib/bookRoutes'
 
 type ShelfId = keyof LibraryShelves
 
@@ -16,11 +17,6 @@ const VALID: ShelfId[] = ['continueReading', 'recentlyAdded', 'quickReads', 'fin
 
 function isValidShelf(s: string | undefined): s is ShelfId {
   return !!s && (VALID as string[]).includes(s)
-}
-
-function itemRoute(it: LibraryShelfItem): string {
-  if (it.type === 'userbook') return `/my-books/${it.id}`
-  return `/books/${it.slug ?? ''}`
 }
 
 export default function LibraryShelfScreen() {
@@ -87,7 +83,7 @@ export default function LibraryShelfScreen() {
             return (
               <TouchableOpacity
                 style={{ width: cardW, marginBottom: 16 }}
-                onPress={() => router.push(itemRoute(item) as never)}
+                onPress={() => router.push(shelfItemRoute(item) as never)}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel={item.title}
