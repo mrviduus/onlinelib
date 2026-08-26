@@ -18,11 +18,31 @@
 
 import { Overlayer } from './readerOverlay'
 import type { DrawFn, DrawOptions } from './readerOverlay'
+// Relative, not '@textstack/shared': esbuild bundles this entry and the package
+// alias is not configured for it. textAnchor has no imports of its own, so the
+// WebView bundle grows by exactly that one leaf module rather than by the whole
+// shared index (which would drag the API clients in with it).
+import { findAnchorOffset, type TextAnchor } from '../../shared/src/reader/textAnchor'
 
 declare global {
   interface Window {
     __TSOverlayer?: TSOverlayerGlobal
+    __TSAnchor?: TSAnchorGlobal
   }
+}
+
+/**
+ * Text-anchor resolution, shared with web.
+ *
+ * The WebView cannot import modules, so this is the only way a shared function
+ * reaches it. Before this, `readerHtml.ts` carried its own resolver — the same
+ * idea with integer scoring instead of Dice similarity, and with neither the
+ * offset verification nor the fuzzy fallback — so a highlight that survived a
+ * book edit on the web silently vanished on the phone.
+ */
+interface TSAnchorGlobal {
+  /** Character offset of `anchor.exact` within `fullText`, or null. */
+  findOffset: (fullText: string, anchor: TextAnchor) => number | null
 }
 
 interface TSOverlayerInstance {
@@ -61,6 +81,10 @@ function adapt(ov: Overlayer): TSOverlayerInstance {
     markJustAnchored: (ms) => ov.markJustAnchored(ms),
     isJustAnchored: () => ov.isJustAnchored(),
   }
+}
+
+if (typeof window !== 'undefined' && !window.__TSAnchor) {
+  window.__TSAnchor = { findOffset: findAnchorOffset }
 }
 
 if (typeof window !== 'undefined' && !window.__TSOverlayer) {
