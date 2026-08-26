@@ -72,10 +72,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('nav.home'),
+          // Not a tab any more — a redirect that keeps `/` resolving for the
+          // resume-from-background reset and the deep-link fallback.
+          href: null,
           headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: t('nav.library'),
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon name={focused ? TAB_ICONS.Home.active : TAB_ICONS.Home.inactive} size={22} color={color} focused={focused} />
+            <AnimatedTabIcon name={focused ? TAB_ICONS.Library.active : TAB_ICONS.Library.inactive} size={22} color={color} focused={focused} />
           ),
         }}
       />
@@ -101,15 +109,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="library"
-        options={{
-          title: t('nav.library'),
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon name={focused ? TAB_ICONS.Library.active : TAB_ICONS.Library.inactive} size={22} color={color} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="vocabulary"
         options={{
           title: t('nav.vocabulary'),
@@ -122,8 +121,9 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: t('nav.profile'),
-          // Profile hidden from bottom tabs (accessible via header avatar).
-          href: null,
+          // Was hidden and reached from the Home header's avatar. Home is now a
+          // redirect with no header, so hiding it would strand every setting,
+          // sign-out and account-deletion behind nothing.
           tabBarIcon: ({ focused, color }) => (
             <AnimatedTabIcon name={focused ? TAB_ICONS.Profile.active : TAB_ICONS.Profile.inactive} size={22} color={color} focused={focused} />
           ),

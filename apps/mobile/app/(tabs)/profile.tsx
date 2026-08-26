@@ -374,7 +374,10 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={[styles.menuItem, { borderBottomColor: 'transparent', marginTop: 24 }]}
-          onPress={signOut}
+          // Leave for the front door afterwards. Staying put would drop the
+          // user on Profile's own signed-out state, and Library — the first
+          // tab — is now a sign-in wall for them; `/` routes a guest to Discover.
+          onPress={async () => { await signOut(); router.replace('/') }}
           activeOpacity={0.7}
         >
           <Ionicons name="log-out-outline" size={20} color={colors.error} style={styles.menuIcon} />

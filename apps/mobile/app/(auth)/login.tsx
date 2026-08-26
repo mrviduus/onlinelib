@@ -86,12 +86,12 @@ export default function LoginScreen() {
         const result = await authApi.registerWithEmail(email.trim(), password, name.trim() || undefined)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
         trackSignUp('email')
-        router.back()
+        goToLibrary()
       } else {
         const result = await authApi.loginWithEmail(email.trim(), password)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
         trackLogin('email')
-        router.back()
+        goToLibrary()
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong.')
@@ -99,6 +99,17 @@ export default function LoginScreen() {
       setLoading(false)
     }
   }
+
+  /**
+   * Where a successful sign-in lands.
+   *
+   * Every path used to call `router.back()`, which returns to whatever screen
+   * opened the login modal — usually Profile, because that is where the "Sign
+   * in" button lives. So signing in dropped the reader on a settings screen
+   * instead of on their books. `replace` rather than `push` so Back does not
+   * walk into the login form of an account you are already signed into.
+   */
+  const goToLibrary = () => router.replace('/(tabs)/library')
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
@@ -112,7 +123,7 @@ export default function LoginScreen() {
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
       if (isFreshAccount(result.user.createdAt)) trackSignUp('google')
       else trackLogin('google')
-      router.back()
+      goToLibrary()
     } catch (e: any) {
       if (e?.code !== 'SIGN_IN_CANCELLED') {
         // Surface the underlying GoogleSignin error (DEVELOPER_ERROR,
@@ -160,7 +171,7 @@ export default function LoginScreen() {
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
       if (isFreshAccount(result.user.createdAt)) trackSignUp('apple')
       else trackLogin('apple')
-      router.back()
+      goToLibrary()
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') {
         Alert.alert('Error', 'Apple sign-in failed')
