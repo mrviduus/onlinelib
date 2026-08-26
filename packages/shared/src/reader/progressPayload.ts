@@ -21,8 +21,14 @@ import { computeBookProgress, type ChapterWithCount } from './bookProgress'
 export interface UserBookProgressPayload {
   /** Book-wide reading progress (0..1). Canonical semantics of the stored
    *  UserBook.ProgressPercent column — matches what the web reader writes and
-   *  what the library card + Continue-reading shelf read back verbatim. */
-  percent: number
+   *  what the library card + Continue-reading shelf read back verbatim.
+   *
+   *  Omitted when it cannot be computed (chapter list unresolved — offline, or
+   *  the first saves of a cold open). The server then keeps the stored value.
+   *  It is never filled with the chapter fraction: that reaches 1.0 at the
+   *  bottom of every chapter, which is the confusion this column was
+   *  canonicalised to end. */
+  percent?: number
   chapterSlug: string
   locator: string
 }
@@ -66,20 +72,28 @@ const MAX_SCROLL_OFFSET = 10_000_000
 export function buildUserBookProgressPayload(input: UserBookProgressInputs): UserBookProgressPayload | null {
   const slug = input.currentChapterSlug || input.fallbackChapterSlug
   if (!slug) return null
-  // `percent` is book-wide (canonical ProgressPercent semantics). Compute it from
-  // the chapter word counts when we have the chapter list; fall back to the raw
-  // chapter progress when we can't place the chapter (list missing / unknown slug).
+  // `percent` is book-wide (canonical ProgressPercent semantics), computed from
+  // the chapter word counts.
+  //
+  // When the chapter list is missing or the slug isn't in it, we cannot compute
+  // it — and the raw chapter fraction is NOT an acceptable substitute: it reaches
+  // 1.0 at the bottom of every chapter, which is exactly the confusion this
+  // column was canonicalised to end. It happens on every save made offline
+  // (the list never resolves) and before the list lands on a cold open, so the
+  // fallback was quietly writing chapter fractions into the canonical column.
+  // Returning null instead leaves the last known good value in place.
   const bookPct = input.chapters
     ? computeBookProgress(input.chapters, slug, input.chapterProgress, input.totalWordCount)
     : null
-  const safePercent = bookPct != null ? clampUnit(bookPct) : clampUnit(input.chapterProgress)
-  // Locator stays within-chapter (scroll restore) — unchanged.
+  // Locator stays within-chapter (scroll restore) — unchanged. It is saved even
+  // when the percent cannot be, so the reader never loses their place.
   const safeOffset = clampScrollOffset(input.scrollOffset)
-  return {
-    percent: safePercent,
+  const payload: UserBookProgressPayload = {
     chapterSlug: slug,
     locator: `scroll:${slug}:${safeOffset}`,
   }
+  if (bookPct != null) payload.percent = clampUnit(bookPct)
+  return payload
 }
 
 /** Clamp scroll offset to [0, MAX_SCROLL_OFFSET]; coerces NaN/Infinity/

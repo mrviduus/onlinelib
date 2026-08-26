@@ -62,7 +62,16 @@ describe('buildUserBookProgressPayload — slug resolution', () => {
 })
 
 describe('buildUserBookProgressPayload — percent clamping', () => {
-  const base = { currentChapterSlug: 's', fallbackChapterSlug: null, scrollOffset: 0 }
+  // A single-chapter book, so the book-wide percent equals the chapter fraction
+  // and the clamping is what these cases actually exercise. They used to pass
+  // no chapters at all, which exercised a fallback that wrote the chapter
+  // fraction into a column declared book-wide.
+  const base = {
+    currentChapterSlug: 's',
+    fallbackChapterSlug: null,
+    scrollOffset: 0,
+    chapters: [{ slug: 's', wordCount: 1000 }],
+  }
 
   it('passes through valid 0..1 progress', () => {
     expect(buildUserBookProgressPayload({ ...base, chapterProgress: 0.42 })?.percent).toBe(0.42)
@@ -118,15 +127,32 @@ describe('buildUserBookProgressPayload — book-wide percent (Fix D)', () => {
     expect(p?.percent).toBeCloseTo(0.05, 5)
   })
 
-  it('falls back to raw chapter % when the chapter cannot be located', () => {
+  it('omits the percent when the chapter cannot be located — never the raw chapter %', () => {
+    // This used to fall back to the chapter fraction, which reaches 1.0 at the
+    // bottom of every chapter and is exactly what this column was canonicalised
+    // to stop storing. Omitting it makes the server keep the last known good
+    // value; the position is still saved via the locator.
     const p = buildUserBookProgressPayload({
       currentChapterSlug: 'unknown',
       fallbackChapterSlug: null,
       chapterProgress: 0.42,
-      scrollOffset: 0,
+      scrollOffset: 900,
       chapters,
     })
-    expect(p?.percent).toBe(0.42)
+    expect(p?.percent).toBeUndefined()
+    expect(p?.locator).toBe('scroll:unknown:900')
+  })
+
+  it('omits the percent when there is no chapter list at all', () => {
+    // Every save made offline: the list never resolves.
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch2',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+      scrollOffset: 10,
+    })
+    expect(p?.percent).toBeUndefined()
+    expect(p?.chapterSlug).toBe('ch2')
   })
 
   it('keeps the within-chapter locator regardless of book-wide percent', () => {
@@ -183,6 +209,7 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
       fallbackChapterSlug: 'ch4',
       chapterProgress: 0.73,
       scrollOffset: 4200,
+      chapters: [{ slug: 'ch5', wordCount: 1000 }],
     })
     expect(p).toEqual({
       percent: 0.73,

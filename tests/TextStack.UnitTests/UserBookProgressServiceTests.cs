@@ -131,6 +131,47 @@ public class UserBookProgressServiceTests
     }
 
     [Fact]
+    public async Task UpsertProgressAsync_NullPercent_KeepsStoredPercentAndStillMovesPosition()
+    {
+        // A null Percent means "I know where the reader is, but not how far through
+        // the book" — the client could not compute a book-wide value because the
+        // chapter list had not resolved. That happens on every save made offline.
+        // Nulling the column there would erase real progress, and letting the client
+        // substitute the chapter fraction would store a value that reaches 1.0 at the
+        // bottom of every chapter.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-3", Locator: "scroll:ch-3:1200", Percent: 0.42, UpdatedAt: null),
+            CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-4", Locator: "scroll:ch-4:300", Percent: null, UpdatedAt: null),
+            CancellationToken.None);
+
+        Assert.Equal(0.42, book.ProgressPercent);
+        Assert.Equal("ch-4", book.ProgressChapterSlug);
+        Assert.Equal("scroll:ch-4:300", book.ProgressLocator);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_NullPercent_DoesNotCompleteTheBook()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: null, UpdatedAt: null),
+            CancellationToken.None);
+
+        Assert.Null(book.CompletedAt);
+        Assert.False(book.IsRead);
+    }
+
+    [Fact]
     public async Task GetProgressAsync_NoProgressRecorded_ReturnsNull()
     {
         var h = new Harness();
