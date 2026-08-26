@@ -3,6 +3,7 @@ import { Alert } from 'react-native'
 import {
   libraryApi, readingProgressApi, userBooksApi, createBooksApi,
   type UserLibraryItem, type UserBookDto, type ReadingProgressDto,
+  FINISHED_THRESHOLD,
 } from '@textstack/shared'
 import { useLanguage } from '../context/LanguageContext'
 import { useToast } from '../context/ToastContext'
@@ -27,7 +28,10 @@ export function useBookActions() {
 
   const showSavedActions = useCallback((item: UserLibraryItem, ctx: SavedCtx) => {
     const progress = ctx.progressMap[item.editionId]
-    const isFinished = progress?.percent === 1
+    // The recorded answer, not a threshold guess. `percent === 1` was one of four
+    // different rules across the codebase for "is this finished?"; the fallback
+    // covers rows written before editions had a completion field.
+    const isFinished = progress?.completedAt != null || (progress?.percent ?? 0) >= FINISHED_THRESHOLD
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = []
 
     buttons.push({
@@ -49,6 +53,7 @@ export function useBookActions() {
               ...prev[item.editionId],
               editionId: item.editionId,
               percent: isFinished ? 0 : 1,
+              completedAt: isFinished ? null : new Date().toISOString(),
               chapterSlug: ch.slug,
               updatedAt: new Date().toISOString(),
             },

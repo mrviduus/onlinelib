@@ -23,6 +23,9 @@ export function SavedBookGridCard({
   onMarkUnfinished: () => void
 }) {
   const percent = progress?.percent ?? 0
+  // Recorded completion beats a threshold guess. `percent >= 1` was one of four
+  // different answers to "is this finished?" before editions had the field.
+  const isFinished = progress?.completedAt != null || percent >= 1
   const destination = progress?.chapterSlug
     ? `/${item.language}/books/${item.slug}/${progress.chapterSlug}`
     : `/${item.language}/books/${item.slug}`
@@ -39,7 +42,7 @@ export function SavedBookGridCard({
             {item.title?.[0] || '?'}
           </div>
         )}
-        {percent >= 1 && (
+        {isFinished && (
           <div className="user-book-card__completed-badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <polyline points="20 6 9 17 4 12" />
@@ -47,7 +50,7 @@ export function SavedBookGridCard({
             Read
           </div>
         )}
-        {percent > 0 && percent < 1 && (
+        {percent > 0 && !isFinished && (
           <div className="library-card__progress-bar">
             <div
               className="library-card__progress-fill"
@@ -65,10 +68,10 @@ export function SavedBookGridCard({
             <span className="user-book-card__author" title={item.author}>{item.author}</span>
           )}
           <div className="library-card__meta">
-            {percent >= 1 && (
+            {isFinished && (
               <span className="user-book-card__progress-text user-book-card__progress-text--done">Read</span>
             )}
-            {percent > 0 && percent < 1 && (
+            {percent > 0 && !isFinished && (
               <span className="library-card__progress-text">
                 {Math.round(percent * 100)}% {t('library.read')}
               </span>
@@ -79,7 +82,7 @@ export function SavedBookGridCard({
         <BookActionMenu
           type="saved"
           book={item}
-          isFinished={percent >= 1}
+          isFinished={isFinished}
           onRemove={onRemove}
           onMarkFinished={onMarkFinished}
           onMarkUnfinished={onMarkUnfinished}

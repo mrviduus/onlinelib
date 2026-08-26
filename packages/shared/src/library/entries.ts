@@ -135,10 +135,13 @@ export function matchesStatus(
   // A catalog book cannot fail — nothing about it is processed for this user.
   if (status === 'failed') return false
   const p = entryProgress(e, progressMap)
+  // `completedAt` is the recorded answer; the threshold is the fallback for rows
+  // written before editions had a completion field.
+  const finished = progressMap[e.item.editionId]?.completedAt != null || p >= FINISHED_THRESHOLD
   switch (status) {
-    case 'reading': return p > 0 && p < FINISHED_THRESHOLD
-    case 'finished': return p >= FINISHED_THRESHOLD
-    case 'notStarted': return p === 0
+    case 'reading': return !finished && p > 0
+    case 'finished': return finished
+    case 'notStarted': return !finished && p === 0
   }
   return false
 }

@@ -82,12 +82,13 @@ public class LibraryShelvesService(IAppDbContext db)
             let latestProgress = db.ReadingProgresses
                 .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
-                .Select(p => new { p.Percent, p.UpdatedAt, p.ChapterId, p.Locator })
+                .Select(p => new { p.Percent, p.UpdatedAt, p.ChapterId, p.Locator, p.CompletedAt })
                 .FirstOrDefault()
             where latestProgress != null
                 && latestProgress.Percent != null
                 && latestProgress.Percent > InProgressMinPercent
                 && latestProgress.Percent < InProgressMaxPercent
+                && latestProgress.CompletedAt == null
             orderby latestProgress.UpdatedAt descending
             select new
             {
@@ -340,13 +341,12 @@ public class LibraryShelvesService(IAppDbContext db)
             let latest = db.ReadingProgresses
                 .Where(p => p.UserId == userId && p.EditionId == e.Id)
                 .OrderByDescending(p => p.UpdatedAt)
-                .Select(p => new { p.Percent, p.UpdatedAt })
+                .Select(p => new { p.Percent, p.UpdatedAt, p.CompletedAt })
                 .FirstOrDefault()
             where latest != null
-                && latest.Percent != null
-                && latest.Percent >= InProgressMaxPercent
-                && latest.UpdatedAt >= monthStart
-            orderby latest.UpdatedAt descending
+                && latest.CompletedAt != null
+                && latest.CompletedAt >= monthStart
+            orderby latest.CompletedAt descending
             select new
             {
                 e.Id,

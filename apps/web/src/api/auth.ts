@@ -182,6 +182,9 @@ export interface ReadingProgressDto {
   locator: string
   percent: number | null
   updatedAt: string
+  /** Non-null once the book is finished. Read this instead of comparing
+   *  `percent` against a threshold of your own. */
+  completedAt?: string | null
 }
 
 export interface UpsertProgressRequest {

@@ -38,6 +38,21 @@ public class ReadingProgress : ISiteScoped
     /// </summary>
     public int? MaxChapterNumber { get; set; }
 
+    /// <summary>
+    /// Set once <see cref="Percent"/> crosses <c>0.99</c>, or by an explicit
+    /// mark-as-finished; cleared by mark-as-unfinished. The presence of this is
+    /// the answer to "is it finished?".
+    /// <para>
+    /// Editions had no completion field at all, so four different places each
+    /// answered the question with their own inequality against a percentage —
+    /// 0.95 in the shelf service, 0.95 in the web library filter, 1.0 on the web
+    /// cards, 1.0 in the mobile action sheet — and "mark as read" had to fake it
+    /// by writing a percent of exactly 1. Mirrors
+    /// <see cref="UserBook.CompletedAt"/>, which uploads have always had.
+    /// </para>
+    /// </summary>
+    public DateTimeOffset? CompletedAt { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
 
     public User User { get; set; } = null!;
