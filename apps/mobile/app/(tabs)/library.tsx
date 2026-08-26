@@ -6,7 +6,10 @@ import { Ionicons } from '@expo/vector-icons'
 import {
   libraryApi, readingProgressApi, userBooksApi,
 } from '@textstack/shared'
-import { collectionsApi, type UserLibraryItem, type UserBookDto, type ReadingProgressDto } from '@textstack/shared'
+import {
+  collectionsApi, buildLibraryEntries, filterEntries, countEntries, sortEntries, entryTitle, entryAuthor,
+  type UserLibraryItem, type UserBookDto, type ReadingProgressDto,
+} from '@textstack/shared'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -14,19 +17,19 @@ import { useToast } from '../../src/context/ToastContext'
 import { useCollectionsVersion } from '../../src/hooks/useCollections'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
-import { LibraryShelves } from '../../src/components/library/LibraryShelves'
 import { FirstBookState } from '../../src/components/library/FirstBookState'
-import { LibrarySidebarDrawer, type LibrarySource } from '../../src/components/library/LibrarySidebarDrawer'
+import { LibraryViewSheet, type LibrarySource } from '../../src/components/library/LibraryViewSheet'
+import { LibrarySearch } from '../../src/components/library/LibrarySearch'
+import { LibraryStatusTabs } from '../../src/components/library/LibraryStatusTabs'
+import { useLibrarySort } from '../../src/hooks/useLibrarySort'
+import { useLibraryStatus } from '../../src/hooks/useLibraryStatus'
+import { useLibrarySearch } from '../../src/hooks/useLibrarySearch'
+import { matchesQuery } from '../../src/lib/searchUtils'
 import { ResumeHero } from '../../src/components/library/ResumeHero'
-import { JumpBackInRail } from '../../src/components/library/JumpBackInRail'
-import { VocabularyReviewCard } from '../../src/components/home/VocabularyReviewCard'
 import { useContinueReadingList } from '../../src/hooks/useContinueReadingList'
-import { SavedList } from '../../src/components/library/SavedList'
-import { UploadsList } from '../../src/components/library/UploadsList'
+import { BookList } from '../../src/components/library/BookList'
 import { styles, type ViewMode } from '../../src/components/library/shared'
-import { clearLibraryShelvesCache } from '../../src/hooks/useLibraryShelves'
-
-type Tab = 'saved' | 'uploads'
+import { fonts } from '../../src/theme/typography'
 
 const VIEW_MODE_KEY = 'textstack_library_view'
 
@@ -36,14 +39,19 @@ export default function LibraryScreen() {
   const { t } = useLanguage()
   const { show: showToast } = useToast()
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('saved')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [source, setSource] = useState<LibrarySource>('all')
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
   const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
   const [collectionUploadIds, setCollectionUploadIds] = useState<Set<string> | null>(null)
   const collectionsVersion = useCollectionsVersion()
+  // One library means one of each control. These used to be duplicated per tab
+  // — two sort keys, two status filters, two search boxes — because there were
+  // two lists.
+  const { sort, setSort } = useLibrarySort('library')
+  const { status, setStatus } = useLibraryStatus()
+  const { query, debouncedQuery, setQuery, clear: clearQuery } = useLibrarySearch('library')
   const [library, setLibrary] = useState<UserLibraryItem[]>([])
   const [userBooks, setUserBooks] = useState<UserBookDto[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
@@ -139,11 +147,6 @@ export default function LibraryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true)
-    // Pull-to-refresh is an explicit "give me fresh data" intent: invalidate
-    // the shelves TTL cache too (it fires an immediate refetch in the live
-    // LibraryShelves via the pub/sub) so the carousels aren't left stale while
-    // the rest of the screen reloads (FIX 3).
-    clearLibraryShelvesCache()
     await loadData()
     setRefreshing(false)
   }
@@ -193,88 +196,87 @@ export default function LibraryScreen() {
     )
   }
 
-  const effectiveTab: Tab = source === 'uploads' ? 'uploads'
-    : source === 'catalog' ? 'saved'
-    : tab
-  const showTabs = source === 'all'
+  // One list. Source, status, search and sort are lenses over the same books —
+  // never separate destinations. `buildLibraryEntries` tags each record with the
+  // storage shape it came from so a row can show what only that shape has (an
+  // upload can be mid-parse) without splitting the list in two.
+  const sourceEntries = buildLibraryEntries(library, userBooks, source)
+  const counts = countEntries(sourceEntries, progressMap)
+  const statusFiltered = filterEntries(sourceEntries, status, progressMap)
+  const searched = debouncedQuery
+    ? statusFiltered.filter(e => matchesQuery({ title: entryTitle(e), author: entryAuthor(e) }, debouncedQuery))
+    : statusFiltered
+  const collectionFiltered = activeCollectionId
+    ? searched.filter(e => (e.kind === 'saved' ? collectionSavedIds : collectionUploadIds)?.has(
+        e.kind === 'saved' ? e.item.editionId : e.book.id,
+      ) ?? false)
+    : searched
+  const entries = sortEntries(collectionFiltered, sort, progressMap)
 
-  // Browsing chrome — filters, Saved/Uploads, grid/list. It belongs to the
-  // rare "I want a different book" case, so it sits BELOW the resume block and
-  // scrolls away with the rest. It used to be pinned above everything, which
-  // meant a returning reader's eye landed on "Open filters" and their own
-  // email address before it landed on the book they were reading.
-  const browseChrome = (
-    <>
-      <View style={styles.sidebarHeader}>
-        <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.menuBtn}>
-          <Ionicons name="menu" size={20} color={colors.text} />
-          <Text style={[styles.menuBtnText, { color: colors.text }]}>{t('library.sidebar.open')}</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        {showTabs && (
-          <View style={[styles.tabs, { flex: 1, borderBottomWidth: 0 }]}>
-            {([['saved', `Saved (${library.length})`], ['uploads', `Uploads (${userBooks.length})`]] as [Tab, string][]).map(([t, label]) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.tab, tab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-                onPress={() => setTab(t)}
-              >
-                <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.textSecondary }]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {!showTabs && <View style={{ flex: 1 }} />}
-        <View style={{ flexDirection: 'row', paddingRight: 10, gap: 2 }}>
-          <TouchableOpacity onPress={() => toggleView('grid')} hitSlop={6} style={{ padding: 4 }}>
-            <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? colors.primary : colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleView('list')} hitSlop={6} style={{ padding: 4 }}>
-            <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? colors.primary : colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </>
-  )
-
-  // Strict priority order, not a feed. Resuming the current book is the single
-  // most likely thing a returning reader wants, so it is first and largest.
-  // Everything under it — vocabulary, shelves, then the browsing chrome and the
-  // grid itself — serves the rarer "a different book" case.
-  //
-  // All of it lives in the list's ListHeaderComponent so it scrolls as one
-  // surface. A pinned top region used to cut off "Quick reads" and below with
-  // no way to reach them.
-  const shelvesHeader = (
+  // Everything above the first book row. Three blocks: resume, search, filters.
+  // It used to be thirteen — roughly 2.4 screens of chrome a reader scrolled
+  // past to reach their own books.
+  const listHeader = (
     <>
       {resumeList.length > 0 && <ResumeHero pick={resumeList[0]} />}
-      <JumpBackInRail picks={resumeList.slice(1)} />
-      <VocabularyReviewCard />
-      <LibraryShelves />
-      {browseChrome}
+      <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
+      <View style={styles.controlRow}>
+        <View style={{ flex: 1 }}>
+          <LibraryStatusTabs value={status} onChange={setStatus} counts={counts} />
+        </View>
+        <TouchableOpacity
+          onPress={() => setSheetOpen(true)}
+          hitSlop={10}
+          style={styles.viewBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('library.view.open')}
+        >
+          <Ionicons name="options-outline" size={20} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+      {entries.length === 0 && (
+        <View style={styles.filterEmpty}>
+          <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+            {debouncedQuery ? t('library.search.empty').replace('{query}', debouncedQuery) : t('library.filter.empty')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => { if (debouncedQuery) clearQuery(); else setStatus('all') }}
+            style={[styles.filterEmptyBtn, { borderColor: colors.border }]}
+          >
+            <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text }}>
+              {debouncedQuery ? t('library.search.clear') : t('library.filter.clear')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </>
   )
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {effectiveTab === 'saved' ? (
-        <SavedList library={library} setLibrary={setLibrary} progressMap={progressMap} setProgressMap={setProgressMap} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionSavedIds} shelvesHeader={shelvesHeader} />
-      ) : (
-        <UploadsList books={userBooks} refreshing={refreshing} onRefresh={onRefresh} viewMode={viewMode} collectionFilterIds={collectionUploadIds} shelvesHeader={shelvesHeader} />
-      )}
-      <LibrarySidebarDrawer
-        visible={drawerOpen}
+      <BookList
+        entries={entries}
+        progressMap={progressMap}
+        library={library}
+        setLibrary={setLibrary}
+        setProgressMap={setProgressMap}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        viewMode={viewMode}
+        listHeader={listHeader}
+      />
+      <LibraryViewSheet
+        visible={sheetOpen}
         source={source}
         counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
+        sort={sort}
+        viewMode={viewMode}
         activeCollectionId={activeCollectionId}
-        onSelect={(next) => {
-          setSource(next)
-          if (next === 'uploads') setTab('uploads')
-          else if (next === 'catalog') setTab('saved')
-        }}
+        onSelectSource={setSource}
+        onSelectSort={setSort}
+        onSelectViewMode={toggleView}
         onCollectionSelect={setActiveCollectionId}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => setSheetOpen(false)}
       />
     </View>
   )

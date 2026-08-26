@@ -1,38 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { shelfItemRoute, resumeRoute } from './bookRoutes'
-import type { ContinueReadingPick, LibraryShelfItem } from '@textstack/shared'
-
-const shelfItem = (o: Partial<LibraryShelfItem> = {}): LibraryShelfItem => ({
-  id: 'ub-1',
-  type: 'userbook',
-  title: 'A Book',
-  author: null,
-  coverPath: null,
-  slug: null,
-  language: 'en',
-  progressPercent: 0.2,
-  lastOpenedAt: null,
-  createdAt: '2026-01-01T00:00:00Z',
-  estimatedMinutesRemaining: null,
-  ...o,
-})
-
-describe('shelfItemRoute', () => {
-  it('sends a catalog item to the singular detail route', () => {
-    // `/books/{slug}` has no matching file — `app/books.tsx` is the plural list.
-    // Both copies of this function had it wrong, so every catalog item in every
-    // shelf dead-ended in +not-found.
-    expect(shelfItemRoute(shelfItem({ type: 'savedbook', slug: 'dracula' }))).toBe('/book/dracula')
-  })
-
-  it('sends a user book to its detail route', () => {
-    expect(shelfItemRoute(shelfItem({ type: 'userbook', id: 'ub-9' }))).toBe('/my-books/ub-9')
-  })
-
-  it('does not invent a slug when the payload has none', () => {
-    expect(shelfItemRoute(shelfItem({ type: 'savedbook', slug: null }))).toBe('/book/')
-  })
-})
+import { resumeRoute } from './bookRoutes'
+import type { ContinueReadingPick } from '@textstack/shared'
 
 describe('resumeRoute', () => {
   const edition = (o: Partial<Extract<ContinueReadingPick, { type: 'edition' }>> = {}) => ({

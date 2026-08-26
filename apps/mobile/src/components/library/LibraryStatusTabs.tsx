@@ -1,10 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { fonts } from '../../theme/typography'
 import type { LibraryStatus } from '../../hooks/useLibraryStatus'
 
-const PRIMARY: LibraryStatus[] = ['reading', 'finished', 'notStarted']
+// "All" leads because it is the default — pinning it to the right meant the
+// row clipped mid-word ("Not sta…") against whatever sat beside it, which reads
+// as broken rather than scrollable.
+const TABS: LibraryStatus[] = ['all', 'reading', 'finished', 'notStarted']
 
 interface Props {
   value: LibraryStatus
@@ -17,17 +20,13 @@ export function LibraryStatusTabs({ value, onChange, counts }: Props) {
   const { t } = useLanguage()
   const showFailed = counts.failed > 0
 
-  const renderTab = (key: LibraryStatus, secondary = false) => {
+  const renderTab = (key: LibraryStatus) => {
     const active = value === key
     return (
       <TouchableOpacity
         key={key}
         onPress={() => onChange(key)}
-        style={[
-          styles.tab,
-          { borderBottomColor: active ? colors.text : 'transparent' },
-          secondary && styles.tabSecondary,
-        ]}
+        style={[styles.tab, { borderBottomColor: active ? colors.text : 'transparent' }]}
         hitSlop={6}
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
@@ -35,9 +34,8 @@ export function LibraryStatusTabs({ value, onChange, counts }: Props) {
         <Text
           style={{
             fontFamily: fonts.sansMedium,
-            fontSize: secondary ? 12 : 13,
+            fontSize: 13,
             color: active ? colors.text : colors.textSecondary,
-            opacity: secondary && !active ? 0.75 : 1,
           }}
         >
           {t(`library.status.${key}`)}
@@ -58,17 +56,15 @@ export function LibraryStatusTabs({ value, onChange, counts }: Props) {
   }
 
   return (
-    <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.primary}
-      >
-        {PRIMARY.map((k) => renderTab(k, false))}
-        {showFailed && renderTab('failed', false)}
-      </ScrollView>
-      <View style={styles.secondary}>{renderTab('all', true)}</View>
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+    >
+      {TABS.map(renderTab)}
+      {showFailed && renderTab('failed')}
+    </ScrollView>
   )
 }
 
@@ -76,17 +72,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-  },
-  primary: {
-    flexDirection: 'row',
     gap: 4,
-    alignItems: 'center',
-  },
-  secondary: {
-    marginLeft: 'auto',
-    paddingLeft: 8,
+    paddingHorizontal: 14,
   },
   tab: {
     flexDirection: 'row',
@@ -95,9 +82,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
     borderBottomWidth: 2,
-  },
-  tabSecondary: {
-    paddingHorizontal: 8,
   },
   count: {
     fontFamily: fonts.sansBold,

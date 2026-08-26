@@ -15,6 +15,10 @@ export type ViewMode = 'list' | 'grid'
 export const SORT_KEYS: LibrarySortKey[] = ['recent', 'added', 'title', 'author', 'progress']
 
 export const styles = StyleSheet.create({
+  // The one row of browsing controls: status filters on the left, everything
+  // else behind the options button on the right.
+  controlRow: { flexDirection: 'row', alignItems: 'center' },
+  viewBtn: { paddingHorizontal: 12, paddingVertical: 10 },
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, gap: 8 },
   emptyTitle: { fontFamily: fonts.serifBold, fontSize: 22, marginTop: 8 },

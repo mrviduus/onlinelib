@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { clearLibraryShelvesCache } from './useLibraryShelves'
 
 type Router = { back: () => void; replace: (href: string) => void }
 
@@ -28,11 +27,6 @@ export function useReaderExitSummary({ router, saveProgress, autoDismissMs = 500
 
   const exit = useCallback(() => {
     saveProgress()
-    // Leaving the reader is the one event that always invalidates the Library
-    // front door: progress moved, so the resume card's percent and the
-    // "Finished this month" shelf are both stale. The shelves hook keeps a 60s
-    // TTL, which is invisible on a browsing screen and glaring on a landing one.
-    clearLibraryShelvesCache()
     if (sessionWordCount > 0) {
       setExitSummary(true)
       exitTimerRef.current = setTimeout(() => router.back(), autoDismissMs)
