@@ -702,6 +702,14 @@
       "body": "We don't add rare words to your review queue automatically, so your SRS stays focused on the vocabulary you'll actually encounter.",
       "cta": "Add to SRS anyway",
       "ctaBusy": "Adding…"
+    },
+    "timeLeft": {
+      "under": "Less than a minute left",
+      "minutes": "{minutes} min left",
+      "hours": "{hours} hr left",
+      "hoursMinutes": "{hours} hr {minutes} min left",
+      "inChapter": "left in chapter",
+      "inBook": "left in book"
     }
   },
   "review": {

@@ -3,13 +3,15 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress, citationChapterSlug, makeSnippet, resolveOpenPage } from '@textstack/shared'
+import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolveOpenPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
 import { useReaderBars } from '../../hooks/useReaderBars'
+import { useKeepReaderAwake } from '../../hooks/useKeepReaderAwake'
+import { useReadingPace } from '../../hooks/useReadingPace'
 import { useReaderExitSummary } from '../../hooks/useReaderExitSummary'
 import { useReaderHighlights } from '../../hooks/useReaderHighlights'
 import { useReaderVocabMap } from '../../hooks/useReaderVocabMap'
@@ -184,6 +186,10 @@ export function ReaderShell(props: ReaderShellProps) {
   const haptics = useHaptics()
   const { show: showToast } = useToast()
   const insets = useSafeAreaInsets()
+  // Gated on a real chapter, so an error overlay or a failed load lets the
+  // phone sleep as usual.
+  useKeepReaderAwake(!!chapter)
+  const wpm = useReadingPace(!!chapter && !original)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
@@ -466,6 +472,22 @@ export function ReaderShell(props: ReaderShellProps) {
       setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics,
       original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage, createPdfHighlight, repaintPdf])
 
+  // "12 min left in chapter" — the estimate Kindle readers reach for, using the
+  // per-user pace the server already derives from real sessions. Rendered only
+  // when the book carries word counts; a fabricated number is worse than none.
+  // Reflow only: the PDF path has pages, not words.
+  const timeLeftLabel = (() => {
+    if (original || !settings.showReaderStats) return null
+    const est = estimateTimeLeft(chapters, visibleChapterSlug || chapterSlug, progress, wpm)
+    if (!est) return null
+    return formatMinutesLeft(est.chapterMinutes, {
+      under: t(language, 'reader.timeLeft.under'),
+      minutes: t(language, 'reader.timeLeft.minutes'),
+      hours: t(language, 'reader.timeLeft.hours'),
+      hoursMinutes: t(language, 'reader.timeLeft.hoursMinutes'),
+    })
+  })()
+
   const navigateChapter = (slug: string) => {
     saveProgress()
     progressRef.current = 0
@@ -655,6 +677,12 @@ export function ReaderShell(props: ReaderShellProps) {
             }
           }}
           originWhitelist={['*']}
+          // Android's WebView ignores the viewport's user-scalable unless the
+          // built-in zoom is enabled; the on-screen +/- controls are suppressed
+          // so only the pinch gesture is exposed. PDF only — see the viewport
+          // comment in buildPdfViewerHtml.
+          setBuiltInZoomControls={original}
+          setDisplayZoomControls={false}
           scrollEnabled
           showsVerticalScrollIndicator={false}
           androidLayerType="hardware"
@@ -772,6 +800,11 @@ export function ReaderShell(props: ReaderShellProps) {
                   {bookProgress != null ? `${Math.round(bookProgress * 100)}%` : '—'}
                 </Text>
               </View>
+              {timeLeftLabel ? (
+                <Text style={[styles.footerTimeLeft, { color: barText + '99' }]} numberOfLines={1}>
+                  {timeLeftLabel}
+                </Text>
+              ) : null}
             </View>
 
             <TouchableOpacity
@@ -969,6 +1002,7 @@ const styles = StyleSheet.create({
   footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' },
   footerMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
   footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerTimeLeft: { fontFamily: fonts.sans, fontSize: 11, marginTop: 2 },
   footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },

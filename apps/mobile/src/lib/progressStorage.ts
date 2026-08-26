@@ -34,10 +34,25 @@ export interface LocalProgress {
   updatedAt: number
 }
 
-/** Persist progress for a single edition. Never throws — callers can fire-and-forget. */
+/** Persist progress for a single edition. Never throws — callers can fire-and-forget.
+ *
+ *  `bookPercent` is CARRIED FORWARD when the caller omits it. Callers pass
+ *  `undefined` to mean "I don't know the book-wide percent right now" — which
+ *  happens on every save before the chapter list resolves, and on every save
+ *  while offline, where it never resolves at all. This is a whole-record
+ *  `setItem` and `JSON.stringify` drops `undefined`, so the previous value was
+ *  silently deleted instead of preserved. The resume card then fell back to the
+ *  chapter percent and announced "85% complete" for a book 12% read. */
 export async function saveLocalProgress(editionId: string, data: LocalProgress): Promise<void> {
   try {
-    await AsyncStorage.setItem(`${KEY_PREFIX}${editionId}`, JSON.stringify(data))
+    let toWrite = data
+    if (data.bookPercent === undefined) {
+      const prev = await getLocalProgress(editionId)
+      if (prev && typeof prev.bookPercent === 'number') {
+        toWrite = { ...data, bookPercent: prev.bookPercent }
+      }
+    }
+    await AsyncStorage.setItem(`${KEY_PREFIX}${editionId}`, JSON.stringify(toWrite))
   } catch {
     // Out of space / corrupted store — progress still goes to server on the next flush.
   }

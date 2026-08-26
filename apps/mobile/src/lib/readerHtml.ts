@@ -161,22 +161,74 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
   <script>${READER_SELECTION_BRIDGE}</script>
   <script>
     let lastProgress = 0;
+
+    // Bounds of the chapter under the reading line, in document coordinates.
+    // Infinite scroll appends chapters into THIS document, so document
+    // coordinates and chapter coordinates diverge the moment chapter 2 lands.
+    function currentChapterBounds() {
+      if (chapterSlugs.length === 0) return null;
+      var probe = window.scrollY + window.innerHeight * 0.25;
+      var idx = 0;
+      for (var i = chapterSlugs.length - 1; i >= 0; i--) {
+        if (probe >= chapterSlugs[i].top) { idx = i; break; }
+      }
+      var next = chapterSlugs[idx + 1];
+      return {
+        slug: chapterSlugs[idx].slug,
+        top: chapterSlugs[idx].top,
+        bottom: next ? next.top : document.documentElement.scrollHeight
+      };
+    }
+
     function reportProgress() {
       const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 1;
+      // An EMPTY chapter has nothing to scroll and nothing to read. Because
+      // __textstackRestoreScroll calls scrollTo (which fires this listener), a
+      // blank chapter would otherwise bank 100% into the book-wide percent
+      // without the user reading a word.
+      if (document.documentElement.scrollHeight - window.innerHeight <= 0
+          && (document.body.innerText || '').trim().length === 0) return;
+
+      // Progress WITHIN THE CURRENT CHAPTER — never a fraction of the whole
+      // document. RN feeds this straight into computeBookProgress() as the
+      // within-chapter fraction, so a document-wide value made the book
+      // percent run BACKWARDS every time infinite scroll appended a chapter
+      // (two chapters loaded, standing at the end of the first, reported 0.5
+      // "through chapter 1") — and the 2s debounce then persisted the lower
+      // number to the server.
+      var bounds = currentChapterBounds();
+      var relY, progress;
+      if (bounds) {
+        relY = Math.max(0, scrollTop - bounds.top);
+        var span = (bounds.bottom - bounds.top) - window.innerHeight;
+        // A chapter shorter than the viewport is genuinely finished the moment
+        // it is shown.
+        progress = span > 0 ? Math.min(relY / span, 1) : 1;
+      } else {
+        var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        relY = scrollTop;
+        progress = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 1;
+      }
+      if (!isFinite(progress)) return;
+
       if (Math.abs(progress - lastProgress) > 0.005) {
         lastProgress = progress;
-        var currentSlug = getCurrentChapterSlug();
+        var currentSlug = bounds ? bounds.slug : getCurrentChapterSlug();
         // scrollY lets RN build a 'scroll:slug:offset' locator the way PWA
         // does (apps/web/src/hooks/useReaderScrollSync.ts). Locator wins
         // over bare percent on resume because long chapters can have
         // identical percent in many pixel positions.
+        //
+        // It is CHAPTER-relative for the same reason as the percent above:
+        // resume loads that one chapter alone, so an absolute offset from a
+        // multi-chapter document landed the reader at the wrong place (and,
+        // once clamped, at the very end of a chapter they had barely begun).
+        // For a freshly-loaded single chapter top === 0, so the two agree.
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'progress',
           progress: progress,
           chapterSlug: currentSlug,
-          scrollY: Math.round(scrollTop)
+          scrollY: Math.round(relY)
         }));
       }
     }
@@ -1137,7 +1189,13 @@ export function buildPdfViewerHtml(fileUrl: string, token: string | null, option
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <!-- Pinch-zoom is ENABLED here and nowhere else. A PDF is a fixed layout: on a
+       portrait phone an A4 page fits to width at roughly 6pt, and the app is
+       locked to portrait, so without zoom a scanned or dense PDF is unreadable.
+       The reflow document above keeps user-scalable=no on purpose — there the
+       font-size control is the zoom, and page scaling would desynchronise the
+       highlight overlay's coordinate math. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { -webkit-text-size-adjust: none; }

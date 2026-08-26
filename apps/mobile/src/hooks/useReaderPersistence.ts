@@ -107,11 +107,13 @@ export function useReaderPersistence({
 
   const saveProgress = useCallback(() => {
     if (!bookKey || !chapterSlug) return
-    if (!chapterId) {
-      // Defer: remember that a save is owed; the chapterId effect flushes it.
-      pendingSaveRef.current = true
-      return
-    }
+    // NOTE: a missing chapterId does NOT block the save. The offline cache
+    // stores chapters by slug and has no server id to give (`id: ''` in
+    // useReaderChapter), so gating on it meant every save while offline was
+    // deferred — and the replay effect below, gated the same way, never fired.
+    // Read three chapters on a plane, close the app, lose all of it. The slug
+    // is what the local record is keyed by; each source decides for itself
+    // whether it has enough to also write to the server.
     const slug = currentChapterSlugRef.current || chapterSlug
     persist({
       chapterId,
@@ -121,10 +123,14 @@ export function useReaderPersistence({
       bookPercent: bookProgressRef.current,
       updatedAt: Date.now(),
     })
+    // Saved locally, but the server write needs a real chapter id. Remember to
+    // repeat the save if one arrives (chapter fetch lands, or the device comes
+    // back online and the next chapter resolves normally).
+    pendingSaveRef.current = !chapterId
   }, [bookKey, chapterId, chapterSlug, persist, currentChapterSlugRef, progressRef, scrollOffsetRef, bookProgressRef])
 
-  // Flush a deferred save once chapterId resolves. Keyed on chapterId so it runs
-  // exactly when the destination chapter's id lands.
+  // Re-save once the chapter id lands, so the server gets the write that the
+  // local store already has. Harmless when the id was there from the start.
   useEffect(() => {
     if (chapterId && pendingSaveRef.current) {
       pendingSaveRef.current = false
@@ -171,13 +177,29 @@ export function useReaderPersistence({
     return () => { cancelled = true }
   }, [bookKey, chapterSlug, loadPosition, tryRestore])
 
-  // Flush on unmount — covers chapter navigation + tab-away in a single tap.
+  // Always points at the current closure, so the unmount flush below can have
+  // an empty dependency list without going stale.
+  const saveProgressRef = useRef(saveProgress)
+  saveProgressRef.current = saveProgress
+
+  // Flush on unmount — covers tab-away and a killed screen in a single tap.
+  //
+  // Depending on `saveProgress` here made this cleanup fire on every chapter
+  // change too, and that was destructive: `navigateChapter` saves the real
+  // position, THEN zeroes the live refs, THEN pushes the route. The route
+  // change altered `saveProgress`'s identity, so React ran this cleanup with
+  // the OLD chapter's closure over the freshly ZEROED refs and persisted
+  // `percent: 0, locator: scroll:<old-slug>:0`. Until the destination chapter
+  // emitted its first progress message, the only stored position for the book
+  // was "the chapter you just left, at the top" — and killing the app in that
+  // window, or navigating offline, made that the position you came back to.
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      saveProgress()
+      saveProgressRef.current()
     }
-  }, [saveProgress])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Android OS-kill skips React cleanup; AppState background fires first so we
   // get one last sync write of scroll position + book-percent cache.

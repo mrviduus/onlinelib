@@ -212,7 +212,7 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
             {/* Reading Stats */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>READING STATS</Text>
             <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left</Text>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left in chapter</Text>
               <Switch
                 value={settings.showReaderStats}
                 onValueChange={v => onUpdate({ showReaderStats: v })}
