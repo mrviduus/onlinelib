@@ -47,7 +47,7 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
           accessibilityLabel="Close reader settings"
         />
         <View style={[styles.drawer, { backgroundColor: colors.background }]}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Reading Settings</Text>
@@ -212,7 +212,7 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
             {/* Reading Stats */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>READING STATS</Text>
             <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left</Text>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Session time, daily goal, time left in chapter</Text>
               <Switch
                 value={settings.showReaderStats}
                 onValueChange={v => onUpdate({ showReaderStats: v })}
@@ -231,7 +231,7 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   drawer: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, maxHeight: '80%' },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   title: { fontFamily: fonts.serifBold, fontSize: 20 },
   closeBtn: { padding: 8, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },

@@ -33,7 +33,10 @@ export interface ReaderChapterMeta {
  * source layer does pure I/O and never reads refs directly (testable).
  */
 export interface ProgressSnapshot {
-  chapterId: string
+  /** Server chapter id, or null for an offline-cached chapter — the offline
+   *  store keys chapters by slug and has no id to give. Sources must persist
+   *  locally regardless and skip only the server write. */
+  chapterId: string | null
   chapterSlug: string
   /** 0..1 within the active chapter. */
   chapterPercent: number

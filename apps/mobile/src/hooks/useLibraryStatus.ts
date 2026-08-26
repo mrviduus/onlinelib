@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
-import type { LibraryFilterKey } from './useLibraryFilter'
+import type { LibraryEntryStatus } from '@textstack/shared'
 
-export type LibraryStatus = LibraryFilterKey
+export type LibraryStatus = LibraryEntryStatus
 export const DEFAULT_STATUS: LibraryStatus = 'all'
 
 export interface LibraryStatusState {

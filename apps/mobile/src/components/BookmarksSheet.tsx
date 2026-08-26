@@ -45,7 +45,7 @@ export function BookmarksSheet({
         accessibilityLabel="Close bookmarks"
       >
         <Pressable style={[styles.sheet, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 }} />
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12 }} />
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Bookmarks</Text>
             <TouchableOpacity
@@ -103,7 +103,7 @@ export function BookmarksSheet({
                       accessibilityRole="button"
                       accessibilityLabel={`Delete bookmark: ${item.title}`}
                     >
-                      <Ionicons name="close" size={18} color="#DC2626" />
+                      <Ionicons name="close" size={18} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 )

@@ -31,7 +31,7 @@ export function TocSheet({ visible, chapters, currentChapterSlug, bookmarks, onN
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }, chapters.length > 0 && styles.sheetTall]}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 }} />
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginTop: 12 }} />
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Contents</Text>
             <TouchableOpacity

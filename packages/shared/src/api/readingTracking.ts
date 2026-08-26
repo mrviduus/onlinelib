@@ -80,3 +80,15 @@ export interface BookStatsResponse {
 export function getBookStats(year?: number) {
   return authFetch<BookStatsResponse>(`/me/reading/book-stats${buildQuery({ year })}`)
 }
+
+/** Reading speed in words per minute. `isUserSpecific` is false when the
+ *  server had too few sessions and fell back to a population default. */
+export interface ReadingPaceDto {
+  wpm: number
+  sessionCount: number
+  isUserSpecific: boolean
+}
+
+export function getReadingPace() {
+  return authFetch<ReadingPaceDto>('/me/reading/pace')
+}

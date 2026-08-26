@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type LibraryTab = 'saved' | 'uploads'
+export type LibraryScope = 'library'
 
-export function useLibrarySearch(_tab: LibraryTab) {
+export function useLibrarySearch(_scope: LibraryScope) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
 

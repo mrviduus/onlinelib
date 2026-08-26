@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress, parsePdfPageLocator, chapterSlugForPage } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -13,7 +13,6 @@ import { fonts } from '../../src/theme/typography'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { trackBookOpened } from '../../src/lib/analytics'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
-import { clearLibraryShelvesCache } from '../../src/hooks/useLibraryShelves'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -23,7 +22,7 @@ export default function UserBookDetailScreen() {
   const { t } = useLanguage()
   const [book, setBook] = useState<UserBookDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null } | null>(null)
+  const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null; locator: string | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
@@ -50,7 +49,7 @@ export default function UserBookDetailScreen() {
         ])
         if (unmountedRef.current) return
         setBook(b)
-        if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent })
+        if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent, locator: p.locator ?? null })
       } catch (e) {
         console.error('Failed to load user book:', e)
       } finally {
@@ -142,9 +141,15 @@ export default function UserBookDetailScreen() {
   const isFailed = book?.status.toLowerCase() === 'failed'
   const isProcessing = book && !isReady && !isFailed
 
+  // A PDF read in Original layout is chapterless: its position is a `page:<N>`
+  // locator with chapterSlug null. Looking only at the slug meant every
+  // half-read PDF reported "never opened" — the button said "Start Reading" and
+  // routed to chapter one. Fall back to the chapter that contains the saved
+  // page, which also gives the reader route enough to resume at that page.
+  const resumePage = parsePdfPageLocator(savedProgress?.locator)
   const continueSlug = savedProgress?.chapterSlug && book?.chapters?.find(c => c.slug === savedProgress.chapterSlug)
     ? savedProgress.chapterSlug
-    : null
+    : chapterSlugForPage(book?.chapters ?? [], resumePage)
 
   const handleDelete = () => {
     if (!id) return
@@ -156,9 +161,6 @@ export default function UserBookDetailScreen() {
           setDeleting(true)
           try {
             await userBooksApi.deleteUserBook(id)
-            // Invalidate the library shelves cache so the deleted book is gone
-            // from Continue reading / Recently added when we land back on Library.
-            clearLibraryShelvesCache()
             // Don't reset `deleting` on success — the screen unmounts on router.back()
             // and any lingering state change would warn. (P2-2)
             router.back()
@@ -359,9 +361,11 @@ export default function UserBookDetailScreen() {
 
         {/* Error message */}
         {isFailed && book.errorMessage && (
-          <View style={[styles.errorBox, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
-            <Ionicons name="alert-circle" size={18} color="#DC2626" />
-            <Text style={{ flex: 1, fontSize: 13, color: '#991B1B', fontFamily: fonts.sans }}>{book.errorMessage}</Text>
+          // Tinted from the semantic token rather than a fixed light-mode swatch —
+          // the old #FEF2F2 / #991B1B pair was near-invisible in dark mode.
+          <View style={[styles.errorBox, { backgroundColor: colors.error + '18', borderColor: colors.error + '40' }]}>
+            <Ionicons name="alert-circle" size={18} color={colors.error} />
+            <Text style={{ flex: 1, fontSize: 13, color: colors.error, fontFamily: fonts.sans }}>{book.errorMessage}</Text>
           </View>
         )}
 
@@ -396,14 +400,14 @@ export default function UserBookDetailScreen() {
         {isFailed && (
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.retryBtn, { backgroundColor: '#FEF3C7' }]}
+              style={[styles.retryBtn, { backgroundColor: colors.warning + '22' }]}
               onPress={async () => {
                 await userBooksApi.retryUserBook(id!).catch(() => {})
                 setBook({ ...book, status: 'Processing' })
               }}
             >
-              <Ionicons name="refresh" size={16} color="#92400E" />
-              <Text style={styles.retryBtnText}>Retry Processing</Text>
+              <Ionicons name="refresh" size={16} color={colors.warning} />
+              <Text style={[styles.retryBtnText, { color: colors.warning }]}>Retry Processing</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -497,12 +501,12 @@ export default function UserBookDetailScreen() {
         {/* Delete */}
         <View style={styles.dangerSection}>
           <TouchableOpacity
-            style={[styles.deleteBtn, { borderColor: '#FECACA' }]}
+            style={[styles.deleteBtn, { borderColor: colors.error + '40' }]}
             onPress={handleDelete}
             disabled={deleting}
           >
-            <Ionicons name="trash-outline" size={16} color="#DC2626" />
-            <Text style={{ fontSize: 14, color: '#DC2626', fontFamily: fonts.sansMedium }}>
+            <Ionicons name="trash-outline" size={16} color={colors.error} />
+            <Text style={{ fontSize: 14, color: colors.error, fontFamily: fonts.sansMedium }}>
               {deleting ? 'Deleting...' : 'Delete Book'}
             </Text>
           </TouchableOpacity>
@@ -526,7 +530,7 @@ function Chip({ icon, text, colors }: { icon: string; text: string; colors: any 
 function StatusText({ status, colors }: { status: string; colors: any }) {
   const s = status.toLowerCase()
   if (s === 'ready') return null
-  if (s === 'failed') return <Text style={[styles.statusFail, { color: '#DC2626' }]}>Failed</Text>
+  if (s === 'failed') return <Text style={[styles.statusFail, { color: colors.error }]}>Failed</Text>
   return <Text style={[styles.statusPending, { color: colors.primary }]}>Processing...</Text>
 }
 
@@ -567,7 +571,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  retryBtnText: { fontSize: 14, color: '#92400E', fontFamily: fonts.sansMedium },
+  retryBtnText: { fontSize: 14, fontFamily: fonts.sansMedium },
   secondaryActions: { paddingHorizontal: 16, marginTop: 12, gap: 8 },
   secondaryBtn: {
     paddingVertical: 10,

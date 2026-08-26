@@ -71,7 +71,10 @@ export function useEditionReaderSource({
     const id = editionIdRef.current
     if (!id) return
     saveLocalProgress(id, {
-      chapterId: snap.chapterId,
+      // '' rather than null: getAllLocalProgress() validates this field as a
+      // string and would drop the whole record otherwise. The local row is
+      // keyed and resumed by slug; the id only matters to the server.
+      chapterId: snap.chapterId ?? '',
       chapterSlug: snap.chapterSlug,
       locator: `scroll:${snap.chapterSlug}:${snap.scrollOffset}`,
       percent: snap.chapterPercent,
@@ -82,6 +85,10 @@ export function useEditionReaderSource({
     }).catch(() => {})
 
     if (!isAuthenticated) return
+    // The server row is keyed by chapter id. An offline-cached chapter has no
+    // id to give, so there is nothing to send — the local write above is the
+    // record, and useReaderPersistence repeats the save once an id appears.
+    if (!snap.chapterId) return
     readingProgressApi.updateProgress(id, {
       chapterId: snap.chapterId,
       chapterSlug: snap.chapterSlug,

@@ -3,13 +3,15 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress, citationChapterSlug, makeSnippet, resolveOpenPage } from '@textstack/shared'
+import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolvePdfResumePage, chapterEndPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
 import { useReaderBars } from '../../hooks/useReaderBars'
+import { useKeepReaderAwake } from '../../hooks/useKeepReaderAwake'
+import { useReadingPace } from '../../hooks/useReadingPace'
 import { useReaderExitSummary } from '../../hooks/useReaderExitSummary'
 import { useReaderHighlights } from '../../hooks/useReaderHighlights'
 import { useReaderVocabMap } from '../../hooks/useReaderVocabMap'
@@ -184,6 +186,10 @@ export function ReaderShell(props: ReaderShellProps) {
   const haptics = useHaptics()
   const { show: showToast } = useToast()
   const insets = useSafeAreaInsets()
+  // Gated on a real chapter, so an error overlay or a failed load lets the
+  // phone sleep as usual.
+  useKeepReaderAwake(!!chapter)
+  const wpm = useReadingPace(!!chapter && !original)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
@@ -343,19 +349,37 @@ export function ReaderShell(props: ReaderShellProps) {
     injectJs(`window.scrollToPage && window.scrollToPage(${Math.max(1, Math.floor(page))})`)
   }, [injectJs])
 
-  // Initial page resolution for the Original PDF. The chapter start page (if the
-  // user opened a specific chapter) is applied by the viewer bootstrap
-  // (`initialPage`), so here we only handle the SERVER resume page — and only
-  // once the doc is ready AND the resume fetch has resolved. Chapter page always
-  // wins (precedence: chapter sourceStartPage > server page > page 1).
+  // Initial page resolution for the Original PDF.
+  //
+  // The chapter start page is applied by the viewer bootstrap (`initialPage`),
+  // so this handles the SERVER resume page — once the doc is ready AND the
+  // resume fetch has resolved.
+  //
+  // "Chapter always wins" used to be the rule, and it made resuming a PDF
+  // impossible: the detail screen had no chapter slug to route by (a PDF's
+  // position is a page locator), so it always opened chapter one, whose start
+  // page is 1, which then discarded the saved page. The rule is now narrower —
+  // a saved page INSIDE the chapter being opened wins. That separates the two
+  // ways a reader arrives without needing a flag: picking chapter 7 from the
+  // table of contents opens chapter 7, while Continue routes to the chapter
+  // holding the saved page and lands on the page itself.
   const maybeInitialPdfJump = useCallback(() => {
     if (!original || !pdfReadyRef.current || pdfInitialJumpDoneRef.current) return
-    if (originalInitialPage != null) { pdfInitialJumpDoneRef.current = true; return }
-    if (!originalResumeReady) return
+    if (!originalResumeReady && originalInitialPage == null) return
+    if (originalInitialPage != null && !originalResumeReady) {
+      // Chapter jump is instant; nothing to wait for.
+      pdfInitialJumpDoneRef.current = true
+      return
+    }
     pdfInitialJumpDoneRef.current = true
-    const target = resolveOpenPage(originalResumePage)
-    if (target > 1) scrollPdfToPage(target)
-  }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage])
+    const idx = chapters.findIndex(c => c.slug === chapterSlug)
+    const target = resolvePdfResumePage({
+      chapterStartPage: originalInitialPage,
+      chapterEndPage: idx >= 0 ? chapterEndPage(chapters, idx) : null,
+      resumePage: originalResumePage,
+    })
+    if (target > 1 && target !== originalInitialPage) scrollPdfToPage(target)
+  }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage, chapters, chapterSlug])
 
   // Run the deferred initial jump once the async server resume page arrives
   // after the viewer was already ready.
@@ -465,6 +489,22 @@ export function ReaderShell(props: ReaderShellProps) {
   }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
       setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics,
       original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage, createPdfHighlight, repaintPdf])
+
+  // "12 min left in chapter" — the estimate Kindle readers reach for, using the
+  // per-user pace the server already derives from real sessions. Rendered only
+  // when the book carries word counts; a fabricated number is worse than none.
+  // Reflow only: the PDF path has pages, not words.
+  const timeLeftLabel = (() => {
+    if (original || !settings.showReaderStats) return null
+    const est = estimateTimeLeft(chapters, visibleChapterSlug || chapterSlug, progress, wpm)
+    if (!est) return null
+    return formatMinutesLeft(est.chapterMinutes, {
+      under: t(language, 'reader.timeLeft.under'),
+      minutes: t(language, 'reader.timeLeft.minutes'),
+      hours: t(language, 'reader.timeLeft.hours'),
+      hoursMinutes: t(language, 'reader.timeLeft.hoursMinutes'),
+    })
+  })()
 
   const navigateChapter = (slug: string) => {
     saveProgress()
@@ -655,6 +695,12 @@ export function ReaderShell(props: ReaderShellProps) {
             }
           }}
           originWhitelist={['*']}
+          // Android's WebView ignores the viewport's user-scalable unless the
+          // built-in zoom is enabled; the on-screen +/- controls are suppressed
+          // so only the pinch gesture is exposed. PDF only — see the viewport
+          // comment in buildPdfViewerHtml.
+          setBuiltInZoomControls={original}
+          setDisplayZoomControls={false}
           scrollEnabled
           showsVerticalScrollIndicator={false}
           androidLayerType="hardware"
@@ -772,6 +818,11 @@ export function ReaderShell(props: ReaderShellProps) {
                   {bookProgress != null ? `${Math.round(bookProgress * 100)}%` : '—'}
                 </Text>
               </View>
+              {timeLeftLabel ? (
+                <Text style={[styles.footerTimeLeft, { color: barText + '99' }]} numberOfLines={1}>
+                  {timeLeftLabel}
+                </Text>
+              ) : null}
             </View>
 
             <TouchableOpacity
@@ -903,7 +954,7 @@ export function ReaderShell(props: ReaderShellProps) {
                 : 'The original file could not be displayed, and there is no text version to fall back to.'}
             </Text>
             <TouchableOpacity
-              style={[styles.pdfErrorBtn, { backgroundColor: '#C4704B' }]}
+              style={[styles.pdfErrorBtn, { backgroundColor: colors.primary }]}
               onPress={() => { if (onForceReflow) { setPdfError(false); onForceReflow() } else { handleExit() } }}
               accessibilityRole="button"
               accessibilityLabel={onForceReflow ? 'Read as text' : 'Go back'}
@@ -915,23 +966,27 @@ export function ReaderShell(props: ReaderShellProps) {
 
         {exitSummary && (
           <View style={styles.exitSummaryOverlay}>
-            <View style={styles.exitSummaryCard}>
-              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={styles.exitSummaryText}>
+            {/* Follows the READER theme (barBg/barText), not the app theme — this
+                card sits over the page the user was just reading, and a white card
+                over a dark chapter is a flashbang. The "Later" button used to be
+                white-on-white here: rgba(255,255,255,0.15) fill under #fff text. */}
+            <View style={[styles.exitSummaryCard, { backgroundColor: barBg }]}>
+              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+              <Text style={[styles.exitSummaryText, { color: barText }]}>
                 {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
               </Text>
               <View style={styles.exitSummaryButtons}>
                 <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: '#C4704B' }]}
+                  style={[styles.exitSummaryBtn, { backgroundColor: colors.primary }]}
                   onPress={handleExitReview}
                 >
-                  <Text style={styles.exitSummaryBtnText}>Review Now</Text>
+                  <Text style={[styles.exitSummaryBtnText, { color: '#fff' }]}>Review Now</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+                  style={[styles.exitSummaryBtn, { backgroundColor: barText + '15' }]}
                   onPress={handleExitLater}
                 >
-                  <Text style={styles.exitSummaryBtnText}>Later</Text>
+                  <Text style={[styles.exitSummaryBtnText, { color: barText }]}>Later</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -965,6 +1020,7 @@ const styles = StyleSheet.create({
   footerChapter: { fontSize: 13, fontFamily: fonts.sansMedium, fontWeight: '500' as const, textAlign: 'center' },
   footerMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
   footerCounter: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
+  footerTimeLeft: { fontFamily: fonts.sans, fontSize: 11, marginTop: 2 },
   footerPercent: { fontSize: 11, fontFamily: fonts.sans, fontVariant: ['tabular-nums'] },
   progressBar: { height: 4, borderRadius: 0 },
   progressFill: { height: 4, borderRadius: 0 },
@@ -988,7 +1044,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   exitSummaryCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     paddingHorizontal: 32,
     paddingVertical: 24,
@@ -998,7 +1053,6 @@ const styles = StyleSheet.create({
   exitSummaryText: {
     fontFamily: fonts.sansMedium,
     fontSize: 18,
-    color: '#111827',
   },
   exitSummaryButtons: {
     flexDirection: 'row',
@@ -1013,6 +1067,5 @@ const styles = StyleSheet.create({
   exitSummaryBtnText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: '#fff',
   },
 })

@@ -109,7 +109,7 @@ export function HighlightsSheet({
         accessibilityLabel="Close highlights"
       >
         <Pressable style={[styles.sheet, { backgroundColor: colors.background }]} onPress={e => e.stopPropagation()}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 12 }} />
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12 }} />
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Highlights</Text>
           </View>

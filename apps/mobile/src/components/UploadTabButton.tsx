@@ -16,7 +16,7 @@ export function UploadTabButton() {
 
   const onPress = () => {
     if (!isAuthenticated) {
-      router.push('/auth/login')
+      router.push('/(auth)/login')
       return
     }
     setSheetOpen(true)
