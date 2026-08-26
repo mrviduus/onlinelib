@@ -56,6 +56,61 @@ public class UpsertProgressTests
     }
 
     /// <summary>
+    /// Editions had no completion field, so four places each answered "is this finished?" with
+    /// their own inequality — 0.95 in the shelf service, 0.95 in the web filter, 1.0 on the web
+    /// cards, 1.0 in the mobile action sheet — and "mark as read" faked it by writing a percent of
+    /// exactly 1. These lock the recorded answer.
+    /// </summary>
+    [Fact]
+    public void ApplyProgressUpdate_PercentAtLeast099_RecordsCompletion()
+    {
+        var chapter = ChapterAt(40);
+        var target = Progress(maxChapter: 39);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(chapter.Id, 0.99), chapter);
+
+        Assert.NotNull(target.CompletedAt);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_RereadingAFinishedBook_DoesNotUnfinishIt()
+    {
+        var chapter = ChapterAt(1);
+        var target = Progress(maxChapter: 40);
+        var finishedAt = DateTimeOffset.UtcNow.AddDays(-3);
+        target.CompletedAt = finishedAt;
+
+        // Opening chapter 1 again reports a low percent; that is a re-read, not an un-finish.
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(chapter.Id, 0.02), chapter);
+
+        Assert.Equal(finishedAt, target.CompletedAt);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_PercentZero_ClearsCompletion()
+    {
+        var chapter = ChapterAt(1);
+        var target = Progress(maxChapter: 40);
+        target.CompletedAt = DateTimeOffset.UtcNow.AddDays(-3);
+
+        // Percent 0 is what mark-as-unfinished sends.
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(chapter.Id, 0), chapter);
+
+        Assert.Null(target.CompletedAt);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_MidBook_LeavesCompletionUnset()
+    {
+        var chapter = ChapterAt(5);
+        var target = Progress(maxChapter: 4);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, Request(chapter.Id, 0.5), chapter);
+
+        Assert.Null(target.CompletedAt);
+    }
+
+    /// <summary>
     /// The high-water mark feeds the RAG spoiler gate, so it must never move backwards — a reader
     /// flipping back to chapter 1 must not re-expose chapter 30 as unread.
     /// </summary>

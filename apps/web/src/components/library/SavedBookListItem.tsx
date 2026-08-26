@@ -24,6 +24,9 @@ export function SavedBookListItem({
   onMarkUnfinished: () => void
 }) {
   const percent = progress?.percent ?? 0
+  // Recorded completion beats a threshold guess. `percent >= 1` was one of four
+  // different answers to "is this finished?" before editions had the field.
+  const isFinished = progress?.completedAt != null || percent >= 1
   const destination = progress?.chapterSlug
     ? `/${item.language}/books/${item.slug}/${progress.chapterSlug}`
     : `/${item.language}/books/${item.slug}`
@@ -74,7 +77,7 @@ export function SavedBookListItem({
         <BookActionMenu
           type="saved"
           book={item}
-          isFinished={percent >= 1}
+          isFinished={isFinished}
           onRemove={onRemove}
           onMarkFinished={onMarkFinished}
           onMarkUnfinished={onMarkUnfinished}

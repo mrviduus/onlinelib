@@ -55,6 +55,13 @@ function progressOf(item: LibraryItem, progressMap: Record<string, ReadingProgre
   return progressMap[item.editionId]?.percent ?? 0
 }
 
+/** The recorded completion, falling back to the threshold for rows written
+ *  before editions had a `completedAt`. Uploads already answer it this way. */
+function isFinishedItem(item: LibraryItem, progressMap: Record<string, ReadingProgressDto>): boolean {
+  const p = progressMap[item.editionId]
+  return p?.completedAt != null || (p?.percent ?? 0) >= FINISHED_THRESHOLD
+}
+
 export function filterLibraryItems(
   items: LibraryItem[],
   filter: LibraryFilterKey,
@@ -62,11 +69,11 @@ export function filterLibraryItems(
 ): LibraryItem[] {
   switch (filter) {
     case 'reading':
-      return items.filter(i => { const p = progressOf(i, progressMap); return p > 0 && p < FINISHED_THRESHOLD })
+      return items.filter(i => !isFinishedItem(i, progressMap) && progressOf(i, progressMap) > 0)
     case 'finished':
-      return items.filter(i => progressOf(i, progressMap) >= FINISHED_THRESHOLD)
+      return items.filter(i => isFinishedItem(i, progressMap))
     case 'notStarted':
-      return items.filter(i => progressOf(i, progressMap) === 0)
+      return items.filter(i => !isFinishedItem(i, progressMap) && progressOf(i, progressMap) === 0)
     case 'failed':
       return []
     case 'all':

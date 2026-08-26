@@ -145,6 +145,10 @@ export interface ReadingProgressDto {
   locator: string
   percent: number | null
   updatedAt: string
+  /** Non-null once the book is finished. Read this instead of comparing
+   *  `percent` against a threshold — editions used to have no completion field,
+   *  so four places each picked their own (0.95, 0.95, 1.0, 1.0). */
+  completedAt?: string | null
 }
 
 // Bookmarks
