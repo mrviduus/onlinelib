@@ -224,11 +224,15 @@ export const READER_SELECTION_BRIDGE = `
       var preRange = document.createRange();
       preRange.setStart(document.body, 0);
       preRange.setEnd(range.startContainer, range.startOffset);
-      var prefix = preRange.toString().slice(-50);
+      // 30, not 50: the resolver compares 30 characters of context
+      // (ANCHOR_CONTEXT_LENGTH in @textstack/shared), so a longer prefix only
+      // made anchors created here score worse when the same book was opened
+      // on the web.
+      var prefix = preRange.toString().slice(-30);
       var sufRange = document.createRange();
       sufRange.setStart(range.endContainer, range.endOffset);
       sufRange.setEnd(document.body, document.body.childNodes.length);
-      var suffix = sufRange.toString().substring(0, 50);
+      var suffix = sufRange.toString().substring(0, 30);
       return { prefix: prefix, exact: text, suffix: suffix };
     }
 
@@ -458,16 +462,21 @@ export const READER_SELECTION_BRIDGE = `
       if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
       var range = sel.getRangeAt(0);
       var text = sel.toString().trim();
-      // Get prefix (up to 50 chars before selection)
+      // Get prefix (up to 30 chars before selection — must match
+      // ANCHOR_CONTEXT_LENGTH, which the resolver compares against)
       var preRange = document.createRange();
       preRange.setStart(document.body, 0);
       preRange.setEnd(range.startContainer, range.startOffset);
-      var prefix = preRange.toString().slice(-50);
-      // Get suffix (up to 50 chars after selection)
+      // 30, not 50: the resolver compares 30 characters of context
+      // (ANCHOR_CONTEXT_LENGTH in @textstack/shared), so a longer prefix only
+      // made anchors created here score worse when the same book was opened
+      // on the web.
+      var prefix = preRange.toString().slice(-30);
+      // Get suffix (up to 30 chars after selection)
       var sufRange = document.createRange();
       sufRange.setStart(range.endContainer, range.endOffset);
       sufRange.setEnd(document.body, document.body.childNodes.length);
-      var suffix = sufRange.toString().substring(0, 50);
+      var suffix = sufRange.toString().substring(0, 30);
       return { prefix: prefix, exact: text, suffix: suffix };
     }
 
