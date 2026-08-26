@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress, parsePdfPageLocator, chapterSlugForPage } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -23,7 +23,7 @@ export default function UserBookDetailScreen() {
   const { t } = useLanguage()
   const [book, setBook] = useState<UserBookDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null } | null>(null)
+  const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null; locator: string | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
@@ -50,7 +50,7 @@ export default function UserBookDetailScreen() {
         ])
         if (unmountedRef.current) return
         setBook(b)
-        if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent })
+        if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent, locator: p.locator ?? null })
       } catch (e) {
         console.error('Failed to load user book:', e)
       } finally {
@@ -142,9 +142,15 @@ export default function UserBookDetailScreen() {
   const isFailed = book?.status.toLowerCase() === 'failed'
   const isProcessing = book && !isReady && !isFailed
 
+  // A PDF read in Original layout is chapterless: its position is a `page:<N>`
+  // locator with chapterSlug null. Looking only at the slug meant every
+  // half-read PDF reported "never opened" — the button said "Start Reading" and
+  // routed to chapter one. Fall back to the chapter that contains the saved
+  // page, which also gives the reader route enough to resume at that page.
+  const resumePage = parsePdfPageLocator(savedProgress?.locator)
   const continueSlug = savedProgress?.chapterSlug && book?.chapters?.find(c => c.slug === savedProgress.chapterSlug)
     ? savedProgress.chapterSlug
-    : null
+    : chapterSlugForPage(book?.chapters ?? [], resumePage)
 
   const handleDelete = () => {
     if (!id) return

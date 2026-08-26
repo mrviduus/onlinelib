@@ -96,15 +96,33 @@ describe('rankContinueReading', () => {
   })
 
   it('excludes finished books from the whole list, not just the head', () => {
+    // Book-wide 100% comes from the local cache, which is unambiguous. A bare
+    // server 1.0 is a chapter fraction on mobile and stays in the list — see
+    // continueReading.test.ts for that case.
+    const finished = new Map([
+      ['ed-1', { chapterSlug: 'last', percent: 1, bookPercent: 1, updatedAt: Date.parse('2026-06-01T00:00:00Z') }],
+    ])
     const ranked = rankContinueReading(inputs({
       library: [lib({ editionId: 'ed-1' }), lib({ editionId: 'ed-2', slug: 'moby-dick' })],
       serverProgress: [
-        srvProg({ editionId: 'ed-1', percent: 1, updatedAt: '2026-06-01T00:00:00Z' }),
+        srvProg({ editionId: 'ed-1', percent: 0.9, updatedAt: '2026-05-30T00:00:00Z' }),
         srvProg({ editionId: 'ed-2', percent: 0.4, updatedAt: '2026-05-01T00:00:00Z' }),
       ],
+      localCatalogMap: finished,
     }))
     expect(ranked).toHaveLength(1)
     expect(ranked[0]).toMatchObject({ type: 'edition', slug: 'moby-dick' })
+  })
+
+  it('keeps the book you are reading when a chapter percent reaches 1.0', () => {
+    // The regression this rule exists for: finishing any chapter used to remove
+    // the book from both the resume hero and the rail.
+    const ranked = rankContinueReading(inputs({
+      library: [lib()],
+      serverProgress: [srvProg({ percent: 1 })],
+    }))
+    expect(ranked).toHaveLength(1)
+    expect(ranked[0].percent).toBeLessThanOrEqual(1)
   })
 
   it('excludes user books that are not ready', () => {

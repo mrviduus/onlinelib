@@ -130,11 +130,21 @@ function pickCatalog(
   let percent: number | null = null
   let chapterSlug: string | null = null
   let updatedAtMs = 0
+  // Whether `percent` is known to span the whole book. `ReadingProgress.Percent`
+  // is written as a CHAPTER fraction by mobile and a BOOK fraction by web, so a
+  // value straight off the server is ambiguous. Only a locally cached
+  // `bookPercent` is unambiguous.
+  let isBookWide = false
 
   if (localMs > serverMs && local) {
     // Local is newer — user just read offline. Prefer bookPercent if
     // reader wrote it; fall back to chapter percent for legacy entries.
-    percent = typeof local.bookPercent === 'number' ? local.bookPercent : local.percent
+    if (typeof local.bookPercent === 'number') {
+      percent = local.bookPercent
+      isBookWide = true
+    } else {
+      percent = local.percent
+    }
     chapterSlug = local.chapterSlug
     updatedAtMs = localMs
   } else if (server && server.percent != null) {
@@ -146,6 +156,7 @@ function pickCatalog(
     // same chapter that we'd rather show.
     if (local && local.chapterSlug === server.chapterSlug && typeof local.bookPercent === 'number') {
       percent = local.bookPercent
+      isBookWide = true
     }
   }
 
@@ -154,13 +165,22 @@ function pickCatalog(
   // `updatedAtMs === 0` which silently let through Date.parse('garbage')
   // → NaN, producing picks with NaN timestamps that broke "best of two"
   // comparisons downstream.
-  if (percent == null || percent >= 1 || !Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return null
+  if (percent == null || !Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return null
+  // Drop a finished book — but only when the percent is genuinely book-wide.
+  // A server-supplied percent hits exactly 1.0 at the bottom of ANY chapter
+  // when it was written by mobile, which made the book you are actively
+  // reading vanish from Continue Reading every time you finished a chapter.
+  // A finished book lingering in the list is a far smaller error than the
+  // current book disappearing at the exact moment you want to resume it.
+  if (isBookWide && percent >= 1) return null
   return {
     type: 'edition',
     slug: item.slug,
     title: item.title,
     coverPath: item.coverPath,
-    percent,
+    // Clamped for display: an ambiguous 1.0 must not render as "100% complete"
+    // on a book the reader is a fifth of the way through.
+    percent: Math.max(0, Math.min(1, percent)),
     chapterSlug,
     updatedAtMs,
   }

@@ -3,7 +3,7 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolveOpenPage } from '@textstack/shared'
+import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolvePdfResumePage, chapterEndPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
@@ -349,19 +349,37 @@ export function ReaderShell(props: ReaderShellProps) {
     injectJs(`window.scrollToPage && window.scrollToPage(${Math.max(1, Math.floor(page))})`)
   }, [injectJs])
 
-  // Initial page resolution for the Original PDF. The chapter start page (if the
-  // user opened a specific chapter) is applied by the viewer bootstrap
-  // (`initialPage`), so here we only handle the SERVER resume page — and only
-  // once the doc is ready AND the resume fetch has resolved. Chapter page always
-  // wins (precedence: chapter sourceStartPage > server page > page 1).
+  // Initial page resolution for the Original PDF.
+  //
+  // The chapter start page is applied by the viewer bootstrap (`initialPage`),
+  // so this handles the SERVER resume page — once the doc is ready AND the
+  // resume fetch has resolved.
+  //
+  // "Chapter always wins" used to be the rule, and it made resuming a PDF
+  // impossible: the detail screen had no chapter slug to route by (a PDF's
+  // position is a page locator), so it always opened chapter one, whose start
+  // page is 1, which then discarded the saved page. The rule is now narrower —
+  // a saved page INSIDE the chapter being opened wins. That separates the two
+  // ways a reader arrives without needing a flag: picking chapter 7 from the
+  // table of contents opens chapter 7, while Continue routes to the chapter
+  // holding the saved page and lands on the page itself.
   const maybeInitialPdfJump = useCallback(() => {
     if (!original || !pdfReadyRef.current || pdfInitialJumpDoneRef.current) return
-    if (originalInitialPage != null) { pdfInitialJumpDoneRef.current = true; return }
-    if (!originalResumeReady) return
+    if (!originalResumeReady && originalInitialPage == null) return
+    if (originalInitialPage != null && !originalResumeReady) {
+      // Chapter jump is instant; nothing to wait for.
+      pdfInitialJumpDoneRef.current = true
+      return
+    }
     pdfInitialJumpDoneRef.current = true
-    const target = resolveOpenPage(originalResumePage)
-    if (target > 1) scrollPdfToPage(target)
-  }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage])
+    const idx = chapters.findIndex(c => c.slug === chapterSlug)
+    const target = resolvePdfResumePage({
+      chapterStartPage: originalInitialPage,
+      chapterEndPage: idx >= 0 ? chapterEndPage(chapters, idx) : null,
+      resumePage: originalResumePage,
+    })
+    if (target > 1 && target !== originalInitialPage) scrollPdfToPage(target)
+  }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage, chapters, chapterSlug])
 
   // Run the deferred initial jump once the async server resume page arrives
   // after the viewer was already ready.

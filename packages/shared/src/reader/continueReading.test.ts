@@ -63,10 +63,26 @@ describe('pickContinueReadingBook — empty / no-data inputs', () => {
     })).toBeNull()
   })
 
-  it('excludes finished catalog books (percent >= 1)', () => {
-    expect(pickContinueReadingBook({
+  it('excludes a catalog book only when the 100% is known to be book-wide', () => {
+    // `ReadingProgress.Percent` is written as a CHAPTER fraction by mobile and
+    // a BOOK fraction by web, so a bare 1.0 off the server is ambiguous — and
+    // a chapter fraction hits exactly 1.0 at the bottom of EVERY chapter. The
+    // old rule dropped the book there, so finishing chapter 5 of 40 made the
+    // book you are actively reading vanish from Continue Reading.
+    const serverOnly = pickContinueReadingBook({
       library: [lib()], serverProgress: [srvProg({ percent: 1 })], userBooks: [],
       localCatalogMap: emptyLocal, localUserBookMap: emptyUb,
+    })
+    expect(serverOnly).not.toBeNull()
+    expect(serverOnly?.slug).toBe('dracula')
+
+    // A locally cached bookPercent IS unambiguous — that one is finished.
+    const localBookWide = new Map<string, LocalProgressLite>([
+      ['ed-1', { chapterSlug: 'chapter-1', percent: 1, bookPercent: 1, updatedAt: Date.parse('2026-05-02T10:00:00Z') }],
+    ])
+    expect(pickContinueReadingBook({
+      library: [lib()], serverProgress: [srvProg({ percent: 0.3 })], userBooks: [],
+      localCatalogMap: localBookWide, localUserBookMap: emptyUb,
     })).toBeNull()
   })
 
