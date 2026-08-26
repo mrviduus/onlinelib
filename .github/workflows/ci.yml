@@ -136,6 +136,14 @@ jobs:
         working-directory: apps/mobile
         run: npm test
 
+      # tsc and unit tests both passed while the app could not be bundled at
+      # all — a broken import or a bad module resolution only surfaces when
+      # Metro walks the graph. This is the cheapest step that would have
+      # caught it, and it is the same command that produces an OTA payload.
+      - name: Bundle (Metro)
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir /tmp/ci-bundle
+
   docker:
     runs-on: ubuntu-latest
     steps:

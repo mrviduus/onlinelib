@@ -20,6 +20,7 @@ import { EmptyState } from '../../src/components/ui/EmptyState'
 import { FirstBookState } from '../../src/components/library/FirstBookState'
 import { LibraryViewSheet, type LibrarySource } from '../../src/components/library/LibraryViewSheet'
 import { LibrarySearch } from '../../src/components/library/LibrarySearch'
+import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
 import { LibraryStatusTabs } from '../../src/components/library/LibraryStatusTabs'
 import { useLibrarySort } from '../../src/hooks/useLibrarySort'
 import { useLibraryStatus } from '../../src/hooks/useLibraryStatus'
@@ -219,6 +220,9 @@ export default function LibraryScreen() {
   const listHeader = (
     <>
       {resumeList.length > 0 && <ResumeHero pick={resumeList[0]} />}
+      {/* Silent until the store is nearly full, so it appears exactly when it
+          changes what the reader would do next. The full figure is on Profile. */}
+      <StorageQuotaRow variant="warning" refreshKey={userBooks.length} />
       <LibrarySearch value={query} onChange={setQuery} onClear={clearQuery} />
       <View style={styles.controlRow}>
         <View style={{ flex: 1 }}>

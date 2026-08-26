@@ -345,6 +345,10 @@
       "grid": "Grid",
       "list": "List",
       "done": "Done"
+    },
+    "storage": {
+      "label": "Upload space",
+      "nearlyFull": "Almost full — delete a book to free up space"
     }
   },
   "addMenu": {

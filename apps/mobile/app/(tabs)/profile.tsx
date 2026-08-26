@@ -16,6 +16,7 @@ import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLan
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
+import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
 import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
 import { deleteAccount } from '../../src/lib/api'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
@@ -241,6 +242,10 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.menu}>
+        {/* Upload space lives here rather than mid-list on Library, where it
+            was an unlabelled bar between the upload button and the search box. */}
+        <StorageQuotaRow />
+
         {MENU_ITEMS.map(item => (
           <TouchableOpacity
             key={item.route}
