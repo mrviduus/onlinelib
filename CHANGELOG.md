@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Mobile** — Library is a reader-first front door; two dead routes fixed — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-25-mobile-library-is-a-reader-first-front-door-resume-then-e)
 - **AI** — 24 LLM traces a day were silently dropped: Postgres cannot store a NUL — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-21-ai-24-llm-traces-a-day-were-silently-dropped-postgres-c)
 - **Backend** — Npgsql was declared 9.0.3 and running 10.0.2 — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-21-backend-npgsql-was-declared-903-and-running-1002)
 - **Security** — two packages with high-severity advisories, one of them unused — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-20-security-two-packages-with-high-severity-advisories-one)
