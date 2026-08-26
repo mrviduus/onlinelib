@@ -102,7 +102,7 @@ export default function ResetPasswordScreen() {
                 autoComplete="password-new"
                 accessibilityLabel="New password"
               />
-              {error ? <Text style={[styles.error, { color: colors.error || '#DC2626', fontFamily: fonts.sans }]}>{error}</Text> : null}
+              {error ? <Text style={[styles.error, { color: colors.error, fontFamily: fonts.sans }]}>{error}</Text> : null}
               <TouchableOpacity
                 style={[styles.btn, { backgroundColor: colors.primary, opacity: loading ? 0.6 : 1 }]}
                 onPress={handleSubmit}

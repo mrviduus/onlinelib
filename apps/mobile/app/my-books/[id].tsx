@@ -359,9 +359,11 @@ export default function UserBookDetailScreen() {
 
         {/* Error message */}
         {isFailed && book.errorMessage && (
-          <View style={[styles.errorBox, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
-            <Ionicons name="alert-circle" size={18} color="#DC2626" />
-            <Text style={{ flex: 1, fontSize: 13, color: '#991B1B', fontFamily: fonts.sans }}>{book.errorMessage}</Text>
+          // Tinted from the semantic token rather than a fixed light-mode swatch —
+          // the old #FEF2F2 / #991B1B pair was near-invisible in dark mode.
+          <View style={[styles.errorBox, { backgroundColor: colors.error + '18', borderColor: colors.error + '40' }]}>
+            <Ionicons name="alert-circle" size={18} color={colors.error} />
+            <Text style={{ flex: 1, fontSize: 13, color: colors.error, fontFamily: fonts.sans }}>{book.errorMessage}</Text>
           </View>
         )}
 
@@ -396,14 +398,14 @@ export default function UserBookDetailScreen() {
         {isFailed && (
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.retryBtn, { backgroundColor: '#FEF3C7' }]}
+              style={[styles.retryBtn, { backgroundColor: colors.warning + '22' }]}
               onPress={async () => {
                 await userBooksApi.retryUserBook(id!).catch(() => {})
                 setBook({ ...book, status: 'Processing' })
               }}
             >
-              <Ionicons name="refresh" size={16} color="#92400E" />
-              <Text style={styles.retryBtnText}>Retry Processing</Text>
+              <Ionicons name="refresh" size={16} color={colors.warning} />
+              <Text style={[styles.retryBtnText, { color: colors.warning }]}>Retry Processing</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -497,12 +499,12 @@ export default function UserBookDetailScreen() {
         {/* Delete */}
         <View style={styles.dangerSection}>
           <TouchableOpacity
-            style={[styles.deleteBtn, { borderColor: '#FECACA' }]}
+            style={[styles.deleteBtn, { borderColor: colors.error + '40' }]}
             onPress={handleDelete}
             disabled={deleting}
           >
-            <Ionicons name="trash-outline" size={16} color="#DC2626" />
-            <Text style={{ fontSize: 14, color: '#DC2626', fontFamily: fonts.sansMedium }}>
+            <Ionicons name="trash-outline" size={16} color={colors.error} />
+            <Text style={{ fontSize: 14, color: colors.error, fontFamily: fonts.sansMedium }}>
               {deleting ? 'Deleting...' : 'Delete Book'}
             </Text>
           </TouchableOpacity>
@@ -526,7 +528,7 @@ function Chip({ icon, text, colors }: { icon: string; text: string; colors: any 
 function StatusText({ status, colors }: { status: string; colors: any }) {
   const s = status.toLowerCase()
   if (s === 'ready') return null
-  if (s === 'failed') return <Text style={[styles.statusFail, { color: '#DC2626' }]}>Failed</Text>
+  if (s === 'failed') return <Text style={[styles.statusFail, { color: colors.error }]}>Failed</Text>
   return <Text style={[styles.statusPending, { color: colors.primary }]}>Processing...</Text>
 }
 
@@ -567,7 +569,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  retryBtnText: { fontSize: 14, color: '#92400E', fontFamily: fonts.sansMedium },
+  retryBtnText: { fontSize: 14, fontFamily: fonts.sansMedium },
   secondaryActions: { paddingHorizontal: 16, marginTop: 12, gap: 8 },
   secondaryBtn: {
     paddingVertical: 10,

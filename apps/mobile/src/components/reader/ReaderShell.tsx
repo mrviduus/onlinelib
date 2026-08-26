@@ -903,7 +903,7 @@ export function ReaderShell(props: ReaderShellProps) {
                 : 'The original file could not be displayed, and there is no text version to fall back to.'}
             </Text>
             <TouchableOpacity
-              style={[styles.pdfErrorBtn, { backgroundColor: '#C4704B' }]}
+              style={[styles.pdfErrorBtn, { backgroundColor: colors.primary }]}
               onPress={() => { if (onForceReflow) { setPdfError(false); onForceReflow() } else { handleExit() } }}
               accessibilityRole="button"
               accessibilityLabel={onForceReflow ? 'Read as text' : 'Go back'}
@@ -915,23 +915,27 @@ export function ReaderShell(props: ReaderShellProps) {
 
         {exitSummary && (
           <View style={styles.exitSummaryOverlay}>
-            <View style={styles.exitSummaryCard}>
-              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={styles.exitSummaryText}>
+            {/* Follows the READER theme (barBg/barText), not the app theme — this
+                card sits over the page the user was just reading, and a white card
+                over a dark chapter is a flashbang. The "Later" button used to be
+                white-on-white here: rgba(255,255,255,0.15) fill under #fff text. */}
+            <View style={[styles.exitSummaryCard, { backgroundColor: barBg }]}>
+              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+              <Text style={[styles.exitSummaryText, { color: barText }]}>
                 {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
               </Text>
               <View style={styles.exitSummaryButtons}>
                 <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: '#C4704B' }]}
+                  style={[styles.exitSummaryBtn, { backgroundColor: colors.primary }]}
                   onPress={handleExitReview}
                 >
-                  <Text style={styles.exitSummaryBtnText}>Review Now</Text>
+                  <Text style={[styles.exitSummaryBtnText, { color: '#fff' }]}>Review Now</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.exitSummaryBtn, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+                  style={[styles.exitSummaryBtn, { backgroundColor: barText + '15' }]}
                   onPress={handleExitLater}
                 >
-                  <Text style={styles.exitSummaryBtnText}>Later</Text>
+                  <Text style={[styles.exitSummaryBtnText, { color: barText }]}>Later</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -988,7 +992,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   exitSummaryCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     paddingHorizontal: 32,
     paddingVertical: 24,
@@ -998,7 +1001,6 @@ const styles = StyleSheet.create({
   exitSummaryText: {
     fontFamily: fonts.sansMedium,
     fontSize: 18,
-    color: '#111827',
   },
   exitSummaryButtons: {
     flexDirection: 'row',
@@ -1013,6 +1015,5 @@ const styles = StyleSheet.create({
   exitSummaryBtnText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: '#fff',
   },
 })

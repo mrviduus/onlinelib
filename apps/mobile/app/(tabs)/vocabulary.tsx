@@ -667,9 +667,14 @@ function WordRow({
             {word.totalReviews > 0 && ` · ${word.totalReviews} reviews (${word.correctReviews > 0 ? Math.round(word.correctReviews / word.totalReviews * 100) : 0}%)`}
             {word.nextReviewAt && ` · Due: ${new Date(word.nextReviewAt).toLocaleDateString()}`}
           </Text>
-          <TouchableOpacity style={[styles.deleteBtn, confirmingDelete && { backgroundColor: '#DC2626' }]} onPress={handleDeletePress}>
-            <Ionicons name="trash-outline" size={14} color={confirmingDelete ? '#fff' : '#DC2626'} style={{ marginRight: 4 }} />
-            <Text style={[styles.deleteBtnText, { fontFamily: fonts.sansMedium }, confirmingDelete && { color: '#fff' }]}>
+          <TouchableOpacity
+            // Tinted from colors.error so the row survives dark mode; the confirm
+            // state fills solid, which is why its label flips to white.
+            style={[styles.deleteBtn, { backgroundColor: colors.error + '22' }, confirmingDelete && { backgroundColor: colors.error }]}
+            onPress={handleDeletePress}
+          >
+            <Ionicons name="trash-outline" size={14} color={confirmingDelete ? '#fff' : colors.error} style={{ marginRight: 4 }} />
+            <Text style={[styles.deleteBtnText, { fontFamily: fonts.sansMedium, color: colors.error }, confirmingDelete && { color: '#fff' }]}>
               {confirmingDelete ? 'Confirm Delete' : 'Delete Word'}
             </Text>
           </TouchableOpacity>
@@ -797,9 +802,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#FEE2E2',
     flexDirection: 'row',
     alignItems: 'center',
   },
-  deleteBtnText: { fontSize: 12, color: '#DC2626' },
+  deleteBtnText: { fontSize: 12 },
 })

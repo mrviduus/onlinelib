@@ -453,7 +453,7 @@ export function AskSheet({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          <View style={styles.pill} />
+          <View style={[styles.pill, { backgroundColor: colors.border }]} />
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
               {t('reader.ask.title')}
@@ -634,7 +634,7 @@ export function AskSheet({
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24, maxHeight: '85%' },
-  pill: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 },
+  pill: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,

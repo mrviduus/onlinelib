@@ -1,8 +1,40 @@
 import { Component } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native'
 import type { ReactNode, ErrorInfo } from 'react'
-import { colors } from '../theme/colors'
+import { colors, darkColors } from '../theme/colors'
 import { Sentry } from '../lib/sentry'
+
+/**
+ * The fallback is its own function component so it can read a colour scheme at all —
+ * `ErrorBoundary` must be a class (that is the only way to catch render errors), and
+ * it is mounted ABOVE `ThemeProvider` in `app/_layout.tsx`, so `useTheme()` is out of
+ * reach here by construction. It used to import the light palette statically, which
+ * made the crash screen a white flash for every dark-mode user.
+ *
+ * `useColorScheme()` is the OS preference, not the user's in-app override. That is the
+ * honest approximation available above the provider: a user who forced light while the
+ * OS is dark sees a dark crash screen. Readable either way, which is the bar here.
+ */
+function ErrorFallback({ message, onReset }: { message: string; onReset: () => void }) {
+  const scheme = useColorScheme()
+  const c = scheme === 'dark' ? darkColors : colors
+  return (
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <Text style={[styles.title, { color: c.text }]}>Something went wrong</Text>
+      <Text style={[styles.message, { color: c.textSecondary }]} numberOfLines={4}>
+        {message}
+      </Text>
+      <TouchableOpacity
+        style={[styles.btn, { backgroundColor: c.primary }]}
+        onPress={onReset}
+        accessibilityRole="button"
+        accessibilityLabel="Try again"
+      >
+        <Text style={styles.btnText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
 
 interface Props {
   children: ReactNode
@@ -38,15 +70,10 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message} numberOfLines={4}>
-            {this.state.error?.message || 'Unknown error'}
-          </Text>
-          <TouchableOpacity style={styles.btn} onPress={this.handleReset}>
-            <Text style={styles.btnText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorFallback
+          message={this.state.error?.message || 'Unknown error'}
+          onReset={this.handleReset}
+        />
       )
     }
 
@@ -59,13 +86,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
     padding: 24,
   },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 12 },
-  message: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
+  message: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
   btn: {
-    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 8,

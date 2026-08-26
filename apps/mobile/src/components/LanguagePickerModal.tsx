@@ -61,7 +61,7 @@ export function LanguagePickerModal({ visible, onClose, value, onChange }: Props
           style={[styles.sheet, { backgroundColor: colors.background }]}
           onPress={(e) => e.stopPropagation()}
         >
-          <View style={styles.grabber} />
+          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           <View style={styles.header}>
             <Text
               style={[styles.title, { color: colors.text }]}
@@ -184,7 +184,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D1D5DB',
     alignSelf: 'center',
     marginBottom: 12,
   },

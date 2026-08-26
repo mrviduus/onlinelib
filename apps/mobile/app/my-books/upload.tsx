@@ -283,5 +283,5 @@ const styles = StyleSheet.create({
     borderColor: colors.textSecondary + '66',
   },
   cancelBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  error: { color: '#DC2626', fontSize: 14, marginTop: 16, textAlign: 'center' },
+  error: { color: colors.error, fontSize: 14, marginTop: 16, textAlign: 'center' },
 })
