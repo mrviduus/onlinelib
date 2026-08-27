@@ -793,6 +793,9 @@
       "saveFailed": "Could not save settings. Try again.",
       "dailyCapRange": "Daily new words must be 5–100.",
       "weeklyBudgetRange": "Weekly budget must be 10–500."
+    },
+    "offline": {
+      "body": "Your saved words will be here as soon as you reconnect."
     }
   }
 }
