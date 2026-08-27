@@ -3,6 +3,7 @@ using Api.Sites;
 using Application.Agents;
 using Application.Auth;
 using Application.Common.Interfaces;
+using Application.Vocabulary;
 using Contracts.Agents;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -86,10 +87,12 @@ public static class TutorEndpoints
         TutorAgent agent,
         IAppDbContext db,
         IAgentRunWriter writer,
+        VocabularyReviewRecorder recorder,
         CancellationToken ct)
     {
         var userId = httpContext.GetUserId(authService);
         if (userId is null) return Results.Unauthorized();
+        var feedbackSiteId = httpContext.GetSiteId();
 
         var session = await db.TutorSessions
             .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId.Value, ct);
@@ -105,6 +108,13 @@ public static class TutorEndpoints
             .Where(r => priorPlanIds.Contains(r.WordId))
             .Select(r => new TutorFeedbackItem(r.WordId, r.Correct, Math.Max(0, r.ResponseTimeMs)))
             .ToList();
+
+        // These answers are the learner's real work, so they move spaced repetition — the same write
+        // ordinary review performs, through the same recorder. Before this, Smart session read the
+        // answers to plan the next turn and threw them away: the summary said "Accuracy 100%" while the
+        // card's stage, interval and next-review date had not moved. It happens before the turn cap
+        // returns, because the answers on the final turn count exactly as much as the earlier ones.
+        await ApplyAnswersToSrsAsync(db, recorder, session, feedback, userId.Value, feedbackSiteId, ct);
 
         // Turn cap: once the session has run MaxTurns re-plans, complete it instead of planning again so a
         // persistently-wrong card can't loop forever. Returns an empty plan (the client's "session complete"
@@ -260,6 +270,57 @@ public static class TutorEndpoints
         var justPassed = feedback.Where(f => f.Correct).Select(f => f.WordId).ToHashSet();
         if (justPassed.Count == 0) return plan;
         return plan with { Items = plan.Items.Where(i => !justPassed.Contains(i.WordId)).ToList() };
+    }
+
+    /// <summary>
+    /// Write each not-yet-applied answer to spaced repetition and remember which words were applied.
+    ///
+    /// The remembering is not optional. Both clients accumulate their results in a ref that is never
+    /// cleared (<c>useTutorSession</c>), so a five-card session that re-plans once sends turn one's
+    /// answers again with turn two's — without this set, a single "Knew" would advance the card twice
+    /// and skip it a day further ahead than the learner earned. The set lives on the session row rather
+    /// than in the request because it is a fact about what the server already did.
+    /// </summary>
+    private static async Task ApplyAnswersToSrsAsync(
+        IAppDbContext db,
+        VocabularyReviewRecorder recorder,
+        TutorSession session,
+        IReadOnlyList<TutorFeedbackItem> feedback,
+        Guid userId,
+        Guid siteId,
+        CancellationToken ct)
+    {
+        if (feedback.Count == 0) return;
+
+        var applied = AppliedWordIds(session.AppliedWordIdsJson);
+        var wrote = false;
+
+        foreach (var item in feedback)
+        {
+            if (!applied.Add(item.WordId)) continue;
+            // A missing word (deleted mid-session) returns null and is simply skipped; it stays in the
+            // applied set so a retry does not keep looking for it.
+            await recorder.RecordAsync(userId, siteId, item.WordId, item.Correct, item.ResponseTimeMs, isPractice: false, ct);
+            wrote = true;
+        }
+
+        if (!wrote) return;
+        session.AppliedWordIdsJson = System.Text.Json.JsonSerializer.Serialize(applied);
+        // The caller saves; the recorder has already saved each word and its review row.
+    }
+
+    /// <summary>Parse <see cref="TutorSession.AppliedWordIdsJson"/>; anything unreadable means "none applied yet".</summary>
+    internal static HashSet<Guid> AppliedWordIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<HashSet<Guid>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     /// <summary>
