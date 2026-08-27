@@ -282,7 +282,8 @@ export default function VocabularyScreen() {
 
       {/* Filter tabs + the one entry to everything else */}
       <View style={styles.tabsRow}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+        <View style={{ flex: 1 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {TABS.map(t => (
           <TouchableOpacity
             key={t.key}
@@ -294,7 +295,8 @@ export default function VocabularyScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+          </ScrollView>
+        </View>
         <TouchableOpacity
           onPress={() => setViewSheetOpen(true)}
           hitSlop={10}
@@ -646,13 +648,20 @@ const styles = StyleSheet.create({
   viewBtn: { paddingHorizontal: 12, paddingVertical: 10 },
   tabs: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 8,
     marginTop: 12,
     gap: 6,
   },
+  // `flex: 1` used to be here, and it was correct while this row was a plain
+  // flex container filling the screen. It became a horizontal ScrollView's
+  // content container in #464, where the width is unbounded — so the chips
+  // fought over a width that does not exist and the first one, "All", ended up
+  // clipped by the left edge. Chips in a scrolling row size to their content.
   tab: {
-    flex: 1,
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 6,
     alignItems: 'center',
     borderWidth: 1,
