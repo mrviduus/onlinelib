@@ -3,11 +3,12 @@ import { View, Text, SectionList, StyleSheet, TouchableOpacity, TextInput, Activ
 import { useRouter, Stack } from 'expo-router'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
-import { highlightsApi, getStorageUrl } from '@textstack/shared'
+import { highlightsApi, getStorageUrl, isOfflineError } from '@textstack/shared'
 import type { HighlightListItem } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 
 const PAGE_SIZE = 50
@@ -48,6 +49,9 @@ export default function HighlightsScreen() {
   const [highlights, setHighlights] = useState<HighlightListItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest')
   const [colorFilter, setColorFilter] = useState('')
   const [bookType, setBookType] = useState<BookType>('all')
@@ -87,15 +91,23 @@ export default function HighlightsScreen() {
         setHighlights(prev => [...prev, ...res.items])
       }
       setTotal(res.totalCount)
+      if (gen === genRef.current) setLoadError(null)
     } catch (e) {
-      if (gen === genRef.current) console.warn('Failed to load highlights:', e)
+      if (gen === genRef.current) {
+        console.warn('Failed to load highlights:', e)
+        // Was console-only, so a failed load rendered "Your highlights will
+        // appear here" — the new-reader screen, to someone whose highlights just
+        // did not arrive.
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      }
     } finally {
       if (offset > 0) loadingMoreRef.current = false
       if (gen === genRef.current) setLoading(false)
     }
   }, [sort, colorFilter, searchDebounced, bookType])
 
-  useEffect(() => { setLoading(true); fetchHighlights() }, [fetchHighlights])
+  // reconnects + attempt: recover when the network returns, and when asked.
+  useEffect(() => { setLoading(true); fetchHighlights() }, [fetchHighlights, reconnects, attempt])
 
   // Group by book
   const sections = useMemo<BookSection[]>(() => {
@@ -272,6 +284,14 @@ export default function HighlightsScreen() {
 
         {loading ? (
           <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
+        ) : highlights.length === 0 && loadError ? (
+          <EmptyState
+            icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+            subtitle={loadError === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
+            buttonLabel={t('common.retry')}
+            onButtonPress={() => { setLoading(true); setAttempt(a => a + 1) }}
+          />
         ) : highlights.length === 0 ? (
           <EmptyState icon="color-wand-outline" title={t('highlights.empty')} subtitle={t('highlights.emptySubtitle')} />
         ) : (

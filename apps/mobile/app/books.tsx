@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, isOfflineError } from '@textstack/shared'
 import type { Edition, Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
 import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
+import { useReconnectCount } from '../src/hooks/useOnline'
 import { BookCard } from '../src/components/ui/BookCard'
 import { FilterChips } from '../src/components/ui/FilterChips'
 
@@ -25,6 +26,9 @@ export default function BooksScreen() {
   const [books, setBooks] = useState<Edition[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [loadingMore, setLoadingMore] = useState(false)
   const [query, setQuery] = useState('')
   const [queryDebounced, setQueryDebounced] = useState('')
@@ -70,10 +74,16 @@ export default function BooksScreen() {
         sort: sort || undefined,
       })
       if (id !== lastFetchRef.current) return
+      setLoadError(null)
       setBooks(prev => reset ? res.items : [...prev, ...res.items])
       setTotal(res.total)
     } catch (e) {
-      if (id === lastFetchRef.current) console.warn('Failed to fetch books:', e)
+      if (id === lastFetchRef.current) {
+        console.warn('Failed to fetch books:', e)
+        // "No books found" is a statement about the catalog. A failed request is
+        // a statement about the request, and they are not the same sentence.
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      }
     } finally {
       if (id === lastFetchRef.current) {
         setLoading(false)
@@ -82,7 +92,8 @@ export default function BooksScreen() {
     }
   }, [queryDebounced, sort, genre, books.length, language])
 
-  useEffect(() => { fetchBooks(true) }, [queryDebounced, sort, genre, language])
+  // reconnects + attempt: recover when the network returns, and on request.
+  useEffect(() => { fetchBooks(true) }, [queryDebounced, sort, genre, language, reconnects, attempt])
 
   const loadMore = () => {
     if (!loadingMore && books.length < total) fetchBooks(false)
@@ -150,7 +161,21 @@ export default function BooksScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
-          !loading ? (
+          loading ? null : loadError ? (
+            // This file writes its copy inline rather than through t(); following
+            // that convention here rather than converting the screen inside a
+            // defect fix.
+            <View style={styles.emptyBox}>
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                {loadError === 'offline'
+                  ? "You're offline — the catalog needs a connection."
+                  : "Couldn't load the catalog."}
+              </Text>
+              <TouchableOpacity onPress={() => { setLoading(true); setAttempt(a => a + 1) }}>
+                <Text style={[styles.clearBtn, { color: colors.primary }]}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <View style={styles.emptyBox}>
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
                 {hasFilters ? 'No books found' : 'No books yet'}
@@ -161,7 +186,7 @@ export default function BooksScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          ) : null
+          )
         }
         ListFooterComponent={
           loadingMore ? (

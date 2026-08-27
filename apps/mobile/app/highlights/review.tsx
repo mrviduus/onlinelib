@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Stack, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { highlightsApi } from '@textstack/shared'
+import { highlightsApi, isOfflineError } from '@textstack/shared'
 import type { HighlightReviewItem } from '@textstack/shared'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 
@@ -20,6 +21,9 @@ export default function HighlightReviewScreen() {
   const [items, setItems] = useState<HighlightReviewItem[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [done, setDone] = useState(false)
   const [reviewed, setReviewed] = useState(0)
 
@@ -29,13 +33,20 @@ export default function HighlightReviewScreen() {
     // keeps state updates bound to the current mount.
     let cancelled = false
     highlightsApi.getHighlightsForReview(20)
-      .then(res => { if (!cancelled) setItems(res) })
-      .catch(e => { if (!cancelled) console.warn('Failed to load review items:', e) })
+      .then(res => { if (!cancelled) { setItems(res); setLoadError(null) } })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Failed to load review items:', e)
+        // "All caught up!" is a congratulation. Saying it to someone whose
+        // highlights failed to load is the same class of lie as telling an
+        // offline reader they own no books.
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reconnects, attempt])
 
   const current = items[index]
 
@@ -62,6 +73,29 @@ export default function HighlightReviewScreen() {
       <>
         <Stack.Screen options={{ title: 'Review Highlights', headerShown: true }} />
         <ActivityIndicator style={{ flex: 1 }} color={colors.primary} />
+      </>
+    )
+  }
+
+  if (items.length === 0 && loadError) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Review Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <Ionicons
+            name={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {loadError === 'offline'
+              ? "You're offline — your highlights will be here when you reconnect."
+              : "Couldn't load your highlights."}
+          </Text>
+          <TouchableOpacity onPress={() => { setLoading(true); setAttempt(a => a + 1) }}>
+            <Text style={[styles.emptyText, { color: colors.primary }]}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </>
     )
   }

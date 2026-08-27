@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
-import { readingTrackingApi, vocabularyApi } from '@textstack/shared'
+import { readingTrackingApi, vocabularyApi, isOfflineError } from '@textstack/shared'
 import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto, VocabularyStatsDto, VocabDailyStatDto } from '@textstack/shared'
 import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
@@ -13,6 +13,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { FilterChips } from '../../src/components/ui/FilterChips'
@@ -33,6 +34,9 @@ export default function StatsScreen() {
   const [vocabDaily, setVocabDaily] = useState<VocabDailyStatDto[]>([])
   const [year, setYear] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [refreshing, setRefreshing] = useState(false)
   // Generation counter — stats screen can refocus mid-fetch (push to
   // Goals detail → back) or change the `year` filter quickly; without
@@ -61,14 +65,23 @@ export default function StatsScreen() {
       setBookStats(bs)
       setVocabStats(vs)
       setVocabDaily(vd)
+      if (gen === genRef.current) setLoadError(null)
     } catch (e) {
-      if (gen === genRef.current) console.warn('Stats load error:', e)
+      if (gen === genRef.current) {
+        console.warn('Stats load error:', e)
+        // `stats` stays null on failure, and the empty check below requires it
+        // to be non-null — so a failed load fell through to the main body and
+        // rendered the whole screen as zeroes. Numbers are a worse lie than an
+        // empty state, because they look like an answer.
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      }
     } finally {
       if (gen === genRef.current) setLoading(false)
     }
   }, [year])
 
-  useEffect(() => { loadData() }, [loadData])
+  // reconnects + attempt: come back on the network returning, and on request.
+  useEffect(() => { loadData() }, [loadData, reconnects, attempt])
   useFocusEffect(useCallback(() => {
     // Refresh on focus, but only after first load completes so we don't
     // double-fetch on mount. `loadData` itself carries a generation
@@ -119,6 +132,23 @@ export default function StatsScreen() {
             </View>
           </View>
         </ScrollView>
+      </>
+    )
+  }
+
+  if (loadError && !stats) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <EmptyState
+            icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+            subtitle={loadError === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
+            buttonLabel={t('common.retry')}
+            onButtonPress={() => { setLoading(true); setAttempt(a => a + 1) }}
+          />
+        </View>
       </>
     )
   }
