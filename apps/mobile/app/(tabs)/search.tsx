@@ -405,24 +405,29 @@ export default function DiscoverScreen() {
 
           {/* Catalog Stats Bar */}
           {catalogStats && (
+            /* Three links that read as a caption. They are the same shade as
+               body text with no chevron and no underline, while "View all books →"
+               sits a few rows below styled correctly — the contrast is inside one
+               screen. Tinting them and adding the chevron says they go somewhere. */
             <View style={[styles.statsBar, { borderColor: colors.border }]}>
-              <TouchableOpacity onPress={() => router.push('/books')}>
-                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                  {catalogStats.books} books
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
-              <TouchableOpacity onPress={() => router.push('/authors')}>
-                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                  {catalogStats.authors} authors
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>
-              <TouchableOpacity onPress={() => router.push('/genres')}>
-                <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                  {catalogStats.genres} genres
-                </Text>
-              </TouchableOpacity>
+              {([
+                { label: `${catalogStats.books} books`, to: '/books' as const },
+                { label: `${catalogStats.authors} authors`, to: '/authors' as const },
+                { label: `${catalogStats.genres} genres`, to: '/genres' as const },
+              ]).map((item, i) => (
+                <View key={item.to} style={styles.statGroup}>
+                  {i > 0 && <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>}
+                  <TouchableOpacity
+                    onPress={() => router.push(item.to)}
+                    style={styles.statLink}
+                    accessibilityRole="link"
+                    accessibilityLabel={item.label}
+                  >
+                    <Text style={[styles.statItem, { color: colors.primary }]}>{item.label}</Text>
+                    <Ionicons name="chevron-forward" size={12} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
@@ -579,6 +584,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statItem: { fontFamily: fonts.sansMedium, fontSize: 13 },
+  statGroup: { flexDirection: 'row', alignItems: 'center' },
+  statLink: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   statDot: { fontSize: 16 },
 
   // Sections

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native'
+import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useTheme } from '../../context/ThemeContext'
@@ -16,7 +16,6 @@ interface Item {
   key: string
   icon: keyof typeof Ionicons.glyphMap
   labelKey: string
-  comingSoon?: boolean
   onPress?: () => void
 }
 
@@ -41,18 +40,21 @@ export function AddMenuBottomSheet({ visible, onClose, onUpload }: Props) {
     cb?.()
   }
 
+  // Only what works.
+  //
+  // This menu had five items and two of them were labelled COMING IN A FUTURE
+  // UPDATE, taking exactly as much room as the one that opens a file picker. QA
+  // filed that. A third was worse: "Browser extension" looked like a working
+  // item and opened the Chrome Web Store HOME PAGE, because the extension lives
+  // in extension/ at 0.1.0 and its own README says publishing it is an
+  // unfinished owner-only step. A link to a store with nothing to find is not a
+  // feature preview, it is a dead end wearing a working item's clothes.
+  //
+  // Restore each of them on the day it does something: paste-a-URL and
+  // email-a-book when the endpoints exist, the extension when the listing does.
   const items: Array<Item | { divider: true; key: string }> = [
     { key: 'upload', icon: 'cloud-upload-outline', labelKey: 'addMenu.uploadFile', onPress: onUpload },
-    { key: 'url', icon: 'link-outline', labelKey: 'addMenu.pasteUrl', comingSoon: true },
-    { key: 'email', icon: 'mail-outline', labelKey: 'addMenu.emailBook', comingSoon: true },
     { key: 'd1', divider: true },
-    {
-      key: 'extension',
-      icon: 'extension-puzzle-outline',
-      labelKey: 'addMenu.browserExtension',
-      onPress: () => Linking.openURL('https://chromewebstore.google.com').catch(() => {}),
-    },
-    { key: 'd2', divider: true },
     {
       key: 'browse',
       icon: 'book-outline',
@@ -85,39 +87,16 @@ export function AddMenuBottomSheet({ visible, onClose, onUpload }: Props) {
           if ('divider' in entry) {
             return <View key={entry.key} style={[styles.divider, { backgroundColor: colors.border }]} />
           }
-          const disabled = !!entry.comingSoon
           return (
             <TouchableOpacity
               key={entry.key}
               style={styles.item}
-              disabled={disabled}
               onPress={handle(entry.onPress)}
               activeOpacity={0.7}
               accessibilityRole="menuitem"
-              accessibilityState={{ disabled }}
             >
-              <Ionicons
-                name={entry.icon}
-                size={22}
-                color={disabled ? colors.textSecondary : colors.text}
-                style={{ opacity: disabled ? 0.55 : 1 }}
-              />
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: disabled ? colors.textSecondary : colors.text,
-                    fontStyle: disabled ? 'italic' : 'normal',
-                  },
-                ]}
-              >
-                {t(entry.labelKey)}
-              </Text>
-              {disabled && (
-                <Text style={[styles.badge, { backgroundColor: colors.surface, color: colors.textSecondary }]}>
-                  {t('addMenu.comingSoon')}
-                </Text>
-              )}
+              <Ionicons name={entry.icon} size={22} color={colors.text} />
+              <Text style={[styles.label, { color: colors.text }]}>{t(entry.labelKey)}</Text>
             </TouchableOpacity>
           )
         })}
@@ -164,14 +143,4 @@ const styles = StyleSheet.create({
   },
   label: { flex: 1, fontFamily: fonts.sansMedium, fontSize: 15 },
   divider: { height: 1, marginVertical: 4, marginHorizontal: 18 },
-  badge: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
 })
