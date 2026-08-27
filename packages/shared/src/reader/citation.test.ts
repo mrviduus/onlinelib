@@ -1,38 +1,38 @@
 import { describe, it, expect } from 'vitest'
-import { citationChapterSlug, makeSnippet } from './citation'
+import { citationLabel } from './citation'
 
 const chapters = [
-  { chapterNumber: 1, slug: 'intro' },
-  { chapterNumber: 2, slug: 'replication' },
-  { slug: 'no-number' },
+  { chapterNumber: 0, title: 'Book I' },
+  { chapterNumber: 1, title: 'Book II' },
 ]
 
-describe('citationChapterSlug', () => {
-  it('resolves the slug for a matching chapter ordinal', () => {
-    expect(citationChapterSlug(chapters, 2)).toBe('replication')
+describe('citationLabel', () => {
+  it('names the chapter rather than its stored ordinal', () => {
+    // The defect verbatim: six chips all reading "ch.0" under an answer about Book I.
+    expect(citationLabel({ marker: 6, chapterOrd: 0 }, chapters)).toBe('[6] Book I')
   })
 
-  it('returns undefined when no chapter matches', () => {
-    expect(citationChapterSlug(chapters, 99)).toBeUndefined()
-    expect(citationChapterSlug([], 1)).toBeUndefined()
-  })
-})
-
-describe('makeSnippet', () => {
-  it('returns the whole string when short enough (and collapses whitespace)', () => {
-    expect(makeSnippet('  the   quick brown  ')).toBe('the quick brown')
+  it('carries the marker so [n] in the answer can be found below it', () => {
+    expect(citationLabel({ marker: 13, chapterOrd: 1 }, chapters)).toBe('[13] Book II')
   })
 
-  it('cuts a long preview at a word boundary', () => {
-    const long = 'Replication keeps a copy of the same data on multiple machines for fault tolerance'
-    const s = makeSnippet(long)
-    expect(s.length).toBeLessThanOrEqual(40)
-    expect(s).not.toMatch(/\s$/)
-    expect(long).toContain(s)
+  it('falls back to a 1-based number when the chapter list is not to hand', () => {
+    // ch.0 is the first chapter, not a missing value — so the fallback must not print the raw ord.
+    expect(citationLabel({ marker: 1, chapterOrd: 0 })).toBe('[1] ch.1')
+    expect(citationLabel({ chapterOrd: 3 })).toBe('ch.4')
   })
 
-  it('returns empty for too-short input', () => {
-    expect(makeSnippet('short')).toBe('')
-    expect(makeSnippet('   ')).toBe('')
+  it('prefers a page for an unanchored PDF citation', () => {
+    expect(citationLabel({ marker: 2, chapterOrd: 0, sourcePage: 12 }, chapters)).toBe('[2] p.12')
+  })
+
+  it('survives a citation with neither chapter nor page', () => {
+    expect(citationLabel({ marker: 4 })).toBe('[4]')
+    expect(citationLabel({})).toBe('—')
+  })
+
+  it('ignores a blank chapter title rather than rendering an empty chip', () => {
+    expect(citationLabel({ marker: 1, chapterOrd: 0 }, [{ chapterNumber: 0, title: '  ' }]))
+      .toBe('[1] ch.1')
   })
 })

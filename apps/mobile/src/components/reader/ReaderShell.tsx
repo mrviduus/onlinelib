@@ -1067,6 +1067,7 @@ export function ReaderShell(props: ReaderShellProps) {
             visible={askOpen}
             target={askTarget}
             currentChapterId={chapter.id}
+            chapters={chapters}
             prefill={askPrefill}
             isAuthenticated={isAuthenticated}
             onCitation={handleCitation}

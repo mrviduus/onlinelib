@@ -872,6 +872,7 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
           isAuthenticated={isAuthenticated}
           onSignIn={openAuthModal}
           onNavigateToCitation={handleNavigateToCitation}
+          chapters={chapterList ?? undefined}
           onClose={() => setAskOpen(false)}
         />
       )}
