@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useFocusEffect } from 'expo-router'
-import { readingTrackingApi, vocabularyApi, isOfflineError } from '@textstack/shared'
+import { readingTrackingApi, vocabularyApi, isOfflineError, plural } from '@textstack/shared'
 import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto, VocabularyStatsDto, VocabDailyStatDto } from '@textstack/shared'
 import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
@@ -201,13 +201,18 @@ export default function StatsScreen() {
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {/* Vocab streak — always visible above tabs */}
-          {vocabStats && vocabStats.totalWords > 0 && (
-            <VocabStreakCard vocabStats={vocabStats} dailyStats={vocabDaily} />
-          )}
-
           {tab === 'overview' && (
             <>
+              {/* The vocabulary streak card. It used to render outside this branch, under a comment
+                  claiming it was "always visible above tabs" — it is inside the ScrollView and below
+                  the TabBar, so it was not above anything; it simply occupied the top of all four
+                  tabs. At ~550pt (a 120pt chart plus a 365-cell heatmap) that is more than half the
+                  viewport, and on Achievements the first achievement sat below the fold. It belongs
+                  to Overview, which is where the reader's other totals are. Web renders it once too,
+                  but genuinely above its tab bar — a layout a phone does not have room for. */}
+              {vocabStats && vocabStats.totalWords > 0 && (
+                <VocabStreakCard vocabStats={vocabStats} dailyStats={vocabDaily} />
+              )}
               {stats && <TodaySummary stats={stats} daily={daily} />}
               {stats && <OverviewSection stats={stats} />}
               {stats?.dailyGoal && <DailyGoalSection goal={stats.dailyGoal} />}
@@ -248,14 +253,18 @@ function TodaySummary({ stats, daily }: { stats: ReadingStatsDto; daily: DailySt
         <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.textSecondary }}>Today</Text>
         <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.text }}>
           {timeStr}
-          {todayWords > 0 && ` · ${formatNumber(todayWords)} words`}
+          {todayWords > 0 && ` · ${formatNumber(todayWords)} ${plural(todayWords, 'word', 'words', '{noun}')}`}
           {stats.dailyGoal && ` · ${Math.round((stats.dailyGoal.today / Math.max(stats.dailyGoal.target, 1)) * 100)}%`}
         </Text>
       </View>
       {(stats.currentStreak || 0) > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
           <Ionicons name="flame-outline" size={14} color={colors.primary} />
-          <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.primary }}>{stats.currentStreak} day streak</Text>
+          {/* Attributive, so the noun stays singular however long the streak: "12-day streak",
+              never "12-days". plural() would be the wrong tool here — the hyphen is the fix. */}
+          <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.primary }}>
+            {stats.currentStreak}-day streak
+          </Text>
         </View>
       )}
     </View>
@@ -867,7 +876,7 @@ function VocabStreakCard({ vocabStats, dailyStats }: { vocabStats: VocabularySta
           ))}
         </View>
         <Text style={[vocabStyles.heatmapSummary, { color: colors.textSecondary }]}>
-          {totalAdded} words added · {totalReviewed} words reviewed
+          {plural(totalAdded, 'word', 'words', '{n} {noun} added')} · {plural(totalReviewed, 'word', 'words', '{n} {noun} reviewed')}
         </Text>
       </View>
     </View>

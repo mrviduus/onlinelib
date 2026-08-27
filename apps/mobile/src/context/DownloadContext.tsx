@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
-import { createBooksApi } from '@textstack/shared'
+import { createBooksApi, plural } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import {
   cacheChapter,
@@ -197,7 +197,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     updateDownload(editionId, {
       status,
       errorMessage: failedSlugs.length > 0
-        ? `${failedSlugs.length} chapter${failedSlugs.length === 1 ? '' : 's'} failed. Tap Retry to finish the download.`
+        ? `${plural(failedSlugs.length, 'chapter', 'chapters')} failed. Tap Retry to finish the download.`
         : undefined,
     })
     await refreshCachedBooks()
@@ -248,7 +248,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     updateDownload(editionId, {
       status,
       errorMessage: stillFailed.length > 0
-        ? `${stillFailed.length} chapter${stillFailed.length === 1 ? '' : 's'} still failing. Check your connection and retry.`
+        ? `${plural(stillFailed.length, 'chapter', 'chapters')} still failing. Check your connection and retry.`
         : undefined,
     })
     await refreshCachedBooks()
