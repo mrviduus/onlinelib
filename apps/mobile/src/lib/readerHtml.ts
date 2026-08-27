@@ -1,5 +1,6 @@
 import { openDyslexicBase64 } from './openDyslexicBase64'
 import { pdfChromeCss, type PdfChrome } from './pdfViewerChrome'
+import { readerChromeCss, type ReaderChrome } from './readerChrome'
 import { READER_OVERLAY_SCRIPT } from './readerOverlayScript'
 import { READER_SELECTION_BRIDGE } from './readerBridge'
 import { PDF_VIEWER_SCRIPT } from './pdfViewerScript'
@@ -41,8 +42,15 @@ function buildFontFace(fontFamily: string): string {
 
 export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaultTheme, initialChapterSlug?: string, safeArea?: { top: number; bottom: number }, options?: ReaderHtmlOptions): string {
   const fontFace = buildFontFace(theme.fontFamily)
-  const padTop = (safeArea?.top ?? 0) + 16
-  const padBottom = (safeArea?.bottom ?? 0) + 16
+  // Chrome comes from the same values `readerChromeInjectionJs` later applies to
+  // the LIVE document, so hiding the bars or switching theme no longer has to
+  // rebuild this string — a rebuild reloads the WebView and throws away every
+  // chapter infinite scroll appended. See readerChrome.ts.
+  const chrome: ReaderChrome = {
+    safeArea: { top: safeArea?.top ?? 0, bottom: safeArea?.bottom ?? 0 },
+    backgroundColor: theme.backgroundColor,
+    textColor: theme.textColor,
+  }
   const overlayV2 = options?.overlayV2 === true
   // Only inline the overlayer script when flag is on — zero bytes otherwise.
   const overlayScript = overlayV2 ? READER_OVERLAY_SCRIPT : ''
@@ -60,10 +68,8 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
       font-family: ${theme.fontFamily};
       font-size: ${theme.fontSize}px;
       line-height: ${theme.lineHeight};
-      color: ${theme.textColor};
-      background: ${theme.backgroundColor};
       text-align: ${theme.textAlign};
-      padding: ${padTop}px 16px ${padBottom}px 16px;
+      ${readerChromeCss(chrome)}
       word-wrap: break-word;
       overflow-wrap: break-word;
       -webkit-text-size-adjust: none;

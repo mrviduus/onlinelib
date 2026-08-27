@@ -28,6 +28,11 @@ const controllerEntry = resolve(__dirname, 'entry.ts')
 const workerEntry = require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs')
 
 const common = {
+  // Fixed, for the same reason as the overlay bundle: esbuild writes source
+  // paths relative to CWD. The PDF bundle is minified, so those paths do not
+  // survive into the output today and the guard happened to be immune — which
+  // is luck, not a property worth relying on.
+  absWorkingDir: resolve(__dirname, '..', '..'),
   bundle: true,
   format: 'iife',
   // es2017 keeps async/await + spread but downlevels class private fields so
