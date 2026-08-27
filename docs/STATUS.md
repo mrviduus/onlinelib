@@ -32,8 +32,15 @@ answers "what happened" and nothing answered "what is half-finished right now".
   draft with 0 testers, so the clock has not started. Code-side gates are done: submit profile,
   permission hygiene + guard, honest privacy policy and Data Safety answers, delete-account
   instructions per platform, and a runbook at [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md).
-  Still owner-only: promote build 20 to Closed, recruit 14 testers, publish the farewell OTA before
-  the fingerprint switch.
+  The farewell OTA shipped (two updates on `production`/`1.0.0`, 2026-08-26) and the fingerprint
+  switch has landed, so builds no longer share one runtime. Still owner-only: promote the current
+  build to Closed and recruit 14 testers.
+
+  **Build 21 is not that build.** It carries only #452; #453 arrived by OTA and #454-#456 never
+  reached it, so a device on 21 still writes chapter-fraction percents into the book-fraction
+  column. A manual pass against it found five P0s —
+  [`docs/qa/reports/2026-08-26-android-manual-pass.md`](qa/reports/2026-08-26-android-manual-pass.md).
+  Cut a new build before recruiting anyone.
 - **Article** — Sentry write-up, draft on vasyl.blog; needs edits, image, publish, then a DEV cross-post.
 
 ## Known-broken / open follow-ups
@@ -49,7 +56,6 @@ someone's memory.
   from `apps/web/dist/ssg`, and the block's comment claims it is required.
 - **`X-SEO-Render` lies.** It is set from `map $is_bot`, so it reports "you look like a bot", not "SSG
   was served". It cost real debugging time during the SSG incident.
-- **Edition progress double-counts** the book-wide % on the public shelf (user-books were fixed in #412).
 - **`.env.bak*` on the server** — three untracked backups holding live secrets.
 - **`EXPO_TOKEN`** repo secret is not set, so the mobile CI build/submit path is unusable; releases go
   from a local machine.
@@ -58,9 +64,6 @@ someone's memory.
   launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
   badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
   a device to settle.
-- **`runtimeVersion` is still `appVersion`**, pinned at `1.0.0` for every build. The farewell banner
-  is written and merged; the OTA that carries it has not been published, so the fingerprint switch
-  cannot land yet.
 - **Play's Data Safety form still holds the pre-2026-08-20 answers**, which now contradict the
   rewritten privacy policy. The correct answers are recorded verbatim in
   [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md); submitting them is a manual

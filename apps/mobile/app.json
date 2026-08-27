@@ -4,7 +4,7 @@
     "slug": "textstack",
     "version": "1.0.0",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
       "url": "https://u.expo.dev/204518f7-24cf-4984-962d-f636508be861",
