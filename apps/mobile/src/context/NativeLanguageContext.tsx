@@ -63,15 +63,12 @@ interface NativeLanguageContextValue {
    * null as false, or they will flash the prompt at every user on every launch.
    */
   hasConfirmedLanguage: boolean | null
-  /** Record that the choice was made without changing the language itself. */
-  markLanguageConfirmed: () => void
 }
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
   nativeLanguage: 'en',
   setNativeLanguage: () => {},
   hasConfirmedLanguage: null,
-  markLanguageConfirmed: () => {},
 })
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
@@ -179,11 +176,6 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.nativeLanguage, user?.isGuest])
 
-  const markLanguageConfirmed = useCallback(() => {
-    setConfirmedState(true)
-    AsyncStorage.setItem(CONFIRMED_KEY, '1').catch(() => {})
-  }, [])
-
   const setNativeLanguage = useCallback((code: string) => {
     if (!isSupported(code)) return
     setNativeState(code)
@@ -207,7 +199,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
 
   return (
     <NativeLanguageContext.Provider value={{
-      nativeLanguage, setNativeLanguage, hasConfirmedLanguage, markLanguageConfirmed,
+      nativeLanguage, setNativeLanguage, hasConfirmedLanguage,
     }}>
       {children}
     </NativeLanguageContext.Provider>
