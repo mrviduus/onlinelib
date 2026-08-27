@@ -9,6 +9,7 @@ import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import {
   pdfDocumentKey, pdfChromeInjectionJs, latchPdfChrome, pdfChromeChanged, type PdfChrome,
 } from '../../lib/pdfViewerChrome'
+import { pdfGateReduce, PDF_GATE_INITIAL, type PdfGateState } from '@textstack/shared'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
@@ -234,7 +235,14 @@ export function ReaderShell(props: ReaderShellProps) {
   // S4c — corrupt / unreadable PDF surfaced by the viewer (pdfLoadError).
   const [pdfError, setPdfError] = useState(false)
   const pdfReadyRef = useRef(false)
-  const pdfInitialJumpDoneRef = useRef(false)
+  // Replaces `pdfInitialJumpDoneRef`, a boolean that was set before the jump was
+  // even computed and never reset — see pdfPersistGate.ts.
+  const pdfGateRef = useRef<PdfGateState>(PDF_GATE_INITIAL)
+  const pdfJumpIdRef = useRef(0)
+  // True while the document being opened is a RELOAD of one already in progress
+  // (the silent 401 recovery). The bootstrap carries the tracked page, so the
+  // resume logic must not run again and pull the reader back to the chapter start.
+  const pdfIsReloadRef = useRef(false)
 
   useEffect(() => {
     if (!original) return
@@ -355,8 +363,19 @@ export function ReaderShell(props: ReaderShellProps) {
 
   // Inbound bridge to the pdf.js viewer — TOC jumps, page-input jumps, and the
   // server-resume initial jump all route through `window.scrollToPage(n)`.
+  //
+  // It is also the ONLY place a jump is issued, which is what lets the persist
+  // gate know that pages reported between here and the landing are the viewer
+  // travelling, not the reader reading. Every caller — resume, table of contents,
+  // page input, bookmarks, highlights — goes through it, so none of them can
+  // forget to arm the gate.
   const scrollPdfToPage = useCallback((page: number) => {
-    injectJs(`window.scrollToPage && window.scrollToPage(${Math.max(1, Math.floor(page))})`)
+    const target = Math.max(1, Math.floor(page))
+    const jumpId = ++pdfJumpIdRef.current
+    pdfGateRef.current = pdfGateReduce(pdfGateRef.current, {
+      type: 'jumpIssued', page: target, jumpId, at: Date.now(),
+    }).state
+    injectJs(`window.scrollToPage && window.scrollToPage(${target}, ${jumpId})`)
   }, [injectJs])
 
   // Initial page resolution for the Original PDF.
@@ -374,21 +393,33 @@ export function ReaderShell(props: ReaderShellProps) {
   // table of contents opens chapter 7, while Continue routes to the chapter
   // holding the saved page and lands on the page itself.
   const maybeInitialPdfJump = useCallback(() => {
-    if (!original || !pdfReadyRef.current || pdfInitialJumpDoneRef.current) return
-    if (!originalResumeReady && originalInitialPage == null) return
-    if (originalInitialPage != null && !originalResumeReady) {
-      // Chapter jump is instant; nothing to wait for.
-      pdfInitialJumpDoneRef.current = true
+    if (!original || !pdfReadyRef.current || pdfGateRef.current.phase !== 'awaitingTarget') return
+    if (pdfIsReloadRef.current) {
+      // A reload already opens at the tracked page via the bootstrap. Re-running
+      // the resume resolution here would send the reader back to the chapter
+      // start, which is the opposite of recovering their position.
+      pdfIsReloadRef.current = false
+      pdfGateRef.current = pdfGateReduce(pdfGateRef.current, { type: 'noJumpNeeded' }).state
       return
     }
-    pdfInitialJumpDoneRef.current = true
+    if (!originalResumeReady && originalInitialPage == null) return
+    if (originalInitialPage != null && !originalResumeReady) {
+      // The chapter's start page came from the bootstrap; the document already
+      // opens where it should. Nothing to wait for, so saving can begin.
+      pdfGateRef.current = pdfGateReduce(pdfGateRef.current, { type: 'noJumpNeeded' }).state
+      return
+    }
     const idx = chapters.findIndex(c => c.slug === chapterSlug)
     const target = resolvePdfResumePage({
       chapterStartPage: originalInitialPage,
       chapterEndPage: idx >= 0 ? chapterEndPage(chapters, idx) : null,
       resumePage: originalResumePage,
     })
+    // The gate is armed by `scrollPdfToPage` itself, AFTER the target is known —
+    // the old code set its flag first and then computed the target, so the
+    // viewer's page-1 report sailed through the guard meant to catch it.
     if (target > 1 && target !== originalInitialPage) scrollPdfToPage(target)
+    else pdfGateRef.current = pdfGateReduce(pdfGateRef.current, { type: 'noJumpNeeded' }).state
   }, [original, originalInitialPage, originalResumeReady, originalResumePage, scrollPdfToPage, chapters, chapterSlug])
 
   // Run the deferred initial jump once the async server resume page arrives
@@ -465,6 +496,10 @@ export function ReaderShell(props: ReaderShellProps) {
         if (typeof data.numPages === 'number') setPdfNumPages(data.numPages)
         pdfReadyRef.current = true
         setPdfError(false)
+        // Close the persist gate for this document. Without it, a reload (bar
+        // toggle, token refresh) left the gate from the PREVIOUS document open,
+        // and the fresh document's page-1 report was saved as the position.
+        pdfGateRef.current = pdfGateReduce(pdfGateRef.current, { type: 'documentLoaded' }).state
         maybeInitialPdfJump()
         // Viewer is up — (re)push any highlights loaded before it was ready.
         repaintPdf()
@@ -478,16 +513,21 @@ export function ReaderShell(props: ReaderShellProps) {
           recordSessionActivity()
           if (typeof data.numPages === 'number') {
             setPdfNumPages(data.numPages)
-            // Gate persistence until the initial (chapter/server-resume) jump has
-            // settled — otherwise a transient page-1 report during a slow server
-            // resume fetch could overwrite the saved page.
-            if (pdfInitialJumpDoneRef.current) persistPdfPage?.(data.page, data.numPages)
+            // Provenance, not ordering: only pages the reader chose to be on are
+            // saved. See pdfPersistGate.ts for why a monotonic guard would be the
+            // wrong shape here.
+            const decision = pdfGateReduce(pdfGateRef.current, {
+              type: 'pageReported', page: data.page, ackJumpId: data.jumpId, at: Date.now(),
+            })
+            pdfGateRef.current = decision.state
+            if (decision.persist) persistPdfPage?.(data.page, data.numPages)
           }
         }
       } else if (data.type === 'pdfAuthExpired') {
         // Silent recovery: remember the page, refresh the token (shared
         // single-flight), then rebuild the viewer source with the fresh token.
         pdfInitialPageRef.current = currentPdfPageRef.current ?? pdfInitialPageRef.current
+        pdfIsReloadRef.current = true
         onUnauthorized().then(tok => {
           if (tok) {
             setPdfToken(tok)
