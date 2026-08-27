@@ -16,7 +16,7 @@ import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
 import { useAppFonts } from '../src/theme/fonts'
-import { shouldAskForLanguage } from '../src/lib/languageOnboarding'
+import { languageOnboardingDecision } from '../src/lib/languageOnboarding'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -124,7 +124,7 @@ function LanguageOnboardingGate() {
   const { user, isAuthenticated } = useAuth()
   const { hasConfirmedLanguage } = useNativeLanguage()
 
-  const ask = shouldAskForLanguage({
+  const decision = languageOnboardingDecision({
     isAuthenticated,
     isGuest: !!user?.isGuest,
     serverNativeLanguage: user?.nativeLanguage,
@@ -133,11 +133,27 @@ function LanguageOnboardingGate() {
   })
 
   useEffect(() => {
+    // 'unknown' means storage has not answered. Do nothing and come back — the
+    // effect re-runs when it does, because the decision changes.
+    if (decision !== 'ask') return
     // Never over the auth modal: the user is mid-sign-in, and login.tsx routes
     // here itself once it knows whether the account is new.
-    if (!ask || pathname.includes('login')) return
+    if (pathname.includes('login')) return
+    if (__DEV__) console.log('[onboarding] gate routing to language, decision=', decision)
     router.replace('/onboarding/language')
-  }, [ask, pathname, router])
+  }, [decision, pathname, router])
+
+  // One line, three inputs, and the answer they produce. A retest could not tell
+  // whether the question never fired because the decision said no or because it
+  // was never asked, and neither could I — the static reading said it should
+  // work. This makes the next run report a fact instead of a hypothesis.
+  useEffect(() => {
+    if (!__DEV__) return
+    console.log('[onboarding] decision=', decision,
+      'auth=', isAuthenticated, 'guest=', !!user?.isGuest,
+      'serverLang=', user?.nativeLanguage, 'confirmed=', hasConfirmedLanguage,
+      'path=', pathname)
+  }, [decision, isAuthenticated, user?.isGuest, user?.nativeLanguage, hasConfirmedLanguage, pathname])
 
   return null
 }
