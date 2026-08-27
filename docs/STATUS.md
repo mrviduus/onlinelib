@@ -78,6 +78,13 @@ someone's memory.
 - **`t()` takes no parameters, so plurals cannot be translated.** `plural()` in `packages/shared` handles
   English one-vs-many in code; strings living in `en.json` (`"{count} highlights"`, `"{count} chapters"`)
   stay hard-plural until the i18n layer accepts a count.
+- **App Links wait on one fingerprint.** `apps/web/public/.well-known/assetlinks.json` is in place and
+  deploys with the site, but its `sha256_cert_fingerprints` still holds a placeholder — the SHA-256 is
+  held by Play App Signing, not by this repo. Until an owner pastes it (steps:
+  [`docs/03-ops/android-app-links.md`](03-ops/android-app-links.md)), `https://textstack.app/en/books/…`
+  and the password-reset email open a browser instead of the installed app.
+- **iOS Universal Links were never configured.** No `associatedDomains` in `app.json`, empty
+  entitlements — the iOS half of this work does not exist yet, on either side.
 - **Soft-404s to crawlers.** The catch-all nginx `location /` returns 200 for non-SSG paths; the bot-404
   guard exists only in `@spa`.
 - **Dead nginx block.** `location /ssg/` aliases a directory that does not exist; the real pages come
