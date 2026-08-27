@@ -124,7 +124,10 @@ public record UpsertUserBookProgressRequest(
     string? ChapterSlug,
     string? Locator,
     double? Percent,
-    DateTimeOffset? UpdatedAt
+    DateTimeOffset? UpdatedAt,
+    /// <summary>What Percent is a fraction OF. Only "book" is stored; a percentage
+    /// without a declared unit is left unsaved. See Application.ReadingTracking.ProgressUnit.</summary>
+    string? PercentUnit = null
 );
 
 // ChapterId/ChapterSlug are nullable: PDFs opened in "Original layout" (ADR-012) are

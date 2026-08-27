@@ -1,4 +1,5 @@
 using Api.Endpoints;
+using Application.ReadingTracking;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -39,7 +40,12 @@ public class UpsertProgressTests
         UpdatedAt = updatedAt ?? DateTimeOffset.UnixEpoch,
     };
 
+    /// <summary>A write from a current client, which declares its percent unit.</summary>
     private static UpsertProgressRequest Request(Guid chapterId, double percent = 0.5) =>
+        new(chapterId, "epubcfi(/6/4!/4/2)", percent, null, ProgressUnit.Book);
+
+    /// <summary>A write from a build that predates the unit contract.</summary>
+    private static UpsertProgressRequest LegacyRequest(Guid chapterId, double percent = 0.5) =>
         new(chapterId, "epubcfi(/6/4!/4/2)", percent, null);
 
     [Fact]
@@ -186,5 +192,41 @@ public class UpsertProgressTests
         var ex = new DbUpdateException("save failed", new InvalidOperationException("boom"));
 
         Assert.False(UserDataEndpoints.IsUniqueViolation(ex));
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_UndeclaredUnit_KeepsStoredPercentButMovesPosition()
+    {
+        // An Android build installed before the unit contract goes on writing
+        // chapter fractions until its owner updates, and a chapter fraction is
+        // indistinguishable from a book fraction by inspection — that is how the
+        // same book came to show 10% on the resume card and 32% on the row below.
+        //
+        // Its position is still the reader's real position, so the locator and the
+        // chapter move. Only the number stays as it was.
+        var chapter = ChapterAt(3);
+        var target = Progress(maxChapter: 1);
+        target.Percent = 0.42;
+        target.Locator = "old-locator";
+
+        UserDataEndpoints.ApplyProgressUpdate(target, LegacyRequest(chapter.Id, percent: 0.99), chapter);
+
+        Assert.Equal(0.42, target.Percent);
+        Assert.Equal("epubcfi(/6/4!/4/2)", target.Locator);
+        Assert.Equal(chapter.Id, target.ChapterId);
+    }
+
+    [Fact]
+    public void ApplyProgressUpdate_UndeclaredUnit_CannotFinishABook()
+    {
+        // Completion is derived from the percent, so an untrusted number must not
+        // be able to mark a book read — a stale client hitting the bottom of a
+        // chapter would otherwise finish the whole book.
+        var chapter = ChapterAt(3);
+        var target = Progress(maxChapter: 1);
+
+        UserDataEndpoints.ApplyProgressUpdate(target, LegacyRequest(chapter.Id, percent: 1.0), chapter);
+
+        Assert.Null(target.CompletedAt);
     }
 }

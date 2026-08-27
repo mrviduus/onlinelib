@@ -1,5 +1,6 @@
 import { authFetch, jsonBody } from './client'
 import type { ReadingProgressDto } from '../types/api'
+import { PERCENT_UNIT_BOOK } from '../reader/progressPayload'
 
 export function getProgress(editionId: string) {
   return authFetch<ReadingProgressDto>(`/me/progress/${editionId}`)
@@ -29,6 +30,9 @@ export function updateProgress(
     chapterId: data.chapterId,
     locator: `scroll:${data.chapterSlug}:${offset}`,
     percent: data.progress,
+    // Book-wide, and says so. Without the declaration the server keeps whatever
+    // it already had — see Application.ReadingTracking.ProgressUnit.
+    percentUnit: PERCENT_UNIT_BOOK,
     // Client timestamp for LWW merge on server (UserDataEndpoints.cs:134) and on restore in web.
     // Skips stale overwrites if a newer record already exists on the server.
     updatedAt: new Date().toISOString(),

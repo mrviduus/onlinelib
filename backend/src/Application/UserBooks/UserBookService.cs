@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Application.ReadingTracking;
 using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.Entitlements;
@@ -548,11 +549,16 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage, IEnt
         // and the first saves of a cold open). Keep the last known good percent
         // rather than nulling the column, and never let the client substitute a
         // chapter fraction, which reaches 1.0 at the bottom of every chapter.
-        if (request.Percent.HasValue)
+        //
+        // And only when the caller declared what the number is a fraction of. An
+        // older build sending a chapter fraction is indistinguishable from a
+        // correct write by inspection, so an undeclared unit means the position is
+        // saved and the number is left alone. See ProgressUnit.
+        if (request.Percent.HasValue && ProgressUnit.IsTrusted(request.PercentUnit))
             book.ProgressPercent = request.Percent;
         book.ProgressUpdatedAt = request.UpdatedAt ?? DateTimeOffset.UtcNow;
 
-        if (request.Percent is >= 0.99)
+        if (request.Percent is >= 0.99 && ProgressUnit.IsTrusted(request.PercentUnit))
         {
             book.CompletedAt ??= DateTimeOffset.UtcNow;
             // Auto-mark clips read once finished so they leave the Unread shelf.

@@ -1,4 +1,15 @@
 /**
+ * The unit every percentage in this codebase is measured in, declared on the wire.
+ *
+ * The server stores a book-wide fraction, and for a long time nothing said so —
+ * mobile wrote chapter fractions, web wrote book fractions, and both landed in the
+ * same column. The clients agree now, but old builds keep running and their writes
+ * cannot be told apart by looking at the number. So the number travels with its
+ * unit, and the server declines to store one that arrives without it.
+ */
+export const PERCENT_UNIT_BOOK = 'book'
+
+/**
  * Pure builders for the reading-progress wire payloads.
  *
  * Why pure functions and not inline in the hooks: hooks combine refs +
@@ -29,6 +40,9 @@ export interface UserBookProgressPayload {
    *  bottom of every chapter, which is the confusion this column was
    *  canonicalised to end. */
   percent?: number
+  /** Declares what `percent` is a fraction of. Sent whenever `percent` is, and
+   *  never without it — the server stores the number only when it is present. */
+  percentUnit?: string
   chapterSlug: string
   locator: string
 }
@@ -92,7 +106,10 @@ export function buildUserBookProgressPayload(input: UserBookProgressInputs): Use
     chapterSlug: slug,
     locator: `scroll:${slug}:${safeOffset}`,
   }
-  if (bookPct != null) payload.percent = clampUnit(bookPct)
+  if (bookPct != null) {
+    payload.percent = clampUnit(bookPct)
+    payload.percentUnit = PERCENT_UNIT_BOOK
+  }
   return payload
 }
 
