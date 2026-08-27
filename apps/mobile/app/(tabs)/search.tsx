@@ -4,12 +4,13 @@ import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createBooksApi, getStorageUrl } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, isOfflineError } from '@textstack/shared'
 import type { SearchResult, Edition, Author } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader, BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
+import { OfflineBanner } from '../../src/components/ui/OfflineBanner'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { trackSearchPerformed } from '../../src/lib/analytics'
@@ -97,6 +98,12 @@ export default function DiscoverScreen() {
   const [authors, setAuthors] = useState<Author[]>([])
   const [catalogStats, setCatalogStats] = useState<{ books: number; authors: number; genres: number } | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(true)
+  // The catalog, "Recently Added" and the author row are each gated on their own
+  // data being non-empty, so a failed fetch made all three vanish and left a
+  // search box and an "Ask the librarian" card with no explanation. Empty and
+  // unreachable are different states and now look different.
+  const [catalogOffline, setCatalogOffline] = useState(false)
+  const [searchOffline, setSearchOffline] = useState(false)
 
   const debouncedQuery = useDebounce(query.trim(), 300)
 
@@ -124,8 +131,11 @@ export default function DiscoverScreen() {
       setBooks(booksRes.items)
       setAuthors(authorsRes.items)
       setCatalogStats({ books: booksRes.total, authors: authorsRes.total, genres: genresRes.total })
+      setCatalogOffline(false)
     }).catch(e => {
-      if (!cancelled) console.error('Catalog fetch failed:', e)
+      if (cancelled) return
+      console.error('Catalog fetch failed:', e)
+      setCatalogOffline(isOfflineError(e))
     })
       .finally(() => { if (!cancelled) setCatalogLoading(false) })
     return () => { cancelled = true }
@@ -172,12 +182,17 @@ export default function DiscoverScreen() {
       // flight. Without this, a slow response for "har" would overwrite
       // the results for "harry" that arrived first.
       if (gen !== searchGenRef.current) return
+      setSearchOffline(false)
       setResults(items)
       saveRecent(q)
       trackSearchPerformed({ query: q, resultsCount: items.length })
     } catch (e) {
       if (gen !== searchGenRef.current) return
       console.error('Search failed:', e)
+      // A search that never reached the server rendered as "No results for
+      // harry" — which reads as a claim about the catalog, not about the
+      // connection, and sends the reader off to doubt their spelling.
+      setSearchOffline(isOfflineError(e))
     } finally {
       if (gen === searchGenRef.current) setLoading(false)
     }
@@ -326,10 +341,20 @@ export default function DiscoverScreen() {
           ))}
         </View>
       ) : results.length === 0 && searched ? (
-        <EmptyState
-          icon="search-outline"
-          title={`${t('search.noResults')} "${query}"`}
-        />
+        searchOffline ? (
+          <EmptyState
+            icon="cloud-offline-outline"
+            title={t('search.offline.title')}
+            subtitle={t('search.offline.body')}
+            buttonLabel={t('common.retry')}
+            onButtonPress={() => doSearch(query)}
+          />
+        ) : (
+          <EmptyState
+            icon="search-outline"
+            title={`${t('search.noResults')} "${query}"`}
+          />
+        )
       ) : searched ? (
         <FlatList
           data={paged}
@@ -369,6 +394,13 @@ export default function DiscoverScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+          )}
+
+          {/* One sentence instead of three silently missing sections. Discover is
+              the only place with nothing cached to fall back on, so it says so
+              rather than rendering a convincing-looking empty page. */}
+          {catalogOffline && !catalogLoading && (
+            <OfflineBanner message={t('search.offline.catalog')} />
           )}
 
           {/* Catalog Stats Bar */}

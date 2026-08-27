@@ -18,6 +18,7 @@ import {
 } from '../../src/lib/offlineDb'
 import { getLocalProgress } from '../../src/lib/progressStorage'
 import { fonts } from '../../src/theme/typography'
+import { OfflineBanner } from '../../src/components/ui/OfflineBanner'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 
 export default function BookDetailScreen() {
@@ -235,14 +236,7 @@ export default function BookDetailScreen() {
           </View>
         </View>
 
-        {offlineMode && (
-          <View style={[styles.offlineBanner, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-            <Ionicons name="cloud-offline-outline" size={16} color={colors.primary} />
-            <Text style={[styles.offlineBannerText, { color: colors.primary }]}>
-              You're offline — showing downloaded content only.
-            </Text>
-          </View>
-        )}
+        {offlineMode && <OfflineBanner message="You're offline — showing downloaded content only." />}
 
         {book.description && (
           <Text style={[styles.description, { color: colors.text }]}>{book.description}</Text>
@@ -542,20 +536,4 @@ const styles = StyleSheet.create({
   },
   errorTitle: { fontFamily: fonts.serifBold, fontSize: 20, marginTop: 16, textAlign: 'center' },
   errorBody: { fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', marginTop: 4, maxWidth: 320 },
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  offlineBannerText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    flex: 1,
-  },
 })

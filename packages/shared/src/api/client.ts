@@ -38,6 +38,24 @@ async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
   }
 }
 
+/**
+ * True when a caught error means "the request never reached the server".
+ *
+ * `ApiError.isNetworkError` has been set correctly on every request since it was
+ * added, and its docblock says UIs "can show 'check your connection' instead of
+ * a generic server error". None did. Library, Discover and the book detail
+ * screen all caught, logged to the console, and left their state at `[]` — so an
+ * offline reader with twelve books was shown the empty state written for someone
+ * who has never added one.
+ *
+ * **Check your own abort signal first.** A deliberate cancellation also fails
+ * before reaching the server and is reported here as offline; only the caller
+ * knows it aborted on purpose.
+ */
+export function isOfflineError(e: unknown): boolean {
+  return e instanceof ApiError && e.isNetworkError
+}
+
 export function getStorageUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined
   // baseUrl is like "https://textstack.app/api" — storage is at origin, not under /api
