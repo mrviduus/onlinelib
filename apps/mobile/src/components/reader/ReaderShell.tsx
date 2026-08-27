@@ -9,6 +9,9 @@ import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import {
   pdfDocumentKey, pdfChromeInjectionJs, latchPdfChrome, pdfChromeChanged, type PdfChrome,
 } from '../../lib/pdfViewerChrome'
+import {
+  readerDocumentKey, readerChromeInjectionJs, latchReaderChrome, readerChromeChanged, type ReaderChrome,
+} from '../../lib/readerChrome'
 import { pdfGateReduce, PDF_GATE_INITIAL, chapterSlugForPage, type PdfGateState } from '@textstack/shared'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -225,6 +228,8 @@ export function ReaderShell(props: ReaderShellProps) {
   // with the bars, the reader switches theme) and letting them rebuild the
   // template reloads the WebView at page 1. Latched to the largest insets seen,
   // then pushed to the live DOM by the effect below. See pdfViewerChrome.ts.
+  const readerChromeRef = useRef<ReaderChrome | null>(null)
+  const readerAppliedChromeRef = useRef<ReaderChrome | null>(null)
   const pdfChromeRef = useRef<PdfChrome | null>(null)
   const pdfAppliedChromeRef = useRef<PdfChrome | null>(null)
   // S4c — top-visible page + page count for the PDF chrome + page-bookmark
@@ -683,16 +688,37 @@ export function ReaderShell(props: ReaderShellProps) {
   }, [chapters, chapterSlug])
 
   const html = useMemo(
-    () => buildReaderHtml(chapter.html, {
+    () => {
+      // Chrome is read from the ref, deliberately outside the dependency list —
+      // see readerChrome.ts for what a rebuild costs here.
+      const chrome = readerChromeRef.current ?? {
+        safeArea: { top: insets.top, bottom: insets.bottom },
+        backgroundColor: resolvedTheme.backgroundColor,
+        textColor: resolvedTheme.textColor,
+      }
+      readerChromeRef.current = chrome
+      readerAppliedChromeRef.current = chrome  // a fresh document already has it
+      return buildReaderHtml(chapter.html, {
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        fontFamily: resolvedFontFamily,
+        textAlign: settings.textAlign,
+        backgroundColor: chrome.backgroundColor,
+        textColor: chrome.textColor,
+      }, htmlChapterSlug, chrome.safeArea, { overlayV2 })
+    },
+    // Keyed on document identity ONLY. Insets and colours are absent on purpose;
+    // readerChrome.test.ts asserts that absence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [readerDocumentKey({
+      chapterSlug: htmlChapterSlug ?? '',
+      fontFamily: resolvedFontFamily,
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight,
-      fontFamily: resolvedFontFamily,
       textAlign: settings.textAlign,
-      backgroundColor: resolvedTheme.backgroundColor,
-      textColor: resolvedTheme.textColor,
-    }, htmlChapterSlug, { top: insets.top, bottom: insets.bottom }, { overlayV2 }),
-    [chapter.html, settings.fontSize, settings.lineHeight, resolvedFontFamily, settings.textAlign,
-     resolvedTheme.backgroundColor, resolvedTheme.textColor, htmlChapterSlug, insets.top, insets.bottom, overlayV2],
+      overlayV2,
+      htmlLength: chapter.html.length,
+    })],
   )
 
   // ADR-012 S4b — the Original-layout PDF document. Rebuilt when the token
@@ -749,6 +775,20 @@ export function ReaderShell(props: ReaderShellProps) {
   // other half of the fix: the memo above stopped depending on insets and theme,
   // so something still has to apply them when they change mid-read — the status
   // bar hiding with the bars, or the reader switching to dark mode.
+  // The reflow twin of the PDF chrome effect below.
+  useEffect(() => {
+    if (original) return
+    const next = latchReaderChrome(readerChromeRef.current, {
+      safeArea: { top: insets.top, bottom: insets.bottom },
+      backgroundColor: resolvedTheme.backgroundColor,
+      textColor: resolvedTheme.textColor,
+    })
+    readerChromeRef.current = next
+    if (!readerChromeChanged(readerAppliedChromeRef.current, next)) return
+    readerAppliedChromeRef.current = next
+    injectJs(readerChromeInjectionJs(next))
+  }, [original, insets.top, insets.bottom, resolvedTheme.backgroundColor, resolvedTheme.textColor, injectJs])
+
   useEffect(() => {
     if (!original) return
     const next = latchPdfChrome(pdfChromeRef.current, {

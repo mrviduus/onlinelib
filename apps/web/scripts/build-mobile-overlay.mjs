@@ -18,6 +18,11 @@ const outFile = resolve(repoRoot, 'apps/mobile/src/lib/readerOverlayScript.gener
 
 const result = await build({
   entryPoints: [entry],
+  // Fixed, because esbuild writes source paths in the bundle RELATIVE TO CWD.
+  // Without it the same source produced two different bundles depending on
+  // whether the script was run from the repo root or from apps/web, and the
+  // drift guard reported a clean tree as out of date.
+  absWorkingDir: resolve(__dirname, '..'),
   bundle: true,
   format: 'iife',
   // es2017 keeps async/await + spread/rest but downlevels class private
