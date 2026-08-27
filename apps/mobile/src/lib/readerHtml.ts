@@ -116,7 +116,22 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.5em; }
     p { margin: 0.5em 0; }
-    a { color: #2563EB; }
+    /* Links belong to the page, not to a browser. This was a bare colour and
+       nothing else, so the UA's default underline came through and an uploaded
+       EPUB's internal cross-references rendered as web-blue underlined text over
+       warm serif prose. Keeping them tinted but underlined only on the ink colour
+       keeps them findable without shouting. */
+    a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px;
+        text-underline-offset: 2px; text-decoration-color: currentColor; opacity: 0.85; }
+    /* No list rules existed at all, which is why a book's own numbered lists lost
+       their numbering and its bulleted lists lost their indent. */
+    ul, ol { margin: 0.6em 0; padding-left: 1.6em; }
+    ul { list-style: disc; }
+    ol { list-style: decimal; }
+    li { margin: 0.25em 0; }
+    li > p { margin: 0.2em 0; }
+    blockquote { margin: 0.8em 0 0.8em 1em; padding-left: 0.8em;
+                 border-left: 2px solid currentColor; opacity: 0.85; }
     .chapter-separator {
       text-align: center;
       padding: 40px 16px;

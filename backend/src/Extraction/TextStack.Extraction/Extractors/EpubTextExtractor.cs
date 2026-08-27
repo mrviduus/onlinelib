@@ -90,6 +90,25 @@ public sealed class EpubTextExtractor : ITextExtractor
             }
         }
 
+        // Files that exist to BE navigation, not to be read. Publishers routinely
+        // put the EPUB 3 nav document in the spine, so it arrived as chapter one:
+        // DetectFrontMatterType titled it "Contents", and the reader opened a
+        // user's book on a list of default-blue underlined links over the serif
+        // page. The app builds its own table of contents from TocGenerator, so
+        // this document has no reader left.
+        //
+        // Matched by file path from the EPUB schema, not by looking for the words
+        // "table of contents" in the text — a real chapter is allowed to mention
+        // them, and DetectFrontMatterType's fuzzy match is why the nav document
+        // looked like legitimate front matter in the first place.
+        var navigationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var navDocPath = book.Schema.Epub3NavDocument?.FilePath;
+        if (!string.IsNullOrWhiteSpace(navDocPath))
+            navigationPaths.Add(navDocPath);
+        var ncxPath = book.Schema.Epub2Ncx?.FilePath;
+        if (!string.IsNullOrWhiteSpace(ncxPath))
+            navigationPaths.Add(ncxPath);
+
         foreach (var textContent in book.ReadingOrder)
         {
             if (ct.IsCancellationRequested)
@@ -97,6 +116,14 @@ public sealed class EpubTextExtractor : ITextExtractor
 
             try
             {
+                if (!string.IsNullOrEmpty(textContent.FilePath) && navigationPaths.Contains(textContent.FilePath))
+                {
+                    warnings.Add(new ExtractionWarning(
+                        ExtractionWarningCode.ContentFiltered,
+                        "Skipped the navigation document listed in the spine"));
+                    continue;
+                }
+
                 var html = textContent.Content;
                 if (string.IsNullOrWhiteSpace(html))
                     continue;

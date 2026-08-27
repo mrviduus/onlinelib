@@ -189,10 +189,15 @@ public class UserIngestionService
             db.UserChapters.RemoveRange(existingChapters);
 
             // Create chapters. Number saved chapters densely 1..N by their position
-            // in THIS loop, not by unit.OrderIndex — the original list has gaps after
-            // TOC/front-matter units are filtered out, which made the reader's Contents
-            // start at "2". The running counter feeds both ChapterNumber and the slug's
-            // order arg so slugs stay consistent with numbering.
+            // in THIS loop, not by unit.OrderIndex — the extractor skips units
+            // (empty content, piracy watermarks, the spine's navigation document),
+            // so OrderIndex has gaps. The running counter feeds both ChapterNumber
+            // and the slug's order arg so slugs stay consistent with numbering.
+            //
+            // This comment used to claim TOC and front matter were "filtered out".
+            // Only the navigation document is, and only since the extractor learned
+            // to recognise it — before that a user's uploaded EPUB opened on its
+            // own table of contents.
             var qualityScores = new List<int>();
             var savedChapterIndex = 0;
             foreach (var unit in result.Units)
