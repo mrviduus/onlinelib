@@ -5,12 +5,14 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { authApi } from '@textstack/shared'
+import { authApi, type UserDto } from '@textstack/shared'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import Constants from 'expo-constants'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
+import { shouldAskForLanguage } from '../../src/lib/languageOnboarding'
 import { trackLogin, trackSignUp } from '../../src/lib/analytics'
 
 /** Mirror web heuristic: backend doesn't surface an isNew flag, so a fresh
@@ -52,6 +54,7 @@ export default function LoginScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const { signInWithTokens } = useAuth()
+  const { hasConfirmedLanguage } = useNativeLanguage()
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -86,12 +89,12 @@ export default function LoginScreen() {
         const result = await authApi.registerWithEmail(email.trim(), password, name.trim() || undefined)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
         trackSignUp('email')
-        goToLibrary()
+        landAfterAuth(result.user)
       } else {
         const result = await authApi.loginWithEmail(email.trim(), password)
         await signInWithTokens(result.accessToken, result.refreshToken, result.user)
         trackLogin('email')
-        goToLibrary()
+        landAfterAuth(result.user)
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong.')
@@ -108,8 +111,26 @@ export default function LoginScreen() {
    * in" button lives. So signing in dropped the reader on a settings screen
    * instead of on their books. `replace` rather than `push` so Back does not
    * walk into the login form of an account you are already signed into.
+   *
+   * A brand-new account has no native language, and without one the reader's
+   * core feature translates English into English. So a new account is sent to
+   * the question first, and everyone else straight to their books.
+   *
+   * The decision is `shouldAskForLanguage`, the same function the root gate
+   * uses — two copies of this rule would drift, and the failure would be
+   * invisible: either a returning reader interrogated on every sign-in, or a
+   * new one never asked at all. The freshly returned `user` is passed rather
+   * than read from context because `signInWithTokens` has not propagated yet.
    */
-  const goToLibrary = () => router.replace('/(tabs)/library')
+  const landAfterAuth = (u: UserDto) => {
+    const ask = shouldAskForLanguage({
+      isAuthenticated: true,
+      isGuest: u.isGuest,
+      serverNativeLanguage: u.nativeLanguage,
+      hasConfirmedLanguage,
+    })
+    router.replace(ask ? '/onboarding/language' : '/(tabs)/library')
+  }
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
@@ -123,7 +144,7 @@ export default function LoginScreen() {
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
       if (isFreshAccount(result.user.createdAt)) trackSignUp('google')
       else trackLogin('google')
-      goToLibrary()
+      landAfterAuth(result.user)
     } catch (e: any) {
       if (e?.code !== 'SIGN_IN_CANCELLED') {
         // Surface the underlying GoogleSignin error (DEVELOPER_ERROR,
@@ -171,7 +192,7 @@ export default function LoginScreen() {
       await signInWithTokens(result.accessToken, result.refreshToken, result.user)
       if (isFreshAccount(result.user.createdAt)) trackSignUp('apple')
       else trackLogin('apple')
-      goToLibrary()
+      landAfterAuth(result.user)
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') {
         Alert.alert('Error', 'Apple sign-in failed')

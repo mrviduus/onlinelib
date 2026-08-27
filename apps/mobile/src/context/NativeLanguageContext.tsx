@@ -18,11 +18,16 @@ export const NATIVE_LANGUAGES: NativeLang[] = POPULAR_LANGUAGES.map((l) => ({
   label: l.englishName,
 }))
 
-// Target languages = languages with book content
-export const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en')
+// There is no TARGET_LANGUAGES any more. It was NATIVE_LANGUAGES.filter(code ===
+// 'en') — one entry — and it backed a Profile row of chips with a single,
+// permanently-selected option. QA read that row as a real setting and concluded
+// the app thought they were learning English. The concept returns when the
+// catalogue has a second language; until then it was state nothing could change
+// and nothing read.
 
 const NATIVE_KEY = 'textstack_native_language'
-const TARGET_KEY = 'textstack_target_language'
+// Same key the web app uses, for the same reason — see `hasConfirmedLanguage`.
+const CONFIRMED_KEY = 'textstack_native_language_confirmed'
 
 function isSupported(code: string): boolean {
   return LANGUAGES.some((l) => l.code === code)
@@ -43,21 +48,34 @@ function getDeviceLanguage(): string {
 
 interface NativeLanguageContextValue {
   nativeLanguage: string
-  targetLanguage: string
   setNativeLanguage: (code: string) => void
-  setTargetLanguage: (code: string) => void
+  /**
+   * Whether `nativeLanguage` is something the user actually chose, as opposed to
+   * something we guessed. `nativeLanguage` alone cannot answer this: it is never
+   * empty — it defaults to 'en' and only *maybe* becomes the device locale — so a
+   * reader who has never been asked is indistinguishable from one who genuinely
+   * reads English natively. That ambiguity is the whole bug: a QA account showed
+   * "I know: English / Learning: English" with `nativeLanguage: null` on the
+   * server, and translation quietly became English → English.
+   *
+   * Null while the answer is still being read from AsyncStorage. Callers that
+   * gate UI on "has not chosen yet" must wait for a boolean rather than treating
+   * null as false, or they will flash the prompt at every user on every launch.
+   */
+  hasConfirmedLanguage: boolean | null
 }
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
   nativeLanguage: 'en',
-  targetLanguage: 'en',
   setNativeLanguage: () => {},
-  setTargetLanguage: () => {},
+  hasConfirmedLanguage: null,
 })
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const [nativeLanguage, setNativeState] = useState('en')
-  const [targetLanguage, setTargetState] = useState('en')
+  // null until AsyncStorage answers — see the interface docblock for why the
+  // tri-state matters to callers.
+  const [hasConfirmedLanguage, setConfirmedState] = useState<boolean | null>(null)
   const { user, getAccessToken, updateUser } = useAuth()
   const prevUserIdRef = useRef<string | undefined>(user?.id)
   // Set once the server→local mirror has applied an authoritative value, so the
@@ -68,8 +86,12 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(NATIVE_KEY),
-      AsyncStorage.getItem(TARGET_KEY),
-    ]).then(([native, target]) => {
+      AsyncStorage.getItem(CONFIRMED_KEY),
+    ]).then(([native, confirmed]) => {
+      // Resolve the tri-state first and unconditionally: a failed read must still
+      // land on `false` (below, in .catch) rather than leaving it null forever,
+      // or anything gated on it hangs.
+      setConfirmedState(confirmed === '1')
       // The signed-in user's server language wins — don't overwrite it with the
       // stale local value just because this async read happened to resolve last.
       if (!serverLangAppliedRef.current) {
@@ -80,10 +102,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
           if (isSupported(device)) setNativeState(device)
         }
       }
-      if (target && TARGET_LANGUAGES.some((l) => l.code === target)) {
-        setTargetState(target)
-      }
-    }).catch(() => {})
+    }).catch(() => { setConfirmedState(false) })
   }, [])
 
   // Server → local: mirror the signed-in user's nativeLanguage into state +
@@ -104,6 +123,12 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
       if (switched) {
         const device = getDeviceLanguage()
         setNativeState(isSupported(device) ? device : 'en')
+        // The value just became a guess again, so the claim that someone chose it
+        // has to go with it — otherwise the next account inherits a confirmation
+        // it never gave and is never asked.
+        setConfirmedState(false)
+        serverLangAppliedRef.current = false
+        AsyncStorage.removeItem(CONFIRMED_KEY).catch(() => {})
       }
       return
     }
@@ -112,13 +137,50 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     if (!serverLang || !isSupported(serverLang)) return
     serverLangAppliedRef.current = true
     setNativeState(serverLang)   // idempotent — React skips if unchanged
-    AsyncStorage.setItem(NATIVE_KEY, serverLang).catch(() => {})
+    // A value on the server is a choice the user made, on some device, at some
+    // point. Honour it as confirmed so a returning reader is never asked twice.
+    //
+    // Note what is deliberately NOT done here: web marks *any* signed-in user
+    // confirmed even when the server field is empty (apps/web
+    // NativeLanguageContext.tsx:108-114), because there it only silences a pulse
+    // on an icon. Copying that would silence the onboarding prompt for exactly
+    // the users it exists for — the ones the server has no answer for.
+    setConfirmedState(true)
+    AsyncStorage.multiSet([[NATIVE_KEY, serverLang], [CONFIRMED_KEY, '1']]).catch(() => {})
+  }, [user?.id, user?.nativeLanguage, user?.isGuest])
+
+  // Local → server, when the server has no answer. Covers the guest who picks a
+  // language and then registers, and the account created before this screen
+  // existed. Reads AsyncStorage rather than state because on the register fast
+  // path `user.id` changes before a just-written state update has flushed.
+  useEffect(() => {
+    if (!user || user.isGuest || user.nativeLanguage) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [confirmed, stored] = await Promise.all([
+          AsyncStorage.getItem(CONFIRMED_KEY),
+          AsyncStorage.getItem(NATIVE_KEY),
+        ])
+        if (cancelled || confirmed !== '1' || !stored || !isSupported(stored)) return
+        const token = await getAccessToken()
+        if (cancelled || !token) return
+        const res = await authApi.updateProfile(user.name ?? null, token, stored)
+        if (!cancelled && res?.user) await updateUser(res.user)
+      } catch {
+        // Local value stands; the next sign-in retries this same effect.
+      }
+    })()
+    return () => { cancelled = true }
+    // Fires on identity change, not on every local pick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.nativeLanguage, user?.isGuest])
 
   const setNativeLanguage = useCallback((code: string) => {
     if (!isSupported(code)) return
     setNativeState(code)
-    AsyncStorage.setItem(NATIVE_KEY, code).catch(() => {})
+    setConfirmedState(true)
+    AsyncStorage.multiSet([[NATIVE_KEY, code], [CONFIRMED_KEY, '1']]).catch(() => {})
     // Local → server: persist for signed-in (non-guest) users so the pref
     // follows them across devices and matches the web.
     if (user && !user.isGuest) {
@@ -135,13 +197,10 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     }
   }, [user, getAccessToken, updateUser])
 
-  const setTargetLanguage = useCallback((code: string) => {
-    setTargetState(code)
-    AsyncStorage.setItem(TARGET_KEY, code).catch(() => {})
-  }, [])
-
   return (
-    <NativeLanguageContext.Provider value={{ nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage }}>
+    <NativeLanguageContext.Provider value={{
+      nativeLanguage, setNativeLanguage, hasConfirmedLanguage,
+    }}>
       {children}
     </NativeLanguageContext.Provider>
   )

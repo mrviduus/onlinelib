@@ -12,7 +12,7 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useOnline } from '../../src/hooks/useOnline'
-import { useNativeLanguage, TARGET_LANGUAGES } from '../../src/context/NativeLanguageContext'
+import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
@@ -32,7 +32,7 @@ export default function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
   const { colors, themeMode, setThemeMode } = useTheme()
   const { language, switchLanguage } = useLanguage()
-  const { nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage } = useNativeLanguage()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState('')
@@ -301,30 +301,13 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* I'm learning (target language) */}
-        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
-          <Ionicons name="school-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
-          <Text style={[styles.menuText, { color: colors.text }]}>Learning</Text>
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            {TARGET_LANGUAGES.map(lang => (
-              <TouchableOpacity
-                key={lang.code}
-                onPress={() => setTargetLanguage(lang.code)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  backgroundColor: targetLanguage === lang.code ? colors.primaryLight : 'transparent',
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: targetLanguage === lang.code ? colors.primary : colors.textSecondary }}>
-                  {lang.flag} {lang.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* "Learning" used to sit here: a row of chips built from TARGET_LANGUAGES,
+            which is NATIVE_LANGUAGES.filter(code === 'en') — one chip, permanently
+            selected, doing nothing. QA read it as a real setting and filed it twice:
+            once as a styling inconsistency next to "I know" (a chevron row vs a chip
+            row), and once as the reason a new account believed it was learning
+            English. A control with one option is not a control. It comes back when
+            the catalogue has a second language. */}
 
         {/* Theme switcher */}
         <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>

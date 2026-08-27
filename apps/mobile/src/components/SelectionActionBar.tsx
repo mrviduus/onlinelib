@@ -92,8 +92,10 @@ export function SelectionActionBar({
   onClose,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
-  const { fromLang, toLang } = useTargetLanguage(language)
-  const isSameLang = fromLang === toLang
+  const { fromLang, translationTarget } = useTargetLanguage(language)
+  // No target means the reader already knows this language — there is nothing
+  // to translate into, so the inline gloss is skipped rather than fetched.
+  const isSameLang = translationTarget == null
 
   // Inline translation for single-word taps. Fetched here (was in the
   // deleted WordCard). Cancellation guard avoids stale results when the
@@ -110,7 +112,7 @@ export function SelectionActionBar({
       return
     }
     // Instant render on a cache hit (re-tap of a seen word) — no spinner.
-    const cached = peekTranslation(selectedText, fromLang, toLang)
+    const cached = peekTranslation(selectedText, fromLang, translationTarget!)
     if (cached !== undefined) {
       setTranslation(cached.translation)
       setCategory(cached.category)
@@ -121,12 +123,12 @@ export function SelectionActionBar({
     setTranslation('')
     setCategory(undefined)
     setTranslating(true)
-    cachedTranslate(selectedText, fromLang, toLang)
+    cachedTranslate(selectedText, fromLang, translationTarget!)
       .then((r) => { if (!cancelled) { setTranslation(r.translation); setCategory(r.category) } })
       .catch(() => { if (!cancelled) setTranslation('') })
       .finally(() => { if (!cancelled) setTranslating(false) })
     return () => { cancelled = true }
-  }, [selectedText, isMultiWord, fromLang, toLang, isSameLang])
+  }, [selectedText, isMultiWord, fromLang, translationTarget, isSameLang])
 
   const handleCopy = () => {
     if (selectedText) Clipboard.setStringAsync(selectedText)
