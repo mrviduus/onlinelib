@@ -10,6 +10,7 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { useReconnectCount } from '../../src/hooks/useOnline'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { HighlightQuote } from '../../src/components/HighlightQuote'
 
 const PAGE_SIZE = 50
 const HIGHLIGHT_COLORS: Record<string, string> = {
@@ -162,9 +163,11 @@ export default function HighlightsScreen() {
       >
         <View style={[styles.colorStrip, { backgroundColor: bgColor }]} />
         <View style={styles.cardContent}>
-          <Text style={[styles.selectedText, { color: colors.text }]} numberOfLines={4}>
-            "{item.selectedText}"
-          </Text>
+          <HighlightQuote
+            anchorJson={item.anchorJson}
+            selectedText={item.selectedText}
+            numberOfLines={4}
+          />
           {item.noteText && (
             <View style={styles.noteRow}>
               <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
@@ -216,8 +219,14 @@ export default function HighlightsScreen() {
         headerTitleStyle: { fontFamily: fonts.sansMedium, fontSize: 16 },
         headerShadowVisible: false,
         headerRight: () => (
-          <TouchableOpacity onPress={() => router.push('/highlights/review')} style={{ marginRight: 8 }}>
-            <Ionicons name="flash-outline" size={22} color={colors.primary} />
+          <TouchableOpacity
+            onPress={() => router.push('/highlights/review')}
+            style={{ marginRight: 8 }}
+            accessibilityRole="button"
+            // A lightning bolt promised a drill. The screen behind it turns pages.
+            accessibilityLabel="Revisit highlights one at a time"
+          >
+            <Ionicons name="albums-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
         ),
       }} />

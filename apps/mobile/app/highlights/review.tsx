@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Stack, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { highlightsApi, isOfflineError } from '@textstack/shared'
+import { highlightsApi, isOfflineError, plural } from '@textstack/shared'
 import type { HighlightReviewItem } from '@textstack/shared'
 import { useReconnectCount } from '../../src/hooks/useOnline'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
+import { HighlightQuote } from '../../src/components/HighlightQuote'
 
 const HIGHLIGHT_COLORS: Record<string, string> = {
   yellow: '#FEF3C7',
@@ -15,6 +16,16 @@ const HIGHLIGHT_COLORS: Record<string, string> = {
   blue: '#DBEAFE',
 }
 
+/**
+ * Revisiting saved highlights, one at a time.
+ *
+ * It was called "review" and its summary said "Reviewed N highlights", which promised something the
+ * screen never did: there is no question, no recall, no self-assessment — you read the passage and
+ * press Next. The server has no recall model to hold one either; `Highlight` carries a single
+ * `LastReviewedAt` and the queue is a 24-hour cooldown, with no interval, schedule or review log.
+ * Rather than dress a page-turner as spaced repetition, it now says what it is. Real recall for
+ * highlights is recorded as deliberately-not-done in docs/STATUS.md.
+ */
 export default function HighlightReviewScreen() {
   const router = useRouter()
   const { colors } = useTheme()
@@ -25,7 +36,7 @@ export default function HighlightReviewScreen() {
   const [attempt, setAttempt] = useState(0)
   const reconnects = useReconnectCount()
   const [done, setDone] = useState(false)
-  const [reviewed, setReviewed] = useState(0)
+  const [seen, setSeen] = useState(0)
 
   useEffect(() => {
     // The review screen is short-lived — user can back-gesture mid-fetch,
@@ -54,12 +65,14 @@ export default function HighlightReviewScreen() {
     if (current) {
       try {
         await highlightsApi.markHighlightReviewed(current.id)
+        // Counted only on success. The increment used to sit outside the try, so a run with no
+        // network still finished by claiming a number of highlights the server had never heard of.
+        setSeen(n => n + 1)
       } catch (e) {
-        // Non-fatal — review progress is a convenience, not a hard state.
+        // Non-fatal — revisiting is a convenience, not a hard state.
         // Log so QA can spot bursts of failures, but keep the flow moving.
         console.warn('Failed to mark highlight reviewed:', e)
       }
-      setReviewed(r => r + 1)
     }
     if (index < items.length - 1) {
       setIndex(i => i + 1)
@@ -71,7 +84,7 @@ export default function HighlightReviewScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Review Highlights', headerShown: true }} />
+        <Stack.Screen options={{ title: 'Revisit Highlights', headerShown: true }} />
         <ActivityIndicator style={{ flex: 1 }} color={colors.primary} />
       </>
     )
@@ -80,7 +93,7 @@ export default function HighlightReviewScreen() {
   if (items.length === 0 && loadError) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Review Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
+        <Stack.Screen options={{ title: 'Revisit Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <Ionicons
             name={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
@@ -103,10 +116,10 @@ export default function HighlightReviewScreen() {
   if (items.length === 0) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Review Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
+        <Stack.Screen options={{ title: 'Revisit Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>All caught up! No highlights to review.</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nothing new to revisit — you've seen all of these today.</Text>
         </View>
       </>
     )
@@ -116,12 +129,12 @@ export default function HighlightReviewScreen() {
   if (done) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Review Complete', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
+        <Stack.Screen options={{ title: 'Done', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>Review Complete</Text>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>That's the set</Text>
           <Text style={[styles.summaryCount, { color: colors.textSecondary }]}>
-            Reviewed {reviewed} highlight{reviewed !== 1 ? 's' : ''}
+            {plural(seen, 'highlight', 'highlights', 'You revisited {n} {noun}')}
           </Text>
           <TouchableOpacity
             style={[styles.summaryBtn, { backgroundColor: colors.primary }]}
@@ -147,10 +160,12 @@ export default function HighlightReviewScreen() {
       }} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.card, { backgroundColor: bgColor }]}>
-          <Text style={[styles.quoteText, { color: colors.text }]}>
-            "{current.selectedText}"
-          </Text>
-          <Text style={[styles.flipHint, { color: colors.textSecondary }]}>Tap Next to continue</Text>
+          <HighlightQuote
+            anchorJson={current.anchorJson}
+            selectedText={current.selectedText}
+            numberOfLines={12}
+            style={styles.quoteText}
+          />
           {current.noteText && (
             <Text style={[styles.noteText, { color: colors.textSecondary }]}>{current.noteText}</Text>
           )}
@@ -183,8 +198,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 24 },
   card: { borderRadius: 16, padding: 24, marginBottom: 32 },
-  quoteText: { fontFamily: fonts.serif, fontSize: 20, lineHeight: 30, fontStyle: 'italic', textAlign: 'center' },
-  flipHint: { fontFamily: fonts.sans, fontSize: 12, textAlign: 'center', marginTop: 8 },
+  // `flipHint` used to live here, styling the words "Tap Next to continue" — named for a flip this
+  // screen has never had. Both are gone.
+  quoteText: { fontSize: 20, lineHeight: 30, textAlign: 'center' },
   noteText: { fontFamily: fonts.sans, fontSize: 14, marginTop: 16, textAlign: 'center' },
   meta: { marginTop: 20, alignItems: 'center', gap: 2 },
   metaText: { fontFamily: fonts.sans, fontSize: 12 },

@@ -65,6 +65,19 @@ someone's memory.
   backend. Every fix from the QA sweep shipped with pure unit tests instead.
 - **No SSG freshness alarm.** The five-week outage was found by a screenshot. Nothing yet alerts on
   "newest generated page is older than N hours" — the single change that would have caught it on day one.
+- **Highlight "revisit" has no recall model.** `Highlight` carries only `LastReviewedAt`, and the queue
+  is a 24-hour cooldown — no interval, no schedule, no review log, and no field on the request a grade
+  could arrive in. The screen is a page-turner and now says so rather than calling itself review.
+  Making it real means new columns and an SRS path of its own; deliberately not done for launch.
+- **PDF highlights have no context and never will.** Reflow highlights store ~30 characters either side
+  in their anchor, so they gained context retroactively. A PDF-rect anchor carries only `exact`; those
+  render as the passage alone. Capturing surrounding text at PDF-highlight time is the open follow-up.
+- **`selfAssessment` is captured and discarded.** The three-button card ("Forgot / Almost / Knew") sends
+  the choice, `SubmitReviewRequest` accepts it, and no server code reads it — so "Almost" differs from
+  "Knew" only in the boolean derived from it. Either make the middle button mean something, or drop it.
+- **`t()` takes no parameters, so plurals cannot be translated.** `plural()` in `packages/shared` handles
+  English one-vs-many in code; strings living in `en.json` (`"{count} highlights"`, `"{count} chapters"`)
+  stay hard-plural until the i18n layer accepts a count.
 - **Soft-404s to crawlers.** The catch-all nginx `location /` returns 200 for non-SSG paths; the bot-404
   guard exists only in `@spa`.
 - **Dead nginx block.** `location /ssg/` aliases a directory that does not exist; the real pages come

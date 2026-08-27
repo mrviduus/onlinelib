@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildContextSnippet, SNIPPET_PREFIX_CHARS } from './contextSnippet'
+import { anchorContextSnippet, buildContextSnippet, SNIPPET_PREFIX_CHARS } from './contextSnippet'
 
 // The paragraph QA actually saved from — Dryden's Aeneid, stored as a block of
 // prose because extractSentence takes 500 characters of the block ancestor
@@ -51,5 +51,44 @@ describe('buildContextSnippet', () => {
     expect(buildContextSnippet(null, 'x')).toBeNull()
     expect(buildContextSnippet('x', null)).toBeNull()
     expect(buildContextSnippet('', '')).toBeNull()
+  })
+})
+
+describe('anchorContextSnippet', () => {
+  const anchor = (a: Record<string, unknown>) => JSON.stringify(a)
+
+  it('reads the context a highlight already stored', () => {
+    // The exact shape a reflow highlight saves: ~30 chars either side of the passage.
+    const json = anchor({
+      prefix: 'Arms, and the man I sing, who ',
+      exact: 'forc',
+      suffix: "'d by fate, and haughty Juno's",
+      startOffset: 30,
+      endOffset: 34,
+    })
+
+    const snippet = anchorContextSnippet(json, 'forc')
+
+    expect(snippet).not.toBeNull()
+    expect(snippet!.match).toBe('forc')
+    expect(snippet!.before).toContain('who')
+    expect(snippet!.after).toContain('fate')
+  })
+
+  it('returns null for an anchor with no surrounding text', () => {
+    // PDF-rect anchors and the old no-anchor fallback carry only `exact`. Rendering a "quote"
+    // that is just the fragment again is exactly the emptiness this replaces.
+    expect(anchorContextSnippet(anchor({ exact: 'in' }), 'in')).toBeNull()
+    expect(anchorContextSnippet(anchor({ kind: 'pdf', page: 4, exact: 'in' }), 'in')).toBeNull()
+  })
+
+  it('survives a missing or malformed anchor rather than throwing', () => {
+    expect(anchorContextSnippet(null, 'in')).toBeNull()
+    expect(anchorContextSnippet('{not json', 'in')).toBeNull()
+  })
+
+  it('falls back to the anchor exact when the row carries no selected text', () => {
+    const json = anchor({ prefix: 'a long lead-in of text ', exact: 'here', suffix: ' and after' })
+    expect(anchorContextSnippet(json, null)!.match).toBe('here')
   })
 })

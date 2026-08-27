@@ -8,6 +8,7 @@ import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
 import { EmptyState } from '../components/EmptyState'
 import { useDataChange } from '../lib/dataEvents'
+import { HighlightQuote } from '../components/HighlightQuote'
 
 const COLORS = ['yellow', 'green', 'pink', 'blue'] as const
 const PAGE_SIZE = 50
@@ -228,7 +229,9 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
                       >
                         <div className={`highlights-page__color-bar highlights-page__color-bar--${h.color}`} />
                         <div className="highlights-page__highlight-content">
-                          <p className="highlights-page__text">{h.selectedText}</p>
+                          <p className="highlights-page__text">
+                            <HighlightQuote anchorJson={h.anchorJson} selectedText={h.selectedText} />
+                          </p>
                           {h.noteText && (
                             <p className="highlights-page__note">
                               <span className="highlights-page__note-label">{t('highlights.note')}:</span> {h.noteText}

@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, FlatList } 
 import { isPdfAnchor } from '@textstack/shared'
 import type { PublicHighlight } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { HighlightQuote } from './HighlightQuote'
 import { fonts } from '../theme/typography'
 
 /** Swatch fills — mirror the reader highlight palette (HighlightNoteModal). */
@@ -147,9 +148,12 @@ export function HighlightsSheet({
                   >
                     <View style={[styles.swatch, { backgroundColor: fill }]} />
                     <View style={styles.rowContent}>
-                      <Text style={[styles.rowText, { color: colors.text }]} numberOfLines={2}>
-                        {snippetOf(item)}
-                      </Text>
+                      <HighlightQuote
+                        anchorJson={item.anchorJson}
+                        selectedText={snippetOf(item)}
+                        numberOfLines={2}
+                        style={styles.rowText}
+                      />
                       {item.noteText ? (
                         <Text style={[styles.rowNote, { color: colors.textSecondary }]} numberOfLines={1}>
                           {item.noteText}

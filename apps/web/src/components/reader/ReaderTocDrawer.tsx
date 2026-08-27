@@ -6,6 +6,7 @@ import type { Bookmark } from '../../hooks/useBookmarks'
 import type { HighlightColor, StoredHighlight } from '../../lib/offlineDb'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useTranslation } from '../../hooks/useTranslation'
+import { HighlightQuote } from '../HighlightQuote'
 
 // Swatch fill per highlight color — mirrors HighlightOverlayLayer's palette via
 // the same CSS vars so light/dark/sepia themes stay in sync.
@@ -235,7 +236,7 @@ export function ReaderTocDrawer({
                   />
                   <span className="reader-toc-drawer__hl-body">
                     <span className="reader-toc-drawer__hl-text">
-                      {h.selectedText || h.anchor.exact}
+                      <HighlightQuote anchor={h.anchor} selectedText={h.selectedText || h.anchor.exact} />
                     </span>
                     {h.noteText && (
                       <span className="reader-toc-drawer__hl-note">{h.noteText}</span>

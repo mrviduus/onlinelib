@@ -21,7 +21,14 @@
  *    paragraph head — a quote that does not contain the word it belongs to.
  *    Returning null lets the caller show the translation instead, which is
  *    always true.
+ *
+ * Shared rather than mobile-only since the highlight screens needed the same
+ * treatment: a one-word highlight rendered as `"in"` on three surfaces, while
+ * the surrounding text sat unread in its own anchor. See anchorContextSnippet.
  */
+
+import type { TextAnchor } from '../reader/textAnchor'
+
 
 export interface ContextSnippet {
   before: string
@@ -46,13 +53,80 @@ export function buildContextSnippet(
   const idx = sentence.toLowerCase().indexOf(word.toLowerCase())
   if (idx === -1) return null
 
-  const match = sentence.slice(idx, idx + word.length)
-  const rawBefore = sentence.slice(0, idx)
-  const rawAfter = sentence.slice(idx + word.length)
+  return trimAround(
+    sentence.slice(0, idx),
+    sentence.slice(idx, idx + word.length),
+    sentence.slice(idx + word.length),
+    prefixChars,
+    totalChars,
+  )
+}
 
+/**
+ * The same one-line quote, for a passage whose surroundings are already known.
+ *
+ * A highlight stores a {prefix, exact, suffix} anchor with ~30 characters of the real page on each
+ * side, so unlike a vocabulary word there is nothing to search for — the split has been done. Only
+ * the trimming is shared, which is why that half is its own function.
+ *
+ * Returns null when there is no usable context: PDF-rect anchors and the old no-anchor fallback path
+ * carry only `exact`, and a "quote" that is just the fragment again is the thing this exists to
+ * avoid. Callers render the fragment alone in that case.
+ *
+ * Untrimmed by default. The stored context is already bounded at ANCHOR_CONTEXT_LENGTH per side, so a
+ * highlight card — which has several lines to spend — should show all of it; only a caller squeezing
+ * this onto one line needs budgets, and it passes them.
+ */
+export function anchorContextSnippet(
+  anchorJson: string | null | undefined,
+  selectedText: string | null | undefined,
+  opts: { prefixChars?: number; totalChars?: number } = {},
+): ContextSnippet | null {
+  if (!anchorJson) return null
+
+  let anchor: Partial<TextAnchor>
+  try {
+    anchor = JSON.parse(anchorJson) as Partial<TextAnchor>
+  } catch {
+    return null
+  }
+
+  return contextFromAnchor(anchor, selectedText, opts)
+}
+
+/** As {@link anchorContextSnippet}, for callers that already hold the parsed anchor. */
+export function contextFromAnchor(
+  anchor: Partial<TextAnchor> | null | undefined,
+  selectedText: string | null | undefined,
+  opts: { prefixChars?: number; totalChars?: number } = {},
+): ContextSnippet | null {
+  if (!anchor) return null
+
+  const match = selectedText || anchor.exact
+  if (!match) return null
+
+  const before = anchor.prefix ?? ''
+  const after = anchor.suffix ?? ''
+  if (!before && !after) return null
+
+  if (opts.totalChars == null) return { before, match, after }
+
+  return trimAround(before, match, after, opts.prefixChars ?? SNIPPET_PREFIX_CHARS, opts.totalChars)
+}
+
+/** Fit before + match + after onto one line, cutting at word boundaries. */
+function trimAround(
+  rawBefore: string,
+  match: string,
+  rawAfter: string,
+  prefixChars: number,
+  totalChars: number,
+): ContextSnippet {
   // Fits whole — trimming here would add ellipses to a line that never needed
   // them, which is noise pretending to be information.
-  if (sentence.length <= totalChars) return { before: rawBefore, match, after: rawAfter }
+  if (rawBefore.length + match.length + rawAfter.length <= totalChars) {
+    return { before: rawBefore, match, after: rawAfter }
+  }
 
   let before = rawBefore
   if (before.length > prefixChars) {

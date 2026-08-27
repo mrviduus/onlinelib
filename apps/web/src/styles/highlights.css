@@ -368,3 +368,16 @@ html.dark .highlights-page__color-bar--blue { background: #60a5fa; }
 .highlight-review__summary p {
   color: var(--color-text-muted);
 }
+
+/* The passage a reader saved, shown inside the text it came from.
+   The context is dimmed and the passage is not: a one-word highlight must stay
+   the thing the eye lands on even when it sits inside a line of ordinary prose. */
+.highlight-quote__context {
+  color: var(--color-text-muted);
+}
+
+.highlight-quote__match {
+  background: none;
+  color: inherit;
+  font-weight: 600;
+}

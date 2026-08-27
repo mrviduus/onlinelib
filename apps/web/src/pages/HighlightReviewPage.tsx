@@ -6,6 +6,7 @@ import { useTranslation } from '../hooks/useTranslation'
 import { getHighlightsForReview, markHighlightReviewed, type HighlightReviewItem } from '../api/userData'
 import { SeoHead } from '../components/SeoHead'
 import { Footer } from '../components/Footer'
+import { HighlightQuote } from '../components/HighlightQuote'
 
 export function HighlightReviewPage() {
   const { isAuthenticated } = useAuth()
@@ -125,7 +126,7 @@ export function HighlightReviewPage() {
         >
           <div className="highlight-review__card-front">
             <blockquote className="highlight-review__quote">
-              {currentCard.selectedText}
+              <HighlightQuote anchorJson={currentCard.anchorJson} selectedText={currentCard.selectedText} />
             </blockquote>
             {!flipped && (
               <p className="highlight-review__flip-hint">{t('highlights.flipCard')}</p>

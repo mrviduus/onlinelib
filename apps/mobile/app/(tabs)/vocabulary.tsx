@@ -19,7 +19,7 @@ import { ClusterBonusCard } from '../../src/components/vocabulary/ClusterBonusCa
 import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSettingsModal'
 import { VocabViewSheet } from '../../src/components/vocabulary/VocabViewSheet'
 import { VocabSummaryCard } from '../../src/components/vocabulary/VocabSummaryCard'
-import { buildContextSnippet } from '../../src/lib/contextSnippet'
+import { buildContextSnippet } from '@textstack/shared'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
