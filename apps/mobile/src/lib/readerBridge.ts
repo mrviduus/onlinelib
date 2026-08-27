@@ -203,21 +203,45 @@ export const READER_SELECTION_BRIDGE = `
       return true;
     }
 
-    function applyTapPulseRange(range) {
+    // The tapped word stays marked for as long as the toolbar is open.
+    //
+    // It used to be a 650ms fade. The word lit up, went out, and the toolbar
+    // stayed — four unlabelled icons hovering over nothing, with no way to tell
+    // which word Translate or Speak was about to act on. QA reported it as
+    // "the selected word is not marked"; the selection was correct all along,
+    // only its evidence expired.
+    //
+    // Deliberately NOT window.getSelection(): touching the Selection API here
+    // raises Android's ActionMode over our own toolbar. See selectWordAtPoint.
+    var _wordMarkSpan = null;
+
+    function clearWordMark() {
       try {
-        var span = document.createElement('span');
-        span.className = 'tap-pulse';
-        range.surroundContents(span);
-        setTimeout(function() {
-          if (span.parentNode) {
-            var parent = span.parentNode;
-            while (span.firstChild) parent.insertBefore(span.firstChild, span);
-            parent.removeChild(span);
-            parent.normalize();
-          }
-        }, 650);
+        var span = _wordMarkSpan;
+        _wordMarkSpan = null;
+        if (!span || !span.parentNode) return;
+        var parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+        parent.normalize();
       } catch(e) {}
     }
+
+    function markRange(range) {
+      try {
+        clearWordMark();
+        var span = document.createElement('span');
+        span.className = 'ts-word-mark';
+        range.surroundContents(span);
+        _wordMarkSpan = span;
+      } catch(e) {}
+    }
+
+    function applyTapPulseRange(range) { markRange(range); }
+
+    // RN clears the mark when the selection toolbar closes — the toolbar owns
+    // the lifecycle, so it also owns the ending.
+    window.__tsClearWordMark = clearWordMark;
 
     function getRangeAnchor(range) {
       var text = range.toString().trim();
@@ -416,7 +440,7 @@ export const READER_SELECTION_BRIDGE = `
       // e.target is never the rect and closest('.pdf-hl-rect') can't match — so
       // the PDF viewer exposes a geometric hit-test. A plain tap resolving to a
       // highlight opens the RN edit modal and MUST early-return so it does NOT
-      // also post 'tap' (toggle bars) or get swallowed by wordRangeAtPoint.
+      // also post 'tap' (toggle bars).
       // No-op in the reflow reader (global is undefined there).
       if (typeof window.__pdfHighlightAtPoint === 'function') {
         var _hlId = null;
@@ -427,12 +451,22 @@ export const READER_SELECTION_BRIDGE = `
         }
       }
 
-      // Quick tap on a word does nothing now (word action requires a hold).
-      // If the tap landed on a word, swallow it so a brush can't toggle bars.
-      if (wordRangeAtPoint(tx, ty)) return;
-
-      // Not on a word — empty space / between paragraphs. Fall back to
-      // immersive toggle, keeping double-tap suppression.
+      // A tap here toggles the bars, INCLUDING a tap that lands on a word.
+      //
+      // This used to end by calling wordRangeAtPoint and returning — swallow
+      // the tap so an accidental brush could not toggle the chrome. The cost was
+      // not obvious from here: text covers almost the whole screen, so in
+      // practice tapping the page did nothing at all. QA took two screenshots a
+      // second apart and got byte-identical images, then discovered the only way
+      // to reach the table of contents after reading half a chapter was to
+      // scroll back up through what they had just read.
+      //
+      // Tap-to-toggle is the convention in every reader people arrive from, and
+      // nothing in the app taught them otherwise. The brush it guarded against is
+      // already excluded above: a graze while scrolling moves more than 10px, a
+      // hold runs past LONGPRESS_MS, a drag leaves a selection, and a highlight
+      // or link tap has already returned. What is left — stationary, under
+      // 450ms, on plain text — is someone tapping the page.
       var now = Date.now();
       if (now - lastTapTime < 300) {
         if (tapTimeout) { clearTimeout(tapTimeout); tapTimeout = null; }
@@ -482,20 +516,11 @@ export const READER_SELECTION_BRIDGE = `
 
     // Tap pulse: wrap selection in temporary span with animation
     function applyTapPulse(sel) {
+      // Native drag selections already paint themselves via ::selection, so this
+      // only adds the mark for the single-word case the tap path shares.
       try {
         if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-        var range = sel.getRangeAt(0);
-        var span = document.createElement('span');
-        span.className = 'tap-pulse';
-        range.surroundContents(span);
-        setTimeout(function() {
-          if (span.parentNode) {
-            var parent = span.parentNode;
-            while (span.firstChild) parent.insertBefore(span.firstChild, span);
-            parent.removeChild(span);
-            parent.normalize();
-          }
-        }, 650);
+        markRange(sel.getRangeAt(0));
       } catch(e) {}
     }
 
