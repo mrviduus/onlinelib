@@ -533,11 +533,20 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage, IEnt
         if (book is null)
             return (false, "Book not found");
 
-        // Conflict resolution: client timestamp must be newer
-        if (request.UpdatedAt.HasValue && book.ProgressUpdatedAt.HasValue &&
-            request.UpdatedAt.Value <= book.ProgressUpdatedAt.Value)
+        // The position must come from the coordinate space that already owns this
+        // book, or say plainly that it is moving between spaces. An uploaded PDF
+        // read in Original layout stores `page:<n>`; the reflow reader stores
+        // `scroll:<slug>:<offset>`. Installed builds write the second one on every
+        // reader close whatever is on screen, which is how `page:16` at 14% became
+        // `scroll:2-the-mom-test:0` at 4%. See LocatorSpace for why this is not a
+        // ranking and not a timestamp.
+        //
+        // A refusal drops the whole write — the percent came out of the same wrong
+        // snapshot as the locator.
+        if (!LocatorSpace.MayReplace(book.ProgressLocator, request.Locator, request.LocatorKind))
         {
-            // Client data is stale, return success but don't update
+            // Silent, like the stale-write branch below used to be: an old client
+            // cannot act on an error and would only retry into it.
             return (true, null);
         }
 
@@ -556,7 +565,22 @@ public class UserBookService(IAppDbContext db, IFileStorageService storage, IEnt
         // saved and the number is left alone. See ProgressUnit.
         if (request.Percent.HasValue && ProgressUnit.IsTrusted(request.PercentUnit))
             book.ProgressPercent = request.Percent;
-        book.ProgressUpdatedAt = request.UpdatedAt ?? DateTimeOffset.UtcNow;
+        // Server clock, always — matching the catalog path (UserDataEndpoints).
+        // This column used to hold `request.UpdatedAt ?? UtcNow`, making it the one
+        // progress column in the codebase that could contain a CLIENT clock. The
+        // last-write-wins gate above then compared a client timestamp against
+        // whatever the column happened to hold, so a PDF write arriving after a
+        // reflow write — but carrying a device clock a second behind the server's —
+        // was silently dropped.
+        //
+        // The gate is gone with it. It was never a real invariant: the reflow
+        // payload has never sent `updatedAt` at all, so that path has always been
+        // last-arrival-wins. And no client queues progress writes for retry
+        // (mobile is fire-and-forget, web is debounce + keepalive), so arrival
+        // order already IS recency. Genuine cross-device merge needs a second
+        // column holding the client clock, compared only against itself — recorded
+        // as open in ADR-013 rather than half-built here.
+        book.ProgressUpdatedAt = DateTimeOffset.UtcNow;
 
         if (request.Percent is >= 0.99 && ProgressUnit.IsTrusted(request.PercentUnit))
         {

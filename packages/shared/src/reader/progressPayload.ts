@@ -9,6 +9,8 @@
  */
 export const PERCENT_UNIT_BOOK = 'book'
 
+import { LOCATOR_SPACE_SCROLL, type LocatorSpaceKind } from './locatorSpace'
+
 /**
  * Pure builders for the reading-progress wire payloads.
  *
@@ -43,6 +45,11 @@ export interface UserBookProgressPayload {
   /** Declares what `percent` is a fraction of. Sent whenever `percent` is, and
    *  never without it — the server stores the number only when it is present. */
   percentUnit?: string
+  /** The coordinate space `locator` is written in. Always 'scroll' here — this
+   *  builder only ever produces a chapter offset. Sent so the server can tell a
+   *  deliberate move into scroll space (the read-as-text fallback for a corrupt
+   *  PDF) from a stale writer clobbering a PDF reader's page. */
+  locatorKind: LocatorSpaceKind
   chapterSlug: string
   locator: string
 }
@@ -105,6 +112,7 @@ export function buildUserBookProgressPayload(input: UserBookProgressInputs): Use
   const payload: UserBookProgressPayload = {
     chapterSlug: slug,
     locator: `scroll:${slug}:${safeOffset}`,
+    locatorKind: LOCATOR_SPACE_SCROLL,
   }
   if (bookPct != null) {
     payload.percent = clampUnit(bookPct)

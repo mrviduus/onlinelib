@@ -216,6 +216,7 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
       percentUnit: 'book',
       chapterSlug: 'ch5',
       locator: 'scroll:ch5:4200',
+      locatorKind: 'scroll',
     })
   })
 
@@ -241,6 +242,24 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
     })
     expect(withoutPercent?.percent).toBeUndefined()
     expect(withoutPercent?.percentUnit).toBeUndefined()
+  })
+
+  it('still produces a payload at offset zero — that is a real position', () => {
+    // Load-bearing. `scroll:<slug>:0` is what a reader who just opened a chapter
+    // legitimately has, which is precisely why the server rule cannot detect the
+    // corrupting write by looking for degenerate values. It has to know which
+    // coordinate space owns the book, and the locator has to say which space it
+    // is in. This test exists so nobody "optimises" the zero case away and
+    // reintroduces the bug from the other side.
+    const p = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch1',
+      fallbackChapterSlug: null,
+      chapterProgress: 0,
+      scrollOffset: 0,
+      chapters: [{ slug: 'ch1', wordCount: 1000 }],
+    })
+    expect(p?.locator).toBe('scroll:ch1:0')
+    expect(p?.locatorKind).toBe('scroll')
   })
 })
 

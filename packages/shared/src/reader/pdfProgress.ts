@@ -9,6 +9,7 @@
 // in isolation.
 
 import { PERCENT_UNIT_BOOK } from './progressPayload'
+import { LOCATOR_SPACE_PAGE, type LocatorSpaceKind } from './locatorSpace'
 
 export function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0
@@ -27,6 +28,8 @@ export interface PdfProgressPayload {
   /** Declares what `percent` is a fraction of; the server stores it only when
    *  this says "book". */
   percentUnit: string
+  /** The coordinate space `locator` is written in. Always 'page' here. */
+  locatorKind: LocatorSpaceKind
   updatedAt: string
 }
 
@@ -49,6 +52,7 @@ export function buildPdfProgressPayload(
     // A page fraction IS a book fraction for a chapterless PDF, so this is a
     // genuine book-wide value and says so.
     percentUnit: PERCENT_UNIT_BOOK,
+    locatorKind: LOCATOR_SPACE_PAGE,
     updatedAt: new Date(now).toISOString(),
   }
 }

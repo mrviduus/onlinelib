@@ -70,7 +70,21 @@ export function getUserBookProgress(bookId: string) {
 // chapterSlug is nullable — a chapterless PDF read in Original layout (ADR-012)
 // persists a `page:<N>` locator with `chapterSlug: null` into the SAME progress
 // row the reflow reader writes (see buildPdfProgressPayload).
-export function updateUserBookProgress(bookId: string, data: { chapterSlug: string | null; locator?: string; percent?: number; updatedAt?: string }) {
+/**
+ * The body type had drifted: it named neither `percentUnit` nor `locatorKind`, and
+ * compiled only because every caller passes a builder's return value rather than
+ * an object literal. A type that does not describe the request is a type that
+ * cannot catch a missing field — which is exactly how the web client shipped
+ * without `percentUnit` and stopped storing percentages at all.
+ */
+export function updateUserBookProgress(bookId: string, data: {
+  chapterSlug: string | null
+  locator?: string
+  percent?: number
+  percentUnit?: string
+  locatorKind?: string
+  updatedAt?: string
+}) {
   return authFetch<void>(`/me/books/${bookId}/progress`, jsonBody('PUT', data))
 }
 

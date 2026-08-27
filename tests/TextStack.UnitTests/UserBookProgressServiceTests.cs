@@ -207,4 +207,122 @@ public class UserBookProgressServiceTests
         Assert.Equal("scroll:ch-9:640", book.ProgressLocator);
         Assert.Null(book.CompletedAt);
     }
+
+    [Fact]
+    public async Task UpsertProgressAsync_ScrollWriteWithoutKind_DoesNotReplaceAPageLocator()
+    {
+        // The 2026-08-27 retest, in one test. A reader opened an uploaded PDF,
+        // read to page 16, and the reflow path's close-flush — which fires on
+        // every reader close regardless of what is on screen — arrived carrying
+        // "top of the chapter named in the URL".
+        //
+        // Before the guard this stored scroll:2-the-mom-test:0 at 4% and the book
+        // reopened ten pages early. The client no longer sends it, but every
+        // installed build still does.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: null, Locator: "page:16", Percent: 0.139, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book, LocatorKind: LocatorSpace.Page), CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "2-the-mom-test", Locator: "scroll:2-the-mom-test:0", Percent: 0.038,
+            UpdatedAt: null, PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        Assert.Equal("page:16", book.ProgressLocator);
+        Assert.Equal(0.139, book.ProgressPercent);
+        Assert.Null(book.ProgressChapterSlug);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_DeclaredScrollWrite_ReplacesAPageLocator()
+    {
+        // The read-as-text fallback for a PDF that will not render. That reader is
+        // legitimately in scroll space, which is why the rule is not a ranking.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: null, Locator: "page:16", Percent: 0.139, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book, LocatorKind: LocatorSpace.Page), CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-2", Locator: "scroll:ch-2:900", Percent: 0.42, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book, LocatorKind: LocatorSpace.Scroll), CancellationToken.None);
+
+        Assert.Equal("scroll:ch-2:900", book.ProgressLocator);
+        Assert.Equal(0.42, book.ProgressPercent);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_SameSpaceWithoutKind_IsStillStored()
+    {
+        // The compatibility case. Every installed build writes scroll-over-scroll
+        // for an EPUB and declares nothing; an over-tight guard would freeze all
+        // of their reading positions.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: 0.1, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-4", Locator: "scroll:ch-4:2400", Percent: 0.6, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        Assert.Equal("scroll:ch-4:2400", book.ProgressLocator);
+        Assert.Equal(0.6, book.ProgressPercent);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_NullLocator_LeavesTheStoredPositionAlone()
+    {
+        // The fourth corruption vector, found while tracing the third: the web
+        // client's locator field is optional and JSON.stringify drops undefined,
+        // so "I have no position to report" arrived as "erase the position".
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: null, Locator: "page:16", Percent: 0.139, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book, LocatorKind: LocatorSpace.Page), CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: null, Locator: null, Percent: 0.5, UpdatedAt: null,
+            PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        Assert.Equal("page:16", book.ProgressLocator);
+        Assert.Equal(0.139, book.ProgressPercent);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_LaterWriteWithAnEarlierClientClock_IsStored()
+    {
+        // The column used to hold whichever clock the client happened to send, and
+        // the stale-write gate compared a client timestamp against it. A PDF write
+        // arriving after a reflow write, from a device a second behind the server,
+        // was silently dropped. One clock per column, and the gate is gone with it.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: 0.1,
+            UpdatedAt: DateTimeOffset.UtcNow.AddMinutes(5),
+            PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-2", Locator: "scroll:ch-2:20", Percent: 0.2,
+            UpdatedAt: DateTimeOffset.UtcNow.AddMinutes(-5),
+            PercentUnit: ProgressUnit.Book), CancellationToken.None);
+
+        Assert.Equal("scroll:ch-2:20", book.ProgressLocator);
+        Assert.Equal(0.2, book.ProgressPercent);
+    }
 }

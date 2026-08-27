@@ -127,7 +127,12 @@ public record UpsertUserBookProgressRequest(
     DateTimeOffset? UpdatedAt,
     /// <summary>What Percent is a fraction OF. Only "book" is stored; a percentage
     /// without a declared unit is left unsaved. See Application.ReadingTracking.ProgressUnit.</summary>
-    string? PercentUnit = null
+    string? PercentUnit = null,
+    /// <summary>The coordinate space Locator is written in — "page" or "scroll".
+    /// Required only to move a book BETWEEN spaces; a write that stays in the space
+    /// already stored is accepted without it, so older clients keep working.
+    /// See Application.ReadingTracking.LocatorSpace.</summary>
+    string? LocatorKind = null
 );
 
 // ChapterId/ChapterSlug are nullable: PDFs opened in "Original layout" (ADR-012) are
