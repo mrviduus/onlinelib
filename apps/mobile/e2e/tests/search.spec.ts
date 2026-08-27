@@ -1,53 +1,36 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * Discover — search and the catalog it sits on.
+ *
+ * Two tests were deleted rather than repaired. "search results are grouped by
+ * book" and "clear button resets search" each performed some clicks and then
+ * ended, with no `expect` at all — they reported green on every run including
+ * ones where the feature was broken, because they never made a claim. A test
+ * that cannot fail is worse than no test: it occupies the place where a real
+ * one would go.
+ */
 test.describe('Search', () => {
-  test('search page shows empty state', async ({ page }) => {
+  test('opens on its empty state', async ({ page }) => {
     await page.goto('/search')
     await page.waitForLoadState('networkidle')
-
-    const hasPlaceholder = await page.locator('text=Search across all books').isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasPlaceholder).toBeTruthy()
+    await expect(page.locator('text=Search across all books').first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('search input accepts text and returns results', async ({ page }) => {
+  test('a query resolves to results or to a stated absence of them', async ({ page }) => {
+    // The point of the alternation: an offline or failed search used to render
+    // as "No results for …" — a claim about the catalog rather than the
+    // connection. Both branches are legitimate answers; a blank screen is not.
     await page.goto('/search')
     await page.waitForLoadState('networkidle')
 
-    const input = page.locator('input[placeholder*="Search"]')
+    const input = page.locator('input[placeholder*="Search" i]').first()
     await input.fill('the')
     await input.press('Enter')
-    await page.waitForTimeout(2000)
 
-    // Should show results or no results
-    const hasResults = await page.locator('text=/\\d+ books?/').first().isVisible({ timeout: 10000 }).catch(() => false)
-    const hasNoResults = await page.locator('text=No results').first().isVisible({ timeout: 3000 }).catch(() => false)
-    expect(hasResults || hasNoResults).toBeTruthy()
-  })
-
-  test('search results are grouped by book', async ({ page }) => {
-    await page.goto('/search')
-    await page.waitForLoadState('networkidle')
-
-    const input = page.locator('input[placeholder*="Search"]')
-    await input.fill('the')
-    await input.press('Enter')
-    await page.waitForTimeout(2000)
-
-    // If results, should show "N books · M matches" summary
-    const hasSummary = await page.locator('text=/\\d+ books?.*\\d+ match/').first().isVisible({ timeout: 5000 }).catch(() => false)
-    // Summary may or may not show depending on results
-  })
-
-  test('clear button resets search', async ({ page }) => {
-    await page.goto('/search')
-    await page.waitForLoadState('networkidle')
-
-    const input = page.locator('input[placeholder*="Search"]')
-    await input.fill('test')
-
-    // Clear button should appear
-    await page.waitForTimeout(500)
-    const clearBtn = page.locator('[aria-label="close-circle"]').or(page.locator('svg').last())
-    // Clicking clear returns to empty state
+    await expect(
+      page.locator('text=/\\d+ books?/').first()
+        .or(page.locator('text=/No results|offline/i').first()),
+    ).toBeVisible({ timeout: 15000 })
   })
 })
