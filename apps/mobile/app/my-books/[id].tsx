@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage, isOfflineError } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage, isOfflineError, plural } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -317,7 +317,7 @@ export default function UserBookDetailScreen() {
             {/* Metadata chips */}
             <View style={styles.chipRow}>
               {isReady && <Chip icon="book-outline" text={`${book.chapters.length} ch`} colors={colors} />}
-              {estPages && <Chip icon="document-text-outline" text={`~${estPages} pages`} colors={colors} />}
+              {estPages && <Chip icon="document-text-outline" text={`~${plural(estPages, 'page', 'pages')}`} colors={colors} />}
               {book.genre && <Chip icon="pricetag-outline" text={book.genre} colors={colors} />}
               {book.publishedYear && <Chip icon="calendar-outline" text={String(book.publishedYear)} colors={colors} />}
               {book.language && <Chip icon="globe-outline" text={book.language.toUpperCase()} colors={colors} />}
@@ -530,7 +530,7 @@ export default function UserBookDetailScreen() {
                     </Text>
                     {ch.wordCount && (
                       <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: fonts.sans, marginTop: 2 }}>
-                        {ch.wordCount.toLocaleString()} words
+                        {ch.wordCount.toLocaleString()} {plural(ch.wordCount, 'word', 'words', '{noun}')}
                       </Text>
                     )}
                   </View>

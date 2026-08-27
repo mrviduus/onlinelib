@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Animated } from 'react-native'
 import { useTheme } from '../../context/ThemeContext'
 import { PressableScale } from '../ui/PressableScale'
 import { Ionicons } from '@expo/vector-icons'
-import { REVIEW_BATCH_SIZES } from '@textstack/shared'
+import { REVIEW_BATCH_SIZES, plural } from '@textstack/shared'
 import type { ReviewMode } from '@textstack/shared'
 
 type RewardTier = 'perfect' | 'great' | 'good' | 'keep'
@@ -138,7 +138,7 @@ export function SessionSummary({
                 batchSize === n && { backgroundColor: colors.primaryLight },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={`Batch of ${n} cards`}
+              accessibilityLabel={plural(n, 'card', 'cards', 'Batch of {n} {noun}')}
               accessibilityState={{ selected: batchSize === n }}
             >
               <Text style={[styles.batchText, { color: batchSize === n ? colors.primary : colors.textSecondary }]}>
