@@ -118,6 +118,8 @@
   "onboarding": {
     "chooseLanguage": "Choose your language",
     "chooseLanguageSubtitle": "You can change this later in settings",
+    "nativeLanguageTitle": "What language do you know best?",
+    "nativeLanguageSubtitle": "We'll translate into it while you read. You can change it any time in Profile.",
     "learnByReading": "Learn by reading",
     "tapToTranslate": "Tap any word to see its translation",
     "saveWords": "Save words to build your vocabulary",

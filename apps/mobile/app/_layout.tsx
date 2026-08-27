@@ -7,15 +7,16 @@ import * as SplashScreen from 'expo-splash-screen'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { setupApi } from '../src/lib/api'
 import { Sentry, initSentry } from '../src/lib/sentry'
-import { AuthProvider } from '../src/context/AuthContext'
+import { AuthProvider, useAuth } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { LanguageProvider } from '../src/context/LanguageContext'
-import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
+import { NativeLanguageProvider, useNativeLanguage } from '../src/context/NativeLanguageContext'
 import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
 import { useAppFonts } from '../src/theme/fonts'
+import { shouldAskForLanguage } from '../src/lib/languageOnboarding'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -106,6 +107,41 @@ function ColdResetOnResume() {
   return null
 }
 
+/**
+ * Sends a signed-in reader whose native language nobody ever asked for to the
+ * one screen that asks. Null-rendering and isolated for the same reason as
+ * `ColdResetOnResume`: `usePathname()` re-renders its own scope, and that scope
+ * must not be the whole `<Stack>`.
+ *
+ * Registration routes here directly (see `app/(auth)/login.tsx`). This gate is
+ * for everyone else — accounts made before the screen existed, and the reinstall
+ * case where local storage is empty but the profile is years old. Both show up
+ * as `nativeLanguage: null` from the server.
+ */
+function LanguageOnboardingGate() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const { user, isAuthenticated } = useAuth()
+  const { hasConfirmedLanguage } = useNativeLanguage()
+
+  const ask = shouldAskForLanguage({
+    isAuthenticated,
+    isGuest: !!user?.isGuest,
+    serverNativeLanguage: user?.nativeLanguage,
+    hasConfirmedLanguage,
+    alreadyOnboarding: pathname.startsWith('/onboarding'),
+  })
+
+  useEffect(() => {
+    // Never over the auth modal: the user is mid-sign-in, and login.tsx routes
+    // here itself once it knows whether the account is new.
+    if (!ask || pathname.includes('login')) return
+    router.replace('/onboarding/language')
+  }, [ask, pathname, router])
+
+  return null
+}
+
 function AppContent() {
   const { isDark } = useTheme()
 
@@ -115,12 +151,16 @@ function AppContent() {
     // runtime except the frozen "1.0.0" one, so this costs an empty View.
     <View style={{ flex: 1 }}>
       <ColdResetOnResume />
+      <LanguageOnboardingGate />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <LegacyRuntimeBanner />
       <View style={{ flex: 1 }}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)/login" options={{ presentation: 'modal' }} />
+          {/* Not a modal and not dismissible by gesture: it is a step, and the
+              value it collects is the one the reader cannot use the app without. */}
+          <Stack.Screen name="onboarding/language" options={{ animation: 'fade', gestureEnabled: false }} />
           <Stack.Screen name="book/[slug]" />
           <Stack.Screen name="reader/[bookSlug]/[chapterSlug]" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="vocabulary/review" />
