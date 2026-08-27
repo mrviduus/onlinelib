@@ -191,7 +191,7 @@ export function HighlightsPage({ embedded }: { embedded?: boolean } = {}) {
         {loading && highlights.length === 0 ? (
           <div className="highlights-page__loading">{t('common.loading')}</div>
         ) : highlights.length === 0 ? (
-          <EmptyState icon="🎨" title={t('highlights.empty')} />
+          <EmptyState icon="🎨" title={t('highlights.empty.title')} />
         ) : (
           <div className="highlights-page__groups">
             {groups.map(group => (
