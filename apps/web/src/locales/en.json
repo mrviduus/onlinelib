@@ -203,6 +203,9 @@
         "stats": "Reading statistics",
         "free": "Free to use"
       }
+    },
+    "about": {
+      "title": "What TextStack is"
     }
   },
   "cookieBanner": {
@@ -1488,5 +1491,21 @@
     "uploadBook": "Upload your book",
     "uploading": "Uploading...",
     "expiryBanner": "Your books are saved for 3 days. Sign up to keep them permanently."
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Search books, pages and actions…",
+    "empty": "Nothing matches that.",
+    "groups": {
+      "recent": "Recent",
+      "pages": "Pages",
+      "actions": "Actions",
+      "books": "Books"
+    },
+    "kbd": {
+      "navigate": "to navigate",
+      "select": "to select",
+      "close": "to close"
+    }
   }
 }

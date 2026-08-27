@@ -125,6 +125,10 @@ export default function LibraryScreen() {
             editionId: c.editionId,
             slug: c.slug,
             title: c.title,
+            // Not known offline: CachedBookMeta does not store it, and nothing on
+            // this screen reads it. Fabricated to satisfy the type, and wrong the
+            // day a second catalogue language ships — at which point the cache
+            // table needs the column rather than this line needing a better guess.
             language: 'en',
             coverPath: c.coverPath,
             createdAt: new Date(c.cachedAt).toISOString(),

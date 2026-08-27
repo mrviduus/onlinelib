@@ -276,6 +276,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
 
+      # `playwright install-deps` runs `apt-get update`, which fails HARD if ANY
+      # configured repository is unreachable — including the Microsoft ones the
+      # runner image ships and Playwright has no use for. On 2026-08-27 both
+      # returned 403 and took two PRs red with "The repository is no longer
+      # signed", which reads like a broken change rather than an upstream outage.
+      - name: Drop apt repositories Playwright does not need
+        run: sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list
+
       - name: Install Playwright Chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: apps/web
