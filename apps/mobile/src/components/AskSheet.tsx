@@ -4,7 +4,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  ragApi, ApiError, composeQuotedQuestion, parseQuotedContent,
+  ragApi, ApiError, composeQuotedQuestion, parseQuotedContent, citationLabel,
   type AskCitation, type AskTarget, type RagIndexStatus,
 } from '@textstack/shared'
 import {
@@ -40,6 +40,8 @@ interface AskSheetProps {
   currentChapterId?: string
   /** Passage handed in from the selection toolbar ("Ask about this") — attached as a quote card. */
   prefill?: AskPrefill | null
+  /** The book's chapters, so a citation chip can name the chapter instead of printing its ordinal. */
+  chapters?: { chapterNumber?: number; title?: string }[]
   isAuthenticated: boolean
   onCitation: (citation: AskCitation) => void
   onSignIn: () => void
@@ -99,7 +101,7 @@ function messagesToTurns(messages: BookChatMessage[]): AskTurn[] {
 }
 
 export function AskSheet({
-  visible, target, currentChapterId, prefill, isAuthenticated, onCitation, onSignIn, onClose,
+  visible, target, currentChapterId, prefill, chapters, isAuthenticated, onCitation, onSignIn, onClose,
 }: AskSheetProps) {
   const { colors } = useTheme()
   const { t } = useLanguage()
@@ -549,7 +551,7 @@ export function AskSheet({
                               accessibilityRole="button"
                             >
                               <Text style={[styles.chipText, { color: colors.text }]}>
-                                {c.sourcePage != null ? `p.${c.sourcePage}` : `ch.${c.chapterOrd}`}
+                                {citationLabel(c, chapters)}
                               </Text>
                             </TouchableOpacity>
                           ))}

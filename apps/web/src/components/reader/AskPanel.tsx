@@ -6,6 +6,7 @@ import { useRagIndex } from '../../hooks/useRagIndex'
 import { composeQuotedQuestion, parseQuotedContent } from '../../api/bookChat'
 import { AskMarkdown } from './AskMarkdown'
 import type { AskCitation, AskTarget } from '../../api/ask'
+import { citationLabel as sharedCitationLabel } from '@textstack/shared'
 
 /** A passage attached to the composer via "Ask about this" (nonce forces re-attach on re-select). */
 export interface AskPrefill {
@@ -28,6 +29,8 @@ interface Props {
   isAuthenticated: boolean
   onSignIn: () => void
   onNavigateToCitation: (citation: AskCitation) => void
+  /** The book's chapters, so a citation chip can name the chapter instead of printing its ordinal. */
+  chapters?: { chapterNumber?: number; title?: string }[]
   onClose: () => void
 }
 
@@ -56,6 +59,7 @@ export function AskPanel({
   isAuthenticated,
   onSignIn,
   onNavigateToCitation,
+  chapters,
   onClose,
 }: Props) {
   const { t } = useTranslation()
@@ -106,14 +110,12 @@ export function AskPanel({
   // is offered for consistency, default off); prominent for catalog books.
   const spoilerSubtle = askTarget.kind === 'userbook'
 
-  // Human-readable label for a citation ("p. 12" / "ch.4" / fallback) — shared by the chips
-  // below the answer and the inline [n] marker tooltips inside the rendered markdown.
-  const citationLabel = (c: AskCitation) =>
-    c.sourcePage != null
-      ? t('reader.ask.citationPage', { page: c.sourcePage })
-      : c.chapterOrd != null
-        ? t('reader.ask.citation', { ch: c.chapterOrd })
-        : t('reader.ask.citationFallback')
+  // Human-readable label for a citation — shared by the chips below the answer and the inline [n]
+  // marker tooltips inside the rendered markdown. It printed `ch.{chapterOrd}` and so said "ch.0" for
+  // the first chapter, an internal 0-based index no other reader surface shows; the shared helper
+  // prefers the chapter's real title and carries the marker. Not translated, because what it renders
+  // is a title, a page number or an ordinal — see packages/shared/src/reader/citation.ts.
+  const label = (c: AskCitation) => sharedCitationLabel(c, chapters)
 
   // Suggested starter questions, shown only on an empty, Ready thread once history has loaded.
   const starterKeys = ['summary', 'characters', 'keyIdea', 'attention'] as const
@@ -200,7 +202,7 @@ export function AskPanel({
                           text={turn.answer}
                           citations={turn.citations}
                           onNavigateToCitation={onNavigateToCitation}
-                          citationTitle={citationLabel}
+                          citationTitle={label}
                         />
                         {turn.streaming && <span className="ask-panel__cursor" aria-hidden="true" />}
                       </div>
@@ -222,7 +224,7 @@ export function AskPanel({
                             title={c.sectionPath || c.preview}
                             onClick={() => onNavigateToCitation(c)}
                           >
-                            {citationLabel(c)}
+                            {label(c)}
                           </button>
                         ))}
                       </div>

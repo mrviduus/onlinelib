@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 
-// Resolve the two citation label templates so chips render real text ("p. 12" / "ch.4");
-// every other key returns its bare key (existing assertions unaffected).
-const CITATION_TEMPLATES: Record<string, string> = {
-  'reader.ask.citation': 'ch.{{ch}}',
-  'reader.ask.citationPage': 'p. {{page}}',
-}
+// Citation chips no longer go through i18n: their text is a chapter title, a page number or an
+// ordinal, and the label is shared with mobile (packages/shared/src/reader/citation.ts) so both
+// clients say the same thing. Every key here returns its bare key.
+const CITATION_TEMPLATES: Record<string, string> = {}
 vi.mock('../../../hooks/useTranslation', () => ({
   useTranslation: () => ({
     t: (k: string, params?: Record<string, unknown>) => {
@@ -160,7 +158,11 @@ describe('AskPanel', () => {
     expect(onNavigateToCitation).toHaveBeenCalledWith(citation)
   })
 
-  it('labels a PDF citation with its page number and uses sectionPath as the tooltip', () => {
+  // Was `p. 12`, from the i18n template. The label is now built by the shared helper, which writes
+  // `p.12` — the form mobile already used — and prefixes the answer's marker so `[1]` in the text can
+  // be matched to a chip. Rewritten rather than deleted: the behaviour it guards (a PDF citation is
+  // labelled by page, tooltipped by sectionPath, and navigates on click) is unchanged.
+  it('labels a PDF citation with its marker and page, and uses sectionPath as the tooltip', () => {
     const citation = {
       marker: 1, chunkId: 'c1', chapterId: null, chapterOrd: null,
       charStart: 0, charEnd: 1, preview: 'snippet',
@@ -170,7 +172,7 @@ describe('AskPanel', () => {
     const onNavigateToCitation = vi.fn()
 
     render(<AskPanel {...baseProps} isAuthenticated={true} onNavigateToCitation={onNavigateToCitation} />)
-    const chip = screen.getByText('p. 12')
+    const chip = screen.getByText('[1] p.12')
     expect(chip.getAttribute('title')).toBe('Chapter 3 › Methods')
     fireEvent.click(chip)
 
