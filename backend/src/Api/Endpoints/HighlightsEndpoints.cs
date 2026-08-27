@@ -112,6 +112,7 @@ public static class HighlightsEndpoints
             .Select(h => new HighlightListItemDto(
                 h.Id,
                 h.SelectedText,
+                h.AnchorJson,
                 h.Color,
                 h.NoteText,
                 h.CreatedAt,
@@ -156,6 +157,7 @@ public static class HighlightsEndpoints
             .Select(h => new HighlightReviewDto(
                 h.Id,
                 h.SelectedText,
+                h.AnchorJson,
                 h.Color,
                 h.NoteText,
                 h.EditionId != null ? h.Edition!.Title : (h.UserBookId != null ? h.UserBook!.Title : null),
@@ -383,6 +385,10 @@ public record HighlightDto(
 public record HighlightListItemDto(
     Guid Id,
     string SelectedText,
+    // The reflow anchor is {prefix, exact, suffix} with ~30 characters of the real page on each
+    // side. It was already stored; this projection simply dropped it, which is why a one-word
+    // highlight rendered as `"in"` on every screen but the reader.
+    string AnchorJson,
     string Color,
     string? NoteText,
     DateTimeOffset CreatedAt,
@@ -404,6 +410,8 @@ public record HighlightListItemDto(
 public record HighlightReviewDto(
     Guid Id,
     string SelectedText,
+    /// <inheritdoc cref="HighlightListItemDto.AnchorJson"/>
+    string AnchorJson,
     string Color,
     string? NoteText,
     string? BookTitle,

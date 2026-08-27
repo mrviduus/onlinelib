@@ -24,6 +24,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 ## [Unreleased]
 
 - **Vocabulary** — Smart session answers now count toward spaced repetition — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-27-vocabulary-smart-session-answers-now-count)
+- **Highlights** — a saved passage is shown inside the sentence it came from, and "review" stopped claiming to be one — backend + web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-highlights-a-saved-passage-is-shown-inside-the-sentence)
 - **Progress** — a percentage now travels with the unit it is measured in — backend + web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-progress-a-percentage-now-travels-with-the-unit-it-is-mea)
 - **Reader** — the WebView stopped reloading itself out from under the reader — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-reader-the-webview-stopped-reloading-itself-out-from-unde)
 - **Mobile** — the app asks which language you know, instead of translating English into English — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-the-app-asks-which-language-you-know-instead-of-tr)

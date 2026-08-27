@@ -18,6 +18,9 @@ export interface PublicHighlight {
 export interface HighlightListItem {
   id: string
   selectedText: string
+  /** The stored {prefix, exact, suffix} anchor — the source of the surrounding text these
+   *  screens show. Present since the list projection stopped dropping it. */
+  anchorJson: string
   color: string
   noteText: string | null
   createdAt: string
@@ -44,6 +47,8 @@ export interface HighlightListResponse {
 export interface HighlightReviewItem {
   id: string
   selectedText: string
+  /** @see HighlightListItem.anchorJson */
+  anchorJson: string
   color: string
   noteText: string | null
   bookTitle: string | null
