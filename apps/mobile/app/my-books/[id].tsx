@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, computeBookProgress, parsePdfPageLocator, chapterSlugForPage } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -244,17 +244,16 @@ export default function UserBookDetailScreen() {
   }
 
   const estPages = book.totalWordCount ? Math.round(book.totalWordCount / 250) : null
-  // Book-wide percent (not chapter-scroll percent) — mirror the reader/library
-  // so the detail page doesn't show "85%" while the user is on chapter 2. Slug
-  // fallback matches the reader's `slug || chapter-{n}` synthesis.
-  const bookPct = savedProgress?.chapterSlug
-    ? computeBookProgress(
-        (book.chapters ?? []).map(c => ({ slug: c.slug || `chapter-${c.chapterNumber}`, wordCount: c.wordCount })),
-        savedProgress.chapterSlug,
-        savedProgress.percent ?? 0,
-        book.totalWordCount ?? undefined,
-      )
-    : null
+  // Read the stored number; do not derive it again.
+  //
+  // This used to call computeBookProgress with `savedProgress.percent` — already
+  // a BOOK fraction — in the `chapterProgress` slot, which takes a CHAPTER
+  // fraction. It re-scaled an already-scaled number, so it was wrong for every
+  // EPUB too, just plausibly wrong. And it derived only when a chapter slug
+  // existed, which a PDF read in Original layout deliberately has none of: the
+  // list said 14%, this screen said 0%, and the two agreed only after the
+  // locator had been corrupted into chapter space.
+  const bookPct = storedBookPercent(savedProgress)
   const progressPct = bookPct != null ? Math.round(bookPct * 100) : 0
 
   return (
@@ -351,10 +350,17 @@ export default function UserBookDetailScreen() {
           <View style={styles.progressSection}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
               <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans }}>Reading progress</Text>
-              <Text style={{ fontSize: 13, color: colors.primary, fontFamily: fonts.sansMedium }}>{progressPct}%</Text>
+              <Text style={{ fontSize: 13, color: colors.primary, fontFamily: fonts.sansMedium }}>
+                {formatBookPercent(bookPct)}
+              </Text>
             </View>
             <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: colors.primary }]} />
+              {/* Empty and muted when unknown — a full-width track next to "—"
+                  reads as 0%, which is the claim we just stopped making. */}
+              <View style={[
+                styles.progressFill,
+                { width: `${progressPct}%`, backgroundColor: bookPct == null ? colors.border : colors.primary },
+              ]} />
             </View>
           </View>
         )}
