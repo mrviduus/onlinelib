@@ -3,6 +3,7 @@ using Api.Mapping;
 using Api.Sites;
 using Application.Auth;
 using Application.Common.Interfaces;
+using Application.ReadingTracking;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -227,16 +228,24 @@ public static class UserDataEndpoints
     {
         target.ChapterId = request.ChapterId;
         target.Locator = request.Locator;
-        target.Percent = request.Percent;
-        // Completion is recorded, not inferred later from a threshold. Same 0.99
-        // rule uploads use (UserBookService.UpsertProgressAsync), so both kinds of
-        // book answer "finished?" the same way. Re-reading a finished book does
-        // not un-finish it — only an explicit mark-as-unfinished clears this,
-        // which arrives as percent 0.
-        if (request.Percent is >= 0.99)
-            target.CompletedAt ??= DateTimeOffset.UtcNow;
-        else if (request.Percent is <= 0)
-            target.CompletedAt = null;
+
+        // The position is always the reader's, so it is always saved. The NUMBER is
+        // only saved when the caller says what it is a fraction of — an old client
+        // sending a chapter fraction cannot be told from a correct one by looking at
+        // it, and this column has already been wrong once that way.
+        if (ProgressUnit.IsTrusted(request.PercentUnit))
+        {
+            target.Percent = request.Percent;
+            // Completion is recorded, not inferred later from a threshold. Same 0.99
+            // rule uploads use (UserBookService.UpsertProgressAsync), so both kinds of
+            // book answer "finished?" the same way. Re-reading a finished book does
+            // not un-finish it — only an explicit mark-as-unfinished clears this,
+            // which arrives as percent 0.
+            if (request.Percent is >= 0.99)
+                target.CompletedAt ??= DateTimeOffset.UtcNow;
+            else if (request.Percent is <= 0)
+                target.CompletedAt = null;
+        }
         // High-water mark for the RAG spoiler gate — monotonic, never decreases. NULL means
         // "never recorded" (distinct from ordinal 0, a real 0-based first chapter), so the first
         // write seeds it rather than max-ing against an implied 0.
@@ -547,7 +556,12 @@ public record UpsertProgressRequest(
     Guid ChapterId,
     string Locator,
     double? Percent,
-    DateTimeOffset? UpdatedAt
+    DateTimeOffset? UpdatedAt,
+    /// <summary>What <paramref name="Percent"/> is a fraction OF. Only "book" is
+    /// stored — see <see cref="Application.ReadingTracking.ProgressUnit"/>.
+    /// Absent from clients that predate the contract, whose percentages are of
+    /// unknown scale and are therefore left unstored.</summary>
+    string? PercentUnit = null
 );
 
 public record BookmarkDto(

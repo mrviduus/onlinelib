@@ -213,9 +213,34 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
     })
     expect(p).toEqual({
       percent: 0.73,
+      percentUnit: 'book',
       chapterSlug: 'ch5',
       locator: 'scroll:ch5:4200',
     })
+  })
+
+  it('declares the unit whenever it sends a percent, and never without one', () => {
+    // The server stores a percentage only when it knows what it is a fraction of,
+    // so a payload carrying a number without its unit would silently stop being
+    // saved — and a unit without a number would be a claim about nothing.
+    const withPercent = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch5',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+      chapters: [{ slug: 'ch5', wordCount: 1000 }],
+    })
+    expect(withPercent?.percent).toBeDefined()
+    expect(withPercent?.percentUnit).toBe('book')
+
+    // No chapter list — the book fraction cannot be computed, so neither travels
+    // and the server keeps its last known good value.
+    const withoutPercent = buildUserBookProgressPayload({
+      currentChapterSlug: 'ch5',
+      fallbackChapterSlug: null,
+      chapterProgress: 0.5,
+    })
+    expect(withoutPercent?.percent).toBeUndefined()
+    expect(withoutPercent?.percentUnit).toBeUndefined()
   })
 })
 

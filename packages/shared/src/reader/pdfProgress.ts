@@ -8,6 +8,8 @@
 // Kept free of DOM/pdfjs so the payload builder + locator parse are unit-tested
 // in isolation.
 
+import { PERCENT_UNIT_BOOK } from './progressPayload'
+
 export function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0
   if (n < 0) return 0
@@ -22,6 +24,9 @@ export interface PdfProgressPayload {
   locator: string
   /** currentPage / numPages, clamped to [0,1]. */
   percent: number
+  /** Declares what `percent` is a fraction of; the server stores it only when
+   *  this says "book". */
+  percentUnit: string
   updatedAt: string
 }
 
@@ -41,6 +46,9 @@ export function buildPdfProgressPayload(
     chapterSlug: null,
     locator: `page:${page}`,
     percent,
+    // A page fraction IS a book fraction for a chapterless PDF, so this is a
+    // genuine book-wide value and says so.
+    percentUnit: PERCENT_UNIT_BOOK,
     updatedAt: new Date(now).toISOString(),
   }
 }

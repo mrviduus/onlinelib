@@ -1,3 +1,5 @@
+import { PERCENT_UNIT_BOOK } from '@textstack/shared'
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 export interface User {
@@ -214,7 +216,10 @@ export async function getAllProgress(): Promise<AllProgressResponse> {
 export async function upsertProgress(editionId: string, data: UpsertProgressRequest): Promise<ReadingProgressDto> {
   return authFetch<ReadingProgressDto>(`/me/progress/${editionId}`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    // Every web writer funnels through here, so the unit is declared once. The
+    // server stores a percentage only when it knows what it is a fraction of —
+    // see Application.ReadingTracking.ProgressUnit.
+    body: JSON.stringify({ ...data, percentUnit: PERCENT_UNIT_BOOK }),
   })
 }
 

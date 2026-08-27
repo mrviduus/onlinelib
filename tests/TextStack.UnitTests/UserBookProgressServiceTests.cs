@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.ReadingTracking;
 using Application.UserBooks;
 using Contracts.UserBooks;
 using Domain.Entities;
@@ -71,7 +72,7 @@ public class UserBookProgressServiceTests
         var book = h.SeedBook(userId);
 
         var req = new UpsertUserBookProgressRequest(
-            ChapterSlug: null, Locator: "page:17", Percent: 0.16, UpdatedAt: null);
+            ChapterSlug: null, Locator: "page:17", Percent: 0.16, UpdatedAt: null, PercentUnit: ProgressUnit.Book);
 
         var (success, error) = await h.Service.UpsertProgressAsync(userId, book.Id, req, CancellationToken.None);
 
@@ -99,7 +100,7 @@ public class UserBookProgressServiceTests
         var book = h.SeedBook(userId);
 
         var req = new UpsertUserBookProgressRequest(
-            ChapterSlug: "chapter-3", Locator: "word:42", Percent: 0.5, UpdatedAt: null);
+            ChapterSlug: "chapter-3", Locator: "word:42", Percent: 0.5, UpdatedAt: null, PercentUnit: ProgressUnit.Book);
 
         var (success, _) = await h.Service.UpsertProgressAsync(userId, book.Id, req, CancellationToken.None);
 
@@ -121,7 +122,7 @@ public class UserBookProgressServiceTests
         var book = h.SeedBook(userId);
 
         var req = new UpsertUserBookProgressRequest(
-            ChapterSlug: null, Locator: "page:200", Percent: 0.99, UpdatedAt: null);
+            ChapterSlug: null, Locator: "page:200", Percent: 0.99, UpdatedAt: null, PercentUnit: ProgressUnit.Book);
 
         await h.Service.UpsertProgressAsync(userId, book.Id, req, CancellationToken.None);
 
@@ -144,11 +145,11 @@ public class UserBookProgressServiceTests
         var book = h.SeedBook(userId);
 
         await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
-            ChapterSlug: "ch-3", Locator: "scroll:ch-3:1200", Percent: 0.42, UpdatedAt: null),
+            ChapterSlug: "ch-3", Locator: "scroll:ch-3:1200", Percent: 0.42, UpdatedAt: null, PercentUnit: ProgressUnit.Book),
             CancellationToken.None);
 
         await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
-            ChapterSlug: "ch-4", Locator: "scroll:ch-4:300", Percent: null, UpdatedAt: null),
+            ChapterSlug: "ch-4", Locator: "scroll:ch-4:300", Percent: null, UpdatedAt: null, PercentUnit: ProgressUnit.Book),
             CancellationToken.None);
 
         Assert.Equal(0.42, book.ProgressPercent);
@@ -164,7 +165,7 @@ public class UserBookProgressServiceTests
         var book = h.SeedBook(userId);
 
         await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
-            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: null, UpdatedAt: null),
+            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: null, UpdatedAt: null, PercentUnit: ProgressUnit.Book),
             CancellationToken.None);
 
         Assert.Null(book.CompletedAt);
@@ -182,5 +183,28 @@ public class UserBookProgressServiceTests
         var got = await h.Service.GetProgressAsync(userId, book.Id, CancellationToken.None);
 
         Assert.Null(got);
+    }
+
+    [Fact]
+    public async Task UpsertProgressAsync_UndeclaredUnit_KeepsStoredPercentButMovesPosition()
+    {
+        // Same rule as catalog books: an old build's percentage is of unknown
+        // scale, so the position it reports is honoured and the number is not.
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        var book = h.SeedBook(userId);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-1", Locator: "scroll:ch-1:10", Percent: 0.30, UpdatedAt: null, PercentUnit: ProgressUnit.Book),
+            CancellationToken.None);
+
+        await h.Service.UpsertProgressAsync(userId, book.Id, new UpsertUserBookProgressRequest(
+            ChapterSlug: "ch-9", Locator: "scroll:ch-9:640", Percent: 0.98, UpdatedAt: null),
+            CancellationToken.None);
+
+        Assert.Equal(0.30, book.ProgressPercent);
+        Assert.Equal("ch-9", book.ProgressChapterSlug);
+        Assert.Equal("scroll:ch-9:640", book.ProgressLocator);
+        Assert.Null(book.CompletedAt);
     }
 }
