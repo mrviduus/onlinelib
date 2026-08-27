@@ -396,44 +396,26 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     // Locate a Range inside document.body using a stored text-anchor. Mirrors
     // web's findTextByAnchor: try prefix+exact+suffix, then exact-with-context,
     // then bare exact. Returns null if no reasonable match is found.
+    // Anchor resolution is shared with web — window.__TSAnchor.findOffset comes
+    // from packages/shared/src/reader/textAnchor.ts via the overlay bundle.
+    //
+    // This used to be a second implementation: the same context ladder with
+    // integer scoring instead of Dice similarity, and with neither the
+    // offset verification nor the fuzzy fallback. A highlight that survived a
+    // book being re-parsed on the web quietly disappeared on the phone.
+    //
+    // The fallback keeps highlights working if an older build has an overlay
+    // bundle without the anchor API — exact match only, which is what the
+    // shared resolver tries first anyway.
     function hlFindAnchor(anchor) {
       if (!anchor || !anchor.exact) return null;
       var full = document.body.textContent || '';
-      var prefix = anchor.prefix || '';
-      var suffix = anchor.suffix || '';
-      var exact = anchor.exact;
-      var idx = -1;
-      if (prefix) {
-        idx = full.indexOf(prefix + exact + suffix);
-        if (idx !== -1) return { start: idx + prefix.length, length: exact.length };
-        idx = full.indexOf(prefix + exact);
-        if (idx !== -1) return { start: idx + prefix.length, length: exact.length };
+      if (window.__TSAnchor && window.__TSAnchor.findOffset) {
+        var at = window.__TSAnchor.findOffset(full, anchor);
+        return at === null || at === undefined ? null : { start: at, length: anchor.exact.length };
       }
-      if (suffix) {
-        idx = full.indexOf(exact + suffix);
-        if (idx !== -1) return { start: idx, length: exact.length };
-      }
-      idx = full.indexOf(exact);
-      if (idx === -1) return null;
-      // Disambiguate when exact appears multiple times — prefer the occurrence
-      // whose surrounding context best matches the stored prefix/suffix.
-      var best = idx, bestScore = 0;
-      if (prefix || suffix) {
-        var CTX = 30;
-        var cur = idx;
-        while (cur !== -1) {
-          var pre = full.slice(Math.max(0, cur - CTX), cur);
-          var suf = full.slice(cur + exact.length, cur + exact.length + CTX);
-          var score = 0;
-          if (prefix && pre.slice(-prefix.length) === prefix) score += 2;
-          if (suffix && suf.slice(0, suffix.length) === suffix) score += 2;
-          if (prefix && pre.indexOf(prefix.slice(-10)) !== -1) score += 1;
-          if (suffix && suf.indexOf(suffix.slice(0, 10)) !== -1) score += 1;
-          if (score > bestScore) { bestScore = score; best = cur; }
-          cur = full.indexOf(exact, cur + 1);
-        }
-      }
-      return { start: best, length: exact.length };
+      var idx = full.indexOf(anchor.exact);
+      return idx === -1 ? null : { start: idx, length: anchor.exact.length };
     }
 
     // Convert a global offset into document.body's textContent to a

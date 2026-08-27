@@ -134,3 +134,58 @@ describe('mobile overlay bundle', () => {
     expect(inst.isJustAnchored()).toBe(true)
   })
 })
+
+/**
+ * The WebView cannot import modules, so this bundle is the only way a shared
+ * function reaches the reader. `readerHtml.ts` used to carry its own anchor
+ * resolver — the same idea with integer scoring instead of Dice similarity, and
+ * with neither the offset verification nor the fuzzy fallback — so a highlight
+ * that survived a book edit on the web silently vanished on the phone.
+ *
+ * These assert the shared matcher actually arrived, not merely that it compiles.
+ */
+describe('__TSAnchor — shared text-anchor resolution in the bundle', () => {
+  const getAnchor = () => (window as unknown as {
+    __TSAnchor?: { findOffset: (text: string, a: unknown) => number | null }
+  }).__TSAnchor
+
+  const anchor = (o: Record<string, unknown>) => ({
+    prefix: '', suffix: '', startOffset: -1, endOffset: -1, ...o,
+  })
+
+  it('installs findOffset on the window', () => {
+    evalBundle()
+    expect(typeof getAnchor()?.findOffset).toBe('function')
+  })
+
+  it('resolves a passage by its surrounding context', () => {
+    evalBundle()
+    const text = 'Call me Ishmael. Some years ago, having little money.'
+    expect(getAnchor()!.findOffset(text, anchor({ prefix: 'Call me ', exact: 'Ishmael', suffix: '. Some' })))
+      .toBe(text.indexOf('Ishmael'))
+  })
+
+  it('picks the right occurrence when the passage repeats', () => {
+    // The capability the mobile-only resolver approximated with integer scores.
+    evalBundle()
+    const text = 'the sea was calm. Far beneath the sea lay silence. Above the sea, gulls.'
+    const at = getAnchor()!.findOffset(text, anchor({
+      prefix: 'Far beneath ', exact: 'the sea', suffix: ' lay silence',
+    }))
+    expect(at).toBe(text.indexOf('Far beneath the sea') + 'Far beneath '.length)
+  })
+
+  it('finds a passage the document has since drifted, which the old resolver could not', () => {
+    // No exact context hit and the stored offsets are stale — this needed the
+    // fuzzy fallback that only web had.
+    evalBundle()
+    const text = 'Some years ago, having little or no moeny in my purse, I thought I would sail.'
+    expect(getAnchor()!.findOffset(text, anchor({ exact: 'having little or no money in my purse' })))
+      .toBe(text.indexOf('having little'))
+  })
+
+  it('returns null rather than guessing when the passage is gone', () => {
+    evalBundle()
+    expect(getAnchor()!.findOffset('completely unrelated prose', anchor({ exact: 'Ishmael' }))).toBeNull()
+  })
+})
