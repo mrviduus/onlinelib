@@ -423,6 +423,10 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
     mode,
     chapterIdentifier,
     chapterLoaded: !!chapter,
+    // An uploaded PDF usually HAS reflow chapters, so the chapter fetch succeeds
+    // in Original layout too and the save-on-open would fire while the reader is
+    // looking at pages. Same defect the mobile reader had.
+    originalActive,
     overallProgress,
     effectiveProgress,
     effectiveLoading,

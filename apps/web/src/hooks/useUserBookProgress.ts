@@ -1,3 +1,4 @@
+import { PERCENT_UNIT_BOOK, LOCATOR_SPACE_SCROLL } from '@textstack/shared'
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { getUserBookProgress, saveUserBookProgress } from '../api/userBooks'
 
@@ -108,6 +109,13 @@ export function useUserBookProgress(bookId: string) {
         chapterSlug: toSync.chapterSlug,
         locator: toSync.locator,
         percent: toSync.percent,
+        // Both declarations are required or the server ignores what they
+        // describe: without percentUnit the number is dropped (which is what
+        // this hook was doing since the unit contract shipped — web has stored
+        // NO percent for uploaded books since then), and without locatorKind a
+        // scroll write cannot replace a PDF page locator.
+        percentUnit: PERCENT_UNIT_BOOK,
+        locatorKind: LOCATOR_SPACE_SCROLL,
         updatedAt: new Date(toSync.updatedAt).toISOString(),
       })
         .then(() => {
@@ -136,6 +144,11 @@ export function useUserBookProgress(bookId: string) {
       chapterSlug: toSync.chapterSlug,
       locator: toSync.locator,
       percent: toSync.percent,
+      // Same two declarations as the debounced path above. This body is built
+      // by hand rather than by a shared builder, which is exactly how it came to
+      // be missing one of them.
+      percentUnit: PERCENT_UNIT_BOOK,
+      locatorKind: LOCATOR_SPACE_SCROLL,
       updatedAt: new Date(toSync.updatedAt).toISOString(),
     })
     const url = `/api/me/books/${bookId}/progress`

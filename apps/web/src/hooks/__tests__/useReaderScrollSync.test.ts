@@ -39,6 +39,7 @@ const baseProps: Props = {
   mode: 'public',
   chapterIdentifier: 'ch1',
   chapterLoaded: true,
+  originalActive: false,
   overallProgress: 0,
   effectiveProgress: null,
   effectiveLoading: false,
@@ -267,5 +268,35 @@ describe('useReaderScrollSync — save on chapter open', () => {
     const last = updateProgress.mock.calls[updateProgress.mock.calls.length - 1]
     expect(last[3]).toBe('ch1-id')
     expect(last[4]).toBe('ch1')
+  })
+})
+
+describe('useReaderScrollSync — Original-layout PDF', () => {
+  it('neither restores nor saves while the PDF viewer owns the position', () => {
+    // This hook writes scroll:<identifier>:<offset>. A PDF read in Original
+    // layout stores page:<n>, and they are different coordinate spaces — one
+    // written over the other loses the reader's place.
+    //
+    // It hides better here than on mobile: an uploaded PDF usually HAS reflow
+    // chapters, so the chapter fetch succeeds in Original layout, chapterLoaded
+    // is true, and the save-on-open fires while the reader is looking at pages.
+    const userProgress = { saveProgress: vi.fn(), flushSave: vi.fn() }
+    const publicProgress = { updateProgress: vi.fn(), flushSave: vi.fn() }
+
+    renderHook(() =>
+      useReaderScrollSync({
+        ...baseProps,
+        mode: 'userbook',
+        originalActive: true,
+        effectiveProgress: { locator: 'scroll:ch1:4200' },
+        userProgress,
+        publicProgress,
+      }),
+    )
+
+    expect(userProgress.saveProgress).not.toHaveBeenCalled()
+    expect(publicProgress.updateProgress).not.toHaveBeenCalled()
+    // And it must not drag the page to a scroll offset the PDF viewer did not ask for.
+    expect(window.scrollTo).not.toHaveBeenCalled()
   })
 })

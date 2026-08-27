@@ -374,7 +374,18 @@ export async function saveUserBookProgress(
   bookId: string,
   // chapterSlug is nullable — a chapterless PDF read in Original layout sends
   // null with a "page:<N>" locator (ADR-012 S2).
-  data: { chapterSlug: string | null; locator?: string; percent?: number; updatedAt?: string }
+  // The type had stopped describing the request: it named neither percentUnit
+  // nor locatorKind, so a caller could omit one and the compiler said nothing.
+  // That is exactly how this client shipped without percentUnit and quietly
+  // stored no percentage at all.
+  data: {
+    chapterSlug: string | null
+    locator?: string
+    percent?: number
+    percentUnit?: string
+    locatorKind?: string
+    updatedAt?: string
+  }
 ): Promise<void> {
   await authFetch<void>(`/me/books/${bookId}/progress`, {
     method: 'PUT',
