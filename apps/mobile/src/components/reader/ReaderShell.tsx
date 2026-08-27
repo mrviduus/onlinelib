@@ -6,6 +6,9 @@ import { useRouter, Stack } from 'expo-router'
 import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolvePdfResumePage, chapterEndPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
+import {
+  pdfDocumentKey, pdfChromeInjectionJs, latchPdfChrome, pdfChromeChanged, type PdfChrome,
+} from '../../lib/pdfViewerChrome'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
@@ -216,6 +219,13 @@ export function ReaderShell(props: ReaderShellProps) {
   const [pdfReloadNonce, setPdfReloadNonce] = useState(0)
   const currentPdfPageRef = useRef<number | null>(null)
   const pdfInitialPageRef = useRef<number | null>(originalInitialPage ?? null)
+  // Safe-area padding + theme colours for the PDF document. A REF, not a memo
+  // dependency: these change while the document is open (the status bar hides
+  // with the bars, the reader switches theme) and letting them rebuild the
+  // template reloads the WebView at page 1. Latched to the largest insets seen,
+  // then pushed to the live DOM by the effect below. See pdfViewerChrome.ts.
+  const pdfChromeRef = useRef<PdfChrome | null>(null)
+  const pdfAppliedChromeRef = useRef<PdfChrome | null>(null)
   // S4c — top-visible page + page count for the PDF chrome + page-bookmark
   // state. Kept in React state (not just the ref) so the chrome + bookmark icon
   // re-render as the user scrolls.
@@ -634,22 +644,35 @@ export function ReaderShell(props: ReaderShellProps) {
   // refreshes (nonce) so a silent 401 recovery reloads at the tracked page.
   const pdfHtml = useMemo(() => {
     if (!original || !originalFileUrl) return ''
+    // Chrome is read from the ref, deliberately outside the dependency list.
+    const chrome = pdfChromeRef.current ?? {
+      safeArea: { top: insets.top, bottom: insets.bottom },
+      backgroundColor: resolvedTheme.backgroundColor,
+      textColor: resolvedTheme.textColor,
+    }
+    pdfChromeRef.current = chrome
+    pdfAppliedChromeRef.current = chrome  // a fresh document already has it
     return buildPdfViewerHtml(originalFileUrl, pdfToken, {
       theme: {
         fontSize: settings.fontSize,
         lineHeight: settings.lineHeight,
         fontFamily: resolvedFontFamily,
         textAlign: settings.textAlign,
-        backgroundColor: resolvedTheme.backgroundColor,
-        textColor: resolvedTheme.textColor,
+        backgroundColor: chrome.backgroundColor,
+        textColor: chrome.textColor,
       },
       initialPage: pdfInitialPageRef.current ?? originalInitialPage ?? null,
-      safeArea: { top: insets.top, bottom: insets.bottom },
+      safeArea: chrome.safeArea,
     })
-    // pdfReloadNonce intentionally in deps — it forces a rebuild on token refresh.
+    // Keyed on document identity ONLY. Insets and theme are absent on purpose —
+    // that absence is the fix, and pdfViewerChrome.test.ts asserts it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [original, originalFileUrl, pdfToken, pdfReloadNonce, originalInitialPage,
-      resolvedTheme.backgroundColor, resolvedTheme.textColor, insets.top, insets.bottom])
+  }, [original, pdfDocumentKey({
+    fileUrl: originalFileUrl ?? '',
+    token: pdfToken,
+    nonce: pdfReloadNonce,
+    initialPage: pdfInitialPageRef.current ?? originalInitialPage ?? null,
+  })])
 
   // baseUrl = API origin so pdf.js lazy Range requests are same-origin (the
   // Bearer travels in httpHeaders, no CORS preflight). Reflow uses inline html.
@@ -661,7 +684,28 @@ export function ReaderShell(props: ReaderShellProps) {
       return { html: pdfHtml, baseUrl: API_URL }
     }
     return { html }
-  }, [original, pdfTokenReady, pdfHtml, html, resolvedTheme.backgroundColor])
+    // `resolvedTheme.backgroundColor` only paints the pre-token placeholder, and
+    // is intentionally NOT a dependency: once the token is ready this object must
+    // change only when `pdfHtml` does, or a theme switch reloads the document.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [original, pdfTokenReady, pdfHtml, html])
+
+  // Chrome changes reach the OPEN document instead of rebuilding it. This is the
+  // other half of the fix: the memo above stopped depending on insets and theme,
+  // so something still has to apply them when they change mid-read — the status
+  // bar hiding with the bars, or the reader switching to dark mode.
+  useEffect(() => {
+    if (!original) return
+    const next = latchPdfChrome(pdfChromeRef.current, {
+      safeArea: { top: insets.top, bottom: insets.bottom },
+      backgroundColor: resolvedTheme.backgroundColor,
+      textColor: resolvedTheme.textColor,
+    })
+    pdfChromeRef.current = next
+    if (!pdfChromeChanged(pdfAppliedChromeRef.current, next)) return
+    pdfAppliedChromeRef.current = next
+    injectJs(pdfChromeInjectionJs(next))
+  }, [original, insets.top, insets.bottom, resolvedTheme.backgroundColor, resolvedTheme.textColor, injectJs])
 
   const barBg = resolvedTheme.backgroundColor
   const barText = resolvedTheme.textColor
