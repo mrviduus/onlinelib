@@ -141,7 +141,7 @@ The goal is to restore **reading context**, not an approximate location.
 ---
 
 ## Related Decisions
-- ADR-006: Reader Position Model (planned)
+- [ADR-013: Reader Position Model](ADR-013-reader-position-model.md) — written 2026-08-27, after the position had broken in six distinct ways. This entry said "ADR-006 (planned)" for the whole of that.
 - ADR-008: Reading Sessions Tracking (planned)
 
 ---
