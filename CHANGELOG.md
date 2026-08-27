@@ -23,6 +23,13 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Progress** — a percentage now travels with the unit it is measured in — backend + web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-progress-a-percentage-now-travels-with-the-unit-it-is-mea)
+- **Reader** — the WebView stopped reloading itself out from under the reader — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-reader-the-webview-stopped-reloading-itself-out-from-unde)
+- **Mobile** — the app asks which language you know, instead of translating English into English — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-the-app-asks-which-language-you-know-instead-of-tr)
+- **Mobile** — offline stopped looking like an empty account — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-offline-stopped-looking-like-an-empty-account)
+- **Mobile** — controls stopped outranking the content they shape — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-controls-stopped-outranking-the-content-they-shape)
+- **User books** — an uploaded EPUB opens on the book, not on its own index — extraction + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-user-books-an-uploaded-epub-opens-on-the-book-not-on-its)
+- **Mobile** — the newest build stopped calling itself outdated — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-the-newest-build-stopped-calling-itself-outdated)
 - **Mobile** — Library was 13 blocks of chrome before the first book; now 3 — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-26-mobile-library-was-13-blocks-of-chrome-before-the-first-b)
 - **Reader** — six ways a reader lost their place, plus the "time left" that was never built — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-25-reader-six-ways-a-reader-lost-their-place-plus-the-estim)
 - **Mobile** — Library is a reader-first front door; two dead routes fixed — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-25-mobile-library-is-a-reader-first-front-door-resume-then-e)
