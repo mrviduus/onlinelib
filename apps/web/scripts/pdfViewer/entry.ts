@@ -148,10 +148,21 @@ function main(): void {
   // layer; page-relative + unscaled so they survive scale / virtualization.
   let pdfHighlights: PdfHighlight[] = []
   let observer: IntersectionObserver | null = null
-  let didInitialScroll = false
+  // `pendingTarget` is the ONLY target concept. There used to be a second one:
+  // a `didInitialScroll` self-jump to `openPage` that fired on the first
+  // prefetch iteration and overwrote whatever RN had asked for milliseconds
+  // earlier — so a resume to page 17 was reliably destroyed by a self-jump to
+  // page 1. `openPage` is now a SEED for the same variable, leaving nothing to
+  // clobber it with.
   let pendingTarget: number | null = null
+  // Identifies the jump RN is waiting on, so the persist gate on the RN side can
+  // tell "the reader is here" from "we are still travelling". 0 = viewer's own
+  // boot seed, which RN never waits on.
+  let pendingJumpId = 0
+  let appliedJumpId = 0
   let lastReportedPage = -1
   let lastPageReportAt = 0
+  let reportTimer: ReturnType<typeof setTimeout> | null = null
   const openPage = resolveOpenPage(cfg.initialPage)
 
   function containerWidth(): number {
@@ -368,12 +379,29 @@ function main(): void {
 
   function reportTopPage(): void {
     const now = Date.now()
-    if (now - lastPageReportAt < PAGE_REPORT_THROTTLE_MS) return
+    const wait = PAGE_REPORT_THROTTLE_MS - (now - lastPageReportAt)
+    if (wait > 0) {
+      // Trailing edge. Leading-only throttling silently dropped the LAST page
+      // change of a scroll: if the reader stopped moving inside the window, that
+      // page was never reported and so never saved.
+      if (!reportTimer) reportTimer = setTimeout(() => { reportTimer = null; reportTopPage() }, wait)
+      return
+    }
+    if (reportTimer) { clearTimeout(reportTimer); reportTimer = null }
     lastPageReportAt = now
     const top = topVisiblePage(visible, openPage)
     if (top === lastReportedPage) return
     lastReportedPage = top
-    post({ type: 'pdfPage', page: top, numPages })
+    post({ type: 'pdfPage', page: top, numPages, jumpId: appliedJumpId })
+  }
+
+  /** Report immediately, bypassing the throttle and the unchanged-page check.
+   *  Used to acknowledge a landed jump: the top page after a jump is often the
+   *  page already reported, so without this the acknowledgement never ships. */
+  function reportTopPageNow(): void {
+    lastPageReportAt = 0
+    lastReportedPage = -1
+    reportTopPage()
   }
 
   function scrollToPageEl(pn: number): void {
@@ -383,9 +411,10 @@ function main(): void {
     window.scrollTo(0, Math.max(0, y))
   }
 
-  function jumpToPage(raw: number): void {
+  function jumpToPage(raw: number, jumpId = 0): void {
     const target = clampPage(raw, numPages)
     pendingTarget = target
+    pendingJumpId = jumpId
     scrollToPageEl(target)
   }
 
@@ -441,17 +470,22 @@ function main(): void {
       } catch {
         /* keep fallback dim */
       }
-      // Once heights above the initial target have streamed in, correct the
-      // one-shot initial scroll so it lands precisely (mirrors web).
-      if (!didInitialScroll && dimsReadyUpTo(pageDims, openPage)) {
-        didInitialScroll = true
-        applyPlaceholderSizes()
-        requestAnimationFrame(() => jumpToPage(openPage))
-      }
+      // One correction path for both the boot seed and every RN jump. Heights
+      // stream in lazily, so a jump issued before the pages above the target are
+      // measured lands in the wrong place and has to be redone once they are.
       if (pendingTarget != null && dimsReadyUpTo(pageDims, pendingTarget)) {
         const t = pendingTarget
+        const id = pendingJumpId
         pendingTarget = null
-        requestAnimationFrame(() => scrollToPageEl(t))
+        pendingJumpId = 0
+        applyPlaceholderSizes()
+        requestAnimationFrame(() => {
+          scrollToPageEl(t)
+          appliedJumpId = id
+          // Tell RN this jump landed. Position alone is ambiguous — the page it
+          // would report may be the one it already reported — so the id travels.
+          reportTopPageNow()
+        })
       }
     }
     applyPlaceholderSizes()
@@ -474,6 +508,11 @@ function main(): void {
       scale = computeScale()
       applyPlaceholderSizes()
       observeAll()
+      // Seed the one target variable. `pendingTarget` may already hold a page RN
+      // asked for before the document finished opening — that request is newer
+      // and more specific, so it wins. This ordering is the fix: the seed used to
+      // be a separate self-jump that overwrote RN's request instead.
+      if (pendingTarget == null && openPage > 1) pendingTarget = clampPage(openPage, numPages)
       post({ type: 'pdfReady', numPages })
       void prefetchDims()
     } catch (err) {
@@ -490,11 +529,16 @@ function main(): void {
   }
 
   // Inbound: RN asks us to scroll to a page (TOC jump / restore).
-  ;(window as unknown as { scrollToPage: (n: number) => void }).scrollToPage = (n: number) => {
-    if (numPages) jumpToPage(n)
+  ;(window as unknown as { scrollToPage: (n: number, jumpId?: number) => void }).scrollToPage = (
+    n: number,
+    jumpId = 0,
+  ) => {
+    if (numPages) jumpToPage(n, jumpId)
     else {
-      // Not ready yet — remember it as the open target.
+      // Not ready yet — remember it as the open target. Same variable the boot
+      // seed uses, so whichever arrives last wins and neither is lost.
       pendingTarget = n
+      pendingJumpId = jumpId
     }
   }
 
