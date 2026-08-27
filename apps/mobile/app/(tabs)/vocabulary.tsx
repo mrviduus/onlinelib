@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  RefreshControl,
-} from 'react-native'
+  RefreshControl, ScrollView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { vocabularyApi, getVocabLevel } from '@textstack/shared'
+import { vocabularyApi } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto, WordLookupDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -13,12 +12,13 @@ import { useToast } from '../../src/context/ToastContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
-import { PressableScale } from '../../src/components/ui/PressableScale'
 import { useTts } from '../../src/hooks/useTts'
 import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
 import { ClusterBonusCard } from '../../src/components/vocabulary/ClusterBonusCard'
-import { WeeklyBudgetBar } from '../../src/components/vocabulary/WeeklyBudgetBar'
 import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSettingsModal'
+import { VocabViewSheet } from '../../src/components/vocabulary/VocabViewSheet'
+import { VocabSummaryCard } from '../../src/components/vocabulary/VocabSummaryCard'
+import { buildContextSnippet } from '../../src/lib/contextSnippet'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -63,6 +63,7 @@ export default function VocabularyScreen() {
   const [lookupItems, setLookupItems] = useState<WordLookupDto[] | null>(null)
   const [lookupBusyId, setLookupBusyId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [viewSheetOpen, setViewSheetOpen] = useState(false)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -231,25 +232,17 @@ export default function VocabularyScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Anti-spiral F5: weekly budget replaces "Review Due: 847" panic number */}
-      {stats?.weeklyProgress && (
-        <>
-          <WeeklyBudgetBar progress={stats.weeklyProgress} />
-          <View style={styles.settingsRow}>
-            <TouchableOpacity
-              onPress={() => setSettingsOpen(true)}
-              style={[styles.settingsBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              accessibilityLabel={t('vocabulary.settings.title')}
-              hitSlop={8}
-            >
-              <Ionicons name="settings-outline" size={14} color={colors.textSecondary} />
-              <Text style={[styles.settingsText, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
-                {t('vocabulary.settings.title')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+      {/* Three blocks above the first word, not eight — the same treatment
+          Library got. What stays is what changes the next action: one card with
+          the due count and its button, search, and the filter. Everything that
+          only shapes the view is behind the gear. */}
+      <VocabSummaryCard
+        stats={stats}
+        dueCount={dueCount}
+        onPractice={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
+        onSmartSession={() => router.push('/tutor')}
+        smartSessionLabel={t('tutor.entry.cta')}
+      />
 
       <VocabSettingsModal
         visible={settingsOpen}
@@ -257,74 +250,39 @@ export default function VocabularyScreen() {
         onSaved={() => { offsetRef.current = 0; loadData() }}
       />
 
+      <VocabViewSheet
+        visible={viewSheetOpen}
+        reviewMode={reviewMode}
+        sort={sort}
+        sortOptions={SORT_OPTIONS}
+        stats={stats}
+        onSelectReviewMode={m => setReviewMode(m as ReviewMode)}
+        onSelectSort={k => setSort(k as SortKey)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onClose={() => setViewSheetOpen(false)}
+      />
+
       {/* Cluster bonus card — only when an active, non-dismissed cluster exists */}
       {stats && (stats.clusterCount ?? 0) > 0 && (
         <ClusterBonusCard onChange={() => { offsetRef.current = 0; loadData() }} />
       )}
 
-      {/* Stats bar */}
-      {stats && (
-        <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
-          <StatBox label="Total" value={stats.totalWords} />
-          <StatBox label="Due" value={dueCount} color={dueCount > 0 ? colors.primary : undefined} />
-          <StatBox label="Mastered" value={stats.byStage.mastered || 0} color="#10B981" />
-          <StatBox label="Streak" value={stats.streak || 0} color={stats.streak > 0 ? '#F59E0B' : undefined} />
-          {getVocabLevel(stats.byStage.mastered).level > 0 && (
-            <StatBox label="Level" value={getVocabLevel(stats.byStage.mastered).label} color="#8B5CF6" />
-          )}
-          {stats.practicedToday > 0 && <StatBox label="Practiced" value={stats.practicedToday} color={colors.primary} />}
-        </View>
-      )}
+      {/* Search sits above the filter, like Library's. */}
+      <View style={styles.searchSortRow}>
+        <TextInput
+          style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
+          placeholder="Search words..."
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
 
-      {/* Mode selector + Review/Practice buttons */}
-      {stats && stats.totalWords > 0 && (
-        <>
-          <View style={[styles.modeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            {(['blitz', 'classic'] as ReviewMode[]).map(m => (
-              <PressableScale
-                key={m}
-                onPress={() => setReviewMode(m)}
-                style={[styles.modeToggleItem, reviewMode === m && { backgroundColor: colors.primary }]}
-              >
-                <Ionicons
-                  name={m === 'blitz' ? 'flash' : 'layers'}
-                  size={14}
-                  color={reviewMode === m ? '#fff' : colors.textSecondary}
-                />
-                <Text style={[styles.modeToggleText, { color: reviewMode === m ? '#fff' : colors.textSecondary }]}>
-                  {m === 'blitz' ? 'Blitz' : 'Flashcards'}
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
-          <View style={styles.reviewRow}>
-            {dueCount > 0 && (
-              <TouchableOpacity
-                style={[styles.reviewBtn, { backgroundColor: colors.primary, flex: 1 }]}
-                onPress={() => router.push(`/vocabulary/review?reviewMode=${reviewMode}`)}
-              >
-                <Ionicons name="school-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={[styles.reviewBtnText, { fontFamily: fonts.sansMedium }]}>Practice ({dueCount})</Text>
-              </TouchableOpacity>
-            )}
-            {/* Smart session — AI tutor plans what to study and explains why (signed-in only; vocab tab is) */}
-            <TouchableOpacity
-              style={[styles.reviewBtn, { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1, flex: 1 }]}
-              onPress={() => router.push('/tutor')}
-              accessibilityRole="button"
-              accessibilityLabel={t('tutor.entry.cta')}
-            >
-              <Ionicons name="sparkles-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={[styles.reviewBtnText, { color: colors.primary, fontFamily: fonts.sansMedium }]}>
-                {t('tutor.entry.cta')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-
-      {/* Filter tabs */}
-      <View style={styles.tabs}>
+      {/* Filter tabs + the one entry to everything else */}
+      <View style={styles.tabsRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {TABS.map(t => (
           <TouchableOpacity
             key={t.key}
@@ -336,32 +294,16 @@ export default function VocabularyScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
-
-      {/* Search + Sort row */}
-      <View style={styles.searchSortRow}>
-        <TextInput
-          style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, fontFamily: fonts.sans }]}
-          placeholder="Search words..."
-          placeholderTextColor={colors.textSecondary}
-          value={search}
-          onChangeText={setSearch}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map(s => (
-            <TouchableOpacity
-              key={s.key}
-              onPress={() => setSort(s.key)}
-              style={[styles.sortChip, sort === s.key && { backgroundColor: colors.primaryLight }]}
-            >
-              <Text style={[styles.sortText, { color: sort === s.key ? colors.primary : colors.textSecondary, fontFamily: fonts.sans }]}>
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      </ScrollView>
+        <TouchableOpacity
+          onPress={() => setViewSheetOpen(true)}
+          hitSlop={10}
+          style={styles.viewBtn}
+          accessibilityRole="button"
+          accessibilityLabel="View options"
+        >
+          <Ionicons name="options-outline" size={20} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
       {tab === 'lookups' ? (
@@ -512,32 +454,19 @@ export default function VocabularyScreen() {
   )
 }
 
-function StatBox({ label, value, color }: { label: string; value: number | string; color?: string }) {
-  const { colors } = useTheme()
-  return (
-    <View style={styles.statBox}>
-      <Text style={[styles.statValue, { color: color || colors.text, fontFamily: fonts.serifBold }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: fonts.sans }]}>{label}</Text>
-    </View>
-  )
-}
 
 function ContextSnippet({ sentence, word }: { sentence: string; word: string }) {
   const { colors } = useTheme()
-  const lower = sentence.toLowerCase()
-  const idx = lower.indexOf(word.toLowerCase())
-  if (idx === -1) {
-    return <Text style={[styles.contextText, { color: colors.textSecondary }]} numberOfLines={1}>{sentence}</Text>
-  }
-  const before = sentence.slice(0, idx)
-  const match = sentence.slice(idx, idx + word.length)
-  const after = sentence.slice(idx + word.length)
-  // Trim to ~35 chars each side
-  const trimBefore = before.length > 35 ? '...' + before.slice(-35) : before
-  const trimAfter = after.length > 35 ? after.slice(0, 35) + '...' : after
+  const snippet = buildContextSnippet(sentence, word)
+  // No snippet means the word is not in the stored text. Printing the paragraph
+  // head anyway — which is what this did — shows a quote that does not contain
+  // the word it belongs to. The caller shows the translation instead.
+  if (!snippet) return null
   return (
     <Text style={[styles.contextText, { color: colors.textSecondary }]} numberOfLines={1}>
-      {trimBefore}<Text style={{ fontFamily: fonts.sansBold, color: colors.text }}>{match}</Text>{trimAfter}
+      {snippet.before}
+      <Text style={{ fontFamily: fonts.sansBold, color: colors.text }}>{snippet.match}</Text>
+      {snippet.after}
     </Text>
   )
 }
@@ -589,11 +518,16 @@ function WordRow({
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.wordText, { color: colors.text, fontFamily: fonts.sansMedium }]}>{word.word}</Text>
-          {word.sentence && !expanded ? (
-            <ContextSnippet sentence={word.sentence} word={word.word} />
-          ) : word.translation && !editField ? (
+          {/* Both, not either. This was an either/or, so a word with a stored
+              sentence never showed its translation in the collapsed row — the
+              translation is the reason the word was saved, and it was the one
+              thing missing. The quote comes second because it is context. */}
+          {word.translation && !editField && (
             <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{word.translation}</Text>
-          ) : null}
+          )}
+          {word.sentence && !expanded && (
+            <ContextSnippet sentence={word.sentence} word={word.word} />
+          )}
         </View>
         {!expanded && (
           <View style={[styles.stageBadge, { backgroundColor: stageColor + '20' }]}>
@@ -689,39 +623,15 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, textAlign: 'center' },
   emptySubtext: { fontSize: 13, marginTop: 4, textAlign: 'center' },
 
-  settingsRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, marginTop: 6 },
-  settingsBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 14, borderWidth: 1,
-  },
-  settingsText: { fontSize: 11 },
 
   // Stats
-  statsBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: 1,
-  },
-  statBox: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 20 },
   statLabel: { fontSize: 11, marginTop: 2 },
 
   // Mode toggle
-  modeToggle: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
-  modeToggleItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 9 },
-  modeToggleText: { fontSize: 14, fontFamily: 'Inter-Medium' },
   // Context snippet
   contextText: { fontSize: 12, fontFamily: 'Inter-Regular', marginTop: 2 },
   // Review buttons
-  reviewRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 8,
-    gap: 8,
-  },
   reviewBtn: {
     paddingVertical: 12,
     borderRadius: 8,
@@ -732,6 +642,8 @@ const styles = StyleSheet.create({
   reviewBtnText: { color: '#fff', fontSize: 15 },
 
   // Tabs
+  tabsRow: { flexDirection: 'row', alignItems: 'center' },
+  viewBtn: { paddingHorizontal: 12, paddingVertical: 10 },
   tabs: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -756,9 +668,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 14,
   },
-  sortRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
-  sortChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  sortText: { fontSize: 12 },
 
   // List
   listContent: { paddingBottom: 20 },
