@@ -144,3 +144,14 @@ textstack-v*-build*.apk
 # (already ignored); this keeps a stray 20 MB book one `git add -A` further away.
 /*.pdf
 /*.epub
+
+# pnpm 10+ writes this into whichever directory it was invoked from when it wants
+# to ask about ignored build scripts (esbuild, puppeteer), and it writes the
+# PROMPT as the value: "esbuild: set this to true or false". apps/web is not a
+# workspace root, so the file has no `packages:` field and CI's pnpm 9 refuses
+# the install outright — "packages field missing or empty", 17 seconds in.
+#
+# It has been committed and reverted twice. Ignored rather than deleted a third
+# time; the real workspace file lives at the repo root and is not affected.
+apps/*/pnpm-workspace.yaml
+packages/*/pnpm-workspace.yaml
