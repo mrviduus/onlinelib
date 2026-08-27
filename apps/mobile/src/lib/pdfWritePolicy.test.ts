@@ -65,4 +65,22 @@ describe('shouldFlushOnClose', () => {
   it('writes nothing when the last position is already on the server', () => {
     expect(shouldFlushOnClose({ pendingPage: 17, lastWrittenPage: 17, acceptedAnyPage: true })).toBe(false)
   })
+
+  it('writes nothing when nothing changed since the debounce flushed — and that is CORRECT', () => {
+    // Read this before "fixing" it to always write.
+    //
+    // Reopen a PDF, land on the saved page, sit still for the two-second
+    // debounce, leave. The page is already stored, so there is nothing to say
+    // and this returns false. That is right.
+    //
+    // It is also how the real defect surfaced. While this path wrote on every
+    // close it was accidentally covering for the REFLOW persistence path, which
+    // fires on the same close and — in Original layout — writes
+    // `scroll:<url-slug>:0` built from refs no PDF viewer ever touches. Making
+    // this honest removed the cover and the corruption became visible.
+    //
+    // The answer was to stop the reflow path from writing at all in PDF mode
+    // (readerWriteMode.ts), not to make this one write junk again.
+    expect(shouldFlushOnClose({ pendingPage: null, lastWrittenPage: 16, acceptedAnyPage: true })).toBe(false)
+  })
 })

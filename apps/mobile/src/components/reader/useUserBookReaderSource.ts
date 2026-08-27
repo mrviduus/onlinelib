@@ -5,6 +5,7 @@ import { userBooksApi, parseScrollLocator, buildUserBookProgressPayload, buildPd
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { API_URL } from '../../lib/api'
 import { saveUserBookLocalProgress } from '../../lib/progressStorage'
+import { reflowWritesEnabled } from '../../lib/readerWriteMode'
 import {
   pdfFlushDecision, shouldFlushOnClose, PDF_FLUSH_DEBOUNCE_MS,
 } from '../../lib/pdfWritePolicy'
@@ -170,6 +171,13 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     return { offset: null, percent: null }
   }, [bookId])
 
+  // Which reader owns this book's position. ONE expression, two consumers — the
+  // persistence wiring below and `original` in the returned runtime. They used
+  // to be computed separately, and only the renderer's copy existed: the writer
+  // had no idea a PDF viewer was on screen, so its unmount flush overwrote
+  // `page:16` with `scroll:<url-slug>:0`. See readerWriteMode.ts.
+  const reflowWrites = reflowWritesEnabled({ hasOriginalPdf, forceReflow })
+
   const { saveProgress, bumpProgress, onWebViewLoaded } = useReaderPersistence({
     bookKey: bookId || null,
     chapterSlug,
@@ -177,6 +185,7 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     injectJs,
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef,
     persist, loadPosition,
+    enabled: reflowWrites,
   })
 
   const loadNext = useCallback(async () => {
@@ -395,7 +404,7 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     askTarget: bookId ? { kind: 'userbook', id: bookId } : undefined,
     // ADR-012 S4b/S4c — render the ORIGINAL PDF pixel-perfect when the upload
     // has one, unless a corrupt-PDF fallback dropped us into reflow.
-    original: hasOriginalPdf && !forceReflow,
+    original: !reflowWrites,
     originalFileUrl: hasOriginalPdf && bookId ? userBooksApi.getUserBookFileUrl(bookId, API_URL) : null,
     originalInitialPage: sourceStartPageBySlugRef.current[chapterSlug] ?? null,
     originalResumePage: pdfResumePage,
