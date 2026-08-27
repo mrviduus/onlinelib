@@ -1,44 +1,48 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * Vocabulary — the screen and its two review routes.
+ *
+ * "filter tabs visible" used to wrap its only assertion in `if (hasAll)`, so
+ * when the tabs were missing — the case it existed to catch — it asserted
+ * nothing and passed. The condition is now the assertion.
+ *
+ * Note the chrome here changed in #464: eight blocks above the first word
+ * became three, and review style and sort moved into a view sheet. These tests
+ * assert the three that stayed.
+ */
 test.describe('Vocabulary', () => {
-  test('vocabulary page loads', async ({ page }) => {
+  test('renders the screen or asks the reader to sign in', async ({ page }) => {
     await page.goto('/vocabulary')
     await page.waitForLoadState('networkidle')
-
-    // Should show vocabulary header or empty state
-    const hasVocab = await page.locator('text=/Vocabulary|No words yet|Sign in/i').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasVocab).toBeTruthy()
+    await expect(
+      page.locator('text=/Vocabulary|No words yet|Sign in/i').first(),
+    ).toBeVisible({ timeout: 15000 })
   })
 
-  test('filter tabs visible', async ({ page }) => {
+  test('the filter row is present and is a row of filters', async ({ page }) => {
     await page.goto('/vocabulary')
     await page.waitForLoadState('networkidle')
-
-    // Filter tabs: All, New, Learning, Mastered
-    const hasAll = await page.locator('text=All').first().isVisible({ timeout: 10000 }).catch(() => false)
-    if (hasAll) {
-      const hasNew = await page.locator('text=New').first().isVisible({ timeout: 3000 }).catch(() => false)
-      const hasLearning = await page.locator('text=Learning').first().isVisible({ timeout: 3000 }).catch(() => false)
-      expect(hasNew || hasLearning).toBeTruthy()
-    }
+    // Six filters since #464 — All, New, Learning, Mastered, Pending, Lookups.
+    // Asserting two of them distinguishes "the row rendered" from "some element
+    // somewhere happens to say All".
+    await expect(page.locator('text=All').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=/New|Learning/').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('review page accessible', async ({ page }) => {
+  test('the review route renders', async ({ page }) => {
     await page.goto('/vocabulary/review')
     await page.waitForLoadState('networkidle')
-
-    // Should show review UI or empty state
-    const hasReview = await page.locator('text=/Review|No words|nothing to review/i').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasReview).toBeTruthy()
+    await expect(
+      page.locator('text=/Review|No words|nothing to review|Sign in/i').first(),
+    ).toBeVisible({ timeout: 15000 })
   })
 
-  test('practice mode route loads', async ({ page }) => {
+  test('the practice route renders', async ({ page }) => {
     await page.goto('/vocabulary/review?practice=1')
     await page.waitForLoadState('networkidle')
-
-    // Practice route is reachable — backend returns weeklyProgress=null so
-    // the bar is hidden; just verify the page itself renders without crashing.
-    const hasPage = await page.locator('text=/Practice|Review|No words|nothing to review/i').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasPage).toBeTruthy()
+    await expect(
+      page.locator('text=/Practice|Review|No words|nothing to review|Sign in/i').first(),
+    ).toBeVisible({ timeout: 15000 })
   })
 })

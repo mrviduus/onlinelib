@@ -1,30 +1,43 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * Route reachability. Every assertion here can fail.
+ *
+ * The previous version could not. Three of its four tests used
+ * `expect(await …isVisible().catch(() => false)).toBeTruthy()` — the catch
+ * swallows the timeout and the matcher then asserts a boolean the test itself
+ * produced, so a blank page passes. That shape was green throughout the week the
+ * Library screen was unusable, and its Library assertion matched the word
+ * "Saved", which was a tab name deleted in #452.
+ */
 test.describe('Navigation', () => {
-  test('home tab loads with books', async ({ page }) => {
+  test('/ redirects rather than rendering a screen of its own', async ({ page }) => {
+    // Home was deleted in #453 — `app/(tabs)/index.tsx` is now an auth-aware
+    // redirect: Library when signed in, Discover otherwise. These specs run
+    // signed out. `ColdResetOnResume` and `+not-found` both navigate here, so
+    // the redirect existing is load-bearing.
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('text=TextStack').first()).toBeVisible({ timeout: 15000 })
+    await expect(page).toHaveURL(/\/(search|library)/)
   })
 
-  test('search page loads', async ({ page }) => {
+  test('Discover renders its search field', async ({ page }) => {
     await page.goto('/search')
     await page.waitForLoadState('networkidle')
-    const hasSearch = await page.locator('text=/Search across all books|Search books/').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasSearch).toBeTruthy()
+    await expect(page.locator('input[placeholder*="Search" i]').first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('library page loads', async ({ page }) => {
+  test('Library signed out offers a way in', async ({ page }) => {
     await page.goto('/library')
     await page.waitForLoadState('networkidle')
-    const hasContent = await page.locator('text=/Saved|My Library|Sign In/').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasContent).toBeTruthy()
+    // Signed out, Library renders an EmptyState with a Sign In action. It must
+    // never be blank: this route is the app's front door since #453.
+    await expect(page.locator('text=/Sign in/i').first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('profile page loads', async ({ page }) => {
+  test('Profile renders', async ({ page }) => {
     await page.goto('/profile')
     await page.waitForLoadState('networkidle')
-    const hasContent = await page.locator('text=/Sign In|Reading Stats|Browse/').first().isVisible({ timeout: 10000 }).catch(() => false)
-    expect(hasContent).toBeTruthy()
+    await expect(page.locator('text=/Sign in|Appearance|Language/i').first()).toBeVisible({ timeout: 15000 })
   })
 })
