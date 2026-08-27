@@ -34,6 +34,11 @@ import { fonts } from '../../src/theme/typography'
 
 const VIEW_MODE_KEY = 'textstack_library_view'
 
+// Module-level so the identity is stable — a fresh [] each render would
+// invalidate useContinueReadingList's memo on every keystroke.
+const EMPTY_LIBRARY: UserLibraryItem[] = []
+const EMPTY_UPLOADS: UserBookDto[] = []
+
 export default function LibraryScreen() {
   const { isAuthenticated } = useAuth()
   const { colors } = useTheme()
@@ -66,7 +71,15 @@ export default function LibraryScreen() {
   // Set to -1 on unmount so trailing resolutions are dropped (B-10).
   // Must sit above the early returns below — it is a hook, and `loading` /
   // `!isAuthenticated` both bail out before the render body.
-  const resumeList = useContinueReadingList(library, progressMap, userBooks)
+  // The resume card is a lens over the same books, so it obeys the same source
+  // filter. It used to be computed from the unfiltered data and rendered ABOVE
+  // the filter row, so switching to "My uploads" left a catalog book sitting on
+  // top of a list that had just excluded it — the screen contradicting itself.
+  const resumeList = useContinueReadingList(
+    source === 'uploads' ? EMPTY_LIBRARY : library,
+    progressMap,
+    source === 'catalog' ? EMPTY_UPLOADS : userBooks,
+  )
 
   const loadGenRef = useRef(0)
   useEffect(() => () => { loadGenRef.current = -1 }, [])
@@ -217,6 +230,17 @@ export default function LibraryScreen() {
   // Everything above the first book row. Three blocks: resume, search, filters.
   // It used to be thirteen — roughly 2.4 screens of chrome a reader scrolled
   // past to reach their own books.
+  // What "a filter is on" means, in one place. It was implicit before, and the
+  // Clear button only knew about two of the four things that can hide a book.
+  const sourceFiltered = source !== 'all' || activeCollectionId != null
+  const anyFilterActive = sourceFiltered || status !== 'all' || !!debouncedQuery
+  const clearAllFilters = () => {
+    setSource('all')
+    setActiveCollectionId(null)
+    setStatus('all')
+    clearQuery()
+  }
+
   const listHeader = (
     <>
       {resumeList.length > 0 && <ResumeHero pick={resumeList[0]} />}
@@ -233,9 +257,19 @@ export default function LibraryScreen() {
           hitSlop={10}
           style={styles.viewBtn}
           accessibilityRole="button"
-          accessibilityLabel={t('library.view.open')}
+          accessibilityLabel={sourceFiltered ? t('library.view.openFiltered') : t('library.view.open')}
         >
-          <Ionicons name="options-outline" size={20} color={colors.text} />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={sourceFiltered ? colors.primary : colors.text}
+          />
+          {/* The only place the active source was ever shown was inside the
+              sheet — which is closed. Ten books vanishing with no visible cause
+              reads as data loss, not as a filter. */}
+          {sourceFiltered && (
+            <View style={[styles.filterDot, { backgroundColor: colors.primary, borderColor: colors.background }]} />
+          )}
         </TouchableOpacity>
       </View>
       {entries.length === 0 && (
@@ -243,12 +277,19 @@ export default function LibraryScreen() {
           <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
             {debouncedQuery ? t('library.search.empty').replace('{query}', debouncedQuery) : t('library.filter.empty')}
           </Text>
+          {/* Was setStatus('all') and nothing else. With source = "My uploads"
+              and no uploads, the button that says "Clear filter" visibly did
+              nothing at all — a dead end whose only exit was reopening the
+              sheet the reader could not tell was involved. */}
           <TouchableOpacity
-            onPress={() => { if (debouncedQuery) clearQuery(); else setStatus('all') }}
+            onPress={clearAllFilters}
             style={[styles.filterEmptyBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
           >
             <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: colors.text }}>
-              {debouncedQuery ? t('library.search.clear') : t('library.filter.clear')}
+              {debouncedQuery && !sourceFiltered && status === 'all'
+                ? t('library.search.clear')
+                : t('library.filter.clear')}
             </Text>
           </TouchableOpacity>
         </View>

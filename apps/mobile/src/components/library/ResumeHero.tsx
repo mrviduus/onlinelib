@@ -59,7 +59,10 @@ export function ResumeHero({ pick }: { pick: ContinueReadingPick }) {
 
         <View style={[styles.cta, { backgroundColor: colors.primary }]}>
           <Ionicons name="play" size={15} color="#fff" />
-          <Text style={styles.ctaText}>{t('library.resume.continue')}</Text>
+          {/* Same promise, same condition — see BookList. */}
+          <Text style={styles.ctaText}>
+            {percent > 0 ? t('library.resume.continue') : t('library.resume.start')}
+          </Text>
         </View>
       </View>
     </PressableScale>

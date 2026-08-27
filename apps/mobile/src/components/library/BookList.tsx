@@ -236,7 +236,15 @@ export function BookList({
                 onPress={() => router.push(`/reader/${(e as { item: UserLibraryItem }).item.slug}/${continueSlug}`)}
               >
                 <Ionicons name="play" size={12} color="#fff" />
-                <Text style={styles.continueBtnText}>{t('library.resume.continue')}</Text>
+                {/* "Continue" promises to put the reader back where they stopped.
+                    A book at 0% has a chapterSlug the moment the reader opens it
+                    and scrolls nothing, so the promise was made with nowhere to
+                    return to. `library.resume.start` has existed in en.json since
+                    the beginning, unused — the switch was intended and never
+                    wired. */}
+                <Text style={styles.continueBtnText}>
+                  {pct > 0 ? t('library.resume.continue') : t('library.resume.start')}
+                </Text>
               </TouchableOpacity>
             ) : null}
           </View>

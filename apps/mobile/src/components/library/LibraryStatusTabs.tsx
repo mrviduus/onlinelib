@@ -68,25 +68,35 @@ export function LibraryStatusTabs({ value, onChange, counts }: Props) {
   )
 }
 
+// Metrics are tight on purpose. The four default tabs plus their counts did not
+// fit the ~367dp left beside the view button on a 411dp phone, so "Not started"
+// sat half off the edge with its counter invisible — and because the row hides
+// its scroll indicator, that reads as clipped rather than scrollable. The header
+// comment above records an earlier attempt to fix this by reordering, which moved
+// the clipping instead of removing it.
+//
+// Trailing padding matters too: a fifth tab appears when an upload fails, and
+// without it the last tab can never scroll clear of the edge.
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
+    gap: 2,
+    paddingLeft: 10,
+    paddingRight: 18,
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
+    gap: 5,
+    paddingHorizontal: 6,
     paddingVertical: 12,
     borderBottomWidth: 2,
   },
   count: {
     fontFamily: fonts.sansBold,
     fontSize: 11,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 8,
     overflow: 'hidden',

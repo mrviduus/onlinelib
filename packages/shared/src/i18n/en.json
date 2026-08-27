@@ -344,7 +344,8 @@
       "layout": "Layout",
       "grid": "Grid",
       "list": "List",
-      "done": "Done"
+      "done": "Done",
+      "openFiltered": "View options — a filter is active"
     },
     "storage": {
       "label": "Upload space",
