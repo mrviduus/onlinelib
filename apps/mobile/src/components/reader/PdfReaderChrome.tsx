@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Keyboard } from 'react-native'
+import { useRef, useState } from 'react'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Keyboard, PanResponder } from 'react-native'
 import { fonts } from '../../theme/typography'
 
 interface Props {
@@ -31,15 +31,65 @@ export function PdfReaderChrome({
   bottomInset, currentPage, numPages, onJumpToPage,
 }: Props) {
   const [pageInput, setPageInput] = useState('')
+  const [typing, setTyping] = useState(false)
+  // Page under the finger while dragging. Null when not dragging, so the counter
+  // falls back to where the viewer actually is.
+  const [scrubPage, setScrubPage] = useState<number | null>(null)
+  const trackWidthRef = useRef(0)
+  // Where the drag started, in track coordinates. PanResponder's moveX is a
+  // SCREEN coordinate while locationX is relative to the view, so mixing them
+  // offsets every drag by the track's position on screen.
+  const grantXRef = useRef(0)
+  // The side effect on release reads this, not the state setter — running an
+  // effect inside a state updater fires twice under StrictMode.
+  const scrubPageRef = useRef<number | null>(null)
 
   const submit = () => {
     const n = parseInt(pageInput, 10)
     if (Number.isFinite(n) && n >= 1) onJumpToPage(n) // viewer clamps overflow
     setPageInput('')
+    setTyping(false)
     Keyboard.dismiss()
   }
 
-  const fraction = numPages >= 1 ? Math.min(1, currentPage / numPages) : 0
+  const pageAt = (x: number) => {
+    const w = trackWidthRef.current
+    if (!w || numPages < 1) return 1
+    const f = Math.max(0, Math.min(1, x / w))
+    return Math.max(1, Math.min(numPages, Math.round(f * (numPages - 1)) + 1))
+  }
+
+  // Drag the bar to move through the book. The bar was already there, drawn as a
+  // read-only fill; it just could not be touched. What could be touched was a
+  // 56px-wide numeric field showing "1 /" clipped, plus a Go button — a desktop
+  // control on a phone, and QA said so.
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => numPages > 1,
+      onMoveShouldSetPanResponder: () => numPages > 1,
+      onPanResponderGrant: e => {
+        grantXRef.current = e.nativeEvent.locationX
+        const p = pageAt(grantXRef.current)
+        scrubPageRef.current = p
+        setScrubPage(p)
+      },
+      onPanResponderMove: (_e, g) => {
+        const p = pageAt(grantXRef.current + g.dx)
+        scrubPageRef.current = p
+        setScrubPage(p)
+      },
+      onPanResponderRelease: () => {
+        const p = scrubPageRef.current
+        scrubPageRef.current = null
+        setScrubPage(null)
+        if (p != null) onJumpToPage(p)
+      },
+      onPanResponderTerminate: () => { scrubPageRef.current = null; setScrubPage(null) },
+    }),
+  ).current
+
+  const shownPage = scrubPage ?? currentPage
+  const fraction = numPages >= 1 ? Math.min(1, shownPage / numPages) : 0
 
   return (
     <Animated.View
@@ -49,36 +99,73 @@ export function PdfReaderChrome({
       ]}
       pointerEvents={barsVisible ? 'auto' : 'none'}
     >
-      <View style={[styles.progressBar, { backgroundColor: borderColor }]}>
-        <View style={[styles.progressFill, { width: `${Math.round(fraction * 100)}%`, backgroundColor: barText + '40' }]} />
+      <View
+        style={styles.trackHit}
+        onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width }}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Scrub through pages"
+        accessibilityValue={{ min: 1, max: Math.max(1, numPages), now: shownPage }}
+        {...pan.panHandlers}
+      >
+        <View style={[styles.progressBar, { backgroundColor: borderColor }]}>
+          <View style={[styles.progressFill, { width: `${Math.round(fraction * 100)}%`, backgroundColor: barText + (scrubPage != null ? '99' : '40') }]} />
+        </View>
+        {numPages > 1 && (
+          <View
+            style={[
+              styles.knob,
+              {
+                left: `${Math.round(fraction * 100)}%`,
+                backgroundColor: barText,
+                transform: [{ scale: scrubPage != null ? 1.4 : 1 }],
+              },
+            ]}
+            pointerEvents="none"
+          />
+        )}
       </View>
       <View style={styles.row}>
-        <View style={styles.jumpWrap}>
-          <TextInput
-            style={[styles.input, { color: barText, borderColor: barText + '30' }]}
-            value={pageInput}
-            onChangeText={t => setPageInput(t.replace(/\D/g, ''))}
-            onSubmitEditing={submit}
-            placeholder={String(currentPage)}
-            placeholderTextColor={barText + '66'}
-            keyboardType="number-pad"
-            returnKeyType="go"
-            inputMode="numeric"
-            maxLength={6}
-            accessibilityLabel="Go to page"
-          />
-          <TouchableOpacity
-            onPress={submit}
-            style={[styles.goBtn, { borderColor: barText + '30' }]}
-            accessibilityRole="button"
-            accessibilityLabel="Go to page"
-          >
-            <Text style={[styles.goText, { color: barText + 'CC' }]}>Go</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={[styles.counter, { color: barText + '99' }]} accessibilityLabel={`Page ${currentPage} of ${numPages || '…'}`}>
-          {currentPage} / {numPages || '…'}
-        </Text>
+        {typing ? (
+          <View style={styles.jumpWrap}>
+            <TextInput
+              style={[styles.input, { color: barText, borderColor: barText + '30' }]}
+              value={pageInput}
+              onChangeText={t => setPageInput(t.replace(/\D/g, ''))}
+              onSubmitEditing={submit}
+              onBlur={() => { setTyping(false); setPageInput('') }}
+              placeholder={String(currentPage)}
+              placeholderTextColor={barText + '66'}
+              keyboardType="number-pad"
+              returnKeyType="go"
+              inputMode="numeric"
+              maxLength={6}
+              autoFocus
+              accessibilityLabel="Go to page"
+            />
+            <TouchableOpacity
+              onPress={submit}
+              style={[styles.goBtn, { borderColor: barText + '30' }]}
+              accessibilityRole="button"
+              accessibilityLabel="Go to page"
+            >
+              <Text style={[styles.goText, { color: barText + 'CC' }]}>Go</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.jumpWrap} />
+        )}
+        {/* Tapping the counter is the way to a precise page. Dragging 500 pages
+            to reach 87 is not navigation, but neither is a permanent input box. */}
+        <TouchableOpacity
+          onPress={() => { if (!typing) setTyping(true) }}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Page ${shownPage} of ${numPages || 'unknown'}. Tap to enter a page number.`}
+        >
+          <Text style={[styles.counter, { color: barText + (scrubPage != null ? 'EE' : '99') }]}>
+            {shownPage} / {numPages || '…'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </Animated.View>
   )
@@ -98,6 +185,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  // A touch target around the 4px bar. The bar itself stays thin — the finger
+  // needs the room, the eye does not.
+  trackHit: { height: 22, justifyContent: 'center' },
+  knob: { position: 'absolute', width: 10, height: 10, borderRadius: 5, marginLeft: -5 },
   progressBar: { height: 4 },
   progressFill: { height: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8, minHeight: 48 },
