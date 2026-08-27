@@ -186,7 +186,8 @@ export function SelectionActionBar({
           accessibilityRole="button"
           accessibilityLabel="Copy selection"
         >
-          <Ionicons name="copy-outline" size={20} color={colors.text} />
+          <Ionicons name="copy-outline" size={19} color={colors.text} />
+          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Copy</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.btn}
@@ -194,7 +195,8 @@ export function SelectionActionBar({
           accessibilityRole="button"
           accessibilityLabel="Translate selection in full sheet"
         >
-          <Ionicons name="language-outline" size={20} color={colors.text} />
+          <Ionicons name="language-outline" size={19} color={colors.text} />
+          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Translate</Text>
         </TouchableOpacity>
         {onExplain && (
           <TouchableOpacity
@@ -203,7 +205,8 @@ export function SelectionActionBar({
             accessibilityRole="button"
             accessibilityLabel="Explain selection in context"
           >
-            <Ionicons name="bulb-outline" size={20} color={colors.text} />
+            <Ionicons name="bulb-outline" size={19} color={colors.text} />
+            <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Explain</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -213,7 +216,8 @@ export function SelectionActionBar({
           accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
           accessibilityState={{ selected: !!isSpeaking }}
         >
-          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={20} color={colors.text} />
+          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={19} color={colors.text} />
+          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>{isSpeaking ? 'Stop' : 'Listen'}</Text>
         </TouchableOpacity>
 
         {/* "Ask about this" — quote the passage into the persistent Book Chat. Multi-word only. */}
@@ -224,7 +228,8 @@ export function SelectionActionBar({
             accessibilityRole="button"
             accessibilityLabel="Ask about this passage"
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.text} />
+            <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Ask</Text>
           </TouchableOpacity>
         )}
 
@@ -246,7 +251,8 @@ export function SelectionActionBar({
                 accessibilityRole="button"
                 accessibilityLabel="Mark word as known"
               >
-                <Ionicons name="checkmark-done" size={20} color="#22c55e" />
+                <Ionicons name="checkmark-done" size={19} color="#22c55e" />
+                <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Known</Text>
               </TouchableOpacity>
             )}
             {/* Transient ✓ right after a save lands (before the stage badge
@@ -268,9 +274,10 @@ export function SelectionActionBar({
               >
                 <Ionicons
                   name="add-circle"
-                  size={24}
+                  size={22}
                   color={category === 'common' ? colors.textSecondary : (category ? colors.success : colors.text)}
                 />
+                <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Save</Text>
               </TouchableOpacity>
             )}
             {/* Remove — undo an accidental save. */}
@@ -281,7 +288,8 @@ export function SelectionActionBar({
                 accessibilityRole="button"
                 accessibilityLabel="Remove word from vocabulary"
               >
-                <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+                <Ionicons name="trash-outline" size={19} color={colors.textSecondary} />
+                <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Remove</Text>
               </TouchableOpacity>
             )}
           </>
@@ -347,11 +355,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'wrap',
+    rowGap: 4,
     gap: 6,
   },
+  // Labels, not just accessibilityLabel. A screen reader always knew what these
+  // did; a sighted reader was given Copy / a glyph / a lightbulb / a speaker and
+  // left to guess. Ten characters of text costs less than the guess.
+  btnLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 9,
+    marginTop: 1,
+  },
   btn: {
-    width: 40,
-    height: 40,
+    minWidth: 46,
+    paddingHorizontal: 4,
+    height: 44,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',

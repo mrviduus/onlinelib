@@ -256,7 +256,13 @@ export function ReaderShell(props: ReaderShellProps) {
   }, [original])
 
   const topBarHeight = 56 + insets.top
-  const footerHeight = 60 + insets.bottom
+  // Measured, not assumed. This was `60 + insets.bottom`, but the footer grows a
+  // second line whenever "12 min left" renders, so the hide translation fell
+  // short of the real height and left the bar's top edge — a hairline border
+  // plus an Android elevation shadow — drawn across the last line of text. QA
+  // reported it as a stripe through the paragraph.
+  const [measuredFooterHeight, setMeasuredFooterHeight] = useState(0)
+  const footerHeight = measuredFooterHeight || 60 + insets.bottom
 
   // Reading session — keyed by whichever catalog id the source carries.
   const { updateProgress: updateSessionProgress, recordActivity: recordSessionActivity, sessionStartedAt } = useReadingSession({
@@ -865,11 +871,11 @@ export function ReaderShell(props: ReaderShellProps) {
             onAskAbout={askTarget && selection.text.trim() ? () => {
               setAskPrefill({ text: selection.text.trim(), nonce: Date.now() })
               setAskOpen(true)
-              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
+              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){};try{window.__tsClearWordMark&&window.__tsClearWordMark()}catch(e){}')
               setSelection(null)
             } : undefined}
             onClose={() => {
-              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){}')
+              injectJs('try{window.getSelection&&window.getSelection().removeAllRanges()}catch(e){};try{window.__tsClearWordMark&&window.__tsClearWordMark()}catch(e){}')
               setSelection(null)
             }}
           />
@@ -889,7 +895,28 @@ export function ReaderShell(props: ReaderShellProps) {
             onJumpToPage={scrollPdfToPage}
           />
         ) : (
-        <Animated.View style={[styles.footer, { backgroundColor: barBg, borderTopColor: barText + '15', paddingBottom: insets.bottom, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] }]} pointerEvents={barsVisible ? 'auto' : 'none'}>
+        <Animated.View
+          onLayout={e => {
+            const h = Math.round(e.nativeEvent.layout.height)
+            if (h > 0 && h !== measuredFooterHeight) setMeasuredFooterHeight(h)
+          }}
+          style={[
+            styles.footer,
+            {
+              backgroundColor: barBg,
+              borderTopColor: barText + '15',
+              paddingBottom: insets.bottom,
+              opacity: barsAnim,
+              transform: [{ translateY: footerTranslateY }],
+              // Android draws elevation from the native outline provider, which
+              // does not follow an animated opacity — so the shadow survived the
+              // fade and sat on the text as a dark line. Drop it while hidden.
+              elevation: barsVisible ? 2 : 0,
+              borderTopWidth: barsVisible ? StyleSheet.hairlineWidth : 0,
+            },
+          ]}
+          pointerEvents={barsVisible ? 'auto' : 'none'}
+        >
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { width: `${bookProgress != null ? Math.round(bookProgress * 100) : 0}%`, backgroundColor: barText + '40' }]} />
           </View>
@@ -1106,12 +1133,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
-    elevation: 2,
+    // borderTopWidth and elevation are applied inline — both have to disappear
+    // when the bar hides, and neither follows an animated opacity on Android.
   },
   footerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, minHeight: 48 },
   chevronBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },

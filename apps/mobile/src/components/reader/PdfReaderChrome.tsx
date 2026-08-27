@@ -45,7 +45,19 @@ export function PdfReaderChrome({
     <Animated.View
       style={[
         styles.footer,
-        { backgroundColor: barBg, borderTopColor: borderColor, paddingBottom: bottomInset, opacity: barsAnim, transform: [{ translateY: footerTranslateY }] },
+        {
+          backgroundColor: barBg,
+          borderTopColor: borderColor,
+          paddingBottom: bottomInset,
+          opacity: barsAnim,
+          transform: [{ translateY: footerTranslateY }],
+          // Android's elevation shadow is drawn by the native outline provider
+          // and ignores the animated opacity, so it stayed on the page as a dark
+          // line across the text after the bar faded out. Same fix as the reflow
+          // footer in ReaderShell.
+          elevation: barsVisible ? 2 : 0,
+          borderTopWidth: barsVisible ? StyleSheet.hairlineWidth : 0,
+        },
       ]}
       pointerEvents={barsVisible ? 'auto' : 'none'}
     >
@@ -91,12 +103,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
-    elevation: 2,
+    // borderTopWidth and elevation are inline — both must vanish when hidden.
   },
   progressBar: { height: 4 },
   progressFill: { height: 4 },
