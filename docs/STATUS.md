@@ -36,11 +36,17 @@ answers "what happened" and nothing answered "what is half-finished right now".
   switch has landed, so builds no longer share one runtime. Still owner-only: promote the current
   build to Closed and recruit 14 testers.
 
-  **Build 21 is not that build.** It carries only #452; #453 arrived by OTA and #454-#456 never
-  reached it, so a device on 21 still writes chapter-fraction percents into the book-fraction
-  column. A manual pass against it found five P0s —
+  **Build 22** (`versionCode 22`, runtime `c90afbb0…`) is on Internal Testing and is the first build
+  whose runtime is a fingerprint rather than the shared `1.0.0`, so OTAs now have a verified
+  delivery target. A manual pass against build 21 found 24 defects —
   [`docs/qa/reports/2026-08-26-android-manual-pass.md`](qa/reports/2026-08-26-android-manual-pass.md).
-  Cut a new build before recruiting anyone.
+  23 are fixed (#458-#468); the one that is not is **P2-5**, a notification permission dialog that
+  no code path in the app can produce — the only `requestPermissionsAsync` is behind a toggle that
+  was Off, and `targetSdkVersion: 36` rules out Android's automatic prompt. Reproduce it on an
+  emulator with `adb logcat` before changing anything.
+
+  Not yet verified on a device: the reader chrome work (#463, #467) touches the main reading path,
+  and "the bars toggle and the page does not move" is a claim only a phone can settle.
 - **Article** — Sentry write-up, draft on vasyl.blog; needs edits, image, publish, then a DEV cross-post.
 
 ## Known-broken / open follow-ups
@@ -48,6 +54,15 @@ answers "what happened" and nothing answered "what is half-finished right now".
 Each of these is a real defect that is *known and not yet fixed*. They live here rather than in
 someone's memory.
 
+- **Eleven mobile surfaces have never been tested.** The 2026-08-26 pass could not reach
+  Bookmarks, the Highlights screen, "Ask this book", "Ask the librarian", Smart session, the
+  vocabulary review session, Reading Stats, deep links, resume after >30 min backgrounded, UK/EN
+  switching, or account deletion. They are marked "could not verify", which is not a pass — there is
+  simply no evidence either way.
+- **Mobile Lane A e2e is still the spec, not a suite.** `docs/qa/MOBILE-TEST-PLAN.md` describes it;
+  22 tests exist, 34 of their assertions cannot fail (`.catch(() => false)` then `toBeTruthy()`),
+  several reference UI deleted in #452/#453, and CI does not run them because they need a live
+  backend. Every fix from the QA sweep shipped with pure unit tests instead.
 - **No SSG freshness alarm.** The five-week outage was found by a screenshot. Nothing yet alerts on
   "newest generated page is older than N hours" — the single change that would have caught it on day one.
 - **Soft-404s to crawlers.** The catch-all nginx `location /` returns 200 for non-SSG paths; the bot-404
