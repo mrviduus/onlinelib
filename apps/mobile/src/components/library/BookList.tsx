@@ -7,8 +7,7 @@ import { Ionicons } from '@expo/vector-icons'
 import {
   getStorageUrl,
   entryKey, entryTitle, entryAuthor, entryCoverPath, entryProgress,
-  type LibraryEntry, type UserLibraryItem, type ReadingProgressDto,
-} from '@textstack/shared'
+  type LibraryEntry, type UserLibraryItem, type ReadingProgressDto, formatTimeAgo } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useToast } from '../../context/ToastContext'
@@ -38,16 +37,6 @@ function isNewUpload(createdAt?: string): boolean {
   const ts = Date.parse(createdAt)
   if (Number.isNaN(ts)) return false
   return Date.now() - ts < NEW_BADGE_TTL_MS
-}
-
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 interface Props {
