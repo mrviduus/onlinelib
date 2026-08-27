@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { LocalizedLink } from './LocalizedLink'
 import { DAILY_GOAL } from './StreakBadge'
+import { plural } from '@textstack/shared'
 
 interface VocabBadgePopupProps {
   reviewed: number
@@ -33,7 +34,7 @@ export function VocabBadgePopup({ reviewed, due, streak, containerRef, onClose }
       <div className="vocab-badge-popup__status">
         {goalMet
           ? "Today's goal met!"
-          : `${reviewed} of ${DAILY_GOAL} words reviewed`}
+          : plural(DAILY_GOAL, 'word', 'words', `${reviewed} of {n} {noun} reviewed`)}
       </div>
       <div className="vocab-badge-popup__stats">
         <div className="vocab-badge-popup__stat">

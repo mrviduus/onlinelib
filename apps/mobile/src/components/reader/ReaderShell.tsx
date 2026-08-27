@@ -3,7 +3,7 @@ import type { MutableRefObject, RefObject } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useRouter, Stack } from 'expo-router'
-import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, resolvePdfResumePage, chapterEndPage } from '@textstack/shared'
+import { t, computeBookProgress, estimateTimeLeft, formatMinutesLeft, citationChapterSlug, makeSnippet, plural, resolvePdfResumePage, chapterEndPage } from '@textstack/shared'
 import type { Chapter, BookmarkDto, AskCitation, AskTarget } from '@textstack/shared'
 import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import {
@@ -1141,7 +1141,7 @@ export function ReaderShell(props: ReaderShellProps) {
             <View style={[styles.exitSummaryCard, { backgroundColor: barBg }]}>
               <Ionicons name="checkmark-circle" size={40} color={colors.success} />
               <Text style={[styles.exitSummaryText, { color: barText }]}>
-                {sessionWordCount} word{sessionWordCount === 1 ? '' : 's'} saved
+                {plural(sessionWordCount, 'word', 'words', '{n} {noun} saved')}
               </Text>
               <View style={styles.exitSummaryButtons}>
                 <TouchableOpacity

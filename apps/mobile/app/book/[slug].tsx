@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'rea
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, libraryApi, readingProgressApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, libraryApi, plural, readingProgressApi } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
@@ -232,7 +232,7 @@ export default function BookDetailScreen() {
           )}
           <View style={styles.metaRow}>
             <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
-            <Text style={[styles.metaText, { color: colors.textSecondary }]}>{book.chapters.length} chapters</Text>
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>{plural(book.chapters.length, 'chapter', 'chapters')}</Text>
           </View>
         </View>
 
@@ -313,7 +313,7 @@ export default function BookDetailScreen() {
               <TouchableOpacity style={[styles.secondaryButton, { borderColor: '#F59E0B' }]} onPress={() => retryFailed(book.id)} activeOpacity={0.85}>
                 <Ionicons name="refresh" size={18} color="#F59E0B" />
                 <Text style={[styles.secondaryButtonText, { color: '#F59E0B' }]}>
-                  Retry {dl.failedChapters} failed chapter{dl.failedChapters === 1 ? '' : 's'}
+                  {plural(dl.failedChapters, 'chapter', 'chapters', 'Retry {n} failed {noun}')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => startDownload(book, language)} activeOpacity={0.85}>
@@ -407,7 +407,7 @@ export default function BookDetailScreen() {
             onPress={() => setShowAllChapters(true)}
           >
             <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.primary }}>
-              View all {book.chapters.length} chapters
+              {plural(book.chapters.length, 'chapter', 'chapters', 'View all {n} {noun}')}
             </Text>
           </TouchableOpacity>
         )}

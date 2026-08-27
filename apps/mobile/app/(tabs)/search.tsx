@@ -4,7 +4,7 @@ import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createBooksApi, getStorageUrl, isOfflineError } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, isOfflineError, plural } from '@textstack/shared'
 import type { SearchResult, Edition, Author } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -427,9 +427,9 @@ export default function DiscoverScreen() {
                screen. Tinting them and adding the chevron says they go somewhere. */
             <View style={[styles.statsBar, { borderColor: colors.border }]}>
               {([
-                { label: `${catalogStats.books} books`, to: '/books' as const },
-                { label: `${catalogStats.authors} authors`, to: '/authors' as const },
-                { label: `${catalogStats.genres} genres`, to: '/genres' as const },
+                { label: plural(catalogStats.books, 'book', 'books'), to: '/books' as const },
+                { label: plural(catalogStats.authors, 'author', 'authors'), to: '/authors' as const },
+                { label: plural(catalogStats.genres, 'genre', 'genres'), to: '/genres' as const },
               ]).map((item, i) => (
                 <View key={item.to} style={styles.statGroup}>
                   {i > 0 && <Text style={[styles.statDot, { color: colors.border }]}>&middot;</Text>}

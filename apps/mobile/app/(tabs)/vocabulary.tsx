@@ -4,7 +4,7 @@ import {
   RefreshControl, ScrollView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { vocabularyApi, isOfflineError } from '@textstack/shared'
+import { vocabularyApi, isOfflineError, plural } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto, WordLookupDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -349,7 +349,7 @@ export default function VocabularyScreen() {
                       <Text style={[styles.wordTranslation, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>{item.lastTranslation}</Text>
                     )}
                     <Text style={[styles.detailSource, { color: colors.textSecondary, fontFamily: fonts.sans }]} numberOfLines={1}>
-                      {[item.bookTitle, `${item.tapCount} tap${item.tapCount === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
+                      {[item.bookTitle, plural(item.tapCount, 'tap', 'taps')].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -462,7 +462,7 @@ export default function VocabularyScreen() {
           onEndReachedThreshold={0.5}
           ListFooterComponent={hasMore ? (
             <Text style={{ textAlign: 'center', padding: 12, fontSize: 12, color: colors.textSecondary, fontFamily: fonts.sans }}>
-              {words.length} of {total} words
+              {plural(total, 'word', 'words', `${words.length} of {n} {noun}`)}
             </Text>
           ) : null}
           renderItem={({ item }) => (
@@ -625,7 +625,7 @@ function WordRow({
           )}
           <Text style={[styles.detailDate, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
             Added {new Date(word.createdAt).toLocaleDateString()}
-            {word.totalReviews > 0 && ` · ${word.totalReviews} reviews (${word.correctReviews > 0 ? Math.round(word.correctReviews / word.totalReviews * 100) : 0}%)`}
+            {word.totalReviews > 0 && ` · ${plural(word.totalReviews, 'review', 'reviews')} (${word.correctReviews > 0 ? Math.round(word.correctReviews / word.totalReviews * 100) : 0}%)`}
             {word.nextReviewAt && ` · Due: ${new Date(word.nextReviewAt).toLocaleDateString()}`}
           </Text>
           <TouchableOpacity

@@ -10,14 +10,13 @@ let ImagePicker: typeof import('expo-image-picker') | null = null
 try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
-import { useLanguage } from '../../src/context/LanguageContext'
 import { useOnline } from '../../src/hooks/useOnline'
 import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
 import { getLanguage, getFlagEmoji } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
-import { supportedLanguages, type Language, authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
+import { authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
 import { deleteAccount } from '../../src/lib/api'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
 import { fonts } from '../../src/theme/typography'
@@ -31,7 +30,6 @@ const MENU_ITEMS = [
 export default function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
   const { colors, themeMode, setThemeMode } = useTheme()
-  const { language, switchLanguage } = useLanguage()
   const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -259,30 +257,14 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* Language switcher */}
-        <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
-          <Ionicons name="language-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
-          <Text style={[styles.menuText, { color: colors.text }]}>Language</Text>
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            {supportedLanguages.map(lang => (
-              <TouchableOpacity
-                key={lang}
-                onPress={() => switchLanguage(lang)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  backgroundColor: language === lang ? colors.primaryLight : 'transparent',
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: language === lang ? colors.primary : colors.textSecondary }}>
-                  {lang.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* "Language" (the INTERFACE language) used to sit here, and it was the same dead control
+            as "Learning" below: a chip row built from `supportedLanguages`, which is `['en']` — one
+            chip, permanently selected, and tapping it called switchLanguage('en'), a no-op state
+            write to the value it already held. QA tapped it and filed it, exactly as predicted six
+            lines down. It sat two rows above Theme, where three chips of the same shape really do
+            work, which is what made it read as broken rather than as "only one language yet".
+            A control with one option is not a control. It comes back when there is a second locale.
+            Note this is NOT the native-language setting below — that one is real and works. */}
 
         {/* I know (native language) — searchable picker */}
         <TouchableOpacity

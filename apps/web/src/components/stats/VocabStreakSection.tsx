@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { VocabStatsDto, VocabDailyStatDto } from '../../api/vocabulary'
 import { WeeklyVocabChart } from '../vocabulary/WeeklyVocabChart'
+import { plural } from '@textstack/shared'
 
 interface Props {
   vocabStats: VocabStatsDto
@@ -71,7 +72,7 @@ function YearlyHeatmap({ dailyStats }: { dailyStats: VocabDailyStatDto[] }) {
         ))}
       </div>
       <div className="vocab-heatmap__summary">
-        {totalAdded} words added · {totalReviewed} words reviewed
+        {plural(totalAdded, 'word', 'words', '{n} {noun} added')} · {plural(totalReviewed, 'word', 'words', '{n} {noun} reviewed')}
       </div>
     </section>
   )
