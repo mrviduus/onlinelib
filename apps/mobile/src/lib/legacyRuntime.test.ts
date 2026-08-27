@@ -32,3 +32,24 @@ describe('isLegacyRuntime', () => {
     expect(isLegacyRuntime(null, true, 'android')).toBe(false)
   })
 })
+
+// The predicate above is correct in isolation and was correct in isolation the whole
+// time the banner was lying to every tester. `isLegacyRuntime` is only half the
+// contract; the other half lives in app.json, and nothing read it.
+//
+// The banner's docblock promises it "self-disables by design: builds made after the
+// switch carry a fingerprint hash as their runtime, never the string 1.0.0". That
+// promise is conditional on a config change that was written down as a follow-up and
+// then not made, so build 21 — the newest binary on Play — opened on "your version is
+// outdated" with nothing to update to.
+//
+// This binds the two halves. If the policy ever goes back to appVersion, every build
+// shares one runtime again and the banner resumes lying; that is a test failure now,
+// not a QA pass three weeks later.
+describe('app.json runtime policy', () => {
+  it('is not appVersion, so each build gets its own runtime', async () => {
+    const appJson = await import('../../app.json')
+    const policy = (appJson.default ?? appJson).expo.runtimeVersion.policy
+    expect(policy).toBe('fingerprint')
+  })
+})
