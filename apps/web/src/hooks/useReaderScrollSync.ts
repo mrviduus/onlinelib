@@ -26,6 +26,19 @@ interface Params {
   mode: ReaderMode
   chapterIdentifier: string | undefined
   chapterLoaded: boolean
+  /**
+   * True while the Original-layout PDF viewer owns the reading position.
+   *
+   * This hook writes `scroll:<identifier>:<offset>`. A PDF read in Original
+   * layout stores `page:<n>`, and the two are different coordinate spaces —
+   * writing one over the other loses the reader's place. The mobile app had the
+   * same gap and lost a reader twelve pages; here it is worse hidden, because an
+   * uploaded PDF usually HAS reflow chapters, so `chapterLoaded` is true and the
+   * save-on-open fires while the reader is looking at pages.
+   *
+   * See ADR-013.
+   */
+  originalActive: boolean
   overallProgress: number
   effectiveProgress: ProgressLocator | null
   effectiveLoading: boolean
@@ -41,6 +54,7 @@ export function useReaderScrollSync({
   mode,
   chapterIdentifier,
   chapterLoaded,
+  originalActive,
   overallProgress,
   effectiveProgress,
   effectiveLoading,
@@ -70,7 +84,7 @@ export function useReaderScrollSync({
   // this, hitting "Next" at the bottom of ch1 leaves you mid-/end-of ch2.
   useEffect(() => {
     if (scrollRestoredRef.current || effectiveLoading) return
-    if (!chapterLoaded) return
+    if (originalActive || !chapterLoaded) return
 
     const targetOffset = (() => {
       if (!effectiveProgress?.locator?.startsWith('scroll:')) return 0
@@ -87,7 +101,7 @@ export function useReaderScrollSync({
       scrollRestoredRef.current = true
       setRestoredFor(chapterIdentifier ?? null)
     })
-  }, [chapterLoaded, effectiveLoading, effectiveProgress, chapterIdentifier])
+  }, [originalActive, chapterLoaded, effectiveLoading, effectiveProgress, chapterIdentifier])
 
   // Save-on-chapter-open: the debounced scroll save is gated by user scrolling,
   // so chapter→chapter navigation (route param change; ReaderPage stays mounted)
@@ -96,7 +110,7 @@ export function useReaderScrollSync({
   // sequenced AFTER restore so the offset reflects the restored scroll, not a
   // transient 0. Uses the current chapter's id + book-level overallProgress.
   useEffect(() => {
-    if (!chapterLoaded || !chapterIdentifier) return
+    if (originalActive || !chapterLoaded || !chapterIdentifier) return
     // Wait until restore has run for THIS chapter (offset is settled).
     if (restoredFor !== chapterIdentifier) return
     if (savedOnOpenForRef.current === chapterIdentifier) return
@@ -121,11 +135,15 @@ export function useReaderScrollSync({
     // overallProgress intentionally excluded: we snapshot it on open only. The
     // scroll-debounced effect owns continuous updates as the user reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterIdentifier, chapterLoaded, mode, restoredFor, publicBookChapters, publicProgress, userProgress])
+  }, [originalActive, chapterIdentifier, chapterLoaded, mode, restoredFor, publicBookChapters, publicProgress, userProgress])
 
   // Flush pending save now: write locally + ask the underlying hook to ship
   // synchronously (keepalive fetch) so we don't lose the write on tab death.
   const flushSave = useCallback(() => {
+    // Same rule as the two effects above: a PDF viewer's position is not ours
+    // to write, and this one fires on tab close with keepalive — the write most
+    // likely to be the last one the server sees.
+    if (originalActive) return
     const pending = pendingSaveRef.current
     if (!pending) return
 
@@ -149,7 +167,7 @@ export function useReaderScrollSync({
     }
 
     pendingSaveRef.current = null
-  }, [mode, publicBookChapters, publicProgress, userProgress])
+  }, [originalActive, mode, publicBookChapters, publicProgress, userProgress])
 
   // Debounced save on scroll position change. The save effect keys off
   // overallProgress so it re-runs when chapter scroll moves.
@@ -185,7 +203,7 @@ export function useReaderScrollSync({
       pendingSaveRef.current = null
       saveTimerRef.current = null
     }, SAVE_DEBOUNCE_MS)
-  }, [mode, publicBookChapters, chapterIdentifier, overallProgress, publicProgress, userProgress])
+  }, [originalActive, mode, publicBookChapters, chapterIdentifier, overallProgress, publicProgress, userProgress])
 
   // Flush on visibility hidden / beforeunload / unmount.
   useEffect(() => {
