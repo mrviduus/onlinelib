@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi,
+  libraryApi, readingProgressApi, userBooksApi, isOfflineError,
 } from '@textstack/shared'
 import {
   collectionsApi, buildLibraryEntries, filterEntries, countEntries, sortEntries, entryTitle, entryAuthor,
@@ -17,6 +17,8 @@ import { useToast } from '../../src/context/ToastContext'
 import { useCollectionsVersion } from '../../src/hooks/useCollections'
 import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
+import { OfflineBanner } from '../../src/components/ui/OfflineBanner'
+import { getAllCachedBooks } from '../../src/lib/offlineDb'
 import { FirstBookState } from '../../src/components/library/FirstBookState'
 import { LibraryViewSheet, type LibrarySource } from '../../src/components/library/LibraryViewSheet'
 import { LibrarySearch } from '../../src/components/library/LibrarySearch'
@@ -63,6 +65,11 @@ export default function LibraryScreen() {
   const [progressMap, setProgressMap] = useState<Record<string, ReadingProgressDto>>({})
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // Why the list is empty, when it is. Without this the screen cannot tell
+  // "you have no books" from "I could not ask", and it showed the first-run
+  // welcome to an offline reader with twelve books — indistinguishable from
+  // having lost the account.
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Generation counter guards against:
   //  1. Out-of-order resolution — pull-to-refresh racing a focus-effect
@@ -96,12 +103,35 @@ export default function LibraryScreen() {
       if (myGen !== loadGenRef.current) return // superseded or unmounted
       setLibrary(lib)
       setUserBooks(books)
+      setLoadError(null)
       const map: Record<string, ReadingProgressDto> = {}
       for (const p of progress) map[p.editionId] = p
       setProgressMap(map)
     } catch (e) {
       if (myGen !== loadGenRef.current) return
       console.error('Library load error:', e)
+      const offline = isOfflineError(e)
+      setLoadError(offline ? 'offline' : 'failed')
+      // Offline: fall back to what is genuinely on the device. Downloaded books
+      // carry title and cover in SQLite — the same rehydration app/book/[slug].tsx
+      // has always done. Uploads and saved-but-not-downloaded books are not
+      // cached at all, so the banner says the list is partial rather than
+      // pretending it is whole.
+      if (offline) {
+        try {
+          const cached = await getAllCachedBooks()
+          if (myGen !== loadGenRef.current) return
+          setLibrary(prev => (prev.length > 0 ? prev : cached.map(c => ({
+            editionId: c.editionId,
+            slug: c.slug,
+            title: c.title,
+            language: 'en',
+            coverPath: c.coverPath,
+            createdAt: new Date(c.cachedAt).toISOString(),
+            author: null,
+          }))))
+        } catch { /* cache unavailable — the banner still explains the empty list */ }
+      }
     } finally {
       if (myGen === loadGenRef.current) setLoading(false)
     }
@@ -198,6 +228,22 @@ export default function LibraryScreen() {
     )
   }
 
+  // Nothing to show AND a reason for it — never the welcome screen. `loadError`
+  // is what separates "no books" from "no answer"; conflating them was the bug.
+  if (library.length === 0 && userBooks.length === 0 && loadError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <EmptyState
+          icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+          title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+          subtitle={loadError === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
+          buttonLabel={t('common.retry')}
+          onButtonPress={() => { setLoading(true); loadData() }}
+        />
+      </View>
+    )
+  }
+
   // Nothing anywhere: one screen, one action. Rendering the lists here would
   // give the user a search box, status tabs, a sort row and a grid toggle for
   // zero books — and a generic "browse the catalog" CTA, which is the wrong
@@ -243,6 +289,9 @@ export default function LibraryScreen() {
 
   const listHeader = (
     <>
+      {/* Above everything, because it changes how the whole list should be read:
+          uploads and saved-but-undownloaded books are not cached at all. */}
+      {loadError === 'offline' && <OfflineBanner message={t('library.offline.partial')} />}
       {resumeList.length > 0 && <ResumeHero pick={resumeList[0]} />}
       {/* Silent until the store is nearly full, so it appears exactly when it
           changes what the reader would do next. The full figure is on Profile. */}

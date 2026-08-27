@@ -22,29 +22,32 @@ interface TranslationSheetProps {
 
 export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fromOverride }: TranslationSheetProps) {
   const { colors } = useTheme()
-  const { fromLang, toLang } = useTargetLanguage(fromOverride)
+  const { fromLang, translationTarget } = useTargetLanguage(fromOverride)
   // Human-readable native labels for the sheet header. Fall back to the
   // uppercased language code (e.g. "EN") when the code isn't in our
   // catalogue — no throw, no blank space.
-  const fromLabel = getLanguage(fromLang)?.nativeName ?? fromLang.toUpperCase()
-  const toLabel = getLanguage(toLang)?.nativeName ?? toLang.toUpperCase()
+  const label = (code: string) => getLanguage(code)?.nativeName ?? code.toUpperCase()
+  const fromLabel = label(fromLang)
+  const toLabel = translationTarget ? label(translationTarget) : null
   const [translated, setTranslated] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!visible || !text) return
+    // Nothing to translate into: the reader knows this language. Don't spend a
+    // request proving that English means English — the sheet says so instead.
+    if (!visible || !text || !translationTarget) return
     setLoading(true)
     setError('')
     setTranslated('')
-    trackTranslationUsed({ fromLang, toLang, kind: text.includes(' ') ? 'selection' : 'word' })
-    translationApi.translate(text, fromLang, toLang)
+    trackTranslationUsed({ fromLang, toLang: translationTarget, kind: text.includes(' ') ? 'selection' : 'word' })
+    translationApi.translate(text, fromLang, translationTarget)
       .then((res: any) => {
         setTranslated(res.translatedText || res.translation || '')
       })
       .catch(() => setError('Translation failed'))
       .finally(() => setLoading(false))
-  }, [visible, text, fromLang, toLang])
+  }, [visible, text, fromLang, translationTarget])
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -81,10 +84,18 @@ export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fr
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             <View style={styles.textBlock}>
-              <Text style={[styles.langLabel, { color: colors.primary }]}>{toLabel}</Text>
-              {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} accessibilityLabel="Translating" />}
-              {error ? <Text style={{ color: colors.error, marginTop: 8 }} accessibilityRole="alert">{error}</Text> : null}
-              {translated ? <Text style={[styles.translatedText, { color: colors.text }]}>{translated}</Text> : null}
+              {toLabel ? (
+                <>
+                  <Text style={[styles.langLabel, { color: colors.primary }]}>{`\u2192 ${toLabel}`}</Text>
+                  {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} accessibilityLabel="Translating" />}
+                  {error ? <Text style={{ color: colors.error, marginTop: 8 }} accessibilityRole="alert">{error}</Text> : null}
+                  {translated ? <Text style={[styles.translatedText, { color: colors.text }]}>{translated}</Text> : null}
+                </>
+              ) : (
+                <Text style={[styles.translatedText, { color: colors.textSecondary }]}>
+                  {`You read ${fromLabel} natively, so there is nothing to translate into. Pick a different language in Profile.`}
+                </Text>
+              )}
             </View>
           </View>
         </View>

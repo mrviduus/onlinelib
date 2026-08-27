@@ -100,7 +100,8 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again"
   },
   "nav": {
     "catalog": "Catalog",
@@ -118,6 +119,8 @@
   "onboarding": {
     "chooseLanguage": "Choose your language",
     "chooseLanguageSubtitle": "You can change this later in settings",
+    "nativeLanguageTitle": "What language do you know best?",
+    "nativeLanguageSubtitle": "We'll translate into it while you read. You can change it any time in Profile.",
     "learnByReading": "Learn by reading",
     "tapToTranslate": "Tap any word to see its translation",
     "saveWords": "Save words to build your vocabulary",
@@ -350,6 +353,15 @@
     "storage": {
       "label": "Upload space",
       "nearlyFull": "Almost full — delete a book to free up space"
+    },
+    "offline": {
+      "title": "You're offline",
+      "body": "Your library will be here as soon as you reconnect.",
+      "partial": "You're offline — showing downloaded books only."
+    },
+    "loadFailed": {
+      "title": "Couldn't load your library",
+      "body": "Something went wrong on our side. Your books are safe."
     }
   },
   "addMenu": {
@@ -457,7 +469,12 @@
     "recentSearches": "Recent searches",
     "clearAll": "Clear all",
     "searchPlaceholder": "Search books...",
-    "foundEditions": "Found {total} books"
+    "foundEditions": "Found {total} books",
+    "offline": {
+      "catalog": "You're offline — the catalog needs a connection. Your downloaded books are in Library.",
+      "title": "You're offline",
+      "body": "Search needs a connection. Your downloaded books are in Library."
+    }
   },
   "privacy": {
     "seoTitle": "Privacy Policy — TextStack",

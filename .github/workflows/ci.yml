@@ -100,6 +100,13 @@ jobs:
         working-directory: apps/web
         run: pnpm check:mobile-overlay
 
+      # The PDF bundle had no such guard. entry.ts is the source of the viewer
+      # that owns the reader's position in a PDF, and an edit shipped without a
+      # rebuild changes nothing at runtime — silently, past a green CI.
+      - name: Drift-check mobile PDF bundle
+        working-directory: apps/web
+        run: pnpm check:mobile-pdf
+
       - name: Install & build admin
         working-directory: apps/admin
         run: pnpm install --frozen-lockfile && pnpm build

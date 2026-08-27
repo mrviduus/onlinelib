@@ -17,7 +17,10 @@ interface ExplanationSheetProps {
 
 export function ExplanationSheet({ visible, word, sentence, bookId, fromLang: fromOverride, onClose }: ExplanationSheetProps) {
   const { colors } = useTheme()
-  const { toLang } = useTargetLanguage(fromOverride)
+  // Explanations are addressed to the reader, so this is readerLang and never
+  // null: explaining an English word in English is useful, unlike translating
+  // one into itself.
+  const { readerLang } = useTargetLanguage(fromOverride)
   const [explanation, setExplanation] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -31,7 +34,7 @@ export function ExplanationSheet({ visible, word, sentence, bookId, fromLang: fr
     setLoading(true)
     setError('')
     setExplanation('')
-    explainApi.explain({ word, sentence, bookId, targetLang: toLang }, ctrl.signal)
+    explainApi.explain({ word, sentence, bookId, targetLang: readerLang }, ctrl.signal)
       .then(res => { if (!ctrl.signal.aborted) setExplanation(res.explanation) })
       .catch(err => {
         if (ctrl.signal.aborted) return
@@ -40,7 +43,7 @@ export function ExplanationSheet({ visible, word, sentence, bookId, fromLang: fr
       })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
     return () => { ctrl.abort() }
-  }, [visible, word, sentence, toLang, bookId])
+  }, [visible, word, sentence, readerLang, bookId])
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
