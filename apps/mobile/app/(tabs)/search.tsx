@@ -11,6 +11,7 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
 import { SkeletonLoader, BookGridSkeleton } from '../../src/components/ui/SkeletonLoader'
 import { OfflineBanner } from '../../src/components/ui/OfflineBanner'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { BookCard } from '../../src/components/ui/BookCard'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { trackSearchPerformed } from '../../src/lib/analytics'
@@ -102,8 +103,12 @@ export default function DiscoverScreen() {
   // data being non-empty, so a failed fetch made all three vanish and left a
   // search box and an "Ask the librarian" card with no explanation. Empty and
   // unreachable are different states and now look different.
-  const [catalogOffline, setCatalogOffline] = useState(false)
+  const [catalogError, setCatalogError] = useState<'offline' | 'failed' | null>(null)
   const [searchOffline, setSearchOffline] = useState(false)
+  const reconnects = useReconnectCount()
+  // Bumped by the banner's retry, so a reader who does not want to wait for
+  // NetInfo can ask again.
+  const [catalogAttempt, setCatalogAttempt] = useState(0)
 
   const debouncedQuery = useDebounce(query.trim(), 300)
 
@@ -131,15 +136,22 @@ export default function DiscoverScreen() {
       setBooks(booksRes.items)
       setAuthors(authorsRes.items)
       setCatalogStats({ books: booksRes.total, authors: authorsRes.total, genres: genresRes.total })
-      setCatalogOffline(false)
+      setCatalogError(null)
     }).catch(e => {
       if (cancelled) return
       console.error('Catalog fetch failed:', e)
-      setCatalogOffline(isOfflineError(e))
+      // Was `setCatalogOffline(isOfflineError(e))`, so a 500 set it to FALSE and
+      // Discover rendered blank with no message at all — three sections gated on
+      // their own data, all empty, nothing to explain it.
+      setCatalogError(isOfflineError(e) ? 'offline' : 'failed')
     })
       .finally(() => { if (!cancelled) setCatalogLoading(false) })
     return () => { cancelled = true }
-  }, [language])
+    // `reconnects` is the fix for N-2. This was `[language]` alone, and Discover
+    // is a tab screen that never unmounts — so once the catalog failed, nothing
+    // re-ran it. The banner survived the network coming back and could only be
+    // cleared by restarting the app.
+  }, [language, reconnects, catalogAttempt])
 
   // Use functional setState so saveRecent/removeRecent don't need
   // `recentSearches` in their deps — that previously leaked into doSearch's
@@ -399,8 +411,12 @@ export default function DiscoverScreen() {
           {/* One sentence instead of three silently missing sections. Discover is
               the only place with nothing cached to fall back on, so it says so
               rather than rendering a convincing-looking empty page. */}
-          {catalogOffline && !catalogLoading && (
-            <OfflineBanner message={t('search.offline.catalog')} />
+          {catalogError && !catalogLoading && (
+            <OfflineBanner
+              message={catalogError === 'offline' ? t('search.offline.catalog') : t('library.loadFailed.body')}
+              actionLabel={t('common.retry')}
+              onAction={() => setCatalogAttempt(a => a + 1)}
+            />
           )}
 
           {/* Catalog Stats Bar */}

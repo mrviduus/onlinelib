@@ -4,7 +4,7 @@ import {
   RefreshControl, ScrollView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { vocabularyApi } from '@textstack/shared'
+import { vocabularyApi, isOfflineError } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto, WordLookupDto } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
@@ -14,6 +14,7 @@ import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { useTts } from '../../src/hooks/useTts'
 import type { ReviewMode } from '../../src/hooks/useVocabularyReview'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { ClusterBonusCard } from '../../src/components/vocabulary/ClusterBonusCard'
 import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSettingsModal'
 import { VocabViewSheet } from '../../src/components/vocabulary/VocabViewSheet'
@@ -64,6 +65,8 @@ export default function VocabularyScreen() {
   const [lookupBusyId, setLookupBusyId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [viewSheetOpen, setViewSheetOpen] = useState(false)
+  // Why the list is empty, when it is.
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
 
   const activeFilter = TABS.find(t => t.key === tab)?.filter
 
@@ -94,18 +97,31 @@ export default function VocabularyScreen() {
         setWords(res.items)
       }
       setTotal(res.total)
+      setLoadError(null)
       offsetRef.current = currentOffset + res.items.length
       if (!loadMore && st) setStats(st)
     } catch (e) {
       if (myGen !== loadGenRef.current) return
       console.warn('Vocab load error:', e)
+      // Tell the screen WHY the list is empty. Without this it rendered "No
+      // words saved yet" to a reader who had one — the same defect Library was
+      // treated for, on a screen the treatment never reached.
+      setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      throw e
     } finally {
       if (loadMore) loadingMoreRef.current = false
       if (myGen === loadGenRef.current) setLoading(false)
     }
   }, [activeFilter, search, sort])
 
-  useEffect(() => { setLoading(true); offsetRef.current = 0; loadData() }, [loadData])
+  // `reconnects` in the deps is what makes the screen recover on its own. A tab
+  // screen never unmounts, so without it the only way back from an offline load
+  // was restarting the app.
+  const reconnects = useReconnectCount()
+  useEffect(() => {
+    setLoading(true); offsetRef.current = 0
+    loadData().catch(() => {})
+  }, [loadData, reconnects])
 
   const loadPending = useCallback(async () => {
     try {
@@ -418,6 +434,15 @@ export default function VocabularyScreen() {
             </View>
           ))}
         </View>
+      ) : words.length === 0 && loadError ? (
+        // "You have no words" and "I could not ask" are different screens.
+        <EmptyState
+          icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+          title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+          subtitle={loadError === 'offline' ? t('vocabulary.offline.body') : t('library.loadFailed.body')}
+          buttonLabel={t('common.retry')}
+          onButtonPress={() => { setLoading(true); offsetRef.current = 0; loadData().catch(() => {}) }}
+        />
       ) : words.length === 0 ? (
         <EmptyState
           icon="book-outline"

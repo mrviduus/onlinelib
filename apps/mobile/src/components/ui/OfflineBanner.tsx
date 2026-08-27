@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../context/ThemeContext'
 import { fonts } from '../../theme/typography'
@@ -17,7 +17,18 @@ import { fonts } from '../../theme/typography'
  * screen is showing downloaded content, the library may be showing a subset, and
  * Discover has nothing to show at all.
  */
-export function OfflineBanner({ message }: { message: string }) {
+export function OfflineBanner({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string
+  /** Optional retry. A banner with no way out is a status light, not a control —
+   *  Discover's sat on screen through the network coming back with nothing the
+   *  reader could press. */
+  actionLabel?: string
+  onAction?: () => void
+}) {
   const { colors } = useTheme()
   return (
     <View
@@ -26,6 +37,11 @@ export function OfflineBanner({ message }: { message: string }) {
     >
       <Ionicons name="cloud-offline-outline" size={16} color={colors.primary} />
       <Text style={[styles.text, { color: colors.primary }]}>{message}</Text>
+      {actionLabel && onAction && (
+        <TouchableOpacity onPress={onAction} hitSlop={8} accessibilityRole="button">
+          <Text style={[styles.action, { color: colors.primary }]}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   )
 }
@@ -46,5 +62,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 13,
     flex: 1,
+  },
+  action: {
+    fontFamily: fonts.sansBold,
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 })
