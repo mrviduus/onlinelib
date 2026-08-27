@@ -100,7 +100,8 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again"
   },
   "nav": {
     "catalog": "Catalog",
@@ -346,11 +347,21 @@
       "layout": "Layout",
       "grid": "Grid",
       "list": "List",
-      "done": "Done"
+      "done": "Done",
+      "openFiltered": "View options — a filter is active"
     },
     "storage": {
       "label": "Upload space",
       "nearlyFull": "Almost full — delete a book to free up space"
+    },
+    "offline": {
+      "title": "You're offline",
+      "body": "Your library will be here as soon as you reconnect.",
+      "partial": "You're offline — showing downloaded books only."
+    },
+    "loadFailed": {
+      "title": "Couldn't load your library",
+      "body": "Something went wrong on our side. Your books are safe."
     }
   },
   "addMenu": {
@@ -458,7 +469,12 @@
     "recentSearches": "Recent searches",
     "clearAll": "Clear all",
     "searchPlaceholder": "Search books...",
-    "foundEditions": "Found {total} books"
+    "foundEditions": "Found {total} books",
+    "offline": {
+      "catalog": "You're offline — the catalog needs a connection. Your downloaded books are in Library.",
+      "title": "You're offline",
+      "body": "Search needs a connection. Your downloaded books are in Library."
+    }
   },
   "privacy": {
     "seoTitle": "Privacy Policy — TextStack",

@@ -1,4 +1,5 @@
 import { openDyslexicBase64 } from './openDyslexicBase64'
+import { pdfChromeCss, type PdfChrome } from './pdfViewerChrome'
 import { READER_OVERLAY_SCRIPT } from './readerOverlayScript'
 import { READER_SELECTION_BRIDGE } from './readerBridge'
 import { PDF_VIEWER_SCRIPT } from './pdfViewerScript'
@@ -1164,8 +1165,16 @@ export interface PdfViewerHtmlOptions {
 export function buildPdfViewerHtml(fileUrl: string, token: string | null, options: PdfViewerHtmlOptions = {}): string {
   const theme = options.theme ?? defaultTheme
   const initialPage = options.initialPage ?? null
-  const padTop = options.safeArea?.top ?? 0
-  const padBottom = options.safeArea?.bottom ?? 0
+  // Chrome (safe-area padding + theme colours) is emitted from the same values
+  // that `pdfChromeInjectionJs` later applies to the LIVE document, so a bar
+  // toggle or a theme switch no longer has to rebuild this string. Rebuilding it
+  // reloads the WebView, and a reloaded pdf.js reopens at page 1 — see
+  // `pdfViewerChrome.ts` for the 17-pages-lost incident behind this.
+  const chrome: PdfChrome = {
+    safeArea: { top: options.safeArea?.top ?? 0, bottom: options.safeArea?.bottom ?? 0 },
+    backgroundColor: theme.backgroundColor,
+    textColor: theme.textColor,
+  }
   const bootstrap = JSON.stringify({ url: fileUrl, token, initialPage })
 
   return `<!DOCTYPE html>
@@ -1183,13 +1192,11 @@ export function buildPdfViewerHtml(fileUrl: string, token: string | null, option
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { -webkit-text-size-adjust: none; }
     body {
-      background: ${theme.backgroundColor};
-      color: ${theme.textColor};
       -webkit-user-select: text;
       user-select: text;
       -webkit-touch-callout: default;
     }
-    #pdf-root { padding: ${padTop}px 0 ${padBottom}px 0; }
+    ${pdfChromeCss(chrome)}
     .pdf-pages { display: flex; flex-direction: column; align-items: center; }
     .pdf-page {
       position: relative;
