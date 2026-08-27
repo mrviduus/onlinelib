@@ -78,6 +78,14 @@ export default function LoginScreen() {
     if (loading) return
     setError('')
     if (!email.trim()) { setError('Email is required.'); return }
+    // Checked here so the server's answer stays truthful. Sending "notanemail"
+    // came back as "Invalid email or password" — a statement about a credential
+    // pair, to someone who has not entered an address. Deliberately permissive:
+    // it rejects what cannot be an address, not what does not look like one.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      setError('That does not look like an email address.')
+      return
+    }
     if (mode !== 'forgot' && password.length < 8) { setError('Password must be at least 8 characters.'); return }
 
     setLoading(true)
