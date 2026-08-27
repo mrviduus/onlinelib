@@ -3,13 +3,14 @@ import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
 } from 'react-native'
 import { useRouter, Stack } from 'expo-router'
-import { createBooksApi } from '@textstack/shared'
+import { createBooksApi, isOfflineError } from '@textstack/shared'
 import type { Genre } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
 import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 import { SkeletonLoader } from '../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../src/components/ui/EmptyState'
+import { useReconnectCount } from '../src/hooks/useOnline'
 
 export default function GenresScreen() {
   const router = useRouter()
@@ -17,6 +18,9 @@ export default function GenresScreen() {
   const { language } = useLanguage()
   const [genres, setGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
 
   useEffect(() => {
     let cancelled = false
@@ -26,11 +30,16 @@ export default function GenresScreen() {
       .then(res => {
         if (cancelled) return
         setGenres(Array.isArray(res) ? res : res.items)
+        setLoadError(null)
       })
-      .catch(e => { if (!cancelled) console.warn('Failed to fetch genres:', e) })
+      .catch(e => {
+        if (cancelled) return
+        console.warn('Failed to fetch genres:', e)
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [language])
+  }, [language, reconnects, attempt])
 
   return (
     <>
@@ -45,6 +54,13 @@ export default function GenresScreen() {
               </View>
             ))}
           </View>
+        ) : genres.length === 0 && loadError ? (
+          <EmptyState
+            icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            title={loadError === 'offline' ? "You're offline" : "Couldn't load genres"}
+            buttonLabel="Try again"
+            onButtonPress={() => { setLoading(true); setAttempt(a => a + 1) }}
+          />
         ) : genres.length === 0 ? (
           <EmptyState icon="library-outline" title="No genres found" />
         ) : (

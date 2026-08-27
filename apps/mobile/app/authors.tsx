@@ -5,9 +5,10 @@ import {
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, isOfflineError } from '@textstack/shared'
 import type { Author } from '@textstack/shared'
 import { useTheme } from '../src/context/ThemeContext'
+import { useReconnectCount } from '../src/hooks/useOnline'
 import { useLanguage } from '../src/context/LanguageContext'
 import { fonts } from '../src/theme/typography'
 
@@ -21,6 +22,9 @@ export default function AuthorsScreen() {
   const [authors, setAuthors] = useState<Author[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [loadingMore, setLoadingMore] = useState(false)
   const [query, setQuery] = useState('')
   const [queryDebounced, setQueryDebounced] = useState('')
@@ -49,10 +53,14 @@ export default function AuthorsScreen() {
         search: queryDebounced || undefined,
       })
       if (id !== lastFetchRef.current) return
+      setLoadError(null)
       setAuthors(prev => reset ? res.items : [...prev, ...res.items])
       setTotal(res.total)
     } catch (e) {
-      if (id === lastFetchRef.current) console.warn('Failed to fetch authors:', e)
+      if (id === lastFetchRef.current) {
+        console.warn('Failed to fetch authors:', e)
+        setLoadError(isOfflineError(e) ? 'offline' : 'failed')
+      }
     } finally {
       if (id === lastFetchRef.current) {
         setLoading(false)
@@ -61,7 +69,7 @@ export default function AuthorsScreen() {
     }
   }, [queryDebounced, sort, authors.length, language])
 
-  useEffect(() => { fetchAuthors(true) }, [queryDebounced, sort, language])
+  useEffect(() => { fetchAuthors(true) }, [queryDebounced, sort, language, reconnects, attempt])
 
   const loadMore = () => {
     if (!loadingMore && authors.length < total) fetchAuthors(false)
@@ -121,11 +129,22 @@ export default function AuthorsScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
-          !loading ? (
+          loading ? null : loadError ? (
+            <View>
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                {loadError === 'offline'
+                  ? "You're offline — authors need a connection."
+                  : "Couldn't load authors."}
+              </Text>
+              <TouchableOpacity onPress={() => { setLoading(true); setAttempt(a => a + 1) }}>
+                <Text style={[styles.empty, { color: colors.primary }]}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <Text style={[styles.empty, { color: colors.textSecondary }]}>
               {query ? 'No authors found' : 'No authors yet'}
             </Text>
-          ) : null
+          )
         }
         ListFooterComponent={
           loadingMore ? (

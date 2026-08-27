@@ -3,14 +3,16 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage, isOfflineError } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useToast } from '../../src/context/ToastContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { fonts } from '../../src/theme/typography'
+import { useReconnectCount } from '../../src/hooks/useOnline'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
+import { EmptyState } from '../../src/components/ui/EmptyState'
 import { trackBookOpened } from '../../src/lib/analytics'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
 
@@ -22,6 +24,9 @@ export default function UserBookDetailScreen() {
   const { t } = useLanguage()
   const [book, setBook] = useState<UserBookDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<'offline' | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const reconnects = useReconnectCount()
   const [savedProgress, setSavedProgress] = useState<{ chapterSlug: string | null; percent: number | null; locator: string | null } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [enriching, setEnriching] = useState(false)
@@ -50,13 +55,17 @@ export default function UserBookDetailScreen() {
         if (unmountedRef.current) return
         setBook(b)
         if (p) setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent, locator: p.locator ?? null })
+        setLoadError(null)
       } catch (e) {
         console.error('Failed to load user book:', e)
+        if (!unmountedRef.current) setLoadError(isOfflineError(e) ? 'offline' : 'failed')
       } finally {
         if (!unmountedRef.current) setLoading(false)
       }
     })()
-  }, [id])
+    // `reconnects` so the screen recovers on its own — until now a failed load
+    // left it showing a spinner until the reader backed out and came in again.
+  }, [id, reconnects, attempt])
 
   // Auto-refresh while processing. Uses recursive setTimeout (not setInterval)
   // so we can implement exponential backoff on repeated failures and avoid
@@ -239,8 +248,36 @@ export default function UserBookDetailScreen() {
     }
   }
 
+  // A failed load used to land here and STAY here: `book` stays null, `loading`
+  // goes false, and this branch returns a spinner forever — no header, no
+  // message, no retry. It is also the only return in this file without a
+  // <Stack.Screen>, so the native header never mounts and the content runs under
+  // the status bar. That was reported as a layout defect (N-4); it was the error
+  // state showing through.
+  if (!loading && !book) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: '' }} />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <EmptyState
+            icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+            subtitle={loadError === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
+            buttonLabel={t('common.retry')}
+            onButtonPress={() => { setLoading(true); setAttempt(a => a + 1) }}
+          />
+        </View>
+      </>
+    )
+  }
+
   if (loading || !book) {
-    return <LoadingScreen />
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: '' }} />
+        <LoadingScreen />
+      </>
+    )
   }
 
   const estPages = book.totalWordCount ? Math.round(book.totalWordCount / 250) : null
