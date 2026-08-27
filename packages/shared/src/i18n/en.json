@@ -660,7 +660,7 @@
     "toastWordAddedCount": "Added · {count} this session",
     "toastTapToReview": "Tap to review",
     "coachmarkTitle": "Press and hold a word",
-    "coachmarkSubtitle": "Press and hold a word to see its translation, then tap Save to add it to your vocabulary.",
+    "coachmarkSubtitle": "Press and hold a word to see its translation, then tap Save to add it to your vocabulary. Tap the page to show or hide the toolbars.",
     "coachmarkDismiss": "Got it",
     "vocab": {
       "queuedForTomorrow": "Daily cap reached — queued for tomorrow",
