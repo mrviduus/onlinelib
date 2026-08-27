@@ -22,6 +22,45 @@
  * 0%.
  */
 
+/**
+ * The stored book-wide percentage — the ONE way to read a book's progress
+ * outside the reader.
+ *
+ * `computeBookProgress` above exists to PRODUCE this number, from a chapter slug
+ * and a scroll fraction, inside the reader that has both. Once written it is
+ * canonical (that is what the percentUnit contract is for), and anything else
+ * that wants it should read it, not derive it again.
+ *
+ * The book detail screen derived it, and got two things wrong at once. It passed
+ * `savedProgress.percent` — already a BOOK fraction — into `computeBookProgress`
+ * as the `chapterProgress` argument, which is a CHAPTER fraction, re-scaling an
+ * already-scaled number; wrong for every EPUB, just plausibly wrong. And it
+ * derived only when a chapter slug was present, which a PDF read in Original
+ * layout deliberately has none of — so a book the list showed at 14% read 0%
+ * there, and the same screen started agreeing only once the locator had been
+ * corrupted into chapter space.
+ */
+export function storedBookPercent(
+  progress: { percent?: number | null } | null | undefined,
+): number | null {
+  const p = progress?.percent
+  return typeof p === 'number' && Number.isFinite(p) ? p : null
+}
+
+/**
+ * How an unknown percentage is rendered.
+ *
+ * `null` is '—', never '0%'. The docblock above has always said so; the detail
+ * screen mapped null to 0 anyway, which claims the reader opened the book and
+ * read none of it — a different and wrong statement.
+ *
+ * `0` really is '0%': a book opened at the top is not a book never opened.
+ */
+export function formatBookPercent(pct: number | null): string {
+  if (pct == null) return '—'
+  return `${Math.round(pct * 100)}%`
+}
+
 export interface ChapterWithCount {
   slug: string
   wordCount?: number | null

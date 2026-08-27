@@ -14,6 +14,7 @@
  * Pure and I/O-free. The mobile hooks own persistence; this owns the semantics.
  */
 
+import { storedBookPercent } from '../reader/bookProgress'
 import type { UserLibraryItem, UserBookDto, ReadingProgressDto } from '../types/api'
 
 export type LibraryEntry =
@@ -69,13 +70,34 @@ export function entryCreatedAt(e: LibraryEntry): string {
   return e.kind === 'saved' ? e.item.createdAt : e.book.createdAt
 }
 
-/** 0..1. Catalog progress lives in a separate map; upload progress is inline. */
+/**
+ * The stored percentage, or null when the book has none.
+ *
+ * Catalog progress lives in a separate map; upload progress is inline. Both go
+ * through `storedBookPercent`, so there is one reader of this number in the
+ * codebase rather than one per screen — which is how the detail page came to
+ * show 0% for a book this row showed at 14%.
+ */
+export function entryProgressOrNull(
+  e: LibraryEntry,
+  progressMap: Record<string, ReadingProgressDto>,
+): number | null {
+  return storedBookPercent(e.kind === 'saved' ? progressMap[e.item.editionId] : { percent: e.book.progressPercent })
+}
+
+/**
+ * 0..1, with unknown collapsed to 0.
+ *
+ * Sorting and filtering need a number — `null` cannot be compared or bucketed —
+ * so the collapse happens here, once, explicitly. UI that can say "—" should use
+ * `entryProgressOrNull` instead; this one deliberately cannot tell the two apart
+ * and must not be used to render a percentage.
+ */
 export function entryProgress(
   e: LibraryEntry,
   progressMap: Record<string, ReadingProgressDto>,
 ): number {
-  if (e.kind === 'saved') return progressMap[e.item.editionId]?.percent ?? 0
-  return e.book.progressPercent ?? 0
+  return entryProgressOrNull(e, progressMap) ?? 0
 }
 
 /** Last activity, falling back to when the book entered the library so a
