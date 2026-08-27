@@ -18,11 +18,14 @@ export const NATIVE_LANGUAGES: NativeLang[] = POPULAR_LANGUAGES.map((l) => ({
   label: l.englishName,
 }))
 
-// Target languages = languages with book content
-export const TARGET_LANGUAGES = NATIVE_LANGUAGES.filter((l) => l.code === 'en')
+// There is no TARGET_LANGUAGES any more. It was NATIVE_LANGUAGES.filter(code ===
+// 'en') — one entry — and it backed a Profile row of chips with a single,
+// permanently-selected option. QA read that row as a real setting and concluded
+// the app thought they were learning English. The concept returns when the
+// catalogue has a second language; until then it was state nothing could change
+// and nothing read.
 
 const NATIVE_KEY = 'textstack_native_language'
-const TARGET_KEY = 'textstack_target_language'
 // Same key the web app uses, for the same reason — see `hasConfirmedLanguage`.
 const CONFIRMED_KEY = 'textstack_native_language_confirmed'
 
@@ -45,9 +48,7 @@ function getDeviceLanguage(): string {
 
 interface NativeLanguageContextValue {
   nativeLanguage: string
-  targetLanguage: string
   setNativeLanguage: (code: string) => void
-  setTargetLanguage: (code: string) => void
   /**
    * Whether `nativeLanguage` is something the user actually chose, as opposed to
    * something we guessed. `nativeLanguage` alone cannot answer this: it is never
@@ -68,16 +69,13 @@ interface NativeLanguageContextValue {
 
 const NativeLanguageContext = createContext<NativeLanguageContextValue>({
   nativeLanguage: 'en',
-  targetLanguage: 'en',
   setNativeLanguage: () => {},
-  setTargetLanguage: () => {},
   hasConfirmedLanguage: null,
   markLanguageConfirmed: () => {},
 })
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const [nativeLanguage, setNativeState] = useState('en')
-  const [targetLanguage, setTargetState] = useState('en')
   // null until AsyncStorage answers — see the interface docblock for why the
   // tri-state matters to callers.
   const [hasConfirmedLanguage, setConfirmedState] = useState<boolean | null>(null)
@@ -91,9 +89,8 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(NATIVE_KEY),
-      AsyncStorage.getItem(TARGET_KEY),
       AsyncStorage.getItem(CONFIRMED_KEY),
-    ]).then(([native, target, confirmed]) => {
+    ]).then(([native, confirmed]) => {
       // Resolve the tri-state first and unconditionally: a failed read must still
       // land on `false` (below, in .catch) rather than leaving it null forever,
       // or anything gated on it hangs.
@@ -107,9 +104,6 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
           const device = getDeviceLanguage()
           if (isSupported(device)) setNativeState(device)
         }
-      }
-      if (target && TARGET_LANGUAGES.some((l) => l.code === target)) {
-        setTargetState(target)
       }
     }).catch(() => { setConfirmedState(false) })
   }, [])
@@ -211,15 +205,9 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     }
   }, [user, getAccessToken, updateUser])
 
-  const setTargetLanguage = useCallback((code: string) => {
-    setTargetState(code)
-    AsyncStorage.setItem(TARGET_KEY, code).catch(() => {})
-  }, [])
-
   return (
     <NativeLanguageContext.Provider value={{
-      nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage,
-      hasConfirmedLanguage, markLanguageConfirmed,
+      nativeLanguage, setNativeLanguage, hasConfirmedLanguage, markLanguageConfirmed,
     }}>
       {children}
     </NativeLanguageContext.Provider>
