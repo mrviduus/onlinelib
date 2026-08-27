@@ -23,6 +23,22 @@ type Options = {
   /** Source-specific read of the saved resume position for a chapter.
    *  MUST be stable (wrap in useCallback). */
   loadPosition: (chapterSlug: string) => Promise<SavedPosition>
+  /**
+   * False while a NON-REFLOW viewer owns the reading position — an uploaded PDF
+   * opened in Original layout.
+   *
+   * The refs below are fed by the reflow WebView's `progress` message. A PDF
+   * viewer never sends one, so in Original layout they sit at their mount
+   * values for the whole session, and anything built from them is fiction:
+   * "top of the chapter named in the URL". The unmount flush wrote exactly that
+   * — `scroll:<url-slug>:0` — over a perfectly good `page:16`, and QA watched a
+   * PDF fall from 14% to 4% and reopen twelve pages early.
+   *
+   * Guarded at call time rather than by skipping the effect registration:
+   * `hasOriginalPdf` is false until the book fetch lands, so a decision made at
+   * mount is a decision made on the wrong answer.
+   */
+  enabled?: boolean
 }
 
 /**
@@ -54,6 +70,7 @@ export function useReaderPersistence({
   bookProgressRef,
   persist,
   loadPosition,
+  enabled = true,
 }: Options) {
   // Restore state machine — all refs so changes never trigger a re-render.
   const savedOffsetRef = useRef<number | null>(null)
@@ -106,7 +123,12 @@ export function useReaderPersistence({
   const pendingSaveRef = useRef(false)
 
   const saveProgress = useCallback(() => {
-    if (!bookKey || !chapterSlug) return
+    // `enabled` first: when another viewer owns the position, the refs this
+    // function reads have never been written, and writing them destroys a real
+    // position. One check covers all three callers — the unmount flush, the
+    // exit-summary save and the AppState background flush — because
+    // `saveProgressRef` is refreshed every render.
+    if (!enabled || !bookKey || !chapterSlug) return
     // NOTE: a missing chapterId does NOT block the save. The offline cache
     // stores chapters by slug and has no server id to give (`id: ''` in
     // useReaderChapter), so gating on it meant every save while offline was
@@ -127,7 +149,7 @@ export function useReaderPersistence({
     // repeat the save if one arrives (chapter fetch lands, or the device comes
     // back online and the next chapter resolves normally).
     pendingSaveRef.current = !chapterId
-  }, [bookKey, chapterId, chapterSlug, persist, currentChapterSlugRef, progressRef, scrollOffsetRef, bookProgressRef])
+  }, [enabled, bookKey, chapterId, chapterSlug, persist, currentChapterSlugRef, progressRef, scrollOffsetRef, bookProgressRef])
 
   // Re-save once the chapter id lands, so the server gets the write that the
   // local store already has. Harmless when the id was there from the start.
@@ -143,12 +165,14 @@ export function useReaderPersistence({
   // scrubbing doesn't spam writes.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bumpProgress = useCallback(() => {
+    // Nothing to debounce toward — don't arm a timer that will no-op.
+    if (!enabled) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null
       saveProgress()
     }, 2000)
-  }, [saveProgress])
+  }, [enabled, saveProgress])
 
   // Load saved position + reset the restore machine whenever the chapter (or
   // the resolved bookKey) changes. One-shot per (bookKey, chapterSlug).
@@ -159,7 +183,9 @@ export function useReaderPersistence({
     savedOffsetRef.current = null
     savedPercentRef.current = null
     pendingSaveRef.current = false
-    if (!bookKey || !chapterSlug) return
+    // Restoring a reflow scroll position into a PDF viewer would fight the
+    // page jump the PDF path is already performing.
+    if (!enabled || !bookKey || !chapterSlug) return
     let cancelled = false
     loadPosition(chapterSlug)
       .then(pos => {
@@ -175,7 +201,9 @@ export function useReaderPersistence({
         tryRestore()
       })
     return () => { cancelled = true }
-  }, [bookKey, chapterSlug, loadPosition, tryRestore])
+    // `enabled` is a dependency so the corrupt-PDF "read as text" fallback
+    // (forceReflow) re-arms restore when it flips.
+  }, [enabled, bookKey, chapterSlug, loadPosition, tryRestore])
 
   // Always points at the current closure, so the unmount flush below can have
   // an empty dependency list without going stale.
