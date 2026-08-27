@@ -9,7 +9,7 @@ import { buildReaderHtml, buildPdfViewerHtml } from '../../lib/readerHtml'
 import {
   pdfDocumentKey, pdfChromeInjectionJs, latchPdfChrome, pdfChromeChanged, type PdfChrome,
 } from '../../lib/pdfViewerChrome'
-import { pdfGateReduce, PDF_GATE_INITIAL, type PdfGateState } from '@textstack/shared'
+import { pdfGateReduce, PDF_GATE_INITIAL, chapterSlugForPage, type PdfGateState } from '@textstack/shared'
 import { getAccessToken, onUnauthorized, API_URL } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { useReaderSettings } from '../../hooks/useReaderSettings'
@@ -587,7 +587,16 @@ export function ReaderShell(props: ReaderShellProps) {
   const scrollToHighlight = (anchorJson: string) =>
     injectJs(`window.__textstackScrollToHighlight && window.__textstackScrollToHighlight(${JSON.stringify(anchorJson)})`)
 
-  const activeSlug = visibleChapterSlug ?? chapterSlug
+  // Which chapter the reader is actually in.
+  //
+  // `visibleChapterSlug` is only ever set from the reflow reader's `progress`
+  // message, and the PDF path does not send one — so on the Original layout this
+  // was frozen at the route's chapter for the whole session and the top bar still
+  // read "Introduction" on page 17. Pages are what a PDF has, and the mapping
+  // from page to chapter already existed, unused by the reader.
+  const activeSlug = (original
+    ? chapterSlugForPage(chapters, pdfCurrentPage)
+    : visibleChapterSlug) ?? chapterSlug
   // Same chapter → scroll now; other chapter → navigate, then onLoadEnd injects once it renders.
   const handleCitation = (c: AskCitation) => {
     const slug = citationChapterSlug(chapters, c.chapterOrd)

@@ -5,6 +5,9 @@ import { userBooksApi, parseScrollLocator, buildUserBookProgressPayload, buildPd
 import type { UserBookChapterDto, BookmarkDto } from '@textstack/shared'
 import { API_URL } from '../../lib/api'
 import { saveUserBookLocalProgress } from '../../lib/progressStorage'
+import {
+  pdfFlushDecision, shouldFlushOnClose, PDF_FLUSH_DEBOUNCE_MS,
+} from '../../lib/pdfWritePolicy'
 import { useReaderPersistence } from '../../hooks/useReaderPersistence'
 import { trackBookOpened } from '../../lib/analytics'
 import type { ProgressSnapshot, ReaderChapterMeta, ReaderRuntime, SavedPosition } from './readerSource'
@@ -210,16 +213,21 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
   // (buildPdfProgressPayload) so the library card shows one number and resume
   // works cross-device. Debounced (~2s) so we don't PUT on every page tick, and
   // NEVER fed into the word-based reading session. ---
-  const PDF_PROGRESS_DEBOUNCE_MS = 2000
   const pdfServerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pdfPendingRef = useRef<{ page: number; numPages: number } | null>(null)
+  // When the CURRENT pending page first became pending — not when it was last
+  // touched. The debounce used to be re-armed on every tick, so a reader turning
+  // pages faster than once per 2s never reached a flush at all.
+  const pdfPendingSinceRef = useRef<number | null>(null)
+  const pdfLastWrittenRef = useRef<number | null>(null)
+  const pdfAcceptedAnyRef = useRef(false)
 
-  const flushPdfProgress = useCallback(() => {
-    if (pdfServerTimerRef.current) { clearTimeout(pdfServerTimerRef.current); pdfServerTimerRef.current = null }
-    const pending = pdfPendingRef.current
-    if (!pending || !bookId || pending.numPages < 1) return
+  const writePdfProgress = useCallback((page: number, numPages: number) => {
+    if (!bookId || numPages < 1) return
     pdfPendingRef.current = null
-    const payload = buildPdfProgressPayload(pending.page, pending.numPages)
+    pdfPendingSinceRef.current = null
+    pdfLastWrittenRef.current = page
+    const payload = buildPdfProgressPayload(page, numPages)
     userBooksApi.updateUserBookProgress(bookId, payload)
       .catch(e => { if (__DEV__) console.warn('[user-book-pdf-progress] PUT failed:', e) })
     // Local book-% cache so ContinueReadingCard renders the same "% of book" UX
@@ -227,15 +235,55 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     saveUserBookLocalProgress(bookId, { bookPercent: payload.percent, updatedAt: Date.now() }).catch(() => {})
   }, [bookId])
 
+  const flushPdfProgress = useCallback(() => {
+    if (pdfServerTimerRef.current) { clearTimeout(pdfServerTimerRef.current); pdfServerTimerRef.current = null }
+    const pending = pdfPendingRef.current
+    if (!pending) return
+    if (pdfFlushDecision({
+      pendingPage: pending.page,
+      lastWrittenPage: pdfLastWrittenRef.current,
+      pendingSince: pdfPendingSinceRef.current,
+      now: Date.now(),
+    }) === 'skip') {
+      pdfPendingRef.current = null
+      pdfPendingSinceRef.current = null
+      return
+    }
+    writePdfProgress(pending.page, pending.numPages)
+  }, [writePdfProgress])
+
   const persistPdfPage = useCallback((page: number, numPages: number) => {
+    pdfAcceptedAnyRef.current = true
+    if (pdfPendingSinceRef.current == null) pdfPendingSinceRef.current = Date.now()
     pdfPendingRef.current = { page, numPages }
     if (pdfServerTimerRef.current) clearTimeout(pdfServerTimerRef.current)
-    pdfServerTimerRef.current = setTimeout(flushPdfProgress, PDF_PROGRESS_DEBOUNCE_MS)
-  }, [flushPdfProgress])
+    // Keep re-arming the quiet period, but never let a position go unwritten for
+    // longer than the max wait — that is the skimming case.
+    const decision = pdfFlushDecision({
+      pendingPage: page,
+      lastWrittenPage: pdfLastWrittenRef.current,
+      pendingSince: pdfPendingSinceRef.current,
+      now: Date.now(),
+    })
+    if (decision === 'flush') { writePdfProgress(page, numPages); return }
+    if (decision === 'skip') return
+    pdfServerTimerRef.current = setTimeout(flushPdfProgress, PDF_FLUSH_DEBOUNCE_MS)
+  }, [flushPdfProgress, writePdfProgress])
 
-  // Flush the last pending page on unmount / book switch so the reader close
-  // doesn't drop the final position.
-  useEffect(() => () => { flushPdfProgress() }, [flushPdfProgress])
+  // Final write on reader close — but only when this document ever accepted a
+  // page. Closing during a jump means there is no position to record, and
+  // writing one would save wherever the viewer happened to be passing through.
+  useEffect(() => () => {
+    if (pdfServerTimerRef.current) { clearTimeout(pdfServerTimerRef.current); pdfServerTimerRef.current = null }
+    const pending = pdfPendingRef.current
+    if (!pending) return
+    if (!shouldFlushOnClose({
+      pendingPage: pending.page,
+      lastWrittenPage: pdfLastWrittenRef.current,
+      acceptedAnyPage: pdfAcceptedAnyRef.current,
+    })) return
+    writePdfProgress(pending.page, pending.numPages)
+  }, [writePdfProgress])
 
   // --- S4c: page bookmarks. A chapterless PDF has no chapter to key on, so the
   // bookmark anchors to a 1-based page via `locator: page:<N>` + `chapterId: null`
