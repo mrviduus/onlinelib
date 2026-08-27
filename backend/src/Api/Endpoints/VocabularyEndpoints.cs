@@ -583,97 +583,22 @@ public static partial class VocabularyEndpoints
         [FromBody] SubmitReviewRequest request,
         HttpContext httpContext,
         AuthService authService,
-        IAppDbContext db,
-        ISrsEngine srsEngine,
+        VocabularyReviewRecorder recorder,
         CancellationToken ct)
     {
         if (!TryGetAuth(httpContext, authService, out var userId, out var siteId))
             return Results.Unauthorized();
 
-        var word = await FindUserWordAsync(db, request.WordId, userId, siteId, ct);
-        if (word == null) return Results.NotFound();
-
-        var prevStage = word.Stage;
-        var now = DateTimeOffset.UtcNow;
-        var isPractice = request.IsPractice;
-
-        // Practice mode: don't touch SRS state at all. The user wanted a way to
-        // drill words anytime without disrupting their schedule — so Stage,
-        // Interval, ConsecutiveCorrect, NextReviewAt, retirement, and the
-        // word-level review counters all stay frozen. We still write a
-        // VocabularyReview row (prefixed `practice_`) so daily stats and the
-        // streak query pick it up; AchievementChecker is skipped so users can't
-        // grind achievements by spamming practice answers.
-        int newStage = prevStage;
-        double newInterval = word.IntervalDays;
-
-        if (!isPractice)
-        {
-            var (calcStage, calcInterval, calcConsecutive) = srsEngine.Calculate(
-                word.Stage, word.ConsecutiveCorrect, word.IntervalDays, request.IsCorrect);
-            newStage = calcStage;
-            newInterval = calcInterval;
-            word.Stage = newStage;
-            word.IntervalDays = newInterval;
-            word.ConsecutiveCorrect = calcConsecutive;
-            word.NextReviewAt = now.AddDays(newInterval);
-
-            word.LastReviewedAt = now;
-            word.TotalReviews++;
-            if (request.IsCorrect) word.CorrectReviews++;
-            word.UpdatedAt = now;
-
-            // Anti-spiral F4: retire immediately on threshold cross. Waiting for
-            // the 6h sweeper would re-surface the word in the next queue fetch,
-            // negating the "Mastered" graduation UX. Respect AutoRetireEnabled —
-            // users who disabled it should keep Mastered words reviewable.
-            if (!word.IsRetired && srsEngine.ShouldAutoRetire(word.Stage, word.ConsecutiveCorrect, word.IntervalDays))
-            {
-                var autoRetireEnabled = await db.UserVocabularySettings
-                    .Where(s => s.UserId == userId)
-                    .Select(s => (bool?)s.AutoRetireEnabled)
-                    .FirstOrDefaultAsync(ct) ?? true;
-                if (autoRetireEnabled)
-                {
-                    word.IsRetired = true;
-                    word.RetiredAt = now;
-                    word.RetiredReason = "auto_3_correct_long_interval";
-                }
-            }
-        }
-
-        var baseReviewMode = srsEngine.GetReviewMode(prevStage, word.Sentence != null);
-        var reviewMode = isPractice ? "practice_" + baseReviewMode : baseReviewMode;
-        var review = new VocabularyReview
-        {
-            Id = Guid.NewGuid(),
-            VocabularyWordId = word.Id,
-            UserId = userId,
-            SiteId = siteId,
-            ReviewMode = reviewMode,
-            IsCorrect = request.IsCorrect,
-            ResponseTimeMs = request.ResponseTimeMs,
-            StageBefore = prevStage,
-            StageAfter = newStage,
-            CreatedAt = now,
-        };
-
-        db.VocabularyReviews.Add(review);
-        await db.SaveChangesAsync(ct);
-
-        // SRS-only path runs achievement checks. Practice rows still hit the
-        // streak query (it scans VocabularyReviews) but skipping the checker
-        // here prevents grinding "1000 reviews"-style achievements.
-        if (!isPractice)
-        {
-            var streakMinMinutes = await StreakCalculator.GetStreakMinMinutes(db, userId, ct);
-            var currentStreak = await StreakCalculator.CalculateStreak(db, userId, streakMinMinutes, now, ct);
-            await new AchievementChecker(db).CheckAfterReview(userId, siteId, currentStreak, ct);
-        }
+        // The whole body of this handler moved to VocabularyReviewRecorder unchanged, because
+        // Smart session needed the same write and had quietly grown its own path that wrote
+        // nothing at all. See the recorder's doc comment.
+        var result = await recorder.RecordAsync(
+            userId, siteId, request.WordId, request.IsCorrect, request.ResponseTimeMs, request.IsPractice, ct);
+        if (result is null) return Results.NotFound();
 
         return Results.Ok(new SubmitReviewResponse(
-            word.Id, prevStage, newStage, prevStage != newStage,
-            newInterval, word.NextReviewAt, word.TotalReviews, word.CorrectReviews));
+            result.WordId, result.StageBefore, result.StageAfter, result.StageBefore != result.StageAfter,
+            result.IntervalDays, result.NextReviewAt, result.TotalReviews, result.CorrectReviews));
     }
 
     // --- Reader Vocab (lightweight word+stage list) ---

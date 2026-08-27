@@ -44,6 +44,9 @@ public static class DependencyInjection
         services.AddScoped<ReprocessingService>();
         services.AddScoped<EpubExportService>();
 
+        // The single writer of SRS state — shared by ordinary review and Smart session.
+        services.AddScoped<VocabularyReviewRecorder>();
+
         // Vocabulary anti-spiral
         services.AddScoped<WeeklyBudgetService>();
         services.AddScoped<DailyCapService>();

@@ -155,3 +155,8 @@ textstack-v*-build*.apk
 # time; the real workspace file lives at the repo root and is not affected.
 apps/*/pnpm-workspace.yaml
 packages/*/pnpm-workspace.yaml
+
+# Device screenshots from QA passes. The markdown reports are the artefact worth
+# keeping; the PNGs are 8-10 MB per pass in a public repo. Two passes worth are
+# already tracked (10 MB, commit 17e5a46b) — left alone rather than rewritten.
+docs/qa/screens/

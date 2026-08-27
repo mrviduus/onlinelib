@@ -23,6 +23,14 @@ public class TutorSession : ISiteScoped
     /// <summary>How many planning turns have run (1 = initial plan; incremented per feedback re-plan).</summary>
     public int TurnCount { get; set; }
 
+    /// <summary>
+    /// Word ids whose answer has already been written to spaced repetition by this session, as a JSON
+    /// array. Guards against double-counting: the clients accumulate results in a ref that is never
+    /// cleared, so turn two re-sends turn one's answers and would advance the same card twice.
+    /// Null on rows created before the tutor wrote SRS state at all.
+    /// </summary>
+    public string? AppliedWordIdsJson { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

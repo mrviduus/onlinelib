@@ -46,6 +46,7 @@ public partial class AppDbContext
             e.HasIndex(x => new { x.UserId, x.Status, x.UpdatedAt });
 
             e.Property(x => x.PlanJson).HasColumnType("jsonb");
+            e.Property(x => x.AppliedWordIdsJson).HasColumnType("jsonb");
             e.Property(x => x.Status).HasMaxLength(16);
 
             e.HasOne(x => x.User)
