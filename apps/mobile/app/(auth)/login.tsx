@@ -12,7 +12,7 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
 import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
-import { shouldAskForLanguage } from '../../src/lib/languageOnboarding'
+import { languageOnboardingDecision } from '../../src/lib/languageOnboarding'
 import { trackLogin, trackSignUp } from '../../src/lib/analytics'
 
 /** Mirror web heuristic: backend doesn't surface an isNew flag, so a fresh
@@ -131,13 +131,23 @@ export default function LoginScreen() {
    * than read from context because `signInWithTokens` has not propagated yet.
    */
   const landAfterAuth = (u: UserDto) => {
-    const ask = shouldAskForLanguage({
+    const decision = languageOnboardingDecision({
       isAuthenticated: true,
       isGuest: u.isGuest,
       serverNativeLanguage: u.nativeLanguage,
       hasConfirmedLanguage,
     })
-    router.replace(ask ? '/onboarding/language' : '/(tabs)/library')
+    if (__DEV__) {
+      console.log('[onboarding] landAfterAuth decision=', decision,
+        'serverLang=', u.nativeLanguage, 'confirmed=', hasConfirmedLanguage)
+    }
+    // 'unknown' means storage has not answered yet. Land on the library and let
+    // the root gate route once it does — the alternative was collapsing unknown
+    // into "no", which is how the question came to arrive one launch late.
+    // dismissAll first: this screen is a modal, and the repo's own teardown
+    // (_layout.tsx ColdResetOnResume) drops the modal stack before replacing.
+    try { router.dismissAll() } catch {}
+    router.replace(decision === 'ask' ? '/onboarding/language' : '/(tabs)/library')
   }
 
   const handleGoogleSignIn = async () => {

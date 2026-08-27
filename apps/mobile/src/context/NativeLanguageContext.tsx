@@ -27,7 +27,18 @@ export const NATIVE_LANGUAGES: NativeLang[] = POPULAR_LANGUAGES.map((l) => ({
 
 const NATIVE_KEY = 'textstack_native_language'
 // Same key the web app uses, for the same reason — see `hasConfirmedLanguage`.
+//
+// The VALUE is who confirmed: a user id, or 'local' for a guest or signed-out
+// session. It used to be the string '1', which made the confirmation belong to
+// the INSTALL rather than to a person — so a device where one account answered
+// never asked the next one. The sign-out branch below was supposed to prevent
+// that and its comment says so, but it only fires on a sign-out that happens
+// inside a running process, and registering a second account does not.
+//
+// Existing installs hold '1', which matches no owner, so everyone is asked once
+// more. That is the correct answer to "who confirmed this?" when we do not know.
 const CONFIRMED_KEY = 'textstack_native_language_confirmed'
+const LOCAL_OWNER = 'local'
 
 function isSupported(code: string): boolean {
   return LANGUAGES.some((l) => l.code === code)
@@ -73,10 +84,14 @@ const NativeLanguageContext = createContext<NativeLanguageContextValue>({
 
 export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const [nativeLanguage, setNativeState] = useState('en')
-  // null until AsyncStorage answers — see the interface docblock for why the
-  // tri-state matters to callers.
-  const [hasConfirmedLanguage, setConfirmedState] = useState<boolean | null>(null)
+  // undefined until AsyncStorage answers; then the owner, or null for nobody.
+  const [confirmedOwner, setConfirmedOwner] = useState<string | null | undefined>(undefined)
   const { user, getAccessToken, updateUser } = useAuth()
+  // Who a confirmation would belong to right now.
+  const ownerId = user?.id ?? LOCAL_OWNER
+  // Tri-state for callers: null while storage is still answering, then whether
+  // THIS account has confirmed — not whether anyone on this device ever did.
+  const hasConfirmedLanguage = confirmedOwner === undefined ? null : confirmedOwner === ownerId
   const prevUserIdRef = useRef<string | undefined>(user?.id)
   // Set once the server→local mirror has applied an authoritative value, so the
   // (async) AsyncStorage load below can't clobber it back on a cold launch where
@@ -88,10 +103,10 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
       AsyncStorage.getItem(NATIVE_KEY),
       AsyncStorage.getItem(CONFIRMED_KEY),
     ]).then(([native, confirmed]) => {
-      // Resolve the tri-state first and unconditionally: a failed read must still
-      // land on `false` (below, in .catch) rather than leaving it null forever,
-      // or anything gated on it hangs.
-      setConfirmedState(confirmed === '1')
+      // Resolve first and unconditionally: a failed read must still land on a
+      // value (below, in .catch) rather than leaving this undefined forever, or
+      // anything gated on it waits for an answer that never comes.
+      setConfirmedOwner(confirmed ?? null)
       // The signed-in user's server language wins — don't overwrite it with the
       // stale local value just because this async read happened to resolve last.
       if (!serverLangAppliedRef.current) {
@@ -102,7 +117,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
           if (isSupported(device)) setNativeState(device)
         }
       }
-    }).catch(() => { setConfirmedState(false) })
+    }).catch(() => { setConfirmedOwner(null) })
   }, [])
 
   // Server → local: mirror the signed-in user's nativeLanguage into state +
@@ -123,12 +138,10 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
       if (switched) {
         const device = getDeviceLanguage()
         setNativeState(isSupported(device) ? device : 'en')
-        // The value just became a guess again, so the claim that someone chose it
-        // has to go with it — otherwise the next account inherits a confirmation
-        // it never gave and is never asked.
-        setConfirmedState(false)
+        // Nothing to clear: the stored owner is a user id, and the signed-out
+        // session's owner is 'local', so it already does not match. Removing the
+        // key here would throw away a guest's own answer.
         serverLangAppliedRef.current = false
-        AsyncStorage.removeItem(CONFIRMED_KEY).catch(() => {})
       }
       return
     }
@@ -145,8 +158,8 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     // NativeLanguageContext.tsx:108-114), because there it only silences a pulse
     // on an icon. Copying that would silence the onboarding prompt for exactly
     // the users it exists for — the ones the server has no answer for.
-    setConfirmedState(true)
-    AsyncStorage.multiSet([[NATIVE_KEY, serverLang], [CONFIRMED_KEY, '1']]).catch(() => {})
+    setConfirmedOwner(ownerId)
+    AsyncStorage.multiSet([[NATIVE_KEY, serverLang], [CONFIRMED_KEY, ownerId]]).catch(() => {})
   }, [user?.id, user?.nativeLanguage, user?.isGuest])
 
   // Local → server, when the server has no answer. Covers the guest who picks a
@@ -162,7 +175,18 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
           AsyncStorage.getItem(CONFIRMED_KEY),
           AsyncStorage.getItem(NATIVE_KEY),
         ])
-        if (cancelled || confirmed !== '1' || !stored || !isSupported(stored)) return
+        // A guest's answer belongs to whoever was holding the device, so the
+        // account they register adopts it — once, by re-stamping the owner.
+        // Without this the guest→register flow loses the language it just
+        // collected and asks again. Leaving 'local' adoptable forever would be
+        // the original bug wearing a different value.
+        if (!cancelled && confirmed === LOCAL_OWNER) {
+          setConfirmedOwner(ownerId)
+          AsyncStorage.setItem(CONFIRMED_KEY, ownerId).catch(() => {})
+        } else if (cancelled || confirmed !== ownerId) {
+          return
+        }
+        if (!stored || !isSupported(stored)) return
         const token = await getAccessToken()
         if (cancelled || !token) return
         const res = await authApi.updateProfile(user.name ?? null, token, stored)
@@ -179,8 +203,8 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const setNativeLanguage = useCallback((code: string) => {
     if (!isSupported(code)) return
     setNativeState(code)
-    setConfirmedState(true)
-    AsyncStorage.multiSet([[NATIVE_KEY, code], [CONFIRMED_KEY, '1']]).catch(() => {})
+    setConfirmedOwner(ownerId)
+    AsyncStorage.multiSet([[NATIVE_KEY, code], [CONFIRMED_KEY, ownerId]]).catch(() => {})
     // Local → server: persist for signed-in (non-guest) users so the pref
     // follows them across devices and matches the web.
     if (user && !user.isGuest) {

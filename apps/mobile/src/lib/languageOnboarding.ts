@@ -30,14 +30,32 @@ export interface LanguageOnboardingState {
   alreadyOnboarding?: boolean
 }
 
-export function shouldAskForLanguage(s: LanguageOnboardingState): boolean {
-  if (!s.isAuthenticated || s.isGuest) return false
-  if (s.alreadyOnboarding) return false
-  // Undecided, not undecided-in-the-negative. Wait for storage.
-  if (s.hasConfirmedLanguage === null) return false
-  if (s.hasConfirmedLanguage) return false
+/**
+ * Three answers, because there are three.
+ *
+ * This used to return a boolean, and `null` — "AsyncStorage has not answered
+ * yet" — came back as `false`. The docblock called that waiting; the call site
+ * could not tell it from "no", because nothing in a boolean can. A retest found
+ * the language question appearing only from the SECOND app launch: the screen
+ * existed, worked, and was never reached on the landing it was built for, so
+ * every new account still spent its first session translating English into
+ * English.
+ *
+ * `'unknown'` obliges the caller to decide what waiting looks like. The app
+ * already has the pattern — `app/(tabs)/index.tsx` renders a blank themed view
+ * while the stored session is still loading rather than redirecting on a guess.
+ */
+export type LanguageOnboardingDecision = 'ask' | 'skip' | 'unknown'
+
+export function languageOnboardingDecision(s: LanguageOnboardingState): LanguageOnboardingDecision {
+  if (!s.isAuthenticated || s.isGuest) return 'skip'
+  if (s.alreadyOnboarding) return 'skip'
+  // Not "no". The caller must wait rather than proceed.
+  if (s.hasConfirmedLanguage === null) return 'unknown'
+  if (s.hasConfirmedLanguage) return 'skip'
   // A value on the server is an answer given on some device at some point.
   // Whitespace is not an answer — the profile endpoint accepts '' as "clear".
-  if (s.serverNativeLanguage && s.serverNativeLanguage.trim() !== '') return false
-  return true
+  if (s.serverNativeLanguage && s.serverNativeLanguage.trim() !== '') return 'skip'
+  return 'ask'
 }
+
