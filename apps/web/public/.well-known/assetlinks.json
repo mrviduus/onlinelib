@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.textstack.mobile",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_PLAY_APP_SIGNING_SHA256"
+        "4B:46:2F:65:F2:F0:0F:34:38:BB:A0:FE:93:84:E2:90:A2:27:AC:D7:C8:3C:AF:F6:16:49:C6:FF:71:29:05:21",
+        "9B:CC:0E:FF:68:26:AE:3C:23:FA:95:12:AC:4F:43:BD:CD:29:8D:60:CC:F7:C3:EC:28:A3:38:4C:42:9A:E1:D2"
       ]
     }
   }
