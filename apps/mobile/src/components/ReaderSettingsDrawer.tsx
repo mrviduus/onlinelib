@@ -196,6 +196,17 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               />
             </View>
 
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>Say the word on a card</Text>
+              <Switch
+                value={settings.autoSpeakCards}
+                onValueChange={v => onUpdate({ autoSpeakCards: v })}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor="#fff"
+                ios_backgroundColor={colors.border}
+              />
+            </View>
+
             {/* Inline Translations */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INLINE TRANSLATIONS</Text>
             <View style={styles.toggleRow}>
