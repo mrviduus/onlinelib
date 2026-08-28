@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
-  libraryApi, readingProgressApi, userBooksApi, isOfflineError,
+  libraryApi, readingProgressApi, userBooksApi, isOfflineError, plural,
 } from '@textstack/shared'
 import {
   collectionsApi, buildLibraryEntries, filterEntries, countEntries, sortEntries, entryTitle, entryAuthor,
@@ -325,6 +325,15 @@ export default function LibraryScreen() {
           )}
         </TouchableOpacity>
       </View>
+      {/* The count the tabs used to carry, in the one place with room for it.
+          On the tabs it was four chips competing for a phone's width and losing;
+          here it is a sentence, and it says what you are looking at rather than
+          what you are not. */}
+      {entries.length > 0 && (
+        <Text style={[styles.resultCount, { color: colors.textSecondary }]}>
+          {plural(entries.length, 'book', 'books')}
+        </Text>
+      )}
       {entries.length === 0 && (
         <View style={styles.filterEmpty}>
           <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
