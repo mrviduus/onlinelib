@@ -35,6 +35,7 @@ public static class TutorEndpoints
     {
         var group = app.MapGroup("/me/tutor").WithTags("Agents").RequireRateLimiting("tutor");
         group.MapPost("/session", StartSession);
+        group.MapPost("/session/{id:guid}/answer", SubmitAnswer);
         group.MapPost("/session/{id:guid}/feedback", SubmitFeedback);
     }
 
@@ -76,6 +77,41 @@ public static class TutorEndpoints
 
         var cards = await LoadPlanCardsAsync(db, plan, userId.Value, ct);
         return Results.Ok(ToResponse(session.Id, plan, cards, runId));
+    }
+
+    // POST /me/tutor/session/{id}/answer — record ONE answer, now.
+    //
+    // Feedback arrives only when the session ends, so until this existed a learner who left
+    // mid-session lost the work they had already done — which mattered more, not less, once the
+    // answers finally started counting at all. This writes through the same recorder and marks the
+    // same applied-word set, so the closing /feedback call re-plans and writes nothing twice.
+    // No planner, no LLM call: an answer must not wait on planning to be worth anything.
+    private static async Task<IResult> SubmitAnswer(
+        Guid id,
+        TutorAnswerRequest? request,
+        HttpContext httpContext,
+        AuthService authService,
+        IAppDbContext db,
+        VocabularyReviewRecorder recorder,
+        CancellationToken ct)
+    {
+        var userId = httpContext.GetUserId(authService);
+        if (userId is null) return Results.Unauthorized();
+        if (request is null) return Results.BadRequest(new { error = "An answer is required." });
+
+        var session = await db.TutorSessions
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId.Value, ct);
+        if (session is null) return Results.NotFound();
+
+        // Same trust rule as feedback: an id the session never showed is not an answer to it.
+        if (!PriorPlanWordIds(session.PlanJson).Contains(request.WordId))
+            return Results.Ok(new { applied = false });
+
+        var item = new TutorFeedbackItem(request.WordId, request.Correct, Math.Max(0, request.ResponseTimeMs));
+        await ApplyAnswersToSrsAsync(db, recorder, session, [item], userId.Value, httpContext.GetSiteId(), ct);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { applied = true });
     }
 
     // POST /me/tutor/session/{id}/feedback — re-plan the remainder given the learner's results.

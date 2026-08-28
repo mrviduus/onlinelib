@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   startTutorSession,
+  sendTutorAnswer,
   sendTutorFeedback,
   type TutorPlanItem,
   type TutorSessionResponse,
@@ -187,10 +188,16 @@ export function useTutorSession() {
     if (!queue) return
     const entry = queue[currentIndex]
     if (!entry) return
-    resultsRef.current = [
-      ...resultsRef.current,
-      { wordId: entry.item.wordId, correct, responseTimeMs },
-    ]
+    const result = { wordId: entry.item.wordId, correct, responseTimeMs }
+    resultsRef.current = [...resultsRef.current, result]
+
+    // Record it now, not at the end of the session — see the mobile hook, which
+    // carries the same change and the same reasoning: feedback fires only on the
+    // last card, so leaving mid-session discarded work that now counts.
+    if (sessionId) {
+      sendTutorAnswer(sessionId, result).catch(() => {})
+    }
+
     setStats(prev => ({ studied: prev.studied + 1, correct: prev.correct + (correct ? 1 : 0) }))
     const nextIdx = currentIndex + 1
     if (nextIdx >= queue.length) {
@@ -198,7 +205,7 @@ export function useTutorSession() {
     } else {
       setCurrentIndex(nextIdx)
     }
-  }, [turn, currentIndex, submitFeedback])
+  }, [turn, currentIndex, submitFeedback, sessionId])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()

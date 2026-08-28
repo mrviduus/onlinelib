@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ReviewCardDto } from '@textstack/shared'
 import {
   startTutorSession,
+  sendTutorAnswer,
   sendTutorFeedback,
   buildQueue,
   isSessionComplete,
@@ -158,10 +159,19 @@ export function useTutorSession() {
     if (!queue) return
     const entry = queue[currentIndex]
     if (!entry) return
-    resultsRef.current = [
-      ...resultsRef.current,
-      { wordId: entry.item.wordId, correct, responseTimeMs },
-    ]
+    const result = { wordId: entry.item.wordId, correct, responseTimeMs }
+    resultsRef.current = [...resultsRef.current, result]
+
+    // Record it now, not at the end of the session. Feedback only fires on the
+    // last card, so leaving mid-session used to discard the work already done —
+    // which became a real loss the moment these answers started counting toward
+    // spaced repetition at all. Fire-and-forget: the card has moved on, and the
+    // closing feedback call re-sends everything and is de-duplicated server-side,
+    // so a failed write here costs nothing.
+    if (sessionId) {
+      sendTutorAnswer(sessionId, result).catch(() => {})
+    }
+
     setStats(prev => ({ studied: prev.studied + 1, correct: prev.correct + (correct ? 1 : 0) }))
     const nextIdx = currentIndex + 1
     if (nextIdx >= queue.length) {
@@ -169,7 +179,7 @@ export function useTutorSession() {
     } else {
       setCurrentIndex(nextIdx)
     }
-  }, [turn, currentIndex, submitFeedback])
+  }, [turn, currentIndex, submitFeedback, sessionId])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()

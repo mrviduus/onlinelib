@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
-vi.mock('../api/tutor', () => ({ startTutorSession: vi.fn(), sendTutorFeedback: vi.fn() }))
+vi.mock('../api/tutor', () => ({
+  startTutorSession: vi.fn(),
+  sendTutorAnswer: vi.fn(),
+  sendTutorFeedback: vi.fn(),
+}))
 vi.mock('../lib/dataEvents', () => ({ emitDataChange: vi.fn() }))
 
-import { startTutorSession, sendTutorFeedback, type TutorPlanItem } from '../api/tutor'
+import { startTutorSession, sendTutorAnswer, sendTutorFeedback, type TutorPlanItem } from '../api/tutor'
 import { useTutorSession, buildPlanCard, buildQueue, isSessionComplete } from './useTutorSession'
 
 const mockStart = startTutorSession as unknown as ReturnType<typeof vi.fn>
 const mockFeedback = sendTutorFeedback as unknown as ReturnType<typeof vi.fn>
+const mockAnswer = sendTutorAnswer as unknown as ReturnType<typeof vi.fn>
 
 // Enriched plan item — self-sufficient, no vocab fetch needed.
 const planItem = (id: string, word: string, over: Partial<TutorPlanItem> = {}): TutorPlanItem => ({
@@ -52,6 +57,8 @@ describe('useTutorSession flow', () => {
   beforeEach(() => {
     mockStart.mockReset()
     mockFeedback.mockReset()
+    mockAnswer.mockReset()
+    mockAnswer.mockResolvedValue({ applied: true })
   })
 
   it('start with an empty plan → empty phase (not an error), no vocab fetch', async () => {
@@ -174,5 +181,53 @@ describe('useTutorSession flow', () => {
     expect(mockStart).toHaveBeenCalledTimes(1) // only the initial plan
     expect(mockFeedback).toHaveBeenCalledTimes(2) // failed + retried
     expect(mockFeedback).toHaveBeenLastCalledWith('s1', [{ wordId: 'w1', correct: true, responseTimeMs: 700 }], expect.anything())
+  })
+})
+
+describe('useTutorSession — answers are recorded as they are given', () => {
+  beforeEach(() => {
+    mockStart.mockReset()
+    mockFeedback.mockReset()
+    mockAnswer.mockReset()
+    mockAnswer.mockResolvedValue({ applied: true })
+  })
+
+  it('posts each answer immediately, not only at the end of the session', async () => {
+    // Feedback fires on the last card, so before this a learner who left
+    // mid-session lost the work they had already done — which became a real
+    // loss once these answers started counting toward spaced repetition.
+    mockStart.mockResolvedValue({
+      sessionId: 's1', plan: [planItem('w1', 'a'), planItem('w2', 'b')],
+      rationale: 'r', readingNudge: 'read', runId: 'run1',
+    })
+
+    const { result } = renderHook(() => useTutorSession())
+    await act(async () => { await result.current.start() })
+    act(() => { result.current.beginStudy() })
+    await act(async () => { result.current.answer(true, 900) })
+
+    // One of two cards answered — the session is not over, and the write has
+    // already happened.
+    await waitFor(() => expect(mockAnswer).toHaveBeenCalledTimes(1))
+    expect(mockAnswer.mock.calls[0][1]).toMatchObject({ wordId: 'w1', correct: true })
+    expect(mockFeedback).not.toHaveBeenCalled()
+  })
+
+  it('keeps going when the immediate write fails', async () => {
+    // Fire-and-forget: the closing feedback call re-sends everything and the
+    // server de-duplicates, so a failed write must not stall the card.
+    mockAnswer.mockRejectedValue(new Error('offline'))
+    mockStart.mockResolvedValue({
+      sessionId: 's1', plan: [planItem('w1', 'a'), planItem('w2', 'b')],
+      rationale: 'r', readingNudge: 'read', runId: 'run1',
+    })
+
+    const { result } = renderHook(() => useTutorSession())
+    await act(async () => { await result.current.start() })
+    act(() => { result.current.beginStudy() })
+    await act(async () => { result.current.answer(false, 700) })
+
+    expect(result.current.stats).toEqual({ studied: 1, correct: 0 })
+    expect(result.current.phase).toBe('study')
   })
 })
