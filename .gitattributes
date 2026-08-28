@@ -1,0 +1,10 @@
+# Append-at-top logs. Every PR adds a line at the same place, so every PR after
+# the first in a batch conflicts on a file where both sides are always right.
+# One batch of six cost six rebases and six full CI reruns — docker and e2e
+# included — for a conflict that has never once been a real disagreement.
+#
+# `union` keeps both sides instead of asking. Ordering inside the block can come
+# out interleaved, which is worth a glance when a batch lands; that is a cheaper
+# review than resolving the same conflict six times.
+CHANGELOG.md merge=union
+docs/changelog-archive/*.md merge=union
