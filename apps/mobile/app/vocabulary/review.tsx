@@ -7,6 +7,7 @@ import type { SelfAssessment, ReviewMode } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useTts } from '../../src/hooks/useTts'
+import { useReaderSettings } from '../../src/hooks/useReaderSettings'
 import { useHaptics } from '../../src/hooks/useHaptics'
 import { useVocabularyReview } from '../../src/hooks/useVocabularyReview'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
@@ -32,7 +33,8 @@ export default function VocabularyReviewScreen() {
   })
 
   const review = useVocabularyReview()
-  const { toggle: toggleTts } = useTts()
+  const { speak: speakTts, toggle: toggleTts } = useTts()
+  const { settings: readerSettings } = useReaderSettings()
   const haptics = useHaptics()
   const sessionStartRef = useRef(Date.now())
 
@@ -56,6 +58,30 @@ export default function VocabularyReviewScreen() {
     // `review` is stable per-hook, review.reviewMode read at call time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchSize, clusterId, practiceMode])
+
+  // Say the word when its card appears.
+  //
+  // The speaker button has always been there and has always worked, but nothing
+  // ever spoke on its own — so on a screen whose whole purpose is learning a
+  // word, hearing it was something you had to know to ask for. Owner's call to
+  // make it the default; the toggle lives beside "Auto-save words on tap".
+  //
+  // Keyed on the card, so it happens once per card and not again when the
+  // answer is revealed, the mode changes, or the screen re-renders for any of
+  // the other reasons it does.
+  const spokenCardRef = useRef<string | null>(null)
+  const currentWord = review.currentCard?.word
+  const currentWordId = review.currentCard?.wordId
+  useEffect(() => {
+    if (!readerSettings.autoSpeakCards) return
+    if (!currentWord || !currentWordId) return
+    if (spokenCardRef.current === currentWordId) return
+    spokenCardRef.current = currentWordId
+    // speak, not toggle: toggle would stop the audio if a previous card's
+    // playback happened to still be running, which is silence where the reader
+    // asked for sound.
+    void speakTts(currentWord, { lang: language })
+  }, [currentWord, currentWordId, readerSettings.autoSpeakCards, speakTts, language])
 
   // Haptic on session-complete — must be in an effect, not render, or
   // it re-fires on every re-render while the summary is visible.

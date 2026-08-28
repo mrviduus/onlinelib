@@ -15,6 +15,15 @@ export interface ReaderSettings {
    * back-compat; UI label updated.
    */
   autoLookup: boolean
+  /**
+   * Speak the word when a vocabulary card appears, without waiting for a tap.
+   *
+   * The speaker button was always there and always worked; QA confirmed it by
+   * watching a fourth AudioTrack open on the process. But nothing ever said the
+   * word on its own, so hearing it was a thing you had to know to ask for — on a
+   * screen whose whole job is learning the word. Default on, off in one tap.
+   */
+  autoSpeakCards: boolean
   showReaderStats: boolean
   showInlineTranslations: boolean
   /** Last color picked when creating a highlight. The SelectionActionBar
@@ -38,6 +47,7 @@ const defaults: ReaderSettings = {
   theme: 'light',
   ttsSpeed: 1.0,
   autoLookup: false,
+  autoSpeakCards: true,
   showReaderStats: true,
   showInlineTranslations: true,
   lastHighlightColor: 'yellow',
