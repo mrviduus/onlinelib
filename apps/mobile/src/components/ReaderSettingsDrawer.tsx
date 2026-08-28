@@ -196,16 +196,9 @@ export function ReaderSettingsDrawer({ visible, onClose, settings, onUpdate }: P
               />
             </View>
 
-            <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: colors.text }]}>Say the word on a card</Text>
-              <Switch
-                value={settings.autoSpeakCards}
-                onValueChange={v => onUpdate({ autoSpeakCards: v })}
-                trackColor={{ true: colors.primary, false: colors.border }}
-                thumbColor="#fff"
-                ios_backgroundColor={colors.border}
-              />
-            </View>
+            {/* "Say the word on a card" moved to the vocabulary settings sheet. It controls the
+                review screen, and this drawer belongs to the reader — QA said plainly that people
+                would look for it where the cards are, and they were right. */}
 
             {/* Inline Translations */}
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INLINE TRANSLATIONS</Text>

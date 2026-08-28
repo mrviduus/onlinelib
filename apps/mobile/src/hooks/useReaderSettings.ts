@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export interface ReaderSettings {
@@ -15,15 +15,6 @@ export interface ReaderSettings {
    * back-compat; UI label updated.
    */
   autoLookup: boolean
-  /**
-   * Speak the word when a vocabulary card appears, without waiting for a tap.
-   *
-   * The speaker button was always there and always worked; QA confirmed it by
-   * watching a fourth AudioTrack open on the process. But nothing ever said the
-   * word on its own, so hearing it was a thing you had to know to ask for — on a
-   * screen whose whole job is learning the word. Default on, off in one tap.
-   */
-  autoSpeakCards: boolean
   showReaderStats: boolean
   showInlineTranslations: boolean
   /** Last color picked when creating a highlight. The SelectionActionBar
@@ -34,6 +25,21 @@ export interface ReaderSettings {
 
 const STORAGE_KEY = 'reader.settings.v2'
 const LEGACY_KEY = 'reader.settings.v1'
+
+/**
+ * What is stored is what the reader CHOSE — not the whole settings object.
+ *
+ * The old shape wrote all ten keys on every change, so adjusting the font size froze every other
+ * setting at whatever the defaults happened to be that day. Then `{...defaults, ...stored}` read
+ * them all back as decisions. The two cases are byte-identical in storage: "the reader picked
+ * left" and "left was the default when this device first saved anything". A changed default could
+ * therefore never reach anyone who had ever touched any setting — which is exactly what happened
+ * when the reader's text alignment default moved to centre and no device saw it.
+ *
+ * Storing only the touched keys keeps both promises: a new default reaches everyone who never
+ * expressed an opinion, and never overrides anyone who did.
+ */
+type StoredSettings = Partial<ReaderSettings>
 
 const defaults: ReaderSettings = {
   fontSize: 18,
@@ -47,7 +53,6 @@ const defaults: ReaderSettings = {
   theme: 'light',
   ttsSpeed: 1.0,
   autoLookup: false,
-  autoSpeakCards: true,
   showReaderStats: true,
   showInlineTranslations: true,
   lastHighlightColor: 'yellow',
@@ -67,6 +72,8 @@ export const themeStyles = {
 
 export function useReaderSettings() {
   const [settings, setSettings] = useState<ReaderSettings>(defaults)
+  // The reader's actual choices, which is all that goes to storage.
+  const chosenRef = useRef<StoredSettings>({})
 
   useEffect(() => {
     let cancelled = false
@@ -74,7 +81,9 @@ export function useReaderSettings() {
       if (cancelled) return
       if (raw) {
         try {
-          setSettings({ ...defaults, ...JSON.parse(raw) })
+          const stored = JSON.parse(raw) as StoredSettings
+          setSettings({ ...defaults, ...stored })
+          chosenRef.current = stored
         } catch {}
         return
       }
@@ -83,11 +92,17 @@ export function useReaderSettings() {
       if (cancelled) return
       if (legacy) {
         try {
-          const old = JSON.parse(legacy)
+          // v1 spelled the sans family 'system'; parsed loosely because the old shape is not
+          // assignable to the current one, which is the whole reason the rename exists.
+          const old = JSON.parse(legacy) as Omit<StoredSettings, 'fontFamily'> & { fontFamily?: string }
           if (old.fontFamily === 'system') old.fontFamily = 'sans'
-          const migrated = { ...defaults, ...old }
-          setSettings(migrated)
-          AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+          // Carried over as choices, because that is what they were on v1 — and because there is
+          // no provenance to recover. The same is true of anything already written under v2: a
+          // device that has settings keeps them, and only future default changes benefit.
+          const chosen = old as StoredSettings
+          setSettings({ ...defaults, ...chosen })
+          chosenRef.current = chosen
+          AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(chosen))
           AsyncStorage.removeItem(LEGACY_KEY)
         } catch {}
       }
@@ -98,11 +113,11 @@ export function useReaderSettings() {
   }, [])
 
   const update = useCallback((patch: Partial<ReaderSettings>) => {
-    setSettings(prev => {
-      const next = { ...prev, ...patch }
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
+    // Only what was touched, ever. `prev` is the fully-merged object, so serialising it is what
+    // turned defaults into decisions.
+    chosenRef.current = { ...chosenRef.current, ...patch }
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(chosenRef.current)).catch(() => {})
+    setSettings(prev => ({ ...prev, ...patch }))
   }, [])
 
   const resolvedFontFamily = fontFamilyMap[settings.fontFamily] || fontFamilyMap.serif

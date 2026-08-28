@@ -243,6 +243,24 @@ export function VocabSettingsModal({ visible, onClose, onSaved }: Props) {
                     disabled={saving || !settings}
                   />
                 </View>
+
+                {/* Moved here from the reader's settings drawer. It governs the review cards, and
+                    this is the sheet a reader opens when looking for something about them. */}
+                <View style={styles.toggleRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.label, { color: colors.text, fontFamily: fonts.sansMedium }]}>
+                      {t('vocabulary.settings.autoSpeak')}
+                    </Text>
+                    <Text style={[styles.hint, { color: colors.textSecondary, fontFamily: fonts.sans }]}>
+                      {t('vocabulary.settings.autoSpeakHint')}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings?.autoSpeakCards ?? true}
+                    onValueChange={v => patch({ autoSpeakCards: v })}
+                    disabled={saving || !settings}
+                  />
+                </View>
               </>
             )}
           </ScrollView>

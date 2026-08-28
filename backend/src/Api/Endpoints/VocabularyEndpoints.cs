@@ -782,7 +782,8 @@ public record VocabSettingsDto(
     int WeeklyReviewBudget,
     bool FrequencyFilterEnabled,
     bool ClusteringEnabled,
-    bool AutoRetireEnabled);
+    bool AutoRetireEnabled,
+    bool AutoSpeakCards = true);
 
 // Anti-spiral F2. Outcome is discriminated-union-style; frontend branches on it
 // to show the right toast/banner.

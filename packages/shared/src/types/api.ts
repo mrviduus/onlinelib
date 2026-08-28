@@ -289,6 +289,8 @@ export interface VocabSettingsDto {
   frequencyFilterEnabled: boolean
   clusteringEnabled: boolean
   autoRetireEnabled: boolean
+  /** Speak the word when a review card appears. */
+  autoSpeakCards: boolean
 }
 
 export interface VocabDailyStatDto {
