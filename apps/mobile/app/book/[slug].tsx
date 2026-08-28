@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'react-native'
 import { Image } from 'expo-image'
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, libraryApi, plural, readingProgressApi } from '@textstack/shared'
+import { createBooksApi, getStorageUrl, libraryApi, plural, readingProgressApi, resumeChapterSlug } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
@@ -73,7 +73,15 @@ export default function BookDetailScreen() {
           }
           try {
             const p = await readingProgressApi.getProgress(b.id)
-            if (!cancelled && p?.chapterSlug) setContinueSlug(p.chapterSlug)
+            // Not `p?.chapterSlug` alone: a PDF read in Original layout is
+            // chapterless, its position is a `page:<N>` locator, and looking
+            // only at the slug made every half-read PDF report "never opened".
+            // `my-books/[id].tsx` already carries this fallback; the catalog
+            // screen did not.
+            if (!cancelled) {
+              const slug = resumeChapterSlug(p?.chapterSlug, p?.locator, b.chapters)
+              if (slug) setContinueSlug(slug)
+            }
           } catch (err) {
             console.warn('getProgress failed on book detail:', err)
           }

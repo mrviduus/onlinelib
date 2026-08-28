@@ -1,3 +1,5 @@
+import { parsePdfPageLocator } from './pdfProgress'
+
 /**
  * Resuming a PDF read in Original layout.
  *
@@ -97,4 +99,26 @@ export function chapterEndPage(
     if (typeof start === 'number' && Number.isFinite(start) && start >= 1) return start
   }
   return null
+}
+
+/**
+ * The chapter to resume in, given whatever the server saved.
+ *
+ * A stored `chapterSlug` wins when it still names a real chapter; otherwise the
+ * `page:<N>` locator decides. Returns null when neither does, so the caller can
+ * say "start at the beginning" rather than guess.
+ *
+ * This rule existed twice — inline on the user-book screen, and not at all on
+ * the catalog one, which is why a half-read catalog PDF reported "never opened"
+ * even after a clean mount. Two copies of a resume rule means one of them is
+ * wrong and nothing says which.
+ */
+export function resumeChapterSlug(
+  chapterSlug: string | null | undefined,
+  locator: string | null | undefined,
+  chapters: readonly ChapterPageAnchor[] | null | undefined,
+): string | null {
+  const list = chapters ?? []
+  if (chapterSlug && list.some(c => c.slug === chapterSlug)) return chapterSlug
+  return chapterSlugForPage(list, parsePdfPageLocator(locator))
 }
