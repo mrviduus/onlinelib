@@ -104,7 +104,16 @@ export function useReaderVocabActions({
     notifyWordSaved()
     trackVocabSaved({ language, nativeLanguage, source: 'reader' })
 
-    const targetLang = nativeLanguage !== language ? nativeLanguage : 'en'
+    // A word saved with nothing to translate into is saved as it is. The old
+    // line here was `nativeLanguage !== language ? nativeLanguage : 'en'` — the
+    // exact 'en' fallback `useTargetLanguage` was rewritten to delete, because
+    // it turns "there is no translation to make" into "translate English into
+    // English". QA read the result off a real card: `lucius → Lucius`. The
+    // reader is still learning the word; the app just has no second language to
+    // show it in yet, and saying so by omission is honest.
+    const targetLang = nativeLanguage !== language ? nativeLanguage : null
+    if (!targetLang) return
+
     trackTranslationUsed({ fromLang: language, toLang: targetLang, kind: 'word' })
     // cachedTranslate (not translationApi) so this reuses the gloss the
     // selection toolbar just fetched for the same word — no 2nd round-trip.

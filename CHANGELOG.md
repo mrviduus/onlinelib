@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Mobile** — the language question is now decided while rendering, not by an effect that could be missed — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-mobile-the-language-question-is-decided-while-rendering)
 - **Vocabulary** — Smart session answers now count toward spaced repetition — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-27-vocabulary-smart-session-answers-now-count)
 - **Mobile** — counts agree with their nouns, the streak card stops filling four tabs, and a one-option control is gone — web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-mobile-counts-agree-with-their-nouns)
 - **Highlights** — a saved passage is shown inside the sentence it came from, and "review" stopped claiming to be one — backend + web + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-27-highlights-a-saved-passage-is-shown-inside-the-sentence)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { languageOnboardingDecision, type LanguageOnboardingState } from './languageOnboarding'
+import { confirmationFor, languageOnboardingDecision, type LanguageOnboardingState } from './languageOnboarding'
 
 const base: LanguageOnboardingState = {
   isAuthenticated: true,
@@ -72,5 +72,33 @@ describe('languageOnboardingDecision', () => {
     expect(languageOnboardingDecision({
       ...base, serverNativeLanguage: 'de', hasConfirmedLanguage: false,
     })).toBe('skip')
+  })
+})
+
+describe('confirmationFor', () => {
+  it('is null while storage has not answered', () => {
+    // Not false. A caller that treats "not yet known" as "no" asks a reader who
+    // already answered — or, in the shape that actually shipped, skips asking a
+    // reader who has not.
+    expect(confirmationFor(undefined, 'user-1')).toBeNull()
+  })
+
+  it('is false when nobody on this device has answered', () => {
+    expect(confirmationFor(null, 'user-1')).toBe(false)
+  })
+
+  it('is true only for the account that answered', () => {
+    expect(confirmationFor('user-1', 'user-1')).toBe(true)
+    // The bug this replaced: a device-wide '1' meant the second account on a
+    // shared phone was never asked.
+    expect(confirmationFor('user-1', 'user-2')).toBe(false)
+  })
+
+  it('lets a guest answer carry into the account they register', () => {
+    // The guest answered as 'local'; after registering, ownerId is the new user
+    // id, so this reads false and the account is asked once. Adoption is the
+    // context's job — this function must not pretend the answer was theirs.
+    expect(confirmationFor('local', 'user-1')).toBe(false)
+    expect(confirmationFor('local', 'local')).toBe(true)
   })
 })

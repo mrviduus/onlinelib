@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
-import { Tabs } from 'expo-router'
+import { Redirect, Tabs } from 'expo-router'
 import { Platform, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useAuth } from '../../src/context/AuthContext'
+import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
+import { languageOnboardingDecision } from '../../src/lib/languageOnboarding'
+import { breadcrumb } from '../../src/lib/breadcrumb'
 import { typography } from '../../src/theme/typography'
 import { UploadTabButton } from '../../src/components/UploadTabButton'
 
@@ -39,8 +42,45 @@ const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inacti
 export default function TabLayout() {
   const { colors } = useTheme()
   const { t } = useLanguage()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const { hasConfirmedLanguage } = useNativeLanguage()
   const insets = useSafeAreaInsets()
+
+  // Asking which language the reader knows. This decision used to live in a
+  // null-rendering component beside the root <Stack>, inside a useEffect with
+  // two early returns — and it failed on device three times running, always the
+  // same way: the question never appeared after registration and did appear on
+  // the next cold start. Three fix attempts moved the mechanism around without
+  // ever proving what the mechanism was, because the logging that was supposed
+  // to settle it sat behind __DEV__ and the reproductions ran release builds.
+  //
+  // So the shape changes instead of the guess. A decision taken during render
+  // cannot be missed: it is re-evaluated on every render of a screen the reader
+  // is actually looking at, rather than once per change of an effect's
+  // dependency list. The `alreadyOnboarding` guard the old version needed is
+  // structural now — the onboarding route lives outside the tabs, so this
+  // layout is not mounted while it is showing.
+  const languageDecision = languageOnboardingDecision({
+    isAuthenticated,
+    isGuest: !!user?.isGuest,
+    serverNativeLanguage: user?.nativeLanguage,
+    hasConfirmedLanguage,
+  })
+
+  // Survives a release build, unlike the console.log it replaces. If this
+  // defect outlives the change, the next reproduction finally leaves a trace.
+  breadcrumb('onboarding.decision', {
+    decision: languageDecision,
+    isAuthenticated,
+    isGuest: !!user?.isGuest,
+    serverLang: user?.nativeLanguage ?? null,
+    confirmed: hasConfirmedLanguage,
+  })
+
+  // 'unknown' means storage has not answered yet. Rendering the tabs is the
+  // right thing to do while waiting — the reader sees their library, and the
+  // redirect happens the moment the answer arrives.
+  if (languageDecision === 'ask') return <Redirect href="/onboarding/language" />
 
   // On iOS the old hardcoded 88 already approximated the home-indicator
   // safe area. On Android the 60 didn't account for 3-button nav bars or

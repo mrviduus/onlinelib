@@ -11,8 +11,6 @@ import Constants from 'expo-constants'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { fonts } from '../../src/theme/typography'
-import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
-import { languageOnboardingDecision } from '../../src/lib/languageOnboarding'
 import { trackLogin, trackSignUp } from '../../src/lib/analytics'
 
 /** Mirror web heuristic: backend doesn't surface an isNew flag, so a fresh
@@ -54,7 +52,6 @@ export default function LoginScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const { signInWithTokens } = useAuth()
-  const { hasConfirmedLanguage } = useNativeLanguage()
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -130,24 +127,21 @@ export default function LoginScreen() {
    * new one never asked at all. The freshly returned `user` is passed rather
    * than read from context because `signInWithTokens` has not propagated yet.
    */
-  const landAfterAuth = (u: UserDto) => {
-    const decision = languageOnboardingDecision({
-      isAuthenticated: true,
-      isGuest: u.isGuest,
-      serverNativeLanguage: u.nativeLanguage,
-      hasConfirmedLanguage,
-    })
-    if (__DEV__) {
-      console.log('[onboarding] landAfterAuth decision=', decision,
-        'serverLang=', u.nativeLanguage, 'confirmed=', hasConfirmedLanguage)
-    }
-    // 'unknown' means storage has not answered yet. Land on the library and let
-    // the root gate route once it does — the alternative was collapsing unknown
-    // into "no", which is how the question came to arrive one launch late.
-    // dismissAll first: this screen is a modal, and the repo's own teardown
-    // (_layout.tsx ColdResetOnResume) drops the modal stack before replacing.
-    try { router.dismissAll() } catch {}
-    router.replace(decision === 'ask' ? '/onboarding/language' : '/(tabs)/library')
+  const landAfterAuth = (_u: UserDto) => {
+    // One navigation, and no opinion about the language question.
+    //
+    // This used to decide the landing itself and then run `dismissAll()` before
+    // `replace()`. Both were mine, and both were wrong. Two copies of the rule
+    // meant two places to be wrong in; and expo-router queues navigations,
+    // computing the REPLACE against a route tree that has not yet absorbed the
+    // POP_TO_TOP dispatched in the same drain — the one place on the register
+    // path where the landing could silently go missing, which is exactly the
+    // symptom QA reported three times.
+    //
+    // The question is now asked by `app/(tabs)/_layout.tsx` during render, on
+    // the screen the reader lands on. This function's whole job is to leave the
+    // auth modal.
+    router.replace('/(tabs)/library')
   }
 
   const handleGoogleSignIn = async () => {
