@@ -58,6 +58,25 @@ export function startTutorSession(maxItems?: number, signal?: AbortSignal): Prom
 }
 
 /**
+ * Record one answer as it is given.
+ *
+ * Fire-and-forget by design: the card has already moved on, and a failed write is recovered by the
+ * closing feedback call, which sends every result again and is de-duplicated server-side.
+ */
+export function sendTutorAnswer(
+  sessionId: string,
+  result: TutorFeedbackResult,
+  signal?: AbortSignal,
+): Promise<{ applied: boolean }> {
+  return authFetch<{ applied: boolean }>(`/me/tutor/session/${sessionId}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result),
+    signal,
+  })
+}
+
+/**
  * Submit the learner's results for the current session and get the re-planned remainder. An empty `plan` in the
  * response means the session is complete.
  */

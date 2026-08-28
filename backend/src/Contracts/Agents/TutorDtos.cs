@@ -10,6 +10,13 @@ public record TutorFeedbackResultDto(Guid WordId, bool Correct, int ResponseTime
 public record TutorFeedbackRequest(IReadOnlyList<TutorFeedbackResultDto> Results);
 
 /// <summary>
+/// One answer, recorded the moment it is given. Separate from
+/// <see cref="TutorFeedbackRequest"/> because that one re-plans the session — several LLM calls —
+/// and an answer must not have to wait for planning to be worth anything.
+/// </summary>
+public record TutorAnswerRequest(Guid WordId, bool Correct, int ResponseTimeMs);
+
+/// <summary>
 /// One planned study item in the Tutor response. <see cref="WordId"/> + <see cref="Word"/> reference a REAL
 /// vocab card (re-projected from a tool result — never invented). <see cref="ExerciseType"/> is calibrated to
 /// the card's SRS <see cref="Stage"/> (recognition / recall / context), <see cref="Difficulty"/> to stage +
