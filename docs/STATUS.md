@@ -54,11 +54,15 @@ answers "what happened" and nothing answered "what is half-finished right now".
 Each of these is a real defect that is *known and not yet fixed*. They live here rather than in
 someone's memory.
 
-- **Eleven mobile surfaces have never been tested.** The 2026-08-26 pass could not reach
-  Bookmarks, the Highlights screen, "Ask this book", "Ask the librarian", Smart session, the
-  vocabulary review session, Reading Stats, deep links, resume after >30 min backgrounded, UK/EN
-  switching, or account deletion. They are marked "could not verify", which is not a pass — there is
-  simply no evidence either way.
+- ~~**Eleven mobile surfaces have never been tested.**~~ Closed 2026-08-27: the third pass
+  ([report](qa/reports/2026-08-27-android-untested-surfaces.md)) walked all eleven. Five clean
+  (bookmarks, the vocabulary review session, account deletion, resume after >30 min backgrounded,
+  the custom `textstack://` scheme), two broken, four working with defects — nine findings, all
+  fixed in #480-#486. Three of the nine were diagnosed differently on re-verification than in the
+  report, and the corrections changed the work: `ch.0` was a genuine 0-based ordinal rather than a
+  null leaking through; highlight context was already stored in the anchor and only dropped by two
+  DTO projections, so it came back retroactively with no migration; and the third-person AI prose
+  was a prompt defect, not a screen defect.
 - **Mobile Lane A e2e is still the spec, not a suite.** `docs/qa/MOBILE-TEST-PLAN.md` describes it;
   22 tests exist, 34 of their assertions cannot fail (`.catch(() => false)` then `toBeTruthy()`),
   several reference UI deleted in #452/#453, and CI does not run them because they need a live
