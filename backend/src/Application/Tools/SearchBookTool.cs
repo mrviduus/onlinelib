@@ -58,10 +58,18 @@ public sealed class SearchBookTool : ITool
 
         var chunks = await rag.RetrieveAsync(editionId, query, TopK, maxChapterOrd: gate, SummarySpec.None, ct);
 
+        // Labels rather than the chunks' ChapterOrd — a copy of the 0-based, split-renumbered
+        // ordinal, which named the wrong chapter in any answer that cited one. See ChapterLabel.
+        var labels = await ChapterLabel.ForChaptersAsync(
+            ctx.Services.GetRequiredService<IAppDbContext>(),
+            chunks.Where(c => c.ChapterId is not null).Select(c => c.ChapterId!.Value).Distinct().ToList(),
+            ct);
+
         var passages = chunks.Select(c =>
         {
             var (snippet, truncated) = ToolJson.Truncate(c.Text, SnippetChars);
-            return new { chapterNumber = c.ChapterOrd, snippet, truncated };
+            var chapter = c.ChapterId is { } id && labels.TryGetValue(id, out var l) ? l : null;
+            return new { chapter, snippet, truncated };
         }).ToList();
 
         return ToolJson.Result(new { query, passages });

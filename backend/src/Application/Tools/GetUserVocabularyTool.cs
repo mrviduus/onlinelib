@@ -70,10 +70,17 @@ public sealed class GetUserVocabularyTool : ITool
 
         var words = await rows
             .OrderByDescending(v => v.Stage).ThenBy(v => v.Word)
-            .Take(limit)
+            .Take(limit + 1)
             .Select(v => new { word = v.Word, definition = v.Definition, translation = v.Translation })
             .ToListAsync(ct);
 
-        return ToolJson.Result(new { count = words.Count, words });
+        // `returned`, not `count`: the old name asserted a total while carrying a page size, so
+        // "12 due" and "the first 12 of 400" were the same JSON. One extra row is fetched to answer
+        // "is that all of them" without a second COUNT query — the string-returning tools have
+        // carried a `truncated` flag since they were written, and the row-returning ones did not.
+        var hasMore = words.Count > limit;
+        if (hasMore) words.RemoveAt(words.Count - 1);
+
+        return ToolJson.Result(new { returned = words.Count, hasMore, words });
     }
 }

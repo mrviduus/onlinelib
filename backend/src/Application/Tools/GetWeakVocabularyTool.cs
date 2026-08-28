@@ -37,10 +37,17 @@ public sealed class GetWeakVocabularyTool : ITool
 
     public string Name => "get_weak_vocabulary";
 
+    // The description used to end "— the words they keep getting wrong". It is a ranking, not a
+    // verdict: there is no accuracy threshold in the query, so for a learner whose worst card sits at
+    // 90% this returned that card and told the model it was one they keep getting wrong. The tutor
+    // said so, to a reader, about a card answered twice. A prompt rule cannot reach a claim made in
+    // the tool description — the model reads this first and believes it.
     public string Description =>
-        "Fetch the learner's WEAKEST vocabulary cards — lowest lifetime accuracy and earliest SRS stage — the " +
-        "words they keep getting wrong, to prioritize this session. Each card carries its id, word, SRS stage, " +
-        "consecutive-correct streak and accuracy. Use alongside get_due_vocabulary to target the hardest words.";
+        "Fetch the learner's lowest-accuracy vocabulary cards, ranked worst-first, among cards they have " +
+        "answered at least twice. This is a RANKING, not a judgement: the weakest card of a strong learner " +
+        "is still returned, and may have good accuracy. Read totalReviews and lastAccuracy before saying " +
+        "anything about how a card is going. Each card carries its id, word, SRS stage, consecutive-correct " +
+        "streak, accuracy, review count and when it was last answered. Use alongside get_due_vocabulary.";
 
     public JsonElement ArgsSchema => Schema;
 
@@ -59,7 +66,7 @@ public sealed class GetWeakVocabularyTool : ITool
             .OrderBy(v => (double)v.CorrectReviews / v.TotalReviews)
             .ThenBy(v => v.Stage)
             .ThenBy(v => v.ConsecutiveCorrect)
-            .Take(limit)
+            .Take(limit + 1)
             .Select(v => new
             {
                 wordId = v.Id,
@@ -69,9 +76,19 @@ public sealed class GetWeakVocabularyTool : ITool
                 lastAccuracy = (double)v.CorrectReviews / v.TotalReviews,
                 hasSentence = v.Sentence != null && v.Sentence != "",
                 totalReviews = v.TotalReviews,
+                // Two misses this morning and two misses last spring are the same accuracy and a
+                // very different sentence to write about them.
+                lastReviewedAt = v.LastReviewedAt,
             })
             .ToListAsync(ct);
 
-        return ToolJson.Result(new { count = words.Count, words });
+        // `returned`, not `count`: the old name asserted a total while carrying a page size, so
+        // "12 due" and "the first 12 of 400" were the same JSON. One extra row is fetched to answer
+        // "is that all of them" without a second COUNT query — the string-returning tools have
+        // carried a `truncated` flag since they were written, and the row-returning ones did not.
+        var hasMore = words.Count > limit;
+        if (hasMore) words.RemoveAt(words.Count - 1);
+
+        return ToolJson.Result(new { returned = words.Count, hasMore, words });
     }
 }

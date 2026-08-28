@@ -69,10 +69,34 @@ public sealed class GetUserHighlightsTool : ITool
 
         var highlights = await rows
             .OrderBy(h => h.Chapter!.ChapterNumber).ThenBy(h => h.CreatedAt)
-            .Take(limit)
-            .Select(h => new { chapterNumber = h.Chapter!.ChapterNumber, text = h.SelectedText, note = h.NoteText })
+            .Take(limit + 1)
+            .Select(h => new
+            {
+                h.Chapter!.ChapterNumber,
+                h.Chapter!.OriginalChapterNumber,
+                h.Chapter!.PartNumber,
+                h.Chapter!.TotalParts,
+                text = h.SelectedText,
+                note = h.NoteText,
+            })
             .ToListAsync(ct);
 
-        return ToolJson.Result(new { count = highlights.Count, highlights });
+        // `returned`, not `count`: the old name asserted a total while carrying a page size, so
+        // "12 due" and "the first 12 of 400" were the same JSON. One extra row is fetched to answer
+        // "is that all of them" without a second COUNT query — the string-returning tools have
+        // carried a `truncated` flag since they were written, and the row-returning ones did not.
+        var hasMore = highlights.Count > limit;
+        if (hasMore) highlights.RemoveAt(highlights.Count - 1);
+
+        var shaped = highlights
+            .Select(h => new
+            {
+                chapter = ChapterLabel.For(h.ChapterNumber, h.OriginalChapterNumber, h.PartNumber, h.TotalParts),
+                h.text,
+                h.note,
+            })
+            .ToList();
+
+        return ToolJson.Result(new { returned = shaped.Count, hasMore, highlights = shaped });
     }
 }
