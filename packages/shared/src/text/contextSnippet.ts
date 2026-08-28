@@ -109,9 +109,49 @@ export function contextFromAnchor(
   const after = anchor.suffix ?? ''
   if (!before && !after) return null
 
-  if (opts.totalChars == null) return { before, match, after }
+  if (opts.totalChars == null) {
+    return { before: dropPartialWordStart(before), match, after: dropPartialWordEnd(after) }
+  }
 
-  return trimAround(before, match, after, opts.prefixChars ?? SNIPPET_PREFIX_CHARS, opts.totalChars)
+  return trimAround(
+    dropPartialWordStart(before),
+    match,
+    dropPartialWordEnd(after),
+    opts.prefixChars ?? SNIPPET_PREFIX_CHARS,
+    opts.totalChars,
+  )
+}
+
+/**
+ * An anchor's context is a raw 30-character window, so both ends usually land
+ * inside a word. QA read the result off a highlight screen: "…f the weather,
+ * with the signs **in** heaven and earth that fore-bo…" — the quote begins on
+ * the tail of "of" and ends on the head of "forebode". The window is not
+ * negotiable (both anchor creators must agree on its size, or a highlight made
+ * on one client matches worse on the other), so the trimming happens at render.
+ *
+ * The leading run is always dropped, because nothing in the text says whether
+ * "the" is the word "the" or the tail of "breathe". Losing one word of context
+ * is invisible; starting a quote mid-word is not. Spacing next to the match is
+ * preserved — that gap is real.
+ */
+function dropPartialWordStart(text: string): string {
+  if (!text) return text
+  // Already starts at a word: nothing was cut off its front.
+  if (/^\s/.test(text)) return text.trimStart()
+  const firstSpace = text.search(/\s/)
+  // No space at all — the whole window is one word fragment, so there is no
+  // honest way to show it.
+  if (firstSpace === -1) return ''
+  return text.slice(firstSpace + 1)
+}
+
+function dropPartialWordEnd(text: string): string {
+  if (!text) return text
+  if (/\s$/.test(text)) return text.trimEnd()
+  const lastSpace = text.search(/\s\S*$/)
+  if (lastSpace === -1) return ''
+  return text.slice(0, lastSpace)
 }
 
 /** Fit before + match + after onto one line, cutting at word boundaries. */

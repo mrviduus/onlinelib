@@ -1163,7 +1163,7 @@
     "note": "Note",
     "highlightCount": "{count} highlights",
     "reviewButton": "Revisit Highlights",
-    "reviewEmpty": "Nothing new to revisit — you've seen all of these today.",
+    "reviewEmpty": "Nothing new to revisit — each of these comes back a day after you last saw it.",
     "reviewComplete": "That's the set",
     "reviewedCount": "You revisited {count} highlights",
     "nextCard": "Next",

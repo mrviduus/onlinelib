@@ -119,7 +119,7 @@ export default function HighlightReviewScreen() {
         <Stack.Screen options={{ title: 'Revisit Highlights', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerShadowVisible: false }} />
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nothing new to revisit — you've seen all of these today.</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nothing new to revisit — each of these comes back a day after you last saw it.</Text>
         </View>
       </>
     )

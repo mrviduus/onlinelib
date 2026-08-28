@@ -104,8 +104,16 @@ public sealed class TutorAgent(AgentLoop loop)
         // fallbacks in this file were already first-person; only the model was not told.
         "VOICE: rationale, why and readingNudge are shown to the reader. Address them directly as " +
         "\"you\" — never \"the learner\", \"the user\" or the third person — and use plain words, " +
-        "not planning vocabulary. Write \"You keep missing these two, so they come first\", never " +
+        "not planning vocabulary. Say \"These two keep slipping, so they come first\", never " +
         "\"The learner has repeatedly failed these items\".\n" +
+        // The example above used to be "You keep missing these two" — and the model
+        // dutifully said exactly that about a card created a minute earlier and never
+        // answered. A prescribed phrase is a claim the model will make whether or not
+        // the data supports it, so the example no longer asserts a history and the rule
+        // below says when one may be claimed at all.
+        "NEVER claim a history a card does not have. totalReviews is how many times the " +
+        "reader has answered it: at 0 the card is new to them — say it is new, or why it " +
+        "is worth learning, and never that they keep missing it or forgetting it.\n" +
         "When done, reply with ONLY a JSON object (no prose, no markdown) of this exact shape:\n" +
         "{\"plan\":[{\"wordId\":string,\"exerciseType\":\"recognition\"|\"recall\"|\"context\"," +
         "\"difficulty\":\"easy\"|\"medium\"|\"hard\",\"why\":string}]," +

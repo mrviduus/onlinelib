@@ -92,3 +92,46 @@ describe('anchorContextSnippet', () => {
     expect(anchorContextSnippet(json, null)!.match).toBe('here')
   })
 })
+
+describe('anchorContextSnippet — word boundaries', () => {
+  const anchor = (a: Record<string, unknown>) => JSON.stringify(a)
+
+  it('drops the word fragments the 30-char window cuts through', () => {
+    // QA's line verbatim: "…f the weather, with the signs in heaven and earth
+    // that fore-bo…". The window starts on the tail of "of" and ends on the
+    // head of "forebode".
+    const s = anchorContextSnippet(
+      anchor({
+        prefix: 'f the weather, with the signs ',
+        exact: 'in',
+        suffix: ' heaven and earth that fore-bo',
+      }),
+      'in',
+    )!
+    expect(s.before).toBe('the weather, with the signs ')
+    expect(s.after).toBe(' heaven and earth that')
+  })
+
+  it('drops the leading run even when it looks like a whole word', () => {
+    // Nothing in the text distinguishes the word "the" from the tail of
+    // "breathe", so the leading run always goes. Losing one word of context is
+    // invisible; starting a quote mid-word is not. The space next to the match
+    // is real spacing and stays.
+    const s = anchorContextSnippet(
+      anchor({ prefix: 'the man I sing ', exact: 'forc', suffix: ' by fate ' }),
+      'forc',
+    )!
+    expect(s.before).toBe('man I sing ')
+    expect(s.after).toBe(' by fate')
+  })
+
+  it('gives up rather than show a single fragment', () => {
+    // One unbroken run on both sides: there is no whole word to keep.
+    const s = anchorContextSnippet(
+      anchor({ prefix: 'ncomprehensibilit', exact: 'x', suffix: 'ypresentedhere' }),
+      'x',
+    )!
+    expect(s.before).toBe('')
+    expect(s.after).toBe('')
+  })
+})
