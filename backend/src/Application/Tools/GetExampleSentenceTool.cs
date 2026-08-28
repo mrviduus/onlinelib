@@ -75,7 +75,12 @@ public sealed class GetExampleSentenceTool : ITool
                     sentence = snippet,
                     truncated,
                     source = "saved",
-                    bookTitle = card.BookTitle,
+                    // Cleaned like every other free-text field here, and it was the one that was
+                    // not. A user-uploaded book's title is user-controlled and lands in the
+                    // planner prompt as a tool observation; GetReadingContextTool sanitizes titles
+                    // for exactly this reason, in a comment that says to treat them as data and
+                    // never as instructions. The defence existed; this field was outside it.
+                    bookTitle = ExternalTextSanitizer.Clean(card.BookTitle),
                 });
             }
         }
@@ -116,7 +121,7 @@ public sealed class GetExampleSentenceTool : ITool
                             sentence = snippet,
                             truncated,
                             source = "rag",
-                            bookTitle = card.BookTitle,
+                            bookTitle = ExternalTextSanitizer.Clean(card.BookTitle),
                         });
                     }
                 }

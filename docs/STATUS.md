@@ -100,8 +100,6 @@ someone's memory.
   description.
 - **`RetrievedCard` carries no review history**, so the tutor's grounded re-projection cannot re-assert
   what the tools now send — the prompt rule is the only thing enforcing it.
-- **`get_example_sentence` emits `bookTitle` unsanitized** while every other free-text field in the same
-  file goes through `ExternalTextSanitizer`. User-uploaded titles are user-controlled.
 - **Soft-404s to crawlers.** The catch-all nginx `location /` returns 200 for non-SSG paths; the bot-404
   guard exists only in `@spa`.
 - **Dead nginx block.** `location /ssg/` aliases a directory that does not exist; the real pages come
