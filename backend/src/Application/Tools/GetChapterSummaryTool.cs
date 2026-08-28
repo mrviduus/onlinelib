@@ -50,7 +50,7 @@ public sealed class GetChapterSummaryTool : ITool
         var db = ctx.Services.GetRequiredService<IAppDbContext>();
         var chapter = await db.Chapters
             .Where(c => c.EditionId == editionId && c.ChapterNumber == number)
-            .Select(c => new { c.ChapterNumber, c.Title, c.PlainText, c.WordCount })
+            .Select(c => new { c.ChapterNumber, c.OriginalChapterNumber, c.PartNumber, c.TotalParts, c.Title, c.PlainText, c.WordCount })
             .FirstOrDefaultAsync(ct);
 
         if (chapter is null)
@@ -60,7 +60,7 @@ public sealed class GetChapterSummaryTool : ITool
         return ToolJson.Result(new
         {
             found = true,
-            chapterNumber = chapter.ChapterNumber,
+            chapter = ChapterLabel.For(chapter.ChapterNumber, chapter.OriginalChapterNumber, chapter.PartNumber, chapter.TotalParts),
             title = chapter.Title,
             wordCount = chapter.WordCount,
             opening,

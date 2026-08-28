@@ -111,9 +111,12 @@ public sealed class TutorAgent(AgentLoop loop)
         // answered. A prescribed phrase is a claim the model will make whether or not
         // the data supports it, so the example no longer asserts a history and the rule
         // below says when one may be claimed at all.
-        "NEVER claim a history a card does not have. totalReviews is how many times the " +
-        "reader has answered it: at 0 the card is new to them — say it is new, or why it " +
-        "is worth learning, and never that they keep missing it or forgetting it.\n" +
+        "NEVER claim a history a card does not have. totalReviews is how many times the reader " +
+        "has answered it and lastAccuracy is the share they got right. At 0 the card is new to " +
+        "them — say it is new, or why it is worth learning. Below 3 answers there is no pattern " +
+        "yet: describe one or two misses as that, never as \"you keep missing\" or \"you always " +
+        "forget\". A card can be the weakest one returned and still be going well; get_weak_" +
+        "vocabulary ranks, it does not judge.\n" +
         "When done, reply with ONLY a JSON object (no prose, no markdown) of this exact shape:\n" +
         "{\"plan\":[{\"wordId\":string,\"exerciseType\":\"recognition\"|\"recall\"|\"context\"," +
         "\"difficulty\":\"easy\"|\"medium\"|\"hard\",\"why\":string}]," +

@@ -22,6 +22,9 @@ public sealed class GetReadingContextTool : ITool
     /// <summary>Cap on a book title before it enters the planner prompt (titles are untrusted external text).</summary>
     private const int MaxTitleChars = 200;
 
+    /// <summary>How many recent sessions are scanned before grouping into books.</summary>
+    private const int SessionPool = 50;
+
     private static readonly JsonElement Schema = ToolJson.Schema("""
         {
           "type": "object",
@@ -61,16 +64,21 @@ public sealed class GetReadingContextTool : ITool
         var sessions = await db.ReadingSessions
             .Where(s => s.UserId == userId && s.StartedAt >= since)
             .OrderByDescending(s => s.StartedAt)
-            .Take(50)
+            .Take(SessionPool)
             .Select(s => new { s.EditionId, s.UserBookId, s.StartedAt })
             .ToListAsync(ct);
 
         var books = new List<object>();
         var seen = new HashSet<string>();
 
+        // Whether anything was dropped, tracked rather than inferred: the loop stops at MaxBooks, and
+        // the session pool itself is capped at 50, so "5 books" could mean five or fifty. `count: 5`
+        // read as "you're reading five books", which is a sentence the tutor will happily write.
+        var hasMore = false;
+
         foreach (var s in sessions)
         {
-            if (books.Count >= MaxBooks) break;
+            if (books.Count >= MaxBooks) { hasMore = true; break; }
 
             string? title = null, language = null, source = null;
             if (s.EditionId is { } eid)
@@ -104,6 +112,10 @@ public sealed class GetReadingContextTool : ITool
             books.Add(new { title, language, source, lastReadAt = s.StartedAt });
         }
 
-        return ToolJson.Result(new { count = books.Count, books });
+        // The session pool is capped too, so a full pool may hide older books even when the loop
+        // never hit MaxBooks.
+        if (sessions.Count >= SessionPool) hasMore = true;
+
+        return ToolJson.Result(new { returned = books.Count, hasMore, books });
     }
 }

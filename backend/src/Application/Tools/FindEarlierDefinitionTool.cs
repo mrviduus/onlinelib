@@ -62,11 +62,19 @@ public sealed class FindEarlierDefinitionTool : ITool
             return ToolJson.Result(new { found = false, term, message = $"No earlier discussion of '{term}' found." });
 
         var (snippet, truncated) = ToolJson.Truncate(earliest.Text, SnippetChars);
+        // A label rather than the chunk's ChapterOrd, which is a copy of the 0-based, split-renumbered
+        // chapter ordinal — see ChapterLabel. A citation is the one part of an answer a reader can
+        // check by hand, so it is right or it is absent.
+        var labels = earliest.ChapterId is { } cid
+            ? await ChapterLabel.ForChaptersAsync(ctx.Services.GetRequiredService<IAppDbContext>(), [cid], ct)
+            : [];
+        var chapter = earliest.ChapterId is { } id && labels.TryGetValue(id, out var l) ? l : null;
+
         return ToolJson.Result(new
         {
             found = true,
             term,
-            chapterNumber = earliest.ChapterOrd,
+            chapter,
             snippet,
             truncated,
         });

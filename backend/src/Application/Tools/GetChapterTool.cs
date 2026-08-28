@@ -50,13 +50,15 @@ public sealed class GetChapterTool : ITool
         var db = ctx.Services.GetRequiredService<IAppDbContext>();
         var chapter = await db.Chapters
             .Where(c => c.EditionId == editionId && c.ChapterNumber == number)
-            .Select(c => new { c.ChapterNumber, c.Title, c.PlainText })
+            .Select(c => new { c.ChapterNumber, c.OriginalChapterNumber, c.PartNumber, c.TotalParts, c.Title, c.PlainText })
             .FirstOrDefaultAsync(ct);
 
         if (chapter is null)
             return ToolJson.Result(new { found = false, message = $"Chapter {number} does not exist in this book." });
 
         var (text, truncated) = ToolJson.Truncate(chapter.PlainText, MaxChars);
-        return ToolJson.Result(new { found = true, chapterNumber = chapter.ChapterNumber, title = chapter.Title, text, truncated });
+        // A label, not the stored ordinal — see ChapterLabel for why the raw number was wrong twice.
+        var label = ChapterLabel.For(chapter.ChapterNumber, chapter.OriginalChapterNumber, chapter.PartNumber, chapter.TotalParts);
+        return ToolJson.Result(new { found = true, chapter = label, title = chapter.Title, text, truncated });
     }
 }

@@ -84,6 +84,22 @@ someone's memory.
   stay hard-plural until the i18n layer accepts a count.
 - **iOS Universal Links were never configured.** No `associatedDomains` in `app.json`, empty
   entitlements — the iOS half of this work does not exist yet, on either side.
+- **Agent tools still describe themselves more strongly than their payloads support.** An audit of all
+  eleven found the same shape as the "you keep missing this word" incident in several more places, and
+  three were fixed (history claims, invisible row truncation, chapter numbering). Left, in order of
+  how badly each could mislead a reader: `find_earlier_definition` asserts a term was "first introduced"
+  in the earliest of eight semantic candidates and, when the spoiler gate hides the real one, states
+  the book does not discuss it at all; `get_example_sentence` returns the top RAG chunk without
+  checking the word appears in it, under a description promising "a real example sentence";
+  `search_library_semantic` degrades silently to keyword search with no field saying so, while its
+  description promises meaning-based matching; `LibraryToolShared` surfaces the derived `approxPages`
+  where a real page count would go and drops the always-null `pages`, so "312 pages" is shown for a
+  book whose length is not stored; `get_user_vocabulary` does not filter retired words and describes
+  all of them as "terms the user is already learning". The pattern is consistent: the description
+  string is one notch stronger than the projection, and no prompt fix reaches a claim made in a tool
+  description.
+- **`RetrievedCard` carries no review history**, so the tutor's grounded re-projection cannot re-assert
+  what the tools now send — the prompt rule is the only thing enforcing it.
 - **Soft-404s to crawlers.** The catch-all nginx `location /` returns 200 for non-SSG paths; the bot-404
   guard exists only in `@spa`.
 - **Dead nginx block.** `location /ssg/` aliases a directory that does not exist; the real pages come

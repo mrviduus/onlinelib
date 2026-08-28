@@ -56,7 +56,7 @@ public sealed class GetDueVocabularyTool : ITool
         var words = await db.VocabularyWords
             .Where(v => v.UserId == userId && !v.IsRetired && v.NextReviewAt <= horizon)
             .OrderBy(v => v.NextReviewAt)
-            .Take(limit)
+            .Take(limit + 1)
             .Select(v => new
             {
                 wordId = v.Id,
@@ -75,6 +75,13 @@ public sealed class GetDueVocabularyTool : ITool
             })
             .ToListAsync(ct);
 
-        return ToolJson.Result(new { count = words.Count, words });
+        // `returned`, not `count`: the old name asserted a total while carrying a page size, so
+        // "12 due" and "the first 12 of 400" were the same JSON. One extra row is fetched to answer
+        // "is that all of them" without a second COUNT query — the string-returning tools have
+        // carried a `truncated` flag since they were written, and the row-returning ones did not.
+        var hasMore = words.Count > limit;
+        if (hasMore) words.RemoveAt(words.Count - 1);
+
+        return ToolJson.Result(new { returned = words.Count, hasMore, words });
     }
 }
