@@ -11,12 +11,11 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext'
 import { DownloadProvider } from '../src/context/DownloadContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { LanguageProvider } from '../src/context/LanguageContext'
-import { NativeLanguageProvider, useNativeLanguage } from '../src/context/NativeLanguageContext'
+import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
 import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
 import { useAppFonts } from '../src/theme/fonts'
-import { languageOnboardingDecision } from '../src/lib/languageOnboarding'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -107,56 +106,21 @@ function ColdResetOnResume() {
   return null
 }
 
-/**
- * Sends a signed-in reader whose native language nobody ever asked for to the
- * one screen that asks. Null-rendering and isolated for the same reason as
- * `ColdResetOnResume`: `usePathname()` re-renders its own scope, and that scope
- * must not be the whole `<Stack>`.
+/*
+ * `LanguageOnboardingGate` used to live here: a null-rendering sibling of the
+ * <Stack> that decided, inside a useEffect with two early returns, whether to
+ * send a reader to the language question. It failed on device three times in a
+ * row, always identically — no question after registration, the question on the
+ * next cold start — and three fix attempts moved its internals around without
+ * ever establishing why, because the logging meant to settle it sat behind
+ * __DEV__ while every reproduction ran a release build.
  *
- * Registration routes here directly (see `app/(auth)/login.tsx`). This gate is
- * for everyone else — accounts made before the screen existed, and the reinstall
- * case where local storage is empty but the profile is years old. Both show up
- * as `nativeLanguage: null` from the server.
+ * The decision now happens during render, in `app/(tabs)/_layout.tsx`, where the
+ * reader actually lands. A render-time decision cannot be missed the way an
+ * effect can. It also has to live inside a screen subtree: expo-router's
+ * <Redirect> is built on useFocusEffect, which needs a navigation focus context
+ * that a sibling of the navigator does not have.
  */
-function LanguageOnboardingGate() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const { user, isAuthenticated } = useAuth()
-  const { hasConfirmedLanguage } = useNativeLanguage()
-
-  const decision = languageOnboardingDecision({
-    isAuthenticated,
-    isGuest: !!user?.isGuest,
-    serverNativeLanguage: user?.nativeLanguage,
-    hasConfirmedLanguage,
-    alreadyOnboarding: pathname.startsWith('/onboarding'),
-  })
-
-  useEffect(() => {
-    // 'unknown' means storage has not answered. Do nothing and come back — the
-    // effect re-runs when it does, because the decision changes.
-    if (decision !== 'ask') return
-    // Never over the auth modal: the user is mid-sign-in, and login.tsx routes
-    // here itself once it knows whether the account is new.
-    if (pathname.includes('login')) return
-    if (__DEV__) console.log('[onboarding] gate routing to language, decision=', decision)
-    router.replace('/onboarding/language')
-  }, [decision, pathname, router])
-
-  // One line, three inputs, and the answer they produce. A retest could not tell
-  // whether the question never fired because the decision said no or because it
-  // was never asked, and neither could I — the static reading said it should
-  // work. This makes the next run report a fact instead of a hypothesis.
-  useEffect(() => {
-    if (!__DEV__) return
-    console.log('[onboarding] decision=', decision,
-      'auth=', isAuthenticated, 'guest=', !!user?.isGuest,
-      'serverLang=', user?.nativeLanguage, 'confirmed=', hasConfirmedLanguage,
-      'path=', pathname)
-  }, [decision, isAuthenticated, user?.isGuest, user?.nativeLanguage, hasConfirmedLanguage, pathname])
-
-  return null
-}
 
 function AppContent() {
   const { isDark } = useTheme()
@@ -167,7 +131,6 @@ function AppContent() {
     // runtime except the frozen "1.0.0" one, so this costs an empty View.
     <View style={{ flex: 1 }}>
       <ColdResetOnResume />
-      <LanguageOnboardingGate />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <LegacyRuntimeBanner />
       <View style={{ flex: 1 }}>

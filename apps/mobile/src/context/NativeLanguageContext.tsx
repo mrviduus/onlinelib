@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { confirmationFor } from '../lib/languageOnboarding'
 import { NativeModules, Platform } from 'react-native'
 import { authApi } from '@textstack/shared'
 import { LANGUAGES, POPULAR_LANGUAGES, getFlagEmoji } from '../data/languages'
@@ -91,7 +92,7 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   const ownerId = user?.id ?? LOCAL_OWNER
   // Tri-state for callers: null while storage is still answering, then whether
   // THIS account has confirmed — not whether anyone on this device ever did.
-  const hasConfirmedLanguage = confirmedOwner === undefined ? null : confirmedOwner === ownerId
+  const hasConfirmedLanguage = confirmationFor(confirmedOwner, ownerId)
   const prevUserIdRef = useRef<string | undefined>(user?.id)
   // Set once the server→local mirror has applied an authoritative value, so the
   // (async) AsyncStorage load below can't clobber it back on a cold launch where

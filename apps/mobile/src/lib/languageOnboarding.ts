@@ -59,3 +59,24 @@ export function languageOnboardingDecision(s: LanguageOnboardingState): Language
   return 'ask'
 }
 
+
+/**
+ * Whether THIS account has answered the language question, given what storage
+ * says and who is asking.
+ *
+ * The stored value is an owner — a user id, or `LOCAL_OWNER` for an answer given
+ * before signing in — and not a bare flag. It was `'1'` once, meaning "somebody
+ * on this device answered", which is why a device where account A had answered
+ * never asked account B. Keeping the rule here rather than inline in the context
+ * is what makes it testable at all: mobile's vitest scope is `src/lib/` only.
+ *
+ * `undefined` means storage has not answered yet and is deliberately distinct
+ * from "no": collapsing them is how the question arrived one launch late.
+ */
+export function confirmationFor(
+  confirmedOwner: string | null | undefined,
+  ownerId: string,
+): boolean | null {
+  if (confirmedOwner === undefined) return null
+  return confirmedOwner === ownerId
+}
