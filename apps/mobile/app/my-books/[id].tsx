@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Share, Linking } from 'react-native'
 import { Image } from 'expo-image'
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, parsePdfPageLocator, chapterSlugForPage, isOfflineError, plural } from '@textstack/shared'
+import { userBooksApi, getStorageUrl, getApiConfig, storedBookPercent, formatBookPercent, resumeChapterSlug, isOfflineError, plural } from '@textstack/shared'
 import type { UserBookDetailResponse } from '@textstack/shared'
 import { enrichUserBook } from '../../src/lib/api'
 import { useTheme } from '../../src/context/ThemeContext'
@@ -66,6 +66,35 @@ export default function UserBookDetailScreen() {
     // `reconnects` so the screen recovers on its own — until now a failed load
     // left it showing a spinner until the reader backed out and came in again.
   }, [id, reconnects, attempt])
+
+  // Re-read the progress when this screen comes back into view.
+  //
+  // The reader is pushed and left with `router.back()`, so this screen is never
+  // unmounted and the load effect above — keyed on `[id, reconnects, attempt]`,
+  // none of which change — never runs again. QA read a PDF to page 24, backed
+  // out, and met a dash, a greyed progress bar and "Start Reading", while the
+  // server already held `page:24`. All three are one stale `savedProgress`.
+  //
+  // Only the progress is re-fetched, not the book: the book's own fields do not
+  // change by reading it, and the repo already draws this exact line —
+  // `useContinueReadingList` recomputes on focus with the note that "the only
+  // thing that changes these values is the user leaving the reader, which is a
+  // focus event". Same cancellation shape as there.
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return
+      let cancelled = false
+      userBooksApi.getUserBookProgress(id)
+        .then(p => {
+          if (cancelled || !p) return
+          setSavedProgress({ chapterSlug: p.chapterSlug, percent: p.percent, locator: p.locator ?? null })
+        })
+        // Offline or no progress yet: keep whatever the screen already shows
+        // rather than blanking a good value with a failed refresh.
+        .catch(() => {})
+      return () => { cancelled = true }
+    }, [id]),
+  )
 
   // Auto-refresh while processing. Uses recursive setTimeout (not setInterval)
   // so we can implement exponential backoff on repeated failures and avoid
@@ -152,13 +181,10 @@ export default function UserBookDetailScreen() {
 
   // A PDF read in Original layout is chapterless: its position is a `page:<N>`
   // locator with chapterSlug null. Looking only at the slug meant every
-  // half-read PDF reported "never opened" — the button said "Start Reading" and
-  // routed to chapter one. Fall back to the chapter that contains the saved
-  // page, which also gives the reader route enough to resume at that page.
-  const resumePage = parsePdfPageLocator(savedProgress?.locator)
-  const continueSlug = savedProgress?.chapterSlug && book?.chapters?.find(c => c.slug === savedProgress.chapterSlug)
-    ? savedProgress.chapterSlug
-    : chapterSlugForPage(book?.chapters ?? [], resumePage)
+  // half-read PDF reported "never opened". This rule now lives in
+  // `resumeChapterSlug` because the catalog screen needed it too and did not
+  // have it — the same defect, one screen over.
+  const continueSlug = resumeChapterSlug(savedProgress?.chapterSlug, savedProgress?.locator, book?.chapters)
 
   const handleDelete = () => {
     if (!id) return
