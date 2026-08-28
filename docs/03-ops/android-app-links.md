@@ -42,7 +42,12 @@ npx eas-cli credentials -p android      # Android → production → shows the f
 Or Play Console → your app → **Test and release → Setup → App integrity → App signing**.
 
 Copy the **App signing key certificate** SHA-256 (32 colon-separated hex bytes) into
-`sha256_cert_fingerprints`, replacing `REPLACE_WITH_PLAY_APP_SIGNING_SHA256`.
+`sha256_cert_fingerprints`.
+
+Easiest route: the same page has a **Digital Asset Links JSON** section at the bottom where Google
+generates the snippet with the app signing fingerprint already filled in — take it from there rather
+than transcribing hex by hand. The upload key's fingerprints are listed separately, under
+**Upload key certificate**, further up the page.
 
 **List both keys.** Play re-signs uploads with the app signing key, but a build installed straight
 from an `.aab`/`.apk` you built yourself carries the **upload** key. Listing both means the same file
