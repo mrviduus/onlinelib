@@ -64,6 +64,12 @@ public sealed class GetDueVocabularyTool : ITool
                 stage = v.Stage,
                 consecutiveCorrect = v.ConsecutiveCorrect,
                 lastAccuracy = v.TotalReviews > 0 ? (double)v.CorrectReviews / v.TotalReviews : (double?)null,
+                // Without this the planner could not tell a card nobody has
+                // answered from one answered wrong twice: both arrive with
+                // consecutiveCorrect 0, and the only difference is a null
+                // accuracy, which nothing explained. It told a reader "You keep
+                // missing this word" about a card created a minute earlier.
+                totalReviews = v.TotalReviews,
                 hasSentence = v.Sentence != null && v.Sentence != "",
                 dueAt = v.NextReviewAt,
             })

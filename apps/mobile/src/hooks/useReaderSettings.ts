@@ -30,7 +30,11 @@ const defaults: ReaderSettings = {
   fontSize: 18,
   lineHeight: 1.65,
   fontFamily: 'serif',
-  textAlign: 'left',
+  // Owner's call, and it also ends a disagreement: web has defaulted to
+  // 'center' since it shipped, so the two clients now open a book the same way.
+  // Existing readers keep whatever they chose — this is the default for a fresh
+  // install, and the setting has three options in the drawer.
+  textAlign: 'center',
   theme: 'light',
   ttsSpeed: 1.0,
   autoLookup: false,
