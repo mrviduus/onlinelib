@@ -97,6 +97,9 @@ export const styles = StyleSheet.create({
   quotaFill: { height: '100%', borderRadius: 2 },
   savedSortRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingVertical: 10 },
   savedSortChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
+  // Where the filter tabs' count chips went. One line has room; four chips on a
+  // phone's width did not.
+  resultCount: { fontFamily: fonts.sans, fontSize: 12, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2 },
   filterEmpty: { padding: 32, alignItems: 'center', gap: 12 },
   filterEmptyBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
   // Grid styles
