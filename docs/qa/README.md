@@ -18,6 +18,26 @@ When asked to run a QA scenario:
 2. Verify each expected result
 3. Document any deviations in "Actual Results"
 
+## Instrumenting a defect for the next run
+
+**Diagnostics meant for a device reproduction must not be behind `__DEV__`.**
+
+A tester runs the Play build plus an OTA. `__DEV__` is false there — only the
+`development` EAS profile sets `developmentClient`. A `console.log` added to
+"make the next run report a fact" prints nothing in the only configuration the
+next run will use.
+
+This is written down because it happened: the language-onboarding defect was
+reproduced three times, each time with logging in place that could not fire, so
+three reproductions produced no evidence and two fixes were built on guesses.
+
+Use `breadcrumb()` (`apps/mobile/src/lib/breadcrumb.ts`) instead — a Sentry
+breadcrumb rides along with whatever the session reports, costs nothing when no
+DSN is set, and is readable without a cable. Record the *inputs to the decision*
+and the answer, not the flow: a breadcrumb per step is a trail nobody reads.
+
+`__DEV__` stays right for warnings aimed at whoever is running the dev client.
+
 ## Scenario Format
 
 Each scenario includes:
