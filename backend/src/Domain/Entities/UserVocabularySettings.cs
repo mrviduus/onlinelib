@@ -14,6 +14,12 @@ public class UserVocabularySettings : ISiteScoped
     public bool ClusteringEnabled { get; set; } = true;
     public bool AutoRetireEnabled { get; set; } = true;
 
+    // Speak the word when a review card appears. Default ON: the speaker button was always there
+    // and always worked, but nothing said the word unasked — on a screen whose whole purpose is
+    // learning it. Lives with the account rather than the device because it is a preference about
+    // how you learn, and because the settings sheet a reader looks in is this one.
+    public bool AutoSpeakCards { get; set; } = true;
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

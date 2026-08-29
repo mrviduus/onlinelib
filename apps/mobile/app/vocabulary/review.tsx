@@ -7,7 +7,6 @@ import type { SelfAssessment, ReviewMode } from '@textstack/shared'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useTts } from '../../src/hooks/useTts'
-import { useReaderSettings } from '../../src/hooks/useReaderSettings'
 import { useHaptics } from '../../src/hooks/useHaptics'
 import { useVocabularyReview } from '../../src/hooks/useVocabularyReview'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
@@ -34,7 +33,17 @@ export default function VocabularyReviewScreen() {
 
   const review = useVocabularyReview()
   const { speak: speakTts, toggle: toggleTts } = useTts()
-  const { settings: readerSettings } = useReaderSettings()
+  // The setting lives with the account now, beside the other vocabulary settings, because it
+  // governs these cards and not the reader. Defaults to speaking while the fetch is in flight —
+  // the same value a new account gets, so the first card of a session is not silent by accident.
+  const [autoSpeak, setAutoSpeak] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    vocabularyApi.getVocabSettings()
+      .then(s => { if (!cancelled) setAutoSpeak(s.autoSpeakCards ?? true) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   const haptics = useHaptics()
   const sessionStartRef = useRef(Date.now())
 
@@ -73,7 +82,7 @@ export default function VocabularyReviewScreen() {
   const currentWord = review.currentCard?.word
   const currentWordId = review.currentCard?.wordId
   useEffect(() => {
-    if (!readerSettings.autoSpeakCards) return
+    if (!autoSpeak) return
     if (!currentWord || !currentWordId) return
     if (spokenCardRef.current === currentWordId) return
     spokenCardRef.current = currentWordId
@@ -81,7 +90,7 @@ export default function VocabularyReviewScreen() {
     // playback happened to still be running, which is silence where the reader
     // asked for sound.
     void speakTts(currentWord, { lang: language })
-  }, [currentWord, currentWordId, readerSettings.autoSpeakCards, speakTts, language])
+  }, [currentWord, currentWordId, autoSpeak, speakTts, language])
 
   // Haptic on session-complete — must be in an effect, not render, or
   // it re-fires on every re-render while the summary is visible.

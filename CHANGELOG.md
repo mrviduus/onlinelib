@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Settings** — a stored default stopped masquerading as a decision, and auto-speak moved to where it is looked for — backend + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-settings-a-stored-default-stopped-masquerading)
 - **Reader** — continuing a book stopped erasing where you had got to — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-reader-continuing-a-book-stopped-erasing-where-you-got-to)
 - **AI tools** — three ways an agent could state something the data did not say — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-28-ai-tools-three-ways-an-agent-could-state-something)
 - **Mobile** — the language question is now decided while rendering, not by an effect that could be missed — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-mobile-the-language-question-is-decided-while-rendering)

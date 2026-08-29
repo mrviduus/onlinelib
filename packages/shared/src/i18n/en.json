@@ -789,6 +789,8 @@
       "frequencyFilterHint": "Send rare words (beyond top 15k) to Reference instead of SRS.",
       "autoRetire": "Auto-retire mastered words",
       "autoRetireHint": "Stop reviewing words you've answered correctly 3× at long intervals.",
+      "autoSpeak": "Say the word on a card",
+      "autoSpeakHint": "Speaks each review card as it appears, without waiting for a tap.",
       "loadFailed": "Could not load settings.",
       "saveFailed": "Could not save settings. Try again.",
       "dailyCapRange": "Daily new words must be 5–100.",

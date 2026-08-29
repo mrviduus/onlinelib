@@ -32,7 +32,8 @@ public static partial class VocabularyEndpoints
             WeeklyReviewBudget: settings?.WeeklyReviewBudget ?? 70,
             FrequencyFilterEnabled: settings?.FrequencyFilterEnabled ?? false,
             ClusteringEnabled: settings?.ClusteringEnabled ?? true,
-            AutoRetireEnabled: settings?.AutoRetireEnabled ?? true));
+            AutoRetireEnabled: settings?.AutoRetireEnabled ?? true,
+            AutoSpeakCards: settings?.AutoSpeakCards ?? true));
     }
 
     private static async Task<IResult> UpdateSettings(
@@ -70,6 +71,7 @@ public static partial class VocabularyEndpoints
         settings.FrequencyFilterEnabled = request.FrequencyFilterEnabled;
         settings.ClusteringEnabled = request.ClusteringEnabled;
         settings.AutoRetireEnabled = request.AutoRetireEnabled;
+        settings.AutoSpeakCards = request.AutoSpeakCards;
         settings.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);
