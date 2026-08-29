@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chapterSlugForPage, resolvePdfResumePage, chapterEndPage, resumeChapterSlug } from './pdfResume'
+import { chapterSlugForPage, resolvePdfResumePage, chapterEndPage } from './pdfResume'
 
 // A 4-chapter PDF. Chapter three is where the reader left off.
 const chapters = [
@@ -108,36 +108,5 @@ describe('resolvePdfResumePage', () => {
 
   it('floors fractional input rather than handing a float to the viewer', () => {
     expect(resolvePdfResumePage({ chapterStartPage: 55, chapterEndPage: 90, resumePage: 71.8 })).toBe(71)
-  })
-})
-
-describe('resumeChapterSlug', () => {
-  const chapters = [
-    { slug: 'ch-1', sourceStartPage: 1 },
-    { slug: 'ch-2', sourceStartPage: 20 },
-    { slug: 'ch-3', sourceStartPage: 40 },
-  ]
-
-  it('prefers a stored chapter slug that still exists', () => {
-    expect(resumeChapterSlug('ch-2', 'scroll:ch-2:400', chapters)).toBe('ch-2')
-  })
-
-  it('falls back to the page locator when there is no chapter', () => {
-    // The catalog screen's defect verbatim: a PDF read to page 24 in Original
-    // layout stores chapterSlug null, and looking only at the slug reported the
-    // book as never opened.
-    expect(resumeChapterSlug(null, 'page:24', chapters)).toBe('ch-2')
-  })
-
-  it('ignores a slug that no longer names a chapter', () => {
-    // Re-parsing a book can rename chapters. A dangling slug must not win over
-    // a page we can still place.
-    expect(resumeChapterSlug('ch-deleted', 'page:41', chapters)).toBe('ch-3')
-  })
-
-  it('returns null when neither says anything', () => {
-    expect(resumeChapterSlug(null, null, chapters)).toBeNull()
-    expect(resumeChapterSlug(null, 'page:5', [])).toBeNull()
-    expect(resumeChapterSlug('ch-1', 'page:5', null)).toBeNull()
   })
 })

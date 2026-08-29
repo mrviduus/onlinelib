@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
-import { readingProgressApi, parseScrollLocator } from '@textstack/shared'
+import { readingProgressApi, parseScrollLocator, chapterIdForSlug } from '@textstack/shared'
 import type { Language } from '@textstack/shared'
 import { getLocalProgress, saveLocalProgress } from '../../lib/progressStorage'
 import { useReaderChapter } from '../../hooks/useReaderChapter'
@@ -67,14 +67,32 @@ export function useEditionReaderSource({
     bookSlug, language, injectJs, wordCountRef,
   })
 
+  // The chapter list, in a ref so `persist` can read it without being rebuilt on every change —
+  // it is handed to useReaderPersistence, which keys effects on its identity.
+  const chaptersRef = useRef(chapters)
+  chaptersRef.current = chapters
+
   const persist = useCallback((snap: ProgressSnapshot) => {
     const id = editionIdRef.current
     if (!id) return
+
+    // The chapter the reader is actually in, not the one the URL named.
+    //
+    // Infinite scroll appends the next chapter into the same document without renavigating, so
+    // the route chapter — and the id derived from it — stops moving while the locator follows the
+    // reader. The server has no slug column: it derives `chapterSlug` by joining this id to the
+    // chapters table. So a stale id here made the row disagree with its own locator, and resume
+    // believed the id. A reader who crossed into chapter two, left, and pressed Continue was sent
+    // back to chapter one, where the reader's first automatic save destroyed their place.
+    //
+    // Falls back to the route id when the slug names no known chapter: a position saved against a
+    // slightly stale chapter is worth more than a position not saved at all.
+    const chapterId = chapterIdForSlug(chaptersRef.current, snap.chapterSlug) ?? snap.chapterId
     saveLocalProgress(id, {
       // '' rather than null: getAllLocalProgress() validates this field as a
       // string and would drop the whole record otherwise. The local row is
       // keyed and resumed by slug; the id only matters to the server.
-      chapterId: snap.chapterId ?? '',
+      chapterId: chapterId ?? '',
       chapterSlug: snap.chapterSlug,
       locator: `scroll:${snap.chapterSlug}:${snap.scrollOffset}`,
       percent: snap.chapterPercent,
@@ -88,9 +106,9 @@ export function useEditionReaderSource({
     // The server row is keyed by chapter id. An offline-cached chapter has no
     // id to give, so there is nothing to send — the local write above is the
     // record, and useReaderPersistence repeats the save once an id appears.
-    if (!snap.chapterId) return
+    if (!chapterId) return
     readingProgressApi.updateProgress(id, {
-      chapterId: snap.chapterId,
+      chapterId,
       chapterSlug: snap.chapterSlug,
       // Book-wide, matching ReadingProgress.Percent's declared unit. This used
       // to send the chapter fraction — which hits 1.0 at the bottom of every
