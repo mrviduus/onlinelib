@@ -104,6 +104,9 @@ export interface ReaderShellProps {
    *  restore can't race the load (the "always returns to top" bug). */
   onWebViewLoaded: () => void
 
+  /** The WebView acknowledged a restore, carrying back the id it was issued with. */
+  onRestoreLanded: (restoreId: number) => void
+
   // Infinite scroll — the per-source fetch lives in the route; these fire on the
   // WebView 'loaded' / 'requestNextChapter' messages.
   onChapterLoaded: () => void
@@ -172,7 +175,7 @@ export function ReaderShell(props: ReaderShellProps) {
     bookTitle, chapters, chaptersLoading,
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef, totalWordCountRef,
     bumpProgress, saveProgress,
-    onWebViewLoaded,
+    onWebViewLoaded, onRestoreLanded,
     onChapterLoaded, onRequestNextChapter, onNavigateChapter,
     bookmarks, onToggleCurrentBookmark, onDeleteBookmark, bookmarkChapterSlug,
     bookTitleRef, wordCount, explainBookId, askTarget,
@@ -476,6 +479,11 @@ export function ReaderShell(props: ReaderShellProps) {
         // whole-book word count, so it was inflated by the same mistake.
         updateSessionProgress(bp ?? data.progress)
         bumpProgress()
+      } else if (data.type === 'restored') {
+        // A restore we injected has actually been applied. Until this arrives the newest position
+        // we hold is the load event's zero, and writing it wipes the reader's place — so this
+        // message, not the injection, is what opens the write gate.
+        onRestoreLanded(data.restoreId)
       } else if (data.type === 'loaded') {
         onChapterLoaded()
       } else if (data.type === 'requestNextChapter') {
@@ -555,7 +563,7 @@ export function ReaderShell(props: ReaderShellProps) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
   }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
-      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, openSelection, bumpProgress, haptics,
+      setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, onRestoreLanded, openSelection, bumpProgress, haptics,
       original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage, createPdfHighlight, repaintPdf])
 
   // "12 min left in chapter" — the estimate Kindle readers reach for, using the

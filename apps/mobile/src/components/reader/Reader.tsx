@@ -77,6 +77,7 @@ export function Reader({ runtime }: { runtime: ReaderRuntime }) {
       bumpProgress={runtime.bumpProgress}
       saveProgress={runtime.saveProgress}
       onWebViewLoaded={runtime.onWebViewLoaded}
+      onRestoreLanded={runtime.onRestoreLanded}
       onChapterLoaded={runtime.onChapterLoaded}
       onRequestNextChapter={runtime.onRequestNextChapter}
       onNavigateChapter={runtime.onNavigateChapter}

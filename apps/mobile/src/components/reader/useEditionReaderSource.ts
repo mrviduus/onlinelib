@@ -152,7 +152,7 @@ export function useEditionReaderSource({
     return { offset, percent }
   }, [isAuthenticated])
 
-  const { saveProgress, bumpProgress, onWebViewLoaded } = useReaderPersistence({
+  const { saveProgress, bumpProgress, onWebViewLoaded, onRestoreLanded } = useReaderPersistence({
     bookKey: editionId,
     chapterSlug,
     chapterId: chapter?.id ?? null,
@@ -178,7 +178,7 @@ export function useEditionReaderSource({
     chaptersLoading,
     wordCount: wordCountRef.current,
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef, totalWordCountRef,
-    saveProgress, bumpProgress, onWebViewLoaded,
+    saveProgress, bumpProgress, onWebViewLoaded, onRestoreLanded,
     onChapterLoaded: () => { if (chapter) enableForChapter(chapter) },
     onRequestNextChapter: loadNext,
     onNavigateChapter: (slug) => router.replace(`/reader/${bookSlug}/${slug}`),

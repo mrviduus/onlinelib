@@ -92,6 +92,8 @@ export interface ReaderRuntime {
   /** Called by ReaderShell once the WebView finishes loading — gates the
    *  scroll-restore so it can't race the async saved-position fetch. */
   onWebViewLoaded: () => void
+  /** The WebView acknowledged a restore, carrying back the id it was issued with. */
+  onRestoreLanded: (restoreId: number) => void
 
   // Infinite scroll.
   onChapterLoaded: () => void
