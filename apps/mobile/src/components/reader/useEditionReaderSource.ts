@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
 import { readingProgressApi, parseScrollLocator, chapterIdForSlug } from '@textstack/shared'
@@ -71,6 +71,10 @@ export function useEditionReaderSource({
   // it is handed to useReaderPersistence, which keys effects on its identity.
   const chaptersRef = useRef(chapters)
   chaptersRef.current = chapters
+  // The chapter the URL names, for the same reason: `persist` has to be able to tell "the reader is
+  // still where the route put them" from "the reader has scrolled somewhere else".
+  const routeChapterSlugRef = useRef(chapterSlug)
+  routeChapterSlugRef.current = chapterSlug
 
   const persist = useCallback((snap: ProgressSnapshot) => {
     const id = editionIdRef.current
@@ -85,9 +89,16 @@ export function useEditionReaderSource({
     // believed the id. A reader who crossed into chapter two, left, and pressed Continue was sent
     // back to chapter one, where the reader's first automatic save destroyed their place.
     //
-    // Falls back to the route id when the slug names no known chapter: a position saved against a
-    // slightly stale chapter is worth more than a position not saved at all.
-    const chapterId = chapterIdForSlug(chaptersRef.current, snap.chapterSlug) ?? snap.chapterId
+    // When the list cannot answer, the route id is right only if the reader has not left the route
+    // chapter. That distinction is the whole point: on a cold open the two agree and the route id
+    // is exactly correct, but the book request can also simply fail — infinite scroll fetches
+    // `chapter.next` on its own and needs no list, so a reader can spend a whole session moving
+    // through chapters while `chapters` stays empty. Pairing the route id with a locator naming a
+    // later chapter is how the row came to disagree with itself in the first place, and every
+    // reader of that row is then wrong in a way nothing on it reveals. Better to hold the server
+    // write back — the local record is the position either way — and send it when the list lands.
+    const chapterId = chapterIdForSlug(chaptersRef.current, snap.chapterSlug)
+      ?? (snap.chapterSlug === routeChapterSlugRef.current ? snap.chapterId : null)
     saveLocalProgress(id, {
       // '' rather than null: getAllLocalProgress() validates this field as a
       // string and would drop the whole record otherwise. The local row is
@@ -160,6 +171,17 @@ export function useEditionReaderSource({
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef,
     persist, loadPosition,
   })
+
+  // The chapter list arriving is the second chance for a server write that had to be held back.
+  // `useReaderPersistence` replays a deferred save when the chapter *id* lands, which is a
+  // different signal — that one is about the route chapter's own fetch, and it has already
+  // resolved by the time this matters. Fires once, on the transition from no list to a list.
+  const chaptersArrivedRef = useRef(false)
+  useEffect(() => {
+    if (chaptersArrivedRef.current || chapters.length === 0) return
+    chaptersArrivedRef.current = true
+    saveProgress()
+  }, [chapters, saveProgress])
 
   return {
     source: { kind: 'edition', id: editionId, idRef: editionIdRef },
