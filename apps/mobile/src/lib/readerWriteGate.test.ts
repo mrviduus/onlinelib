@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { canPersistPosition, type ReaderWriteGateInput } from './readerWriteGate'
+import {
+  canPersistPosition,
+  restoreGateReduce,
+  restoredChapter,
+  RESTORE_GATE_INITIAL,
+  type ReaderWriteGateInput,
+  type RestoreGateState,
+} from './readerWriteGate'
 
 const base: ReaderWriteGateInput = {
   enabled: true,
@@ -41,5 +48,70 @@ describe('canPersistPosition', () => {
   it('refuses before the book id resolves', () => {
     expect(canPersistPosition({ ...base, bookKey: null })).toBe(false)
     expect(canPersistPosition({ ...base, chapterSlug: null })).toBe(false)
+  })
+})
+
+/**
+ * The window these cover is the one the first version of this gate missed: a restore is injected
+ * into a WebView, the gate opened on the injection, and the scroll had not happened yet. QA opened
+ * a book at 45%, pressed back within a second, and the saved position was 0.66% — twice.
+ */
+describe('restoreGateReduce', () => {
+  const entered = restoreGateReduce(RESTORE_GATE_INITIAL, {
+    type: 'chapterEntered', chapterSlug: '4-act-iii',
+  })
+  const issued = restoreGateReduce(entered, { type: 'restoreIssued', restoreId: 7, at: 1_000 })
+
+  it('refuses a write while a restore is in flight', () => {
+    // The whole defect in one assertion: asked is not arrived.
+    expect(issued.phase).toBe('issued')
+    expect(restoredChapter(issued)).toBeNull()
+  })
+
+  it('opens when the WebView acknowledges the restore it was given', () => {
+    const landed = restoreGateReduce(issued, { type: 'restoreLanded', restoreId: 7 })
+    expect(restoredChapter(landed)).toBe('4-act-iii')
+  })
+
+  it('ignores an acknowledgement from a restore it did not issue', () => {
+    // Leaving a chapter mid-restore and entering another: the old ack must not open the new gate.
+    expect(restoreGateReduce(issued, { type: 'restoreLanded', restoreId: 6 })).toBe(issued)
+  })
+
+  it('opens on a reported position that is not the top', () => {
+    // Stands in for a lost acknowledgement. Wherever the reader is, they are somewhere real.
+    const moved = restoreGateReduce(issued, { type: 'positionReported', scrollY: 7488 })
+    expect(restoredChapter(moved)).toBe('4-act-iii')
+  })
+
+  it('is not opened by the zero the page reports on its own load event', () => {
+    // The message that did the damage. It arrives with no user action, before any restore lands.
+    expect(restoreGateReduce(issued, { type: 'positionReported', scrollY: 0 })).toBe(issued)
+  })
+
+  it('opens on the settle timeout, so a lost restore cannot silence saving for good', () => {
+    // Losing the tail of one session is bad; losing every session because one injection went
+    // missing is worse. Same escape hatch, same value, as PDF_JUMP_SETTLE_MS.
+    const timedOut = restoreGateReduce(issued, { type: 'restoreTimedOut', restoreId: 7 })
+    expect(restoredChapter(timedOut)).toBe('4-act-iii')
+  })
+
+  it('opens immediately when there was nothing to restore', () => {
+    const fresh = restoreGateReduce(entered, { type: 'nothingToRestore' })
+    expect(restoredChapter(fresh)).toBe('4-act-iii')
+  })
+
+  it('closes again on the next chapter, and keeps the id counter', () => {
+    const open = restoreGateReduce(issued, { type: 'restoreLanded', restoreId: 7 })
+    const next = restoreGateReduce(open, { type: 'chapterEntered', chapterSlug: '5-act-iv' })
+    expect(restoredChapter(next)).toBeNull()
+    // Carried over so the chapter just left cannot satisfy the chapter just entered.
+    expect(next.restoreId).toBe(7)
+  })
+
+  it('returns the same state object when nothing transitions', () => {
+    // Dispatched on every scroll message; an unchanged reference is what keeps that free.
+    const open: RestoreGateState = restoreGateReduce(issued, { type: 'restoreLanded', restoreId: 7 })
+    expect(restoreGateReduce(open, { type: 'positionReported', scrollY: 900 })).toBe(open)
   })
 })

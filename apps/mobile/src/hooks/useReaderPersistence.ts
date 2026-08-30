@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, MutableRefObject, useState } from 'react'
-import { canPersistPosition } from '../lib/readerWriteGate'
+import {
+  canPersistPosition,
+  restoreGateReduce,
+  restoredChapter,
+  RESTORE_GATE_INITIAL,
+  RESTORE_SETTLE_MS,
+  type RestoreGateEvent,
+} from '../lib/readerWriteGate'
 import { useFlushOnBackground } from './useFlushOnBackground'
 import type { ProgressSnapshot, SavedPosition } from '../components/reader/readerSource'
 
@@ -79,7 +86,19 @@ export function useReaderPersistence({
   const restoredRef = useRef(false)
   // State, deliberately, not a ref: a writer has to be able to re-run once restore finishes, and
   // flipping a ref triggers no render. The web reader keeps exactly this, for exactly this reason.
-  const [restoredFor, setRestoredFor] = useState<string | null>(null)
+  //
+  // What it holds is no longer "a restore was injected" but "the WebView says it got there" — see
+  // readerWriteGate. The reducer returns its own state object untouched when nothing transitions,
+  // so dispatching on every scroll message costs no render.
+  const [gate, setGate] = useState(RESTORE_GATE_INITIAL)
+  const restoredFor = restoredChapter(gate)
+  const dispatchGate = useCallback((event: RestoreGateEvent) => {
+    setGate(prev => restoreGateReduce(prev, event))
+  }, [])
+  // Mints the token that travels into the WebView and back, so an acknowledgement from the chapter
+  // just left cannot open the gate on this one. Mirrors `pdfJumpIdRef` in ReaderShell.
+  const restoreIdRef = useRef(0)
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const webViewLoadedRef = useRef(false)
   const positionLoadedRef = useRef(false)
 
@@ -88,18 +107,34 @@ export function useReaderPersistence({
     if (!webViewLoadedRef.current || !positionLoadedRef.current) return
     // Both signals in — fire exactly once for this chapter mount.
     restoredRef.current = true
-    // Opens the write gate, including on the "nothing saved, stay at the top" path below: that is
-    // a completed restore, and treating it otherwise would mean a first read is never saved.
-    setRestoredFor(chapterSlug ?? null)
     const offset = savedOffsetRef.current
     const pct = savedPercentRef.current
-    if (offset != null) {
-      injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${offset})`)
-    } else if (pct != null) {
-      injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
+    if (offset == null && pct == null) {
+      // Nothing saved: the top of the chapter IS the restored position. Open the gate now, or a
+      // book opened for the first time could never be saved at all.
+      dispatchGate({ type: 'nothingToRestore' })
+      return
     }
-    // No saved position → leave at top (restoredRef already set so we stop).
-  }, [injectJs, chapterSlug])
+    // Asked, not arrived. The gate stays shut until the WebView reports back — this is the window
+    // in which a back-press used to persist the load event's zero over a half-read book.
+    const restoreId = ++restoreIdRef.current
+    dispatchGate({ type: 'restoreIssued', restoreId, at: Date.now() })
+    if (settleTimerRef.current) clearTimeout(settleTimerRef.current)
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null
+      dispatchGate({ type: 'restoreTimedOut', restoreId })
+    }, RESTORE_SETTLE_MS)
+    if (offset != null) {
+      injectJs(`window.__textstackRestoreScroll && window.__textstackRestoreScroll(${offset}, ${restoreId})`)
+    } else {
+      injectJs(`window.__textstackRestorePercent && window.__textstackRestorePercent(${pct}, ${restoreId})`)
+    }
+  }, [injectJs, dispatchGate])
+
+  /** The WebView finished a restore we asked for. Signalled by ReaderShell's `restored` message. */
+  const onRestoreLanded = useCallback((restoreId: number) => {
+    dispatchGate({ type: 'restoreLanded', restoreId })
+  }, [dispatchGate])
 
   // Signalled by ReaderShell's onLoadEnd.
   const onWebViewLoaded = useCallback(() => {
@@ -112,7 +147,9 @@ export function useReaderPersistence({
     if (restoredRef.current) {
       const pct = progressRef.current
       if (Number.isFinite(pct) && pct > 0.001) {
-        injectJs(`requestAnimationFrame(function(){ window.scrollTo(0, Math.round(document.documentElement.scrollHeight * ${pct})); });`)
+        // Same helper as a real restore. Its acknowledgement is harmless here — the gate is
+        // already open for this chapter, and the reducer ignores a landing it never asked for.
+        injectJs(`window.__textstackRestorePercent && window.__textstackRestorePercent(${pct}, 0)`)
       }
       return
     }
@@ -176,6 +213,10 @@ export function useReaderPersistence({
   // scrubbing doesn't spam writes.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bumpProgress = useCallback(() => {
+    // ReaderShell has just written the live refs from the WebView's message, so this is also where
+    // the gate learns the reader is somewhere real — the standby for an acknowledgement that never
+    // arrived. A zero, which is what the load event sends, opens nothing.
+    dispatchGate({ type: 'positionReported', scrollY: scrollOffsetRef.current })
     // Nothing to debounce toward — don't arm a timer that will no-op. The restore gate is checked
     // here as well as inside saveProgress, so the load-event bump does not leave a timer running
     // into the window where the gate has just opened.
@@ -185,7 +226,7 @@ export function useReaderPersistence({
       debounceRef.current = null
       saveProgress()
     }, 2000)
-  }, [enabled, bookKey, chapterSlug, restoredFor, saveProgress])
+  }, [enabled, bookKey, chapterSlug, restoredFor, saveProgress, dispatchGate, scrollOffsetRef])
 
   // Load saved position + reset the restore machine whenever the chapter (or
   // the resolved bookKey) changes. One-shot per (bookKey, chapterSlug).
@@ -193,7 +234,8 @@ export function useReaderPersistence({
     restoredRef.current = false
     // Closes the write gate for the chapter being entered. A single boolean would stay open and
     // let the new chapter be persisted at offset 0 before its own restore had run.
-    setRestoredFor(null)
+    dispatchGate({ type: 'chapterEntered', chapterSlug: chapterSlug ?? null })
+    if (settleTimerRef.current) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null }
     webViewLoadedRef.current = false
     positionLoadedRef.current = false
     savedOffsetRef.current = null
@@ -219,7 +261,7 @@ export function useReaderPersistence({
     return () => { cancelled = true }
     // `enabled` is a dependency so the corrupt-PDF "read as text" fallback
     // (forceReflow) re-arms restore when it flips.
-  }, [enabled, bookKey, chapterSlug, loadPosition, tryRestore])
+  }, [enabled, bookKey, chapterSlug, loadPosition, tryRestore, dispatchGate])
 
   // Always points at the current closure, so the unmount flush below can have
   // an empty dependency list without going stale.
@@ -240,6 +282,7 @@ export function useReaderPersistence({
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current)
       saveProgressRef.current()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,5 +292,5 @@ export function useReaderPersistence({
   // get one last sync write of scroll position + book-percent cache.
   useFlushOnBackground(saveProgress)
 
-  return { saveProgress, bumpProgress, onWebViewLoaded }
+  return { saveProgress, bumpProgress, onWebViewLoaded, onRestoreLanded }
 }
