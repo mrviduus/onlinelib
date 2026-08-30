@@ -33,6 +33,10 @@ import { parseScrollLocator } from './progressPayload'
  * chapter that re-parsing has since renamed, or no locator at all.
  *
  * Returns null when nothing decides, so the caller can start at the beginning rather than guess.
+ *
+ * `chapters` is what the two candidates are checked against, and callers that have no list get the
+ * ranking without the check — see the note in the body. Passing a list that has not loaded yet is
+ * therefore the same as passing none: the answer arrives sooner and is corrected when the list does.
  */
 export function resumeChapterSlug(
   chapterSlug: string | null | undefined,
@@ -40,12 +44,20 @@ export function resumeChapterSlug(
   chapters: readonly ChapterPageAnchor[] | null | undefined,
 ): string | null {
   const list = chapters ?? []
-  const exists = (slug: string | null | undefined): slug is string =>
-    !!slug && list.some(c => c.slug === slug)
-
   // A reflow locator carries its own slug. It beats the stored chapter, which is a projection of
   // a field that stops moving once infinite scroll takes over.
   const fromLocator = parseScrollLocator(locator)?.slug
+
+  // Not every caller has the chapter list. The library shelf and the "Continue Reading" rail work
+  // from a progress row alone, and validating against a list they do not have would mean answering
+  // "no idea" to a question the locator can answer perfectly well — which is how both of them ended
+  // up trusting the *worse* half, unvalidated, while this function existed to prefer the better
+  // one. With no list there is nothing to check a slug against, so the ranking is all there is.
+  if (list.length === 0) return fromLocator ?? chapterSlug ?? null
+
+  const exists = (slug: string | null | undefined): slug is string =>
+    !!slug && list.some(c => c.slug === slug)
+
   if (exists(fromLocator)) return fromLocator
 
   if (exists(chapterSlug)) return chapterSlug

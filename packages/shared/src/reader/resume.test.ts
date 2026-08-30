@@ -42,7 +42,33 @@ describe('resumeChapterSlug', () => {
   it('returns null when neither says anything', () => {
     expect(resumeChapterSlug(null, null, chapters)).toBeNull()
     expect(resumeChapterSlug(null, 'page:5', [])).toBeNull()
-    expect(resumeChapterSlug('ch-1', 'page:5', null)).toBeNull()
+    expect(resumeChapterSlug(null, null, null)).toBeNull()
+  })
+})
+
+/**
+ * The shelf card and the "Continue Reading" rail hold a progress row and nothing else. They used to
+ * read `chapterSlug` straight off it — the field the API derives from `chapterId`, which stops
+ * moving the moment infinite scroll carries the reader past the chapter they opened. A reader 45%
+ * into act three was sent to the top of act one, and the reader's first automatic save overwrote
+ * 45% with 0.66%.
+ */
+describe('resumeChapterSlug with no chapter list', () => {
+  it('still prefers the locator over the stored slug', () => {
+    expect(resumeChapterSlug('2-act-i', 'scroll:4-act-iii:7488', null)).toBe('4-act-iii')
+    expect(resumeChapterSlug('2-act-i', 'scroll:4-act-iii:7488', [])).toBe('4-act-iii')
+  })
+
+  it('falls back to the stored slug when the locator cannot name a chapter', () => {
+    // A chapterless PDF's `page:<N>` needs the list to be placed; the stored slug is all there is.
+    expect(resumeChapterSlug('ch-1', 'page:5', null)).toBe('ch-1')
+    expect(resumeChapterSlug('ch-1', null, null)).toBe('ch-1')
+  })
+
+  it('cannot validate, and says so by answering anyway', () => {
+    // With no list there is nothing to check a dangling slug against. Answering "no idea" would
+    // send the caller back to the first chapter, which is worse than a slug that may be stale.
+    expect(resumeChapterSlug(null, 'scroll:ch-renamed:120', null)).toBe('ch-renamed')
   })
 })
 
