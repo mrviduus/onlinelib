@@ -257,16 +257,50 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
     }
     window.addEventListener('scroll', reportProgress, { passive: true });
 
-    // RN → WebView: jump to a saved scroll offset on chapter mount.
-    // Called from the reader screen after the chapter HTML has loaded
-    // (first 'progress' message confirms layout is ready).
-    window.__textstackRestoreScroll = function(offsetY) {
+    // RN → WebView: jump to a saved position on chapter mount, and say when it
+    // landed.
+    //
+    // The acknowledgement is the point. These used to be fire-and-forget, so RN
+    // opened its write gate the moment it INJECTED a restore — while this side
+    // was still one paint away from moving, and the load event's scrollY of 0
+    // was the newest thing RN knew. Pressing back inside that window saved the
+    // zero over 45% of a book. The scroll these cause does fire reportProgress,
+    // but that message is indistinguishable from the reader scrolling, and is
+    // suppressed outright when the delta is under 0.005 — it cannot be the
+    // signal. So each restore carries an id and reports back under its own
+    // message type, the way the PDF viewer acks scrollToPage(page, jumpId).
+    //
+    // (No backticks anywhere in here: this whole document is one template
+    // literal, and one would end it.)
+    function ackRestore(restoreId) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'restored',
+        restoreId: restoreId,
+        scrollY: Math.round(window.scrollY)
+      }));
+    }
+
+    window.__textstackRestoreScroll = function(offsetY, restoreId) {
       try {
         var target = Math.max(0, Math.floor(offsetY) || 0);
         // requestAnimationFrame to wait one paint so the reader's own
         // mount-time scroll-to-top doesn't race ahead and clobber us.
         requestAnimationFrame(function() {
           window.scrollTo(0, target);
+          ackRestore(restoreId);
+        });
+      } catch (e) {}
+    };
+
+    // The percent branch: no saved pixel offset, only a fraction of the chapter.
+    // It used to be a raw string injected from the hook with no function behind
+    // it here, which is why it had nowhere to report from. Same shape, same ack.
+    window.__textstackRestorePercent = function(pct, restoreId) {
+      try {
+        var fraction = Math.min(1, Math.max(0, Number(pct) || 0));
+        requestAnimationFrame(function() {
+          window.scrollTo(0, Math.round(document.documentElement.scrollHeight * fraction));
+          ackRestore(restoreId);
         });
       } catch (e) {}
     };

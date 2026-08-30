@@ -52,3 +52,110 @@ export function canPersistPosition(
   // write in that window would persist the new chapter at offset 0.
   return restoredFor === chapterSlug
 }
+
+/**
+ * When a restore counts as finished.
+ *
+ * The first version of this gate answered "has a restore been *issued*", and QA found the gap the
+ * same week: open a book at 45%, press back within a second, and the position was 0.66%. Issuing a
+ * restore means injecting JavaScript into a WebView. The scroll happens one paint later, in another
+ * realm, and until it reports back the newest position RN holds is the `scrollY: 0` the page sent
+ * on its own load event. The gate was open across that whole window.
+ *
+ * So the phase between "asked" and "arrived" has to exist, and only the WebView can end it. This is
+ * the same machine as `pdfPersistGate` — written after the same class of bug, on the other reader —
+ * with the same three ways out, for the same reasons: an id-matched acknowledgement, a positional
+ * heuristic in case the ack is lost, and a timeout so a restore that can never land cannot disable
+ * saving for the whole session.
+ */
+export type RestoreGatePhase =
+  /** Entered a chapter; nothing has been asked of the WebView yet. */
+  | 'awaiting'
+  /** A restore was injected and has not reported back. The destructive window. */
+  | 'issued'
+  /** The reader is where they chose to be. Writes allowed. */
+  | 'open'
+
+export interface RestoreGateState {
+  phase: RestoreGatePhase
+  /** The chapter this gate belongs to. A write is only ever allowed for this one. */
+  chapterSlug: string | null
+  /** Identifies the in-flight restore, so a stale ack from the previous chapter cannot open it. */
+  restoreId: number
+  issuedAt: number
+}
+
+export type RestoreGateEvent =
+  /** A chapter mounted, or the reader moved to another one. Closes the gate. */
+  | { type: 'chapterEntered'; chapterSlug: string | null }
+  /** A restore was injected into the WebView. */
+  | { type: 'restoreIssued'; restoreId: number; at: number }
+  /**
+   * There was no saved position. That is a *completed* restore — the top of the chapter is where
+   * the reader should be — and it must open the gate, or a book opened for the first time could
+   * never be saved at all.
+   */
+  | { type: 'nothingToRestore' }
+  /** The WebView acknowledged the restore it was given. */
+  | { type: 'restoreLanded'; restoreId: number }
+  /** The WebView reported a scroll position, restore-driven or from the reader's own finger. */
+  | { type: 'positionReported'; scrollY: number }
+  /** `RESTORE_SETTLE_MS` passed with no acknowledgement. The escape hatch. */
+  | { type: 'restoreTimedOut'; restoreId: number }
+
+export const RESTORE_GATE_INITIAL: RestoreGateState = {
+  phase: 'awaiting',
+  chapterSlug: null,
+  restoreId: 0,
+  issuedAt: 0,
+}
+
+/**
+ * How long to wait for a restore to land before allowing writes anyway.
+ *
+ * The escape hatch matters more than the happy path, exactly as it does for `PDF_JUMP_SETTLE_MS`
+ * (same value, same argument): without it, one injection that never arrives — a WebView reloaded
+ * out from under us, a message dropped — would silently stop the reader's position being saved for
+ * the rest of the session. Losing the tail of a session is bad; losing every session is worse.
+ */
+export const RESTORE_SETTLE_MS = 4000
+
+export function restoreGateReduce(
+  state: RestoreGateState,
+  event: RestoreGateEvent,
+): RestoreGateState {
+  switch (event.type) {
+    case 'chapterEntered':
+      // Keeps the id counter so an ack for the chapter just left can never satisfy this one.
+      return { ...RESTORE_GATE_INITIAL, chapterSlug: event.chapterSlug, restoreId: state.restoreId }
+
+    case 'restoreIssued':
+      return { ...state, phase: 'issued', restoreId: event.restoreId, issuedAt: event.at }
+
+    case 'nothingToRestore':
+      return { ...state, phase: 'open' }
+
+    case 'restoreLanded':
+      if (state.phase !== 'issued' || event.restoreId !== state.restoreId) return state
+      return { ...state, phase: 'open' }
+
+    case 'positionReported':
+      if (state.phase !== 'issued') return state
+      // A non-zero offset is the reader demonstrably somewhere other than the top, whatever put
+      // them there — which is the one thing the load event's zero can never be. It stands in for a
+      // lost ack. The zero itself, deliberately, opens nothing.
+      return event.scrollY > 0 ? { ...state, phase: 'open' } : state
+
+    case 'restoreTimedOut':
+      if (state.phase !== 'issued' || event.restoreId !== state.restoreId) return state
+      return { ...state, phase: 'open' }
+
+    default:
+      return state
+  }
+}
+
+/** The chapter whose restore has completed, in the shape `canPersistPosition` consumes. */
+export function restoredChapter(state: RestoreGateState): string | null {
+  return state.phase === 'open' ? state.chapterSlug : null
+}
