@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Progress** — a row stops being able to contradict itself — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-29-progress-a-row-stops-being-able-to-contradict-itself)
 - **Reader** — the mobile reader stopped writing a position before it had restored one — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-reader-stopped-writing-a-position-before-restoring-one)
 - **Settings** — a stored default stopped masquerading as a decision, and auto-speak moved to where it is looked for — backend + mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-settings-a-stored-default-stopped-masquerading)
 - **Reader** — continuing a book stopped erasing where you had got to — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-28-reader-continuing-a-book-stopped-erasing-where-you-got-to)
