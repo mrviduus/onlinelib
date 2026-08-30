@@ -178,7 +178,7 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
   // `page:16` with `scroll:<url-slug>:0`. See readerWriteMode.ts.
   const reflowWrites = reflowWritesEnabled({ hasOriginalPdf, forceReflow })
 
-  const { saveProgress, bumpProgress, onWebViewLoaded } = useReaderPersistence({
+  const { saveProgress, bumpProgress, onWebViewLoaded, onRestoreLanded } = useReaderPersistence({
     bookKey: bookId || null,
     chapterSlug,
     chapterId: chapter?.id ?? null,
@@ -388,7 +388,7 @@ export function useUserBookReaderSource({ bookId, chapterSlug, showToast }: Para
     chaptersLoading,
     wordCount: wordCountRef.current,
     progressRef, scrollOffsetRef, currentChapterSlugRef, bookProgressRef, totalWordCountRef,
-    saveProgress, bumpProgress, onWebViewLoaded,
+    saveProgress, bumpProgress, onWebViewLoaded, onRestoreLanded,
     onChapterLoaded: () => {
       if (chapter?.next) {
         nextChapterRef.current = chapter.next
