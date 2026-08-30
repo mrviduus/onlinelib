@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'rea
 import { Image } from 'expo-image'
 import { useFocusEffect, useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { createBooksApi, getStorageUrl, libraryApi, plural, readingProgressApi, resumeChapterSlug } from '@textstack/shared'
+import { createBooksApi, formatBookPercent, getStorageUrl, libraryApi, plural, readingProgressApi, resumeChapterSlug, storedBookPercent } from '@textstack/shared'
 import type { BookDetail } from '@textstack/shared'
 import { useDownload } from '../../src/context/DownloadContext'
 import { useAuth } from '../../src/context/AuthContext'
@@ -36,6 +36,10 @@ export default function BookDetailScreen() {
   const [inLibrary, setInLibrary] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
   const [continueSlug, setContinueSlug] = useState<string | null>(null)
+  // How far in the reader is, so the button says where it will take them. The shelf card already
+  // showed "11% complete" while this screen offered a bare "Continue Reading" — the same reader,
+  // the same book, one of the two screens keeping it to itself.
+  const [continuePct, setContinuePct] = useState<number | null>(null)
   const [showAllChapters, setShowAllChapters] = useState(false)
   // True when the page is rendering a minimal view built from the offline
   // SQLite cache because the server was unreachable. Used to hide
@@ -81,6 +85,7 @@ export default function BookDetailScreen() {
             if (!cancelled) {
               const slug = resumeChapterSlug(p?.chapterSlug, p?.locator, b.chapters)
               if (slug) setContinueSlug(slug)
+              setContinuePct(storedBookPercent(p))
             }
           } catch (err) {
             console.warn('getProgress failed on book detail:', err)
@@ -252,6 +257,16 @@ export default function BookDetailScreen() {
 
         {/* Actions */}
         <View style={styles.actions}>
+          {continueSlug && continuePct != null && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans }}>
+                {t('library.readingProgress')}
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.primary, fontFamily: fonts.sansMedium }}>
+                {formatBookPercent(continuePct)}
+              </Text>
+            </View>
+          )}
           {book.chapters.length > 0 && (
             <TouchableOpacity
               style={[styles.readButton, { backgroundColor: colors.primary }]}

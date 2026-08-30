@@ -20,6 +20,7 @@
  */
 
 import type { UserLibraryItem, ReadingProgressDto, UserBookDto } from '../types/api'
+import { resumeChapterSlug } from './resume'
 
 /** Local-cache shape for catalog (edition) progress. */
 export interface LocalProgressLite {
@@ -145,7 +146,14 @@ function pickCatalog(
     updatedAtMs = localMs
   } else if (server && server.percent != null) {
     percent = server.percent
-    chapterSlug = server.chapterSlug
+    // Not `server.chapterSlug`. That field is a projection the API derives by joining the row's
+    // `chapterId` to the chapters table, and `chapterId` stops moving the moment infinite scroll
+    // carries the reader into the next chapter — so a row can name chapter two while its locator
+    // is deep in chapter four, and this card would promise to continue and open the wrong one.
+    // The book screen learned this in #496; the rail and the shelf did not, which is how a reader
+    // 45% in was sent back to 0.66%. No chapter list is available here, and none is needed: the
+    // locator either names a chapter or it does not.
+    chapterSlug = resumeChapterSlug(server.chapterSlug, server.locator, null)
     updatedAtMs = serverMs
     // Multi-device: our local cache may hold a fresher book-wide value for the
     // same chapter than the server round-trip has delivered.

@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import {
   getStorageUrl,
-  entryKey, entryTitle, entryAuthor, entryCoverPath, entryProgress,
+  entryKey, entryTitle, entryAuthor, entryCoverPath, entryProgress, resumeChapterSlug,
   type LibraryEntry, type UserLibraryItem, type ReadingProgressDto, formatTimeAgo } from '@textstack/shared'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
@@ -159,7 +159,12 @@ export function BookList({
     }
 
     const serverProgress = e.kind === 'saved' ? progressMap[e.item.editionId] : undefined
-    const continueSlug = e.kind === 'saved' ? serverProgress?.chapterSlug : null
+    // `serverProgress.chapterSlug` is derived server-side from the row's `chapterId`, and that id
+    // stops moving once infinite scroll carries the reader past the chapter they opened. Following
+    // it sent a reader 45% in back to the top of chapter two. The locator is the position.
+    const continueSlug = e.kind === 'saved'
+      ? resumeChapterSlug(serverProgress?.chapterSlug, serverProgress?.locator, null)
+      : null
     const lastRead = e.kind === 'saved' ? serverProgress?.updatedAt : e.book.progressUpdatedAt
 
     return (
