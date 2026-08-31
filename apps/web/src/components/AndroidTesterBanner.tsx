@@ -9,8 +9,12 @@ const COOKIE_KEY = 'cookieConsent'
 
 export const OPT_IN_URL = 'https://play.google.com/apps/testing/app.textstack.mobile'
 
-/** Reader routes: /:lang/books/:book/:chapter and /:lang/library/my/:id/read[/:chapter]. */
-const READER_PATH = /\/books\/[^/]+\/[^/]+$|\/library\/my\/[^/]+\/read/
+/**
+ * Reader routes: /:lang/books/:book/:chapter and /:lang/library/my/:id/read[/:chapter].
+ * The trailing slash is not optional in production — nginx 301s chapter URLs to it — so a
+ * pattern anchored on the bare segment matches locally and never matches on the live site.
+ */
+const READER_PATH = /\/books\/[^/]+\/[^/]+\/?$|\/library\/my\/[^/]+\/read/
 
 function isAndroid() {
   return /Android/i.test(navigator.userAgent)
