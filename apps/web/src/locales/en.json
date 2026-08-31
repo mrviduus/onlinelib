@@ -215,6 +215,12 @@
     "accept": "Accept all",
     "reject": "Reject analytics"
   },
+  "androidBeta": {
+    "title": "Read on your phone?",
+    "body": "The Android app is in closed testing — same books, same saved words, offline. Join, keep it installed, and read. That is the whole job.",
+    "join": "Join the test",
+    "dismiss": "Not now"
+  },
   "reader": {
     "ask": {
       "title": "Ask this book",
