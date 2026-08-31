@@ -14,7 +14,7 @@
 
 import pg from 'pg';
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { writeFileSync, unlinkSync, existsSync, readdirSync } from 'fs';
 import { rename, rm } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -203,6 +203,14 @@ async function processJob(job) {
 
     // 8. Update job status based on exit code
     if (exitCode === 0) {
+      // A clean exit says the renders succeeded, not that they survived. Deploy wipes
+      // apps/web/dist to rebuild the frontend and only snapshots dist/ssg — a rebuild
+      // running at that moment has its dist/ssg-new emptied underneath it, then promotes
+      // the remains over the good tree the deploy just restored. That is how the whole
+      // site went 404-to-crawlers on 2026-08-31. Count what is actually on disk before
+      // trusting it; throwing lands in the catch, which keeps dist/ssg untouched.
+      assertBuildSurvived(routes.length);
+
       // Atomic swap: ssg-new → ssg
       await atomicSwap();
 
@@ -255,6 +263,48 @@ async function submitToIndexNow(host, routes) {
       // Don't fail SSG if IndexNow fails
     }
   }
+}
+
+/** Pages actually written under `dir`, counted as index.html files. */
+function countRenderedPages(dir) {
+  let n = 0;
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) walk(join(d, e.name));
+      else if (e.name === 'index.html') n++;
+    }
+  };
+  walk(dir);
+  return n;
+}
+
+/**
+ * Refuse to promote a build that lost most of itself between rendering and swapping.
+ *
+ * The floor is deliberately loose: routes legitimately go unwritten when a page renders
+ * noindex (a draft book, a not-found), so a healthy build lands a little short of its
+ * route count. It is not trying to catch a handful of missing pages — it is there for the
+ * case where the directory is gone, which is not subtle: on 2026-08-31 a build reported
+ * 1990 of 1992 rendered and had 127 files left on disk.
+ */
+function assertBuildSurvived(expectedRoutes) {
+  const MIN_RATIO = 0.9;
+  const found = countRenderedPages(SSG_NEW_DIR);
+  const floor = Math.floor(expectedRoutes * MIN_RATIO);
+  if (found < floor) {
+    throw new Error(
+      `Refusing atomic swap: ${SSG_NEW_DIR} holds ${found} pages, expected at least ${floor} ` +
+      `of ${expectedRoutes} routes. Something removed the build while it ran (a concurrent ` +
+      `deploy wipes apps/web/dist). Keeping the current SSG tree.`
+    );
+  }
+  console.log(`Build survived: ${found} pages on disk (floor ${floor} of ${expectedRoutes})`);
 }
 
 /**
