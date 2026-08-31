@@ -230,6 +230,9 @@ jobs:
 
       - name: Queue SSG rebuild
         run: |
+          # Stamp the moment we asked, so the wait below can require a swap that happened
+          # *after* it rather than guessing from a file's age.
+          echo "SSG_QUEUED_AT=$(date +%s)" >> $GITHUB_ENV
           curl -sf -X POST http://localhost:8080/internal/ssg/rebuild-all && echo "SSG rebuild queued" || echo "SSG rebuild queue failed (non-blocking)"
 
       - name: Health check frontend
@@ -284,7 +287,12 @@ jobs:
           # were wrong: the budget is now 40 min, and running out of it fails the step.
           DEADLINE=$(( $(date +%s) + 2400 ))
           SENTINEL="$SSG_DIR/en/books/dracula/index.html"
-          until [ -f "$SENTINEL" ] && [ "$(find "$SENTINEL" -mmin -45)" ]; do
+          # Not "is the file recent" — that has no honest window. A 15-minute window expired on
+          # every real rebuild; widening it to 45 made a tree from the previous rebuild look
+          # current and the wait returned in zero seconds. The question is whether a swap
+          # happened after we queued, which is a comparison, not a guess.
+          SINCE=${SSG_QUEUED_AT:-0}
+          until [ -f "$SENTINEL" ] && [ "$(stat -c %Y "$SENTINEL")" -gt "$SINCE" ]; do
             if [ "$(date +%s)" -ge "$DEADLINE" ]; then
               echo "FAIL: SSG rebuild did not finish within 40 min — crawlers may be served a stale or partial tree"
               exit 1

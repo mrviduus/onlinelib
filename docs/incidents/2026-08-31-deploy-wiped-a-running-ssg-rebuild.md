@@ -105,3 +105,21 @@ few minutes later, when it did.
 Worth recording that the nginx config contains a dead alias: `location /ssg/` points at
 `data/ssg/`, a directory that does not exist on the server. Serving works through the `root` at
 `apps/web/dist` instead. It cost some minutes and it is still there.
+
+## Follow-up, same day
+
+The first attempt at the wait step fixed the deadline and broke the signal. Raising the budget from
+10 to 40 minutes was right; widening the sentinel's freshness window from `-mmin -15` to `-mmin -45`
+alongside it was not. The next deploy queued a rebuild at 18:04:58 UTC against a `dracula/index.html`
+last written at 17:30:52 — 34 minutes old, inside the new window — so the wait was satisfied by the
+previous rebuild's output and returned in zero seconds. Same failure as before, arrived at from the
+opposite direction.
+
+There is no honest number for that window: too small and it expires on every real rebuild, too large
+and a stale tree passes for a fresh one. The question was never "is this file recent" but "did a swap
+happen after I asked", which is a comparison rather than a guess. The queue step now stamps
+`SSG_QUEUED_AT` and the wait requires the sentinel's mtime to exceed it.
+
+Worth naming plainly: this was introduced while writing the fix for the incident above, and it went
+out because the change looked like a strictly-larger tolerance rather than what it was — a weakening
+of the only thing being tested.
