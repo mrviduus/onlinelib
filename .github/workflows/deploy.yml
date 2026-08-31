@@ -230,6 +230,9 @@ jobs:
 
       - name: Queue SSG rebuild
         run: |
+          # Stamp the moment we asked, so the wait below can require a swap that happened
+          # *after* it rather than guessing from a file's age.
+          echo "SSG_QUEUED_AT=$(date +%s)" >> $GITHUB_ENV
           curl -sf -X POST http://localhost:8080/internal/ssg/rebuild-all && echo "SSG rebuild queued" || echo "SSG rebuild queue failed (non-blocking)"
 
       - name: Health check frontend
@@ -278,10 +281,22 @@ jobs:
           SSG_DIR=$PROJECT_DIR/apps/web/dist/ssg
           [ -d "$SSG_DIR" ] || { echo "No SSG dir yet — skipping wait"; exit 0; }
 
-          DEADLINE=$(( $(date +%s) + 600 ))  # 10 min max
+          # A full rebuild renders ~2000 routes and has taken ~25 min; the old 10-minute
+          # deadline expired on every honest rebuild and then `exit 0`, so "SSG never
+          # refreshed" and "SSG refreshed fine" produced the same green deploy. Both halves
+          # were wrong: the budget is now 40 min, and running out of it fails the step.
+          DEADLINE=$(( $(date +%s) + 2400 ))
           SENTINEL="$SSG_DIR/en/books/dracula/index.html"
-          until [ -f "$SENTINEL" ] && [ "$(find "$SENTINEL" -mmin -15)" ]; do
-            [ "$(date +%s)" -ge "$DEADLINE" ] && { echo "Timeout waiting for SSG rebuild"; exit 0; }
+          # Not "is the file recent" — that has no honest window. A 15-minute window expired on
+          # every real rebuild; widening it to 45 made a tree from the previous rebuild look
+          # current and the wait returned in zero seconds. The question is whether a swap
+          # happened after we queued, which is a comparison, not a guess.
+          SINCE=${SSG_QUEUED_AT:-0}
+          until [ -f "$SENTINEL" ] && [ "$(stat -c %Y "$SENTINEL")" -gt "$SINCE" ]; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "FAIL: SSG rebuild did not finish within 40 min — crawlers may be served a stale or partial tree"
+              exit 1
+            fi
             echo "Waiting for SSG rebuild… ($(date))"
             sleep 30
           done
@@ -296,6 +311,24 @@ jobs:
 
           TOTAL=$(find "$SSG_DIR" -name index.html | wc -l)
           [ "$TOTAL" -eq 0 ] && { echo "No SSG files yet (rebuild pending) — skip"; exit 0; }
+
+          # Quality was checked; quantity was not. On 2026-08-31 the tree held 104 author
+          # pages, 23 genres and zero books — every surviving file had a valid <h1>, so this
+          # step passed while the entire catalogue was 404 to crawlers. Compare against the
+          # route list the rebuild was given.
+          EXPECTED=$(curl -sf http://localhost:8080/ssg/routes | grep -o '"/[^"]*"' | wc -l)
+          if [ "$EXPECTED" -gt 0 ]; then
+            FLOOR=$(( EXPECTED * 9 / 10 ))
+            if [ "$TOTAL" -lt "$FLOOR" ]; then
+              echo "FAIL: SSG holds $TOTAL pages, expected at least $FLOOR of $EXPECTED routes."
+              echo "Whole sections are missing — a concurrent rebuild or a wiped dist, not a few bad renders."
+              find "$SSG_DIR" -mindepth 2 -maxdepth 2 -type d | sed 's/^/  section: /'
+              exit 1
+            fi
+            echo "SSG coverage: $TOTAL pages against $EXPECTED routes (floor $FLOOR)"
+          else
+            echo "Could not read route list — skipping coverage check"
+          fi
 
           BAD=0
           SAMPLES=""

@@ -11,6 +11,7 @@ available at the time. The fix that matters is the one that closes the *class*, 
 
 | Date | Incident | Shape |
 |---|---|---|
+| 2026-08-31 | [A deploy wiped the SSG build that was running](2026-08-31-deploy-wiped-a-running-ssg-rebuild.md) | Reported what it did, not what survived |
 | 2026-08-31 | [425 author pages 404'd to Google while working for people](2026-08-31-authors-404-to-crawlers-only.md) | Split serving hides the failure |
 | 2026-08-11 | [SSG dead for five weeks — a forbidden HTTP header](2026-08-11-ssg-dead-five-weeks.md) | A mitigation that could never work |
 | 2026-08-07 | [The scrubber built to stop SQL leaks leaked SQL — twice](2026-08-07-sentry-scrubber-leaked-sql.md) | Second egress path |
