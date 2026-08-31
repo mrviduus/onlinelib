@@ -93,15 +93,34 @@ public sealed class PostgresSearchProvider : ISearchProvider
 
                 UNION ALL
 
-                -- Strategy 4: FTS on chapter content (score = ts_rank)
-                SELECT e.id,
-                       ts_rank(c.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8,
-                       c.id
-                FROM chapters c
-                JOIN editions e ON c.edition_id = e.id
-                WHERE e.site_id = @SiteId AND e.status = 1
-                  AND @TsQuery != ''
-                  AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
+                -- Strategy 4: FTS on chapter content (score = ts_rank), one chapter per edition.
+                --
+                -- The GIN index finds matches in milliseconds; ts_rank is what costs, because it
+                -- reads the tsvector of every row it scores and no index can help it. Scoring each
+                -- matching chapter meant 23,487 calls for a word as ordinary as love — 7.7s, and
+                -- 500s in production once a rebuild put the box under load. Deduplicating first
+                -- costs a sort on edition_id and leaves one row per book: 1,334 calls, 70ms, the
+                -- same 1,334 books. (Capping the candidate rows instead — the obvious cheap fix —
+                -- is much worse: 500 chapters in heap order are consecutive chapters of the same
+                -- few books, so it returns 36 of the 1,334.)
+                --
+                -- The trade is which chapter represents the book: the first match by DISTINCT ON
+                -- rather than the highest-scoring one, so an edition's score comes from one of its
+                -- matching chapters instead of its best. Recovering that would mean ranking all
+                -- 23,487 again, which is the thing being paid for here.
+                SELECT x.edition_id,
+                       ts_rank(x.search_vector, to_tsquery(@FtsConfig::regconfig, @TsQuery))::float8,
+                       x.chapter_id
+                FROM (
+                    SELECT DISTINCT ON (c.edition_id)
+                           c.edition_id, c.id AS chapter_id, c.search_vector
+                    FROM chapters c
+                    JOIN editions e ON c.edition_id = e.id
+                    WHERE e.site_id = @SiteId AND e.status = 1
+                      AND @TsQuery != ''
+                      AND c.search_vector @@ to_tsquery(@FtsConfig::regconfig, @TsQuery)
+                    ORDER BY c.edition_id
+                ) x
             ),
             deduped AS (
                 SELECT edition_id,
