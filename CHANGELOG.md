@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Beta** — the site invites Android readers into the closed test, but only ones who have opened a book — web · [details](docs/changelog-archive/2026-H2.md#2026-08-31-beta-the-site-invites-android-readers)
 - **Resume** — the locator decides on every screen that offers to continue, not just one — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-29-resume-the-locator-decides-on-every-screen)
 - **Progress** — a row stops being able to contradict itself — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-29-progress-a-row-stops-being-able-to-contradict-itself)
 - **Reader** — a restore now says when it has landed, and nothing is saved before it does — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-29-reader-a-restore-now-says-when-it-has-landed)
