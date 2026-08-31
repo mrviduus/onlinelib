@@ -38,3 +38,24 @@ jobs:
         run: |
           body=$(curl -sf $CURL_RETRY "https://textstack.app/api/search?q=the&lang=en&limit=1")
           echo "$body" | grep -q '"' || { echo "search endpoint returned empty body"; echo "$body"; exit 1; }
+
+      # An author page that 404s to crawlers while working for people is invisible to Google
+      # and invisible to us — it happened in May 2026 and again in August, both times because
+      # `authors.indexable` was false on rows that have a published book, so SSG never
+      # prerendered them and nginx served bots a hard 404. Sampled from the books API because
+      # every public listing is generated from the same filtered query the bug lives in;
+      # a book's author is the one place a missing author still shows up.
+      - name: Smoke — author pages are crawlable
+        run: |
+          BOT='Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+          OFFSET=$(( RANDOM % 1300 ))
+          slugs=$(curl -sf $CURL_RETRY "https://textstack.app/api/books?lang=en&limit=10&offset=$OFFSET" \
+            | python3 -c "import sys,json;d=json.load(sys.stdin);print('\n'.join(sorted({a['slug'] for b in (d['items'] if isinstance(d,dict) else d) for a in b.get('authors',[])})))")
+          [ -n "$slugs" ] || { echo "no author slugs returned at offset $OFFSET"; exit 1; }
+          bad=0
+          for s in $slugs; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -A "$BOT" "https://textstack.app/en/authors/$s/" </dev/null)
+            [ "$code" = "200" ] || { echo "::error::author page $s returns $code to crawlers but works for people"; bad=$((bad+1)); }
+          done
+          echo "checked $(echo "$slugs" | wc -l | tr -d ' ') author pages from books at offset $OFFSET; $bad not crawlable"
+          [ "$bad" -eq 0 ]

@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **SEO** — 425 author pages stopped returning 404 to Google while working for people, and a check now asks a crawler's question — infra · [incident](docs/incidents/2026-08-31-authors-404-to-crawlers-only.md)
 - **Beta** — the Android invite works on the live site, where chapter URLs end in a slash — web · [details](docs/changelog-archive/2026-H2.md#2026-08-31-beta-the-android-invite-works-on-the-live-site)
 - **Beta** — the site invites Android readers into the closed test, but only ones who have opened a book — web · [details](docs/changelog-archive/2026-H2.md#2026-08-31-beta-the-site-invites-android-readers)
 - **Resume** — the locator decides on every screen that offers to continue, not just one — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-29-resume-the-locator-decides-on-every-screen)
