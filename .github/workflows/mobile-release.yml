@@ -63,11 +63,10 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          # 22, not 20: eas-cli 23 pulls @oclif/plugin-autocomplete, which
-          # declares engines.node >= 22, and yarn refuses to install it on 20.
-          # Both workflows were pinned to 20 and neither had ever run far enough
-          # to find out.
-          node-version: 22
+          # Version comes from .nvmrc, the one place that declares it. It must
+          # stay >= 22: eas-cli 23 pulls @oclif/plugin-autocomplete, which
+          # declares engines.node >= 22 and will not install below it.
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
 

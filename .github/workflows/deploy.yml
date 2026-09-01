@@ -47,6 +47,27 @@ jobs:
             git pull origin main
           fi
 
+      # The frontend that reaches production is built by this job, and until now
+      # on whatever Node the runner happened to have — no setup-node, no pin,
+      # nothing that would notice a drift. It is checked rather than installed:
+      # this job has no `actions/checkout` (it works inside $PROJECT_DIR), so
+      # node-version-file has nothing to read, and silently swapping the
+      # runtime under a production deploy is worse than refusing to run.
+      #
+      # Placed after the pull so .nvmrc is the version this commit asks for,
+      # and before the build, so a mismatch stops the deploy while it is still
+      # only a git checkout.
+      - name: Check the runner's Node against .nvmrc
+        run: |
+          cd $PROJECT_DIR
+          want=$(tr -d '[:space:]' < .nvmrc)
+          have=$(node -v | sed 's/^v//')
+          echo "runner: Node v$have · .nvmrc: $want"
+          if [ "$have" != "$want" ]; then
+            echo "::error::Deploy runner is on Node $have, this commit expects $want. Install it: asdf install nodejs $want (asdf reads .nvmrc here — ~/.asdfrc has legacy_version_file = yes). The production frontend is built on this machine."
+            exit 1
+          fi
+
       - name: Snapshot SSG dir + referenced assets before vite wipes dist
         # Closes the deploy-race window where vite's emptyOutDir=true
         # nukes dist/ssg/ AND dist/assets/* before the SSG worker can

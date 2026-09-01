@@ -78,5 +78,8 @@
     "typescript": "~5.9.2",
     "vitest": "2.1.9"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  }
 }

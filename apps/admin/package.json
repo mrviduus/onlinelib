@@ -1,6 +1,9 @@
 {
   "name": "textstack-admin",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "version": "0.0.1",
   "type": "module",
   "scripts": {
