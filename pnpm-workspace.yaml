@@ -19,6 +19,18 @@
 # Confirmed by node_modules/.modules.yaml still reporting nodeLinker "isolated".
 nodeLinker: hoisted
 
+# No `overrides:` block, and the three findings that remain are why.
+#
+# extract-zip <=2.0.1 (high, symlink path traversal) arrives inside puppeteer 24.
+# The advisory says "patched >=2.0.2" and **2.0.2 does not exist** — 2.0.1 is the
+# latest release. There is nothing to move to; an override was tried and pnpm
+# refused it. Puppeteer is build-time only here (the SSG prerender), so nothing
+# ships with it. Revisit when upstream publishes.
+#
+# decode-uri-component and uuid (moderate) sit under
+# @expo/vector-icons > expo-font > expo. Forcing versions through an SDK's
+# internals to quiet an audit is how a working mobile build stops working.
+
 packages:
   - apps/web
   - apps/admin
@@ -54,7 +66,7 @@ catalog:
   '@types/react': ^19.2.14
   '@types/react-dom': ^19.2.3
   '@vitejs/plugin-react': ^4.7.0
-  '@vitest/coverage-v8': ^2.1.9
+  '@vitest/coverage-v8': ^3.2.6
   jsdom: ^28.1.0
   pdfjs-dist: 4.10.38
   react: ^19.2.6
@@ -62,4 +74,4 @@ catalog:
   react-router-dom: ^7.15.1
   typescript: ~5.9.2
   vite: ^6.4.2
-  vitest: ^2.1.9
+  vitest: ^3.2.6

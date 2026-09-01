@@ -34,7 +34,6 @@
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
-    "@prerenderer/renderer-puppeteer": "^1.2.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^25.8.0",
@@ -47,7 +46,6 @@
     "puppeteer": "^24.43.1",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-prerender": "^1.0.8",
     "vitest": "catalog:"
   }
 }
