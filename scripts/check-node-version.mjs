@@ -23,10 +23,17 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(ROOT, p), 'utf8')
 
-/** The single source. Everything below is checked against it. */
+/** The single source. Everything below is checked against it.
+ *
+ *  A full version, not a bare major, and that is not a preference. The deploy
+ *  runner resolves Node with asdf, whose legacy-file support reads `.nvmrc`
+ *  literally: a file saying `24` fails with "No preset version installed for
+ *  command node" even with 24.20.0 installed. Verified on the runner. An exact
+ *  version also means CI, both images and the server build on the same Node
+ *  rather than on whatever each resolved `24` to that week. */
 const expected = read('.nvmrc').trim()
-if (!/^\d+$/.test(expected)) {
-  console.error(`.nvmrc should hold a bare major version, got "${expected}"`)
+if (!/^\d+\.\d+\.\d+$/.test(expected)) {
+  console.error(`.nvmrc should hold an exact version like 24.20.0, got "${expected}"`)
   process.exit(1)
 }
 
@@ -69,7 +76,7 @@ for (const path of dockerfiles) {
     problems.push(`${path} pins FROM node:${pinned[1]} — use "ARG NODE_VERSION=${expected}" + "FROM node:\${NODE_VERSION}-alpine"`)
     continue
   }
-  const arg = body.match(/^ARG NODE_VERSION=(\d+)/m)
+  const arg = body.match(/^ARG NODE_VERSION=([\d.]+)/m)
   if (!arg) {
     problems.push(`${path} uses \${NODE_VERSION} without declaring ARG NODE_VERSION`)
   } else if (arg[1] !== expected) {

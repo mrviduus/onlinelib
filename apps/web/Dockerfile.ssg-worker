@@ -3,7 +3,7 @@
 
 # Keep in step with .nvmrc — a Dockerfile cannot read it, so
 # scripts/check-node-version.mjs fails CI when they drift.
-ARG NODE_VERSION=24
+ARG NODE_VERSION=24.20.0
 FROM node:${NODE_VERSION}-alpine
 
 # Install Chromium and dependencies for Puppeteer

@@ -12,7 +12,7 @@
 # rebuilds. /api is proxied by nginx upstream, so this container doesn't need to.
 # Keep in step with .nvmrc — a Dockerfile cannot read it, so
 # scripts/check-node-version.mjs fails CI when they drift.
-ARG NODE_VERSION=24
+ARG NODE_VERSION=24.20.0
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
