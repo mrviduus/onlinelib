@@ -132,13 +132,31 @@ jobs:
           json=$(eas build:list \
             --platform android \
             --status finished \
-            --limit 20 \
+            --limit 50 \
             --json --non-interactive)
           prod=$(printf '%s' "$json" | jq -c '[.[] | select(.buildProfile == "production" or .channel == "production")][0] // empty')
           rt=$(printf '%s' "$prod" | jq -r '.runtimeVersion // empty' 2>/dev/null || true)
           id=$(printf '%s' "$prod" | jq -r '.id // empty' 2>/dev/null || true)
           if [ -z "$rt" ]; then
-            echo "::error::No finished Android production build to publish against. Run mobile-release.yml → build first."
+            # Say what was actually looked at. "No production build exists" and
+            # "matched on the wrong field" produce identical silence otherwise,
+            # and the first version of this step could not tell them apart —
+            # which cost a round trip. Profiles, channels and key names only.
+            {
+              echo "### No production build to publish against"
+              echo
+              echo "Searched $(printf '%s' "$json" | jq 'length') finished Android builds."
+              echo
+              echo "Build profiles seen: \`$(printf '%s' "$json" | jq -r '[.[].buildProfile // "null"] | unique | join(", ")')\`"
+              echo
+              echo "Channels seen: \`$(printf '%s' "$json" | jq -r '[.[].channel // "null"] | unique | join(", ")')\`"
+              echo
+              echo "Keys on the newest record: \`$(printf '%s' "$json" | jq -r '(.[0] // {}) | keys | join(", ")')\`"
+              echo
+              echo "Either no production build exists yet — run **mobile-release.yml → build** —"
+              echo "or the fields above are not the ones this step matches on."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::No finished Android production build to publish against. See the job summary for what was searched."
             exit 1
           fi
           echo "runtime=$rt" >> "$GITHUB_OUTPUT"
