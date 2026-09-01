@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **CI** — an OTA goes out on merge, and refuses to when the runtime says it would reach nobody — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-ci-an-ota-goes-out-on-merge)
 - **Beta** — the site and the README carry a standing Android beta badge, not a Play badge that leads to a 404 — web · [details](docs/changelog-archive/2026-H2.md#2026-09-01-beta-a-standing-android-badge)
 - **Selection** — extending a long-press into a sentence reaches the app, so Listen stops reading one word — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-01-selection-extending-a-long-press-reaches-the-app)
 - **Reader** — speech starts when asked, and the Listen button reads the passage you picked — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-01-reader-speech-starts-when-asked)
