@@ -58,8 +58,19 @@ npx expo-updates runtimeversion:resolve --platform android
 eas build:list --platform android --status finished --limit 1 --json | jq -r '.[0].runtimeVersion'
 ```
 
-If they differ, you need a build, not an update. `npm run check:runtime-version` does
-this comparison if it has been wired up.
+If they differ, you need a build, not an update.
+
+`npm run check:runtime-version` was named here as the thing that would do this
+comparison. It was never written. What does it now is
+[`.github/workflows/mobile-ota.yml`](../../.github/workflows/mobile-ota.yml): on every
+push to `main` touching `apps/mobile/**` or `packages/**` it resolves the runtime,
+compares it with the newest finished Android production build, and publishes the OTA
+only on a match. A mismatch **fails the run** and says a build is needed — deliberately,
+because `eas update` succeeds either way, and a silent skip is indistinguishable from a
+delivered update.
+
+Run it by hand from Actions → Mobile OTA (auto) with `dry_run` on to see the comparison
+without publishing. It needs the `EXPO_TOKEN` secret, like every other EAS workflow here.
 
 ## Permissions
 

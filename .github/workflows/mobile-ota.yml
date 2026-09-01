@@ -1,0 +1,191 @@
+name: Mobile OTA (auto)
+
+# Publishes a JS-only change to installed Android apps when it lands on main.
+#
+# Separate from mobile-release.yml on purpose. That workflow is workflow_dispatch
+# only and says so in its own header: nothing reaches the STORE without a human
+# clicking. This one never touches the store — `eas update` republishes the JS
+# bundle to apps that are already installed.
+#
+# The guard is the point of this file.
+#
+# app.json sets `runtimeVersion: { policy: "fingerprint" }`, so an update only
+# reaches builds whose fingerprint matches. When a merge changes a native
+# dependency, an Expo plugin or app.json, the fingerprint moves — and `eas
+# update` still SUCCEEDS, publishing to a runtime nobody has installed. A green
+# check and zero delivery. That is the same shape as the SSG rebuild that
+# reported success after losing its files
+# (docs/incidents/2026-08-31-deploy-wiped-a-running-ssg-rebuild.md), and it is
+# worse here because nothing else would ever notice.
+#
+# So: compute the fingerprint, compare it with the runtime of the newest
+# finished production build, and publish only on a match. A mismatch FAILS the
+# run rather than skipping quietly — "this merge did not reach anyone, it needs
+# a build" is information, and a silent skip looks exactly like a success.
+#
+# Android only. iOS has no released build for an update to land on.
+#
+# Requires repo secret EXPO_TOKEN (expo.dev → Account → Access tokens).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'          # consumed from source by Metro, so it ships in the bundle
+      - '.github/workflows/mobile-ota.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Compare the runtime and stop before publishing
+        type: boolean
+        default: true
+
+# Shared with mobile-release.yml so an automatic update can never run alongside
+# a manual build or store submit.
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+jobs:
+  ota:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v5
+
+      # Before the expo action, so a missing token says so instead of surfacing
+      # as an authentication failure three steps later. Read from env rather
+      # than a step-level `if`: the secrets context is not dependably available
+      # in one.
+      - name: Fail early without a usable token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # Empty and placeholder are the same failure to a reader: the workflow
+          # cannot talk to EAS. The secret was created with a placeholder so the
+          # field exists in Settings; catching it here means the run says what to
+          # do instead of dying on an authentication error two steps later.
+          case "${EXPO_TOKEN:-}" in
+            '' | REPLACE_ME*)
+              echo "::error::EXPO_TOKEN is unset or still the placeholder. Create a token at expo.dev → Account → Access tokens, then replace the secret at Settings → Secrets and variables → Actions."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # @textstack/shared is consumed from source (Metro watchFolders), so the
+      # checkout already carries it; only the app's own deps need installing.
+      - name: Install dependencies
+        run: npm ci
+
+      # MUST run from apps/mobile. From the repo root the command computes a
+      # different hash and reports it as valid — see docs/03-ops/play-store-release.md.
+      # `working-directory` above covers it; do not "simplify" this to a root run.
+      - name: Resolve the runtime this commit would have
+        id: fp
+        run: |
+          set -euo pipefail
+          # runtimeversion:resolve, not fingerprint:generate — it answers the
+          # question being asked ("what runtime would this commit produce"),
+          # and it is the command docs/03-ops/play-store-release.md already
+          # prescribes for this comparison. fingerprint:generate is kept as a
+          # fallback for CLI versions that lack it.
+          out=$(npx expo-updates runtimeversion:resolve --platform android 2>/dev/null \
+            || npx expo-updates fingerprint:generate --platform android)
+          echo "$out"
+          hash=$(printf '%s' "$out" | jq -r '.runtimeVersion // .hash // empty' 2>/dev/null || true)
+          if [ -z "$hash" ]; then
+            # Plain-text output: take the hash it printed.
+            hash=$(printf '%s' "$out" | grep -oE '[0-9a-f]{32,}' | head -1 || true)
+          fi
+          if [ -z "$hash" ]; then
+            echo "::error::Could not read a runtime version out of: $out"
+            exit 1
+          fi
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      - name: Read the runtime of the newest production build
+        id: build
+        run: |
+          set -euo pipefail
+          # Filtered in jq, not with a CLI flag — the profile filter has been
+          # spelled --profile and --buildProfile across EAS versions, and a
+          # wrong flag name fails the run for a reason that has nothing to do
+          # with the app. Match on either field the JSON might carry.
+          json=$(eas build:list \
+            --platform android \
+            --status finished \
+            --limit 20 \
+            --json --non-interactive)
+          prod=$(printf '%s' "$json" | jq -c '[.[] | select(.buildProfile == "production" or .channel == "production")][0] // empty')
+          rt=$(printf '%s' "$prod" | jq -r '.runtimeVersion // empty' 2>/dev/null || true)
+          id=$(printf '%s' "$prod" | jq -r '.id // empty' 2>/dev/null || true)
+          if [ -z "$rt" ]; then
+            echo "::error::No finished Android production build to publish against. Run mobile-release.yml → build first."
+            exit 1
+          fi
+          echo "runtime=$rt" >> "$GITHUB_OUTPUT"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse to publish into a runtime nobody is running
+        if: ${{ steps.fp.outputs.hash != steps.build.outputs.runtime }}
+        run: |
+          {
+            echo "### OTA not published"
+            echo
+            echo "This commit's runtime does not match the installed build, so an update"
+            echo "would publish to a runtime no one has and report success."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| this commit | \`${{ steps.fp.outputs.hash }}\` |"
+            echo "| newest production build | \`${{ steps.build.outputs.runtime }}\` (\`${{ steps.build.outputs.id }}\`) |"
+            echo
+            echo "Something native changed — a dependency, an Expo plugin, or app.json."
+            echo "Ship it with **mobile-release.yml → build-submit**, not an update."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Runtime mismatch — this change needs a build, not an OTA update."
+          exit 1
+
+      # Commit subject only, passed through the environment rather than
+      # interpolated into the script: a commit message is attacker-controlled
+      # text and `${{ }}` inside `run:` would execute what it contains.
+      - name: Publish the update
+        if: ${{ inputs.dry_run != true }}
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          msg=$(printf '%s' "${COMMIT_MSG:-manual run}" | head -1 | cut -c1-140)
+          eas update \
+            --branch production \
+            --platform android \
+            --environment production \
+            --message "$msg" \
+            --non-interactive
+
+      - name: Say what happened
+        if: ${{ success() }}
+        run: |
+          {
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### Runtime matches — dry run, nothing published"
+            else
+              echo "### OTA published to the production channel"
+            fi
+            echo
+            echo "Runtime \`${{ steps.fp.outputs.hash }}\`, matching build \`${{ steps.build.outputs.id }}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
