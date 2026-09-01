@@ -157,13 +157,24 @@ jobs:
         # client_id is public-by-design (visible in bundle HTML), safe in
         # repo.
         run: |
-          cd $PROJECT_DIR/apps/web
-          pnpm install --frozen-lockfile
+          # From the workspace root: one lockfile, and `catalog:` specifiers
+          # only resolve with pnpm-workspace.yaml in scope. Installing from
+          # inside apps/web stopped being a thing that works.
+          cd $PROJECT_DIR
+          # `corepack pnpm`, not a bare `pnpm`. The runner resolves Node with
+          # asdf, and a bare `pnpm` is an asdf shim built for whichever Node was
+          # active when it was created — under a different Node it fails with
+          # "No preset version installed for command pnpm" even though corepack
+          # has just prepared it. Verified on the runner: `corepack pnpm
+          # --version` answers correctly with no reshim. corepack reads the
+          # version from `packageManager` in the root package.json.
+          corepack enable
+          corepack pnpm install --frozen-lockfile
           VITE_API_URL=/api \
             VITE_STORAGE_URL=https://textstack.app \
             VITE_CANONICAL_URL=https://textstack.app \
             VITE_GOOGLE_CLIENT_ID=726577729877-0lc197ngqf9qb297tvgh22q2k7g72l4l.apps.googleusercontent.com \
-            pnpm build
+            corepack pnpm --filter textstack-web build
 
       - name: Restore preserved SSG + assets
         # vite has now wiped dist/ and written fresh assets/. Put the

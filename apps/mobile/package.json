@@ -59,8 +59,8 @@
     "expo-status-bar": "~55.0.4",
     "expo-updates": "~55.0.20",
     "pdfjs-dist": "4.10.38",
-    "react": "19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "react-native": "0.83.2",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-safe-area-context": "~5.6.2",
@@ -69,14 +69,14 @@
     "react-native-webview": "13.16.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
-    "@types/react": "~19.2.2",
-    "@vitest/coverage-v8": "2.1.9",
+    "@playwright/test": "catalog:",
+    "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
-    "jsdom": "^28.1.0",
-    "typescript": "~5.9.2",
-    "vitest": "2.1.9"
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "private": true,
   "engines": {

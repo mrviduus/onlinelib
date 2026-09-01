@@ -1,5 +1,12 @@
 # SSG Worker Container
 # Long-running process that polls DB for SSG jobs and executes prerender
+#
+# Builds from the repository root, not from apps/web. A pnpm workspace has one
+# lockfile, and `catalog:` specifiers cannot be resolved without
+# pnpm-workspace.yaml in scope — so an image built from apps/web alone can no
+# longer install anything. The repo layout is kept inside the image (/repo/...)
+# rather than flattened, so the paths in docker-compose and in ssg-worker.mjs
+# stay recognisable.
 
 # Keep in step with .nvmrc — a Dockerfile cannot read it, so
 # scripts/check-node-version.mjs fails CI when they drift.
@@ -15,38 +22,40 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont
 
-# Tell Puppeteer to use installed Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /repo
 
-WORKDIR /app
+# pnpm version comes from `packageManager` in the root package.json — one
+# declaration, the same one CI and developers use. It used to be `pnpm@9` here
+# and `pnpm@9.15.0` in the admin image, whose comment already recorded someone
+# hitting corepack drift.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+RUN corepack enable && corepack prepare --activate
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Every workspace member's manifest, because --frozen-lockfile validates the
+# lockfile against all of them. Manifests only — no sources yet, so the install
+# layer survives an edit to any app.
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
+COPY apps/mobile/package.json apps/mobile/
+COPY packages/shared/package.json packages/shared/
+COPY packages/reader-overlay/package.json packages/reader-overlay/
 
-# Install dependencies (including pg for DB access)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter textstack-web...
 
-# Copy scripts (prerender.mjs and ssg-worker.mjs)
-COPY scripts/ ./scripts/
+COPY apps/web/scripts/ ./apps/web/scripts/
+COPY packages/ ./packages/
 
-# Copy dist directory structure (will be mounted as volume in production)
-# This ensures the directory exists even if not mounted
+WORKDIR /repo/apps/web
 RUN mkdir -p dist/ssg
 
-# Environment defaults
 ENV NODE_ENV=production
 ENV POLL_INTERVAL=5000
 
-# Health check - verify process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD pgrep -f "ssg-worker.mjs" || exit 1
 
-# Run as non-root
 USER node
-
-# Run the worker
 CMD ["node", "scripts/ssg-worker.mjs"]

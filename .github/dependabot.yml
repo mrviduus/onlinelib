@@ -1,0 +1,49 @@
+# Nothing was watching. Dependabot alerts are disabled on this repository, so a
+# JS advisory had no way to reach anyone — the vulnerable dompurify that shipped
+# to every visitor was found by running `pnpm audit` by hand, months after the
+# patch existed. It was not even a hard fix: the declared range already allowed
+# the patched version, and only a stale lockfile held it back.
+#
+# Alerts themselves are a repository setting (Settings → Advanced Security),
+# not a file. This file is the other half: scheduled update PRs.
+#
+# Note on the catalog: shared versions live in pnpm-workspace.yaml under
+# `catalog:`, and Dependabot's support for catalogs is limited. Expect it to
+# raise the packages declared directly in a package.json and to be quiet about
+# the catalogued ones — treat it as a signal to go and bump the catalog, not as
+# complete coverage. `pnpm audit` from the root is the check that sees everything.
+version: 2
+updates:
+  # One entry for the whole JS workspace: one lockfile, one install.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Tooling churns constantly and is not what anyone wants five separate
+      # PRs about. Anything that ships to a user gets its own PR.
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dotnet:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The workflows in this repo pin action majors (actions/checkout@v5). Those
+  # move rarely and silently, and one of them is what installs the Node version
+  # everything else now depends on.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3

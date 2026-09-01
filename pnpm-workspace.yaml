@@ -1,0 +1,77 @@
+# One place declares a shared version. The JS answer to Directory.Packages.props,
+# which the backend has had all along — and the backend is the half of this repo
+# with no version drift and no vulnerable packages.
+#
+# Before this file there was no workspace at all: apps/web and apps/admin each
+# had their own pnpm lockfile, apps/mobile used npm, and the same dependency was
+# declared at different versions in different places — typescript 5.6.3 against
+# 5.9.2, @playwright/test 1.52 against 1.60, react 19.2.0 against 19.2.6.
+# Flat node_modules, not pnpm's symlinked default.
+#
+# Metro resolves by walking real directories and React Native's Gradle
+# autolinking reads node_modules directly; both have a long history of breaking
+# on pnpm's isolated layout, and they did here — the Metro bundle failed on the
+# entry point, then one import deeper, then one deeper again.
+#
+# This lived in `.npmrc` as `node-linker=hoisted` first and was silently
+# ignored: pnpm 11 reads its settings from this file, the same relocation that
+# turned `pnpm.onlyBuiltDependencies` in package.json into `allowBuilds` below.
+# Confirmed by node_modules/.modules.yaml still reporting nodeLinker "isolated".
+nodeLinker: hoisted
+
+# No `overrides:` block, and the three findings that remain are why.
+#
+# extract-zip <=2.0.1 (high, symlink path traversal) arrives inside puppeteer 24.
+# The advisory says "patched >=2.0.2" and **2.0.2 does not exist** — 2.0.1 is the
+# latest release. There is nothing to move to; an override was tried and pnpm
+# refused it. Puppeteer is build-time only here (the SSG prerender), so nothing
+# ships with it. Revisit when upstream publishes.
+#
+# decode-uri-component and uuid (moderate) sit under
+# @expo/vector-icons > expo-font > expo. Forcing versions through an SDK's
+# internals to quiet an audit is how a working mobile build stops working.
+
+packages:
+  - apps/web
+  - apps/admin
+  - apps/mobile
+  - packages/*
+
+# Postinstall scripts pnpm is allowed to run. pnpm 10 made these opt-in, and the
+# old declaration lived in each app's package.json under `pnpm.onlyBuiltDependencies`
+# — a field pnpm 11 no longer reads, which is why `pnpm -C apps/web build` had
+# been failing locally with ERR_PNPM_IGNORED_BUILDS. One list now, in the place
+# pnpm actually looks.
+allowBuilds:
+  esbuild: true          # vite's bundler; nothing builds without it
+  puppeteer: true        # fetches Chromium for the SSG prerender
+  '@sentry/cli': true    # fetches the CLI binary used for source-map upload
+
+# Referenced from a package.json as "typescript": "catalog:".
+#
+# react and react-dom are here, and apps/mobile was carved out of them at first
+# — `expo install` pins them against the SDK matrix, so leaving Expo in charge
+# looked like the respectful choice. It is not survivable. Hoisting can only put
+# one copy of a package at the root, and with mobile on 19.2.0 and web on 19.2.8
+# the root ended up holding react 19.2.0 beside react-dom 19.2.8: a mismatched
+# pair. The web suite failed 26 tests with "Invalid hook call … more than one
+# copy of React".
+#
+# So one React for the workspace. React Native 0.83.2 declares
+# `react: ^19.2.0`, which 19.2.8 satisfies; Expo's exact pin is what
+# `expo install` writes, not a floor the runtime enforces. Re-verified with a
+# full Metro bundle, which is the check that actually exercises it.
+catalog:
+  '@playwright/test': ^1.60.0
+  '@types/react': ^19.2.14
+  '@types/react-dom': ^19.2.3
+  '@vitejs/plugin-react': ^4.7.0
+  '@vitest/coverage-v8': ^3.2.6
+  jsdom: ^28.1.0
+  pdfjs-dist: 4.10.38
+  react: ^19.2.6
+  react-dom: ^19.2.6
+  react-router-dom: ^7.15.1
+  typescript: ~5.9.2
+  vite: ^6.4.2
+  vitest: ^3.2.6

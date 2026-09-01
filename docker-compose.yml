@@ -161,8 +161,9 @@ services:
 
   admin:
     build:
-      context: ./apps/admin
-      dockerfile: Dockerfile
+      # Root context — see ssg-worker above.
+      context: .
+      dockerfile: apps/admin/Dockerfile
     container_name: textstack_admin_prod
     environment:
       VITE_API_URL: /api
@@ -231,8 +232,10 @@ services:
 
   ssg-worker:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile.ssg-worker
+      # Root context: the workspace lockfile and pnpm-workspace.yaml live here,
+      # and `catalog:` cannot be resolved without them.
+      context: .
+      dockerfile: apps/web/Dockerfile.ssg-worker
     container_name: textstack_ssg_worker
     # tini reaps Chromium/chrome_crashpad children left behind by Puppeteer.
     # Without this, each prerender leaves a <defunct> Z process on the host
@@ -247,7 +250,7 @@ services:
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
     volumes:
-      - ./apps/web/dist:/app/dist
+      - ./apps/web/dist:/repo/apps/web/dist
     restart: always
     healthcheck:
       # ssg-worker.mjs writes /tmp/ssg-worker-alive every 30s.
