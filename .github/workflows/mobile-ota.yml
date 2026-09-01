@@ -155,8 +155,8 @@ jobs:
               echo
               echo "Either no production build exists yet — run **mobile-release.yml → build** —"
               echo "or the fields above are not the ones this step matches on."
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::No finished Android production build to publish against. See the job summary for what was searched."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::No finished Android production build to publish against. See above for what was searched."
             exit 1
           fi
           echo "runtime=$rt" >> "$GITHUB_OUTPUT"
