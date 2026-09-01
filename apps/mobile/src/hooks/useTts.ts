@@ -205,8 +205,12 @@ export function useTts() {
             releasePlayer()
           }
         })
-        player.play()
+        // Phase before play(), not after. The listener above is already
+        // attached, so a clip short enough to finish inside play() would set
+        // 'idle' and then be overwritten back to 'playing' — leaving a Stop
+        // button with no player behind it. This way the listener wins.
         setPhase('playing')
+        player.play()
       } catch {
         currentTextRef.current = null
         setPhase('idle')
