@@ -271,6 +271,12 @@ export const READER_SELECTION_BRIDGE = `
      * the typical 50-100ms settle time on iOS 17+ WebKit.
      */
     var _suppressSelectionChangeUntil = 0;
+    // Longest passage the server-backed actions accept: Tts:MaxTextLength and
+    // OpenAI:Translate:MaxTextLength are both 500. A longer selection used to
+    // be dropped here without a message, so the toolbar never appeared at all
+    // and Copy and Highlight — which have no limit — were lost with it. It is
+    // dispatched now, flagged, and the toolbar disables only what cannot work.
+    var SELECTION_MAX_CHARS = 500;
     var _lastDispatchedText = '';
     // When the last dispatch came from the tap path (selectWordAtPoint),
     // we MUST NOT notify the parent of a "selection cleared" event on the
@@ -285,7 +291,7 @@ export const READER_SELECTION_BRIDGE = `
       if (!sel || sel.isCollapsed) { console.log('[diag] dispatchSelection: no selection'); return; }
       var text = sel.toString().trim();
       if (!text) { console.log('[diag] dispatchSelection: empty text'); return; }
-      if (text.length > 300) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
+      if (text.length > SELECTION_MAX_CHARS) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
       if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
@@ -552,7 +558,6 @@ export const READER_SELECTION_BRIDGE = `
         return;
       }
       var text = sel.toString().trim();
-      if (text.length > 300) return;
       // Drop duplicates — if the user re-selected the exact same text (e.g.
       // iOS magnifier re-firing), don't re-render the popup.
       if (text === _lastDispatchedText) return;
@@ -574,7 +579,8 @@ export const READER_SELECTION_BRIDGE = `
         mode: 'drag',
         text: text,
         sentence: sentence,
-        anchor: anchor
+        anchor: anchor,
+        tooLong: text.length > SELECTION_MAX_CHARS
       }));
     }
     document.addEventListener('selectionchange', function() {

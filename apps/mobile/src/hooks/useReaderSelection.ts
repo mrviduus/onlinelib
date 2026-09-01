@@ -8,6 +8,9 @@ export type Selection = {
   /** 'tap' = single-finger tap that always shows WordCard. 'drag' = native long-press / drag
    * selection; routed by content (single word → WordCard, multi → SelectionActionBar). */
   mode: 'tap' | 'drag'
+  /** Longer than the 500 characters the speech and translation endpoints accept.
+   * The toolbar still opens — Copy, Highlight and Ask have no such limit. */
+  tooLong?: boolean
 }
 
 export type LookupState = {
@@ -67,7 +70,7 @@ export function useReaderSelection({ flushVocabMap }: Options) {
    * itself — WordCard's auto-dismiss timer keys off it.
    */
   const openSelection = useCallback(
-    (payload: { text: string; sentence?: string; anchor?: any; mode?: 'tap' | 'drag' } | null): void => {
+    (payload: { text: string; sentence?: string; anchor?: any; mode?: 'tap' | 'drag'; tooLong?: boolean } | null): void => {
       if (!payload || !payload.text) {
         if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
         setSelection(null)
@@ -80,6 +83,7 @@ export function useReaderSelection({ flushVocabMap }: Options) {
         anchor: payload.anchor || null,
         selectionId: ++selectionIdRef.current,
         mode: payload.mode || 'drag',
+        tooLong: !!payload.tooLong,
       })
       setWordSaved(false)
       setLookupState(null)

@@ -914,6 +914,7 @@ export function ReaderShell(props: ReaderShellProps) {
             highlightColor={settings.lastHighlightColor}
             onMarkKnown={handleMarkKnown}
             onRemove={handleRemoveWord}
+            tooLong={selection.tooLong}
             isSpeaking={isSpeaking}
             isTtsLoading={isTtsLoading}
             wordSaved={wordSaved}

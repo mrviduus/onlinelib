@@ -45,6 +45,10 @@ interface SelectionActionBarProps {
    *  (persistent chat, AI-027). Only wired when the reader has an ask target; shown for
    *  multi-word passages (a single quoted word is redundant with the vocab actions). */
   onAskAbout?: () => void
+  /** Selection is past the 500-character ceiling the speech and translation
+   *  endpoints enforce. Those two and Explain are disabled; Copy, Highlight
+   *  and Ask still work, which is why the toolbar opens at all. */
+  tooLong?: boolean
   isSpeaking?: boolean
   /** Audio is being fetched — there is no sound yet. Distinct from `isSpeaking`
    *  because the fetch takes about a second, and a button that still says
@@ -88,6 +92,7 @@ export function SelectionActionBar({
   onMarkKnown,
   onRemove,
   onAskAbout,
+  tooLong,
   isSpeaking,
   isTtsLoading,
   wordSaved,
@@ -197,20 +202,24 @@ export function SelectionActionBar({
         <TouchableOpacity
           style={styles.btn}
           onPress={onTranslate}
+          disabled={tooLong}
           accessibilityRole="button"
-          accessibilityLabel="Translate selection in full sheet"
+          accessibilityLabel={tooLong ? 'Translate — selection too long' : 'Translate selection in full sheet'}
+          accessibilityState={{ disabled: !!tooLong }}
         >
-          <Ionicons name="language-outline" size={19} color={colors.text} />
+          <Ionicons name="language-outline" size={19} color={tooLong ? colors.textSecondary : colors.text} />
           <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Translate</Text>
         </TouchableOpacity>
         {onExplain && (
           <TouchableOpacity
             style={styles.btn}
             onPress={onExplain}
+            disabled={tooLong}
             accessibilityRole="button"
-            accessibilityLabel="Explain selection in context"
+            accessibilityLabel={tooLong ? 'Explain — selection too long' : 'Explain selection in context'}
+            accessibilityState={{ disabled: !!tooLong }}
           >
-            <Ionicons name="bulb-outline" size={19} color={colors.text} />
+            <Ionicons name="bulb-outline" size={19} color={tooLong ? colors.textSecondary : colors.text} />
             <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Explain</Text>
           </TouchableOpacity>
         )}
@@ -220,17 +229,23 @@ export function SelectionActionBar({
         <TouchableOpacity
           style={styles.btn}
           onPress={onSpeak}
+          disabled={tooLong}
           accessibilityRole="button"
           accessibilityLabel={
-            isTtsLoading ? 'Loading speech, tap to cancel'
+            tooLong ? 'Listen — selection too long'
+              : isTtsLoading ? 'Loading speech, tap to cancel'
               : isSpeaking ? 'Stop speech'
               : 'Read selection aloud'
           }
-          accessibilityState={{ selected: !!isSpeaking, busy: !!isTtsLoading }}
+          accessibilityState={{ selected: !!isSpeaking, busy: !!isTtsLoading, disabled: !!tooLong }}
         >
           {isTtsLoading
             ? <ActivityIndicator size="small" color={colors.text} style={styles.btnSpinner} />
-            : <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={19} color={colors.text} />}
+            : <Ionicons
+                name={isSpeaking ? 'stop' : 'volume-high-outline'}
+                size={19}
+                color={tooLong ? colors.textSecondary : colors.text}
+              />}
           <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>
             {isTtsLoading ? 'Loading' : isSpeaking ? 'Stop' : 'Listen'}
           </Text>
