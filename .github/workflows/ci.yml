@@ -90,17 +90,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # No version here — pnpm/action-setup reads `packageManager` from the
+      # root package.json, so CI, Docker and developers use the same one.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
-      - name: Install & build web
-        working-directory: apps/web
-        run: pnpm install --frozen-lockfile && pnpm build
+      # One install for the whole workspace. Each app used to install from its
+      # own lockfile; there is one lockfile now, and `catalog:` only resolves
+      # with pnpm-workspace.yaml in scope.
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        run: pnpm --filter textstack-web build
 
       # Vitest was never wired into CI — the job built the app and stopped, so a
       # failing web unit test merged to main unnoticed.
@@ -119,9 +124,8 @@ jobs:
         working-directory: apps/web
         run: pnpm check:mobile-pdf
 
-      - name: Install & build admin
-        working-directory: apps/admin
-        run: pnpm install --frozen-lockfile && pnpm build
+      - name: Build admin
+        run: pnpm --filter textstack-admin build
 
   # apps/mobile is npm + its own lockfile, not part of the pnpm workspace, so it
   # gets its own job rather than another step in `frontend`. @textstack/shared is
@@ -137,23 +141,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
+          cache: pnpm
 
-      - name: Install
-        working-directory: apps/mobile
-        run: npm ci
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        working-directory: apps/mobile
-        run: npm run typecheck
+        run: pnpm --filter mobile typecheck
 
       - name: Unit tests
-        working-directory: apps/mobile
-        run: npm test
+        run: pnpm --filter mobile test
 
       # tsc and unit tests both passed while the app could not be bundled at
       # all — a broken import or a bad module resolution only surfaces when
@@ -264,16 +266,15 @@ jobs:
       - name: Create admin user for E2E
         run: docker compose exec -T api dotnet Api.dll create-admin admin@textstack.app admin Admin
 
+      # No version here — pnpm/action-setup reads `packageManager` from the
+      # root package.json, so CI, Docker and developers use the same one.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
-      - name: Install web dependencies
-        working-directory: apps/web
+      - name: Install workspace
         run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version

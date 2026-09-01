@@ -18,8 +18,8 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "2.1.9",
+    "@vitest/coverage-v8": "catalog:",
     "fast-check": "^4.8.0",
-    "vitest": "^2.1.9"
+    "vitest": "catalog:"
   }
 }

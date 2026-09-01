@@ -1,0 +1,15 @@
+{
+  "name": "textstack",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "check:node-version": "node scripts/check-node-version.mjs",
+    "build:web": "pnpm --filter textstack-web build",
+    "build:admin": "pnpm --filter textstack-admin build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

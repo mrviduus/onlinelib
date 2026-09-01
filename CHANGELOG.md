@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Infra** — one pnpm workspace with a version catalog, the JS answer to Directory.Packages.props — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-infra-one-workspace-one-catalog)
 - **Infra** — one Node version, declared once, and production stops running an end-of-life runtime — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-infra-one-node-version)
 - **CI** — an OTA goes out on merge, and refuses to when the runtime says it would reach nobody — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-ci-an-ota-goes-out-on-merge)
 - **Beta** — the site and the README carry a standing Android beta badge, not a Play badge that leads to a 404 — web · [details](docs/changelog-archive/2026-H2.md#2026-09-01-beta-a-standing-android-badge)

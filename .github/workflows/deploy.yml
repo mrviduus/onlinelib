@@ -157,13 +157,17 @@ jobs:
         # client_id is public-by-design (visible in bundle HTML), safe in
         # repo.
         run: |
-          cd $PROJECT_DIR/apps/web
+          # From the workspace root: one lockfile, and `catalog:` specifiers
+          # only resolve with pnpm-workspace.yaml in scope. Installing from
+          # inside apps/web stopped being a thing that works.
+          cd $PROJECT_DIR
+          corepack enable && corepack prepare --activate
           pnpm install --frozen-lockfile
           VITE_API_URL=/api \
             VITE_STORAGE_URL=https://textstack.app \
             VITE_CANONICAL_URL=https://textstack.app \
             VITE_GOOGLE_CLIENT_ID=726577729877-0lc197ngqf9qb297tvgh22q2k7g72l4l.apps.googleusercontent.com \
-            pnpm build
+            pnpm --filter textstack-web build
 
       - name: Restore preserved SSG + assets
         # vite has now wiped dist/ and written fresh assets/. Put the
