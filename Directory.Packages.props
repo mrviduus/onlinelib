@@ -47,7 +47,7 @@
          Latest stable 1.4.0 (2026-06-04). Powers the stdio MCP server in
          TextStack.Ai.Mcp — the SDK ships the stdio transport + low-level
          ListTools/CallTool handler API used by the runtime tool catalog. -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <!-- HTTP (streamable) transport for the MCP server (AI-049, Phase 8). Separate
          package layered on ModelContextProtocol; pinned to the SAME 1.4.0 as the
          core SDK. Brings WithHttpTransport(o => o.Stateless = true) + MapMcp("/mcp")
