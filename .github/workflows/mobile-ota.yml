@@ -60,14 +60,20 @@ jobs:
       # as an authentication failure three steps later. Read from env rather
       # than a step-level `if`: the secrets context is not dependably available
       # in one.
-      - name: Fail early without a token
+      - name: Fail early without a usable token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          if [ -z "${EXPO_TOKEN:-}" ]; then
-            echo "::error::EXPO_TOKEN is not set. Create one at expo.dev → Account → Access tokens, then add it as a repository secret."
-            exit 1
-          fi
+          # Empty and placeholder are the same failure to a reader: the workflow
+          # cannot talk to EAS. The secret was created with a placeholder so the
+          # field exists in Settings; catching it here means the run says what to
+          # do instead of dying on an authentication error two steps later.
+          case "${EXPO_TOKEN:-}" in
+            '' | REPLACE_ME*)
+              echo "::error::EXPO_TOKEN is unset or still the placeholder. Create a token at expo.dev → Account → Access tokens, then replace the secret at Settings → Secrets and variables → Actions."
+              exit 1
+              ;;
+          esac
 
       - uses: actions/setup-node@v5
         with:
