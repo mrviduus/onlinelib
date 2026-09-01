@@ -8,6 +8,9 @@ export type Selection = {
   /** 'tap' = single-finger tap that always shows WordCard. 'drag' = native long-press / drag
    * selection; routed by content (single word → WordCard, multi → SelectionActionBar). */
   mode: 'tap' | 'drag'
+  /** Longer than the 500 characters the speech and translation endpoints accept.
+   * The toolbar still opens — Copy, Highlight and Ask have no such limit. */
+  tooLong?: boolean
 }
 
 export type LookupState = {
@@ -59,29 +62,31 @@ export function useReaderSelection({ flushVocabMap }: Options) {
 
   /**
    * Opens or closes the selection in response to a WebView postMessage.
-   * Returns the freshly minted `selectionId` for single-word callers that
-   * still need to wire up auto-TTS / auto-save (the hook stays out of those
-   * concerns to avoid coupling to vocab/TTS internals).
+   *
+   * Returns nothing. It used to hand back the freshly minted `selectionId` so
+   * the caller could start auto-TTS for a single word; that auto-speak is gone
+   * (it fired on the long-press that opens a sentence drag), and no other
+   * caller ever read the id. `selectionId` still travels inside the selection
+   * itself — WordCard's auto-dismiss timer keys off it.
    */
   const openSelection = useCallback(
-    (payload: { text: string; sentence?: string; anchor?: any; mode?: 'tap' | 'drag' } | null): number | null => {
+    (payload: { text: string; sentence?: string; anchor?: any; mode?: 'tap' | 'drag'; tooLong?: boolean } | null): void => {
       if (!payload || !payload.text) {
         if (__DEV__) console.log('[diag] setSelection NULL (empty-data branch)')
         setSelection(null)
-        return null
+        return
       }
       if (__DEV__) console.log('[diag] setSelection OPEN', payload.text, 'mode=', payload.mode || 'drag')
-      const nextId = ++selectionIdRef.current
       setSelection({
         text: payload.text,
         sentence: payload.sentence || '',
         anchor: payload.anchor || null,
-        selectionId: nextId,
+        selectionId: ++selectionIdRef.current,
         mode: payload.mode || 'drag',
+        tooLong: !!payload.tooLong,
       })
       setWordSaved(false)
       setLookupState(null)
-      return nextId
     },
     [],
   )

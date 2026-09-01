@@ -45,7 +45,15 @@ interface SelectionActionBarProps {
    *  (persistent chat, AI-027). Only wired when the reader has an ask target; shown for
    *  multi-word passages (a single quoted word is redundant with the vocab actions). */
   onAskAbout?: () => void
+  /** Selection is past the 500-character ceiling the speech and translation
+   *  endpoints enforce. Those two and Explain are disabled; Copy, Highlight
+   *  and Ask still work, which is why the toolbar opens at all. */
+  tooLong?: boolean
   isSpeaking?: boolean
+  /** Audio is being fetched — there is no sound yet. Distinct from `isSpeaking`
+   *  because the fetch takes about a second, and a button that still says
+   *  "Listen" through it invites the second press that cancels the first. */
+  isTtsLoading?: boolean
   wordSaved?: boolean
   vocabStage?: number | null
   isAuthenticated?: boolean
@@ -84,7 +92,9 @@ export function SelectionActionBar({
   onMarkKnown,
   onRemove,
   onAskAbout,
+  tooLong,
   isSpeaking,
+  isTtsLoading,
   wordSaved,
   vocabStage,
   isAuthenticated,
@@ -166,6 +176,18 @@ export function SelectionActionBar({
         </View>
       )}
 
+      {/* Say why three buttons are dead. Dimming them alone reads as "broken":
+          the reader presses, nothing happens, and that is exactly the
+          impression this toolbar is supposed to stop giving. */}
+      {tooLong && (
+        <View style={styles.noticeRow}>
+          <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
+          <Text style={[styles.notice, { color: colors.textSecondary }]} numberOfLines={1}>
+            Too long to listen, translate or explain
+          </Text>
+        </View>
+      )}
+
       <View style={styles.actionsRow}>
         {isAuthenticated && onHighlight && (
           <>
@@ -190,34 +212,55 @@ export function SelectionActionBar({
           <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Copy</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.btn}
+          style={[styles.btn, tooLong && styles.btnDisabled]}
           onPress={onTranslate}
+          disabled={tooLong}
           accessibilityRole="button"
-          accessibilityLabel="Translate selection in full sheet"
+          accessibilityLabel={tooLong ? 'Translate — selection too long' : 'Translate selection in full sheet'}
+          accessibilityState={{ disabled: !!tooLong }}
         >
-          <Ionicons name="language-outline" size={19} color={colors.text} />
+          <Ionicons name="language-outline" size={19} color={tooLong ? colors.textSecondary : colors.text} />
           <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Translate</Text>
         </TouchableOpacity>
         {onExplain && (
           <TouchableOpacity
-            style={styles.btn}
+            style={[styles.btn, tooLong && styles.btnDisabled]}
             onPress={onExplain}
+            disabled={tooLong}
             accessibilityRole="button"
-            accessibilityLabel="Explain selection in context"
+            accessibilityLabel={tooLong ? 'Explain — selection too long' : 'Explain selection in context'}
+            accessibilityState={{ disabled: !!tooLong }}
           >
-            <Ionicons name="bulb-outline" size={19} color={colors.text} />
+            <Ionicons name="bulb-outline" size={19} color={tooLong ? colors.textSecondary : colors.text} />
             <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Explain</Text>
           </TouchableOpacity>
         )}
+        {/* One control, three states: idle → fetching → playing. The spinner
+            stays pressable and cancels, so a download that never lands can't
+            trap the reader in a button that does nothing. */}
         <TouchableOpacity
-          style={styles.btn}
+          style={[styles.btn, tooLong && styles.btnDisabled]}
           onPress={onSpeak}
+          disabled={tooLong}
           accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
-          accessibilityState={{ selected: !!isSpeaking }}
+          accessibilityLabel={
+            tooLong ? 'Listen — selection too long'
+              : isTtsLoading ? 'Loading speech, tap to cancel'
+              : isSpeaking ? 'Stop speech'
+              : 'Read selection aloud'
+          }
+          accessibilityState={{ selected: !!isSpeaking, busy: !!isTtsLoading, disabled: !!tooLong }}
         >
-          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={19} color={colors.text} />
-          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>{isSpeaking ? 'Stop' : 'Listen'}</Text>
+          {isTtsLoading
+            ? <ActivityIndicator size="small" color={colors.text} style={styles.btnSpinner} />
+            : <Ionicons
+                name={isSpeaking ? 'stop' : 'volume-high-outline'}
+                size={19}
+                color={tooLong ? colors.textSecondary : colors.text}
+              />}
+          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>
+            {isTtsLoading ? 'Loading' : isSpeaking ? 'Stop' : 'Listen'}
+          </Text>
         </TouchableOpacity>
 
         {/* "Ask about this" — quote the passage into the persistent Book Chat. Multi-word only. */}
@@ -366,6 +409,32 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     marginTop: 1,
+  },
+  // Match the 19px icon box the spinner replaces, so the row doesn't shift
+  // height the moment someone presses Listen.
+  btnSpinner: {
+    height: 19,
+    width: 19,
+  },
+  // Opacity, not a colour swap. text vs textSecondary on the icon is
+  // indistinguishable in the light theme — verified on a device, where the
+  // three dead buttons looked exactly like the live ones.
+  btnDisabled: {
+    opacity: 0.35,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingBottom: 6,
+    marginBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(127,127,127,0.18)',
+  },
+  notice: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
   },
   btn: {
     minWidth: 46,

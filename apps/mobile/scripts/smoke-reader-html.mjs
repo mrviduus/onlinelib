@@ -43,10 +43,31 @@ function parseOrDie(label, code) {
   }
 }
 
-// 1. Overlay script parses standalone.
-const overlayScript = extractTemplate(readSource('src/lib/readerOverlayScript.ts'), 'READER_OVERLAY_SCRIPT')
-parseOrDie('READER_OVERLAY_SCRIPT', overlayScript)
-console.log(`ok overlay-script — ${overlayScript.length} bytes`)
+// 1. The selection bridge parses standalone.
+//
+// This used to point at READER_OVERLAY_SCRIPT in readerOverlayScript.ts. That
+// module became a one-line re-export of the generated bundle in April, so the
+// marker stopped being found and this script has exited non-zero — unnoticed,
+// since nothing runs it — ever since. The generated bundle is covered by
+// readerOverlayMobileBundle.test.ts, which loads it into JSDOM.
+//
+// READER_SELECTION_BRIDGE is the hand-written template that was left
+// unguarded: 27KB of JavaScript inside a TypeScript string, where a stray
+// brace is invisible to tsc and shows up as a reader with no word tap, no
+// selection toolbar and no highlights.
+const bridgeRaw = extractTemplate(readSource('src/lib/readerBridge.ts'), 'READER_SELECTION_BRIDGE')
+// Decode the escapes rather than parsing the source slice. A regex strip does
+// not round-trip them — `\\p{L}` in the source is `\p{L}` in the string the
+// WebView receives, and parsing the former fails on a regex that is fine. The
+// template carries no `${…}`, so evaluating it as a literal runs no code; that
+// is asserted rather than assumed, because it stops being true silently.
+if (bridgeRaw.includes('${')) {
+  console.error('[FAIL] READER_SELECTION_BRIDGE gained an interpolation — this check decodes it as a plain literal')
+  process.exit(1)
+}
+const bridge = vm.runInNewContext('`' + bridgeRaw + '`')
+parseOrDie('READER_SELECTION_BRIDGE', bridge)
+console.log(`ok selection-bridge — ${bridge.length} bytes`)
 
 // 2. readerHtml.ts interpolates it under the expected flag gate.
 const readerHtml = readSource('src/lib/readerHtml.ts')

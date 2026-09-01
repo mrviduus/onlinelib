@@ -5,6 +5,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/mrviduus/textstack/pulls)
+[![Android — closed beta](https://img.shields.io/badge/Android-closed%20beta-3DDC84?logo=android&logoColor=white)](https://play.google.com/apps/testing/app.textstack.mobile)
 [![GitHub stars](https://img.shields.io/github/stars/mrviduus/textstack?style=social)](https://github.com/mrviduus/textstack/stargazers)
 
 <p align="center">
@@ -18,6 +19,12 @@
 
 <p align="center">
   <a href="https://textstack.app"><img src="https://img.shields.io/badge/▶%20Open%20TextStack-textstack.app-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Open TextStack — read books in English with native-language translation"></a>
+  <a href="https://play.google.com/apps/testing/app.textstack.mobile"><img src="https://img.shields.io/badge/Android-join%20the%20beta-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Join the TextStack Android closed beta"></a>
+</p>
+
+<p align="center">
+  <sub><b>The Android app is in closed testing and looking for readers.</b> Join, keep it installed, read something.<br>
+  That is the whole job — Google needs 12 testers for 14 days before it can go public.</sub>
 </p>
 
 <p align="center">

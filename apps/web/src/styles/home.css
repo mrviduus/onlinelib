@@ -937,6 +937,67 @@
   color: var(--color-text);
 }
 
+/* Android beta badge — shaped like a store badge (icon + two-line lockup) so it
+   reads as one at a glance, but says what it actually is. */
+.site-footer__android {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-footer__android-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.site-footer__android-badge:hover {
+  border-color: var(--color-text-secondary);
+  transform: translateY(-1px);
+}
+
+.site-footer__android-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.site-footer__android-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.site-footer__android-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.site-footer__android-action {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.site-footer__android-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
 .site-footer__bottom {
   margin-top: 48px;
   padding-top: 48px;

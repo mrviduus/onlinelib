@@ -219,7 +219,10 @@
     "title": "Read on your phone?",
     "body": "The Android app is in closed testing — same books, same saved words, offline. Join, keep it installed, and read. That is the whole job.",
     "join": "Join the test",
-    "dismiss": "Not now"
+    "dismiss": "Not now",
+    "badgeLabel": "Android app",
+    "badgeAction": "Join the beta",
+    "badgeNote": "In closed testing — open to anyone with an Android phone."
   },
   "reader": {
     "ask": {

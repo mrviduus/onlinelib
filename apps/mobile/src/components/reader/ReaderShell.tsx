@@ -191,7 +191,7 @@ export function ReaderShell(props: ReaderShellProps) {
   const { colors } = useTheme()
   const { language } = useLanguage()
   const { nativeLanguage } = useNativeLanguage()
-  const { toggle: toggleTts, isSpeaking } = useTts()
+  const { toggle: toggleTts, isSpeaking, isLoading: isTtsLoading } = useTts()
   const quickStats = useQuickStats(isAuthenticated)
   const haptics = useHaptics()
   const { show: showToast } = useToast()
@@ -496,11 +496,14 @@ export function ReaderShell(props: ReaderShellProps) {
         // impact confirms the hold registered before the WordCard opens.
         haptics.play('flip')
       } else if (data.type === 'selection') {
+        // No speech here. A single-word selection used to auto-speak, but the
+        // message carrying it arrives from the 450ms long-press — which is also
+        // the first frame of a drag that is on its way to selecting a sentence.
+        // The word started playing under a gesture that had not finished saying
+        // what it wanted, and then owned the player the toolbar's Listen button
+        // needed. Speech is now only ever started by pressing a button.
         const mode: 'tap' | 'drag' = data.mode === 'tap' ? 'tap' : 'drag'
-        const nextId = openSelection(data.text ? { ...data, mode } : null)
-        if (nextId !== null && !data.text.includes(' ')) {
-          toggleTts(data.text, { rate: settings.ttsSpeed, lang: language })
-        }
+        openSelection(data.text ? { ...data, mode } : null)
       } else if (data.type === 'pdfHighlightCreate') {
         // Original PDF: the viewer resolved a quad-rect anchor for the current
         // selection. Persist it (chapterless userbook highlight) with the color
@@ -562,7 +565,7 @@ export function ReaderShell(props: ReaderShellProps) {
     } catch (err) {
       if (__DEV__) console.warn('[reader] postMessage handler threw', err, event?.nativeEvent?.data)
     }
-  }, [chapters, chapterSlug, language, settings.ttsSpeed, toggleTts, toggleBars, showBars, hideBars,
+  }, [chapters, chapterSlug, toggleBars, showBars, hideBars,
       setEditingHighlight, updateSessionProgress, onChapterLoaded, onRequestNextChapter, onRestoreLanded, openSelection, bumpProgress, haptics,
       original, recordSessionActivity, maybeInitialPdfJump, persistPdfPage, createPdfHighlight, repaintPdf])
 
@@ -911,7 +914,9 @@ export function ReaderShell(props: ReaderShellProps) {
             highlightColor={settings.lastHighlightColor}
             onMarkKnown={handleMarkKnown}
             onRemove={handleRemoveWord}
+            tooLong={selection.tooLong}
             isSpeaking={isSpeaking}
+            isTtsLoading={isTtsLoading}
             wordSaved={wordSaved}
             vocabStage={vocabMapRef.current[selection.text.toLowerCase()]?.stage ?? null}
             isAuthenticated={isAuthenticated}

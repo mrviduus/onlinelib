@@ -271,6 +271,12 @@ export const READER_SELECTION_BRIDGE = `
      * the typical 50-100ms settle time on iOS 17+ WebKit.
      */
     var _suppressSelectionChangeUntil = 0;
+    // Longest passage the server-backed actions accept: Tts:MaxTextLength and
+    // OpenAI:Translate:MaxTextLength are both 500. A longer selection used to
+    // be dropped here without a message, so the toolbar never appeared at all
+    // and Copy and Highlight — which have no limit — were lost with it. It is
+    // dispatched now, flagged, and the toolbar disables only what cannot work.
+    var SELECTION_MAX_CHARS = 500;
     var _lastDispatchedText = '';
     // When the last dispatch came from the tap path (selectWordAtPoint),
     // we MUST NOT notify the parent of a "selection cleared" event on the
@@ -285,7 +291,7 @@ export const READER_SELECTION_BRIDGE = `
       if (!sel || sel.isCollapsed) { console.log('[diag] dispatchSelection: no selection'); return; }
       var text = sel.toString().trim();
       if (!text) { console.log('[diag] dispatchSelection: empty text'); return; }
-      if (text.length > 300) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
+      if (text.length > SELECTION_MAX_CHARS) { console.log('[diag] dispatchSelection: text too long', text.length); return; }
       if (!text.includes(' ') && text.length <= 50) applyTapPulse(sel);
       var sentence = '';
       try { sentence = extractSentence(sel.anchorNode); } catch(e) {}
@@ -533,12 +539,34 @@ export const READER_SELECTION_BRIDGE = `
     var _selChangeTimer = null;
     function _runSelectionDispatch() {
       _selChangeTimer = null;
-      // Re-check suppression at fire time — a tap dispatched DURING the debounce
-      // window must still get the full suppression treatment.
-      if (Date.now() < _suppressSelectionChangeUntil) return;
       if (_hlOverlayer && _hlOverlayer.isJustAnchored && _hlOverlayer.isJustAnchored()) return;
       var sel = window.getSelection();
+      // The suppression window swallows NOISE about the selection we just made
+      // — an ActionMode spawning or dismissing, iOS re-firing the same range.
+      // It used to swallow everything, including the reader extending a
+      // long-press into a phrase, and that is the bug it caused: after the
+      // 450ms hold selects a word, dragging the handles out to a sentence
+      // produces selectionchange events that all landed inside the 1500ms
+      // window and were dropped. The app never heard about the sentence, so
+      // Listen read the single word it still had — the "I selected a sentence
+      // and it read one word" report. Verified on an emulator: the identical
+      // gesture delivered the full sentence the moment the window had expired.
+      //
+      // The release path that was supposed to prevent this — touchmove setting
+      // the deadline to 0 once the finger passes SELECT_EXTEND_TOLERANCE —
+      // carried the comment "Needs on-device validation" and does not fire:
+      // once Android's selection ActionMode owns the gesture, the page stops
+      // receiving touchmove at all.
+      //
+      // So the window no longer gates a genuinely different, non-empty
+      // selection. Noise cannot invent one: an echo repeats the text we last
+      // sent (caught by the dedupe below) and a dismiss collapses it (caught
+      // here).
+      var suppressed = Date.now() < _suppressSelectionChangeUntil;
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        // A collapse inside the window is the ActionMode going away, not the
+        // reader letting go.
+        if (suppressed) return;
         // Only notify parent of "selection cleared" when WE previously
         // dispatched a drag-select via this listener. If the last dispatch
         // was a tap, there was no Selection-API selection to begin with,
@@ -552,9 +580,10 @@ export const READER_SELECTION_BRIDGE = `
         return;
       }
       var text = sel.toString().trim();
-      if (text.length > 300) return;
       // Drop duplicates — if the user re-selected the exact same text (e.g.
-      // iOS magnifier re-firing), don't re-render the popup.
+      // iOS magnifier re-firing), don't re-render the popup. This is also what
+      // absorbs the echo of a selection we made ourselves, which is why the
+      // window above no longer needs to.
       if (text === _lastDispatchedText) return;
       // No tap-pulse here. range.surroundContents() mutates the DOM under
       // the live Selection — Android aborts the long-press extension when
@@ -574,7 +603,8 @@ export const READER_SELECTION_BRIDGE = `
         mode: 'drag',
         text: text,
         sentence: sentence,
-        anchor: anchor
+        anchor: anchor,
+        tooLong: text.length > SELECTION_MAX_CHARS
       }));
     }
     document.addEventListener('selectionchange', function() {

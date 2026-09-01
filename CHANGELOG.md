@@ -23,6 +23,10 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Beta** — the site and the README carry a standing Android beta badge, not a Play badge that leads to a 404 — web · [details](docs/changelog-archive/2026-H2.md#2026-09-01-beta-a-standing-android-badge)
+- **Selection** — extending a long-press into a sentence reaches the app, so Listen stops reading one word — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-01-selection-extending-a-long-press-reaches-the-app)
+- **Reader** — speech starts when asked, and the Listen button reads the passage you picked — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-01-reader-speech-starts-when-asked)
+- **Selection** — a passage longer than 300 characters stops disappearing instead of opening a toolbar — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-01-selection-a-long-passage-stops-disappearing)
 - **Search** — a common word stops timing out, because ranking happens after deduplication instead of over every chapter — backend · [details](docs/changelog-archive/2026-H2.md#2026-08-31-search-a-common-word-stops-timing-out)
 - **Android** — the launcher icon stops being a solid block for anyone using themed icons — mobile · [details](docs/changelog-archive/2026-H2.md#2026-08-31-android-the-launcher-icon-stops-being-a-solid-block)
 - **SSG** — a rebuild that lost its files stops promoting the remains over a working site, and the deploy stops calling that success — infra · [incident](docs/incidents/2026-08-31-deploy-wiped-a-running-ssg-rebuild.md)
