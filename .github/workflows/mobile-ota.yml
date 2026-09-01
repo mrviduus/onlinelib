@@ -206,7 +206,7 @@ jobs:
             echo
             echo "Something native changed — a dependency, an Expo plugin, or app.json."
             echo "Ship it with **mobile-release.yml → build-submit**, not an update."
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           echo "::error::Runtime mismatch — this change needs a build, not an OTA update."
           exit 1
 
@@ -238,4 +238,4 @@ jobs:
             fi
             echo
             echo "Runtime \`${{ steps.fp.outputs.hash }}\`, matching build \`${{ steps.build.outputs.id }}\`."
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
