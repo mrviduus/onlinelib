@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { API_URL } from '../lib/api'
 import { trackTtsPlayed } from '../lib/analytics'
+import { ttsRequestDecision, TtsPhase } from '../lib/ttsRequest'
 
 // Lazy + safe loads — these native modules ship with the dev build only
 // after their respective `expo install`. An older dev build (before the
@@ -124,7 +125,13 @@ export interface TtsSpeakOptions {
 }
 
 export function useTts() {
-  const [isSpeaking, setIsSpeaking] = useState(false)
+  // Three phases, not one boolean. 'loading' covers the ~1s fetch before any
+  // sound, which the UI has to be able to show — without it a reader presses
+  // Listen, hears nothing, presses again, and cancels their own playback.
+  const [phase, setPhase] = useState<TtsPhase>('idle')
+  // Text being fetched or played. `toggle` compares against it to tell "stop
+  // this" from "play that instead"; see lib/ttsRequest.ts.
+  const currentTextRef = useRef<string | null>(null)
   // One player instance per hook usage. createAudioPlayer (vs useAudioPlayer)
   // gives us direct control over replace/release without a re-render cycle.
   const playerRef = useRef<AudioPlayerLike | null>(null)
@@ -148,7 +155,8 @@ export function useTts() {
     // Bump req so any in-flight download knows it's stale.
     reqRef.current++
     releasePlayer()
-    setIsSpeaking(false)
+    currentTextRef.current = null
+    setPhase('idle')
   }, [releasePlayer])
 
   const speak = useCallback(
@@ -168,7 +176,8 @@ export function useTts() {
       // Tear down any current playback before starting another download —
       // bites the same race expo-speech.stop() handles, just made explicit.
       releasePlayer()
-      setIsSpeaking(true)
+      currentTextRef.current = trimmed
+      setPhase('loading')
 
       const spaceCount = trimmed.split(/\s+/).length
       const kind: 'word' | 'sentence' | 'selection' =
@@ -180,7 +189,8 @@ export function useTts() {
       // Another speak() ran while we were downloading — drop this one.
       if (req !== reqRef.current) return
       if (!file) {
-        setIsSpeaking(false)
+        currentTextRef.current = null
+        setPhase('idle')
         return
       }
 
@@ -190,13 +200,16 @@ export function useTts() {
         try { player.setPlaybackRate?.(1.0) } catch { /* rate already baked in by server */ }
         player.addListener('playbackStatusUpdate', status => {
           if (status.didJustFinish) {
-            setIsSpeaking(false)
+            currentTextRef.current = null
+            setPhase('idle')
             releasePlayer()
           }
         })
         player.play()
+        setPhase('playing')
       } catch {
-        setIsSpeaking(false)
+        currentTextRef.current = null
+        setPhase('idle')
         releasePlayer()
       }
     },
@@ -205,10 +218,15 @@ export function useTts() {
 
   const toggle = useCallback(
     (text: string, opts: TtsSpeakOptions | number = {}) => {
-      if (isSpeaking) stop()
-      else void speak(text, opts)
+      const decision = ttsRequestDecision({
+        phase,
+        currentText: currentTextRef.current,
+        requestedText: text,
+      })
+      if (decision === 'stop') stop()
+      else if (decision === 'start') void speak(text, opts)
     },
-    [isSpeaking, speak, stop],
+    [phase, speak, stop],
   )
 
   useEffect(() => {
@@ -218,5 +236,14 @@ export function useTts() {
     }
   }, [releasePlayer])
 
-  return { speak, stop, toggle, isSpeaking }
+  return {
+    speak,
+    stop,
+    toggle,
+    phase,
+    /** Fetching audio — no sound yet. Show a spinner, not a play icon. */
+    isLoading: phase === 'loading',
+    /** Busy in either sense, so a press is a stop. Kept for existing callers. */
+    isSpeaking: phase !== 'idle',
+  }
 }

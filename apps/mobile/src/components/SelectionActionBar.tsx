@@ -46,6 +46,10 @@ interface SelectionActionBarProps {
    *  multi-word passages (a single quoted word is redundant with the vocab actions). */
   onAskAbout?: () => void
   isSpeaking?: boolean
+  /** Audio is being fetched — there is no sound yet. Distinct from `isSpeaking`
+   *  because the fetch takes about a second, and a button that still says
+   *  "Listen" through it invites the second press that cancels the first. */
+  isTtsLoading?: boolean
   wordSaved?: boolean
   vocabStage?: number | null
   isAuthenticated?: boolean
@@ -85,6 +89,7 @@ export function SelectionActionBar({
   onRemove,
   onAskAbout,
   isSpeaking,
+  isTtsLoading,
   wordSaved,
   vocabStage,
   isAuthenticated,
@@ -209,15 +214,26 @@ export function SelectionActionBar({
             <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Explain</Text>
           </TouchableOpacity>
         )}
+        {/* One control, three states: idle → fetching → playing. The spinner
+            stays pressable and cancels, so a download that never lands can't
+            trap the reader in a button that does nothing. */}
         <TouchableOpacity
           style={styles.btn}
           onPress={onSpeak}
           accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? 'Stop speech' : 'Read selection aloud'}
-          accessibilityState={{ selected: !!isSpeaking }}
+          accessibilityLabel={
+            isTtsLoading ? 'Loading speech, tap to cancel'
+              : isSpeaking ? 'Stop speech'
+              : 'Read selection aloud'
+          }
+          accessibilityState={{ selected: !!isSpeaking, busy: !!isTtsLoading }}
         >
-          <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={19} color={colors.text} />
-          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>{isSpeaking ? 'Stop' : 'Listen'}</Text>
+          {isTtsLoading
+            ? <ActivityIndicator size="small" color={colors.text} style={styles.btnSpinner} />
+            : <Ionicons name={isSpeaking ? 'stop' : 'volume-high-outline'} size={19} color={colors.text} />}
+          <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>
+            {isTtsLoading ? 'Loading' : isSpeaking ? 'Stop' : 'Listen'}
+          </Text>
         </TouchableOpacity>
 
         {/* "Ask about this" — quote the passage into the persistent Book Chat. Multi-word only. */}
@@ -366,6 +382,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 9,
     marginTop: 1,
+  },
+  // Match the 19px icon box the spinner replaces, so the row doesn't shift
+  // height the moment someone presses Listen.
+  btnSpinner: {
+    height: 19,
+    width: 19,
   },
   btn: {
     minWidth: 46,
