@@ -134,9 +134,37 @@ jobs:
             --status finished \
             --limit 50 \
             --json --non-interactive)
-          prod=$(printf '%s' "$json" | jq -c '[.[] | select(.buildProfile == "production" or .channel == "production")][0] // empty')
-          rt=$(printf '%s' "$prod" | jq -r '.runtimeVersion // empty' 2>/dev/null || true)
+          prod=$(printf '%s' "$json" | jq -c '[.[] | select(.buildProfile == "production" or .updateChannel == "production")][0] // empty')
           id=$(printf '%s' "$prod" | jq -r '.id // empty' 2>/dev/null || true)
+          # The field is `runtime`, not `runtimeVersion` — confirmed from a real
+          # response, whose keys are: buildProfile, runtime, updateChannel,
+          # fingerprint, … The first version of this step guessed
+          # `runtimeVersion` and `channel`, matched nothing, and reported it as
+          # "no production build". Accept a bare string or an object, and fall
+          # back to the fingerprint hash, since under a fingerprint policy that
+          # is the same value.
+          rt=$(printf '%s' "$prod" | jq -r '
+            (.runtime | if type == "object" then (.version // .runtimeVersion // empty) else . end)
+            // .runtimeVersion
+            // (.fingerprint | if type == "object" then (.hash // empty) else . end)
+            // empty' 2>/dev/null || true)
+
+          # A build that was found but carries no runtime is a different problem
+          # from no build at all, and the two used to share one message.
+          if [ -n "$prod" ] && [ -z "$rt" ]; then
+            {
+              echo "### Production build found, but no runtime on it"
+              echo
+              echo "Build \`$id\`."
+              echo
+              echo "\`runtime\`: \`$(printf '%s' "$prod" | jq -c '.runtime // "absent"')\`"
+              echo
+              echo "\`fingerprint\`: \`$(printf '%s' "$prod" | jq -c '.fingerprint // "absent"')\`"
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::The newest production build carries no runtime this step can read. See above."
+            exit 1
+          fi
+
           if [ -z "$rt" ]; then
             # Say what was actually looked at. "No production build exists" and
             # "matched on the wrong field" produce identical silence otherwise,
@@ -149,7 +177,7 @@ jobs:
               echo
               echo "Build profiles seen: \`$(printf '%s' "$json" | jq -r '[.[].buildProfile // "null"] | unique | join(", ")')\`"
               echo
-              echo "Channels seen: \`$(printf '%s' "$json" | jq -r '[.[].channel // "null"] | unique | join(", ")')\`"
+              echo "Update channels seen: \`$(printf '%s' "$json" | jq -r '[.[].updateChannel // "null"] | unique | join(", ")')\`"
               echo
               echo "Keys on the newest record: \`$(printf '%s' "$json" | jq -r '(.[0] // {}) | keys | join(", ")')\`"
               echo
