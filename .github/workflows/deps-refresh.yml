@@ -1,0 +1,193 @@
+name: Dependencies (weekly)
+
+# Two lanes, opened as pull requests and merged only on green.
+#
+# There is a workflow in four sibling repositories that bumps NuGet packages and
+# pushes straight to `main`, verified inside the job. That is right there and
+# wrong here: in those repos a push to main publishes a package, and in this one
+# **a merge to main deploys production**. So the PR is not ceremony — it is the
+# gate, and CI (1328 unit tests, e2e, both images built) is what opens it.
+#
+#   refresh — re-resolve the lockfile inside the ranges already declared.
+#             Nothing in any package.json changes.
+#   catalog — raise the shared version catalog by patch and minor.
+#             Majors are reported and left alone.
+#
+# `refresh` is first because it is the one that mattered. dompurify shipped a
+# known-vulnerable XSS sanitiser to every visitor for months while
+# `apps/web/package.json` already declared a range that allowed the fix — the
+# range was right, the lockfile was old, and nothing re-resolved it. That is not
+# a version-bump problem and no amount of bumping would have found it.
+#
+# What this must never touch is expo, react-native and react. Those decide the
+# mobile runtime fingerprint. A bot bump passes CI — tsc and the unit tests do
+# not know what an SDK compatibility matrix is — and then every installed app
+# stops receiving OTA updates, because mobile-ota.yml correctly refuses to
+# publish into a runtime nobody is running. scripts/catalogBump.mjs holds the
+# list; `refresh` cannot reach them because it never changes a declared range.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Monday, before anyone is looking
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Which lane to run
+        type: choice
+        options: [both, refresh, catalog]
+        default: both
+      dry_run:
+        description: Report what would change and stop
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: deps-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: ${{ inputs.lane == null || inputs.lane == 'both' || inputs.lane == 'refresh' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # No --frozen-lockfile: re-resolving inside the declared ranges is the
+      # entire point. Every package.json is left exactly as it is.
+      - name: Re-resolve the lockfile
+        id: resolve
+        run: |
+          set -euo pipefail
+          pnpm install --no-frozen-lockfile
+          if git diff --quiet -- pnpm-lock.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo '### Lockfile already current' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo '### Lockfile re-resolved'
+              echo
+              echo 'No declared range changed — these are versions the ranges already allowed.'
+              echo
+              echo '```'
+              git diff --stat -- pnpm-lock.yaml
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Verify
+        if: steps.resolve.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          pnpm --filter textstack-web build
+          pnpm --filter textstack-admin build
+          pnpm --filter textstack-web test
+          pnpm --filter @textstack/shared test
+          pnpm --filter mobile typecheck
+          pnpm --filter mobile test
+
+      # tsc and the unit tests pass while the app cannot be bundled — a broken
+      # module resolution only shows up when Metro walks the graph, and a
+      # dependency refresh is exactly what moves module resolution.
+      - name: Bundle (Metro)
+        if: steps.resolve.outputs.changed == 'true'
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle"
+
+      - name: Open a pull request
+        if: steps.resolve.outputs.changed == 'true' && inputs.dry_run != true
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: deps/lockfile-refresh
+          delete-branch: true
+          title: 'chore(deps): re-resolve the lockfile'
+          commit-message: |
+            chore(deps): re-resolve the lockfile
+
+            Versions the declared ranges already allowed. No package.json
+            changed. This is the lane that would have shipped the dompurify
+            fix months before anyone noticed it was missing.
+          body: |
+            Re-resolved `pnpm-lock.yaml` inside the ranges already declared. **No `package.json` changed.**
+
+            This lane exists because of dompurify: a known-vulnerable XSS sanitiser shipped to every
+            visitor for months while `apps/web/package.json` already declared a range that allowed the
+            patched version. The range was right; nothing re-resolved it.
+
+            Verified in the job: both site builds, 1328 unit tests, `tsc`, and a full Metro bundle.
+            CI has to pass here as well — merging this deploys production.
+          labels: dependencies
+
+  catalog:
+    # No `needs: refresh`. The lanes are independent — one re-resolves inside
+    # existing ranges, the other changes the ranges — and chaining them would
+    # skip this one whenever the other had nothing to do.
+    if: ${{ inputs.lane == null || inputs.lane == 'both' || inputs.lane == 'catalog' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Raise the catalog
+        id: bump
+        run: node scripts/bump-catalog.mjs ${{ inputs.dry_run == true && '--dry-run' || '' }}
+
+      - name: Install the raised versions
+        if: steps.bump.outputs.changed == 'true'
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Verify
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          pnpm --filter textstack-web build
+          pnpm --filter textstack-admin build
+          pnpm --filter textstack-web test
+          pnpm --filter @textstack/shared test
+          pnpm --filter mobile typecheck
+          pnpm --filter mobile test
+
+      - name: Bundle (Metro)
+        if: steps.bump.outputs.changed == 'true'
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle"
+
+      - name: Open a pull request
+        if: steps.bump.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: deps/catalog
+          delete-branch: true
+          title: ${{ steps.bump.outputs.title }}
+          commit-message: ${{ steps.bump.outputs.title }}
+          body: |
+            Raised the shared catalog in `pnpm-workspace.yaml` by patch and minor. Majors are listed
+            in the job summary and left for a person.
+
+            One entry moves every workspace member, which is what makes this worth automating — and
+            also why `react`, `react-dom` and `@types/react` are excluded: they decide the mobile
+            runtime fingerprint, and a bump there passes CI and then stops every installed app from
+            receiving OTA updates.
+
+            Verified in the job: both site builds, 1328 unit tests, `tsc`, and a full Metro bundle.
+          labels: dependencies
