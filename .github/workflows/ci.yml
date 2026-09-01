@@ -133,6 +133,13 @@ jobs:
       - name: Build admin
         run: pnpm --filter textstack-admin build
 
+      # scripts/ has its own tests and no vitest project would otherwise find
+      # them — the web config's include does not reach outside apps/web, so
+      # without this step they exist and never run. They cover the weekly
+      # dependency job, which edits pnpm-workspace.yaml unattended.
+      - name: Repo script tests
+        run: pnpm test:scripts
+
   # apps/mobile is npm + its own lockfile, not part of the pnpm workspace, so it
   # gets its own job rather than another step in `frontend`. @textstack/shared is
   # consumed from source via Metro watchFolders + tsconfig paths, so the checkout
