@@ -1,7 +1,10 @@
 # SSG Build Container
 # Builds React SPA and prerenders SEO pages using Puppeteer
 
-FROM node:20-alpine
+# Keep in step with .nvmrc — a Dockerfile cannot read it, so
+# scripts/check-node-version.mjs fails CI when they drift.
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}-alpine
 
 # Install Chromium for Puppeteer
 RUN apk add --no-cache \

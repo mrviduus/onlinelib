@@ -10,6 +10,18 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  # Cheapest job in the file and the one that would have saved the most time:
+  # an EAS workflow pinned to Node 20 could not install eas-cli 23, and finding
+  # that out cost two round trips. See scripts/check-node-version.mjs.
+  node-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/check-node-version.mjs
+
   backend:
     runs-on: ubuntu-latest
     services:
@@ -84,7 +96,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Install & build web
         working-directory: apps/web
@@ -127,7 +139,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
 
@@ -258,7 +270,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Install web dependencies
         working-directory: apps/web
