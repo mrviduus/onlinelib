@@ -20,6 +20,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # This job installs nothing — it runs one plain Node script. Leave the
+          # cache off: setup-node reads `packageManager` from the root
+          # package.json, decides it should prime a pnpm cache, and fails with
+          # "Unable to locate executable file: pnpm" in a job that has no reason
+          # to have pnpm at all.
+          package-manager-cache: false
       - run: node scripts/check-node-version.mjs
 
   backend:
