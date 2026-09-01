@@ -176,6 +176,18 @@ export function SelectionActionBar({
         </View>
       )}
 
+      {/* Say why three buttons are dead. Dimming them alone reads as "broken":
+          the reader presses, nothing happens, and that is exactly the
+          impression this toolbar is supposed to stop giving. */}
+      {tooLong && (
+        <View style={styles.noticeRow}>
+          <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
+          <Text style={[styles.notice, { color: colors.textSecondary }]} numberOfLines={1}>
+            Too long to listen, translate or explain
+          </Text>
+        </View>
+      )}
+
       <View style={styles.actionsRow}>
         {isAuthenticated && onHighlight && (
           <>
@@ -200,7 +212,7 @@ export function SelectionActionBar({
           <Text style={[styles.btnLabel, { color: colors.textSecondary }]}>Copy</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.btn}
+          style={[styles.btn, tooLong && styles.btnDisabled]}
           onPress={onTranslate}
           disabled={tooLong}
           accessibilityRole="button"
@@ -212,7 +224,7 @@ export function SelectionActionBar({
         </TouchableOpacity>
         {onExplain && (
           <TouchableOpacity
-            style={styles.btn}
+            style={[styles.btn, tooLong && styles.btnDisabled]}
             onPress={onExplain}
             disabled={tooLong}
             accessibilityRole="button"
@@ -227,7 +239,7 @@ export function SelectionActionBar({
             stays pressable and cancels, so a download that never lands can't
             trap the reader in a button that does nothing. */}
         <TouchableOpacity
-          style={styles.btn}
+          style={[styles.btn, tooLong && styles.btnDisabled]}
           onPress={onSpeak}
           disabled={tooLong}
           accessibilityRole="button"
@@ -403,6 +415,26 @@ const styles = StyleSheet.create({
   btnSpinner: {
     height: 19,
     width: 19,
+  },
+  // Opacity, not a colour swap. text vs textSecondary on the icon is
+  // indistinguishable in the light theme — verified on a device, where the
+  // three dead buttons looked exactly like the live ones.
+  btnDisabled: {
+    opacity: 0.35,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingBottom: 6,
+    marginBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(127,127,127,0.18)',
+  },
+  notice: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
   },
   btn: {
     minWidth: 46,

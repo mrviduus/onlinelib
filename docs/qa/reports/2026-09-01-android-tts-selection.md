@@ -107,6 +107,17 @@ Fetching audio takes about a second, and the button said "Listen" throughout, so
 press cancelled the first fetch. It now shows a spinner labelled "Loading" (`shots/s13.png`), stays
 pressable so a download that never lands cannot trap the reader, and the row does not change height.
 
+## D4 — the disabled state was invisible · **fixed during the pass**
+
+Caught by running the checklist rather than by reading the diff. On an over-long selection the
+toolbar opened and Listen/Translate/Explain were correctly inert — and looked exactly like the
+working buttons. `colors.text` → `colors.textSecondary` on the icon is indistinguishable in the
+light theme, and the labels were already `textSecondary`.
+
+Functionally right, and still the wrong outcome: press Listen, nothing happens, back to "it doesn't
+work" — the impression this whole change exists to remove. Now dimmed by opacity with a line above
+the row saying why (`shots/q15.png`).
+
 ---
 
 ## Found while here, not fixed
@@ -131,3 +142,19 @@ Needs a real device. Ships as an OTA (JS only).
    This is the one that was broken; it must not be silent.
 6. Select a paragraph longer than ~500 characters → the toolbar appears, Copy and Highlight work,
    Listen/Translate/Explain are visibly unavailable. Previously nothing appeared at all.
+
+## Emulator results
+
+All six passed on the Pixel 7 Pro. Evidence, in order:
+
+| step | evidence |
+|---|---|
+| 1 | sentence arrives as `mode:'drag'` 1.48 s after the word; `tts_played` count unchanged |
+| 2 | `tts_played kind:'sentence'`; AudioTrack delivered **98496 frames @ 24 kHz = 4.10 s**, and the server returns exactly 4.10 s for that text — read to the end, nothing cut |
+| 3 | second press returns the button to "Listen"; no full-length stop logged |
+| 4 | long-press logs `selected word: motorcar` with no `tts_played`; the toolbar's speaker then logs `kind:'word'`, 43776 frames = 1.82 s |
+| 5 | word starts at `12:36:11.644` (1.82 s long); Listen on the sentence pressed at `12:36:12.319` — 0.675 s in, still playing — logs `kind:'sentence'`. Under the old code this press was a stop. |
+| 6 | 569-character selection opens the toolbar (previously nothing at all); Listen logs no `tts_played`, Translate opens no sheet |
+
+Highlight could not be exercised — the pass ran as a guest, and the highlight button is gated on
+`isAuthenticated`.
