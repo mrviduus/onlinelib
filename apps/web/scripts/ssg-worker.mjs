@@ -21,10 +21,21 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// SSG directories for atomic swap
-const SSG_DIR = '/app/dist/ssg';
-const SSG_NEW_DIR = '/app/dist/ssg-new';
-const SSG_OLD_DIR = '/app/dist/ssg-old';
+// SSG directories for atomic swap.
+//
+// Derived from this file's own location, not written out absolutely. They used
+// to be '/app/dist/...', which was true for as long as the container's WORKDIR
+// was /app — and stopped being true the moment the image started building from
+// the repository root and running out of /repo/apps/web. Every rebuild then
+// failed with EACCES on mkdir '/app/dist/ssg-new' while the site kept serving
+// the previous SSG, so nothing looked wrong from outside.
+//
+// prerender.mjs, next door, already resolved its own paths this way and was
+// untouched by the move. This is that.
+const DIST_DIR = join(__dirname, '..', 'dist');
+const SSG_DIR = join(DIST_DIR, 'ssg');
+const SSG_NEW_DIR = join(DIST_DIR, 'ssg-new');
+const SSG_OLD_DIR = join(DIST_DIR, 'ssg-old');
 
 // Configuration
 const DATABASE_URL = process.env.DATABASE_URL;

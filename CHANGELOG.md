@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **SSG** — rebuilds stopped failing on a path the workspace move invalidated, while the site looked fine — infra · [incident](docs/incidents/2026-09-01-ssg-worker-lost-its-output-path.md)
 - **CI** — dependencies refresh themselves weekly, and the lane that matters is the one that changes no versions at all — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-ci-dependencies-refresh-themselves)
 - **Security** — 125 dependency findings down to 3, none of them shipping, and something now watches — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-security-125-findings-down-to-3)
 - **Infra** — one pnpm workspace with a version catalog, the JS answer to Directory.Packages.props — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-01-infra-one-workspace-one-catalog)
