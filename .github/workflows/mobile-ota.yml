@@ -75,24 +75,33 @@ jobs:
               ;;
           esac
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v7
         with:
           # Version comes from .nvmrc, the one place that declares it. It must
           # stay >= 22: eas-cli 23 pulls @oclif/plugin-autocomplete, which
           # declares engines.node >= 22 and will not install below it.
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
+          cache: pnpm
 
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # @textstack/shared is consumed from source (Metro watchFolders), so the
-      # checkout already carries it; only the app's own deps need installing.
+      # One workspace, one lockfile — apps/mobile stopped having its own the day
+      # this repo became a pnpm workspace. `npm ci` kept looking for a
+      # package-lock.json that no longer exists, and setup-node failed before it
+      # even got there: "Some specified paths were not resolved, unable to cache
+      # dependencies." ci.yml's mobile job was converted at the time; these two
+      # were missed, so the first OTA after the move never published.
+      #
+      # Installs the whole workspace rather than this app alone: packages/shared
+      # is consumed from source and Metro resolves it through the workspace root.
       - name: Install dependencies
-        run: npm ci
+        working-directory: ${{ github.workspace }}
+        run: pnpm install --frozen-lockfile
 
       # MUST run from apps/mobile. From the repo root the command computes a
       # different hash and reports it as valid — see docs/03-ops/play-store-release.md.
