@@ -116,6 +116,9 @@ importers:
       expo-audio:
         specifier: ~55.0.14
         version: 55.0.18(expo-asset@55.0.20(expo@55.0.31)(react-native@0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(expo@55.0.31)(react-native@0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
+      expo-battery:
+        specifier: ~10.0.7
+        version: 10.0.8(expo@55.0.31)(react@19.2.0)
       expo-build-properties:
         specifier: ~55.0.17
         version: 55.0.18(expo@55.0.31)
@@ -3299,6 +3302,12 @@ packages:
       expo-asset: '*'
       react: '*'
       react-native: '*'
+
+  expo-battery@10.0.8:
+    resolution: {integrity: sha512-4rwg603XNEnMO5XnM0exq3JJMrJmJcQJegh6lkobLUDZPGHXwxE+4b9kDcYcW8+m2v1BenUnr8tNVla6llYQUA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
 
   expo-build-properties@55.0.18:
     resolution: {integrity: sha512-LLTuab2S4Gv9dYjolBF/noRAUosa9Fu1o374yoQ7WD+NLWP8rn3fUd5ciKlx7f702JqO7tDJB2+BUjTwtgciCg==}
@@ -8981,6 +8990,11 @@ snapshots:
       expo-asset: 55.0.20(expo@55.0.31)(react-native@0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       react: 19.2.0
       react-native: 0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0)
+
+  expo-battery@10.0.8(expo@55.0.31)(react@19.2.0):
+    dependencies:
+      expo: 55.0.31(@babel/core@7.29.7)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+      react: 19.2.0
 
   expo-build-properties@55.0.18(expo@55.0.31):
     dependencies:
