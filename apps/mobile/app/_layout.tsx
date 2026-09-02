@@ -15,6 +15,7 @@ import { NativeLanguageProvider } from '../src/context/NativeLanguageContext'
 import { ToastProvider } from '../src/context/ToastContext'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LegacyRuntimeBanner } from '../src/components/LegacyRuntimeBanner'
+import { AutoUpdater } from '../src/components/AutoUpdater'
 import { useAppFonts } from '../src/theme/fonts'
 
 SplashScreen.preventAutoHideAsync()
@@ -133,6 +134,7 @@ function AppContent() {
       <ColdResetOnResume />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <LegacyRuntimeBanner />
+      <AutoUpdater />
       <View style={{ flex: 1 }}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
