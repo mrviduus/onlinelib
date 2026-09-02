@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Json.Schema;
 using Microsoft.Extensions.DependencyInjection;
 using TextStack.Ai.Core;
@@ -29,6 +28,11 @@ public sealed record ToolResult(string CallId, string ToolName, bool Ok, JsonEle
 public sealed class ToolDispatcher(IToolRegistry registry)
 {
     private static readonly EvaluationOptions SchemaOptions = new() { OutputFormat = OutputFormat.List };
+
+    /// A JSON null to validate against when a call arrives with no arguments at
+    /// all. Held once: JsonDocument owns unmanaged memory, and parsing "null"
+    /// per call would allocate and leak a document on every tool invocation.
+    private static readonly JsonElement NullInstance = JsonDocument.Parse("null").RootElement;
 
     public async Task<ToolResult> DispatchAsync(ToolCall call, ToolContext ctx, CancellationToken ct)
     {
@@ -79,20 +83,26 @@ public sealed class ToolDispatcher(IToolRegistry registry)
             return $"tool schema is invalid: {ex.Message}"; // a wiring bug, surfaced loudly
         }
 
-        var node = args.ValueKind == JsonValueKind.Undefined ? null : JsonNode.Parse(args.GetRawText());
-        var evaluation = compiled.Evaluate(node, SchemaOptions);
+        // JsonSchema.Net 9 evaluates a JsonElement directly; 7 took a JsonNode,
+        // so this used to round-trip the arguments through JsonNode.Parse for no
+        // reason other than the old signature. A missing argument object still
+        // has to be validated as JSON null rather than skipped — a schema with
+        // required properties must fail, not pass, when the model sends nothing.
+        var instance = args.ValueKind == JsonValueKind.Undefined ? NullInstance : args;
+        var evaluation = compiled.Evaluate(instance, SchemaOptions);
         if (evaluation.IsValid)
             return null;
 
         var violations = evaluation.Details
-            .Where(d => d.HasErrors)
+            .Where(d => d.Errors is { Count: > 0 })
             .SelectMany(d => d.Errors!.Select(e => $"{Location(d)}: {e.Value}"))
             .Distinct()
             .Take(5)
             .ToList();
         return violations.Count > 0 ? string.Join("; ", violations) : "arguments do not match the tool schema";
 
+        // JsonSchema.Net 9 renamed JsonPointer.Count to SegmentCount.
         static string Location(EvaluationResults d) =>
-            d.InstanceLocation.Count == 0 ? "$" : d.InstanceLocation.ToString();
+            d.InstanceLocation.SegmentCount == 0 ? "$" : d.InstanceLocation.ToString();
     }
 }

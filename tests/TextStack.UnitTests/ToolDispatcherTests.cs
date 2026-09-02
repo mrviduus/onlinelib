@@ -152,4 +152,29 @@ public class ToolDispatcherTests
         Assert.NotNull(error);
         Assert.Contains("text", error); // names the offending property/requirement
     }
+
+    [Fact]
+    public void ValidateArgs_NoArgumentsAtAll_StillFailsRequiredProperties()
+    {
+        // A model that calls a tool and sends no argument object at all. The
+        // default JsonElement is JsonValueKind.Undefined, and the tempting
+        // reading is "nothing to validate, so it passes" — which would let every
+        // required property through unchecked.
+        //
+        // Untested until the JsonSchema.Net 9 migration, which is when it
+        // mattered: 7 evaluated a JsonNode and 9 evaluates a JsonElement, so the
+        // undefined case had to be re-expressed rather than carried over.
+        //
+        // The complaint is a type mismatch at the root rather than the missing
+        // property, which is the more accurate thing to say — nothing was sent,
+        // so there is no object to be missing a property from. Asserting the
+        // exact text also pins the two other pieces of that migration: the "$"
+        // comes from JsonPointer.SegmentCount (renamed from Count in 9), and
+        // reaching the message at all goes through the Errors dictionary that
+        // replaced EvaluationResults.HasErrors.
+        var error = ToolDispatcher.ValidateArgs(EchoSchema, default);
+        Assert.NotNull(error);
+        Assert.Contains("but should be", error);
+        Assert.StartsWith("$:", error);
+    }
 }
