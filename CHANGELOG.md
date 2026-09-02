@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Updates** — a fix lands on the next screen instead of the second cold start, but never mid-chapter — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-updates-a-fix-lands-without-two-restarts)
 - **Profile** — the build number sits on the About row and survives an update, because it comes from the installed package — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-the-build-number-survives-an-update)
 - **Profile** — the app says which build it is, and whether the JS came from the store or arrived after — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-which-build-is-this)
 - **SSG** — a deploy that waited on a prompt stopped taking 1990 prerendered pages with it — infra · [incident](docs/incidents/2026-09-02-corepack-prompt-stranded-the-ssg.md)
