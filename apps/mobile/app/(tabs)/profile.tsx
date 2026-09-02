@@ -5,6 +5,7 @@ import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
 import * as Updates from 'expo-updates'
+import * as Application from 'expo-application'
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name']
 // Lazy-loaded — requires native build
@@ -27,21 +28,23 @@ import { fonts } from '../../src/theme/typography'
 // Read once at module load: none of it changes while the app is running, and
 // Updates.* is a native constant rather than something to re-read.
 //
-// `versionCode` is written by EAS at build time (eas.json autoIncrement), so it
-// is present in the manifest the APK ships with and absent from one published
-// by `eas update`. That is the honest behaviour rather than a gap: running the
-// embedded bundle, the number is the build you installed; running an OTA, there
-// is no build number to state and the second line says an update is applied.
-// Reading the installed APK directly would need expo-application, a native
-// module — which would move the runtime fingerprint and make this very change
-// require a store build to arrive.
+// The version and build number come from the installed package, not from the
+// manifest. The manifest carries the versionCode EAS wrote at build time, and an
+// update published by `eas update` has none — so after any OTA the number would
+// simply vanish, exactly when someone is trying to report which build they hold.
+//
+// expo-application is a native module, and one that already ships here:
+// expo-notifications depends on it, so it is compiled into the APK already.
+// Measured before and after adding it as a direct dependency and the runtime
+// fingerprint is 1065515f… both ways, so this still travels as an OTA.
 const BUILD = {
-  version: Constants.expoConfig?.version,
-  versionCode: Constants.expoConfig?.android?.versionCode,
+  version: Application.nativeApplicationVersion ?? Constants.expoConfig?.version,
+  versionCode: Application.nativeBuildVersion,
   // expo-updates' web shim hardcodes isEnabled: true and isEmbeddedLaunch:
   // false, so on web the pair reads as "an update is applied" when no update
   // mechanism exists at all. Web is a dev preview and the e2e harness here,
   // never a shipped target — say so rather than let the shim answer.
+  isDev: __DEV__,
   updatesEnabled: Platform.OS !== 'web' && Updates.isEnabled,
   isEmbeddedLaunch: Updates.isEmbeddedLaunch,
   updateCreatedAt: Updates.createdAt,
@@ -360,7 +363,7 @@ export default function ProfileScreen() {
 
         {/* Info pages */}
         {([
-          { label: 'About', icon: 'information-circle-outline' as const, route: '/about' },
+          { label: 'About', icon: 'information-circle-outline' as const, route: '/about', value: versionLine(BUILD, { short: true }) },
           { label: 'Privacy', icon: 'shield-outline' as const, route: '/privacy' },
           { label: 'Terms', icon: 'document-text-outline' as const, route: '/terms' },
           // Users upload their own books from this app, so rights holders need a
@@ -368,7 +371,7 @@ export default function ProfileScreen() {
           // web page, hence the external link rather than a route.
           { label: 'Copyright / DMCA', icon: 'alert-circle-outline' as const, url: 'https://textstack.app/dmca' },
           { label: 'Contact', icon: 'mail-outline' as const, route: '/contact' },
-        ] as { label: string; icon: IoniconsName; route?: string; url?: string }[]).map(item => (
+        ] as { label: string; icon: IoniconsName; route?: string; url?: string; value?: string }[]).map(item => (
           <TouchableOpacity
             key={item.route ?? item.url}
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
@@ -377,6 +380,9 @@ export default function ProfileScreen() {
           >
             <Ionicons name={item.icon} size={20} color={colors.textSecondary} style={styles.menuIcon} />
             <Text style={[styles.menuText, { color: colors.text }]}>{item.label}</Text>
+            {item.value ? (
+              <Text style={[styles.menuValue, { color: colors.textSecondary }]}>{item.value}</Text>
+            ) : null}
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         ))}
@@ -488,6 +494,7 @@ const styles = StyleSheet.create({
   },
   menuIcon: { marginRight: 12 },
   menuText: { flex: 1, fontFamily: fonts.sans, fontSize: 16 },
+  menuValue: { fontFamily: fonts.sans, fontSize: 14, marginRight: 8 },
   sectionLabel: { fontFamily: fonts.sansMedium, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 4 },
   avatarBadge: {
     position: 'absolute',
