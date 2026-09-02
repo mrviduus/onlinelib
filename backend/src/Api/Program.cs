@@ -173,6 +173,50 @@ app.MapGet("/health/ready", async (AppDbContext db, IHttpClientFactory httpFacto
         components["ollama"] = new { status = "degraded" };
     }
 
+    // SSG: the one thing about this site that breaks invisibly.
+    //
+    // Three incidents in three weeks — a five-week outage, a rebuild promoted
+    // after losing its files, and rebuilds failing on a path that had moved —
+    // and in every one of them the site answered 200, the containers were
+    // healthy, and readers saw nothing, because humans get the SPA and it
+    // renders fine. Each was found by a person eventually noticing.
+    //
+    // Reported, never fatal: stale pages are an SEO problem, not a reason to
+    // fail a probe that gates traffic. The alarm lives in health-check.yml,
+    // which reads this.
+    try
+    {
+        var newest = await db.SsgRebuildJobs
+            .Where(j => j.Status == SsgRebuildJobStatus.Completed && j.FinishedAt != null)
+            .OrderByDescending(j => j.FinishedAt)
+            .Select(j => j.FinishedAt)
+            .FirstOrDefaultAsync(ct);
+
+        // A run that is currently failing matters sooner than one that is
+        // merely old: rebuilds here are deploy-driven, so a quiet day can
+        // legitimately leave the newest one 19 hours behind — measured, not
+        // guessed — while a failure means the next one will not help either.
+        var lastFailed = await db.SsgRebuildJobs
+            .Where(j => j.FinishedAt != null)
+            .OrderByDescending(j => j.FinishedAt)
+            .Select(j => j.Status)
+            .FirstOrDefaultAsync(ct) == SsgRebuildJobStatus.Failed;
+
+        components["ssg"] = newest is null
+            ? new { status = "unknown", lastSuccessAt = (DateTimeOffset?)null, ageHours = (double?)null, lastRunFailed = lastFailed }
+            : new
+            {
+                status = lastFailed ? "degraded" : "ok",
+                lastSuccessAt = newest,
+                ageHours = Math.Round((DateTimeOffset.UtcNow - newest.Value).TotalHours, 1),
+                lastRunFailed = lastFailed,
+            };
+    }
+    catch (Exception ex)
+    {
+        components["ssg"] = new { status = "unknown", error = ex.GetType().Name };
+    }
+
     var elapsed = DateTimeOffset.UtcNow - started;
     var payload = new
     {
