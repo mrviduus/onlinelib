@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- ASP.NET Core -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <!-- Transitive only, via Microsoft.AspNetCore.OpenApi 10.0.8, which resolves
          2.0.0 — GHSA-v5pm-xwqc-g5wc (high): circular schema references can terminate
          OpenAPI parsing. Vulnerable >= 2.0.0-preview.11 through 2.7.4, patched in
@@ -25,20 +25,20 @@
     <!-- Must be >= what Npgsql.EntityFrameworkCore.PostgreSQL requires (10.0.1 needs
          >= 10.0.2). It was declared 9.0.3 while resolution quietly upgraded it, so the
          version in the manifest was not the version that shipped. -->
-    <PackageVersion Include="Npgsql" Version="10.0.2" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <!-- Application Layer -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.8" />
     <!-- Authentication -->
     <PackageVersion Include="BCrypt.Net-Next" Version="4.2.0" />
-    <PackageVersion Include="Google.Apis.Auth" Version="1.74.0" />
+    <PackageVersion Include="Google.Apis.Auth" Version="1.76.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.18.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
     <!-- LLM -->
@@ -47,21 +47,21 @@
          Latest stable 1.4.0 (2026-06-04). Powers the stdio MCP server in
          TextStack.Ai.Mcp — the SDK ships the stdio transport + low-level
          ListTools/CallTool handler API used by the runtime tool catalog. -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="1.4.1" />
     <!-- HTTP (streamable) transport for the MCP server (AI-049, Phase 8). Separate
          package layered on ModelContextProtocol; pinned to the SAME 1.4.0 as the
          core SDK. Brings WithHttpTransport(o => o.Stateless = true) + MapMcp("/mcp")
          on a WebApplication. Pulls in the ASP.NET Core framework reference for the
          TextStack.Ai.Mcp http transport branch. -->
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
     <!-- Tool-args validation (AI-030): real JSON Schema draft 2020-12 evaluation before dispatch -->
-    <PackageVersion Include="JsonSchema.Net" Version="7.3.4" />
+    <PackageVersion Include="JsonSchema.Net" Version="7.4.0" />
     <!-- AI eval framework (MEAI.Evaluation). Stable 10.6.0 — IChatClient seam +
          IEvaluator/EvaluationMetric + Reporting (response cache, HTML report).
          Used by tests/TextStack.AiEvals; see docs/eval-migration.md. -->
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.6.0" />
-    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.6.0" />
-    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.9.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.6.0" />
     <!-- pgvector (Phase 4 RAG). EF maps the `vector` column type + DDL; retrieval
          stays raw Npgsql so the spoiler gate lives in SQL. Pgvector.EF 0.3.0 needs
@@ -75,24 +75,24 @@
     <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
     <!-- Override transitive (ML.Tokenizers pulls 9.0.4) to clear NU1903 high-sev
          advisory GHSA-73j8-2gch-69rq; 10.0.9 aligns with our other 10.0.x packages. -->
-    <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.11" />
     <!-- HDBSCAN density clustering (AI-058 concept clusterer). Real HDBSCAN* in pure
          .NET (targets netstandard2.0 → runs on net10); cosine distance over OpenAI
          word embeddings. Replaces the hand-rolled cosine-threshold union-find. MIT. -->
     <PackageVersion Include="HdbscanSharp" Version="3.0.1" />
     <!-- Search -->
-    <PackageVersion Include="Dapper" Version="2.1.72" />
-    <PackageVersion Include="Meilisearch" Version="0.16.0" />
+    <PackageVersion Include="Dapper" Version="2.1.79" />
+    <PackageVersion Include="Meilisearch" Version="0.20.0" />
     <!-- Hosting -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
     <!-- Image Optimization -->
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <!-- Worker -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
     <PackageVersion Include="VersOne.Epub" Version="3.3.6" />
-    <PackageVersion Include="HtmlAgilityPack" Version="1.12.4" />
-    <PackageVersion Include="PdfPig" Version="0.1.14" />
+    <PackageVersion Include="HtmlAgilityPack" Version="1.13.0" />
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="PDFtoImage" Version="4.1.1" />
     <!-- OpenTelemetry. Bumped 1.11.x → 1.15.x to clear GHSA-4625-4j76-fww9
          (OTLP Exporter) and GHSA-g94r-2vxg-569j (Api). Stable channel. -->
@@ -114,13 +114,13 @@
          SDK, so SentryOptions.BeforeSend never sees them — and our OTel spans carry
          http.client_ip + full SQL (SetDbStatementForText), which must be scrubbed.
          Sentry.Extensions.Logging comes in transitively via Sentry.AspNetCore. -->
-    <PackageVersion Include="Sentry" Version="6.8.0" />
+    <PackageVersion Include="Sentry" Version="6.9.0" />
     <PackageVersion Include="Sentry.AspNetCore" Version="6.8.0" />
     <PackageVersion Include="Sentry.Extensions.Logging" Version="6.8.0" />
     <!-- Security (override transitive for CVE fix) -->
     <!-- Testing -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageVersion Include="xunit.v3" Version="2.0.2" />
+    <PackageVersion Include="xunit.v3" Version="2.0.3" />
     <PackageVersion Include="LoadSurge" Version="1.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
