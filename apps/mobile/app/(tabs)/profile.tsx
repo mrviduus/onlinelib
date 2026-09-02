@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView, Linking } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView, Linking, Platform } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+import Constants from 'expo-constants'
+import * as Updates from 'expo-updates'
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name']
 // Lazy-loaded — requires native build
@@ -19,7 +21,43 @@ import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
 import { authApi, getStorageUrl, getAnonymousReader } from '@textstack/shared'
 import { deleteAccount } from '../../src/lib/api'
 import { getAnonAvatarSource } from '../../src/lib/anonAvatarSource'
+import { versionLine, updateLine } from '../../src/lib/buildInfo'
 import { fonts } from '../../src/theme/typography'
+
+// Read once at module load: none of it changes while the app is running, and
+// Updates.* is a native constant rather than something to re-read.
+//
+// `versionCode` is written by EAS at build time (eas.json autoIncrement), so it
+// is present in the manifest the APK ships with and absent from one published
+// by `eas update`. That is the honest behaviour rather than a gap: running the
+// embedded bundle, the number is the build you installed; running an OTA, there
+// is no build number to state and the second line says an update is applied.
+// Reading the installed APK directly would need expo-application, a native
+// module — which would move the runtime fingerprint and make this very change
+// require a store build to arrive.
+const BUILD = {
+  version: Constants.expoConfig?.version,
+  versionCode: Constants.expoConfig?.android?.versionCode,
+  // expo-updates' web shim hardcodes isEnabled: true and isEmbeddedLaunch:
+  // false, so on web the pair reads as "an update is applied" when no update
+  // mechanism exists at all. Web is a dev preview and the e2e harness here,
+  // never a shipped target — say so rather than let the shim answer.
+  updatesEnabled: Platform.OS !== 'web' && Updates.isEnabled,
+  isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+  updateCreatedAt: Updates.createdAt,
+}
+
+// Shown on both branches of this screen. A tester who cannot sign in is exactly
+// the person who needs to report which build they are on.
+function BuildFooter() {
+  const { colors } = useTheme()
+  return (
+    <View style={styles.buildInfo}>
+      <Text style={[styles.buildText, { color: colors.textSecondary }]}>{versionLine(BUILD)}</Text>
+      <Text style={[styles.buildText, { color: colors.textSecondary }]}>{updateLine(BUILD)}</Text>
+    </View>
+  )
+}
 
 const MENU_ITEMS = [
   { label: 'Reading Stats', icon: 'stats-chart-outline' as const, route: '/stats/' },
@@ -179,6 +217,7 @@ export default function ProfileScreen() {
         >
           <Text style={styles.loginText}>Sign In</Text>
         </TouchableOpacity>
+        <BuildFooter />
       </View>
     )
   }
@@ -380,6 +419,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Which build this is. A tester could not tell from inside the app
+            whether they were holding the fixed version — and the two things
+            that can lag differ: the native build only Play can replace, the JS
+            bundle arrives on its own. */}
+        <BuildFooter />
       </View>
 
       <LanguagePickerModal
@@ -483,4 +528,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   dangerHint: { fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
+  buildInfo: { alignItems: 'center', marginTop: 32, marginBottom: 8, gap: 2 },
+  buildText: { fontFamily: fonts.sans, fontSize: 11 },
 })
