@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Profile** — the app says which build it is, and whether the JS came from the store or arrived after — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-which-build-is-this)
 - **SSG** — a deploy that waited on a prompt stopped taking 1990 prerendered pages with it — infra · [incident](docs/incidents/2026-09-02-corepack-prompt-stranded-the-ssg.md)
 - **SSG** — something finally watches whether pages are being regenerated at all — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-ssg-something-watches)
 - **SSG** — a worker that fails every job stops calling itself healthy — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-ssg-worker-honest-health)
