@@ -212,10 +212,15 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: pnpm
+          # No pnpm cache here. This job installs only when something mobile
+          # changed, and on the PRs where it does not, setup-node's cleanup
+          # fails trying to save a store that was never created:
+          # "Path Validation Error: Path(s) specified in the action for caching
+          # do(es) not exist". A skipped job should cost nothing, including at
+          # the end.
 
       # Nothing mobile touched → nothing to say. Keeps this off the ~85% of PRs
       # that cannot possibly move a fingerprint.
