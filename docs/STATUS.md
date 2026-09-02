@@ -1,6 +1,6 @@
 # Status
 
-**Last updated: 2026-08-20.** Where the project actually is — not what it does (that's
+**Last updated: 2026-09-02.** Where the project actually is — not what it does (that's
 [`docs/README.md`](README.md)) and not what changed (that's [`CHANGELOG.md`](../CHANGELOG.md)).
 
 If you read one page before picking work back up, read this one. It exists because the changelog
@@ -20,8 +20,9 @@ answers "what happened" and nothing answered "what is half-finished right now".
 | **Book Chat** | Streaming, persistent history, per-chapter summaries, page citations for PDFs. Web + mobile at parity. |
 | **Observability** | OpenTelemetry → Aspire, plus Sentry on API + Worker with LLM/provider-routing spans. Mobile Sentry is wired but **dormant** — set `EXPO_PUBLIC_SENTRY_DSN` to arm it, see [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md). |
 | **Entitlements** | `UserTier { Guest, Free, Supporter, Staff }`, config-driven quotas. |
-| **SEO / SSG** | Prerendered pages, sitemap, IndexNow. **Repaired 2026-08-11 after five weeks dead** — see the [postmortem](incidents/2026-08-11-ssg-dead-five-weeks.md). |
-| **Mobile** | Android on Play Internal Testing; OTA updates via `expo-updates`. |
+| **SEO / SSG** | Prerendered pages, sitemap, IndexNow. Four incidents since 2026-08-11 ([dead five weeks](incidents/2026-08-11-ssg-dead-five-weeks.md), [deploy wiped a running rebuild](incidents/2026-08-31-deploy-wiped-a-running-ssg-rebuild.md), [worker lost its output path](incidents/2026-09-01-ssg-worker-lost-its-output-path.md), [a prompt stranded the swap](incidents/2026-09-02-corepack-prompt-stranded-the-ssg.md)), each invisible from outside because humans get the SPA and it renders fine. Now watched three ways: the deploy refuses to promote a rebuild that lost its files, `/health/ready` reports rebuild age and failure, and the health check asks a crawler's question every five minutes. |
+| **Mobile** | Android on Play Internal Testing (`versionCode 24`). OTA via `expo-updates`, published automatically on merge — and refused automatically when the runtime fingerprint has moved. |
+| **Build & deps** | One Node version in `.nvmrc` (24.20.0), enforced across CI, four Dockerfiles and the deploy runner. One pnpm workspace with a version catalog — the JS answer to `Directory.Packages.props`. Weekly dependency refresh by pull request. |
 
 ## In flight
 
@@ -36,9 +37,15 @@ answers "what happened" and nothing answered "what is half-finished right now".
   switch has landed, so builds no longer share one runtime. Still owner-only: promote the current
   build to Closed and recruit 14 testers.
 
-  **Build 22** (`versionCode 22`, runtime `c90afbb0…`) is on Internal Testing and is the first build
-  whose runtime is a fingerprint rather than the shared `1.0.0`, so OTAs now have a verified
-  delivery target. A manual pass against build 21 found 24 defects —
+  **Build 24** (`versionCode 24`, 2026-09-02) is on Internal Testing, carrying the selection-speech
+  fixes (#509). It exists because the pnpm workspace migration moved the runtime fingerprint — 122 of
+  135 fingerprint sources now resolve through the workspace root — so the OTA that had been verified
+  working an hour earlier could no longer reach the installed build. **The six-step checklist in
+  [`docs/qa/reports/2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md)
+  has not been run on a real Galaxy S24 yet**; everything in it was verified on a Pixel 7 Pro
+  emulator, which is not One UI.
+
+  Build 22 was the first build whose runtime is a fingerprint rather than the shared `1.0.0`. A manual pass against build 21 found 24 defects —
   [`docs/qa/reports/2026-08-26-android-manual-pass.md`](qa/reports/2026-08-26-android-manual-pass.md).
   23 are fixed (#458-#468); the one that is not is **P2-5**, a notification permission dialog that
   no code path in the app can produce — the only `requestPermissionsAsync` is behind a toggle that
@@ -67,8 +74,6 @@ someone's memory.
   22 tests exist, 34 of their assertions cannot fail (`.catch(() => false)` then `toBeTruthy()`),
   several reference UI deleted in #452/#453, and CI does not run them because they need a live
   backend. Every fix from the QA sweep shipped with pure unit tests instead.
-- **No SSG freshness alarm.** The five-week outage was found by a screenshot. Nothing yet alerts on
-  "newest generated page is older than N hours" — the single change that would have caught it on day one.
 - **Highlight "revisit" has no recall model.** `Highlight` carries only `LastReviewedAt`, and the queue
   is a 24-hour cooldown — no interval, no schedule, no review log, and no field on the request a grade
   could arrive in. The screen is a page-turner and now says so rather than calling itself review.
@@ -107,13 +112,27 @@ someone's memory.
 - **`X-SEO-Render` lies.** It is set from `map $is_bot`, so it reports "you look like a bot", not "SSG
   was served". It cost real debugging time during the SSG incident.
 - **`.env.bak*` on the server** — three untracked backups holding live secrets.
-- **`EXPO_TOKEN`** repo secret is not set, so the mobile CI build/submit path is unusable; releases go
-  from a local machine.
 - **Two permission groups still requested and unjustified** — `FOREGROUND_SERVICE` +
   `FOREGROUND_SERVICE_MEDIA_PLAYBACK` from `expo-audio` (TTS is foreground-only), and 20 OEM
   launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
   badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
   a device to settle.
+- **The S24 checklist has never been run on an S24.** Every defect in
+  [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) was found and
+  verified on a Pixel 7 Pro emulator. The bug that started it was described as behaving differently on
+  different phones, and the cause turned out to be a 30 ms timing margin — which is exactly the kind of
+  thing an emulator cannot settle.
+- **Three dependency findings have no fix available.** `extract-zip@2.0.1` inside puppeteer has an
+  advisory demanding `>=2.0.2`, and **2.0.2 does not exist** — an override was tried and pnpm refused
+  it. `decode-uri-component` and `uuid` sit inside Expo's own tree, where forcing versions to quiet an
+  audit is how a working mobile build stops working. Down from 125 findings; these three are the
+  remainder, and none of them ships in the app.
+- **Dependabot alerts are still disabled** (Settings → Advanced Security). `.github/dependabot.yml`
+  covers scheduled updates for NuGet and Actions, but *security advisories* are a separate switch and
+  nobody has flipped it. This is why a patched `dompurify` sat available for months while the
+  vulnerable version shipped to every visitor.
+- **`@sentry/react-native` is ahead of the Expo SDK pin** — 8.24 against `~7.11`. Recorded in
+  `expo.install.exclude` as deliberate, but nobody now remembers whether it was.
 - **Play's Data Safety form still holds the pre-2026-08-20 answers**, which now contradict the
   rewritten privacy policy. The correct answers are recorded verbatim in
   [`docs/03-ops/play-store-release.md`](03-ops/play-store-release.md); submitting them is a manual
@@ -135,3 +154,15 @@ Recorded so they stop being re-proposed:
 - **Mobile chunked upload.** RN cannot slice an opaque `file://`; the legacy endpoint stays.
 - **A UserBooks/Editions shared abstraction** — assessed as false parallelism during the R1–R6 sweep.
 - **Python anywhere.** Distillation is TorchSharp + a synthetic teacher.
+- **Audiobooks.** Narration for a catalogue this size is a recurring per-book cost against a product
+  whose thesis is reading, not listening. TTS already reads any selection aloud, which is the part
+  that serves a learner.
+- **A bot that merges its own dependency updates.** Updates arrive as pull requests and a person
+  merges them. Here a merge deploys production, and the day this was decided produced six proposals
+  that were wrong on their merits — a version number is visible to a bot, an Expo SDK matrix and a
+  runtime fingerprint are not. The rule that came out of it: *an automatic update is safe exactly as
+  far as its constraints are machine-checkable.* Two of those constraints now are —
+  `expo install --check` in CI, and a fingerprint report on every PR — and the rest are why nothing
+  merges itself.
+- **Majors, applied automatically.** `deps-refresh.yml` raises patch and minor in the catalog and
+  reports majors without touching them.
