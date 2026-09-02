@@ -102,9 +102,27 @@ async function updateJobProgress(jobId, rendered, failed) {
 }
 
 /**
- * Set job status
+ * Set job status.
+ *
+ * Also records the outcome next to the heartbeat, because the heartbeat alone
+ * says the wrong thing. The container healthcheck used to ask only whether this
+ * loop was still ticking, so a worker that had failed every job for an hour
+ * reported `Up (healthy)` — which is exactly what `docker compose ps` showed
+ * while every rebuild died on EACCES and the site served stale pages to
+ * crawlers. A process that is running and getting nothing done is not healthy.
+ *
+ * Written here rather than at the call sites: this is the one funnel every
+ * outcome passes through, including the catch, so a new code path cannot forget.
  */
+const LAST_JOB_FILE = '/tmp/ssg-worker-last-job';
+
 async function setJobStatus(jobId, status, error = null) {
+  try {
+    writeFileSync(LAST_JOB_FILE, status);
+  } catch {
+    // Never let the marker stop the job from being recorded in the database,
+    // which is the part that matters.
+  }
   if (error) {
     await pool.query(
       `UPDATE ssg_rebuild_jobs SET status = $1, error = $2, finished_at = NOW() WHERE id = $3`,

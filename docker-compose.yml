@@ -253,8 +253,18 @@ services:
       - ./apps/web/dist:/repo/apps/web/dist
     restart: always
     healthcheck:
-      # ssg-worker.mjs writes /tmp/ssg-worker-alive every 30s.
-      test: ["CMD-SHELL", "find /tmp/ssg-worker-alive -mmin -2 | grep -q ."]
+      # Two questions, because the first one alone gave the wrong answer.
+      #
+      # ssg-worker.mjs writes /tmp/ssg-worker-alive every 30s — that is
+      # liveness, and it is all this used to ask. So a worker that had failed
+      # every rebuild for an hour reported "Up (healthy)", which is what
+      # `docker compose ps` said while crawlers were being served stale pages.
+      # A process that is running and getting nothing done is not healthy.
+      #
+      # The second file holds the outcome of the last job, written by
+      # setJobStatus. Absent means nothing has run yet, which is fine on a
+      # fresh container and must not read as failure.
+      test: ["CMD-SHELL", "find /tmp/ssg-worker-alive -mmin -2 | grep -q . && { [ ! -f /tmp/ssg-worker-last-job ] || [ \"$$(cat /tmp/ssg-worker-last-job)\" != Failed ]; }"]
       interval: 60s
       timeout: 5s
       retries: 3
