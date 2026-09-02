@@ -119,7 +119,7 @@
     <PackageVersion Include="Sentry.Extensions.Logging" Version="6.8.0" />
     <!-- Security (override transitive for CVE fix) -->
     <!-- Testing -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageVersion Include="xunit.v3" Version="2.0.2" />
     <PackageVersion Include="LoadSurge" Version="1.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
