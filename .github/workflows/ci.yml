@@ -194,6 +194,75 @@ jobs:
         working-directory: apps/mobile
         run: npx expo export --platform android --output-dir /tmp/ci-bundle
 
+  # Does this change still ship as an OTA, or does it need a Play build?
+  #
+  # mobile-ota.yml already refuses to publish into a runtime nobody is running,
+  # and that guard works — but it runs after the merge, so it tells the person
+  # who can no longer avoid it. Asked here, the answer still changes a decision.
+  #
+  # Its own job because it checks out and installs twice, and only when
+  # something that can move a fingerprint has changed.
+  mobile-runtime:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Nothing mobile touched → nothing to say. Keeps this off the ~85% of PRs
+      # that cannot possibly move a fingerprint.
+      - name: Does this PR touch anything that could move it
+        id: touched
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          if git diff --quiet "$base" HEAD -- apps/mobile packages pnpm-lock.yaml pnpm-workspace.yaml; then
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo '### Mobile runtime not affected' >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo 'Nothing under apps/mobile, packages/ or the lockfile changed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "base=$base" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve the runtime on this branch
+        if: steps.touched.outputs.relevant == 'true'
+        id: head
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          cd apps/mobile
+          echo "runtime=$(npx expo-updates runtimeversion:resolve --platform android | jq -r '.runtimeVersion')" >> "$GITHUB_OUTPUT"
+
+      # The merge base, not main's tip: the question is what this branch changed,
+      # not what happened on main while it was open.
+      - name: Resolve the runtime on the merge base
+        if: steps.touched.outputs.relevant == 'true'
+        id: base
+        run: |
+          set -euo pipefail
+          git checkout --detach ${{ steps.touched.outputs.base }}
+          pnpm install --frozen-lockfile
+          cd apps/mobile
+          echo "runtime=$(npx expo-updates runtimeversion:resolve --platform android | jq -r '.runtimeVersion')" >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        if: steps.touched.outputs.relevant == 'true'
+        run: |
+          git checkout ${{ github.sha }} -- scripts/report-runtime-change.mjs 2>/dev/null || true
+          node scripts/report-runtime-change.mjs \
+            "${{ steps.base.outputs.runtime }}" \
+            "${{ steps.head.outputs.runtime }}"
+
   docker:
     runs-on: ubuntu-latest
     steps:
