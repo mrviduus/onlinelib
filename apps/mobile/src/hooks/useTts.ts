@@ -174,7 +174,7 @@ export function useTts() {
       const req = ++reqRef.current
 
       // Tear down any current playback before starting another download —
-      // bites the same race expo-speech.stop() handles, just made explicit.
+      // bites the same race a speech API's stop() handles, just made explicit.
       releasePlayer()
       currentTextRef.current = trimmed
       setPhase('loading')
