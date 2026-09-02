@@ -170,6 +170,22 @@ jobs:
       - name: Unit tests
         run: pnpm --filter mobile test
 
+      # Expo pins a set of package versions it has tested together, and nothing
+      # in CI knew about it. Dependabot proposed react-native 0.87.1 against an
+      # SDK that expects 0.83.10, expo-splash-screen from a different SDK
+      # entirely, and a webview major the SDK does not ship — all with green
+      # type checks and green unit tests, because tsc does not know what an SDK
+      # compatibility matrix is. The version catalog had also quietly moved
+      # react past Expo's pin.
+      #
+      # `--check` fails on a version mismatch. It is the check that turns "the
+      # tests pass" into "and the app is built out of parts that were tested
+      # together". @sentry/react-native is deliberately ahead and recorded in
+      # expo.install.exclude.
+      - name: Expo SDK version alignment
+        working-directory: apps/mobile
+        run: npx expo install --check
+
       # tsc and unit tests both passed while the app could not be bundled at
       # all — a broken import or a bad module resolution only surfaces when
       # Metro walks the graph. This is the cheapest step that would have
