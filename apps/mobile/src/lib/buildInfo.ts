@@ -14,31 +14,45 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 export type BuildInfo = {
   version?: string | null
-  /** Android versionCode of the build the JS was published from. */
+  /**
+   * Android versionCode read from the installed package, not from the manifest —
+   * so it keeps naming the build you installed after an OTA replaces the JS.
+   */
   versionCode?: number | string | null
-  /** False in a dev client, Expo Go and on web, where no update can exist. */
+  /** True when running from Metro — a dev client, Expo Go, or web. */
+  isDev: boolean
+  /** False where expo-updates is not active, so no update can exist. */
   updatesEnabled: boolean
   /** True when running the bundle shipped inside the APK, false after an OTA. */
   isEmbeddedLaunch: boolean
   updateCreatedAt?: Date | null
 }
 
-/** `TextStack 1.0.0 (24)`, or without the parenthetical when no build number is known. */
-export function versionLine(info: BuildInfo): string {
+/**
+ * `TextStack 1.0.0 (24)` — or `1.0.0 (24)` with `short`, for the About row,
+ * where the app's name is already the screen it sits on.
+ *
+ * The parenthetical is dropped when no build number is known, which is the
+ * normal state in a dev client: versionCode belongs to an installed package.
+ */
+export function versionLine(info: BuildInfo, opts?: { short?: boolean }): string {
+  const name = opts?.short ? '' : 'TextStack'
   const version = info.version?.trim()
-  if (!version) return 'TextStack'
+  if (!version) return name || '—'
   // 0 is not a versionCode any build carries, so falsy is the right test:
   // a missing value and a zero both mean "nothing to show here".
-  const code = info.versionCode
-  return code ? `TextStack ${version} (${code})` : `TextStack ${version}`
+  const withCode = info.versionCode ? `${version} (${info.versionCode})` : version
+  return name ? `${name} ${withCode}` : withCode
 }
 
 /** What produced the JS currently running. */
 export function updateLine(info: BuildInfo): string {
-  // Without expo-updates running there is no embedded-vs-OTA distinction to
-  // draw, and `isEmbeddedLaunch` is false — which would otherwise be read as
-  // "an update is applied" on a dev client, where none can be.
-  if (!info.updatesEnabled) return 'Development build'
+  // Two separate ways there is no update to speak of, and both were needed.
+  // `isEnabled` alone was not enough: a development build has expo-updates
+  // configured and reports true, while `isEmbeddedLaunch` is false because the
+  // bundle came from Metro — which rendered as "Updated over the air" on a
+  // dev client. Seen on the emulator, not deduced.
+  if (info.isDev || !info.updatesEnabled) return 'Development build'
   if (info.isEmbeddedLaunch) return 'Bundled with the app'
   const at = info.updateCreatedAt
   // An update with no date is still an update, and saying so beats claiming
