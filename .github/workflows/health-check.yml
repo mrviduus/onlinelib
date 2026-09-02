@@ -48,6 +48,46 @@ jobs:
           # map, so it says "you look like a bot", not "SSG was served".
           [ "$size" -gt 5000 ] || { echo "SSG page is only $size bytes — probably a 404"; exit 1; }
           printf '%s' "$body" | grep -q '<title>' || { echo "no <title> in the prerendered page"; exit 1; }
+      # Two ways SSG dies, and they need different patience.
+      #
+      # A failing rebuild is a malfunction whatever the cadence — the next one
+      # will not help either — so it alarms at once. Staleness alone needs a
+      # generous window: rebuilds here are deploy-driven, and the production
+      # history shows a healthy 19-hour gap between them on a quiet day. 72
+      # hours is well past anything normal and still catches the failure that
+      # actually happened, when nothing rebuilt for five weeks.
+      - name: SSG freshness
+        run: |
+          set -euo pipefail
+          body=$(curl -sf $CURL_RETRY https://textstack.app/api/health/ready)
+          ssg=$(printf '%s' "$body" | jq -c '.components.ssg // empty')
+          # Missing field means the API predates this check, which is the
+          # normal state for the ~40 minutes between merging it and the deploy
+          # finishing. Not an SSG problem, so not an alarm.
+          if [ -z "$ssg" ]; then
+            echo "::warning::readiness probe has no ssg component yet — API not redeployed"
+            exit 0
+          fi
+          echo "$ssg"
+
+          status=$(printf '%s' "$ssg" | jq -r '.status')
+          age=$(printf '%s' "$ssg" | jq -r '.ageHours // empty')
+          failed=$(printf '%s' "$ssg" | jq -r '.lastRunFailed // false')
+
+          if [ "$failed" = "true" ]; then
+            echo "::error::The most recent SSG rebuild failed. Pages go stale from here."
+            exit 1
+          fi
+          if [ "$status" = "unknown" ]; then
+            echo "::warning::No completed SSG rebuild on record."
+            exit 0
+          fi
+          # bash has no floats; compare whole hours.
+          if [ "${age%.*}" -ge 72 ]; then
+            echo "::error::Newest SSG rebuild is ${age}h old. Nothing has regenerated in three days."
+            exit 1
+          fi
+          echo "SSG last rebuilt ${age}h ago"
 
       - name: Smoke — book listing
         run: |
