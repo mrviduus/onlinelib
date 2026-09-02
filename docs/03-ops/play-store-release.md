@@ -55,7 +55,10 @@ Before publishing an OTA, confirm the runtime still matches the shipped build:
 ```bash
 cd apps/mobile
 npx expo-updates runtimeversion:resolve --platform android
-eas build:list --platform android --status finished --limit 1 --json | jq -r '.[0].runtimeVersion'
+# The field is `runtime`, not `runtimeVersion` — the latter returns null, which
+# reads as "no runtime" and means the opposite of what it looks like.
+eas build:list --platform android --status finished --limit 50 --json \
+  | jq -r '[.[] | select(.buildProfile == "production")][0].runtime'
 ```
 
 If they differ, you need a build, not an update.
