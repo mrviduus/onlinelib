@@ -40,10 +40,10 @@ answers "what happened" and nothing answered "what is half-finished right now".
   **Build 24** (`versionCode 24`, 2026-09-02) is on Internal Testing, carrying the selection-speech
   fixes (#509). It exists because the pnpm workspace migration moved the runtime fingerprint — 122 of
   135 fingerprint sources now resolve through the workspace root — so the OTA that had been verified
-  working an hour earlier could no longer reach the installed build. **The six-step checklist in
+  working an hour earlier could no longer reach the installed build. The six-step checklist in
   [`docs/qa/reports/2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md)
-  has not been run on a real Galaxy S24 yet**; everything in it was verified on a Pixel 7 Pro
-  emulator, which is not One UI.
+  passes on the owner's own phone against this build (2026-09-02). **It has still not been run on the
+  reporter's Galaxy S24**, which is not the same input stack.
 
   Build 22 was the first build whose runtime is a fingerprint rather than the shared `1.0.0`. A manual pass against build 21 found 24 defects —
   [`docs/qa/reports/2026-08-26-android-manual-pass.md`](qa/reports/2026-08-26-android-manual-pass.md).
@@ -117,11 +117,13 @@ someone's memory.
   launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
   badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
   a device to settle.
-- **The S24 checklist has never been run on an S24.** Every defect in
-  [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) was found and
-  verified on a Pixel 7 Pro emulator. The bug that started it was described as behaving differently on
-  different phones, and the cause turned out to be a 30 ms timing margin — which is exactly the kind of
-  thing an emulator cannot settle.
+- **The selection fix passes on a phone, but not yet on the phone that reported it.** All six steps of
+  [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) pass on the
+  owner's own Android device against build 24 — the first run on real hardware rather than a Pixel 7
+  Pro emulator. Still open: the reporter's Galaxy S24. One UI is a different input stack, and the
+  decisive defect turned on a suppression window with about 30 ms of margin, which is why the bug
+  looked device-specific. The fix removes the race rather than widening the margin, so it should hold
+  anywhere — until that phone says so, "should" is the whole claim.
 - **Three dependency findings have no fix available.** `extract-zip@2.0.1` inside puppeteer has an
   advisory demanding `>=2.0.2`, and **2.0.2 does not exist** — an override was tried and pnpm refused
   it. `decode-uri-component` and `uuid` sit inside Expo's own tree, where forcing versions to quiet an

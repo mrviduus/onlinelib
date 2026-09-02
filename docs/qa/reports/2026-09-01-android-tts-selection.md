@@ -130,9 +130,9 @@ that silently is not. Worth its own pass.
 
 ---
 
-## Not verified — Galaxy S24 acceptance
+## Acceptance — the six steps
 
-Needs a real device. Ships as an OTA (JS only).
+Run on the owner's own Android phone, 2026-09-02, on Play build 24. All six pass.
 
 1. Select a sentence → **no sound at all** before pressing anything.
 2. Press Listen → brief spinner → **the whole sentence** is read, to the end.
@@ -158,3 +158,22 @@ All six passed on the Pixel 7 Pro. Evidence, in order:
 
 Highlight could not be exercised — the pass ran as a guest, and the highlight button is gated on
 `isAuthenticated`.
+
+## Device pass — 2026-09-02
+
+The owner ran all six steps on their own phone against Play build `versionCode 24` and reported
+them passing. That is the first time this work has been exercised on real hardware rather than on
+a Pixel 7 Pro emulator, and it closes the question the report was opened to answer.
+
+Two things it deliberately does not claim:
+
+- **It was not the reporter's Galaxy S24.** The symptom was reported on One UI, and One UI is a
+  different input stack. The decisive defect turned on a suppression window with roughly 30 ms of
+  margin, which is why the bug looked device-specific in the first place. The fix removes the race
+  rather than widening the margin, so it should hold anywhere — "should" being the operative word
+  until the phone that showed the bug says otherwise.
+- **It was an informal pass, not a logged one.** The emulator run above has per-step evidence:
+  frame counts, timestamps, log lines. This one is a person saying it looked right, which is worth
+  more for step 5 and less for anything a log could have settled.
+
+Remaining: the reporter confirming on the S24. Everything else this report asked for is done.
