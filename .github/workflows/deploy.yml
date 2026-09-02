@@ -88,13 +88,24 @@ jobs:
           set -e
           DIST=$PROJECT_DIR/apps/web/dist
           STAGING=$PROJECT_DIR/apps/web/.ssg-staging
-          rm -rf "$STAGING"
-          mkdir -p "$STAGING/assets"
-
+          # Never clear staging before knowing there is something to replace
+          # it with. This used to `rm -rf "$STAGING"` first and check second,
+          # so a deploy starting after a previous one died mid-flight would
+          # destroy the only copy of 1990 prerendered pages before discovering
+          # dist/ssg was already gone. Three such deploys sat queued behind a
+          # build that hung for 76 minutes; the first to run would have done it.
           if [ ! -d "$DIST/ssg" ]; then
-            echo "No existing dist/ssg — first deploy, nothing to preserve"
+            if [ -d "$STAGING/ssg" ]; then
+              echo "dist/ssg missing and staging holds a copy — a previous deploy died between snapshot and restore."
+              echo "Leaving staging alone; the restore step will put it back."
+            else
+              echo "No existing dist/ssg — first deploy, nothing to preserve"
+            fi
             exit 0
           fi
+
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING/assets"
 
           ALL_REFS=$(mktemp)
           # Pass 1: refs from SSG HTML files
@@ -122,7 +133,13 @@ jobs:
           done
 
           # Move SSG out, copy referenced assets out
-          mv "$DIST/ssg" "$STAGING/ssg"
+          # Copy then remove, not `mv`. A move leaves exactly one copy, and
+          # for the length of the build that copy lives somewhere nothing
+          # serves. When the build hung, that was the site's entire prerendered
+          # output — invisible to nginx and to anyone looking in dist/. The
+          # extra disk is worth the window not existing.
+          cp -a "$DIST/ssg" "$STAGING/ssg"
+          rm -rf "$DIST/ssg"
           COPIED=0
           while IFS= read -r f; do
             if [ -f "$DIST/assets/$f" ]; then
@@ -156,6 +173,14 @@ jobs:
         # POST to return 401 — silently broke login for months. OAuth
         # client_id is public-by-design (visible in bundle HTML), safe in
         # repo.
+        env:
+          # Corepack asks "Do you want to continue? [Y/n]" the first time it
+          # fetches a package manager it has not cached. On a self-hosted runner
+          # nobody answers, so the step waits forever — this hung for 76
+          # minutes, holding the deploy open between the snapshot step that
+          # MOVES dist/ssg aside and the restore step that puts it back, with
+          # 1990 prerendered pages stranded in staging and crawlers getting 404.
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
         run: |
           # From the workspace root: one lockfile, and `catalog:` specifiers
           # only resolve with pnpm-workspace.yaml in scope. Installing from
@@ -193,8 +218,12 @@ jobs:
           [ -d "$STAGING" ] || { echo "No staging — skip restore"; exit 0; }
 
           if [ -d "$STAGING/ssg" ]; then
-            mv "$STAGING/ssg" "$DIST/ssg"
+            rm -rf "$DIST/ssg"
+            cp -a "$STAGING/ssg" "$DIST/ssg"
             echo "Restored SSG dir ($(find "$DIST/ssg" -name index.html | wc -l) files)"
+            # Only now is dropping the copy safe: the pages are back where
+            # nginx serves them.
+            rm -rf "$STAGING/ssg"
           fi
 
           RESTORED=0

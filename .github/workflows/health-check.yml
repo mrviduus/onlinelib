@@ -29,6 +29,26 @@ jobs:
           curl -sf $CURL_RETRY https://textstack.app/ -o /dev/null
           curl -sf $CURL_RETRY https://textstack.dev/ -o /dev/null
 
+      # Ask a crawler's question. Everything else here — /health, the book
+      # listing, search — passed throughout an incident where every prerendered
+      # page returned 404 to Googlebot, because humans get the SPA and it
+      # renders fine. Twice in two days the SSG was broken and nothing external
+      # noticed; both times it was found by curling with a bot UA by hand.
+      - name: Smoke — a crawler still gets prerendered HTML
+        run: |
+          UA='Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+          URL='https://textstack.app/en/books/dracula/'
+          hdr=$(curl -sf $CURL_RETRY -I -A "$UA" "$URL")
+          body=$(curl -sf $CURL_RETRY -A "$UA" "$URL")
+          size=$(printf '%s' "$body" | wc -c | tr -d ' ')
+          echo "$hdr" | grep -qi 'x-seo-render: ssg' || {
+            echo "crawler was not served SSG:"; echo "$hdr" | grep -i x-seo-render; exit 1; }
+          # A 404 page is ~170 bytes; a real prerendered book page is ~30KB.
+          # The header alone is not enough: it is set from the bot-detection
+          # map, so it says "you look like a bot", not "SSG was served".
+          [ "$size" -gt 5000 ] || { echo "SSG page is only $size bytes — probably a 404"; exit 1; }
+          printf '%s' "$body" | grep -q '<title>' || { echo "no <title> in the prerendered page"; exit 1; }
+
       - name: Smoke — book listing
         run: |
           body=$(curl -sf $CURL_RETRY "https://textstack.app/api/books?lang=en&limit=1")
