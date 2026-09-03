@@ -124,15 +124,12 @@ someone's memory.
   decisive defect turned on a suppression window with about 30 ms of margin, which is why the bug
   looked device-specific. The fix removes the race rather than widening the margin, so it should hold
   anywhere — until that phone says so, "should" is the whole claim.
-- **Three dependency findings have no fix available.** `extract-zip@2.0.1` inside puppeteer has an
-  advisory demanding `>=2.0.2`, and **2.0.2 does not exist** — an override was tried and pnpm refused
-  it. `decode-uri-component` and `uuid` sit inside Expo's own tree, where forcing versions to quiet an
-  audit is how a working mobile build stops working. Down from 125 findings; these three are the
-  remainder, and none of them ships in the app.
-- **Dependabot alerts are still disabled** (Settings → Advanced Security). `.github/dependabot.yml`
-  covers scheduled updates for NuGet and Actions, but *security advisories* are a separate switch and
-  nobody has flipped it. This is why a patched `dompurify` sat available for months while the
-  vulnerable version shipped to every visitor.
+- **Three dependency advisories have no fix to apply.** `extract-zip@2.0.1` inside puppeteer wants
+  `>=2.0.2`, and **2.0.2 has never been published**; `decode-uri-component` and `uuid` sit inside
+  Expo's own tree, where forcing a version to quiet an audit is how a working mobile build stops
+  working. None ships in the app. They are dismissed on GitHub with those reasons and written down in
+  `scripts/check-advisories.mjs`, which fails CI on any advisory that is *not* one of them — and also
+  fails if one of them stops being reported, because then the excuse has expired.
 - **`@sentry/react-native` is ahead of the Expo SDK pin** — 8.24 against `~7.11`. Recorded in
   `expo.install.exclude` as deliberate, but nobody now remembers whether it was.
 - **Play's Data Safety form still holds the pre-2026-08-20 answers**, which now contradict the
