@@ -24,6 +24,8 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 ## [Unreleased]
 
 - **Extension** — the checks its README describes now run, and can now fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-extension-a-gate-that-could-not-fail)
+- **Reader** — tapping an image opens it again, after a null `document.body` killed the listener on every load — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-reader-tapping-an-image-opens-it-again)
+- **Profile** — languages are named, not flagged — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-languages-are-named-not-flagged)
 - **Updates** — a fix lands on the next screen instead of the second cold start, but never mid-chapter — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-updates-a-fix-lands-without-two-restarts)
 - **Profile** — the build number sits on the About row and survives an update, because it comes from the installed package — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-the-build-number-survives-an-update)
 - **Profile** — the app says which build it is, and whether the JS came from the store or arrived after — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-02-profile-which-build-is-this)
