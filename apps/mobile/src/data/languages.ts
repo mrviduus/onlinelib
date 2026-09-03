@@ -1,5 +1,11 @@
 // Native language catalogue for mobile — mirrors apps/web/src/data/languages.ts.
-// Flag derived from ISO 3166 country code → regional indicator emoji (rendered natively on iOS/Android).
+//
+// `flagCountry` and `getFlagEmoji` are no longer rendered anywhere. A flag names
+// a country and these rows name a language, and for most of the 88 entries here
+// the two do not line up: English is filed under GB, which is not where most of
+// its speakers live; Arabic under SA, one of twenty-odd; Spanish under ES, which
+// leaves out Latin America. The rows now carry names, which are unambiguous.
+// The field stays because it is data, and removing it buys nothing.
 
 export interface LanguageEntry {
   code: string          // BCP 47 / ISO 639-1 lang code ('hi')

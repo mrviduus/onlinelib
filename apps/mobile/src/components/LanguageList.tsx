@@ -7,7 +7,6 @@ import {
   LANGUAGES,
   POPULAR_LANGUAGES,
   OTHER_LANGUAGES,
-  getFlagEmoji,
   type LanguageEntry,
 } from '../data/languages'
 
@@ -125,7 +124,6 @@ export const LanguageList = forwardRef<LanguageListHandle, Props>(function Langu
                 }
                 accessibilityState={{ selected }}
               >
-                <Text style={styles.flag}>{getFlagEmoji(lang.code)}</Text>
                 <View style={{ flex: 1 }}>
                   <Text
                     style={[
@@ -181,7 +179,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 4,
   },
-  flag: { fontSize: 22 },
   rowNative: { fontSize: 15 },
   rowEnglish: { fontSize: 12, marginTop: 2 },
   empty: { textAlign: 'center', padding: 24, fontSize: 14 },
