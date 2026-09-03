@@ -26,17 +26,27 @@ Clips are private; the server enforces per-user ownership.
 > Real sign-in is **owner-only** — only the account owner has TextStack
 > credentials. The Connect flow opens the web app where you log in normally.
 
-## The `node --check` gate
-
-Every `.js` file must parse. Run before loading or committing:
+## Checks
 
 ```sh
-cd extension
-for f in $(find . -name '*.js' -not -path './lib/readability.js'); do node --check "$f" || exit 1; done
-node --check lib/readability.js   # vendored third-party — also checked
+node scripts/check-extension.mjs
 ```
 
-(`lib/readability.js` is vendored verbatim from Mozilla; see `lib/THIRDPARTY.md`.)
+Runs in CI on every pull request, so it is not something to remember. It checks
+three things: every `.js` parses, the manifest names only files that exist, and
+`host_permissions` carries no localhost entry left over from local development.
+
+The second matters because there is no build step — a renamed icon or page makes
+Chrome refuse the whole extension, and no syntax check can see that.
+
+**This replaced a gate that could not fail.** The instructions here used to be a
+`for` loop calling `node --check "$f"` by path. On Node 24 that exits 0 on a file
+containing `const x = ;` — module-syntax detection swallows the parse error. The
+script pipes each file through stdin with an explicit `--input-type=module`,
+which reports it.
+
+(`lib/readability.js` is vendored verbatim from Mozilla; see `lib/THIRDPARTY.md`.
+It is checked too — vendored code is still code that has to parse.)
 
 ## Developer: pointing at a local API
 
