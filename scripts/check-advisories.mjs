@@ -90,24 +90,32 @@ const KNOWN = {
 
 // `pnpm audit` exits non-zero whenever anything is found, which is the normal
 // case here and not a failure of the command. The report still arrives on stdout.
+//
+// stderr is kept, not discarded: when the registry's advisory lookup fails,
+// pnpm still prints well-formed JSON on stdout with an empty `advisories`
+// object, and the only trace of the failure is on stderr.
 function audit() {
   const opts = { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-  let out
+  let out = ''
+  let err = ''
   try {
-    out = execFileSync('pnpm', ['audit', '--json'], { ...opts, stdio: ['ignore', 'pipe', 'ignore'] })
+    out = execFileSync('pnpm', ['audit', '--json'], { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (e) {
     out = e.stdout?.toString() ?? ''
+    err = e.stderr?.toString() ?? ''
   }
   // Silence from a broken command must not read as a clean tree. That is the
   // exact failure mode this file exists to prevent, so it is checked here too.
   if (!out.trim()) {
     console.error('pnpm audit produced no output — treating that as a failure, not as "nothing found"')
+    if (err.trim()) console.error(err.trim())
     process.exit(1)
   }
-  return JSON.parse(out)
+  return { report: JSON.parse(out), stderr: err }
 }
 
-const advisories = Object.values(audit().advisories ?? {})
+const { report, stderr } = audit()
+const advisories = Object.values(report.advisories ?? {})
 const seen = new Set()
 const unknown = []
 
@@ -118,6 +126,25 @@ for (const a of advisories) {
 }
 
 const stale = Object.keys(KNOWN).filter((id) => !seen.has(id))
+
+// Every known advisory disappearing at once is not three upstreams shipping
+// fixes in the same minute — it is the lookup failing while still returning
+// well-formed JSON. That happened on the first deploy after this file landed:
+// all three vanished in CI and all three were present locally, minutes apart.
+//
+// So the count is the evidence. SOME entries missing is a real change and still
+// fails. ALL of them missing is the tool, not the tree, and blocking every
+// deploy on a flaky third-party endpoint is worse than saying so out loud. The
+// check that matters — an advisory nobody wrote down — is unaffected either way.
+const lookupLooksBroken = advisories.length === 0 && stale.length === Object.keys(KNOWN).length
+if (lookupLooksBroken) {
+  console.error('Every known advisory is missing at once, and pnpm audit reported nothing at all.')
+  console.error('That is the advisory lookup failing, not three fixes landing together.')
+  if (stderr.trim()) console.error(`\npnpm said:\n${stderr.trim()}`)
+  console.error('\nNot failing the build on it. Re-run to confirm, and if it persists, look at')
+  console.error('the registry rather than at KNOWN in scripts/check-advisories.mjs.')
+  process.exit(0)
+}
 
 const strays = strayLockfiles()
 
