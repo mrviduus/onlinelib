@@ -15,7 +15,7 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useOnline } from '../../src/hooks/useOnline'
 import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
-import { getLanguage, getFlagEmoji } from '../../src/data/languages'
+import { getLanguage } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
 import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
@@ -317,9 +317,8 @@ export default function ProfileScreen() {
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} style={styles.menuIcon} />
           <Text style={[styles.menuText, { color: colors.text }]}>I know</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 18 }}>{getFlagEmoji(nativeLanguage)}</Text>
             <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: colors.textSecondary }}>
-              {getLanguage(nativeLanguage)?.nativeName || nativeLanguage}
+              {getLanguage(nativeLanguage)?.englishName || nativeLanguage}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </View>

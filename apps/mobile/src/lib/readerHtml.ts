@@ -1175,8 +1175,20 @@ export function buildReaderHtml(chapterHtml: string, theme: ReaderTheme = defaul
         return t && t.tagName === 'IMG' && !t.closest('.ts-img-lightbox');
       }
 
-      // Delegate on body. Use click (after touchend), iOS WebKit fires it ~300ms after.
-      document.body.addEventListener('click', function(e) {
+      // Delegated on document, NOT on document.body.
+      //
+      // Every script in this file is emitted inside <head>, and this IIFE runs
+      // as the parser reaches it — before <body> exists. document.body is null
+      // at that moment, so the old line threw "Cannot read properties of null
+      // (reading 'addEventListener')" on every single reader load. It was the
+      // last statement in the IIFE, so nothing downstream broke visibly: the
+      // lightbox simply never got a listener, and tapping an image did nothing,
+      // on every book with images.
+      //
+      // click bubbles to document, so delegation there is equivalent — and
+      // document exists while <head> is parsed, which body does not.
+      // Use click (after touchend), iOS WebKit fires it ~300ms after.
+      document.addEventListener('click', function(e) {
         var t = e.target;
         if (!isLightboxImg(t)) return;
         // Don't open if image is inside an overlay layer (defensive).
