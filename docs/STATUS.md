@@ -117,6 +117,24 @@ someone's memory.
   launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
   badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
   a device to settle.
+- **A new user's first screen is a sign-in wall, and there is no onboarding.** `onboarding/language`
+  is the only onboarding route, it asks one question — the native language — and its own code says
+  guests are never asked, because they have nowhere to save it. So a signed-out person sees nothing
+  explaining the app. They land on **Library**, the first tab, which for `!isAuthenticated` renders an
+  empty state with a Sign In button and nothing else. Reading actually works signed out, and Discover
+  is one tab away, but nothing says so.
+
+  This is the gap that matters right now: recruiting closed-testing testers is under way, Google
+  counts the 14 days by activity rather than by opt-in, and the current numbers already show the
+  shape of the problem — 4 opted in, 2 installed. A tester who opens the app, meets a wall and closes
+  it counts for nothing.
+
+  **Deliberately not patched.** Adding a "Browse books" button beside Sign In would hide the gap
+  rather than close it. The app is a reading-based language-learning platform — reader with TTS,
+  tap-to-translate, contextual Explain, vocabulary SRS, personal book upload, ask-this-book, reading
+  stats and goals — and a first run has to show that it exists. Sized as its own piece of work, not
+  a patch to this screen.
+
 - **The selection fix passes on a phone, but not yet on the phone that reported it.** All six steps of
   [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) pass on the
   owner's own Android device against build 24 — the first run on real hardware rather than a Pixel 7
