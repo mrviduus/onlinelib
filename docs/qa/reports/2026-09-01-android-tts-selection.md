@@ -177,3 +177,12 @@ Two things it deliberately does not claim:
   more for step 5 and less for anything a log could have settled.
 
 Remaining: the reporter confirming on the S24. Everything else this report asked for is done.
+
+## Closed — 2026-09-03
+
+The reporter ran the six steps on the Galaxy S24 that produced the original bug. That was the one
+device this report could not settle for itself: the decisive defect turned on a suppression window
+with roughly 30 ms of margin, One UI is a different input stack, and every earlier run was a Pixel 7
+Pro emulator or a second Android phone.
+
+Nothing here is open.

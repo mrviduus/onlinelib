@@ -135,13 +135,10 @@ someone's memory.
   stats and goals — and a first run has to show that it exists. Sized as its own piece of work, not
   a patch to this screen.
 
-- **The selection fix passes on a phone, but not yet on the phone that reported it.** All six steps of
-  [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) pass on the
-  owner's own Android device against build 24 — the first run on real hardware rather than a Pixel 7
-  Pro emulator. Still open: the reporter's Galaxy S24. One UI is a different input stack, and the
-  decisive defect turned on a suppression window with about 30 ms of margin, which is why the bug
-  looked device-specific. The fix removes the race rather than widening the margin, so it should hold
-  anywhere — until that phone says so, "should" is the whole claim.
+- ~~**The selection fix passes on a phone, but not yet on the phone that reported it.**~~ Closed
+  2026-09-03: the reporter ran all six steps of
+  [`2026-09-01-android-tts-selection.md`](qa/reports/2026-09-01-android-tts-selection.md) on the
+  Galaxy S24 that produced the original bug. That was the last thing this report was waiting on.
 - **Three dependency advisories have no fix to apply.** `extract-zip@2.0.1` inside puppeteer wants
   `>=2.0.2`, and **2.0.2 has never been published**; `decode-uri-component` and `uuid` sit inside
   Expo's own tree, where forcing a version to quiet an audit is how a working mobile build stops
