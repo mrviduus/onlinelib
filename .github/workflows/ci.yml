@@ -28,6 +28,21 @@ jobs:
           package-manager-cache: false
       - run: node scripts/check-node-version.mjs
 
+  # The extension has no build step and no package.json, so nothing else in this
+  # file would ever look at it. Its README documented a check and asked a person
+  # to remember it; nothing ran it, and it could not have failed if it had.
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          # Same reason as above: one plain Node script, no install, and the
+          # pnpm cache priming would fail in a job with no pnpm.
+          package-manager-cache: false
+      - run: node scripts/check-extension.mjs
+
   backend:
     runs-on: ubuntu-latest
     services:
