@@ -1,0 +1,7 @@
+
+
+# Emitted by `tsc -b` beside vite.config.ts, because tsconfig.node.json compiles
+# it. They are build output that looks like source, and they were committed once
+# by a `git add -A` in a docs-only change before anyone noticed.
+vite.config.js
+vite.config.d.ts
