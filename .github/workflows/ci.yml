@@ -43,6 +43,24 @@ jobs:
           package-manager-cache: false
       - run: node scripts/check-extension.mjs
 
+  # Dependabot alerts were disabled on this repository for its whole life, which
+  # is how a patched dompurify sat available for months while the vulnerable one
+  # shipped to every visitor. They are on now — and a setting somebody can switch
+  # off is not a check, so this asks the same question here, where turning it off
+  # is a diff. See scripts/check-advisories.mjs.
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          # `pnpm audit` reads the lockfile, not node_modules, so this job needs
+          # pnpm on PATH and nothing installed.
+          package-manager-cache: false
+      - run: node scripts/check-advisories.mjs
+
   backend:
     runs-on: ubuntu-latest
     services:
@@ -74,6 +92,20 @@ jobs:
 
       - name: Build
         run: dotnet build --no-restore
+
+      # The JS half of this question is scripts/check-advisories.mjs; this is the
+      # .NET half, and it is free here because restore has already run. Currently
+      # clean across all 15 projects — cheap to keep that way, and the command
+      # reports success without failing, so the grep is what makes it a gate.
+      - name: Vulnerable packages
+        run: |
+          set -euo pipefail
+          out=$(dotnet list package --vulnerable --include-transitive)
+          echo "$out"
+          if echo "$out" | grep -qE '^\s+> '; then
+            echo "::error::A dependency has a known advisory. See the listing above."
+            exit 1
+          fi
 
       - name: Lint (format check)
         run: dotnet format --no-restore --verify-no-changes
