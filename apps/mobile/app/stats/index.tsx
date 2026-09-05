@@ -4,11 +4,12 @@ import {
   RefreshControl, TextInput as TextInputNative,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Stack, useFocusEffect } from 'expo-router'
+import { Stack, useFocusEffect, useRouter } from 'expo-router'
 import { readingTrackingApi, vocabularyApi, isOfflineError, plural } from '@textstack/shared'
 import type { ReadingStatsDto, DailyStatDto, AchievementDto, GoalDto, VocabularyStatsDto, VocabDailyStatDto } from '@textstack/shared'
 import type { BookStatsResponse } from '@textstack/shared'
 import { ACHIEVEMENTS, ALL_ACHIEVEMENT_CODES } from '../../src/lib/achievements'
+import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
@@ -18,12 +19,18 @@ import { SkeletonLoader } from '../../src/components/ui/SkeletonLoader'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { FilterChips } from '../../src/components/ui/FilterChips'
 import { TabBar } from '../../src/components/ui/TabBar'
+import { resolveListScreenState } from '../../src/lib/listScreenState'
 
 type StatsTab = 'overview' | 'books' | 'time' | 'achievements'
 
 export default function StatsScreen() {
+  // See `listScreenState.ts`: `isLoading` is the stored-session read, and
+  // `isAuthenticated` is false throughout it. Without passing it through, every
+  // cold start opens on "Sign in to track your reading…" and then replaces it.
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const router = useRouter()
   const [tab, setTab] = useState<StatsTab>('overview')
   const [stats, setStats] = useState<ReadingStatsDto | null>(null)
   const [daily, setDaily] = useState<DailyStatDto[]>([])
@@ -45,6 +52,10 @@ export default function StatsScreen() {
   const { show: showToast } = useToast()
 
   const loadData = useCallback(async () => {
+    // Seven /me/* endpoints. Signed out, every one of them 401s, and a 401 is
+    // not an offline error — so the screen reported "Something went wrong on our
+    // side" to a reader whose only problem was not having an account.
+    if (!isAuthenticated) { setLoading(false); return }
     const gen = ++genRef.current
     try {
       const tz = -new Date().getTimezoneOffset()
@@ -78,10 +89,16 @@ export default function StatsScreen() {
     } finally {
       if (gen === genRef.current) setLoading(false)
     }
-  }, [year])
+  }, [isAuthenticated, year])
 
   // reconnects + attempt: come back on the network returning, and on request.
-  useEffect(() => { loadData() }, [loadData, reconnects, attempt])
+  // `setLoading(true)` first because `loadData` does not: this effect re-runs
+  // when auth finishes restoring (`loadData` closes over `isAuthenticated`), and
+  // at that moment `loading` is already false — the bootstrap pass early-returned
+  // through it. Without this the screen would show its empty state for the length
+  // of seven /me/* requests. The focus refresh and pull-to-refresh below
+  // deliberately do NOT set it, so a refresh keeps the numbers on screen.
+  useEffect(() => { setLoading(true); loadData() }, [loadData, reconnects, attempt])
   useFocusEffect(useCallback(() => {
     // Refresh on focus, but only after first load completes so we don't
     // double-fetch on mount. `loadData` itself carries a generation
@@ -95,7 +112,35 @@ export default function StatsScreen() {
     setRefreshing(false)
   }
 
-  if (loading) {
+  // `hasItems` is "a stats payload arrived", not "the numbers are non-zero" —
+  // the zero-reading case is its own empty state further down and reads
+  // differently from a failure.
+  const screenState = resolveListScreenState({
+    isAuthLoading,
+    isAuthenticated,
+    loading,
+    loadError,
+    hasItems: stats !== null,
+  })
+
+  if (screenState === 'signin') {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <EmptyState
+            icon="bar-chart-outline"
+            title={t('stats.title')}
+            subtitle={t('stats.signInPrompt')}
+            buttonLabel="Sign In"
+            onButtonPress={() => router.push('/(auth)/login')}
+          />
+        </View>
+      </>
+    )
+  }
+
+  if (screenState === 'loading') {
     return (
       <>
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
@@ -136,15 +181,15 @@ export default function StatsScreen() {
     )
   }
 
-  if (loadError && !stats) {
+  if (screenState === 'offline' || screenState === 'failed') {
     return (
       <>
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <EmptyState
-            icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
-            title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
-            subtitle={loadError === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
+            icon={screenState === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+            title={screenState === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+            subtitle={screenState === 'offline' ? t('library.offline.body') : t('library.loadFailed.body')}
             buttonLabel={t('common.retry')}
             onButtonPress={() => { setLoading(true); setAttempt(a => a + 1) }}
           />
@@ -154,9 +199,18 @@ export default function StatsScreen() {
   }
 
   const unlockedSet = new Set(achievements.map(a => a.code))
-  const isEmpty = stats && stats.totalSeconds === 0 && daily.length === 0
+  // The four branches above leave `empty` and `list`, and this screen handles
+  // both here rather than letting them fall through to a body that only survives
+  // because every child is `stats && …`-guarded.
+  //
+  // `empty` is the machine's ("settled, no error, no payload" — `hasItems` is
+  // `stats !== null`) and `hasNoReading` is this screen's own ("a payload that
+  // says zero"). They are different facts and the same screen: there is nothing
+  // to chart, come back after reading. Below this line `screenState` can only be
+  // `list`, which is the one the body was written for.
+  const hasNoReading = stats !== null && stats.totalSeconds === 0 && daily.length === 0
 
-  if (isEmpty) {
+  if (screenState === 'empty' || hasNoReading) {
     return (
       <>
         <Stack.Screen options={{ title: 'Reading Stats', headerShown: true }} />

@@ -355,11 +355,7 @@
   },
   "onboarding": {
     "ghostHintLabel": "Tap any word",
-    "hintLabel": "Try tapping a word",
-    "saveProgressTitle": "Save your progress",
-    "saveProgressBody": "Create a free account to keep your words, review them later, and continue reading anytime.",
-    "saveProgressAccept": "Create free account",
-    "saveProgressDismiss": "Not now"
+    "hintLabel": "Try tapping a word"
   },
   "auth": {
     "progressSavedToast": "Your reading progress and saved words were kept."
@@ -1498,8 +1494,7 @@
   },
   "guest": {
     "uploadBook": "Upload your book",
-    "uploading": "Uploading...",
-    "expiryBanner": "Your books are saved for 3 days. Sign up to keep them permanently."
+    "uploading": "Uploading..."
   },
   "palette": {
     "title": "Command palette",

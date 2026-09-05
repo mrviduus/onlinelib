@@ -30,6 +30,7 @@ import { useTts } from '../../hooks/useTts'
 import { useQuickStats } from '../../hooks/useQuickStats'
 import { useHaptics } from '../../hooks/useHaptics'
 import { useToast } from '../../context/ToastContext'
+import { saveWordIntent } from '../../lib/saveWordIntent'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useNativeLanguage } from '../../context/NativeLanguageContext'
@@ -657,7 +658,48 @@ export function ReaderShell(props: ReaderShellProps) {
   const currentChapterIndex = chapters.findIndex(c => c.slug === activeSlug)
   const totalChapters = chapters.length
 
-  const handleSaveWord = () => selection ? vocabActions.saveWord(selection) : undefined
+  // Save is now on screen for guests too (SelectionActionBar), so this handler owns
+  // the answer for them — and the answer stays in the book. No action, no router:
+  // the toast says what happened and dismisses.
+  //
+  // It used to carry a "Sign in" CTA that pushed `/(auth)/login`, and that was the
+  // worse of the two bugs the dead button had. `ToastContext` makes the WHOLE toast
+  // pressable (`onPress={current.onPress ?? hide}`), so a guest who merely swatted
+  // the toast away was ejected too; and sign-in ends in `router.replace('/(tabs)/library')`
+  // (deliberate, see the comment block in `app/(auth)/login.tsx`), which tears the
+  // reader stack down — the guest did not come back to their page, they landed on
+  // the Library tab. Nothing here may take a reader out of their book.
+  //
+  // The word itself is not rescued: web queues it (`useReaderVocabulary`'s pending
+  // list) and mobile has no such store, so the copy admits the word was not kept
+  // rather than promising otherwise. Deliberately no pending queue and no sheet on
+  // top of this — the next PR mints guest sessions, a guest saves for real, and this
+  // whole branch goes away.
+  //
+  // `bottomOffset: footerHeight` clears the reader footer. `notifyWordSaved` above
+  // passes no offset and so takes the provider's tab-bar-sized default; these two
+  // toasts do NOT have the same shape, and this one is not trying to.
+  //
+  // Decided by `saveWordIntent` rather than inline, so the rule is covered by the
+  // only test lane this app has; the `!isAuthenticated` early return still inside
+  // useReaderVocabActions stays as defence in depth.
+  const handleSaveWord = () => {
+    const intent = saveWordIntent({ isAuthenticated, hasSelection: !!selection })
+    if (intent === 'prompt') {
+      haptics.play('flip')
+      showToast({
+        variant: 'info',
+        message: t(language, 'reader.vocab.saveNeedsAccount'),
+        // Longer than the success toasts: it is two clauses, and a reader who is
+        // mid-sentence is not looking straight at it.
+        duration: 3600,
+        bottomOffset: footerHeight,
+      })
+      return
+    }
+    if (intent === 'ignore') return
+    return vocabActions.saveWord(selection!)
+  }
   const handleMarkKnown = () => selection ? vocabActions.markKnown(selection) : undefined
   const handleRemoveWord = () => selection ? vocabActions.removeWord(selection) : undefined
 

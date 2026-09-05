@@ -230,12 +230,14 @@ Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
 
-**Guest Users**: Anonymous browsing with usage limits before sign-up required.
-- GuestCleanupWorker purges inactive guests (6h interval)
-- GuestLimitsContext tracks pages read, words saved
-- GuestBanner prompts sign-up when limits approached
-- Rate limiting: `guest-session` (5/min)
-- Guest activity tracking middleware (LastActiveAt debounced hourly)
+**Guest Users**: Anonymous reading. The two clients are in very different states — do not generalise from one to the other.
+- **Web** mints a real guest `User` on demand (`POST /auth/guest`) from three triggers: reader mount, upload, and the 3rd pending vocabulary word. Registering **promotes that same row in place** (`AuthService.MergeGuestAsync`), so nothing is lost.
+- **Mobile does not mint guests yet** — nothing under `apps/mobile` calls `/auth/guest`. A signed-out reader gets the whole catalogue, translation and dictionary (those endpoints are anonymous), but Save / Vocabulary / Stats offer a sign-in invitation instead of working.
+- `apps/mobile/src/lib/capabilities.ts` is the single source of guest policy. Account-only: upload, AI (librarian/tutor/Ask), identity editing, account deletion, cross-device sync. Deliberately *not* account-only: reading, translation, dictionary.
+- GuestLimitsContext (web) holds the last-read book and the word-count threshold that triggers minting. There are no client-side usage limits.
+- GuestCleanupWorker: every **2h**, deletes guests inactive **30d** — but only those holding nothing durable (vocab, highlights, bookmarks, library, uploads, notes, progress). Engaged guests live indefinitely. ReadingSessions are deliberately excluded from that filter.
+- Rate limiting: `guest-session` — **3 per 5 min, per IP**.
+- ⚠️ `GuestActivityMiddleware` is **dead code**: it reads `context.User.FindFirst("is_guest")`, but the API registers no ASP.NET authentication middleware at all (auth is manual per-endpoint via `GetUserId`). `context.User` never carries the claim, so it returns early on every request and `LastActiveAt` is only ever set at guest creation. Consequence once mobile mints guests: a guest who reads daily but saves nothing is still deleted after 30d, because reading alone updates neither `LastActiveAt` nor the preservation filter.
 
 **Email/Password Auth**: Email + password login alongside Google/Apple OAuth.
 - ResendEmailService for transactional email (password reset)

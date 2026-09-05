@@ -667,7 +667,8 @@
       "savedToReference": "Saved to reference (rare word)",
       "tapAgainToStudy": "Tap again to study ({n} left)",
       "addedToSrs": "Added to your vocabulary",
-      "addAnywayFailed": "Couldn't add word — please try again"
+      "addAnywayFailed": "Couldn't add word — please try again",
+      "saveNeedsAccount": "Saving words needs an account — this one wasn't kept. Sign in from Profile."
     },
     "rareWordNotice": {
       "title": "Rare word — saved to reference",
