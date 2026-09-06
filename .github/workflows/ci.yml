@@ -352,6 +352,18 @@ jobs:
           JWT_AUDIENCE=textstack.app
           GOOGLE_CLIENT_ID=test
           ASPNETCORE_ENVIRONMENT=Development
+          # The integration suite runs against this stack, so the limiter knobs
+          # have to be HERE. They were previously only in the e2e job's .env,
+          # which meant the suite ran on production defaults: guest-session 3
+          # (16 legitimate guest creates starve it) and clip 20 (a dozen classes
+          # seed a book by clipping). Harmless while the limiter was inert, fatal
+          # the moment it works. GUEST_DAILY_ENRICHMENT_CAP is 3 because the cap
+          # test skips itself above 10 - at the default 50 it asserted nothing.
+          GUEST_SESSION_PERMIT_LIMIT=50
+          USER_LOGIN_PERMIT_LIMIT=100
+          CLIP_PERMIT_LIMIT=200
+          ACCOUNT_DELETE_PERMIT_LIMIT=50
+          GUEST_DAILY_ENRICHMENT_CAP=3
           EOF
 
       - name: Create volume dirs for non-root containers
