@@ -199,7 +199,7 @@ All services: API :8080 | Web :5173 | Admin :81 | DB :5432
 │   └──────────────────┘                                                      │
 │                                                                             │
 │   SRS: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4)     │
-│   Modes: multiple_choice | typed_recall | context                           │
+│   Review modes stored: multiple_choice | context (+ practice_ prefix)      │
 │   Distractors: Ollama gemma4:e2b generates 5 plausible wrong answers       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -716,7 +716,11 @@ id                 UUID PRIMARY KEY
 vocabulary_word_id UUID NOT NULL → vocabulary_words(id) CASCADE
 user_id            UUID NOT NULL → users(id) CASCADE
 site_id            UUID NOT NULL → sites(id)
-review_mode        VARCHAR NOT NULL  -- "multiple_choice" | "typed_recall" | "context"
+review_mode        VARCHAR NOT NULL  -- "multiple_choice" | "context", each also with a
+                                     -- "practice_" prefix. Written from SrsEngine.GetReviewMode,
+                                     -- so "context" appears here even though the card DTO never
+                                     -- carries it (ReviewCardBuilder rewrites it to MC). Typed
+                                     -- recall was removed; old rows may still hold "typed_recall".
 is_correct         BOOLEAN NOT NULL
 response_time_ms   INT NOT NULL
 stage_before       INT NOT NULL

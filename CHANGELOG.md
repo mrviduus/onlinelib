@@ -23,6 +23,9 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Vocabulary** — Blitz runs Blitz, after a mode set in one mount effect lost to the default read in the next — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-06-vocabulary-blitz-runs-blitz-and-four-smaller-things-a-qa)
+- **Mobile** — one word tap buys one translation instead of two, and the screen behind the reader stops refetching — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-06-mobile-one-word-tap-buys-one-translation-not-two-and-the)
+- **QA** — the guest loop walked on a device with a traffic log, and the step that guards the data loss could not reach it — docs · [details](docs/changelog-archive/2026-H2.md#2026-09-06-qa-the-guest-loop-walked-on-a-device-with-a-traffic-log)
 - **Dictionary** — a word tap survives the dictionary API being down, and fails in 3s instead of 10 when it cannot — backend · [details](docs/changelog-archive/2026-H2.md#2026-09-06-dictionary-an-upstream-outage-stops-being-an-outage)
 - **Guest** — a reader finishes the loop — read, save a word, review it — with no account, and registering keeps every bit of it — mobile, backend · [details](docs/changelog-archive/2026-H2.md#2026-09-06-guest-the-whole-loop-without-an-account)
 - **Mobile** — a reader with no account gets an invitation, not a red error, and a Save button that is actually there — mobile, web · [details](docs/changelog-archive/2026-H2.md#2026-09-05-mobile-an-invitation-not-a-red-error)
