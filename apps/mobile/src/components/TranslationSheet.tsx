@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useNativeLanguage } from '../context/NativeLanguageContext'
@@ -11,6 +10,7 @@ import { LanguageList } from './LanguageList'
 import { getLanguage } from '../data/languages'
 import { fonts } from '../theme/typography'
 import { trackTranslationUsed } from '../lib/analytics'
+import { cachedTranslate } from '../lib/translateCache'
 
 interface TranslationSheetProps {
   visible: boolean
@@ -66,9 +66,14 @@ export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fr
     setError('')
     setTranslated('')
     trackTranslationUsed({ fromLang, toLang: translationTarget, kind: text.includes(' ') ? 'selection' : 'word' })
-    translationApi.translate(text, fromLang, translationTarget)
-      .then((res: any) => {
-        setTranslated(res.translatedText || res.translation || '')
+    // `cachedTranslate`, not `translationApi.translate`. This sheet is opened
+    // from the selection toolbar, which has ALREADY fetched and memoized the
+    // gloss for exactly this text — going direct re-bought a paid
+    // `gpt-4.1-nano` call for a string the process was holding in memory, and
+    // never wrote its own answer back for the next reader of the same word.
+    cachedTranslate(text, fromLang, translationTarget)
+      .then(({ translation }) => {
+        setTranslated(translation)
       })
       .catch(() => setError('Translation failed'))
       .finally(() => setLoading(false))
