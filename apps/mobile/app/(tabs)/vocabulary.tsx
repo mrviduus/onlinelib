@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { vocabularyApi, isOfflineError, plural } from '@textstack/shared'
 import type { VocabularyWordDto, VocabularyStatsDto, PendingVocabWordDto, WordLookupDto } from '@textstack/shared'
+import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
@@ -20,6 +21,7 @@ import { VocabSettingsModal } from '../../src/components/vocabulary/VocabSetting
 import { VocabViewSheet } from '../../src/components/vocabulary/VocabViewSheet'
 import { VocabSummaryCard } from '../../src/components/vocabulary/VocabSummaryCard'
 import { buildContextSnippet } from '@textstack/shared'
+import { resolveListScreenState } from '../../src/lib/listScreenState'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -44,6 +46,10 @@ type TabKey = typeof TABS[number]['key']
 type SortKey = typeof SORT_OPTIONS[number]['key']
 
 export default function VocabularyScreen() {
+  // `isLoading` is the stored-session read, and it is NOT the same as "signed out":
+  // `isAuthenticated` is false for the whole of it. Passed through so the machine can
+  // hold the skeleton instead of flashing the sign-in wall on a cold start.
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { colors } = useTheme()
   const { t } = useLanguage()
   const router = useRouter()
@@ -81,6 +87,12 @@ export default function VocabularyScreen() {
   useEffect(() => () => { loadGenRef.current = -1 }, [])
 
   const loadData = useCallback(async (loadMore = false) => {
+    // Nothing here is public. Without this the screen fired /me/vocabulary/words
+    // and /me/vocabulary/stats at a reader with no session, took two 401s, and —
+    // since `isOfflineError` is false for a 401 — reported them as `failed`:
+    // "Something went wrong on our side", plus a Retry button that 401s forever.
+    // The reader does not have a broken app, they have no account.
+    if (!isAuthenticated) { setLoading(false); return }
     if (loadMore && loadingMoreRef.current) return
     if (loadMore) loadingMoreRef.current = true
     const myGen = ++loadGenRef.current
@@ -112,7 +124,7 @@ export default function VocabularyScreen() {
       if (loadMore) loadingMoreRef.current = false
       if (myGen === loadGenRef.current) setLoading(false)
     }
-  }, [activeFilter, search, sort])
+  }, [isAuthenticated, activeFilter, search, sort])
 
   // `reconnects` in the deps is what makes the screen recover on its own. A tab
   // screen never unmounts, so without it the only way back from an offline load
@@ -134,8 +146,10 @@ export default function VocabularyScreen() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'pending') loadPending()
-  }, [tab, loadPending])
+    // Signed out the tab row never renders, so `tab` cannot leave 'all' — but
+    // these are /me/* calls and the guard belongs where the request is made.
+    if (isAuthenticated && tab === 'pending') loadPending()
+  }, [isAuthenticated, tab, loadPending])
 
   const loadLookups = useCallback(async () => {
     try {
@@ -148,8 +162,8 @@ export default function VocabularyScreen() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'lookups') loadLookups()
-  }, [tab, loadLookups])
+    if (isAuthenticated && tab === 'lookups') loadLookups()
+  }, [isAuthenticated, tab, loadLookups])
 
   const handlePromoteLookup = async (id: string) => {
     setLookupBusyId(id)
@@ -245,6 +259,31 @@ export default function VocabularyScreen() {
 
   const dueCount = stats?.dueNow ?? 0
   const hasMore = words.length < total
+
+  // One decision, in one place, with a test behind it. The precedence used to
+  // live in the ternary chain below, where `loading` was checked first and no
+  // session was not checked at all.
+  const screenState = resolveListScreenState({
+    isAuthLoading,
+    isAuthenticated,
+    loading,
+    loadError,
+    hasItems: words.length > 0,
+  })
+
+  if (screenState === 'signin') {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <EmptyState
+          icon="book-outline"
+          title={t('vocabulary.title')}
+          subtitle={t('vocabulary.signInPrompt')}
+          buttonLabel="Sign In"
+          onButtonPress={() => router.push('/(auth)/login')}
+        />
+      </View>
+    )
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -422,7 +461,7 @@ export default function VocabularyScreen() {
             )}
           />
         )
-      ) : loading ? (
+      ) : screenState === 'loading' ? (
         <View style={styles.listContent}>
           {Array.from({ length: 6 }).map((_, i) => (
             <View key={i} style={[styles.wordRow, { borderBottomColor: colors.border }]}>
@@ -436,16 +475,17 @@ export default function VocabularyScreen() {
             </View>
           ))}
         </View>
-      ) : words.length === 0 && loadError ? (
-        // "You have no words" and "I could not ask" are different screens.
+      ) : screenState === 'offline' || screenState === 'failed' ? (
+        // "You have no words" and "I could not ask" are different screens — and
+        // both are different from "you have no account", which never reaches here.
         <EmptyState
-          icon={loadError === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
-          title={loadError === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
-          subtitle={loadError === 'offline' ? t('vocabulary.offline.body') : t('library.loadFailed.body')}
+          icon={screenState === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+          title={screenState === 'offline' ? t('library.offline.title') : t('library.loadFailed.title')}
+          subtitle={screenState === 'offline' ? t('vocabulary.offline.body') : t('library.loadFailed.body')}
           buttonLabel={t('common.retry')}
           onButtonPress={() => { setLoading(true); offsetRef.current = 0; loadData().catch(() => {}) }}
         />
-      ) : words.length === 0 ? (
+      ) : screenState === 'empty' ? (
         <EmptyState
           icon="book-outline"
           title={t('vocabulary.empty')}

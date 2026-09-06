@@ -2,52 +2,37 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, us
 import { useAuth } from './AuthContext'
 
 interface GuestState {
-  pagesRead: number
-  practiceSessionsUsed: number
   currentBook: { bookSlug: string; chapterSlug: string } | null
   lastVisitAt: string | null
 }
 
-const LIMITS = {
-  maxPages: 3,
-  maxPracticeSessions: 1,
-  commitmentThreshold: 3,  // demand-driven; ReaderPage pre-warms guest on mount
-} as const
+// Guests are NOT rate-limited by the client. `POST /auth/guest` is minted on
+// demand and the account is promoted in place on register, so there is nothing
+// to meter — the marketing copy in locales/en.json promises exactly that.
+// The one number left is a UX threshold, not a limit: how many words a reader
+// saves locally before we mint the session behind them.
+const COMMITMENT_THRESHOLD = 3
 
 // Legacy key — cleaned up once on mount. Guest state no longer persisted (cookie session is SoT).
 const LEGACY_STORAGE_KEY = 'guest.state.v1'
 
 const defaultState: GuestState = {
-  pagesRead: 0,
-  practiceSessionsUsed: 0,
   currentBook: null,
   lastVisitAt: null,
 }
 
 interface GuestLimitsContextValue {
   guestState: GuestState
-  limits: typeof LIMITS
-  isPageLimitReached: boolean
-  isPracticeLimitReached: boolean
-  incrementPages: () => boolean
-  incrementPractice: () => boolean
   setCurrentBook: (book: GuestState['currentBook']) => void
   isReturningUser: boolean
   commitmentThreshold: number
-  resetGuestState: () => void
 }
 
 const GuestLimitsContext = createContext<GuestLimitsContextValue>({
   guestState: defaultState,
-  limits: LIMITS,
-  isPageLimitReached: false,
-  isPracticeLimitReached: false,
-  incrementPages: () => true,
-  incrementPractice: () => true,
   setCurrentBook: () => {},
   isReturningUser: false,
-  commitmentThreshold: LIMITS.commitmentThreshold,
-  resetGuestState: () => {},
+  commitmentThreshold: COMMITMENT_THRESHOLD,
 })
 
 export function GuestLimitsProvider({ children }: { children: ReactNode }) {
@@ -68,23 +53,6 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated])
 
-  const isPageLimitReached = !isAuthenticated && state.pagesRead >= LIMITS.maxPages
-  const isPracticeLimitReached = !isAuthenticated && state.practiceSessionsUsed >= LIMITS.maxPracticeSessions
-
-  const incrementPages = useCallback(() => {
-    if (isAuthenticated) return true
-    if (state.pagesRead >= LIMITS.maxPages) return false
-    setState(prev => ({ ...prev, pagesRead: prev.pagesRead + 1 }))
-    return true
-  }, [isAuthenticated, state.pagesRead])
-
-  const incrementPractice = useCallback(() => {
-    if (isAuthenticated) return true
-    if (state.practiceSessionsUsed >= LIMITS.maxPracticeSessions) return false
-    setState(prev => ({ ...prev, practiceSessionsUsed: prev.practiceSessionsUsed + 1 }))
-    return true
-  }, [isAuthenticated, state.practiceSessionsUsed])
-
   const setCurrentBook = useCallback((book: GuestState['currentBook']) => {
     setState(prev => ({ ...prev, currentBook: book }))
   }, [])
@@ -94,22 +62,12 @@ export function GuestLimitsProvider({ children }: { children: ReactNode }) {
     [isAuthenticated, state.lastVisitAt, state.currentBook]
   )
 
-  const resetGuestState = useCallback(() => {
-    setState(defaultState)
-  }, [])
-
   return (
     <GuestLimitsContext.Provider value={{
       guestState: state,
-      limits: LIMITS,
-      isPageLimitReached,
-      isPracticeLimitReached,
-      incrementPages,
-      incrementPractice,
       setCurrentBook,
       isReturningUser,
-      commitmentThreshold: LIMITS.commitmentThreshold,
-      resetGuestState,
+      commitmentThreshold: COMMITMENT_THRESHOLD,
     }}>
       {children}
     </GuestLimitsContext.Provider>

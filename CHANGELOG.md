@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Mobile** — a reader with no account gets an invitation, not a red error, and a Save button that is actually there — mobile, web · [details](docs/changelog-archive/2026-H2.md#2026-09-05-mobile-an-invitation-not-a-red-error)
 - **Extension** — the checks its README describes now run, and can now fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-extension-a-gate-that-could-not-fail)
 - **Mobile** — crashes from testers now reach somewhere a person can read them — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-03-mobile-crash-reporting-stops-being-dormant)
 - **Security** — Dependabot alerts are on, and a stale lockfile that had been hiding eleven advisories is gone — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-03-security-alerts-on-and-a-lockfile-that-was-hiding-things)

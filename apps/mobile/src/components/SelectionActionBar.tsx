@@ -276,10 +276,20 @@ export function SelectionActionBar({
           </TouchableOpacity>
         )}
 
-        {/* Per-word vocab affordances (save / mark known / stage badge) */}
-        {isAuthenticated && !isMultiWord && (
+        {/* Per-word vocab affordances (save / mark known / stage badge).
+            Save is deliberately NOT gated on a session; everything else here is.
+            The reader's coachmark tells every new reader to "tap Save", and until
+            this split that button was inside the auth gate — so the one control the
+            app teaches was missing for exactly the readers being taught. The other
+            four all describe a word that is already saved (stage badge, Known,
+            the transient ✓, Remove) and mean nothing without an account, so they
+            stay behind `isAuthenticated`. The guest tap is answered by the caller
+            (`ReaderShell.handleSaveWord`): no request, and a toast that says the
+            word was not kept — no navigation, because nothing may pull a reader
+            out of the book. */}
+        {!isMultiWord && (
           <>
-            {stage && (
+            {isAuthenticated && stage && (
               <View
                 style={[styles.stageBadge, { backgroundColor: stage.color + '20', borderColor: stage.color + '40' }]}
                 accessibilityLabel={`Vocabulary stage ${stage.label}`}
@@ -287,7 +297,7 @@ export function SelectionActionBar({
                 <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.label}</Text>
               </View>
             )}
-            {stage && vocabStage !== 4 && onMarkKnown && (
+            {isAuthenticated && stage && vocabStage !== 4 && onMarkKnown && (
               <TouchableOpacity
                 style={styles.btn}
                 onPress={onMarkKnown}
@@ -300,7 +310,7 @@ export function SelectionActionBar({
             )}
             {/* Transient ✓ right after a save lands (before the stage badge
                 takes over on next render). */}
-            {!stage && wordSaved && (
+            {isAuthenticated && !stage && wordSaved && (
               <View style={styles.btn} accessibilityLabel="Saved to vocabulary">
                 <Ionicons name="checkmark-circle" size={20} color={colors.success} />
               </View>
@@ -324,7 +334,7 @@ export function SelectionActionBar({
               </TouchableOpacity>
             )}
             {/* Remove — undo an accidental save. */}
-            {(stage || wordSaved) && onRemove && (
+            {isAuthenticated && (stage || wordSaved) && onRemove && (
               <TouchableOpacity
                 style={styles.btn}
                 onPress={onRemove}

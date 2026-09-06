@@ -35,7 +35,6 @@ import { trackBookOpened } from '../lib/analytics'
 import { ReaderStatsWidget } from '../components/reader/ReaderStatsWidget'
 import { useGuestLimits } from '../context/GuestLimitsContext'
 import { WordHint } from '../components/reader/WordHint'
-import { SaveProgressPrompt } from '../components/reader/SaveProgressPrompt'
 import { getUserBooks, getUserBookFileUrl, getUserBookProgress } from '../api/userBooks'
 import { parsePdfPageLocator, computeBookProgress, clampPage, isPdfAnchor, type PdfAnchor } from '@textstack/shared'
 import { useHighlights } from '../hooks/useHighlights'
@@ -145,17 +144,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [bookCompleted, setBookCompleted] = useState(false)
   const { setCurrentBook: setGuestCurrentBook } = useGuestLimits()
-
-  // Soft reminder on every chapter transition for guests
-  const [showChapterReminder, setShowChapterReminder] = useState(false)
-  const prevChapterRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (!chapterIdentifier || isAuthenticated) return
-    if (prevChapterRef.current && prevChapterRef.current !== chapterIdentifier) {
-      setShowChapterReminder(true)
-    }
-    prevChapterRef.current = chapterIdentifier
-  }, [chapterIdentifier, isAuthenticated])
 
   // Pre-warm guest session on reader mount so first-word-tap doesn't race
   // ensureSession mid-popup, which would flip isAuthenticated and re-run the
@@ -923,17 +911,6 @@ export function ReaderPage({ mode = 'public' }: ReaderPageProps) {
       )}
 
       <WordHint containerRef={scrollContainerRef} />
-
-      <SaveProgressPrompt
-        visible={showChapterReminder}
-        onAccept={() => {
-          setShowChapterReminder(false)
-          openAuthModal()
-        }}
-        onDismiss={() => {
-          setShowChapterReminder(false)
-        }}
-      />
 
     </div>
   )

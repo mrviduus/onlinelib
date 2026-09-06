@@ -117,23 +117,35 @@ someone's memory.
   launcher/badge permissions from ShortcutBadger via `expo-notifications` (the app never sets a
   badge). Both are on the WATCH list in `apps/mobile/scripts/check-android-permissions.mjs` and need
   a device to settle.
-- **A new user's first screen is a sign-in wall, and there is no onboarding.** `onboarding/language`
-  is the only onboarding route, it asks one question — the native language — and its own code says
-  guests are never asked, because they have nowhere to save it. So a signed-out person sees nothing
-  explaining the app. They land on **Library**, the first tab, which for `!isAuthenticated` renders an
-  empty state with a Sign In button and nothing else. Reading actually works signed out, and Discover
-  is one tab away, but nothing says so.
+- **A new user is shown nothing that explains the app, and until 2026-09-05 three of the four tabs
+  they could reach were dead ends.** `onboarding/language` is the only onboarding route, it asks one
+  question — the native language — and its own code says guests are never asked, because they have
+  nowhere to save it.
 
-  This is the gap that matters right now: recruiting closed-testing testers is under way, Google
-  counts the 14 days by activity rather than by opt-in, and the current numbers already show the
-  shape of the problem — 4 opted in, 2 installed. A tester who opens the app, meets a wall and closes
-  it counts for nothing.
+  **Correction to the earlier version of this entry:** it said a signed-out person lands on Library
+  and meets a sign-in wall. They do not. `apps/mobile/app/(tabs)/index.tsx:35` has redirected guests
+  to **Discover** since PR #453 — *"a guest has no library to land in — for them the catalog IS the
+  app"*. There is no wall on entry. The problem was never the first screen; it was that Discover
+  explains nothing, and that everything past it was broken for a reader with no account.
 
-  **Deliberately not patched.** Adding a "Browse books" button beside Sign In would hide the gap
-  rather than close it. The app is a reading-based language-learning platform — reader with TTS,
-  tap-to-translate, contextual Explain, vocabulary SRS, personal book upload, ask-this-book, reading
-  stats and goals — and a first run has to show that it exists. Sized as its own piece of work, not
-  a patch to this screen.
+  **Correction two:** it said Google counts the 14 days by activity rather than by opt-in. The
+  opposite is true. Google's page requires *"a minimum of 12 testers who have been opted in
+  continuously for at least 14 days"*, and *"testers who opt in, test for fewer than 14 days, and
+  then opt out do not count"*. A tester who installs, bounces and never opens the app again still
+  counts, as long as they stay opted in. The dead ends therefore never threatened the clock — they
+  threatened the **application form**, which asks whether testers used all the features and what
+  changed as a result.
+
+  **Partly closed 2026-09-05** (`fix(guest): remove the dead ends…`): Save is now rendered for a
+  reader with no account and answers honestly instead of being absent; Vocabulary and Stats offer a
+  sign-in invitation instead of a red "Couldn't load your library" with a Retry that re-401s forever.
+  Reading, translation and dictionary always worked signed out.
+
+  **Still open:** nothing explains the app on Discover, and mobile still does not mint guest sessions
+  — so the loop breaks at Save → Vocabulary → Review, which is the whole product. That is the next
+  PR, and it is gated on two data-loss bugs that must land first: mobile never sends `Authorization`
+  on register/login, so `MergeGuestAsync` never fires and a guest would lose everything on sign-up;
+  and a guest's Sign Out wipes the only handle on their account with no confirmation.
 
 - ~~**The selection fix passes on a phone, but not yet on the phone that reported it.**~~ Closed
   2026-09-03: the reporter ran all six steps of
