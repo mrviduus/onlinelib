@@ -1,0 +1,246 @@
+# QA-005: Guest Loop — reading, saving and converting with no account
+
+**Area**: Auth, Reader, Vocabulary, Profile
+**Priority**: Critical — this is the feature the PR exists to deliver
+**Platform**: Android emulator (or device). Nothing here is testable on web.
+**Last Tested**: —
+**Status**: Not yet run
+
+---
+
+## Why this scenario exists
+
+Mobile now mints an anonymous **guest session** on demand, so a reader can complete the whole
+loop — read a book, tap a word, save it, see it in Vocabulary, review it — without ever creating
+an account. Registering later promotes that same server-side row **in place**; logging into an
+existing account merges the guest's data into it.
+
+Everything below is here because **no automated lane can reach it**. `apps/mobile` has no component
+or hook test runner, its Playwright specs are excluded from CI *and* from `tsc`, and the three
+riskiest behaviours in this feature live in `expo-secure-store` write ordering, real network
+timing, and React Native gesture handling. The unit tests cover the *decisions*; this covers the
+*wiring*.
+
+Read §7 first if anything behaves oddly — several failures below have a known non-obvious cause.
+
+---
+
+## Preconditions
+
+### Emulator setup — read this before starting, it will save an hour
+
+- [ ] `emulator` and `adb` are **not on PATH**. They live at
+      `~/Library/Android/sdk/emulator/emulator` and `~/Library/Android/sdk/platform-tools/adb`.
+      Known AVDs: `Pixel_7_Pro`, `Medium_Phone_API_36`.
+- [ ] **Uninstall any existing build first**: `adb uninstall app.textstack.mobile`.
+      A Play build (versionCode 22) blocks a local one (versionCode 1) with
+      `INSTALL_FAILED_VERSION_DOWNGRADE`, and the signatures differ anyway.
+- [ ] Build and install:
+      `cd apps/mobile && ANDROID_HOME=$HOME/Library/Android/sdk npx expo run:android`
+      — **without `--device`**. Passing `--device emulator-5554` fails with
+      `Could not find device with name`.
+- [ ] Load the JS bundle: `adb reverse tcp:8081 tcp:8081`, then
+      `adb shell am start -a android.intent.action.VIEW -d "textstack://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`
+- [ ] The app points at **production** by default. That is fine and intended here — the guest
+      endpoints are live. No login is needed to reach the catalogue.
+- [ ] **A LogBox toast from `window.onerror` swallows taps.** If taps on the reader toolbar seem
+      to do nothing, dismiss the toast first. This has cost time before.
+
+### State
+
+- [ ] **Fresh install, no session.** If reusing an emulator, clear app data
+      (`adb shell pm clear app.textstack.mobile`) — a leftover guest session invalidates §1 and §2.
+- [ ] Have an unused email ready for §4 (registration).
+- [ ] Have a **second, existing** account with at least one saved vocabulary word for §5 (merge on
+      login). The prod QA account is in the project memory note on mobile QA.
+- [ ] Ability to watch traffic (Charles, mitmproxy, or `adb logcat` filtered on the API host) for
+      §1 step 3 and §6. Without it, those two steps cannot be verified — say so in the results
+      rather than ticking them.
+
+---
+
+## 1. Cold start — a session appears without anyone asking
+
+1. Launch the freshly installed app.
+2. Observe the first screen.
+3. Open any book from Discover. **Watch the network.**
+
+**Verify**:
+- [ ] The first screen is **Discover**, not Library, and not a sign-in wall.
+- [ ] No language question, no onboarding screen, no account prompt on launch.
+- [ ] Opening the book fires **exactly one** `POST /auth/guest`. Not zero, not two.
+- [ ] Any blank/loading frame before the reader is **imperceptible**. If you can see it as a
+      distinct state, note how long it lasted — the gate budget is 3s and it should never be spent
+      on a working connection.
+- [ ] The book opens and is readable.
+
+> The gate is designed so `isAuthenticated` cannot flip while the reader is mounted — a flip
+> re-fetches the book and re-derives the chapter list. A visible reload here is a real defect.
+
+---
+
+## 2. First word tap — the language question, in place
+
+1. In the open book, **long-press** a word.
+2. Observe the selection toolbar.
+3. Tap the row where a translation would normally appear (or the Translate button).
+4. Answer the language question.
+
+**Verify**:
+- [ ] The toolbar shows a **Save** button. (Before this work it was absent for a reader with no
+      account, while the coachmark promised it.)
+- [ ] Because no language is chosen yet, the inline gloss is replaced by a tappable line asking
+      the question — **not** silence.
+- [ ] Tapping it opens the translation sheet **without leaving the book**.
+- [ ] The sheet shows the pressed word, the question, and a searchable language list.
+- [ ] **No translation request has been sent yet** — the question comes first.
+- [ ] Picking a language is a **single tap** (no separate confirm step).
+- [ ] The sheet immediately becomes a normal translation sheet and the translation **lands in the
+      chosen language**.
+- [ ] You are still on the same page of the same book.
+- [ ] Long-press another word: the inline gloss now appears directly. The question does not return.
+
+**Device-only checks in this step:**
+- [ ] The language list **scrolls** inside the sheet. (A `FlatList` inside a `Modal` is a known
+      React Native gesture pass-through hazard.)
+- [ ] The sheet is usable on a **small screen and in landscape** — `styles.sheet` has no
+      `maxHeight`. Try a long multi-word selection, which is the worst case.
+
+---
+
+## 3. Save → Vocabulary → Review — the loop closes
+
+1. With a language chosen, long-press a word and tap **Save**.
+2. Go to the **Vocabulary** tab.
+3. Start a review session and answer one card.
+4. Return to the book and save two or three more words.
+
+**Verify**:
+- [ ] Saving gives feedback (haptic + toast) and the word is marked as saved in the toolbar.
+- [ ] The Vocabulary tab shows the word. It must **not** show a red "Couldn't load your library"
+      with a Retry button — that was the old signed-out behaviour and its return is a regression.
+- [ ] A review card renders and can be answered.
+- [ ] The Stats screen shows a signed-in-shaped screen, not an error.
+
+---
+
+## 4. Register — the merge, in place. **This is the headline assertion.**
+
+1. Note exactly what you have accumulated: which words, which book, how far you read.
+2. Profile → **Create free account** → register with the unused email.
+3. Return to Vocabulary, Library and the book.
+
+**Verify**:
+- [ ] Every saved word is still there.
+- [ ] Reading progress on the book survived.
+- [ ] The chosen native language survived — long-press a word, the gloss is in that language, and
+      you are **not** asked again.
+- [ ] Profile now shows the account, and the guest banner is gone.
+
+### 4b. The path that used to lose everything — do not skip this
+
+The bug this guards was invisible: registration answered *success* and silently discarded the data.
+It only appears when the access token has expired, which takes an hour.
+
+1. Fresh install, become a guest, save a word (§1–§3).
+2. **Kill the app** and leave it closed for **over an hour** (access tokens live 60 minutes).
+3. Reopen and go **straight** to Profile → Create free account. Do not open a book, do not tap
+   anything that would make a network call first — a call that 401s would refresh the token and
+   mask the bug.
+
+**Verify**:
+- [ ] Registration succeeds **and the saved word is still there.**
+
+> If the word is gone, the merge did not fire. That is D1 and it is critical.
+
+---
+
+## 5. Login into an existing account — the other merge path
+
+1. Fresh install, become a guest, save a word and read a few pages (§1–§3).
+2. Sign in to the **existing** account that already has its own vocabulary.
+
+**Verify**:
+- [ ] The guest's word **and** the account's pre-existing words are both present.
+- [ ] Reading progress: the more recently updated one wins (this is last-write-wins by design).
+- [ ] The account's own native language is **unchanged** — the guest's choice must not overwrite a
+      language the account had already set.
+- [ ] Sign-in returns 200, not 500. A 500 here means a merge conflict rolled the transaction back
+      and would repeat on every retry.
+
+---
+
+## 6. Things that are meant to be closed
+
+**Verify**:
+- [ ] The **upload tab is not visible** to a guest.
+- [ ] Library with zero books shows one primary CTA, and for a guest it is **Browse free books**,
+      with upload demoted to a link that leads to sign-in. It must not offer a primary "Upload a
+      book" that lands on a wall.
+- [ ] **Librarian** and **Tutor** show a sign-in invitation, not an error — and opening them does
+      **not** fire a model call. Watch the network: a paid request before the wall renders is a
+      defect that existed until recently.
+- [ ] **Ask this book** shows its sign-in state.
+- [ ] Translation, dictionary and TTS **still work** — these are deliberately open to guests and
+      the reading loop depends on them. Breaking them is the over-correction to watch for.
+
+---
+
+## 7. Failure modes with known non-obvious causes
+
+- [ ] **Airplane mode, previously-read book.** Turn on airplane mode and open a book whose chapters
+      are cached. The reader must open in about a second — **not** after a 3-second pause. The gate
+      is designed to give up immediately when the network fails outright; spending the full budget
+      means it is waiting on something it should not.
+- [ ] **Rate-limited first launch.** `POST /auth/guest` is limited per IP. If you install several
+      times in a few minutes you may get no session at all. Correct behaviour: **the book still
+      opens** (signed-out, degraded). The gate must never be able to hide a book.
+- [ ] **Sign-in while a book is opening.** Start opening a book and, from another screen, sign in
+      during that window. Then confirm the app is in a coherent state — signed in, reader works,
+      no repeated 401s. This exercises the interleaved-token-write path; the unit tests cover the
+      decision, not `expo-secure-store`'s actual write ordering.
+- [ ] **Sign out while the profile is refreshing.** Sign out immediately after a screen that
+      fetches the profile. Then open a book. It must mint a **new** guest session and work — not
+      sit in a 401 loop. (Symptom of the bug: a user appears present but every request fails.)
+- [ ] **Guest Sign Out.** Profile → Sign out as a guest must show a **destructive confirmation
+      naming what is lost**, not a plain "are you sure". Cancelling must change nothing. Confirming
+      is genuinely irreversible — use a throwaway guest for this.
+- [ ] **An account with no native language** still gets the full-screen `onboarding/language`
+      route. Only guests and session-less readers are asked inside the sheet.
+
+---
+
+## Results
+
+| Check | Expected | Actual |
+|-------|----------|--------|
+| First screen | Discover, no wall | |
+| `POST /auth/guest` on first book | exactly 1 | |
+| Save button for a guest | present | |
+| Language question | in the sheet, book not left | |
+| Word → Vocabulary → review | works | |
+| Register → word survives | yes | |
+| **Register after >1h idle → word survives** | **yes** | |
+| Login into existing account | both sets present, no 500 | |
+| Upload tab for a guest | hidden | |
+| Librarian/Tutor | wall, and no model call | |
+| Translate / dictionary / TTS | still work | |
+| Airplane mode, cached book | opens ~1s | |
+| Rate-limited, no session | book still opens | |
+| Guest sign out | destructive confirm | |
+
+---
+
+## Actual Issues Observed
+
+| Date | Issue | Status |
+|------|-------|--------|
+| — | — | — |
+
+---
+
+## Test History
+
+| Date | Tester | Result | Notes |
+|------|--------|--------|-------|
+| — | — | — | — |

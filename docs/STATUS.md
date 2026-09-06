@@ -1,6 +1,6 @@
 # Status
 
-**Last updated: 2026-09-02.** Where the project actually is — not what it does (that's
+**Last updated: 2026-09-06.** Where the project actually is — not what it does (that's
 [`docs/README.md`](README.md)) and not what changed (that's [`CHANGELOG.md`](../CHANGELOG.md)).
 
 If you read one page before picking work back up, read this one. It exists because the changelog
@@ -19,7 +19,8 @@ answers "what happened" and nothing answered "what is half-finished right now".
 | **AI platform** | Phases 1–12 complete: RAG, agents (Enrichment / Tutor / Librarian), evals, shadow routing, cost-aware routing, drift detection. |
 | **Book Chat** | Streaming, persistent history, per-chapter summaries, page citations for PDFs. Web + mobile at parity. |
 | **Observability** | OpenTelemetry → Aspire, plus Sentry on API + Worker with LLM/provider-routing spans. Mobile Sentry is **armed** since 2026-09-03 — project `textstack-mobile` in the `textstack` org, DSN supplied as an EAS environment variable (`EXPO_PUBLIC_SENTRY_DSN`, production + preview) rather than a repo file, so it reaches OTA bundles as well as store builds. |
-| **Entitlements** | `UserTier { Guest, Free, Supporter, Staff }`, config-driven quotas. |
+| **Entitlements** | `UserTier { Guest, Free, Supporter, Staff }`, config-driven quotas — now including `AiEnabled` and `DailyEnrichmentCap`, enforced server-side by `RequireAiAccount()` (403 `account_required`). |
+| **Guest sessions** | Web and mobile both mint an anonymous `User` row on demand; the read → save → review loop works with no account, and registering promotes that row in place. [ADR-014](01-architecture/adr/ADR-014-guest-sessions.md). |
 | **SEO / SSG** | Prerendered pages, sitemap, IndexNow. Four incidents since 2026-08-11 ([dead five weeks](incidents/2026-08-11-ssg-dead-five-weeks.md), [deploy wiped a running rebuild](incidents/2026-08-31-deploy-wiped-a-running-ssg-rebuild.md), [worker lost its output path](incidents/2026-09-01-ssg-worker-lost-its-output-path.md), [a prompt stranded the swap](incidents/2026-09-02-corepack-prompt-stranded-the-ssg.md)), each invisible from outside because humans get the SPA and it renders fine. Now watched three ways: the deploy refuses to promote a rebuild that lost its files, `/health/ready` reports rebuild age and failure, and the health check asks a crawler's question every five minutes. |
 | **Mobile** | Android on Play Internal Testing (`versionCode 24`). OTA via `expo-updates`, published automatically on merge — and refused automatically when the runtime fingerprint has moved. |
 | **Build & deps** | One Node version in `.nvmrc` (24.20.0), enforced across CI, four Dockerfiles and the deploy runner. One pnpm workspace with a version catalog — the JS answer to `Directory.Packages.props`. Weekly dependency refresh by pull request. |
@@ -141,11 +142,34 @@ someone's memory.
   sign-in invitation instead of a red "Couldn't load your library" with a Retry that re-401s forever.
   Reading, translation and dictionary always worked signed out.
 
-  **Still open:** nothing explains the app on Discover, and mobile still does not mint guest sessions
-  — so the loop breaks at Save → Vocabulary → Review, which is the whole product. That is the next
-  PR, and it is gated on two data-loss bugs that must land first: mobile never sends `Authorization`
-  on register/login, so `MergeGuestAsync` never fires and a guest would lose everything on sign-up;
-  and a guest's Sign Out wipes the only handle on their account with no confirmation.
+  **Closed 2026-09-06** (`feat(guest): a reader can finish the whole loop without an account`): mobile
+  mints a guest session on demand — opening a book, through `ReaderSessionGate` — so read → tap a
+  word → save → Vocabulary → review works with no sign-up. Registering promotes that same server row
+  in place; signing in merges it. Posture recorded in
+  [ADR-014](01-architecture/adr/ADR-014-guest-sessions.md). Both data-loss bugs named above are
+  fixed: `mobilePost` now sends `Authorization` (and refreshes an expiring token first, because an
+  expired bearer made `/auth/register` answer 200 and silently skip the merge), and a guest's Sign
+  Out is behind a destructive confirm that names what disappears. Four more found on the way and
+  fixed: `MergeGuestAsync` bulk-updated `ReadingSessions` across a partial unique index, which 500'd
+  sign-in *permanently* for anyone it hit; the whole paid-inference surface accepted a guest token;
+  `PromoteLookup` bypassed the tier's enrichment cap; and `IntegrationSkip` counted 500 as
+  "environment unavailable", so a merge that threw reported as skipped rather than failed.
+
+  **Still open.** Two things, and neither is small.
+
+  *Nothing explains the app on Discover.* `onboarding/language` remains the only onboarding route and
+  it asks one question. A guest can now finish the loop — nothing on the first screen tells them the
+  loop exists. The reader coachmark is still the only teaching moment in the app.
+
+  *We cannot measure whether any of this helped.* `apps/mobile/src/lib/analytics.ts` is a typed
+  wrapper over `console.debug` in dev and nothing at all in production — the transport was never
+  wired. `sign_up`, `vocab_saved` and `book_opened` are all defined and all go nowhere, so the
+  guest→account conversion this work exists to produce is unobservable. Fixing the wiring is a
+  smaller job than the feature was.
+
+  Also still true: `GuestActivityMiddleware` is dead code (it reads a claim no middleware sets), so
+  `LastActiveAt` is written only at guest creation and a guest who reads daily but saves nothing is
+  still reaped at 30 days. Recorded under Open in ADR-014.
 
 - ~~**The selection fix passes on a phone, but not yet on the phone that reported it.**~~ Closed
   2026-09-03: the reporter ran all six steps of

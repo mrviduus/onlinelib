@@ -51,6 +51,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { fonts } from '../../theme/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
+import { capabilitiesFor } from '../../lib/capabilities'
 
 /** Lightweight {key} interpolation — shared `t()` returns raw keys, we fill them in here. */
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -1124,7 +1125,12 @@ export function ReaderShell(props: ReaderShellProps) {
             currentChapterId={chapter.id}
             chapters={chapters}
             prefill={askPrefill}
-            isAuthenticated={isAuthenticated}
+            // Account predicate, not a session one: Ask calls paid inference and
+            // every rate-limit bucket partitions on IP alone, so a guest reaching
+            // it would be an unmetered path to the LLM. The other `isAuthenticated`
+            // props in this file are session predicates and stay as they are — a
+            // guest is a real row that syncs.
+            canUseAi={capabilitiesFor(user).canUseAi}
             onCitation={handleCitation}
             onSignIn={() => { setAskOpen(false); router.push('/(auth)/login') }}
             onClose={() => { setAskOpen(false); setAskPrefill(null) }}

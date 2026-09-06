@@ -9,7 +9,8 @@ namespace Api.Endpoints;
 
 public static class AuthEndpoints
 {
-    private const string AccessTokenCookie = "access_token";
+    // Aliased, not re-declared: the token reader in ClaimsPrincipalExtensions must name the same cookie.
+    private const string AccessTokenCookie = ClaimsPrincipalExtensions.AccessTokenCookieName;
     private const string RefreshTokenCookie = "refresh_token";
 
     public static void MapAuthEndpoints(this WebApplication app)
@@ -40,13 +41,28 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        // If already authenticated, return current user
+        // Already authenticated: never mint a second guest row, just describe the session.
         var existingUserId = httpContext.GetUserId(authService);
         if (existingUserId.HasValue)
         {
             var existingUser = await authService.GetUserByIdAsync(existingUserId.Value, ct);
             if (existingUser != null)
+            {
+                // Mobile has no cookie jar, so a `{user}`-only body means `accessToken:
+                // undefined` at the client — and a naive signInWithTokens(res.accessToken, ...)
+                // then writes that undefined over a WORKING SecureStore session and destroys it.
+                // Make the endpoint total for mobile: re-issue a pair for the SAME user.
+                if (IsMobileClient(httpContext))
+                {
+                    var (user, accessToken, refreshToken) =
+                        await authService.IssueSessionAsync(existingUser, ct);
+                    return Results.Ok(new MobileAuthResponse(user.ToDto(), accessToken, refreshToken));
+                }
+
+                // Web is unchanged: the cookie is already set, so re-issuing would only
+                // churn refresh-token rows. Body stays `{user}`-only by contract.
                 return Results.Ok(new AuthResponse(existingUser.ToDto()));
+            }
         }
 
         var result = await authService.CreateGuestSessionAsync(ct);
@@ -81,13 +97,24 @@ public static class AuthEndpoints
         if (await authService.EmailExistsAsync(request.Email, ct))
             return Results.Conflict(new { error = "An account with this email already exists." });
 
-        var guestUserId = GetGuestUserId(httpContext, authService);
+        var guest = ResolveGuestToken(httpContext, authService);
 
-        var result = await authService.RegisterWithEmailAsync(request.Email, request.Password, request.Name, guestUserId, ct);
+        var result = await authService.RegisterWithEmailAsync(
+            request.Email, request.Password, request.Name, guest.UserId, ct);
         if (result == null)
             return Results.BadRequest(new { error = "Invalid email or password." });
 
-        return ReturnAuthResult(result.Value, httpContext);
+        // Registration promotes the guest IN PLACE inside RegisterWithEmailAsync (no MergeGuestAsync,
+        // no cross-user re-parent), so the only way to lose data here is guest.UserId having come back
+        // null from a token we DID receive. That is exactly what gets reported.
+        string? skipped = null;
+        if (guest.SkipReason != null)
+        {
+            skipped = guest.SkipReason;
+            LogGuestMergeSkipped(httpContext, skipped, "/auth/register", result.Value.user.Id);
+        }
+
+        return ReturnAuthResult(result.Value, httpContext, skipped);
     }
 
     private static async Task<IResult> LoginWithEmail(
@@ -99,17 +126,17 @@ public static class AuthEndpoints
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return Results.Unauthorized();
 
-        var guestUserId = GetGuestUserId(httpContext, authService);
+        var guest = ResolveGuestToken(httpContext, authService);
 
         var result = await authService.LoginWithEmailAsync(request.Email, request.Password, ct);
         if (result == null)
             return Results.Unauthorized();
 
         // Merge guest data into existing account
-        if (guestUserId.HasValue)
-            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
+        var skipped = await MergeOrExplainAsync(
+            httpContext, authService, guest, result.Value.user.Id, "/auth/login", ct);
 
-        return ReturnAuthResult(result.Value, httpContext);
+        return ReturnAuthResult(result.Value, httpContext, skipped);
     }
 
     private static async Task<IResult> LoginWithGoogle(
@@ -118,16 +145,16 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        var guestUserId = GetGuestUserId(httpContext, authService);
+        var guest = ResolveGuestToken(httpContext, authService);
 
         var result = await authService.LoginWithGoogleAsync(request.IdToken, ct);
         if (result == null)
             return Results.Unauthorized();
 
-        if (guestUserId.HasValue)
-            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
+        var skipped = await MergeOrExplainAsync(
+            httpContext, authService, guest, result.Value.user.Id, "/auth/google", ct);
 
-        return ReturnAuthResult(result.Value, httpContext);
+        return ReturnAuthResult(result.Value, httpContext, skipped);
     }
 
     private static async Task<IResult> LoginWithApple(
@@ -136,17 +163,17 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        var guestUserId = GetGuestUserId(httpContext, authService);
+        var guest = ResolveGuestToken(httpContext, authService);
 
         var result = await authService.LoginWithAppleAsync(
             request.IdentityToken, request.FullName, request.Email, ct);
         if (result == null)
             return Results.Unauthorized();
 
-        if (guestUserId.HasValue)
-            await authService.MergeGuestAsync(guestUserId.Value, result.Value.user.Id, ct);
+        var skipped = await MergeOrExplainAsync(
+            httpContext, authService, guest, result.Value.user.Id, "/auth/apple", ct);
 
-        return ReturnAuthResult(result.Value, httpContext);
+        return ReturnAuthResult(result.Value, httpContext, skipped);
     }
 
     private static async Task<IResult> RefreshToken(
@@ -246,18 +273,24 @@ public static class AuthEndpoints
         return Results.Ok();
     }
 
+    /// <param name="guestMergeSkipped">
+    /// Non-null when the sign-in succeeded but pre-sign-in guest data was deliberately not carried
+    /// across. Defaulted so the paths with no guest concept (test-login, guest-session, refresh) are
+    /// unchanged.
+    /// </param>
     private static IResult ReturnAuthResult(
         (User user, string accessToken, string refreshToken) result,
-        HttpContext httpContext)
+        HttpContext httpContext,
+        string? guestMergeSkipped = null)
     {
         var (user, accessToken, refreshToken) = result;
         var dto = user.ToDto();
 
         if (IsMobileClient(httpContext))
-            return Results.Ok(new MobileAuthResponse(dto, accessToken, refreshToken));
+            return Results.Ok(new MobileAuthResponse(dto, accessToken, refreshToken, guestMergeSkipped));
 
         SetAuthCookies(httpContext, accessToken, refreshToken);
-        return Results.Ok(new AuthResponse(dto));
+        return Results.Ok(new AuthResponse(dto, guestMergeSkipped));
     }
 
     private static void SetAuthCookies(HttpContext httpContext, string accessToken, string refreshToken)
@@ -299,27 +332,141 @@ public static class AuthEndpoints
             ?.Equals("mobile", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    /// <summary>Extract guest userId from current JWT cookies (if it's a guest session).</summary>
-    private static Guid? GetGuestUserId(HttpContext httpContext, AuthService authService)
+    /// <summary>
+    /// The reasons a sign-in can complete WITHOUT carrying pre-sign-in guest data across. Surfaced on
+    /// the auth response as <c>guestMergeSkipped</c> and logged; null/absent is the ordinary case.
+    /// </summary>
+    public static class GuestMergeSkipReason
     {
-        var userId = httpContext.GetUserId(authService);
-        if (!userId.HasValue) return null;
+        /// <summary>
+        /// A token WAS presented and did not validate — expired, revoked, or corrupt. Distinct from
+        /// "no token at all", which is a perfectly normal registration and must stay silent.
+        /// </summary>
+        public const string InvalidToken = "invalid_token";
 
-        // Check the is_guest claim in the JWT
-        var accessToken = httpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "")
-            ?? httpContext.Request.Cookies[AccessTokenCookie];
-        if (accessToken == null) return null;
+        /// <summary>The merge ran and was abandoned on a constraint violation; nothing moved.</summary>
+        public const string MergeConflict = "merge_conflict";
+    }
+
+    /// <summary>
+    /// What the incoming credential says about a guest to merge: the id when there is one, and a
+    /// reason when there plainly WAS a session and we are about to ignore it.
+    /// </summary>
+    private readonly record struct GuestToken(Guid? UserId, string? SkipReason);
+
+    /// <summary>
+    /// Classifies the request's access token into: no credential / unusable credential / a real
+    /// account's credential / a guest's credential.
+    /// </summary>
+    /// <remarks>
+    /// The whole point of this method is the SECOND case. It used to collapse into the first: any
+    /// token that failed validation produced the same <c>null</c> as no token at all, so the server
+    /// decided to abandon a guest's accumulated highlights, vocabulary and reading history and then
+    /// answered 200 without telling anyone. The client cannot see this — from its side a successful
+    /// registration and a successful registration that threw away everything look identical.
+    ///
+    /// A mobile client refreshing an about-to-expire token before signing in closes the common case,
+    /// but not the ones that matter here: a badly skewed device clock, a refresh token already
+    /// rotated or revoked, a token read back corrupt from a damaged keychain. In each of those the
+    /// user taps "create account", sees success, and loses everything.
+    ///
+    /// Deliberately NOT a 401. Someone with a stale token in their pocket and no guest data at all
+    /// must still be able to register; refusing them is a worse bug than the one being fixed.
+    /// Sign-in proceeds — it is just no longer silent.
+    ///
+    /// Reads the token through <see cref="ClaimsPrincipalExtensions.GetAccessToken"/> — the SAME
+    /// reader <see cref="ClaimsPrincipalExtensions.GetUserId"/> uses. When this had its own parse,
+    /// a lowercase <c>bearer</c> scheme authenticated the caller but produced an unparsable token
+    /// here, so the guest was authenticated and silently not merged.
+    /// </remarks>
+    private static GuestToken ResolveGuestToken(HttpContext httpContext, AuthService authService)
+    {
+        var accessToken = httpContext.GetAccessToken();
+        // No credential offered at all: an ordinary sign-in with nothing to carry. Stay quiet.
+        if (accessToken == null) return default;
+
+        var userId = authService.ValidateAccessToken(accessToken);
+        if (!userId.HasValue) return new GuestToken(null, GuestMergeSkipReason.InvalidToken);
 
         var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
         try
         {
             var jwt = handler.ReadJwtToken(accessToken);
             var isGuest = jwt.Claims.FirstOrDefault(c => c.Type == "is_guest")?.Value;
-            return isGuest == "true" ? userId : null;
+            // A valid NON-guest token is not suspicious — an account re-authenticating has nothing
+            // to merge, and flagging it would drown the signal we actually care about.
+            return isGuest == "true" ? new GuestToken(userId, null) : default;
         }
         catch
         {
-            return null;
+            // Validated a moment ago, so this is close to unreachable — but if the token is somehow
+            // unreadable we are once again about to drop guest data, which is the reportable event.
+            return new GuestToken(null, GuestMergeSkipReason.InvalidToken);
         }
     }
+
+    /// <summary>
+    /// Runs the merge if there is one to run, and returns the value for the response's
+    /// <c>guestMergeSkipped</c> field (null when nothing was skipped).
+    /// </summary>
+    private static async Task<string?> MergeOrExplainAsync(
+        HttpContext httpContext,
+        AuthService authService,
+        GuestToken guest,
+        Guid realUserId,
+        string route,
+        CancellationToken ct)
+    {
+        if (guest.SkipReason != null)
+        {
+            LogGuestMergeSkipped(httpContext, guest.SkipReason, route, realUserId);
+            return guest.SkipReason;
+        }
+
+        if (!guest.UserId.HasValue) return null;
+
+        if (await authService.MergeGuestAsync(guest.UserId.Value, realUserId, ct))
+            return null;
+
+        LogGuestMergeSkipped(httpContext, GuestMergeSkipReason.MergeConflict, route, realUserId);
+        return GuestMergeSkipReason.MergeConflict;
+    }
+
+    /// <summary>
+    /// One structured Warning per dropped guest session, shaped so the rate can be counted in
+    /// production by reason and route rather than inferred from support tickets.
+    /// </summary>
+    /// <remarks>
+    /// <c>expiresAt</c> is read from the token WITHOUT validating it — no trust decision rests on
+    /// it, it is there so an ops query can separate "clocks/expiry" from "corrupt or revoked", which
+    /// are different bugs with different fixes. The token itself is never logged.
+    /// </remarks>
+    private static void LogGuestMergeSkipped(
+        HttpContext httpContext, string reason, string route, Guid realUserId)
+    {
+        var logger = httpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger(GuestMergeLogCategory);
+
+        DateTime? expiresAt = null;
+        try
+        {
+            var token = httpContext.GetAccessToken();
+            if (token != null)
+                expiresAt = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler()
+                    .ReadJwtToken(token).ValidTo;
+        }
+        catch
+        {
+            // Unreadable token — that IS the answer, and `expiresAt: null` records it.
+        }
+
+        logger.LogWarning(
+            "Guest merge skipped on {Route}: {Reason}. Sign-in completed for {RealUserId}; "
+            + "pre-sign-in guest data was NOT carried across. Token expiry {TokenExpiresAt}, "
+            + "mobile client {IsMobile}",
+            route, reason, realUserId, expiresAt, IsMobileClient(httpContext));
+    }
+
+    private const string GuestMergeLogCategory = "Api.Endpoints.AuthEndpoints.GuestMerge";
 }

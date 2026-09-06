@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.Entitlements;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,9 +13,14 @@ namespace Application.Vocabulary;
 // today's UTC window. ActivatedAt is set the moment a word joins the SRS
 // queue — both for direct saves and for promotions — so both paths count
 // against the cap uniformly.
+//
+// S12: the same counter doubles as the paid-LLM-enrichment meter. Enrichment
+// (distractors + hint + explanation) is queued exactly where a word gains
+// ActivatedAt, so the tier's UserEntitlements.DailyEnrichmentCap clamps this
+// cap rather than introducing a second, drift-prone counter.
 public record DailyCapStatus(int Used, int Cap, int Remaining);
 
-public class DailyCapService(IAppDbContext db)
+public class DailyCapService(IAppDbContext db, IEntitlementResolver entitlements)
 {
     // Default = the per-user vocabulary ceiling (5000), i.e. effectively no
     // daily limit: every tapped word enters SRS immediately and you only ever
@@ -24,14 +30,48 @@ public class DailyCapService(IAppDbContext db)
 
     public async Task<DailyCapStatus> GetStatusAsync(Guid userId, Guid siteId, CancellationToken ct)
     {
-        var cap = await db.UserVocabularySettings
+        var chosen = await db.UserVocabularySettings
             .Where(s => s.UserId == userId)
             .Select(s => (int?)s.DailyNewCap)
             .FirstOrDefaultAsync(ct) ?? DefaultDailyCap;
 
+        var cap = EffectiveCap(chosen, await GetEntitlementCapAsync(userId, ct));
         var used = await GetUsedTodayAsync(userId, siteId, DateTimeOffset.UtcNow, ct);
         return Compute(used, cap);
     }
+
+    // The tier's ceiling on paid LLM enrichment, measured in the same unit as the daily cap.
+    // Enrichment (distractors + hint + explanation) is queued exactly where a word gains
+    // ActivatedAt, so "new SRS activations today" IS "enrichment calls today" — no second meter.
+    // Null (every tier but Guest today) leaves behaviour byte-identical to before this existed.
+    public async Task<DailyCapStatus> GetEntitlementCapStatusAsync(
+        Guid userId, Guid siteId, DateTimeOffset now, CancellationToken ct)
+    {
+        var cap = await GetEntitlementCapAsync(userId, ct);
+        if (cap is null) return Compute(used: 0, cap: int.MaxValue);
+
+        var used = await GetUsedTodayAsync(userId, siteId, now, ct);
+        return Compute(used, cap.Value);
+    }
+
+    private async Task<int?> GetEntitlementCapAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        return user is null ? null : entitlements.Resolve(user).DailyEnrichmentCap;
+    }
+
+    /// <summary>
+    /// The user's own daily cap, clamped by their tier's enrichment ceiling. Pure so the
+    /// interaction is testable without a DB.
+    /// </summary>
+    /// <remarks>
+    /// The lower of the two wins, and the tier ceiling is the one the user cannot raise: their own
+    /// cap is a study-pacing preference (they may set it to 5000), the tier cap is what the platform
+    /// is willing to pay for. Without it a guest session is a free, account-less path to unmetered
+    /// paid inference.
+    /// </remarks>
+    public static int EffectiveCap(int userChosenCap, int? entitlementCap) =>
+        entitlementCap is { } limit ? Math.Min(userChosenCap, limit) : userChosenCap;
 
     public Task<int> GetUsedTodayAsync(Guid userId, Guid siteId, DateTimeOffset now, CancellationToken ct)
     {

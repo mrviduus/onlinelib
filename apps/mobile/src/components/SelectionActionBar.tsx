@@ -4,7 +4,9 @@ import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
 import { cachedTranslate, peekTranslation, type SaveCategory } from '../lib/translateCache'
 import { useTheme } from '../context/ThemeContext'
+import { useLanguage } from '../context/LanguageContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
+import { useNeedsNativeLanguage } from '../hooks/useNeedsNativeLanguage'
 import { fonts } from '../theme/typography'
 
 const STAGE_LABELS: Record<number, { label: string; color: string }> = {
@@ -102,7 +104,15 @@ export function SelectionActionBar({
   onClose,
 }: SelectionActionBarProps) {
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const { fromLang, translationTarget } = useTargetLanguage(language)
+  // A reader who has never been asked what they know is defaulted to English,
+  // so on an English book `isSameLang` is true and the gloss row below simply
+  // does not render — the reader long-presses a word and gets nothing, with
+  // nothing on screen saying why. That silence is what makes the question
+  // invisible. One tappable line replaces it, and the answering happens in the
+  // sheet the line opens.
+  const needsLanguage = useNeedsNativeLanguage()
   // No target means the reader already knows this language — there is nothing
   // to translate into, so the inline gloss is skipped rather than fetched.
   const isSameLang = translationTarget == null
@@ -158,6 +168,24 @@ export function SelectionActionBar({
         },
       ]}
     >
+      {/* Where the gloss would be, when we do not yet know what to gloss into.
+          Opens the same sheet the Translate button does — which asks. */}
+      {!isMultiWord && isSameLang && needsLanguage && (
+        <TouchableOpacity
+          style={styles.translationRow}
+          onPress={onTranslate}
+          accessibilityRole="button"
+          accessibilityLabel="Choose the language to translate into"
+        >
+          <Ionicons name="language-outline" size={13} color={colors.primary} />
+          {/* Wider than a gloss: `styles.translation` caps at 55% to leave room
+              for the source word, and there is no source word on this row. */}
+          <Text style={[styles.translation, { color: colors.primary, maxWidth: '85%' }]} numberOfLines={1}>
+            {t('onboarding.nativeLanguageTitle')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Translation row — only for single-word taps. Keeps the killer
           feature from the old WordCard (zero-tap to see translation). */}
       {!isMultiWord && !isSameLang && (

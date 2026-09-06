@@ -209,7 +209,11 @@ describe('computeBookProgress — web ReaderPage inline-formula parity (R6)', ()
   ]
   const single = [{ identifier: 'only', wordCount: 500 }]
 
-  const cases: Array<[string, typeof weighted | null, string | null | undefined, number]> = [
+  // `noWords` is deliberately degenerate — a null wordCount and a missing one —
+  // because that is what a chapter list from an older payload looks like. The
+  // tuple has to admit it, or the fixture the test exists to exercise cannot be
+  // passed to the thing it exercises.
+  const cases: Array<[string, typeof weighted | typeof noWords | null, string | null | undefined, number]> = [
     ['mid-chapter weighted', weighted, 'ch2', 0.5],
     ['first chapter start', weighted, 'ch1', 0],
     ['last chapter full', weighted, 'ch3', 1],

@@ -230,14 +230,20 @@ Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
 
-**Guest Users**: Anonymous reading. The two clients are in very different states — do not generalise from one to the other.
-- **Web** mints a real guest `User` on demand (`POST /auth/guest`) from three triggers: reader mount, upload, and the 3rd pending vocabulary word. Registering **promotes that same row in place** (`AuthService.MergeGuestAsync`), so nothing is lost.
-- **Mobile does not mint guests yet** — nothing under `apps/mobile` calls `/auth/guest`. A signed-out reader gets the whole catalogue, translation and dictionary (those endpoints are anonymous), but Save / Vocabulary / Stats offer a sign-in invitation instead of working.
-- `apps/mobile/src/lib/capabilities.ts` is the single source of guest policy. Account-only: upload, AI (librarian/tutor/Ask), identity editing, account deletion, cross-device sync. Deliberately *not* account-only: reading, translation, dictionary.
+**Guest Users**: Anonymous reading on a **real server-side `User` row**, minted on demand. Full posture + rejected alternatives: [ADR-014](docs/01-architecture/adr/ADR-014-guest-sessions.md).
+- `POST /auth/guest` mints a `User` with `IsGuest=true`, a synthesized `guest-<hex>@guest.local` email and a normal token pair. All `/me/*` writes work for it — progress, highlights, bookmarks, vocabulary all sync.
+- **Triggers differ per client.** Web: reader mount, upload, the 3rd pending vocabulary word. **Mobile: opening a book, and only that** — `ReaderSessionGate` wraps both reader routes, single-flighted, 3s deadline, and every failure (offline, rate limited, bootstrap wedged) opens the book signed out rather than blocking it.
+- Registering **promotes that same row in place** (`AuthService.RegisterWithEmailAsync`); signing in to an existing account **merges** it (`MergeGuestAsync`, one transaction, account's row wins on conflict except `ReadingProgress` = newer wins). `MergeGuestAsync` returns `false` — never throws — on a SQLSTATE-23 conflict, because a throw here is a permanent sign-in outage.
+- Auth responses carry `guestMergeSkipped` (`invalid_token` | `merge_conflict`), null on the ordinary path. Additive; **no client reads it yet**, but every occurrence logs a structured Warning.
+- Clients must send `Authorization` on the four merge entry points (`/auth/register`, `/auth/login`, `/auth/google`, `/auth/apple`) — and must **refresh an expiring token first** (`packages/shared/src/api/tokenExpiry.ts`). An expired bearer is worse than none: the server ignores it and answers 200 with nothing merged.
+- `apps/mobile/src/lib/capabilities.ts` is the single source of guest policy (`capabilitiesFor(user)`). Account-only: upload, AI, identity editing, account deletion, cross-device sync, silent sign-out. Deliberately *not*: reading, translation, dictionary, saving vocabulary. `isAuthenticated` stays `user !== null` (a guest **has** a session); only account questions go through capabilities. `capabilityLiterals.test.ts` fails the build on inline `user?.isGuest` re-derivation.
+- A guest's Sign Out is a **destructive confirm**: the three SecureStore keys are the only handle on the row, which `GuestCleanupWorker` then keeps forever, unreachable.
+- Server-side enforcement, not just UI: `RequireAiAccount()` (`Api/Extensions/AiAccountPolicy.cs`) returns **403 `account_required`** (distinct from 401 — "sign up" vs "sign in") on the paid-inference surface (librarian, tutor, ask, book chat, study buddy, RAG indexing). `GET /me/chat` is inside it because it upserts on read. Never applied to translate/dictionary/TTS.
+- Entitlements: `Entitlements:Tiers:Guest` = `{ StorageLimitBytes: 50MB, MaxBooks: 1, DailyEnrichmentCap: 50, AiEnabled: false }`. Upload is blocked by **product choice**, not by the server. `DailyEnrichmentCap` clamps the user's own daily vocabulary cap (`DailyCapService.EffectiveCap`) and is also checked by `PromoteLookup`. Unset / `<=0` means unlimited/allowed — a config typo costs money, never an outage.
 - GuestLimitsContext (web) holds the last-read book and the word-count threshold that triggers minting. There are no client-side usage limits.
 - GuestCleanupWorker: every **2h**, deletes guests inactive **30d** — but only those holding nothing durable (vocab, highlights, bookmarks, library, uploads, notes, progress). Engaged guests live indefinitely. ReadingSessions are deliberately excluded from that filter.
-- Rate limiting: `guest-session` — **3 per 5 min, per IP**.
-- ⚠️ `GuestActivityMiddleware` is **dead code**: it reads `context.User.FindFirst("is_guest")`, but the API registers no ASP.NET authentication middleware at all (auth is manual per-endpoint via `GetUserId`). `context.User` never carries the claim, so it returns early on every request and `LastActiveAt` is only ever set at guest creation. Consequence once mobile mints guests: a guest who reads daily but saves nothing is still deleted after 30d, because reading alone updates neither `LastActiveAt` nor the preservation filter.
+- Rate limiting: `guest-session` — **per IP per 5 min**, permit limit from `RateLimits:GuestSessionPermitLimit` (prod 3; CI raises it via `GUEST_SESSION_PERMIT_LIMIT` because the merge suites need ≥6 guests from one host). A configured `<=0` degrades to 3.
+- ⚠️ `GuestActivityMiddleware` is **dead code**: it reads `context.User.FindFirst("is_guest")`, but the API registers no ASP.NET authentication middleware at all (auth is manual per-endpoint via `GetUserId`). `context.User` never carries the claim, so it returns early on every request and `LastActiveAt` is only ever set at guest creation. Now that mobile mints guests this bites: a guest who reads daily but saves nothing is still deleted after 30d, because reading alone updates neither `LastActiveAt` nor the preservation filter.
 
 **Email/Password Auth**: Email + password login alongside Google/Apple OAuth.
 - ResendEmailService for transactional email (password reset)
@@ -374,6 +380,9 @@ Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
 | Native Lang Context | `apps/web/src/context/NativeLanguageContext.tsx` |
 | Email Service | `backend/src/Infrastructure/Services/ResendEmailService.cs` |
 | Guest Cleanup | `backend/src/Worker/Services/GuestCleanupWorker.cs` |
+| Guest Capabilities (mobile) | `apps/mobile/src/lib/capabilities.ts` |
+| Guest Minting (mobile) | `apps/mobile/src/lib/guestSession.ts`, `src/components/reader/ReaderSessionGate.tsx` |
+| AI Account Policy | `backend/src/Api/Extensions/AiAccountPolicy.cs` |
 | Highlights Page | `apps/web/src/pages/HighlightsPage.tsx` |
 | Practice Page | `apps/web/src/pages/PracticePage.tsx` |
 | Mobile App | `apps/mobile/app/` (Expo Router pages) |

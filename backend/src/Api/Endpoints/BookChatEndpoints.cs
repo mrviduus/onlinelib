@@ -30,7 +30,10 @@ public static class BookChatEndpoints
 
     public static void MapBookChatEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/me/chat").WithTags("Book Chat");
+        // Whole group: POST is an LLM turn, and GET upserts the conversation row that only exists
+        // to hold those turns. Paid inference — real account only (Entitlements:Tiers:*:AiEnabled).
+        var group = app.MapGroup("/me/chat").WithTags("Book Chat")
+            .RequireAiAccount();
         // GET is upsert-on-read (it can INSERT a conversation row), so it carries the chat's own per-IP
         // limiter ("rag.ask", 30/min) rather than staying unthrottled — same family as the POST below.
         group.MapGet("", GetConversation).RequireRateLimiting("rag.ask");

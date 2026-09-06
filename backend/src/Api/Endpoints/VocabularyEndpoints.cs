@@ -123,12 +123,9 @@ public static partial class VocabularyEndpoints
         if (existingPending != null)
             return Results.Ok(SaveWordResponse.AlreadyPending(existingPending.Id));
 
-        // Hard ceiling — counts both active + pending. Keeps one user from
-        // bloating the pending bucket past the vocabulary cap.
-        var count = await db.VocabularyWords.CountAsync(
-            w => w.UserId == userId, ct);
-        count += await db.PendingVocabularyWords.CountAsync(
-            p => p.UserId == userId, ct);
+        // Hard ceiling — counts all three buckets. Keeps one user from bloating
+        // any of them past the vocabulary cap.
+        var count = await CountAllBucketsAsync(db, userId, ct);
         if (count >= MaxWordsPerUser)
             return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
 
@@ -246,6 +243,26 @@ public static partial class VocabularyEndpoints
             request.Definition, request.Sentence, request.NativeLanguage!);
 
         return Results.Ok(SaveWordResponse.Srs(ToDto(entry)));
+    }
+
+    /// <summary>
+    /// Rows this user holds across ALL THREE vocabulary buckets — active SRS, pending, and lookups —
+    /// measured against <see cref="MaxWordsPerUser"/>.
+    /// </summary>
+    /// <remarks>
+    /// WordLookups were previously outside this count, and the lookup branch of <c>SaveWord</c>
+    /// returns before every cap in the method (correctly: a lookup row is free, no LLM call fires).
+    /// The two together meant a session could accumulate lookup rows without limit — free per row,
+    /// but a reservoir sized only by patience, and every one of them is a candidate for
+    /// <c>PromoteLookup</c>. Counting them here bounds the reservoir with the limit that already
+    /// exists rather than inventing a fourth number.
+    /// </remarks>
+    private static async Task<int> CountAllBucketsAsync(IAppDbContext db, Guid userId, CancellationToken ct)
+    {
+        var count = await db.VocabularyWords.CountAsync(w => w.UserId == userId, ct);
+        count += await db.PendingVocabularyWords.CountAsync(p => p.UserId == userId, ct);
+        count += await db.WordLookups.CountAsync(l => l.UserId == userId, ct);
+        return count;
     }
 
     // Fire-and-forget enrichment for a just-inserted VocabularyWord. Runs in

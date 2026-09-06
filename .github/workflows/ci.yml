@@ -166,6 +166,22 @@ jobs:
         working-directory: apps/web
         run: pnpm test
 
+      # Same gap, one level up: apps/web's vitest config is rooted at apps/web,
+      # so the ~380 tests in packages/shared were reachable only through a root
+      # `pnpm -r test` that nothing ran. That package is the auth client, the
+      # progress maths and the resume logic for BOTH web and mobile.
+      - name: Shared package unit tests
+        working-directory: packages/shared
+        run: pnpm test
+
+      # And it had no `typecheck` script at all, so root `pnpm -r typecheck`
+      # skipped it silently — which is how four type errors sat in its test
+      # fixtures unnoticed. Running the tests without this would guard the
+      # behaviour of a package whose types nothing checks.
+      - name: Shared package typecheck
+        working-directory: packages/shared
+        run: pnpm typecheck
+
       - name: Drift-check mobile overlay bundle
         working-directory: apps/web
         run: pnpm check:mobile-overlay
@@ -389,6 +405,8 @@ jobs:
           GOOGLE_CLIENT_ID=test
           ASPNETCORE_ENVIRONMENT=Development
           ENABLE_TEST_AUTH=true
+          GUEST_SESSION_PERMIT_LIMIT=50
+          GUEST_DAILY_ENRICHMENT_CAP=3
           ADMIN_EMAIL=admin@textstack.app
           ADMIN_PASSWORD=admin
           EOF

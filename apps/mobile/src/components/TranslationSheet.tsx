@@ -3,7 +3,11 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator } fr
 import { Ionicons } from '@expo/vector-icons'
 import { translationApi } from '@textstack/shared'
 import { useTheme } from '../context/ThemeContext'
+import { useLanguage } from '../context/LanguageContext'
+import { useNativeLanguage } from '../context/NativeLanguageContext'
 import { useTargetLanguage } from '../hooks/useTargetLanguage'
+import { useNeedsNativeLanguage } from '../hooks/useNeedsNativeLanguage'
+import { LanguageList } from './LanguageList'
 import { getLanguage } from '../data/languages'
 import { fonts } from '../theme/typography'
 import { trackTranslationUsed } from '../lib/analytics'
@@ -22,7 +26,24 @@ interface TranslationSheetProps {
 
 export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fromOverride }: TranslationSheetProps) {
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const { fromLang, translationTarget } = useTargetLanguage(fromOverride)
+  /**
+   * Where the language question is asked, and why here.
+   *
+   * The full-screen route (`app/onboarding/language.tsx`) is `gestureEnabled:
+   * false` — firing it mid-chapter throws the reader out of the book, which is
+   * the one thing this product refuses to do. So the question moves to the
+   * first moment it is *needed rather than merely due*: this sheet cannot do
+   * its job without a target language. The answer is not a form submission,
+   * it is the translation appearing.
+   *
+   * Web reached the same place from the other direction — its picker sits
+   * inline in the hero subtitle and pulses (`HeroSection.tsx`), never as a
+   * gate. Same rule: ask where the answer is immediately spent.
+   */
+  const needsLanguage = useNeedsNativeLanguage()
+  const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   // Human-readable native labels for the sheet header. Fall back to the
   // uppercased language code (e.g. "EN") when the code isn't in our
   // catalogue — no throw, no blank space.
@@ -34,9 +55,13 @@ export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fr
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // Nothing to translate into: the reader knows this language. Don't spend a
-    // request proving that English means English — the sheet says so instead.
-    if (!visible || !text || !translationTarget) return
+    // Two reasons not to fire a request. No target: the reader knows this
+    // language, so don't spend one proving that English means English — the
+    // sheet says so instead. `needsLanguage`: the target we hold is a guess
+    // nobody confirmed, and the question is on screen instead. Translating on a
+    // guess would also file a `translation_used` event for a translation the
+    // reader never asked for in that language.
+    if (!visible || !text || !translationTarget || needsLanguage) return
     setLoading(true)
     setError('')
     setTranslated('')
@@ -47,7 +72,10 @@ export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fr
       })
       .catch(() => setError('Translation failed'))
       .finally(() => setLoading(false))
-  }, [visible, text, fromLang, translationTarget])
+    // `needsLanguage` is a dependency, not just a guard: answering with the
+    // language we had already guessed leaves `translationTarget` unchanged, and
+    // without it in the list the sheet would sit empty after a correct answer.
+  }, [visible, text, fromLang, translationTarget, needsLanguage])
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -78,13 +106,36 @@ export function TranslationSheet({ visible, text, onClose, onSpeak, fromLang: fr
                   <Ionicons name="volume-high-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
               </View>
-              <Text style={[styles.originalText, { color: colors.text }]}>{text}</Text>
+              <Text
+                style={[styles.originalText, { color: colors.text }]}
+                numberOfLines={needsLanguage ? 3 : undefined}
+              >
+                {text}
+              </Text>
             </View>
 
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             <View style={styles.textBlock}>
-              {toLabel ? (
+              {needsLanguage ? (
+                <>
+                  <Text style={[styles.askTitle, { color: colors.text }]} accessibilityRole="header">
+                    {t('onboarding.nativeLanguageTitle')}
+                  </Text>
+                  <Text style={[styles.askSubtitle, { color: colors.textSecondary }]}>
+                    {t('onboarding.nativeLanguageSubtitle')}
+                  </Text>
+                  {/* The same searchable list the full-screen route uses — one
+                      list, so the two places the question is asked cannot drift.
+                      Selecting IS confirming: `setNativeLanguage` stamps the
+                      owner and pushes to the profile, and the effect above then
+                      runs and fills this block with the translation. No confirm
+                      button, because a second tap would buy nothing. */}
+                  <View style={styles.askList}>
+                    <LanguageList value={nativeLanguage} onSelect={setNativeLanguage} />
+                  </View>
+                </>
+              ) : toLabel ? (
                 <>
                   <Text style={[styles.langLabel, { color: colors.primary }]}>{`\u2192 ${toLabel}`}</Text>
                   {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} accessibilityLabel="Translating" />}
@@ -134,6 +185,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   originalText: { fontSize: 16, lineHeight: 24 },
+  askTitle: { fontSize: 17, fontFamily: fonts.sansBold, marginBottom: 4 },
+  askSubtitle: { fontSize: 13, fontFamily: fonts.sans, lineHeight: 18, marginBottom: 10 },
+  // Bounded: LanguageList is a FlatList with `flex: 1`, and this sheet sizes to
+  // its content, so an unbounded parent renders a list of height zero.
+  askList: { height: 260 },
   divider: {
     height: 1,
     marginVertical: 12,

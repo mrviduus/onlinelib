@@ -36,8 +36,11 @@ public static partial class VocabularyEndpoints
         return Results.Ok(new PendingListResponse(items, cap.Used, cap.Cap, cap.Remaining));
     }
 
-    // Manual promote — bypasses the daily cap. User explicitly asked for this
-    // word to skip the queue; respect it even if today is "full".
+    // Manual promote — bypasses the user's OWN daily cap. They explicitly asked for this word to
+    // skip the queue; respect it even if today is "full". It does NOT bypass the tier's enrichment
+    // cap: that one is the platform's LLM spend, not a study-pacing preference, and promotion
+    // queues the same paid enrichment as a fresh save. Without this check a guest could park words
+    // in pending and then promote them one by one straight past the cap.
     private static async Task<IResult> PromotePending(
         Guid id,
         HttpContext httpContext,
@@ -54,6 +57,14 @@ public static partial class VocabularyEndpoints
         var pending = await db.PendingVocabularyWords
             .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId, ct);
         if (pending == null) return Results.NotFound();
+
+        var tierCap = await dailyCap.GetEntitlementCapStatusAsync(userId, siteId, DateTimeOffset.UtcNow, ct);
+        if (tierCap.Remaining <= 0)
+        {
+            return Results.Problem(
+                $"Daily limit reached ({tierCap.Cap} new words). Create a free account to keep going.",
+                statusCode: StatusCodes.Status429TooManyRequests);
+        }
 
         // Capture enrichment inputs before PromoteAsync disposes the pending row.
         var wordText = pending.Word;

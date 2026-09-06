@@ -5,11 +5,22 @@ namespace Application.Entitlements;
 
 /// <summary>What a specific user may do, right now. Everything already resolved and clamped —
 /// callers must not re-derive any of it.</summary>
+/// <param name="DailyEnrichmentCap">New vocabulary words this user may push through paid LLM
+/// enrichment per UTC day; <c>null</c> = uncapped (every tier but Guest, today).</param>
+/// <param name="CanUseAi">
+/// Whether the paid-inference surface (librarian, tutor, ask, book chat, study buddy, RAG indexing)
+/// is open to this user. This is the SERVER's answer — the mobile client has its own
+/// <c>canUseAi</c> flag, but a client-side flag is a UI affordance, not a boundary: a guest token
+/// is a valid bearer token, so without this every one of those endpoints was reachable with an
+/// IP rate limit as its only barrier.
+/// </param>
 public sealed record UserEntitlements(
     UserTier Tier,
     long StorageLimitBytes,
     int? MaxBooks,
-    long MaxSingleUploadBytes);
+    long MaxSingleUploadBytes,
+    int? DailyEnrichmentCap,
+    bool CanUseAi);
 
 public interface IEntitlementResolver
 {
@@ -43,7 +54,9 @@ public sealed class EntitlementResolver(EntitlementOptions options) : IEntitleme
             tier,
             storage,
             options.MaxBooksFor(tier),
-            options.MaxSingleUploadBytes);
+            options.MaxSingleUploadBytes,
+            options.DailyEnrichmentCapFor(tier),
+            options.AiEnabledFor(tier));
     }
 
     /// <summary>

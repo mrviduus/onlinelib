@@ -228,6 +228,7 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
       currentChapterSlug: 'ch5',
       fallbackChapterSlug: null,
       chapterProgress: 0.5,
+      scrollOffset: null,
       chapters: [{ slug: 'ch5', wordCount: 1000 }],
     })
     expect(withPercent?.percent).toBeDefined()
@@ -239,6 +240,7 @@ describe('buildUserBookProgressPayload — full payload shape', () => {
       currentChapterSlug: 'ch5',
       fallbackChapterSlug: null,
       chapterProgress: 0.5,
+      scrollOffset: null,
     })
     expect(withoutPercent?.percent).toBeUndefined()
     expect(withoutPercent?.percentUnit).toBeUndefined()

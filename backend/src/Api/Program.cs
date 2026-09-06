@@ -45,7 +45,7 @@ builder.Services
     .AddTextStackRag(connectionString)
     .AddTextStackContentServices(builder.Configuration)
     .AddTextStackHostedServices()
-    .AddTextStackRateLimiting();
+    .AddTextStackRateLimiting(builder.Configuration);
 
 // Validate required config at startup
 if (!builder.Environment.IsEnvironment("Test"))

@@ -3,6 +3,7 @@ export type { ApiConfig } from './client'
 
 export { createBooksApi } from './books'
 export * as authApi from './auth'
+export { isTokenExpiring, readTokenExpiryMs, TOKEN_EXPIRY_SKEW_MS } from './tokenExpiry'
 export * as readingProgressApi from './readingProgress'
 export * as readingTrackingApi from './readingTracking'
 export * as vocabularyApi from './vocabulary'

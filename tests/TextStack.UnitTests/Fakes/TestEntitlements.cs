@@ -17,11 +17,15 @@ public static class TestEntitlements
     public const long FreeStorageBytes = 500 * Mb;
     public const long StaffStorageBytes = 5120 * Mb;
 
+    /// <summary>Matches appsettings: guests get 50 paid enrichments per UTC day, accounts none —
+    /// and the paid-inference surface (librarian/tutor/ask/chat/index) is closed to them entirely.</summary>
+    public const int GuestDailyEnrichmentCap = 50;
+
     public static EntitlementOptions Options { get; } = new(
         new TierEntitlements(FreeStorageBytes, null),
         new Dictionary<string, TierEntitlements>
         {
-            [nameof(UserTier.Guest)] = new(GuestStorageBytes, 1),
+            [nameof(UserTier.Guest)] = new(GuestStorageBytes, 1, GuestDailyEnrichmentCap, AiEnabled: false),
             [nameof(UserTier.Free)] = new(FreeStorageBytes, null),
             [nameof(UserTier.Supporter)] = new(2048 * Mb, null),
             [nameof(UserTier.Staff)] = new(StaffStorageBytes, null),

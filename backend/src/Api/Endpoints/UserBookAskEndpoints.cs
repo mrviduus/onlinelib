@@ -23,7 +23,9 @@ public static class UserBookAskEndpoints
     {
         app.MapPost("/me/books/{id:guid}/ask", Ask)
             .WithTags("User Books RAG")
-            .RequireRateLimiting("rag.ask");
+            .RequireRateLimiting("rag.ask")
+            // Paid inference — real account only (Entitlements:Tiers:*:AiEnabled).
+            .RequireAiAccount();
     }
 
     private static async Task<IResult> Ask(

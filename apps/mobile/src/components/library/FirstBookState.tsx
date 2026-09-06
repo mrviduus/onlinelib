@@ -3,49 +3,70 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../context/ThemeContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAuth } from '../../context/AuthContext'
+import { capabilitiesFor } from '../../lib/capabilities'
 import { fonts } from '../../theme/typography'
 import { PressableScale } from '../ui/PressableScale'
 
 /**
- * What a signed-in account with no books sees on the front door.
+ * What a reader with no books sees on the front door.
  *
- * One primary action, because the product is a reader for books you already
- * want to finish — uploading one is the only thing that makes the rest of the
- * app do anything. The catalog is offered underneath as a plain text link, not
- * a second button: two equal buttons is a decision, and there is nothing to
- * decide here.
+ * One primary action, because two equal buttons is a decision and there is
+ * nothing to decide here. Which action is primary depends on which one the
+ * reader can actually take:
  *
- * The copy names the tap-a-word loop, since that is the feature a new user
- * cannot discover on their own and the reason to read here rather than in any
- * other reader.
+ *   - An account can upload, and uploading is what makes the rest of the app do
+ *     anything for a book they already want to finish. Catalog underneath.
+ *   - A guest cannot (`canUpload` is account-only — see `lib/capabilities.ts`),
+ *     so the catalog is promoted and upload becomes the link that asks for an
+ *     account. Offering a guest a primary "Upload a book" that lands on a
+ *     sign-in wall would be the same broken promise the tap-a-word coachmark
+ *     used to make.
+ *
+ * The copy names the tap-a-word loop in both variants, since that is the feature
+ * a new reader cannot discover on their own and the reason to read here rather
+ * than in any other reader.
  */
 export function FirstBookState() {
   const { colors } = useTheme()
   const { t } = useLanguage()
+  const { user } = useAuth()
   const router = useRouter()
+
+  const { canUpload } = capabilitiesFor(user)
+
+  const primary = canUpload
+    ? { label: t('library.firstBook.upload'), icon: 'add' as const, go: () => router.push('/my-books/upload') }
+    : { label: t('library.firstBook.guestBrowse'), icon: 'search' as const, go: () => router.push('/(tabs)/search') }
+
+  const secondary = canUpload
+    ? { label: t('library.firstBook.browse'), go: () => router.push('/(tabs)/search') }
+    : { label: t('library.firstBook.guestUpload'), go: () => router.push('/(auth)/login') }
 
   return (
     <View style={styles.wrap}>
       <Ionicons name="book-outline" size={44} color={colors.primary} />
       <Text style={[styles.title, { color: colors.text }]}>{t('library.firstBook.title')}</Text>
-      <Text style={[styles.copy, { color: colors.textSecondary }]}>{t('library.firstBook.copy')}</Text>
+      <Text style={[styles.copy, { color: colors.textSecondary }]}>
+        {canUpload ? t('library.firstBook.copy') : t('library.firstBook.guestCopy')}
+      </Text>
 
       <PressableScale
         accessibilityRole="button"
-        onPress={() => router.push('/my-books/upload')}
+        onPress={primary.go}
         style={[styles.cta, { backgroundColor: colors.primary }]}
       >
-        <Ionicons name="add" size={18} color="#fff" />
-        <Text style={styles.ctaText}>{t('library.firstBook.upload')}</Text>
+        <Ionicons name={primary.icon} size={18} color="#fff" />
+        <Text style={styles.ctaText}>{primary.label}</Text>
       </PressableScale>
 
       <PressableScale
         accessibilityRole="button"
-        onPress={() => router.push('/(tabs)/search')}
+        onPress={secondary.go}
         style={styles.secondary}
       >
         <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>
-          {t('library.firstBook.browse')}
+          {secondary.label}
         </Text>
       </PressableScale>
     </View>

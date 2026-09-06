@@ -42,7 +42,16 @@ interface AskSheetProps {
   prefill?: AskPrefill | null
   /** The book's chapters, so a citation chip can name the chapter instead of printing its ordinal. */
   chapters?: { chapterNumber?: number; title?: string }[]
-  isAuthenticated: boolean
+  /**
+   * May this session spend paid inference — i.e. is there an ACCOUNT behind it.
+   *
+   * Was `isAuthenticated`, which after guest sessions answers the wrong question:
+   * a guest holds real tokens and `/me/*` writes work for it, so "authenticated"
+   * became true for a session we do not want asking gpt-4.1 questions about a
+   * book. The RAG endpoints are rate-limited per IP only and guest sessions are
+   * free to mint. Pass `capabilitiesFor(user).canUseAi`.
+   */
+  canUseAi: boolean
   onCitation: (citation: AskCitation) => void
   onSignIn: () => void
   onClose: () => void
@@ -101,7 +110,7 @@ function messagesToTurns(messages: BookChatMessage[]): AskTurn[] {
 }
 
 export function AskSheet({
-  visible, target, currentChapterId, prefill, chapters, isAuthenticated, onCitation, onSignIn, onClose,
+  visible, target, currentChapterId, prefill, chapters, canUseAi, onCitation, onSignIn, onClose,
 }: AskSheetProps) {
   const { colors } = useTheme()
   const { t } = useLanguage()
@@ -219,9 +228,11 @@ export function AskSheet({
     }
   }, [target, eps, startPolling, t])
 
-  // On open (authenticated): check status, prepare if needed, gate the composer.
+  // On open (with an account): check status, prepare if needed, gate the composer.
+  // Note this effect PREPARES an index — embedding a whole book. Firing it for a
+  // session that will only be shown the sign-in CTA is the expensive half of the bug.
   useEffect(() => {
-    if (!visible || !isAuthenticated || !target || !eps) return
+    if (!visible || !canUseAi || !target || !eps) return
     let cancelled = false
     setIndexError('')
     setNotConfigured(false)
@@ -251,12 +262,12 @@ export function AskSheet({
       stopPolling()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, isAuthenticated, target?.id, target?.kind])
+  }, [visible, canUseAi, target?.id, target?.kind])
 
   // Load the persisted conversation when the sheet opens for a target (independent of the RAG index).
   // Keyed on kind:id so a book switch reloads; aborts the in-flight GET on close / switch.
   useEffect(() => {
-    if (!visible || !isAuthenticated || !target) return
+    if (!visible || !canUseAi || !target) return
     const ctrl = new AbortController()
     setHistoryLoading(true)
     setError('')
@@ -277,7 +288,7 @@ export function AskSheet({
       })
     return () => ctrl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, isAuthenticated, target?.id, target?.kind])
+  }, [visible, canUseAi, target?.id, target?.kind])
 
   // Sheet closed mid-stream: abort the in-flight send. The optimistic user turn is intentionally
   // KEPT — reopening re-fires the load effect, which replaces local history with the server's copy.
@@ -440,7 +451,7 @@ export function AskSheet({
   }
 
   // A 401 after a failed refresh forces the sign-in CTA even though the parent hasn't caught up.
-  const authed = isAuthenticated && !authExpired
+  const authed = canUseAi && !authExpired
   const indexing = indexStatus === 'Indexing'
   const indexFailed = indexStatus === 'Failed'
   const ready = indexStatus === 'Ready'
