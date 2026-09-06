@@ -8,6 +8,7 @@ import { useAuth } from '../src/context/AuthContext'
 import { useTts } from '../src/hooks/useTts'
 import { useHaptics } from '../src/hooks/useHaptics'
 import { useTutorSession } from '../src/hooks/useTutorSession'
+import { capabilitiesFor } from '../src/lib/capabilities'
 import { fonts } from '../src/theme/typography'
 import { EmptyState } from '../src/components/ui/EmptyState'
 import { PressableScale } from '../src/components/ui/PressableScale'
@@ -17,6 +18,8 @@ import { exerciseLabel } from '../src/lib/agents'
 
 // Smart session (Learning Tutor, AI-Agent-2). Layers the tutor's PLANNING + reasoning over the existing
 // flashcard. Flow: plan view (the showcase) → study (reuse FlashCard) → feedback re-plan → summary.
+// Accounts only, for the same reason as the librarian: paid inference behind an IP-only rate limit,
+// and guest sessions are free to mint. Plain SRS review stays open to a guest — it costs nothing.
 export default function TutorScreen() {
   const { colors } = useTheme()
   const { t, language } = useLanguage()
@@ -26,19 +29,23 @@ export default function TutorScreen() {
   const { toggle: toggleTts } = useTts()
   const haptics = useHaptics()
 
+  const { canUseAi } = capabilitiesFor(user)
+
   const handleSpeak = (text: string) => toggleTts(text, { lang: language })
   const goBack = () => router.back()
 
-  // Auto-plan once on mount when signed in.
+  // Auto-plan once on mount, for a session that is allowed to spend a plan.
+  // Without the capability check a guest would fire the tutor's planning call on
+  // mount and then be shown the sign-in wall below — billed inference nobody reads.
   useEffect(() => {
-    if (user) tutor.start()
+    if (canUseAi) tutor.start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const screen = <Stack.Screen options={{ title: t('tutor.title'), headerShown: true }} />
 
-  // Signed-out
-  if (!user) {
+  // No account — signed out, or a guest.
+  if (!canUseAi) {
     return (
       <>
         {screen}

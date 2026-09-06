@@ -3,7 +3,19 @@ using Domain.Enums;
 namespace Application.Entitlements;
 
 /// <summary>What one tier is allowed. <c>null</c> means "not configured" — never "zero".</summary>
-public sealed record TierEntitlements(long? StorageLimitBytes, int? MaxBooks);
+/// <param name="DailyEnrichmentCap">
+/// New vocabulary words this tier may push through paid LLM enrichment per UTC day.
+/// <c>null</c> = uncapped. Defaulted so existing positional constructions keep compiling.
+/// </param>
+/// <param name="AiEnabled">
+/// Whether this tier may reach the paid-inference surface (librarian, tutor, ask, book chat,
+/// study buddy, RAG indexing). <c>null</c> = inherit <c>Default</c>, then allow.
+/// </param>
+public sealed record TierEntitlements(
+    long? StorageLimitBytes,
+    int? MaxBooks,
+    int? DailyEnrichmentCap = null,
+    bool? AiEnabled = null);
 
 /// <summary>
 /// Per-tier quotas, bound from the <c>Entitlements</c> config section. Pure: no DI, no I/O, and it
@@ -68,6 +80,37 @@ public sealed record EntitlementOptions(
         var configured = Lookup(tier).MaxBooks ?? Default.MaxBooks;
         return configured is > 0 ? configured : null;
     }
+
+    /// <summary>
+    /// How many new words this tier may push through paid LLM enrichment per UTC day, or null for
+    /// unlimited. Saving a word fires distractor + hint + explanation generation, so without this a
+    /// <c>POST /auth/guest</c> loop is an account-less path to paid inference.
+    /// </summary>
+    /// <remarks>
+    /// Same normalization as <see cref="MaxBooksFor"/> — a configured <c>&lt;= 0</c> means unlimited,
+    /// not "nobody may ever save a word". Deliberately: an over-permissive typo costs money and is
+    /// recoverable, a lockout silently breaks the product's core loop for everyone. The guest number
+    /// is the one that matters and it is set explicitly in <c>appsettings.json</c>.
+    /// </remarks>
+    public int? DailyEnrichmentCapFor(UserTier tier)
+    {
+        var configured = Lookup(tier).DailyEnrichmentCap ?? Default.DailyEnrichmentCap;
+        return configured is > 0 ? configured : null;
+    }
+
+    /// <summary>
+    /// May this tier reach the paid-inference surface at all? This is the ON/OFF switch that sits
+    /// above <see cref="DailyEnrichmentCapFor"/>: the cap meters a feature a tier HAS, this decides
+    /// whether it has it. Today only Guest is off.
+    /// </summary>
+    /// <remarks>
+    /// Unset means allowed, deliberately — the failure mode of a mistyped or missing key is then
+    /// "we pay for a call we meant to gate", which shows up on the OpenAI bill, rather than "AI is
+    /// silently dead for every paying user", which shows up as churn. Same doctrine as
+    /// <see cref="MaxBooksFor"/>. Guest's <c>false</c> is written explicitly in appsettings.
+    /// </remarks>
+    public bool AiEnabledFor(UserTier tier) =>
+        Lookup(tier).AiEnabled ?? Default.AiEnabled ?? true;
 
     /// <summary>
     /// Normalized once, here, rather than trusting whoever built the set. Configuration is

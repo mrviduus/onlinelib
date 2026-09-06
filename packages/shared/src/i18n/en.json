@@ -146,6 +146,15 @@
       "unavailableBody": "Reminders aren't available in this build. Install the latest app version to enable them."
     }
   },
+  "guest": {
+    "banner": "A free account keeps your books, highlights and vocabulary if you lose this phone \u2014 and lets you upload your own.",
+    "createAccount": "Create free account",
+    "signOut": "Sign out",
+    "signOutTitle": "Sign out and lose everything?",
+    "signOutMessage": "You're reading as a guest, so this phone is the only key to your account \u2014 there's no email or password to get back in with. Sign out and your saved books, highlights, vocabulary and reading progress are gone for good, and we can't recover them for you either.",
+    "signOutCancel": "Keep reading",
+    "signOutConfirm": "Sign out and lose it"
+  },
   "footer": {
     "description": "TextStack is a language learning platform built around reading. Read classic literature, build vocabulary with spaced repetition, track your progress, and grow your fluency — all in a calm, distraction-free environment.",
     "privacy": "Privacy Policy",
@@ -337,7 +346,10 @@
       "title": "Your reader is ready",
       "copy": "Add a book you already want to finish. Tap any word while you read to translate it and save it to your vocabulary.",
       "upload": "Upload a book",
-      "browse": "Or browse free classics"
+      "browse": "Or browse free classics",
+      "guestCopy": "Start with a free classic. Tap any word while you read to translate it and save it to your vocabulary.",
+      "guestBrowse": "Browse free books",
+      "guestUpload": "Or upload your own book"
     },
     "view": {
       "open": "View options",

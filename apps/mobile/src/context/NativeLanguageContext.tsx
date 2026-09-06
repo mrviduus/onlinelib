@@ -146,7 +146,6 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
       }
       return
     }
-    if (user.isGuest) return
     const serverLang = user.nativeLanguage
     if (!serverLang || !isSupported(serverLang)) return
     serverLangAppliedRef.current = true
@@ -167,8 +166,12 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
   // language and then registers, and the account created before this screen
   // existed. Reads AsyncStorage rather than state because on the register fast
   // path `user.id` changes before a just-written state update has flushed.
+  //
+  // Guests included. A guest session is a real `User` row and `PUT /me/profile`
+  // takes their token, so an answer given before the session existed (owner
+  // `'local'`) is adopted and pushed the moment one is minted.
   useEffect(() => {
-    if (!user || user.isGuest || user.nativeLanguage) return
+    if (!user || user.nativeLanguage) return
     let cancelled = false
     ;(async () => {
       try {
@@ -206,9 +209,11 @@ export function NativeLanguageProvider({ children }: { children: ReactNode }) {
     setNativeState(code)
     setConfirmedOwner(ownerId)
     AsyncStorage.multiSet([[NATIVE_KEY, code], [CONFIRMED_KEY, ownerId]]).catch(() => {})
-    // Local → server: persist for signed-in (non-guest) users so the pref
-    // follows them across devices and matches the web.
-    if (user && !user.isGuest) {
+    // Local → server: persist for anyone holding a session — guests too. The
+    // guest's row survives registration in place (`AuthService.RegisterWith…`
+    // promotes the same row and never touches NativeLanguage), so this is the
+    // step that carries the answer into the account they eventually create.
+    if (user) {
       ;(async () => {
         try {
           const token = await getAccessToken()

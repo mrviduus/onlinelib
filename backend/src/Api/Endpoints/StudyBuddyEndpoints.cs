@@ -29,7 +29,10 @@ public static class StudyBuddyEndpoints
     {
         app.MapPost("/me/books/{editionId:guid}/studybuddy", Run)
             .WithTags("Agents")
-            .RequireRateLimiting("studybuddy");
+            .RequireRateLimiting("studybuddy")
+            // Paid inference — real account only (Entitlements:Tiers:*:AiEnabled). Only the POST:
+            // the GET below just reads a run this user could never have created anyway.
+            .RequireAiAccount();
 
         app.MapGet("/me/studybuddy/runs/{runId:guid}", GetRun)
             .WithTags("Agents");

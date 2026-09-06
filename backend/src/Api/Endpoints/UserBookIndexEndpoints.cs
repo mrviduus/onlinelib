@@ -27,7 +27,10 @@ public static class UserBookIndexEndpoints
         var group = app.MapGroup("/me/books").WithTags("User Books RAG");
 
         group.MapPost("/{id:guid}/index", TriggerIndex)
-            .RequireRateLimiting("rag.index");
+            .RequireRateLimiting("rag.index")
+            // Indexing spends OpenAI embeddings — real account only. This is also what used to let
+            // a guest create UserChapterChunk rows. The GET below is status polling and stays open.
+            .RequireAiAccount();
 
         group.MapGet("/{id:guid}/index", GetIndexStatus);
     }

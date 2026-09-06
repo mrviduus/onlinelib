@@ -1,5 +1,6 @@
 using Application.Auth;
 using Application.Common.Interfaces;
+using Application.Vocabulary;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -45,13 +46,14 @@ public static partial class VocabularyEndpoints
     }
 
     // "Add anyway" — user overrides the frequency filter. Creates a VocabularyWord
-    // directly and drops the Lookup. Bypasses the daily cap on purpose: the user
-    // explicitly asked for this word.
+    // directly and drops the Lookup. Bypasses the user's OWN daily cap on purpose: they explicitly
+    // asked for this word. It does NOT bypass the tier's enrichment cap — see the check below.
     private static async Task<IResult> PromoteLookup(
         Guid id,
         HttpContext httpContext,
         AuthService authService,
         IAppDbContext db,
+        DailyCapService dailyCap,
         IServiceScopeFactory scopeFactory,
         ILogger<IAppDbContext> logger,
         CancellationToken ct)
@@ -75,14 +77,26 @@ public static partial class VocabularyEndpoints
         }
 
         // Hard ceiling still applies — Add Anyway bypasses the daily cap, not
-        // the 5000-word vocabulary limit. Counts both active SRS + pending
-        // so a user can't exceed the cap via the lookup bypass.
-        var count = await db.VocabularyWords.CountAsync(
-            w => w.UserId == userId, ct);
-        count += await db.PendingVocabularyWords.CountAsync(
-            p => p.UserId == userId, ct);
+        // the 5000-word vocabulary limit. Counts all three buckets so a user
+        // can't exceed the cap via the lookup bypass.
+        var count = await CountAllBucketsAsync(db, userId, ct);
         if (count >= MaxWordsPerUser)
             return Results.Problem("Vocabulary limit reached (5000 words)", statusCode: 429);
+
+        // The tier's enrichment cap, on the other hand, is NOT the user's to override: it is the
+        // platform's LLM spend, and this promotion queues the same paid enrichment as a fresh save.
+        // Exactly the argument PromotePending already makes, applied to the sibling bucket — without
+        // it a guest parks rare words in lookups all day (that branch of SaveWord returns before the
+        // cap check, because a lookup row costs nothing) and then promotes them one at a time, up to
+        // the 5000-word ceiling. That is 100x the tier's daily allowance through the one door that
+        // wasn't watched.
+        var tierCap = await dailyCap.GetEntitlementCapStatusAsync(userId, siteId, DateTimeOffset.UtcNow, ct);
+        if (tierCap.Remaining <= 0)
+        {
+            return Results.Problem(
+                $"Daily limit reached ({tierCap.Cap} new words). Create a free account to keep going.",
+                statusCode: StatusCodes.Status429TooManyRequests);
+        }
 
         var now = DateTimeOffset.UtcNow;
         var entry = new VocabularyWord

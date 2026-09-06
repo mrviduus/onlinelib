@@ -9,15 +9,12 @@
  * "between a broken and an excellent product is one setting nobody asked about".
  *
  * The decision lives here rather than in the screen because it is the part that
- * regresses: five inputs, four of which are asynchronous, and a wrong answer is
+ * regresses: three inputs, two of which are asynchronous, and a wrong answer is
  * either a prompt that nags returning users forever or one that never appears.
  * `apps/mobile/vitest.config.ts` covers `src/lib/**` only, so a pure function is
  * also the only shape of this logic that can have tests at all.
  */
 export interface LanguageOnboardingState {
-  /** Signed in at all. Guests are never asked — they have nowhere to save it. */
-  isAuthenticated: boolean
-  isGuest: boolean
   /** `user.nativeLanguage` from the server. Null/empty means it never answered. */
   serverNativeLanguage: string | null | undefined
   /**
@@ -48,7 +45,25 @@ export interface LanguageOnboardingState {
 export type LanguageOnboardingDecision = 'ask' | 'skip' | 'unknown'
 
 export function languageOnboardingDecision(s: LanguageOnboardingState): LanguageOnboardingDecision {
-  if (!s.isAuthenticated || s.isGuest) return 'skip'
+  // No `isAuthenticated`/`isGuest` predicate any more, deliberately.
+  //
+  // It read `if (!isAuthenticated || isGuest) return 'skip'`, and its docblock
+  // justified it: a guest "has nowhere to save it". That was true of a session
+  // that did not exist. A guest is a real `User` row, `PUT /me/profile` accepts
+  // their token, and the in-place promotion at registration keeps the column —
+  // so there is somewhere to save it, and there always was for anyone holding
+  // a token. For an answer given before any session there is `LOCAL_OWNER`,
+  // which the account adopts on sign-in (`NativeLanguageContext`).
+  //
+  // Keeping it while mobile mints guest sessions would have inverted the
+  // module's own purpose: every new install starts as a guest, so *nobody* is
+  // asked, and every new reader translates English into English — the defect
+  // this file exists to end, at 100% of installs instead of 0%.
+  //
+  // What is left is the whole question: has THIS owner answered, and does the
+  // server hold an answer. Whether an *interruption* is an appropriate way to
+  // ask is a call-site decision — `app/(tabs)/_layout.tsx` still keeps the
+  // full-screen route for full accounts only.
   if (s.alreadyOnboarding) return 'skip'
   // Not "no". The caller must wait rather than proceed.
   if (s.hasConfirmedLanguage === null) return 'unknown'

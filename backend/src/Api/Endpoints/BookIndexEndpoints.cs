@@ -26,7 +26,10 @@ public static class BookIndexEndpoints
         var group = app.MapGroup("/books").WithTags("RAG");
 
         group.MapPost("/{editionId:guid}/index", TriggerIndex)
-            .RequireRateLimiting("rag.index");
+            .RequireRateLimiting("rag.index")
+            // Indexing spends OpenAI embeddings — real account only. The GET below is status
+            // polling and stays open.
+            .RequireAiAccount();
 
         group.MapGet("/{editionId:guid}/index", GetIndexStatus);
     }

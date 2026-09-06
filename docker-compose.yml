@@ -63,6 +63,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ENABLE_TEST_AUTH: ${ENABLE_TEST_AUTH:-false}
+      # Guest-session creates per IP per 5min. Production keeps 3; CI raises it because the
+      # guest suites need >=6 guests and every request there comes from one host. A knob, not
+      # a bypass: the limiter policy itself is identical in both.
+      RateLimits__GuestSessionPermitLimit: ${GUEST_SESSION_PERMIT_LIMIT:-3}
+      # New vocabulary words a GUEST may push through paid LLM enrichment per UTC day. Production
+      # keeps 50 (appsettings). CI lowers it so the cap is reachable in a test: proving that
+      # promoting a parked lookup respects it takes `cap` real saves, and 50 is not testable.
+      Entitlements__Tiers__Guest__DailyEnrichmentCap: ${GUEST_DAILY_ENRICHMENT_CAP:-50}
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Storage__RootPath: /storage
       Jwt__SecretKey: ${JWT_SECRET}

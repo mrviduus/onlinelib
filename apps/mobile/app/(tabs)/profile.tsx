@@ -13,8 +13,11 @@ let ImagePicker: typeof import('expo-image-picker') | null = null
 try { ImagePicker = require('expo-image-picker') } catch {}
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { useLanguage } from '../../src/context/LanguageContext'
 import { useOnline } from '../../src/hooks/useOnline'
 import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
+import { capabilitiesFor } from '../../src/lib/capabilities'
+import { signOutIntent } from '../../src/lib/profileActions'
 import { getLanguage } from '../../src/data/languages'
 import { LanguagePickerModal } from '../../src/components/LanguagePickerModal'
 import { VocabReminderSettingsRow } from '../../src/components/profile/VocabReminderSettingsRow'
@@ -71,6 +74,7 @@ const MENU_ITEMS = [
 export default function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser, getAccessToken } = useAuth()
   const { colors, themeMode, setThemeMode } = useTheme()
+  const { t } = useLanguage()
   const { nativeLanguage, setNativeLanguage } = useNativeLanguage()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -80,7 +84,13 @@ export default function ProfileScreen() {
   const [deleting, setDeleting] = useState(false)
 
   const online = useOnline()
-  const isGuest = !!user?.isGuest
+  // One read of the policy for the whole screen. It used to be the raw guest flag
+  // off the DTO, re-derived here and then spent on two render gates — and both
+  // gates were on decoration (a pencil icon, a section border) while the live
+  // controls under them, `startEdit` and `pickAvatar`, stayed open to a guest.
+  // (Named rather than quoted above: `capabilityLiterals.test.ts` greps source
+  // text and cannot tell a comment from a branch. Correct — it stays dumb.)
+  const { isGuest, canEditIdentity, canDeleteAccount, canSyncAcrossDevices } = capabilitiesFor(user)
   const anon = isGuest && user ? getAnonymousReader(user.id) : null
   const anonSource = anon && user ? getAnonAvatarSource(user.id) : null
   const displayName = anon ? anon.name : (user?.name || user?.email || '')
@@ -89,7 +99,11 @@ export default function ProfileScreen() {
     ? anon.name.split(' ').map(n => n[0]).join('').toUpperCase()
     : (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
-  const startEdit = () => { setEditName(user?.name || ''); setEditing(true) }
+  const startEdit = () => {
+    if (!canEditIdentity) return
+    setEditName(user?.name || '')
+    setEditing(true)
+  }
 
   const saveProfile = async () => {
     setSaving(true)
@@ -107,6 +121,11 @@ export default function ProfileScreen() {
   }
 
   const pickAvatar = async () => {
+    // Belt to the `disabled` braces below. This function ends in
+    // `authApi.uploadAvatar` — a real `POST /me/profile/avatar` on a row whose
+    // face is a generated animal nobody chose and nobody sees. Guarded here too
+    // because the last version of this screen guarded only the icon.
+    if (!canEditIdentity) return
     if (!ImagePicker) { Alert.alert('Not available', 'Image picker requires a native build'); return }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -185,6 +204,26 @@ export default function ProfileScreen() {
     }
   }
 
+  const leave = async () => { await signOut(); router.replace('/') }
+
+  // For an account this is the row it has always been: tap, tokens cleared, back
+  // to the front door. For a guest the same tap is irreversible — the tokens in
+  // SecureStore are the only key to a server row that `GuestCleanupWorker`
+  // deliberately keeps forever — so it gets a destructive confirm that says what
+  // goes, in words, instead of asking "are you sure". The branch is
+  // `signOutIntent`, unit-tested in `src/lib/profileActions.test.ts`.
+  const handleSignOut = () => {
+    if (signOutIntent(user) === 'immediate') { void leave(); return }
+    Alert.alert(
+      t('guest.signOutTitle'),
+      t('guest.signOutMessage'),
+      [
+        { text: t('guest.signOutCancel'), style: 'cancel' },
+        { text: t('guest.signOutConfirm'), style: 'destructive', onPress: () => { void leave() } },
+      ],
+    )
+  }
+
   const confirmDelete = () => {
     Alert.alert(
       'Delete account?',
@@ -229,7 +268,12 @@ export default function ProfileScreen() {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <View style={styles.avatarOuter}>
-          <TouchableOpacity style={[styles.avatarWrapper, { backgroundColor: anon && !user?.picture ? anon.color : colors.primary }]} onPress={pickAvatar} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={[styles.avatarWrapper, { backgroundColor: anon && !user?.picture ? anon.color : colors.primary }]}
+            onPress={pickAvatar}
+            disabled={!canEditIdentity}
+            activeOpacity={0.7}
+          >
             {user?.picture ? (
               <Image source={user.picture.startsWith('http') ? user.picture : getStorageUrl(user.picture)} style={styles.avatar} contentFit="cover" />
             ) : anonSource ? (
@@ -237,9 +281,14 @@ export default function ProfileScreen() {
             ) : (
               <Text style={styles.avatarLetter}>{avatarLetter}</Text>
             )}
-            <View style={styles.avatarBadge}>
-              <Ionicons name="camera" size={14} color="#fff" />
-            </View>
+            {/* The camera badge is the promise that the avatar is tappable. Shown
+                only where the tap does something, so the affordance and the
+                capability cannot drift apart the way the pencil did. */}
+            {canEditIdentity && (
+              <View style={styles.avatarBadge}>
+                <Ionicons name="camera" size={14} color="#fff" />
+              </View>
+            )}
           </TouchableOpacity>
           <View
             style={[
@@ -273,9 +322,17 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity onPress={startEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity
+            onPress={startEdit}
+            // Was ungated while the pencil beside it was hidden: a guest tapping
+            // their own name dropped into the edit field and could PUT a name onto
+            // a throwaway identity. The gate belongs on the touch target.
+            disabled={!canEditIdentity}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
             <Text style={[styles.name, { color: colors.text }]}>{displayName}</Text>
-            {!isGuest && <Ionicons name="pencil" size={14} color={colors.textSecondary} />}
+            {canEditIdentity && <Ionicons name="pencil" size={14} color={colors.textSecondary} />}
           </TouchableOpacity>
         )}
         <Text style={[styles.email, { color: colors.textSecondary }]}>{displaySubtitle}</Text>
@@ -386,21 +443,51 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: 'transparent', marginTop: 24 }]}
-          // Leave for the front door afterwards. Staying put would drop the
-          // user on Profile's own signed-out state, and Library — the first
-          // tab — is now a sign-in wall for them; `/` routes a guest to Discover.
-          onPress={async () => { await signOut(); router.replace('/') }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="log-out-outline" size={20} color={colors.error} style={styles.menuIcon} />
-          <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
-        </TouchableOpacity>
+        {canSyncAcrossDevices ? (
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: 'transparent', marginTop: 24 }]}
+            // Leave for the front door afterwards. Staying put would drop the
+            // user on Profile's own signed-out state, and Library — the first
+            // tab — is now a sign-in wall for them; `/` routes a guest to Discover.
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.error} style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
+          </TouchableOpacity>
+        ) : (
+          /* The guest footer. Keyed on `canSyncAcrossDevices` because that is the
+             single true thing an account adds — and this is the only place in the
+             app where we ask for one, so it is the only place that has to be honest
+             about why. The order is deliberate: the reason, then the way forward,
+             then the exit — instead of a red "Sign Out" that quietly meant delete. */
+          <View style={[styles.guestBlock, { borderTopColor: colors.border }]}>
+            <Text style={[styles.guestBanner, { color: colors.textSecondary }]}>{t('guest.banner')}</Text>
+            <TouchableOpacity
+              style={[styles.guestCta, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(auth)/login')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('guest.createAccount')}
+            >
+              <Text style={styles.guestCtaText}>{t('guest.createAccount')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+              style={styles.guestSignOut}
+              accessibilityRole="button"
+              accessibilityLabel={t('guest.signOut')}
+            >
+              <Text style={[styles.guestSignOutText, { color: colors.textSecondary }]}>{t('guest.signOut')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Danger zone — destructive, visually separated from normal settings.
-            Hidden for guest accounts (nothing server-side to delete). */}
-        {!isGuest && (
+            Hidden without an account: there is nothing a guest can ask us to
+            delete that signing out has not already put out of reach. */}
+        {canDeleteAccount && (
           <View style={[styles.dangerZone, { borderColor: colors.error }]}>
             <Text style={[styles.sectionLabel, { color: colors.error, marginTop: 0 }]}>Danger zone</Text>
             <TouchableOpacity
@@ -534,6 +621,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   dangerHint: { fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
+  guestBlock: { marginTop: 24, paddingTop: 20, borderTopWidth: 1, alignItems: 'center', gap: 14 },
+  guestBanner: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, textAlign: 'center', paddingHorizontal: 8 },
+  guestCta: { alignSelf: 'stretch', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  guestCtaText: { color: '#fff', fontFamily: fonts.sansMedium, fontSize: 16 },
+  guestSignOut: { paddingVertical: 8, paddingHorizontal: 16 },
+  guestSignOutText: { fontFamily: fonts.sans, fontSize: 14 },
   buildInfo: { alignItems: 'center', marginTop: 32, marginBottom: 8, gap: 2 },
   buildText: { fontFamily: fonts.sans, fontSize: 11 },
 })

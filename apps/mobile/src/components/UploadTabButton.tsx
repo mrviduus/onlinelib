@@ -4,18 +4,23 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { capabilitiesFor } from '../lib/capabilities'
 import { AddMenuBottomSheet } from './library/AddMenuBottomSheet'
 
 export function UploadTabButton() {
   const { colors } = useTheme()
-  const { isAuthenticated } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const goUpload = () => router.push('/my-books/upload')
 
+  // `canUpload`, not `isAuthenticated`. The tab layout already hides this button
+  // from anyone who can't upload, so in practice a guest never sees it — but the
+  // predicate has to agree with the one that hid it, or the day the layout changes
+  // this becomes a "+" that opens the picker for a session that can't keep the file.
   const onPress = () => {
-    if (!isAuthenticated) {
+    if (!capabilitiesFor(user).canUpload) {
       router.push('/(auth)/login')
       return
     }

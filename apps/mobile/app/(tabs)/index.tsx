@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router'
 import { View } from 'react-native'
 import { useAuth } from '../../src/context/AuthContext'
 import { useTheme } from '../../src/context/ThemeContext'
+import { capabilitiesFor } from '../../src/lib/capabilities'
 
 /**
  * The front door — a redirect, not a screen.
@@ -24,7 +25,7 @@ import { useTheme } from '../../src/context/ThemeContext'
  * whoever is looking.
  */
 export default function IndexRedirect() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { user, isLoading } = useAuth()
   const { colors } = useTheme()
 
   // Redirecting before the stored session is restored would send a signed-in
@@ -32,5 +33,17 @@ export default function IndexRedirect() {
   if (isLoading) return <View style={{ flex: 1, backgroundColor: colors.background }} />
 
   // A guest has no library to land in — for them the catalog IS the app.
-  return <Redirect href={isAuthenticated ? '/(tabs)/library' : '/(tabs)/search'} />
+  //
+  // `isAccount`, NOT `hasSession`. This is the one line in the guest-session work
+  // where the obvious migration is the wrong one: a guest holds tokens, so
+  // `isAuthenticated` is true for them, and keeping it here would land every first
+  // launch on an empty Library — the app opening on a blank screen for exactly the
+  // reader who has not chosen anything yet. Discover is the only front door with
+  // something in it. Acceptance criterion 4, `docs/qa/MOBILE-TEST-PLAN.md`:
+  // "`/` redirects to `/library` signed in, `/search` as a guest".
+  //
+  // The cost is real and accepted: a returning guest who HAS saved books still
+  // lands on Discover and taps Library. Cheaper than a blank first screen, and it
+  // stops being true the moment they create an account.
+  return <Redirect href={capabilitiesFor(user).isAccount ? '/(tabs)/library' : '/(tabs)/search'} />
 }

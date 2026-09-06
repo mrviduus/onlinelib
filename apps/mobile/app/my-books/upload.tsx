@@ -5,6 +5,8 @@ import * as DocumentPicker from 'expo-document-picker'
 import { userBooksApi, getApiConfig } from '@textstack/shared'
 import { colors } from '../../src/theme/colors'
 import { trackBookUploaded } from '../../src/lib/analytics'
+import { useAuth } from '../../src/context/AuthContext'
+import { capabilitiesFor } from '../../src/lib/capabilities'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -15,6 +17,8 @@ function formatBytes(bytes: number): string {
 
 export default function UploadScreen() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { canUpload } = capabilitiesFor(user)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -25,10 +29,13 @@ export default function UploadScreen() {
   const unmountedRef = useRef(false)
 
   useEffect(() => {
+    // Don't ask for a quota the reader has no way to spend. A guest would get a
+    // real answer (Entitlements.Guest), which is exactly the confusion to avoid.
+    if (!canUpload) return
     userBooksApi.getStorageQuota()
       .then(setQuota)
       .catch(err => console.warn('getStorageQuota failed:', err))
-  }, [])
+  }, [canUpload])
 
   // Abort any in-flight upload on unmount so the user doesn't silently
   // consume bandwidth after navigating away, and so a subsequent retry
@@ -144,6 +151,35 @@ export default function UploadScreen() {
   const usedPercent = quota && quota.limitBytes > 0
     ? Math.min((quota.usedBytes / quota.limitBytes) * 100, 100)
     : 0
+
+  // This screen had no auth check of its own — it relied entirely on the tab
+  // being hidden. That was survivable while a signed-out reader had no session,
+  // but a guest is a real account row the server would happily accept a book
+  // from (Entitlements.Guest allows one), and `FirstBookState` on an empty
+  // Library is a route straight here. Uploading is account-only by policy, so
+  // the screen enforces it too rather than trusting whoever routed here.
+  if (!canUpload) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: 'Upload Book' }} />
+        <SafeAreaView style={styles.container}>
+          <View style={styles.content}>
+            <Text style={styles.title}>Upload a Book</Text>
+            <Text style={styles.subtitle}>
+              Uploading your own books needs an account — it is how they follow you to another phone.
+            </Text>
+            <TouchableOpacity
+              style={styles.pickBtn}
+              onPress={() => router.replace('/(auth)/login')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.pickBtnText}>Create free account</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </>
+    )
+  }
 
   return (
     <>

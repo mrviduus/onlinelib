@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router'
 import { useToast } from '../../../../src/context/ToastContext'
 import { Reader } from '../../../../src/components/reader/Reader'
+import { ReaderSessionGate } from '../../../../src/components/reader/ReaderSessionGate'
 import { useUserBookReaderSource } from '../../../../src/components/reader/useUserBookReaderSource'
 
 /**
@@ -8,8 +9,22 @@ import { useUserBookReaderSource } from '../../../../src/components/reader/useUs
  * and hands it to the shared <Reader>. Identical code path to the catalog
  * reader — the only difference (data fetch + progress I/O) lives behind the
  * source hook.
+ *
+ * Gated identically to the catalog route. This route reads no `isAuthenticated`
+ * of its own, but the hooks under it do (`useReaderVocabMap` keys two effects
+ * on it), so the same mid-mount refetch applies — and a user book is by
+ * definition already tied to a session that must be settled before the reader
+ * starts writing progress against it.
  */
 export default function UserBookReaderScreen() {
+  return (
+    <ReaderSessionGate>
+      <UserBookReader />
+    </ReaderSessionGate>
+  )
+}
+
+function UserBookReader() {
   const { bookId, chapterSlug } = useLocalSearchParams<{ bookId: string; chapterSlug: string }>()
   const { show: showToast } = useToast()
 

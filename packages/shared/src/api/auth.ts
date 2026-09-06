@@ -1,11 +1,53 @@
 import { getApiConfig } from './client'
+import { isTokenExpiring } from './tokenExpiry'
 import type { MobileAuthResponse, AuthResponse } from '../types/api'
 
 async function mobilePost<T>(path: string, body: unknown): Promise<T> {
-  const { baseUrl } = getApiConfig()
+  const { baseUrl, getAccessToken, onUnauthorized } = getApiConfig()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Client': 'mobile',
+  }
+  // Carry the current session token into sign-up/sign-in. The server decides
+  // whether a guest's data gets merged into the account by reading the
+  // `is_guest` claim off this header first and the cookie second
+  // (AuthEndpoints.GetGuestUserId). Mobile has no cookies, so without the
+  // header the server sees no guest at all: MergeGuestAsync never runs and
+  // everything the guest saved — vocabulary, highlights, bookmarks, notes,
+  // reading sessions, progress, library rows, goals — is orphaned the moment
+  // they register. Sending a *real* user's token is inert: no `is_guest`
+  // claim means GetGuestUserId returns null and nothing is reparented.
+  //
+  // Reading the token must not be able to break sign-in. Before this call
+  // existed, `/auth/login` and `/auth/register` never touched storage at all;
+  // a keychain that throws (locked device, corrupted entry, missing native
+  // module) would otherwise turn "we could not read your old guest token" into
+  // "you cannot sign in". No token is a fully supported state — take it.
+  let token: string | null = null
+  try {
+    token = await getAccessToken()
+  } catch {
+    token = null
+  }
+  // An EXPIRED bearer here is worse than none: the server ignores it silently
+  // and answers 200, so the merge never runs and nothing surfaces the loss.
+  // Access tokens live 60 minutes and nothing on this client refreshes them
+  // proactively — `onUnauthorized` needs a 401 from some *other* call to fire —
+  // so the ordinary "read Monday, sign up Tuesday" path arrives here holding a
+  // dead token. Refresh it first, and if that fails send no bearer at all.
+  // `onUnauthorized` is the client's existing single-flight refresh; do not add
+  // a second one.
+  if (isTokenExpiring(token)) {
+    try {
+      token = await onUnauthorized()
+    } catch {
+      token = null
+    }
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Client': 'mobile' },
+    headers,
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -13,6 +55,36 @@ async function mobilePost<T>(path: string, body: unknown): Promise<T> {
     throw Object.assign(new Error(data?.error || `Request failed: ${res.status}`), { status: res.status })
   }
   return res.json()
+}
+
+/**
+ * Mint an anonymous session so a reader can start before signing up.
+ *
+ * Deliberately does NOT go through `mobilePost` and sends no `Authorization`:
+ * a caller asking for a guest session wants a fresh one, and the server's
+ * "you're already authenticated, have your existing user back" branch answers
+ * with a token-less `AuthResponse`. Bodyless like `logout` — the handler takes
+ * no `[FromBody]` parameter, so there is nothing to serialize.
+ *
+ * Throws when the body carries no `accessToken`, rather than resolving an
+ * object whose fields are `undefined` — a caller would write those straight
+ * into SecureStore and only find out on the next request.
+ */
+export async function createGuestSession(): Promise<MobileAuthResponse> {
+  const { baseUrl } = getApiConfig()
+  const res = await fetch(`${baseUrl}/auth/guest`, {
+    method: 'POST',
+    headers: { 'X-Client': 'mobile' },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw Object.assign(new Error(data?.error || `Request failed: ${res.status}`), { status: res.status })
+  }
+  const data = (await res.json().catch(() => null)) as MobileAuthResponse | null
+  if (!data?.accessToken) {
+    throw Object.assign(new Error('Guest session response had no accessToken'), { status: res.status })
+  }
+  return data
 }
 
 export async function loginWithGoogle(idToken: string): Promise<MobileAuthResponse> {
@@ -27,6 +99,11 @@ export async function loginWithApple(
   return mobilePost('/auth/apple', { identityToken, fullName, email })
 }
 
+// Stays on raw `fetch`, without an Authorization header, on purpose. This
+// endpoint authenticates with the refresh token in the body; the access token
+// it would carry is by definition the expired one we are here to replace, and
+// `getAccessToken()` is what a refresh loop is made of. It is also not one of
+// the four merge entry points — GetGuestUserId is never consulted here.
 export async function refreshTokenMobile(refreshToken: string): Promise<MobileAuthResponse> {
   const { baseUrl } = getApiConfig()
   const res = await fetch(`${baseUrl}/auth/refresh-mobile`, {
@@ -64,6 +141,9 @@ export async function loginWithEmail(
   }
 }
 
+// forgotPassword/resetPassword also stay unauthenticated: neither reaches
+// GetGuestUserId, both are reached by people who cannot sign in, and a bearer
+// on a password-reset call buys nothing while widening where the token travels.
 export async function forgotPassword(email: string): Promise<void> {
   const { baseUrl } = getApiConfig()
   await fetch(`${baseUrl}/auth/forgot-password`, {

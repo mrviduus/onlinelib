@@ -98,7 +98,10 @@ public static class DependencyInjection
             var c = sp.GetRequiredService<IConfiguration>();
 
             Entitlements.TierEntitlements ReadTier(IConfigurationSection s) =>
-                new(s.GetValue<long?>("StorageLimitBytes"), s.GetValue<int?>("MaxBooks"));
+                new(s.GetValue<long?>("StorageLimitBytes"),
+                    s.GetValue<int?>("MaxBooks"),
+                    s.GetValue<int?>("DailyEnrichmentCap"),
+                    s.GetValue<bool?>("AiEnabled"));
 
             var def = ReadTier(c.GetSection("Entitlements:Default"));
 

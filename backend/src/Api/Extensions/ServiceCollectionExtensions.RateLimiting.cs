@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Api.Extensions;
@@ -12,8 +13,16 @@ public static partial class ServiceCollectionExtensions
     /// account-delete) plus the shared rejection/Retry-After behavior.
     /// Verbatim move from Program.cs — no policy, limit, or window changed.
     /// </summary>
-    public static IServiceCollection AddTextStackRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddTextStackRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        // Read once at registration: the policy factories below run per request and must not
+        // re-bind configuration on the hot path.
+        var rateLimits = configuration.GetSection(RateLimitSettings.SectionName).Get<RateLimitSettings>()
+            ?? new RateLimitSettings();
+        services.Configure<RateLimitSettings>(configuration.GetSection(RateLimitSettings.SectionName));
+
         services.AddRateLimiter(options =>
         {
             options.AddFixedWindowLimiter("admin-login", opt =>
@@ -66,13 +75,20 @@ public static partial class ServiceCollectionExtensions
             // Per-IP partition — bot with one IP can't exhaust the limit for everyone.
             // 3 guest-creates per 5min per IP: covers legit shared-WiFi cases, blocks scripted abuse.
             // ForwardedHeaders runs before RateLimiter in the pipeline, so RemoteIpAddress is the real client.
+            //
+            // The permit limit is the one value here that a deployment moves: the guest-merge
+            // integration suite needs >=6 guests and CI drives every request from a single host,
+            // so CI raises RateLimits__GuestSessionPermitLimit in compose. The window, the
+            // partition key, and the policy itself are identical in CI and production — there is
+            // no test-only bypass, so a regression in the limiter still fails a test.
+            var guestSessionPermitLimit = rateLimits.EffectiveGuestSessionPermitLimit;
             options.AddPolicy("guest-session", httpContext =>
             {
                 var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     Window = TimeSpan.FromMinutes(5),
-                    PermitLimit = 3,
+                    PermitLimit = guestSessionPermitLimit,
                     QueueLimit = 0,
                 });
             });

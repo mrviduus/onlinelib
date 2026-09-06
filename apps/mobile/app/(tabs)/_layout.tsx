@@ -8,6 +8,7 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { useAuth } from '../../src/context/AuthContext'
 import { useNativeLanguage } from '../../src/context/NativeLanguageContext'
 import { languageOnboardingDecision } from '../../src/lib/languageOnboarding'
+import { capabilitiesFor } from '../../src/lib/capabilities'
 import { breadcrumb } from '../../src/lib/breadcrumb'
 import { typography } from '../../src/theme/typography'
 import { UploadTabButton } from '../../src/components/UploadTabButton'
@@ -61,18 +62,33 @@ export default function TabLayout() {
   // structural now — the onboarding route lives outside the tabs, so this
   // layout is not mounted while it is showing.
   const languageDecision = languageOnboardingDecision({
-    isAuthenticated,
-    isGuest: !!user?.isGuest,
     serverNativeLanguage: user?.nativeLanguage,
     hasConfirmedLanguage,
   })
+  // Who the question may be put to by THROWING THEM OUT OF WHERE THEY ARE.
+  //
+  // `languageOnboardingDecision` no longer knows about guests — a guest can
+  // answer and the answer reaches the server, so "does this reader need to be
+  // asked" is true for them. It does not follow that this is the place to ask.
+  // The route below is full-screen with `gestureEnabled: false`; after guest
+  // sessions every install starts as a guest, so leaving the redirect ungated
+  // would put a modal question in front of every first launch — the cold-start
+  // interruption this product is built to remove.
+  //
+  // A full account keeps the full screen (the flow QA signed off on). Everyone
+  // else is asked in place, at the first word they long-press, by
+  // `TranslationSheet` — where the answer produces the translation they asked
+  // for instead of a detour.
+  const caps = capabilitiesFor(user)
+  const mayInterrupt = caps.isAccount
 
   // Survives a release build, unlike the console.log it replaces. If this
   // defect outlives the change, the next reproduction finally leaves a trace.
   breadcrumb('onboarding.decision', {
     decision: languageDecision,
+    mayInterrupt,
     isAuthenticated,
-    isGuest: !!user?.isGuest,
+    isGuest: caps.isGuest,
     serverLang: user?.nativeLanguage ?? null,
     confirmed: hasConfirmedLanguage,
   })
@@ -80,7 +96,7 @@ export default function TabLayout() {
   // 'unknown' means storage has not answered yet. Rendering the tabs is the
   // right thing to do while waiting — the reader sees their library, and the
   // redirect happens the moment the answer arrives.
-  if (languageDecision === 'ask') return <Redirect href="/onboarding/language" />
+  if (languageDecision === 'ask' && mayInterrupt) return <Redirect href="/onboarding/language" />
 
   // On iOS the old hardcoded 88 already approximated the home-indicator
   // safe area. On Android the 60 didn't account for 3-button nav bars or
@@ -140,10 +156,17 @@ export default function TabLayout() {
         name="upload"
         options={{
           title: '',
-          // Expo Router rejects href + tabBarButton together. Authed users
-          // get the custom "+" button (it owns navigation via router.push);
-          // guests get the tab hidden via href: null.
-          ...(isAuthenticated
+          // Expo Router rejects href + tabBarButton together. Accounts get the
+          // custom "+" button (it owns navigation via router.push); everyone
+          // else gets the tab hidden via href: null.
+          //
+          // `canUpload`, not `isAuthenticated`: a guest HAS a session, and the
+          // server would even take the upload — a guest resolves to the `Guest`
+          // entitlement tier, one book, 50 MB. Spending it is the bad trade. The
+          // guest who uploads their only book and then loses the device has lost
+          // the book, and we would have taken the storage to arrange that. Upload
+          // is the moment to ask for an account, not to work around not having one.
+          ...(caps.canUpload
             ? { tabBarButton: () => <UploadTabButton /> }
             : { href: null }),
         }}

@@ -33,7 +33,11 @@ public static class TutorEndpoints
 
     public static void MapTutorEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/me/tutor").WithTags("Agents").RequireRateLimiting("tutor");
+        // Whole group: every route here drives an agent turn. Paid inference — real account only
+        // (Entitlements:Tiers:*:AiEnabled).
+        var group = app.MapGroup("/me/tutor").WithTags("Agents")
+            .RequireRateLimiting("tutor")
+            .RequireAiAccount();
         group.MapPost("/session", StartSession);
         group.MapPost("/session/{id:guid}/answer", SubmitAnswer);
         group.MapPost("/session/{id:guid}/feedback", SubmitFeedback);

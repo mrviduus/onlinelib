@@ -41,7 +41,9 @@ public static class LibrarianEndpoints
     {
         app.MapPost("/me/librarian", Run)
             .WithTags("Agents")
-            .RequireRateLimiting("librarian");
+            .RequireRateLimiting("librarian")
+            // Paid inference — real account only (Entitlements:Tiers:*:AiEnabled).
+            .RequireAiAccount();
     }
 
     private static async Task<IResult> Run(
